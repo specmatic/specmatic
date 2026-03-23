@@ -2,11 +2,14 @@
 
 ## Running
 
-```
- ./gradlew :conformance-tests:check -PenableConformanceTests=true
-```
+### Run only the conformance tests (Docker-based, requires Docker running)
+./gradlew :conformance-tests:test -PenableConformanceTests=true --tests "io.specmatic.conformance_tests.*"
 
-Requires `Docker Compose`
+### Run only the support code unit tests (no Docker needed, no flag needed)
+./gradlew :conformance-tests:test --tests "io.specmatic.conformance_test_support.*"
+
+### Run ALL tests in the conformance-tests project
+./gradlew :conformance-tests:test -PenableConformanceTests=true
 
 ```
 echo 'enableConformanceTests=true' >> ~/.gradle/gradle.properties
