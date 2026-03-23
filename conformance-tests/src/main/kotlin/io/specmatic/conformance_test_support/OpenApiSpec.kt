@@ -61,6 +61,8 @@ class OpenApiSpec(private val specFile: File) {
 
 
     private fun String.toPathRegex(): Regex {
+        if (this == "/") return Regex("^/$")
+
         val body = Regex("""\{[^}]+}""")
             .split(trimEnd('/'))
             .joinToString("[^/]+") { Regex.escape(it) }

@@ -24,7 +24,7 @@ data class HttpExchange(
             return HttpExchange(
                 method = node[0].asText(),
                 url = node[1].asText(),
-                path = URI(node[1].asText()).path.trimEnd('/'),
+                path = URI(node[1].asText()).path.trimEnd('/').ifEmpty { "/" },
                 requestHeaders = mapper.readValue<Map<String, String>>(node[2].traverse()),
                 requestBody = node[3].asText(),
                 statusCode = node[4].asInt(),
@@ -48,7 +48,7 @@ data class HttpExchange(
 
     fun isInfraRequest(): Boolean {
         return when (method) {
-            "HEAD" if path == "" -> true
+            "HEAD" if path == "/" -> true
             "GET" if path == "/swagger/v1/swagger.yaml" -> true
             else -> false
         }
