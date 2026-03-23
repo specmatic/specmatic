@@ -1,0 +1,74 @@
+openapi: 3.0.3
+info:
+  title: "Header parameters - mixed required and optional"
+  version: "1.0"
+paths:
+  /audits:
+    get:
+      operationId: listAudits
+      summary: List audits with required auth and optional trace header
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Trace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: X-Debug
+          in: header
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Audits list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - event
+                  properties:
+                    id:
+                      type: integer
+                    event:
+                      type: string
+    post:
+      operationId: createAudit
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Trace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: X-Debug
+          in: header
+          required: false
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+              properties:
+                event:
+                  type: string
+      responses:
+        '201':
+          description: Created

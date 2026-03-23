@@ -1,0 +1,76 @@
+openapi: 3.0.3
+info:
+  title: "Multiple header parameters"
+  version: "1.0"
+paths:
+  /operations:
+    get:
+      operationId: listOperations
+      summary: List operations with multiple headers
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Operations list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - action
+                  properties:
+                    id:
+                      type: integer
+                    action:
+                      type: string
+    post:
+      operationId: createOperation
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,67 @@
+openapi: 3.0.3
+info:
+  title: "Query parameter - enum"
+  version: "1.0"
+paths:
+  /tickets:
+    get:
+      operationId: listTickets
+      summary: List tickets by priority
+      parameters:
+        - name: priority
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+      responses:
+        '200':
+          description: Tickets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                    - priority
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    priority:
+                      type: string
+    post:
+      operationId: createTicket
+      parameters:
+        - name: priority
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+      responses:
+        '201':
+          description: Created

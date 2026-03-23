@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - json-pointer (JSON Schema)"
+  version: "1.0"
+paths:
+  /patches:
+    get:
+      operationId: listPatches
+      responses:
+        '200':
+          description: Patch list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - op
+                    - path
+                  properties:
+                    op:
+                      type: string
+                    path:
+                      type: string
+                      format: json-pointer
+    post:
+      operationId: createPatches
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - op
+                - path
+              properties:
+                op:
+                  type: string
+                path:
+                  type: string
+                  format: json-pointer
+      responses:
+        '201':
+          description: Created

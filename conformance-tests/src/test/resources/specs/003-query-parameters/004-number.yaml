@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: "Query parameter - number type"
+  version: "1.0"
+paths:
+  /locations:
+    get:
+      operationId: listLocations
+      summary: List locations within a radius
+      parameters:
+        - name: radius
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Nearby locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - distance
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    distance:
+                      type: number
+    post:
+      operationId: createLocation
+      parameters:
+        - name: radius
+          in: query
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created

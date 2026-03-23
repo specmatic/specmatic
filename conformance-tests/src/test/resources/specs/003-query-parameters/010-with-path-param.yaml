@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: "Query parameter combined with path parameter"
+  version: "1.0"
+paths:
+  /stores/{storeId}/inventory:
+    get:
+      operationId: getStoreInventory
+      summary: Get store inventory filtered by category
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: inStock
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Inventory list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - category
+                    - inStock
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    category:
+                      type: string
+                    inStock:
+                      type: boolean
+    post:
+      operationId: addStoreInventory
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '201':
+          description: Created

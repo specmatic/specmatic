@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Request/Response body - string property"
+  version: "1.0"
+paths:
+  /greetings:
+    get:
+      operationId: listGreetings
+      responses:
+        '200':
+          description: Greeting list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - language
+                    - message
+                  properties:
+                    language:
+                      type: string
+                    message:
+                      type: string
+    post:
+      operationId: createGreeting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - language
+                - message
+              properties:
+                language:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '201':
+          description: Created

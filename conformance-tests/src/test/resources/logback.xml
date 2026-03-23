@@ -5,7 +5,7 @@
         </encoder>
     </appender>
 
-    <logger name="conformance_tests" level="info"/>
+    <logger name="conformance_tests" level="debug"/>
 
     <root level="info">
         <appender-ref ref="STDOUT"/>

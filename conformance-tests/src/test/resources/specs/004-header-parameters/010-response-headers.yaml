@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: "Response headers"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: List items with response headers
+      responses:
+        '200':
+          description: Items list
+          headers:
+            X-Total-Count:
+              required: true
+              schema:
+                type: integer
+            X-Request-Id:
+              required: true
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          headers:
+            X-Request-Id:
+              required: true
+              schema:
+                type: string
+                format: uuid

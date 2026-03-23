@@ -9,6 +9,7 @@ import java.net.URI
 data class HttpExchange(
     val method: String,
     val url: String,
+    val path: String,
     val requestHeaders: Map<String, String>,
     val requestBody: String,
     val statusCode: Int,
@@ -23,6 +24,7 @@ data class HttpExchange(
             return HttpExchange(
                 method = node[0].asText(),
                 url = node[1].asText(),
+                path = URI(node[1].asText()).path.trimEnd('/'),
                 requestHeaders = mapper.readValue<Map<String, String>>(node[2].traverse()),
                 requestBody = node[3].asText(),
                 statusCode = node[4].asInt(),
@@ -37,21 +39,18 @@ data class HttpExchange(
                 .map(::parse)
                 .toList()
     }
-}
 
-private val PARAM_PLACEHOLDER = Regex("""\{[^}]+}""")
+    fun requestContentType(): String? =
+        requestHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
 
-private fun String.toPathRegex(): Regex {
-    val body = PARAM_PLACEHOLDER.split(trimEnd('/')).joinToString("[^/]+") { Regex.escape(it) }
-    return Regex("^$body$")
-}
+    fun responseContentType(): String? =
+        responseHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
 
-fun List<HttpExchange>.toOperations(specOperations: Set<Operation>): Set<Operation> {
-    val patterns = specOperations.associateWith { it.path.toPathRegex() }
-    return map { exchange ->
-        val method = exchange.method.uppercase()
-        val path = URI(exchange.url).path.trimEnd('/')
-        patterns.entries.find { (op, regex) -> op.method == method && regex.matches(path) }?.key
-            ?: Operation(method, path)
-    }.toSet()
+    fun isInfraRequest(): Boolean {
+        return when (method) {
+            "HEAD" if path == "" -> true
+            "GET" if path == "/swagger/v1/swagger.yaml" -> true
+            else -> false
+        }
+    }
 }

@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - ipv6 (JSON Schema)"
+  version: "1.0"
+paths:
+  /network-interfaces:
+    get:
+      operationId: listInterfaces
+      responses:
+        '200':
+          description: Network interfaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - address
+                  properties:
+                    name:
+                      type: string
+                    address:
+                      type: string
+                      format: ipv6
+    post:
+      operationId: createInterfaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - address
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                  format: ipv6
+      responses:
+        '201':
+          description: Created
