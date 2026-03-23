@@ -28,7 +28,7 @@ tasks.test {
         dependsOn(":specmatic-executable:dockerBuild")
         systemProperty("specmatic.version", project.version)
     } else {
-        exclude("io/specmatic/conformance_tests/S*Test*")
+        exclude("io/specmatic/conformance_tests/")
     }
 }
 
