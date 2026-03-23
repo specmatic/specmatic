@@ -16,7 +16,7 @@ services:
     image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
     depends_on:
       mock:
-        condition: service_started
+        condition: service_healthy
     command: test /service.yaml --testBaseURL=http://mock:9000
     volumes:
       - ${PATH_TO_OPEN_API_SPEC_FILE:?error}:/service.yaml:ro
