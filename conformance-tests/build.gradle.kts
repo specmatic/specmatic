@@ -29,3 +29,57 @@ if (enableConformanceTests?.toBoolean() == true) {
         enabled = false
     }
 }
+
+val generateConformanceTests by tasks.registering {
+    val specsDir = file("src/test/resources/specs")
+    val outputDir = file("build/generated/sources/conformance/kotlin")
+
+    inputs.dir(specsDir)
+    outputs.dir(outputDir)
+
+    doLast {
+        outputDir.deleteRecursively()
+        outputDir.mkdirs()
+
+        val specFiles = specsDir.walkTopDown()
+            .filter { it.isFile && it.extension in listOf("yaml", "yml") }
+            .map { it.relativeTo(specsDir).path.replace("\\", "/") }
+            .sorted()
+            .toList()
+
+        val header = "package conformance_tests\nimport org.junit.jupiter.api.DisplayName\n"
+
+        val classes = specFiles.joinToString("\n") { relativePath ->
+            val segments = relativePath.split("/")
+            val className = "S" + segments.joinToString("_") { segment ->
+                segment.removeSuffix(".yaml").removeSuffix(".yml")
+                    .split("-")
+                    .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
+            } + "Test"
+
+            val displayName = relativePath.substringBefore(".")
+
+            """
+                |@DisplayName("$displayName")
+                |class $className : AbstractConformanceTest("$relativePath")
+                |""".trimMargin()
+        }
+
+        outputDir.resolve("ConformanceTests.kt").writeText(header + "\n" + classes)
+
+        println("Generated ${specFiles.size} conformance test classes")
+    }
+}
+
+kotlin {
+    sourceSets {
+        test {
+            kotlin.srcDir("build/generated/sources/conformance/kotlin")
+        }
+    }
+}
+
+tasks.named("compileTestKotlin") {
+    dependsOn(generateConformanceTests)
+}
+

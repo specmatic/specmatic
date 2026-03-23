@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "PATCH with partial update body"
+  version: "1.0"
+paths:
+  /items/{id}:
+    patch:
+      operationId: patchItem
+      summary: Partially update an item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Item patched
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string

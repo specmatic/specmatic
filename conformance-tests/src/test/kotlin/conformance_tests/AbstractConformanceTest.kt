@@ -4,12 +4,14 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.io.File
 
-class ConformanceTest {
+abstract class AbstractConformanceTest(
+    private val openAPISpecFile: String
+) {
     @Test
     fun `loop test`() {
         val dockerCompose = DockerCompose(
             specmaticVersion = System.getProperty("specmatic.version"),
-            pathToOpenAPISpecFile = File("001-http-methods/001-get.yaml")
+            pathToOpenAPISpecFile = openAPISpecFile
         )
 
         try {

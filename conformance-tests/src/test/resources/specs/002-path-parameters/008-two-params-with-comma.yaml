@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: "Path parameter - two parameters with comma separator"
+  version: "1.0"
+paths:
+  /files/{f1},{f2}:
+    get:
+      operationId: compareFiles
+      summary: Compare two files
+      parameters:
+        - name: f1
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: f2
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File comparison result
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - f1
+                  - f2
+                  - identical
+                properties:
+                  f1:
+                    type: string
+                  f2:
+                    type: string
+                  identical:
+                    type: boolean
+    post:
+      operationId: createFileComparison
+      parameters:
+        - name: f1
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: f2
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - f1
+                - f2
+                - identical
+              properties:
+                f1:
+                  type: string
+                f2:
+                  type: string
+                identical:
+                  type: boolean
+      responses:
+        '201':
+          description: Created
