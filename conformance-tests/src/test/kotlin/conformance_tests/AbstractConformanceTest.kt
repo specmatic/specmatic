@@ -10,6 +10,7 @@ abstract class AbstractConformanceTest(
     fun `loop test`() {
         val dockerCompose = DockerCompose(
             specmaticVersion = System.getProperty("specmatic.version"),
+            mitmProxyVersion = "12.2.1",
             pathToOpenAPISpecFile = openAPISpecFile
         )
 
