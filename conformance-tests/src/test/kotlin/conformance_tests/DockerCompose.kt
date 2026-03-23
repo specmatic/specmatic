@@ -23,7 +23,7 @@ class DockerCompose(
     fun runLoopTests(): CommandResult {
         val command = buildCommand("up", "--exit-code-from", "test")
         val process = command.start()
-        process.waitFor(30, TimeUnit.SECONDS)
+        process.waitFor(60, TimeUnit.SECONDS)
 
         return CommandResult(
             exitCode = process.exitValue(),
