@@ -20,15 +20,13 @@ data class HttpExchange(
 
         fun parse(line: String): HttpExchange {
             val node: JsonNode = mapper.readTree(line)
-            val requestHeaders: Map<String, String> = mapper.readValue(node[2].traverse())
-            val responseHeaders: Map<String, String> = mapper.readValue(node[5].traverse())
             return HttpExchange(
                 method = node[0].asText(),
                 url = node[1].asText(),
-                requestHeaders = requestHeaders,
+                requestHeaders = mapper.readValue<Map<String, String>>(node[2].traverse()),
                 requestBody = node[3].asText(),
                 statusCode = node[4].asInt(),
-                responseHeaders = responseHeaders,
+                responseHeaders = mapper.readValue<Map<String, String>>(node[5].traverse()),
                 responseBody = node[6].asText(),
             )
         }
@@ -38,9 +36,6 @@ data class HttpExchange(
                 .filter { it.isNotBlank() }
                 .map(::parse)
                 .toList()
-
-        private fun Map<String, String>.contentType(): String? =
-            entries.firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }?.value
     }
 }
 
