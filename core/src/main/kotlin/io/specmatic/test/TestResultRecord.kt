@@ -7,6 +7,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
+import io.specmatic.reporter.ctrf.model.CtrfTestOutput
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -56,12 +57,22 @@ data class TestResultRecord(
     fun isConnectionRefused() = actualResponseStatus == 0
 
     override fun extraFields(): CtrfTestMetadata {
+        val outputs =
+            response?.toLogString()?.let {
+                listOf(
+                    CtrfTestOutput(
+                        title = "Response",
+                        content = it,
+                        time = responseTime?.toEpochMilli() ?: 0L
+                    )
+                )
+            }
+
         return CtrfTestMetadata(
             wip = isWip,
             input = request?.toLogString().orEmpty(),
-            output = response?.toLogString().orEmpty(),
-            inputTime = requestTime?.toEpochMilli() ?: 0L,
-            outputTime = responseTime?.toEpochMilli() ?: 0L
+            outputs = outputs,
+            inputTime = requestTime?.toEpochMilli() ?: 0L
         )
     }
 

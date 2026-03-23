@@ -6,6 +6,8 @@ import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -101,9 +103,12 @@ class TestResultRecordTest {
         assertTrue(meta.valid)
         assertFalse(meta.wip)
         assertEquals(request.toLogString().trim(), meta.input.trim())
-        assertEquals(response.toLogString().trim(), meta.output?.trim())
+        assertNotNull(meta.outputs)
+        assertEquals(1, meta.outputs!!.size)
+        assertEquals("Response", meta.outputs!!.single().title)
+        assertEquals(response.toLogString().trim(), meta.outputs!!.single().content.trim())
         assertEquals(requestTime.toEpochMilli(), meta.inputTime)
-        assertEquals(responseTime.toEpochMilli(), meta.outputTime)
+        assertEquals(responseTime.toEpochMilli(), meta.outputs!!.single().time)
     }
 
     @Test
@@ -125,9 +130,8 @@ class TestResultRecordTest {
         assertTrue(meta.valid)
         assertTrue(meta.wip)
         assertEquals("", meta.input)
-        assertEquals("", meta.output)
+        assertNull(meta.outputs)
         assertEquals(0L, meta.inputTime)
-        assertEquals(0L, meta.outputTime)
     }
 
     @Test
