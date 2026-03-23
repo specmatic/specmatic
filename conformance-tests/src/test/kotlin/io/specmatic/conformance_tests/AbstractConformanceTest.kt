@@ -2,19 +2,10 @@ package io.specmatic.conformance_tests
 
 import io.specmatic.conformance_test_support.DockerCompose
 import io.specmatic.conformance_test_support.HttpExchange
-import io.specmatic.conformance_test_support.Operation
-import io.specmatic.conformance_test_support.toOperations
-import io.swagger.parser.OpenAPIParser
-import io.swagger.v3.oas.models.OpenAPI
-import io.swagger.v3.parser.core.models.ParseOptions
+import io.specmatic.conformance_test_support.OpenApiSpec
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
-import org.junit.jupiter.api.Order
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.TestMethodOrder
 import java.io.File
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -28,16 +19,8 @@ abstract class AbstractConformanceTest(
     private lateinit var loopTestsResult: DockerCompose.CommandResult
     private lateinit var httpExchanges: List<HttpExchange>
 
-    private val openApiSpec: OpenAPI by lazy {
-        val options = ParseOptions().apply {
-            isResolve = true
-            isResolveFully = true
-        }
-        val pathToOpenApiSpecFile = "${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"
-        val result = OpenAPIParser().readLocation(pathToOpenApiSpecFile, null, options)
-        val api = result.openAPI ?: error("Failed to parse OpenAPI spec at $pathToOpenApiSpecFile: ${result.messages}")
-        api
-    }
+    private val spec: OpenApiSpec =
+        OpenApiSpec(File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"))
 
 
     @BeforeAll
@@ -50,7 +33,9 @@ abstract class AbstractConformanceTest(
             specsDirName = specsDirName
         )
         loopTestsResult = dockerCompose.runLoopTests()
-        httpExchanges = HttpExchange.parseAll(dockerCompose.mustGetHttpTrafficLogs())
+        httpExchanges =
+            HttpExchange.parseAll(dockerCompose.mustGetHttpTrafficLogs())
+                .filterNot(HttpExchange::isInfraRequest)
     }
 
     @AfterAll
@@ -62,29 +47,73 @@ abstract class AbstractConformanceTest(
     @Order(1)
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
-            .withFailMessage { loopTestsResult.output }.isTrue
+            .withFailMessage { dockerCompose.mustGetAllLogs() }
+            .isTrue
     }
 
     @Test
     @Order(2)
     fun `should exercise all operations in the openAPI spec`() {
-        val specOps = openApiSpec.toOperations()
-        val exchangeOps = httpExchanges.toOperations(specOps)
+        val specOps = spec.operations()
+        val exchangeOps = httpExchanges.mapNotNull { spec.matchingOperation(it.method, it.path) }.toSet()
         val unexercisedOps = specOps - exchangeOps
 
         assertThat(unexercisedOps).isEmpty()
     }
 
     @Test
+    @Order(3)
     fun `should not perform operations that aren't in the openAPI spec`() {
-        val specOps = openApiSpec.toOperations()
-        val exchangeOps = httpExchanges.toOperations(specOps)
-        val expectedOps = setOf(
-            Operation("HEAD", ""),
-            Operation("GET", "/swagger/v1/swagger.yaml"),
-        )
-        val unSpecifiedOps = exchangeOps - specOps - expectedOps
+        val unspecifiedOperations = httpExchanges.filterNot {
+            spec.isMatchingOperation(it.method, it.path)
+        }
+        assertThat(unspecifiedOperations).isEmpty()
+    }
 
-        assertThat(unSpecifiedOps).isEmpty()
+    @Test
+    @Order(4)
+    fun `should send valid request bodies`() {
+        val httpExchangesWithRequestBodies = httpExchanges.filter {
+            it.requestBody.isNotBlank()
+        }
+
+        val errors = httpExchangesWithRequestBodies.flatMap {
+            spec.validateRequestBody(
+                body = it.requestBody,
+                path = spec.matchingOperation(it.method, it.path)!!.path,
+                method = it.method,
+                contentType = it.requestContentType()!!
+            ).map { error -> error.message }
+        }
+
+        assertThat(errors)
+            .withFailMessage {
+                "error=$errors requests=${httpExchangesWithRequestBodies.joinToString("\n") { it.requestBody }}"
+            }
+            .isEmpty()
+    }
+
+    @Test
+    @Order(5)
+    fun `should return valid response bodies`() {
+        val httpExchangesWithResponseBodies = httpExchanges.filter {
+            it.responseBody.isNotBlank()
+        }
+
+        val errors = httpExchangesWithResponseBodies.flatMap {
+            spec.validateResponseBody(
+                body = it.responseBody,
+                path = spec.matchingOperation(it.method, it.path)!!.path,
+                method = it.method,
+                statusCode = it.statusCode,
+                contentType = it.responseContentType()!!
+            ).map { error -> error.message }
+        }
+
+        assertThat(errors)
+            .withFailMessage {
+                "errors=$errors responses=${httpExchangesWithResponseBodies.joinToString("\n") { it.responseBody }}"
+            }
+            .isEmpty()
     }
 }

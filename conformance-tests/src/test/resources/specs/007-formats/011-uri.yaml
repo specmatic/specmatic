@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - uri (JSON Schema)"
+  version: "1.0"
+paths:
+  /bookmarks:
+    get:
+      operationId: listBookmarks
+      responses:
+        '200':
+          description: Bookmark list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - url
+                  properties:
+                    title:
+                      type: string
+                    url:
+                      type: string
+                      format: uri
+    post:
+      operationId: createBookmarks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - url
+              properties:
+                title:
+                  type: string
+                url:
+                  type: string
+                  format: uri
+      responses:
+        '201':
+          description: Created

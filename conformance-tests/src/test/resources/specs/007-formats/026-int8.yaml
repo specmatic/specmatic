@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - int8 (OpenAPI)"
+  version: "1.0"
+paths:
+  /flags:
+    get:
+      operationId: getFlags
+      responses:
+        '200':
+          description: Flags
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - level
+                  - priority
+                properties:
+                  level:
+                    type: integer
+                    format: int8
+                  priority:
+                    type: integer
+                    format: int8
+    post:
+      operationId: createFlags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - level
+                - priority
+              properties:
+                level:
+                  type: integer
+                  format: int8
+                priority:
+                  type: integer
+                  format: int8
+      responses:
+        '201':
+          description: Created

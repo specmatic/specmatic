@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - iri (JSON Schema)"
+  version: "1.0"
+paths:
+  /resources:
+    get:
+      operationId: listResources
+      responses:
+        '200':
+          description: Resource list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - location
+                  properties:
+                    name:
+                      type: string
+                    location:
+                      type: string
+                      format: iri
+    post:
+      operationId: createResources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - location
+              properties:
+                name:
+                  type: string
+                location:
+                  type: string
+                  format: iri
+      responses:
+        '201':
+          description: Created

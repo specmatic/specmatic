@@ -1,7 +1,5 @@
 package io.specmatic.conformance_test_support
 
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -12,8 +10,6 @@ class DockerCompose(
     private val workDir: File,
     private val specsDirName: String
 ) {
-    val logger: Logger = LoggerFactory.getLogger(DockerCompose::class.java)
-
     data class CommandResult(
         val exitCode: Int, val output: String
     ) {
@@ -34,6 +30,15 @@ class DockerCompose(
         }
     }
 
+    fun mustGetAllLogs(): String {
+        val command = buildCommand("logs", "--no-color")
+        val commandResult = run(command, 5, TimeUnit.SECONDS)
+        return when {
+            commandResult.isSuccessful() -> commandResult.output
+            else -> error("failed to fetch all logs")
+        }
+    }
+
     fun stopAsync() {
         buildCommand("down", "--volumes").start()
     }
@@ -45,7 +50,7 @@ class DockerCompose(
         return CommandResult(
             exitCode = process.exitValue(),
             output = process.inputReader(Charsets.UTF_8).use { it.readText() }
-        ).also { logger.debug("Loop tests result: {}", it) }
+        )
     }
 
     private fun buildCommand(vararg args: String): ProcessBuilder {

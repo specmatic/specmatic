@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - uri-reference (JSON Schema)"
+  version: "1.0"
+paths:
+  /links:
+    get:
+      operationId: listLinks
+      responses:
+        '200':
+          description: Link list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - href
+                  properties:
+                    label:
+                      type: string
+                    href:
+                      type: string
+                      format: uri-reference
+    post:
+      operationId: createLinks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - href
+              properties:
+                label:
+                  type: string
+                href:
+                  type: string
+                  format: uri-reference
+      responses:
+        '201':
+          description: Created

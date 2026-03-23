@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - uint32 (OpenAPI)"
+  version: "1.0"
+paths:
+  /counters:
+    get:
+      operationId: getCounters
+      responses:
+        '200':
+          description: Counters
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - pageViews
+                  - clicks
+                properties:
+                  pageViews:
+                    type: integer
+                    format: uint32
+                  clicks:
+                    type: integer
+                    format: uint32
+    post:
+      operationId: createCounters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pageViews
+                - clicks
+              properties:
+                pageViews:
+                  type: integer
+                  format: uint32
+                clicks:
+                  type: integer
+                  format: uint32
+      responses:
+        '201':
+          description: Created

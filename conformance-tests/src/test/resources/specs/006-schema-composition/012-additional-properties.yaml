@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Schema composition - additionalProperties"
+  version: "1.0"
+paths:
+  /metadata:
+    get:
+      operationId: listMetadata
+      responses:
+        '200':
+          description: Metadata list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - labels
+                  properties:
+                    id:
+                      type: integer
+                    labels:
+                      type: object
+                      additionalProperties:
+                        type: string
+    post:
+      operationId: createMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - labels
+              properties:
+                id:
+                  type: integer
+                labels:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        '201':
+          description: Created

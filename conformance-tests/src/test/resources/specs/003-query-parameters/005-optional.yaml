@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Query parameter - optional"
+  version: "1.0"
+paths:
+  /articles:
+    get:
+      operationId: listArticles
+      summary: List articles with optional category filter
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Articles list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    category:
+                      type: string
+    post:
+      operationId: createArticle
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+      responses:
+        '201':
+          description: Created

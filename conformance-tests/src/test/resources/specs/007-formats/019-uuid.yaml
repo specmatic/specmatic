@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - uuid (JSON Schema)"
+  version: "1.0"
+paths:
+  /sessions:
+    get:
+      operationId: listSessions
+      responses:
+        '200':
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - sessionId
+                    - user
+                  properties:
+                    sessionId:
+                      type: string
+                      format: uuid
+                    user:
+                      type: string
+    post:
+      operationId: createSessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+                - user
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                user:
+                  type: string
+      responses:
+        '201':
+          description: Created
