@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 
 class DockerCompose(
     private val specmaticVersion: String,
+    private val mitmProxyVersion: String,
     private val pathToOpenAPISpecFile: String,
     private val composeProjectName: String = pathToOpenAPISpecFile
         .substringBefore(".")
@@ -43,6 +44,7 @@ class DockerCompose(
                 it.environment().putAll(
                     mapOf(
                         "SPECMATIC_VERSION" to specmaticVersion,
+                        "MITM_PROXY_VERSION" to mitmProxyVersion,
                         "PATH_TO_OPEN_API_SPEC_FILE" to "./specs/${pathToOpenAPISpecFile}"
                     )
                 )
