@@ -1,5 +1,6 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.core.Result
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
@@ -76,6 +77,8 @@ class OpenApiCoverageReportInput(
     }
 
     fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
+
+    fun onGovernanceResult(result: Result) = coverageHooks.onEachListener { onGovernance(result) }
 
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()
