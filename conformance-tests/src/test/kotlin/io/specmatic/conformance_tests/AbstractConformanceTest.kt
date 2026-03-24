@@ -70,7 +70,9 @@ abstract class AbstractConformanceTest(
         logger.info("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations):")
         exchangeOps.forEach { logger.info("  $it") }
 
-        assertThat(specOps).isEqualTo(exchangeOps)
+        assertThat(specOps)
+            .withFailMessage { dockerCompose.mustGetAllLogs() }
+            .isEqualTo(exchangeOps)
     }
 
     @Test
