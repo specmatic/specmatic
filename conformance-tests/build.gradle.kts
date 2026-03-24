@@ -28,7 +28,6 @@ tasks.test {
 
     if (enableConformanceTests?.toBoolean() == true) {
         dependsOn(":specmatic-executable:dockerBuild")
-        systemProperty("specmatic.version", project.version)
     } else {
         exclude("io/specmatic/conformance_tests/")
     }

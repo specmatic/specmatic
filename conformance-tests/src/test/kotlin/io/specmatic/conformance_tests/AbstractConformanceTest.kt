@@ -1,5 +1,6 @@
 package io.specmatic.conformance_tests
 
+import io.specmatic.conformance.tests.VersionInfo
 import io.specmatic.conformance_test_support.DockerCompose
 import io.specmatic.conformance_test_support.HttpExchange
 import io.specmatic.conformance_test_support.OpenApiSpec
@@ -29,7 +30,7 @@ abstract class AbstractConformanceTest(
     @BeforeAll
     fun setup() {
         dockerCompose = DockerCompose(
-            specmaticVersion = System.getProperty("specmatic.version") ?: "latest",
+            specmaticVersion = VersionInfo.version,
             mitmProxyVersion = "12.2.1",
             pathToOpenAPISpecFile = openAPISpecFile,
             workDir = workDir,
