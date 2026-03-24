@@ -21,6 +21,7 @@ abstract class AbstractConformanceTest(
 
     private lateinit var dockerCompose: DockerCompose
     private lateinit var loopTestsResult: DockerCompose.CommandResult
+    private lateinit var allLogs: String
     private lateinit var httpExchanges: List<HttpExchange>
 
     private val spec: OpenApiSpec =
@@ -37,6 +38,7 @@ abstract class AbstractConformanceTest(
             specsDirName = specsDirName
         )
         loopTestsResult = dockerCompose.runLoopTests()
+        allLogs = dockerCompose.mustGetAllLogs()
         httpExchanges =
             HttpExchange.parseAll(dockerCompose.mustGetHttpTrafficLogs())
                 .filterNot(HttpExchange::isInfraRequest)
@@ -51,8 +53,8 @@ abstract class AbstractConformanceTest(
     @Order(1)
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
-            .withFailMessage { dockerCompose.mustGetAllLogs() }
             .isTrue
+            .withFailMessage { allLogs }
     }
 
     @Test
@@ -72,8 +74,8 @@ abstract class AbstractConformanceTest(
         exchangeOps.forEach { logger.info("  $it") }
 
         assertThat(specOps)
-            .withFailMessage { dockerCompose.mustGetAllLogs() }
             .isEqualTo(exchangeOps)
+            .withFailMessage { allLogs }
     }
 
     @Test
@@ -88,7 +90,7 @@ abstract class AbstractConformanceTest(
 
         assertThat(errors)
             .withFailMessage {
-                "error=$errors requests=${httpExchanges.joinToString("\n") { it.requestBody }}"
+                "error=$errors requests=${httpExchanges.joinToString("\n") { it.requestBody }}\nallLogs=$allLogs"
             }
             .isEmpty()
     }
@@ -106,7 +108,7 @@ abstract class AbstractConformanceTest(
 
         assertThat(errors)
             .withFailMessage {
-                "errors=$errors responses=${httpExchanges.joinToString("\n") { it.responseBody }}"
+                "errors=$errors responses=${httpExchanges.joinToString("\n") { it.responseBody }}\nallLogs=$allLogs"
             }
             .isEmpty()
     }
