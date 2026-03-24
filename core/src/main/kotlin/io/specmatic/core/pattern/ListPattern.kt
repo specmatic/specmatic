@@ -10,7 +10,9 @@ data class ListPattern(
     override val pattern: Pattern,
     override val typeAlias: String? = null,
     override val example: List<String?>? = null,
-    override val extensions: Map<String, Any>  = emptyMap()
+    override val extensions: Map<String, Any>  = emptyMap(),
+    val minItems: Int? = null,
+    val maxItems: Int? = null
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
@@ -105,6 +107,14 @@ data class ListPattern(
                 resolvedHop(pattern, resolver) is XMLPattern -> dataTypeMismatchResult("xml nodes", sampleData, resolver.mismatchMessages)
                 else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
             }
+
+        if (minItems != null && sampleData.list.size < minItems) {
+            return Result.Failure("Expected at least $minItems items, got ${sampleData.list.size}")
+        }
+
+        if (maxItems != null && sampleData.list.size > maxItems) {
+            return Result.Failure("Expected at most $maxItems items, got ${sampleData.list.size}")
+        }
 
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         val patternToCheck = this.typeAlias?.let { this } ?: this.pattern

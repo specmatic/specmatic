@@ -981,4 +981,17 @@ Feature: Recursive test
             assertThat(paths).allMatch { it.matches(Regex("\\{\\[\\d+]\\}\\{string\\}")) }
         }
     }
+
+    @Test
+    fun `should reject array with fewer items than minItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2  // ← This parameter doesn't exist - COMPILATION ERROR
+        )
+
+        val arrayWithOneItem = JSONArrayValue(listOf(StringValue("item1")))
+        val result = pattern.matches(arrayWithOneItem, Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
 }
