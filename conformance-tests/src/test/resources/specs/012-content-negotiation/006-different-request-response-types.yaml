@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: "Content negotiation - different request and response types"
+  version: "1.0"
+paths:
+  /transforms:
+    post:
+      operationId: transformData
+      summary: Accept XML request, return JSON response
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              required:
+                - input
+              properties:
+                input:
+                  type: string
+      responses:
+        '200':
+          description: Transformed result
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - output
+                properties:
+                  output:
+                    type: string

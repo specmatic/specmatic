@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "maxProperties lower than total defined properties"
+  version: "1.0"
+paths:
+  /entries:
+    get:
+      operationId: listEntries
+      responses:
+        '200':
+          description: Entry list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                  maxProperties: 2
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    tags:
+                      type: string
+    post:
+      operationId: createEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              maxProperties: 2
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: string
+      responses:
+        '201':
+          description: Created

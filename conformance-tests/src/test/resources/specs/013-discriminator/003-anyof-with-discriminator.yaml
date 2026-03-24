@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Discriminator with anyOf"
+  version: "1.0"
+paths:
+  /vehicles:
+    get:
+      operationId: listVehicles
+      responses:
+        '200':
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+    post:
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Vehicle:
+      anyOf:
+        - $ref: '#/components/schemas/Car'
+        - $ref: '#/components/schemas/Truck'
+      discriminator:
+        propertyName: vehicleType
+    Car:
+      type: object
+      required:
+        - vehicleType
+        - seats
+      properties:
+        vehicleType:
+          type: string
+        seats:
+          type: integer
+    Truck:
+      type: object
+      required:
+        - vehicleType
+        - payloadTons
+      properties:
+        vehicleType:
+          type: string
+        payloadTons:
+          type: number

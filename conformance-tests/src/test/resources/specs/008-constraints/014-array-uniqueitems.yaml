@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - array uniqueItems"
+  version: "1.0"
+paths:
+  /tag-sets:
+    get:
+      operationId: listTagSets
+      responses:
+        '200':
+          description: Tag set list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - tags
+                  properties:
+                    name:
+                      type: string
+                    tags:
+                      type: array
+                      uniqueItems: true
+                      items:
+                        type: string
+    post:
+      operationId: createTagSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - tags
+              properties:
+                name:
+                  type: string
+                tags:
+                  type: array
+                  uniqueItems: true
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

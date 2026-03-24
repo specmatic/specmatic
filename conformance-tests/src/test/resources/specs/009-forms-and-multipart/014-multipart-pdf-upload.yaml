@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: "Multipart PDF file upload with content type"
+  version: "1.0"
+paths:
+  /invoices:
+    post:
+      operationId: uploadInvoice
+      summary: Upload a PDF invoice
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - invoice
+                - invoiceNumber
+              properties:
+                invoice:
+                  type: string
+                  format: binary
+                invoiceNumber:
+                  type: string
+            encoding:
+              invoice:
+                contentType: application/pdf
+      responses:
+        '201':
+          description: Invoice uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

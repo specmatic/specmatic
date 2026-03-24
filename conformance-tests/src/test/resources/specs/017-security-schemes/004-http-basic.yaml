@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: "Security scheme - HTTP basic auth"
+  version: "1.0"
+paths:
+  /secrets:
+    get:
+      operationId: listSecrets
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: Secrets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - key
+                  properties:
+                    id:
+                      type: integer
+                    key:
+                      type: string
+    post:
+      operationId: createSecret
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                value:
+                  type: string
+      responses:
+        '201':
+          description: Created
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic

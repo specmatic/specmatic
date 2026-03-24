@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "$ref to component request body"
+  version: "1.0"
+paths:
+  /tickets:
+    post:
+      operationId: createTicket
+      requestBody:
+        $ref: '#/components/requestBodies/TicketBody'
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+  /tickets/{ticketId}:
+    put:
+      operationId: updateTicket
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        $ref: '#/components/requestBodies/TicketBody'
+      responses:
+        '200':
+          description: Ticket updated
+components:
+  requestBodies:
+    TicketBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - title
+              - priority
+            properties:
+              title:
+                type: string
+              priority:
+                type: string

@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - string minLength"
+  version: "1.0"
+paths:
+  /usernames:
+    get:
+      operationId: listUsernames
+      responses:
+        '200':
+          description: Username list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - username
+                  properties:
+                    id:
+                      type: integer
+                    username:
+                      type: string
+                      minLength: 3
+    post:
+      operationId: createUsername
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - username
+              properties:
+                id:
+                  type: integer
+                username:
+                  type: string
+                  minLength: 3
+      responses:
+        '201':
+          description: Created

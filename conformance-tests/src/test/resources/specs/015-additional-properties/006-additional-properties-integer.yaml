@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: "additionalProperties with integer values"
+  version: "1.0"
+paths:
+  /scores:
+    get:
+      operationId: getScores
+      responses:
+        '200':
+          description: Score map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+    post:
+      operationId: createScores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: integer
+      responses:
+        '201':
+          description: Created

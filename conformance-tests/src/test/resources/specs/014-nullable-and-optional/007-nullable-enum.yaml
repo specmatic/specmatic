@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: "Nullable enum property"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - priority
+                  properties:
+                    title:
+                      type: string
+                    priority:
+                      type: string
+                      nullable: true
+                      enum:
+                        - low
+                        - medium
+                        - high
+    post:
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - priority
+              properties:
+                title:
+                  type: string
+                priority:
+                  type: string
+                  nullable: true
+                  enum:
+                    - low
+                    - medium
+                    - high
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - string maxLength"
+  version: "1.0"
+paths:
+  /tags:
+    get:
+      operationId: listTags
+      responses:
+        '200':
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - label
+                  properties:
+                    id:
+                      type: integer
+                    label:
+                      type: string
+                      maxLength: 20
+    post:
+      operationId: createTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - label
+              properties:
+                id:
+                  type: integer
+                label:
+                  type: string
+                  maxLength: 20
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: "Content negotiation - multiple response content types"
+  version: "1.0"
+paths:
+  /documents:
+    get:
+      operationId: listDocuments
+      responses:
+        '200':
+          description: Documents in JSON or XML
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+            application/xml:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string

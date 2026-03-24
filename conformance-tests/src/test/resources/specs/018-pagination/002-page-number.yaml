@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "Pagination - page number and size"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      summary: List products with page number pagination
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Paginated products
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - page
+                  - totalPages
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  totalPages:
+                    type: integer

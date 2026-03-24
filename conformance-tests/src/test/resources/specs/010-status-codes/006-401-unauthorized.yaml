@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 401 Unauthorized"
+  version: "1.0"
+paths:
+  /secrets:
+    get:
+      operationId: listSecrets
+      summary: List secrets with possible 401
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Secrets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - value
+                  properties:
+                    id:
+                      type: integer
+                    value:
+                      type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string

@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - object maxProperties"
+  version: "1.0"
+paths:
+  /configs:
+    get:
+      operationId: listConfigs
+      responses:
+        '200':
+          description: Config list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - settings
+                  properties:
+                    name:
+                      type: string
+                    settings:
+                      type: object
+                      maxProperties: 5
+                      additionalProperties:
+                        type: string
+    post:
+      operationId: createConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - settings
+              properties:
+                name:
+                  type: string
+                settings:
+                  type: object
+                  maxProperties: 5
+                  additionalProperties:
+                    type: string
+      responses:
+        '201':
+          description: Created

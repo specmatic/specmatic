@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 400 Bad Request"
+  version: "1.0"
+paths:
+  /items:
+    post:
+      operationId: createItem
+      summary: Create item with possible 400 response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string

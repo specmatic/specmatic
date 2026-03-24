@@ -1,0 +1,63 @@
+openapi: 3.0.3
+info:
+  title: "$ref deeply nested - multiple levels"
+  version: "1.0"
+paths:
+  /companies:
+    get:
+      operationId: listCompanies
+      responses:
+        '200':
+          description: Company list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Company'
+    post:
+      operationId: createCompany
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Company'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Country:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+    Address:
+      type: object
+      required:
+        - street
+        - city
+        - country
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        country:
+          $ref: '#/components/schemas/Country'
+    Company:
+      type: object
+      required:
+        - name
+        - headquarters
+      properties:
+        name:
+          type: string
+        headquarters:
+          $ref: '#/components/schemas/Address'

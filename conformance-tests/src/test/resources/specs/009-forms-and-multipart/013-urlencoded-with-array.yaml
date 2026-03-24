@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with array field"
+  version: "1.0"
+paths:
+  /surveys:
+    post:
+      operationId: submitSurvey
+      summary: Submit a survey with multiple selected options
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - respondent
+                - answers
+              properties:
+                respondent:
+                  type: string
+                answers:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Survey submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

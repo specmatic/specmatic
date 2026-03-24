@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - integer minimum"
+  version: "1.0"
+paths:
+  /scores:
+    get:
+      operationId: listScores
+      responses:
+        '200':
+          description: Score list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - player
+                    - score
+                  properties:
+                    player:
+                      type: string
+                    score:
+                      type: integer
+                      minimum: 0
+    post:
+      operationId: createScore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - player
+                - score
+              properties:
+                player:
+                  type: string
+                score:
+                  type: integer
+                  minimum: 0
+      responses:
+        '201':
+          description: Created

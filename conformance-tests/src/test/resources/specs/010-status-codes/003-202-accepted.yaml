@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 202 Accepted"
+  version: "1.0"
+paths:
+  /jobs:
+    post:
+      operationId: submitJob
+      summary: Submit a job returning 202
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task
+              properties:
+                task:
+                  type: string
+      responses:
+        '202':
+          description: Job accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - jobId
+                  - status
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string

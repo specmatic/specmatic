@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: "$ref shared across multiple endpoints"
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '201':
+          description: Created
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Order found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+components:
+  schemas:
+    Order:
+      type: object
+      required:
+        - id
+        - product
+        - quantity
+      properties:
+        id:
+          type: integer
+        product:
+          type: string
+        quantity:
+          type: integer
