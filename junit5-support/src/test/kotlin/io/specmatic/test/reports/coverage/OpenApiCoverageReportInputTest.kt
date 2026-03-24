@@ -1,5 +1,7 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.core.Result
+import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -7,11 +9,15 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.TestExecutionResult
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 class OpenApiCoverageReportInputTest {
     @Test
@@ -1133,9 +1139,88 @@ class OpenApiCoverageReportInputTest {
         assertThat(excludedEndpoints).containsExactlyInAnyOrder(excludedEndpoint)
     }
 
+    @Test
+    fun shouldNotifyHooksWithPathCoverageAndOverallCoverageAndGovernanceResult(@TempDir tempDir: File) {
+        val listener = RecordingCoverageListener()
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText("""
+        version: 2
+        report:
+          types:
+            APICoverage:
+              OpenAPI:
+                successCriteria:
+                  minThresholdPercentage: 70
+                  maxMissedEndpointsInSpec: 0
+                  enforce: true
+        """.trimIndent())
+
+        val input = OpenApiCoverageReportInput(
+            configFilePath = configFile.absolutePath,
+            coverageHooks = listOf(listener),
+            testResultRecords = mutableListOf(
+                TestResultRecord(
+                    path = "/pets",
+                    method = "GET",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Success,
+                    specType = SpecType.OPENAPI
+                ),
+                TestResultRecord(
+                    path = "/pets",
+                    method = "GET",
+                    responseStatus = 404,
+                    request = null,
+                    response = null,
+                    result = TestResult.NotCovered,
+                    specType = SpecType.OPENAPI
+                ),
+                TestResultRecord(
+                    path = "/orders",
+                    method = "POST",
+                    responseStatus = 201,
+                    request = null,
+                    response = null,
+                    result = TestResult.Success,
+                    specType = SpecType.OPENAPI
+                ),
+                TestResultRecord(
+                    path = "/undocumented",
+                    method = "DELETE",
+                    responseStatus = 418,
+                    request = null,
+                    response = null,
+                    result = TestResult.MissingInSpec,
+                    specType = SpecType.OPENAPI
+                )
+            )
+        )
+
+        val report = input.generate()
+        assertThat(listener.pathCoverageCalls.toMap()).containsExactlyInAnyOrderEntriesOf(mapOf("/pets" to 50, "/orders" to 100, "/undocumented" to 0))
+        assertThat(listener.totalCoverageCalls).containsExactly(67)
+        assertThat(report.totalCoveragePercentage).isEqualTo(67)
+        assertThat(report.missedOperations).isEqualTo(1)
+
+        val processor = OpenApiCoverageReportProcessor(input, tempDir.absolutePath)
+        val reportConfiguration = loadSpecmaticConfig(configFile.absolutePath).getReport()!!
+        assertThatThrownBy { processor.assertSuccessCriteria(reportConfiguration, report) }.isInstanceOf(AssertionError::class.java)
+
+        assertThat(listener.governanceCalls).hasSize(1)
+        assertThat(listener.governanceCalls.single()).isInstanceOf(Result.Failure::class.java)
+        assertThat(listener.governanceCalls.single().reportString())
+            .containsIgnoringWhitespaces("Total API coverage: 67% is less than the specified minimum threshold of 70%")
+            .containsIgnoringWhitespaces("Total missed operations: 1 is greater than the maximum threshold of 0")
+    }
+
     private class RecordingCoverageListener : TestReportListener {
         val actuatorApiCalls = mutableListOf<Pair<List<API>, List<API>>>()
         val endpointApiCalls = mutableListOf<Pair<List<Endpoint>, List<Endpoint>>>()
+        val totalCoverageCalls = mutableListOf<Int>()
+        val pathCoverageCalls = mutableListOf<Pair<String, Int>>()
+        val governanceCalls = mutableListOf<Result>()
 
         override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) {
             actuatorApiCalls.add(apisNotExcluded to apisExcluded)
@@ -1145,12 +1230,22 @@ class OpenApiCoverageReportInputTest {
             endpointApiCalls.add(endpointsNotExcluded to endpointsExcluded)
         }
 
+        override fun onCoverageCalculated(coverage: Int) {
+            totalCoverageCalls.add(coverage)
+        }
+
+        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) {
+            pathCoverageCalls.add(path to pathCoverage)
+        }
+
+        override fun onGovernance(result: Result) {
+            governanceCalls.add(result)
+        }
+
         override fun onActuator(enabled: Boolean) = Unit
         override fun onTestResult(result: TestExecutionResult) = Unit
         override fun onTestsComplete() = Unit
-        override fun onExampleErrors(resultsBySpecFile: Map<String, io.specmatic.core.Result>) = Unit
+        override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) = Unit
         override fun onEnd() = Unit
-        override fun onCoverageCalculated(coverage: Int) = Unit
-        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
     }
 }

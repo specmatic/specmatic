@@ -1038,6 +1038,7 @@ paths:
         override fun onEnd() = Unit
         override fun onCoverageCalculated(coverage: Int) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
+        override fun onGovernance(result: Result) = Unit
     }
 
     @AfterEach
