@@ -53,8 +53,8 @@ abstract class AbstractConformanceTest(
     @Order(1)
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
-            .isTrue
             .withFailMessage { allLogs }
+            .isTrue
     }
 
     @Test
@@ -74,8 +74,8 @@ abstract class AbstractConformanceTest(
         exchangeOps.forEach { logger.info("  $it") }
 
         assertThat(specOps)
-            .isEqualTo(exchangeOps)
             .withFailMessage { allLogs }
+            .isEqualTo(exchangeOps)
     }
 
     @Test
