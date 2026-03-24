@@ -1,0 +1,61 @@
+openapi: 3.0.3
+info:
+  title: "Path parameter - suffix after parameter"
+  version: "1.0"
+paths:
+  /images/{imageId}.png:
+    get:
+      operationId: getImage
+      summary: Get image by ID with .png extension
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - imageId
+                  - width
+                  - height
+                properties:
+                  imageId:
+                    type: string
+                  width:
+                    type: integer
+                  height:
+                    type: integer
+    post:
+      operationId: createImage
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - imageId
+                - width
+                - height
+              properties:
+                imageId:
+                  type: string
+                width:
+                  type: integer
+                height:
+                  type: integer
+      responses:
+        '201':
+          description: Created

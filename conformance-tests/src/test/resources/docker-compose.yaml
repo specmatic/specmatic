@@ -1,0 +1,22 @@
+services:
+  mock:
+    image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
+    command: mock /service.yaml --port 9000
+    expose:
+      - "9000"
+    volumes:
+      - ${PATH_TO_OPEN_API_SPEC_FILE:?error}:/service.yaml:ro
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://mock:9000/actuator/health" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  test:
+    image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
+    depends_on:
+      mock:
+        condition: service_healthy
+    command: test /service.yaml --testBaseURL=http://mock:9000
+    volumes:
+      - ${PATH_TO_OPEN_API_SPEC_FILE:?error}:/service.yaml:ro

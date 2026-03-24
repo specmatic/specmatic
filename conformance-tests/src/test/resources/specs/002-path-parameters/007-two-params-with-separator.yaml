@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: "Path parameter - two parameters with dash separator"
+  version: "1.0"
+paths:
+  /widgets/{id}-v{version}:
+    get:
+      operationId: getWidgetVersion
+      summary: Get a specific version of a widget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Widget version found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - version
+                  - name
+                properties:
+                  id:
+                    type: integer
+                  version:
+                    type: integer
+                  name:
+                    type: string
+    post:
+      operationId: createWidgetVersion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - version
+                - name
+              properties:
+                id:
+                  type: integer
+                version:
+                  type: integer
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
