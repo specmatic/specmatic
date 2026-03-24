@@ -9,6 +9,7 @@ import com.networknt.schema.SpecificationVersion
 import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.parser.core.models.ParseOptions
+import io.swagger.v3.core.util.Json
 import java.io.File
 import io.swagger.v3.oas.models.Operation as SwaggerOperation
 
@@ -20,8 +21,6 @@ data class Operation(
 )
 
 class OpenApiSpec(private val specFile: File) {
-    private val rootNode: JsonNode = yamlMapper.readTree(specFile)
-
     private val openApi = run {
         val options = ParseOptions().apply {
             isResolve = true
@@ -30,6 +29,8 @@ class OpenApiSpec(private val specFile: File) {
         val result = OpenAPIParser().readLocation(specFile.absolutePath, null, options)
         result.openAPI ?: error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
     }
+
+    private val rootNode: JsonNode = Json.mapper().valueToTree(openApi)
 
     val operations: Set<Operation> = openApi.paths.orEmpty().flatMap { (path, item) ->
         item.readOperationsMap().flatMap { (swaggerMethod: PathItem.HttpMethod, swaggerOperation: SwaggerOperation) ->
