@@ -6,6 +6,7 @@ import io.specmatic.conformance_test_support.OpenApiSpec
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
+import org.slf4j.LoggerFactory
 import java.io.File
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -15,6 +16,8 @@ abstract class AbstractConformanceTest(
     private val workDir: File = File("build/resources/test"),
     private val specsDirName: String = "specs"
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     private lateinit var dockerCompose: DockerCompose
     private lateinit var loopTestsResult: DockerCompose.CommandResult
     private lateinit var httpExchanges: List<HttpExchange>
@@ -55,7 +58,17 @@ abstract class AbstractConformanceTest(
     @Order(2)
     fun `should only exercise all operations in the openAPI spec and not make any additional non-compliant requests`() {
         val specOps = spec.operations
+
+        logger.info("Operations defined in spec (${specOps.size}):")
+        specOps.forEach { logger.info("  $it") }
+
+        logger.info("HTTP exchanges captured (${httpExchanges.size}):")
+        httpExchanges.forEach { logger.info("  ${it.method} ${it.path} -> ${it.statusCode} (requestContentType=${it.requestContentType})") }
+
         val exchangeOps = httpExchanges.map { it.toOperation(spec) }.toSet()
+
+        logger.info("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations):")
+        exchangeOps.forEach { logger.info("  $it") }
 
         assertThat(specOps).isEqualTo(exchangeOps)
     }
