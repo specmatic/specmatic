@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.TimeoutException
 import kotlin.time.Duration.Companion.milliseconds
@@ -58,5 +59,13 @@ class SpecmaticMockRunnerTest {
                 waitForNotNull(timeout = 80.milliseconds, pollInterval = 10.milliseconds, description = "missing value") { null }
             }
         }.isInstanceOf(TimeoutException::class.java).hasMessageContaining("missing value was not available within")
+    }
+
+    @Test
+    fun `canConnect should use loopback candidates for wildcard host`(): Unit = runBlocking {
+        ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { serverSocket ->
+            val connected = canConnect("0.0.0.0", serverSocket.localPort, 200.milliseconds)
+            assertThat(connected).isTrue()
+        }
     }
 }
