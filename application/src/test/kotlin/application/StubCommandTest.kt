@@ -8,17 +8,17 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.CONTRACT_EXTENSION
 import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
-import io.specmatic.core.config.v3.SpecmaticConfigV3Impl
 import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.core.utilities.ContractPathData
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.StubServerWatcher
-import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
+import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -28,8 +28,10 @@ import org.junit.jupiter.params.provider.ValueSource
 import picocli.CommandLine
 import java.io.File
 import java.io.FileOutputStream
+import java.net.ServerSocket
 import java.nio.file.Path
 import java.security.KeyStore
+import java.util.concurrent.TimeoutException
 import kotlin.io.use
 
 
@@ -964,6 +966,56 @@ internal class StubCommandTest {
         assertThat(strictModeSlot.captured).isTrue()
         assertThat(keyDataSlot.captured).isNotNull
         assertThat(timeoutSlot.captured).isEqualTo(2500L)
+    }
+
+    @Test
+    fun `checkReadiness should pass when all server binds are connectable`() {
+        try {
+            ServerSocket(0).use { reachableSocketOne ->
+                ServerSocket(0).use { reachableSocketTwo ->
+                    stubCommand.httpStub = mockk {
+                        every { getServerBinds() } returns setOf(
+                            "127.0.0.1" to reachableSocketOne.localPort,
+                            "127.0.0.1" to reachableSocketTwo.localPort
+                        )
+                    }
+                    runBlocking { stubCommand.checkReadiness() }
+                }
+            }
+        } finally {
+            stubCommand.httpStub = null
+        }
+    }
+
+    @Test
+    fun `checkReadiness should fail when one bind is not connectable`(@TempDir tempDir: File) {
+        val unreachablePort = ServerSocket(0).use { it.localPort }
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        stub:
+          startTimeoutInMilliseconds: 120
+        """.trimIndent())
+
+        try {
+            ServerSocket(0).use { reachableSocket ->
+                stubCommand.httpStub = mockk {
+                    every { getServerBinds() } returns setOf(
+                        "127.0.0.1" to reachableSocket.localPort,
+                        "127.0.0.1" to unreachablePort
+                    )
+                }
+
+                assertThatThrownBy {
+                    Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) { runBlocking { stubCommand.checkReadiness() } }
+                }.isInstanceOf(TimeoutException::class.java)
+                    .hasMessageContaining("Http Mock failed readiness check")
+                    .hasMessageContaining("127.0.0.1:$unreachablePort")
+                    .hasMessageNotContaining("127.0.0.1:$reachableSocket")
+                    .hasMessageContaining("waited for 120ms")
+            }
+        } finally {
+            stubCommand.httpStub = null
+        }
     }
 
     fun osAgnosticPath(path: String): String {

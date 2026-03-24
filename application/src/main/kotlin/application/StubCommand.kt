@@ -6,8 +6,6 @@ import io.specmatic.core.Configuration.Companion.DEFAULT_HTTP_STUB_PORT
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
-import io.specmatic.core.examples.source.PreLoadedExampleObjects
-import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.*
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
@@ -16,7 +14,6 @@ import io.specmatic.core.toIncomingMtlsRegistryForStub
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.stub.ContractStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.RequestHandler
@@ -27,9 +24,17 @@ import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
 import io.specmatic.stub.isSupportedAPISpecification
 import io.specmatic.stub.listener.MockEventListener
+import io.specmatic.stub.waitForNotNull
+import io.specmatic.stub.waitUntilConnectable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import picocli.CommandLine.*
 import picocli.CommandLine.Model.CommandSpec
 import java.io.File
+import java.util.concurrent.TimeoutException
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 @Command(
     name = "mock",
@@ -45,7 +50,7 @@ class StubCommand(
     private val watchMaker: WatchMaker = WatchMaker(),
     private val httpClientFactory: HttpClientFactory = HttpClientFactory()
 ) : SpecmaticMockRunner {
-    var httpStub: ContractStub? = null
+    var httpStub: HttpStub? = null
 
     @Parameters(arity = "0..*", description = ["Contract file paths", "Spec file paths"])
     var contractPaths: List<String> = mutableListOf()
@@ -398,6 +403,24 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     override fun close() {
         stopServer()
+    }
+
+    override suspend fun checkReadiness() {
+        val timeout = specmaticConfiguration.getStubStartTimeoutInMilliseconds().toDuration(DurationUnit.MILLISECONDS)
+        val stub = waitForNotNull(description = "Http Mock", timeout = timeout) { httpStub }
+        val bindPorts = stub.getServerBinds()
+        val connectabilityByBind = coroutineScope {
+            bindPorts.map { (host, port) ->
+                async { (host to port) to waitUntilConnectable(host, port, timeout) }
+            }.awaitAll()
+        }
+
+
+        val failedEntries = connectabilityByBind.filterNot { (_, isConnectable) -> isConnectable }
+        if (failedEntries.isNotEmpty()) {
+            val failedHostAndPort = failedEntries.map { it.first }.joinToString { (host, port) -> "$host:$port" }
+            throw TimeoutException("Http Mock failed readiness check: $failedHostAndPort, waited for $timeout")
+        }
     }
 }
 

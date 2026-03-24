@@ -518,6 +518,10 @@ class HttpStub(
         configureHostPorts()
     }
 
+    fun getServerBinds(): Set<Pair<String, Int>> {
+        return environment.connectors.map { it.host to it.port }.toSet()
+    }
+
     private fun addCtrfTestResultRecord(
         httpLogMessage: HttpLogMessage,
         httpRequest: HttpRequest,
