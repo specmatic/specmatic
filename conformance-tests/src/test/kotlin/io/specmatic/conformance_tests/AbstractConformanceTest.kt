@@ -53,42 +53,26 @@ abstract class AbstractConformanceTest(
 
     @Test
     @Order(2)
-    fun `should exercise all operations in the openAPI spec`() {
-        val specOps = spec.operations()
-        val exchangeOps = httpExchanges.mapNotNull { spec.matchingOperation(it.method, it.path) }.toSet()
-        val unexercisedOps = specOps - exchangeOps
+    fun `should only exercise all operations in the openAPI spec and not make any additional non-compliant requests`() {
+        val specOps = spec.operations
+        val exchangeOps = httpExchanges.map { it.toOperation(spec) }.toSet()
 
-        assertThat(unexercisedOps).isEmpty()
-    }
-
-    @Test
-    @Order(3)
-    fun `should not perform operations that aren't in the openAPI spec`() {
-        val unspecifiedOperations = httpExchanges.filterNot {
-            spec.isMatchingOperation(it.method, it.path)
-        }
-        assertThat(unspecifiedOperations).isEmpty()
+        assertThat(specOps).isEqualTo(exchangeOps)
     }
 
     @Test
     @Order(4)
     fun `should send valid request bodies`() {
-        val httpExchangesWithRequestBodies = httpExchanges.filter {
-            it.requestBody.isNotBlank()
-        }
-
-        val errors = httpExchangesWithRequestBodies.flatMap {
+        val errors = httpExchanges.flatMap {
             spec.validateRequestBody(
                 body = it.requestBody,
-                path = spec.matchingOperation(it.method, it.path)!!.path,
-                method = it.method,
-                contentType = it.requestContentType()!!
-            ).map { error -> error.message }
+                operation = it.toOperation(spec)
+            )
         }
 
         assertThat(errors)
             .withFailMessage {
-                "error=$errors requests=${httpExchangesWithRequestBodies.joinToString("\n") { it.requestBody }}"
+                "error=$errors requests=${httpExchanges.joinToString("\n") { it.requestBody }}"
             }
             .isEmpty()
     }
@@ -96,23 +80,17 @@ abstract class AbstractConformanceTest(
     @Test
     @Order(5)
     fun `should return valid response bodies`() {
-        val httpExchangesWithResponseBodies = httpExchanges.filter {
-            it.responseBody.isNotBlank()
-        }
-
-        val errors = httpExchangesWithResponseBodies.flatMap {
+        val errors = httpExchanges.flatMap {
             spec.validateResponseBody(
                 body = it.responseBody,
-                path = spec.matchingOperation(it.method, it.path)!!.path,
-                method = it.method,
-                statusCode = it.statusCode,
-                contentType = it.responseContentType()!!
-            ).map { error -> error.message }
+                operation = it.toOperation(spec),
+                responseContentType = it.responseContentType
+            )
         }
 
         assertThat(errors)
             .withFailMessage {
-                "errors=$errors responses=${httpExchangesWithResponseBodies.joinToString("\n") { it.responseBody }}"
+                "errors=$errors responses=${httpExchanges.joinToString("\n") { it.responseBody }}"
             }
             .isEmpty()
     }

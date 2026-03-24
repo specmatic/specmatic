@@ -40,11 +40,11 @@ data class HttpExchange(
                 .toList()
     }
 
-    fun requestContentType(): String? =
-        requestHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
+    val requestContentType: String?
+        get() = requestHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
 
-    fun responseContentType(): String? =
-        responseHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
+    val responseContentType: String?
+        get() = responseHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
 
     fun isInfraRequest(): Boolean {
         return when (method) {
@@ -52,5 +52,9 @@ data class HttpExchange(
             "GET" if path == "/swagger/v1/swagger.yaml" -> true
             else -> false
         }
+    }
+
+    fun toOperation(spec: OpenApiSpec): Operation {
+        return spec.toOperation(method, path, requestContentType, statusCode) ?: Operation(method, path, requestContentType, statusCode)
     }
 }

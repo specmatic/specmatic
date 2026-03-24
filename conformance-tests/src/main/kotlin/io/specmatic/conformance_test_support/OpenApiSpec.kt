@@ -7,10 +7,17 @@ import com.networknt.schema.Error
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
 import io.swagger.parser.OpenAPIParser
+import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.parser.core.models.ParseOptions
 import java.io.File
+import io.swagger.v3.oas.models.Operation as SwaggerOperation
 
-data class Operation(val method: String, val path: String)
+data class Operation(
+    val method: String,
+    val path: String,
+    val requestContentType: String?,
+    val statusCode: Int
+)
 
 class OpenApiSpec(private val specFile: File) {
     private val rootNode: JsonNode = yamlMapper.readTree(specFile)
@@ -24,29 +31,70 @@ class OpenApiSpec(private val specFile: File) {
         result.openAPI ?: error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
     }
 
-    fun operations(): Set<Operation> = openApi.paths.orEmpty().flatMap { (path, item) ->
-        item.readOperationsMap().map { (method, _) -> Operation(method.name.uppercase(), path) }
+    val operations: Set<Operation> = openApi.paths.orEmpty().flatMap { (path, item) ->
+        item.readOperationsMap().flatMap { (swaggerMethod: PathItem.HttpMethod, swaggerOperation: SwaggerOperation) ->
+            // Every spec MUST have at least 1 response
+            val statusCodes = swaggerOperation.responses!!.keys.map { it.toInt() }
+
+            when (swaggerOperation.requestBody) {
+                null -> {
+                    statusCodes.map { statusCode ->
+                        Operation(swaggerMethod.name.uppercase(), path, null, statusCode)
+                    }
+                }
+
+                else -> {
+                    // If a spec has a requestBody it MUST have at least 1 request content section
+                    val requestContentTypes = swaggerOperation.requestBody!!.content!!.keys
+
+                    requestContentTypes.flatMap { contentType ->
+                        statusCodes.map { statusCode ->
+                            Operation(swaggerMethod.name.uppercase(), path, contentType, statusCode)
+                        }
+                    }
+                }
+            }
+        }
     }.toSet()
 
-    private val pathPatterns: Map<Operation, Regex> = operations().associateWith { it.path.toPathRegex() }
+    private val pathPatterns: Map<Operation, Regex> = operations.associateWith { it.path.toPathRegex() }
 
-    fun matchingOperation(method: String, path: String): Operation? =
-        pathPatterns.entries.find { (op, regex) -> op.method == method.uppercase() && regex.matches(path) }?.key
+    fun toOperation(
+        method: String,
+        path: String,
+        requestContentType: String?,
+        statusCode: Int
+    ): Operation? =
+        pathPatterns.entries.find { (op, regex) ->
+            op.method == method.uppercase()
+                    && regex.matches(path)
+                    && op.requestContentType == requestContentType
+                    && op.statusCode == statusCode
+        }?.key
 
-    fun isMatchingOperation(method: String, path: String): Boolean =
-        matchingOperation(method, path) != null
+    fun validateRequestBody(body: String, operation: Operation): List<Error> {
+        // No request body because this operation does not have request content
+        // We verify that all valid request bodies have been sent because we check that all valid operations have been exercised
+        // in the conformance tests
+        if (operation.requestContentType == null) {
+            return emptyList()
+        }
 
-    fun validateRequestBody(body: String, path: String, method: String, contentType: String): List<Error> {
         val pointer =
-            "/paths/${path.escapeJsonPointer()}/${method.lowercase()}/requestBody/content/${contentType.escapeJsonPointer()}/schema"
+            "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody/content/${operation.requestContentType.escapeJsonPointer()}/schema"
         return validate(pointer, body)
     }
 
     fun validateResponseBody(
-        body: String, path: String, method: String, statusCode: Int, contentType: String
+        body: String, operation: Operation, responseContentType: String?
     ): List<Error> {
+        // See comment in validateRequestBody for details
+        if (responseContentType == null) {
+            return emptyList()
+        }
+
         val pointer =
-            "/paths/${path.escapeJsonPointer()}/${method.lowercase()}/responses/$statusCode/content/${contentType.escapeJsonPointer()}/schema"
+            "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/responses/${operation.statusCode}/content/${responseContentType.escapeJsonPointer()}/schema"
         return validate(pointer, body)
     }
 
