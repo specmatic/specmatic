@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - uint64 (OpenAPI)"
+  version: "1.0"
+paths:
+  /storage:
+    get:
+      operationId: getStorage
+      responses:
+        '200':
+          description: Storage info
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - totalBytes
+                  - usedBytes
+                properties:
+                  totalBytes:
+                    type: integer
+                    format: uint64
+                  usedBytes:
+                    type: integer
+                    format: uint64
+    post:
+      operationId: createStorage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - totalBytes
+                - usedBytes
+              properties:
+                totalBytes:
+                  type: integer
+                  format: uint64
+                usedBytes:
+                  type: integer
+                  format: uint64
+      responses:
+        '201':
+          description: Created

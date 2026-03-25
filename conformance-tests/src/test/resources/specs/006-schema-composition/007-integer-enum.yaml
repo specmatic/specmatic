@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: "Schema composition - integer enum"
+  version: "1.0"
+paths:
+  /log-levels:
+    get:
+      operationId: listLogLevels
+      responses:
+        '200':
+          description: Log level list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - level
+                  properties:
+                    name:
+                      type: string
+                    level:
+                      type: integer
+                      enum:
+                        - 0
+                        - 1
+                        - 2
+                        - 3
+                        - 4
+    post:
+      operationId: createLogLevel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - level
+              properties:
+                name:
+                  type: string
+                level:
+                  type: integer
+                  enum:
+                    - 0
+                    - 1
+                    - 2
+                    - 3
+                    - 4
+      responses:
+        '201':
+          description: Created

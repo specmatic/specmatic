@@ -1,0 +1,20 @@
+name: Conformance Tests
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  conformance-tests:
+    if: startsWith(github.head_ref, 'sahilm/conformance-tests')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      pull-requests: write
+      contents: write # This is required so that the dependency check can push dependency graph to the github repository
+      checks: write # Required for test reporting
+    steps:
+      - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
+        with:
+          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true"
+          github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments

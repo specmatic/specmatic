@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: "Multiple query parameters"
+  version: "1.0"
+paths:
+  /flights:
+    get:
+      operationId: searchFlights
+      summary: Search flights by origin, destination, and date
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: destination
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Matching flights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - origin
+                    - destination
+                    - date
+                  properties:
+                    id:
+                      type: integer
+                    origin:
+                      type: string
+                    destination:
+                      type: string
+                    date:
+                      type: string
+                      format: date
+    post:
+      operationId: createFlight
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: destination
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - origin
+                - destination
+                - date
+              properties:
+                origin:
+                  type: string
+                destination:
+                  type: string
+                date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Created

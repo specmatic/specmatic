@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Request/Response body - boolean property"
+  version: "1.0"
+paths:
+  /features:
+    get:
+      operationId: listFeatures
+      responses:
+        '200':
+          description: Feature flag list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - enabled
+                  properties:
+                    name:
+                      type: string
+                    enabled:
+                      type: boolean
+    post:
+      operationId: createFeature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - enabled
+              properties:
+                name:
+                  type: string
+                enabled:
+                  type: boolean
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Schema composition - nested array (array inside object)"
+  version: "1.0"
+paths:
+  /classrooms:
+    get:
+      operationId: listClassrooms
+      responses:
+        '200':
+          description: Classroom list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - room
+                    - students
+                  properties:
+                    room:
+                      type: string
+                    students:
+                      type: array
+                      items:
+                        type: string
+    post:
+      operationId: createClassroom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room
+                - students
+              properties:
+                room:
+                  type: string
+                students:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

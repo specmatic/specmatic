@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - byte (OpenAPI, base64-encoded)"
+  version: "1.0"
+paths:
+  /thumbnails:
+    get:
+      operationId: listThumbnails
+      responses:
+        '200':
+          description: Thumbnail list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - data
+                  properties:
+                    name:
+                      type: string
+                    data:
+                      type: string
+                      format: byte
+    post:
+      operationId: createThumbnails
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - data
+              properties:
+                name:
+                  type: string
+                data:
+                  type: string
+                  format: byte
+      responses:
+        '201':
+          description: Created

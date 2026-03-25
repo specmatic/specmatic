@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: "Header parameter combined with query parameter"
+  version: "1.0"
+paths:
+  /logs:
+    get:
+      operationId: listLogs
+      summary: List logs with auth header and query filter
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: level
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - debug
+              - info
+              - warn
+              - error
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Logs list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - level
+                    - message
+                  properties:
+                    id:
+                      type: integer
+                    level:
+                      type: string
+                    message:
+                      type: string
+    post:
+      operationId: createLog
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: level
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - debug
+              - info
+              - warn
+              - error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - level
+                - message
+              properties:
+                level:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '201':
+          description: Created

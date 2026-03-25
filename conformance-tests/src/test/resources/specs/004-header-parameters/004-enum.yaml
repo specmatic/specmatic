@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: "Header parameter - enum"
+  version: "1.0"
+paths:
+  /content:
+    get:
+      operationId: getContent
+      summary: Get content with accept-language header
+      parameters:
+        - name: Accept-Language
+          in: header
+          required: true
+          schema:
+            type: string
+            enum:
+              - en
+              - fr
+              - de
+              - es
+      responses:
+        '200':
+          description: Localized content
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - language
+                  - body
+                properties:
+                  language:
+                    type: string
+                  body:
+                    type: string
+    post:
+      operationId: createContent
+      parameters:
+        - name: Accept-Language
+          in: header
+          required: true
+          schema:
+            type: string
+            enum:
+              - en
+              - fr
+              - de
+              - es
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+      responses:
+        '201':
+          description: Created

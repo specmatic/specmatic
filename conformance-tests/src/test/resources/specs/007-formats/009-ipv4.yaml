@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - ipv4 (JSON Schema)"
+  version: "1.0"
+paths:
+  /allowlist:
+    get:
+      operationId: getAllowlist
+      responses:
+        '200':
+          description: Allowed IPs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - ip
+                  properties:
+                    label:
+                      type: string
+                    ip:
+                      type: string
+                      format: ipv4
+    post:
+      operationId: createAllowlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - ip
+              properties:
+                label:
+                  type: string
+                ip:
+                  type: string
+                  format: ipv4
+      responses:
+        '201':
+          description: Created
