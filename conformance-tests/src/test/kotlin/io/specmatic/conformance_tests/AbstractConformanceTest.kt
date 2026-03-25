@@ -62,13 +62,14 @@ abstract class AbstractConformanceTest(
         debugInfoBuilder.appendLine("Operations defined in spec (${specOps.size}): $specOps")
         debugInfoBuilder.appendLine("HTTP exchanges captured (${httpExchanges.size}): ${httpExchanges.joinToString("\n") { it.toDebugInfo() }}")
 
-        val exchangeOps = httpExchanges.map { it.toOperation(spec) }.toSet()
+        val exchangeOps = httpExchanges.map { it.toOperation(spec) ?: it.toOperation() }.toSet()
         debugInfoBuilder.appendLine("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations): $exchangeOps")
 
         assertThat(specOps)
             .withFailMessage {
                 debugInfoBuilder
-                    .appendLine("specOps - exchangeOps: ${specOps - exchangeOps}")
+                    .appendLine("Missing Operations: ${specOps - exchangeOps}")
+                    .appendLine("Extra Operations: ${exchangeOps - specOps}")
                     .appendLine()
                     .appendLine(allLogs)
                     .toString()
@@ -94,7 +95,7 @@ abstract class AbstractConformanceTest(
 
         assertThat(errors)
             .withFailMessage {
-                "error=$errors\n\nrequests=${httpExchanges.joinToString("\n") { it.requestBody }}\n\nallLogs=$allLogs"
+                "error=$errors\n\nrequests=${httpExchanges.joinToString("\n") { it.requestBody }}\n\n$allLogs"
             }
             .isEmpty()
     }
@@ -121,7 +122,7 @@ abstract class AbstractConformanceTest(
 
         assertThat(errors)
             .withFailMessage {
-                "errors=$errors\n\nresponses=${httpExchanges.joinToString("\n") { it.responseBody }}\n\nallLogs=$allLogs"
+                "errors=$errors\n\nresponses=${httpExchanges.joinToString("\n") { it.responseBody }}\n\n$allLogs"
             }
             .isEmpty()
     }
