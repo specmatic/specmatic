@@ -61,20 +61,20 @@ abstract class AbstractConformanceTest(
     @Order(2)
     fun `should only exercise all operations in the openAPI spec and not make any additional non-compliant requests`() {
         val specOps = spec.operations
-
-        logger.info("Operations defined in spec (${specOps.size}):")
-        specOps.forEach { logger.info("  $it") }
-
-        logger.info("HTTP exchanges captured (${httpExchanges.size}):")
-        httpExchanges.forEach { logger.info("  ${it.method} ${it.path} -> ${it.statusCode} (requestContentType=${it.requestContentType})") }
+        val debugInfoBuilder = StringBuilder()
+        debugInfoBuilder.appendLine("Operations defined in spec (${specOps.size}): $specOps")
+        debugInfoBuilder.appendLine("HTTP exchanges captured (${httpExchanges.size}): ${httpExchanges.joinToString("\n") { it.toDebugInfo() }}")
 
         val exchangeOps = httpExchanges.map { it.toOperation(spec) }.toSet()
-
-        logger.info("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations):")
-        exchangeOps.forEach { logger.info("  $it") }
+        debugInfoBuilder.appendLine("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations): $exchangeOps")
 
         assertThat(specOps)
-            .withFailMessage { allLogs }
+            .withFailMessage {
+                debugInfoBuilder
+                    .appendLine("specOps - exchangeOps: ${specOps - exchangeOps}")
+                    .appendLine(allLogs)
+                    .toString()
+            }
             .isEqualTo(exchangeOps)
     }
 

@@ -57,4 +57,8 @@ data class HttpExchange(
     fun toOperation(spec: OpenApiSpec): Operation {
         return spec.toOperation(method, path, requestContentType, statusCode) ?: Operation(method, path, requestContentType, statusCode)
     }
+
+    fun toDebugInfo(): String {
+        return "$method $path -> $statusCode (requestContentType=$requestContentType)"
+    }
 }
