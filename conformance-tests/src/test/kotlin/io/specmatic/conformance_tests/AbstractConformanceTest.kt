@@ -7,7 +7,6 @@ import io.specmatic.conformance_test_support.OpenApiSpec
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
-import org.slf4j.LoggerFactory
 import java.io.File
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -17,8 +16,6 @@ abstract class AbstractConformanceTest(
     private val workDir: File = File("build/resources/test"),
     private val specsDirName: String = "specs"
 ) {
-    private val logger = LoggerFactory.getLogger(this::class.java)
-
     private lateinit var dockerCompose: DockerCompose
     private lateinit var loopTestsResult: DockerCompose.CommandResult
     private lateinit var allLogs: String
@@ -87,11 +84,11 @@ abstract class AbstractConformanceTest(
             .filter(HttpExchange::isSuccessful)
             // requests without a requestContentType cannot have bodies
             // In the previous test we have validated that all requests are valid so we can safely skip these here
-            .filter { it.toOperation(spec).hasRequestContentType() }
+            .filter { it.toOperation(spec)?.hasRequestContentType() == true }
             .flatMap {
                 spec.validateRequestBody(
                     body = it.requestBody,
-                    operation = it.toOperation(spec)
+                    operation = it.toOperation(spec)!!
                 )
             }
 
@@ -105,13 +102,19 @@ abstract class AbstractConformanceTest(
     @Test
     @Order(5)
     fun `should return valid response bodies`() {
-        val errors = httpExchanges.flatMap {
-            spec.validateResponseBody(
-                body = it.responseBody,
-                operation = it.toOperation(spec),
-                responseContentType = it.responseContentType
-            )
-        }
+        val errors = httpExchanges
+            // Only validate responses for operations defined in the spec.
+            // When Specmatic's mock rejects a request, it returns a 400 text/plain error that isn't
+            // in the spec — attempting to resolve its schema pointer would throw InvalidSchemaRefException.
+            // Those failures are already caught by the "loop tests should succeed" test.
+            .filterNot { it.toOperation(spec) == null }
+            .flatMap {
+                spec.validateResponseBody(
+                    body = it.responseBody,
+                    operation = it.toOperation(spec)!!,
+                    responseContentType = it.responseContentType!!
+                )
+            }
 
         assertThat(errors)
             .withFailMessage {
