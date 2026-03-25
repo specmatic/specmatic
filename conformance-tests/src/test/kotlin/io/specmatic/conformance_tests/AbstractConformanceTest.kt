@@ -108,6 +108,9 @@ abstract class AbstractConformanceTest(
             // in the spec — attempting to resolve its schema pointer would throw InvalidSchemaRefException.
             // Those failures are already caught by the "loop tests should succeed" test.
             .filterNot { it.toOperation(spec) == null }
+            // http exchanges without a response are excluded from this validation.
+            // In the test number 2 (@Order = 2) we have validated that all requests are spec compliant
+            .filterNot { it.responseContentType == null }
             .flatMap {
                 spec.validateResponseBody(
                     body = it.responseBody,
