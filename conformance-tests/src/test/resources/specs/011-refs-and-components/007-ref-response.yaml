@@ -23,20 +23,26 @@ paths:
                       type: integer
                     name:
                       type: string
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-  /widgets/{widgetId}:
-    get:
-      operationId: getWidget
-      parameters:
-        - name: widgetId
-          in: path
-          required: true
-          schema:
-            type: integer
+    post:
+      operationId: createWidget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+            examples:
+              ERROR:
+                value:
+                  something: else
       responses:
-        '200':
-          description: Widget found
+        '201':
+          description: Widget created
           content:
             application/json:
               schema:
@@ -49,12 +55,12 @@ paths:
                     type: integer
                   name:
                     type: string
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 components:
   responses:
-    Unauthorized:
-      description: Authentication required
+    BadRequest:
+      description: Bad request
       content:
         application/json:
           schema:
@@ -64,3 +70,7 @@ components:
             properties:
               error:
                 type: string
+          examples:
+            ERROR:
+              value:
+                error: "Invalid request body"

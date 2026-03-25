@@ -25,12 +25,15 @@ class OpenApiSpec(private val specFile: File) {
     private val openApi = run {
         val options = ParseOptions().apply {
             isResolve = true
-            isResolveFully = false
+            isResolveFully = true
         }
         val result = OpenAPIParser().readLocation(specFile.absolutePath, null, options)
         result.openAPI ?: error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
     }
 
+    // We read the raw YAML (not the fully-resolved openApi model) because json-schema-validator
+    // needs $ref pointers intact to handle discriminators correctly. Serializing the fully-resolved
+    // model inlines all $refs, which breaks discriminator-based schema selection.
     private val rootNode: JsonNode = yamlMapper.readTree(specFile)
 
     private val documentSchema: Schema = schemaRegistry.getSchema(
@@ -86,8 +89,9 @@ class OpenApiSpec(private val specFile: File) {
             return emptyList()
         }
 
-        val pointer =
-            "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody/content/${operation.requestContentType.escapeJsonPointer()}/schema"
+        val requestBodyPath = "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody"
+        val basePath = resolveRef(requestBodyPath)
+        val pointer = "$basePath/content/${operation.requestContentType.escapeJsonPointer()}/schema"
         return validate(pointer, body)
     }
 
@@ -99,16 +103,25 @@ class OpenApiSpec(private val specFile: File) {
             return emptyList()
         }
 
-        val pointer =
-            "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/responses/${operation.statusCode}/content/${responseContentType.escapeJsonPointer()}/schema"
+        val responsePath = "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/responses/${operation.statusCode}"
+        val basePath = resolveRef(responsePath)
+        val pointer = "$basePath/content/${responseContentType.escapeJsonPointer()}/schema"
         return validate(pointer, body)
     }
 
-    private fun validate(pointer: String, body: String): List<Error> {
-        val schemaNode = rootNode.at(pointer)
-        if (schemaNode.isMissingNode) {
-            error("can't find schema for $pointer in $specFile")
+    // Since rootNode preserves the raw YAML (see comment above), a node at a given path may be
+    // a $ref rather than an inline definition (e.g. `requestBody: {$ref: '#/components/requestBodies/Foo'}`).
+    // In that case, we follow the $ref so the caller can continue building the pointer from the target.
+    private fun resolveRef(path: String): String {
+        val node = rootNode.at(path)
+        return if (node.has("\$ref")) {
+            node.get("\$ref").asText().removePrefix("#")
+        } else {
+            path
         }
+    }
+
+    private fun validate(pointer: String, body: String): List<Error> {
         val subSchema = documentSchema.getRefSchema(SchemaLocation.Fragment.of(pointer))
         return subSchema.validate(yamlMapper.readTree(body))
     }
