@@ -11,6 +11,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.variables.ExecutionVariableContext
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
@@ -119,8 +120,9 @@ data class ScenarioAsTest(
         testExecutor: TestExecutor,
         flagsBased: FlagsBased
     ): ContractTestExecutionResult {
+        val executionVariableContext = ExecutionVariableContext()
         try {
-            val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
+            val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY, executionVariableContext)
             if (beforeFixtureExecutionResult.isSuccess().not()) {
                 return ContractTestExecutionResult(result = beforeFixtureExecutionResult)
             }
@@ -154,7 +156,7 @@ data class ScenarioAsTest(
             val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, response) }.firstOrNull()
 
             if(validatorResult !is Result.Failure) {
-                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY, executionVariableContext)
                 if (afterFixtureExecutionResult.isSuccess().not()) {
                     return ContractTestExecutionResult(
                         result = afterFixtureExecutionResult,
@@ -218,7 +220,7 @@ data class ScenarioAsTest(
         }
     }
 
-    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): Result {
+    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String, executionVariableContext: ExecutionVariableContext): Result {
         val row = scenario.exampleRow ?: return Result.Success()
         val scenarioStub = row.scenarioStub ?: return Result.Success()
         val id = scenarioStub.id.orEmpty()
@@ -227,7 +229,7 @@ data class ScenarioAsTest(
             else -> scenarioStub.afterFixtures
         }
         return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
-            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: Result.Success()
+            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey, executionVariableContext) ?: Result.Success()
     }
 
     private fun testResult(

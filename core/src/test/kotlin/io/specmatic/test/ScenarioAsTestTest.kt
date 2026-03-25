@@ -18,6 +18,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.variables.ExecutionVariableContext
 import io.specmatic.test.matchers.MatcherExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -112,6 +113,32 @@ class ScenarioAsTestTest {
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
+            assertThat(ServiceLoaderTestFixtureExecutor.contexts).hasSize(2)
+            assertThat(ServiceLoaderTestFixtureExecutor.contexts[0]).isSameAs(ServiceLoaderTestFixtureExecutor.contexts[1])
+        }
+
+        @Test
+        fun `shares fixture variable context across before and after fixture execution`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+
+            val scenario = scenario(
+                Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        beforeFixtures = listOf(StringValue("before")),
+                        afterFixtures = listOf(StringValue("after"))
+                    )
+                )
+            )
+
+            val result = withServiceLoaderEntries(
+                mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
+            ) {
+                scenarioAsTest(scenario).runTest(fixedResponseExecutor("anything")).result
+            }
+
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+            assertThat(ServiceLoaderTestFixtureExecutor.afterSawStoredValue).isTrue()
         }
 
         @Test
@@ -214,16 +241,30 @@ class ServiceLoaderTestMatcherExecutor : MatcherExecutor {
 }
 
 class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
-    override fun execute(id: String, fixtures: List<Value>, fixtureDiscriminatorKey: String): Result {
+    override fun execute(id: String, fixtures: List<Value>, fixtureDiscriminatorKey: String, executionVariableContext: ExecutionVariableContext): Result {
         calls.add(fixtureDiscriminatorKey)
+        contexts.add(executionVariableContext)
+
+        if (fixtureDiscriminatorKey == "before") {
+            executionVariableContext.store("FIXTURE.BEFORE.1.RESPONSE", StringValue("stored"))
+        }
+
+        if (fixtureDiscriminatorKey == "after") {
+            afterSawStoredValue = executionVariableContext.getValue("FIXTURE.BEFORE.1.RESPONSE") == StringValue("stored")
+        }
+
         return Result.Success()
     }
 
     companion object {
         val calls: MutableList<String> = mutableListOf()
+        val contexts: MutableList<ExecutionVariableContext> = mutableListOf()
+        var afterSawStoredValue: Boolean = false
 
         fun reset() {
             calls.clear()
+            contexts.clear()
+            afterSawStoredValue = false
         }
     }
 }
