@@ -23,20 +23,15 @@ class DockerCompose(
 
     fun mustGetHttpTrafficLogs(): String {
         val command = buildCommand("logs", "mitm", "--no-color", "--no-log-prefix")
-        val commandResult = run(command, 5, TimeUnit.SECONDS)
-        return when {
-            commandResult.isSuccessful() -> commandResult.output
-            else -> error("failed to fetch http traffic logs")
-        }
+        return mustRun(command, 5, TimeUnit.SECONDS)
     }
 
+    // must fetch logs individually otherwise they come out of order
     fun mustGetAllLogs(): String {
-        val command = buildCommand("logs", "--no-color", "--timestamps")
-        val commandResult = run(command, 5, TimeUnit.SECONDS)
-        return when {
-            commandResult.isSuccessful() -> commandResult.output
-            else -> error("failed to fetch all logs")
-        }
+        return listOf("mock", "test", "mitm")
+            .joinToString("\n") {
+                mustRun(buildCommand("logs", it, "--no-color"), 5, TimeUnit.SECONDS)
+            }
     }
 
     fun stopAsync() {
@@ -51,6 +46,14 @@ class DockerCompose(
             exitCode = process.exitValue(),
             output = process.inputReader(Charsets.UTF_8).use { it.readText() }
         )
+    }
+
+    private fun mustRun(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): String {
+        val result = run(command, timeout, timeUnit)
+        return when {
+            result.isSuccessful() -> result.output
+            else -> error("failed to run ${command.command()}\nexit code: ${result.exitCode}\noutput: ${result.output}")
+        }
     }
 
     private fun buildCommand(vararg args: String): ProcessBuilder {
