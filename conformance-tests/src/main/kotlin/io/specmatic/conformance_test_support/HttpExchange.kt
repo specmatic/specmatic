@@ -54,6 +54,11 @@ data class HttpExchange(
         }
     }
 
+    val isSuccessful: Boolean
+        get() {
+            return statusCode in 200..299
+        }
+
     fun toOperation(spec: OpenApiSpec): Operation {
         return spec.toOperation(method, path, requestContentType, statusCode) ?: Operation(method, path, requestContentType, statusCode)
     }

@@ -21,6 +21,11 @@ paths:
                   type: integer
                 quantity:
                   type: integer
+            examples:
+              ERROR:
+                value:
+                  productId: 1
+                  quantity: -5
       responses:
         '201':
           description: Order created
@@ -54,3 +59,9 @@ paths:
                           type: string
                         message:
                           type: string
+              examples:
+                ERROR:
+                  value:
+                    errors:
+                      - field: "quantity"
+                        message: "Must be greater than zero"

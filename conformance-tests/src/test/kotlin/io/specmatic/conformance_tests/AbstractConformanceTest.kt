@@ -81,7 +81,10 @@ abstract class AbstractConformanceTest(
     @Test
     @Order(4)
     fun `should send valid request bodies`() {
-        val errors = httpExchanges.flatMap {
+        val errors = httpExchanges
+            // requests in the test that produce 4xx, 5xx may contain invalid request bodies by design
+            .filter(HttpExchange::isSuccessful)
+            .flatMap {
             spec.validateRequestBody(
                 body = it.requestBody,
                 operation = it.toOperation(spec)

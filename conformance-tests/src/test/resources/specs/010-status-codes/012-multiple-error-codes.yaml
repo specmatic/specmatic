@@ -13,6 +13,13 @@ paths:
           required: true
           schema:
             type: integer
+          examples:
+            NOT_FOUND:
+              value: 9999
+            BAD_REQUEST:
+              value: 1
+            CONFLICT:
+              value: 1
       requestBody:
         required: true
         content:
@@ -24,6 +31,16 @@ paths:
               properties:
                 name:
                   type: string
+            examples:
+              NOT_FOUND:
+                value:
+                  name: "Valid Name"
+              BAD_REQUEST:
+                value:
+                  invalid: "field"
+              CONFLICT:
+                value:
+                  name: "Existing Name"
       responses:
         '200':
           description: Account updated
@@ -50,6 +67,10 @@ paths:
                 properties:
                   error:
                     type: string
+              examples:
+                BAD_REQUEST:
+                  value:
+                    error: "Invalid request body"
         '404':
           description: Account not found
           content:
@@ -61,6 +82,10 @@ paths:
                 properties:
                   error:
                     type: string
+              examples:
+                NOT_FOUND:
+                  value:
+                    error: "Account not found"
         '409':
           description: Conflict
           content:
@@ -72,3 +97,7 @@ paths:
                 properties:
                   error:
                     type: string
+              examples:
+                CONFLICT:
+                  value:
+                    error: "Account name already taken"

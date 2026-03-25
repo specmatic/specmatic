@@ -13,6 +13,9 @@ paths:
           required: true
           schema:
             type: integer
+          examples:
+            ERROR:
+              value: 0
       responses:
         '200':
           description: Item found
@@ -39,3 +42,7 @@ paths:
                 properties:
                   error:
                     type: string
+              examples:
+                ERROR:
+                  value:
+                    error: "Item not found"

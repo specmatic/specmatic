@@ -22,6 +22,11 @@ paths:
                   format: email
                 name:
                   type: string
+            examples:
+              ERROR:
+                value:
+                  email: "existing@example.com"
+                  name: "Existing User"
       responses:
         '201':
           description: User created
@@ -45,3 +50,7 @@ paths:
                 properties:
                   error:
                     type: string
+              examples:
+                ERROR:
+                  value:
+                    error: "User already exists"

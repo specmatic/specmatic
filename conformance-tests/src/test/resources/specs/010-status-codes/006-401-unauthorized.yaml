@@ -13,6 +13,9 @@ paths:
           required: true
           schema:
             type: string
+          examples:
+            ERROR:
+              value: "invalid-key"
       responses:
         '200':
           description: Secrets list
@@ -41,3 +44,7 @@ paths:
                 properties:
                   error:
                     type: string
+              examples:
+                ERROR:
+                  value:
+                    error: "Invalid API key"
