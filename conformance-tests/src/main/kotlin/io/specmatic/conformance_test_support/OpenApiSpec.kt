@@ -6,6 +6,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.networknt.schema.Error
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.networknt.schema.dialect.Dialects
 import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.parser.core.models.ParseOptions
@@ -122,7 +123,7 @@ class OpenApiSpec(private val specFile: File) {
     private fun String.escapeJsonPointer(): String = replace("~", "~0").replace("/", "~1")
 
     companion object {
-        private val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_7)
+        private val schemaRegistry = SchemaRegistry.withDialect(Dialects.getOpenApi30()) // TODO: Make this configurable when we add OpenAPI 3.1 specs
         private val yamlMapper = ObjectMapper(YAMLFactory())
     }
 }
