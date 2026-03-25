@@ -85,16 +85,19 @@ abstract class AbstractConformanceTest(
         val errors = httpExchanges
             // requests in the test that produce 4xx, 5xx may contain invalid request bodies by design
             .filter(HttpExchange::isSuccessful)
+            // requests without a requestContentType cannot have bodies
+            // In the previous test we have validated that all requests are valid so we can safely skip these here
+            .filter { it.toOperation(spec).hasRequestContentType() }
             .flatMap {
-            spec.validateRequestBody(
-                body = it.requestBody,
-                operation = it.toOperation(spec)
-            )
-        }
+                spec.validateRequestBody(
+                    body = it.requestBody,
+                    operation = it.toOperation(spec)
+                )
+            }
 
         assertThat(errors)
             .withFailMessage {
-                "error=$errors requests=${httpExchanges.joinToString("\n") { it.requestBody }}\nallLogs=$allLogs"
+                "error=$errors\n\nrequests=${httpExchanges.joinToString("\n") { it.requestBody }}\n\nallLogs=$allLogs"
             }
             .isEmpty()
     }
@@ -112,7 +115,7 @@ abstract class AbstractConformanceTest(
 
         assertThat(errors)
             .withFailMessage {
-                "errors=$errors responses=${httpExchanges.joinToString("\n") { it.responseBody }}\nallLogs=$allLogs"
+                "errors=$errors\n\nresponses=${httpExchanges.joinToString("\n") { it.responseBody }}\n\nallLogs=$allLogs"
             }
             .isEmpty()
     }

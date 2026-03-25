@@ -11,6 +11,7 @@ import com.networknt.schema.dialect.Dialects
 import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.parser.core.models.ParseOptions
+import org.slf4j.LoggerFactory
 import java.io.File
 import io.swagger.v3.oas.models.Operation as SwaggerOperation
 
@@ -19,9 +20,17 @@ data class Operation(
     val path: String,
     val requestContentType: String?,
     val statusCode: Int
-)
+) {
+    fun hasRequestContentType(): Boolean = requestContentType != null
+
+    fun isJsonContent(): Boolean = hasRequestContentType() && requestContentType!!.lowercase().contains("json")
+
+    fun isYamlContent(): Boolean = hasRequestContentType() && requestContentType!!.lowercase().contains("yaml")
+}
 
 class OpenApiSpec(private val specFile: File) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     private val openApi = run {
         val options = ParseOptions().apply {
             isResolve = true
@@ -82,28 +91,29 @@ class OpenApiSpec(private val specFile: File) {
         }?.key
 
     fun validateRequestBody(body: String, operation: Operation): List<Error> {
-        // No request body because this operation does not have request content
-        // We verify that all valid request bodies have been sent because we check that all valid operations have been exercised
-        // in the conformance tests
-        if (operation.requestContentType == null) {
-            return emptyList()
-        }
+        require(operation.hasRequestContentType())
 
-        val requestBodyPath = "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody"
-        val basePath = resolveRef(requestBodyPath)
-        val pointer = "$basePath/content/${operation.requestContentType.escapeJsonPointer()}/schema"
-        return validate(pointer, body)
+        return when {
+            operation.isJsonContent() || operation.isYamlContent() -> {
+                val requestBodyPath =
+                    "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody"
+                val basePath = resolveRef(requestBodyPath)
+                val pointer = "$basePath/content/${operation.requestContentType!!.escapeJsonPointer()}/schema"
+                validate(pointer, body)
+            }
+
+            else -> {
+                logger.warn("no support for validating requests of type ${operation.requestContentType}\nbody=${body}")
+                emptyList()
+            }
+        }
     }
 
     fun validateResponseBody(
-        body: String, operation: Operation, responseContentType: String?
+        body: String, operation: Operation, responseContentType: String
     ): List<Error> {
-        // See comment in validateRequestBody for details
-        if (responseContentType == null) {
-            return emptyList()
-        }
-
-        val responsePath = "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/responses/${operation.statusCode}"
+        val responsePath =
+            "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/responses/${operation.statusCode}"
         val basePath = resolveRef(responsePath)
         val pointer = "$basePath/content/${responseContentType.escapeJsonPointer()}/schema"
         return validate(pointer, body)
@@ -114,8 +124,8 @@ class OpenApiSpec(private val specFile: File) {
     // In that case, we follow the $ref so the caller can continue building the pointer from the target.
     private fun resolveRef(path: String): String {
         val node = rootNode.at(path)
-        return if (node.has("\$ref")) {
-            node.get("\$ref").asText().removePrefix("#")
+        return if (node.has($$"$ref")) {
+            node.get($$"$ref").asText().removePrefix("#")
         } else {
             path
         }
@@ -140,7 +150,8 @@ class OpenApiSpec(private val specFile: File) {
     private fun String.escapeJsonPointer(): String = replace("~", "~0").replace("/", "~1")
 
     companion object {
-        private val schemaRegistry = SchemaRegistry.withDialect(Dialects.getOpenApi30()) // TODO: Make this configurable when we add OpenAPI 3.1 specs
+        private val schemaRegistry =
+            SchemaRegistry.withDialect(Dialects.getOpenApi30()) // TODO: Make this configurable when we add OpenAPI 3.1 specs
         private val yamlMapper = ObjectMapper(YAMLFactory())
     }
 }
