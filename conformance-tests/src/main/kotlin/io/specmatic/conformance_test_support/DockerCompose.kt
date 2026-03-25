@@ -31,7 +31,7 @@ class DockerCompose(
     }
 
     fun mustGetAllLogs(): String {
-        val command = buildCommand("logs", "--no-color")
+        val command = buildCommand("logs", "--no-color", "--timestamps")
         val commandResult = run(command, 5, TimeUnit.SECONDS)
         return when {
             commandResult.isSuccessful() -> commandResult.output

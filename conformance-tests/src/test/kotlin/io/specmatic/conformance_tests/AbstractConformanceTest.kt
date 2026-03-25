@@ -72,6 +72,7 @@ abstract class AbstractConformanceTest(
             .withFailMessage {
                 debugInfoBuilder
                     .appendLine("specOps - exchangeOps: ${specOps - exchangeOps}")
+                    .appendLine()
                     .appendLine(allLogs)
                     .toString()
             }
