@@ -6,6 +6,7 @@
     </appender>
 
     <logger name="conformance_tests" level="debug"/>
+    <logger name="com.networknt.schema.keyword.UnknownKeywordFactory" level="error"/>
 
     <root level="info">
         <appender-ref ref="STDOUT"/>

@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.networknt.schema.Error
+import com.networknt.schema.Schema
+import com.networknt.schema.SchemaLocation
 import com.networknt.schema.SchemaRegistry
-import com.networknt.schema.SpecificationVersion
 import com.networknt.schema.dialect.Dialects
 import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.oas.models.PathItem
 import io.swagger.v3.parser.core.models.ParseOptions
-import io.swagger.v3.core.util.Json
 import java.io.File
 import io.swagger.v3.oas.models.Operation as SwaggerOperation
 
@@ -25,13 +25,17 @@ class OpenApiSpec(private val specFile: File) {
     private val openApi = run {
         val options = ParseOptions().apply {
             isResolve = true
-            isResolveFully = true
+            isResolveFully = false
         }
         val result = OpenAPIParser().readLocation(specFile.absolutePath, null, options)
         result.openAPI ?: error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
     }
 
-    private val rootNode: JsonNode = Json.mapper().valueToTree(openApi)
+    private val rootNode: JsonNode = yamlMapper.readTree(specFile)
+
+    private val documentSchema: Schema = schemaRegistry.getSchema(
+        SchemaLocation.of(specFile.toURI().toString()), rootNode
+    )
 
     val operations: Set<Operation> = openApi.paths.orEmpty().flatMap { (path, item) ->
         item.readOperationsMap().flatMap { (swaggerMethod: PathItem.HttpMethod, swaggerOperation: SwaggerOperation) ->
@@ -105,8 +109,8 @@ class OpenApiSpec(private val specFile: File) {
         if (schemaNode.isMissingNode) {
             error("can't find schema for $pointer in $specFile")
         }
-        val jsonSchema = schemaRegistry.getSchema(schemaNode)
-        return jsonSchema.validate(yamlMapper.readTree(body))
+        val subSchema = documentSchema.getRefSchema(SchemaLocation.Fragment.of(pointer))
+        return subSchema.validate(yamlMapper.readTree(body))
     }
 
 
