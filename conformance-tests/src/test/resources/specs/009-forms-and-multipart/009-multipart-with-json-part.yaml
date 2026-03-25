@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: "Multipart with JSON-encoded part"
+  version: "1.0"
+paths:
+  /reports:
+    post:
+      operationId: uploadReport
+      summary: Upload a file with a JSON metadata part
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - metadata
+                - file
+              properties:
+                metadata:
+                  type: object
+                  required:
+                    - title
+                    - author
+                  properties:
+                    title:
+                      type: string
+                    author:
+                      type: string
+                file:
+                  type: string
+                  format: binary
+            encoding:
+              metadata:
+                contentType: application/json
+      responses:
+        '201':
+          description: Report created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

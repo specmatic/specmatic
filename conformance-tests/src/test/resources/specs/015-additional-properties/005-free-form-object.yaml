@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: "Free-form object (no properties defined)"
+  version: "1.0"
+paths:
+  /metadata:
+    get:
+      operationId: getMetadata
+      responses:
+        '200':
+          description: Free-form metadata
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      operationId: createMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created

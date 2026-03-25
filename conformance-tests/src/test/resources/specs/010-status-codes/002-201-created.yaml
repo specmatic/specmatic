@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 201 Created"
+  version: "1.0"
+paths:
+  /items:
+    post:
+      operationId: createItem
+      summary: Create an item returning 201
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string

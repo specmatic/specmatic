@@ -40,11 +40,17 @@ data class HttpExchange(
                 .toList()
     }
 
+    // Strip parameters (boundary, charset, etc.) so the media type matches the spec's bare content type.
+    // e.g. "multipart/form-data; boundary=abc123" -> "multipart/form-data"
     val requestContentType: String?
-        get() = requestHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
+        get() = requestHeaders.entries
+            .firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+            ?.value?.substringBefore(";")?.trim()
 
     val responseContentType: String?
-        get() = responseHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
+        get() = responseHeaders.entries
+            .firstOrNull { it.key.equals("content-type", ignoreCase = true) }
+            ?.value?.substringBefore(";")?.trim()
 
     fun isInfraRequest(): Boolean {
         return when (method) {
@@ -54,7 +60,15 @@ data class HttpExchange(
         }
     }
 
-    fun toOperation(spec: OpenApiSpec): Operation {
-        return spec.toOperation(method, path, requestContentType, statusCode) ?: Operation(method, path, requestContentType, statusCode)
-    }
+    val isSuccessful: Boolean
+        get() {
+            return statusCode in 200..299
+        }
+
+    fun toOperation(spec: OpenApiSpec): Operation? = spec.toOperation(method, path, requestContentType, statusCode)
+
+    fun toOperation(): Operation = Operation(method, path, requestContentType, statusCode)
+
+
+    fun toDebugInfo(): String = "$method $path -> $statusCode (requestContentType=$requestContentType)"
 }

@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: "Multipart image upload with content type"
+  version: "1.0"
+paths:
+  /avatars:
+    post:
+      operationId: uploadAvatar
+      summary: Upload an image with explicit content type encoding
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+            encoding:
+              image:
+                contentType: image/png, image/jpeg
+      responses:
+        '201':
+          description: Avatar uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - url
+                properties:
+                  id:
+                    type: integer
+                  url:
+                    type: string

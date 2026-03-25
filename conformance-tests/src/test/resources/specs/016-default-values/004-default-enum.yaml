@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "Default value - enum property"
+  version: "1.0"
+paths:
+  /alerts:
+    get:
+      operationId: listAlerts
+      responses:
+        '200':
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - message
+                  properties:
+                    message:
+                      type: string
+                    severity:
+                      type: string
+                      enum:
+                        - info
+                        - warning
+                        - error
+                      default: info
+    post:
+      operationId: createAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                severity:
+                  type: string
+                  enum:
+                    - info
+                    - warning
+                    - error
+                  default: info
+      responses:
+        '201':
+          description: Created

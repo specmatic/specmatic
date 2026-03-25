@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: "Content negotiation - XML response"
+  version: "1.0"
+paths:
+  /reports:
+    get:
+      operationId: listReports
+      responses:
+        '200':
+          description: Reports as XML
+          content:
+            application/xml:
+              schema:
+                type: object
+                required:
+                  - id
+                  - title
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+    post:
+      operationId: createReport
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+      responses:
+        '201':
+          description: Created

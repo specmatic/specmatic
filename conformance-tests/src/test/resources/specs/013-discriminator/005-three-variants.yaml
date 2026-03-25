@@ -1,0 +1,74 @@
+openapi: 3.0.3
+info:
+  title: "Discriminator with three variants"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Event:
+      oneOf:
+        - $ref: '#/components/schemas/ClickEvent'
+        - $ref: '#/components/schemas/ViewEvent'
+        - $ref: '#/components/schemas/PurchaseEvent'
+      discriminator:
+        propertyName: eventType
+        mapping:
+          click: '#/components/schemas/ClickEvent'
+          view: '#/components/schemas/ViewEvent'
+          purchase: '#/components/schemas/PurchaseEvent'
+    ClickEvent:
+      type: object
+      required:
+        - eventType
+        - elementId
+      properties:
+        eventType:
+          type: string
+        elementId:
+          type: string
+    ViewEvent:
+      type: object
+      required:
+        - eventType
+        - pageUrl
+      properties:
+        eventType:
+          type: string
+        pageUrl:
+          type: string
+    PurchaseEvent:
+      type: object
+      required:
+        - eventType
+        - productId
+        - amount
+      properties:
+        eventType:
+          type: string
+        productId:
+          type: string
+        amount:
+          type: number

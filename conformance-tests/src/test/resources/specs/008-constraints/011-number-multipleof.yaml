@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - number multipleOf (decimal)"
+  version: "1.0"
+paths:
+  /prices:
+    get:
+      operationId: listPrices
+      responses:
+        '200':
+          description: Price list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - item
+                    - price
+                  properties:
+                    item:
+                      type: string
+                    price:
+                      type: number
+                      multipleOf: 0.01
+    post:
+      operationId: createPrice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - item
+                - price
+              properties:
+                item:
+                  type: string
+                price:
+                  type: number
+                  multipleOf: 0.01
+      responses:
+        '201':
+          description: Created

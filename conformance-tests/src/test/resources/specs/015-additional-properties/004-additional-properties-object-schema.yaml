@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "additionalProperties with object schema"
+  version: "1.0"
+paths:
+  /catalogs:
+    get:
+      operationId: getCatalog
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  required:
+                    - price
+                    - stock
+                  properties:
+                    price:
+                      type: number
+                    stock:
+                      type: integer
+    post:
+      operationId: createCatalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: object
+                required:
+                  - price
+                  - stock
+                properties:
+                  price:
+                    type: number
+                  stock:
+                    type: integer
+      responses:
+        '201':
+          description: Created

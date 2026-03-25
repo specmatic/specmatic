@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - integer exclusiveMinimum and exclusiveMaximum"
+  version: "1.0"
+paths:
+  /temperatures:
+    get:
+      operationId: listTemperatures
+      responses:
+        '200':
+          description: Temperature list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - sensor
+                    - celsius
+                  properties:
+                    sensor:
+                      type: string
+                    celsius:
+                      type: integer
+                      exclusiveMinimum: -273
+                      exclusiveMaximum: 1000
+    post:
+      operationId: createTemperature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sensor
+                - celsius
+              properties:
+                sensor:
+                  type: string
+                celsius:
+                  type: integer
+                  exclusiveMinimum: -273
+                  exclusiveMaximum: 1000
+      responses:
+        '201':
+          description: Created

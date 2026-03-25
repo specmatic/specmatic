@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "$ref in array items"
+  version: "1.0"
+paths:
+  /classrooms:
+    get:
+      operationId: listClassrooms
+      responses:
+        '200':
+          description: Classroom list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Classroom'
+    post:
+      operationId: createClassroom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Classroom'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Student:
+      type: object
+      required:
+        - name
+        - grade
+      properties:
+        name:
+          type: string
+        grade:
+          type: integer
+    Classroom:
+      type: object
+      required:
+        - roomNumber
+        - students
+      properties:
+        roomNumber:
+          type: string
+        students:
+          type: array
+          items:
+            $ref: '#/components/schemas/Student'

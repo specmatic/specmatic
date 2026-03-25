@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Pagination - cursor-based"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      summary: List events with cursor-based pagination
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: Paginated events
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - hasMore
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                  hasMore:
+                    type: boolean
+                  nextCursor:
+                    type: string

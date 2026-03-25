@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: "Content negotiation - plain text response"
+  version: "1.0"
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check returning plain text
+      responses:
+        '200':
+          description: Health status
+          content:
+            text/plain:
+              schema:
+                type: string

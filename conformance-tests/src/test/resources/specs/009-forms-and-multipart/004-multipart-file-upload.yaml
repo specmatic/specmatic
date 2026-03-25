@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: "Multipart single file upload"
+  version: "1.0"
+paths:
+  /documents:
+    post:
+      operationId: uploadDocument
+      summary: Upload a single file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - filename
+                properties:
+                  id:
+                    type: integer
+                  filename:
+                    type: string

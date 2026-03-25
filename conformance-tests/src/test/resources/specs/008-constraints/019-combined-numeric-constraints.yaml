@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - combined numeric constraints (minimum + maximum + multipleOf)"
+  version: "1.0"
+paths:
+  /discounts:
+    get:
+      operationId: listDiscounts
+      responses:
+        '200':
+          description: Discount list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - percent
+                  properties:
+                    label:
+                      type: string
+                    percent:
+                      type: integer
+                      minimum: 5
+                      maximum: 50
+                      multipleOf: 5
+    post:
+      operationId: createDiscount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - label
+                - percent
+              properties:
+                label:
+                  type: string
+                percent:
+                  type: integer
+                  minimum: 5
+                  maximum: 50
+                  multipleOf: 5
+      responses:
+        '201':
+          description: Created

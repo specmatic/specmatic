@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - readOnly and writeOnly"
+  version: "1.0"
+paths:
+  /accounts:
+    get:
+      operationId: listAccounts
+      responses:
+        '200':
+          description: Account list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - email
+                  properties:
+                    id:
+                      type: integer
+                      readOnly: true
+                    email:
+                      type: string
+                    password:
+                      type: string
+                      writeOnly: true
+    post:
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                id:
+                  type: integer
+                  readOnly: true
+                email:
+                  type: string
+                password:
+                  type: string
+                  writeOnly: true
+      responses:
+        '201':
+          description: Created

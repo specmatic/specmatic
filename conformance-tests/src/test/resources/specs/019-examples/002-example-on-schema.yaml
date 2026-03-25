@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Example on schema object"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - price
+                  properties:
+                    name:
+                      type: string
+                    price:
+                      type: number
+                  example:
+                    name: Widget
+                    price: 9.99
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+              example:
+                name: Widget
+                price: 9.99
+      responses:
+        '201':
+          description: Created
