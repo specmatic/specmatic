@@ -27,8 +27,12 @@ abstract class AbstractConformanceTest(
 
     @BeforeAll
     fun setup() {
+        val specmaticVersionForConformanceTests = System.getProperty("specmaticVersionForConformanceTests")
         dockerCompose = DockerCompose(
-            specmaticVersion = VersionInfo.version,
+            specmaticVersion = when {
+                specmaticVersionForConformanceTests.isNullOrBlank() -> VersionInfo.version
+                else -> specmaticVersionForConformanceTests
+            },
             mitmProxyVersion = "12.2.1",
             pathToOpenAPISpecFile = openAPISpecFile,
             workDir = workDir,
@@ -50,7 +54,7 @@ abstract class AbstractConformanceTest(
     @Order(1)
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
-            .withFailMessage { allLogs }
+            .withFailMessage { "$loopTestsResult.output\n\n$allLogs" }
             .isTrue
     }
 
