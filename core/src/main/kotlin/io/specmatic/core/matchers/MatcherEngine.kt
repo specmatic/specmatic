@@ -15,9 +15,5 @@ interface MatcherEngine {
         fun load(): MatcherEngine? {
             return ServiceLoader.load(MatcherEngine::class.java).firstOrNull()
         }
-
-        fun loadOrThrow(): MatcherEngine {
-            return this.load() ?: throw IllegalStateException("Matcher is not supported in Specmatic Open Source")
-        }
     }
 }
