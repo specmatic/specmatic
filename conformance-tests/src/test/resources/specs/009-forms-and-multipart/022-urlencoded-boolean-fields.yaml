@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with boolean fields"
+  version: "1.0"
+paths:
+  /notifications:
+    post:
+      operationId: updateNotifications
+      summary: Update notification preferences with boolean fields
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - userId
+                - emailEnabled
+                - smsEnabled
+              properties:
+                userId:
+                  type: string
+                emailEnabled:
+                  type: boolean
+                smsEnabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updated
+                properties:
+                  updated:
+                    type: boolean

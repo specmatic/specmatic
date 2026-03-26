@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with string pattern constraints"
+  version: "1.0"
+paths:
+  /verifications:
+    post:
+      operationId: submitVerification
+      summary: Submit a phone verification with pattern-constrained fields
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - phoneNumber
+                - code
+              properties:
+                phoneNumber:
+                  type: string
+                  pattern: '^\+[1-9]\d{1,14}$'
+                code:
+                  type: string
+                  pattern: '^\d{6}$'
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - verified
+                properties:
+                  verified:
+                    type: boolean
