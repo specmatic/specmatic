@@ -22,12 +22,14 @@ dependencies {
 }
 
 val enableConformanceTests: String? by project
+val specmaticVersionForConformanceTests: String? by project
 
 tasks.test {
     useJUnitPlatform()
 
     if (enableConformanceTests?.toBoolean() == true) {
         dependsOn(":specmatic-executable:dockerBuild")
+        systemProperty("specmaticVersionForConformanceTests", specmaticVersionForConformanceTests)
     } else {
         exclude("io/specmatic/conformance_tests/")
     }
