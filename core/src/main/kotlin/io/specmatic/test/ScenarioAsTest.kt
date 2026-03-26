@@ -123,7 +123,7 @@ data class ScenarioAsTest(
         try {
             val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
             if (beforeFixtureExecutionResult.isSuccess().not()) {
-                return ContractTestExecutionResult(result = beforeFixtureExecutionResult)
+                return ContractTestExecutionResult(result = beforeFixtureExecutionResult.updateScenario(testScenario))
             }
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
@@ -155,17 +155,6 @@ data class ScenarioAsTest(
             //TODO: Review - Do we need workflow anymore
             workflow.extractDataFrom(response, originalScenario)
             val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, response) }.firstOrNull()
-
-            if(validatorResult !is Result.Failure) {
-                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
-                if (afterFixtureExecutionResult.isSuccess().not()) {
-                    return ContractTestExecutionResult(
-                        result = afterFixtureExecutionResult,
-                        request = request,
-                        response = response
-                    )
-                }
-            }
 
             if (validatorResult is Result.Failure) {
                 return ContractTestExecutionResult(
@@ -209,6 +198,16 @@ data class ScenarioAsTest(
 
             testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
 
+            if(result !is Result.Failure) {
+                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+                if (afterFixtureExecutionResult.isSuccess().not()) {
+                    return ContractTestExecutionResult(
+                        result = afterFixtureExecutionResult.withBindings(testScenario.bindings, response),
+                        request = request,
+                        response = response
+                    )
+                }
+            }
             return ContractTestExecutionResult(
                 result = result.withBindings(testScenario.bindings, response),
                 request = request,
