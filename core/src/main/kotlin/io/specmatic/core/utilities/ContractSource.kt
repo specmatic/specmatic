@@ -18,7 +18,6 @@ sealed interface ContractSource {
     val testContracts: List<ContractSourceEntry>
     val stubContracts: List<ContractSourceEntry>
     fun pathDescriptor(path: String): String
-    fun install(workingDirectory: File)
     fun directoryRelativeTo(workingDirectory: File): File
     fun getLatest(sourceGit: SystemGit)
     fun pushUpdates(sourceGit: SystemGit)
