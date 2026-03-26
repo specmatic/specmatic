@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - discriminator with nullable type array"
+  version: "1.0"
+paths:
+  /notifications:
+    get:
+      operationId: listNotifications
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+    post:
+      operationId: createNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Notification'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Notification:
+      oneOf:
+        - $ref: '#/components/schemas/EmailNotification'
+        - $ref: '#/components/schemas/SmsNotification'
+      discriminator:
+        propertyName: channel
+        mapping:
+          email: '#/components/schemas/EmailNotification'
+          sms: '#/components/schemas/SmsNotification'
+    EmailNotification:
+      type: object
+      required:
+        - channel
+        - emailAddress
+        - subject
+      properties:
+        channel:
+          type: string
+        emailAddress:
+          type: string
+        subject:
+          type: string
+        cc:
+          type:
+            - string
+            - "null"
+    SmsNotification:
+      type: object
+      required:
+        - channel
+        - phoneNumber
+        - message
+      properties:
+        channel:
+          type: string
+        phoneNumber:
+          type: string
+        message:
+          type: string
+        senderId:
+          type:
+            - string
+            - "null"

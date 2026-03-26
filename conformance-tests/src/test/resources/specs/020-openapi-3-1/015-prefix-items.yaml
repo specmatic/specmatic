@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - prefixItems tuple validation"
+  version: "1.0"
+paths:
+  /coordinates:
+    get:
+      operationId: listCoordinates
+      responses:
+        '200':
+          description: Coordinate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Coordinate'
+    post:
+      operationId: createCoordinate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Coordinate'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Coordinate:
+      type: object
+      required:
+        - label
+        - position
+      properties:
+        label:
+          type: string
+        position:
+          type: array
+          prefixItems:
+            - type: number
+            - type: number
+          items: false

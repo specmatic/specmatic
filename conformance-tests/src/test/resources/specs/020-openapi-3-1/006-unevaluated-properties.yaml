@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - unevaluatedProperties"
+  version: "1.0"
+paths:
+  /animals:
+    get:
+      operationId: listAnimals
+      responses:
+        '200':
+          description: Animal list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dog'
+    post:
+      operationId: createAnimal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dog'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Animal:
+      type: object
+      required:
+        - id
+        - species
+      properties:
+        id:
+          type: integer
+        species:
+          type: string
+    Dog:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required:
+            - breed
+          properties:
+            breed:
+              type: string
+      unevaluatedProperties: false

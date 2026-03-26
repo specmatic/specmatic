@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - patternProperties"
+  version: "1.0"
+paths:
+  /configs:
+    get:
+      operationId: listConfigs
+      responses:
+        '200':
+          description: Config list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - labels
+                  properties:
+                    name:
+                      type: string
+                    labels:
+                      type: object
+                      patternProperties:
+                        "^x-":
+                          type: string
+                      additionalProperties: false
+    post:
+      operationId: createConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - labels
+              properties:
+                name:
+                  type: string
+                labels:
+                  type: object
+                  patternProperties:
+                    "^x-":
+                      type: string
+                  additionalProperties: false
+      responses:
+        '201':
+          description: Created

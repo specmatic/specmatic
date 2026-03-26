@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - type arrays in query parameters"
+  version: "1.0"
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      parameters:
+        - name: minPrice
+          in: query
+          required: false
+          schema:
+            type:
+              - number
+              - "null"
+        - name: category
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - category
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        price:
+          type: number

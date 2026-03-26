@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - contentMediaType and contentEncoding"
+  version: "1.0"
+paths:
+  /documents:
+    get:
+      operationId: listDocuments
+      responses:
+        '200':
+          description: Document list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - content
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    content:
+                      type: string
+                      contentMediaType: application/pdf
+                      contentEncoding: base64
+    post:
+      operationId: createDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+                - content
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                content:
+                  type: string
+                  contentMediaType: application/pdf
+                  contentEncoding: base64
+      responses:
+        '201':
+          description: Created

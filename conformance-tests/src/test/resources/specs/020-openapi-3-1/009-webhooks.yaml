@@ -1,0 +1,79 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - webhooks"
+  version: "1.0"
+paths:
+  /subscriptions:
+    get:
+      operationId: listSubscriptions
+      responses:
+        '200':
+          description: Subscription list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - callbackUrl
+                    - event
+                  properties:
+                    id:
+                      type: integer
+                    callbackUrl:
+                      type: string
+                    event:
+                      type: string
+    post:
+      operationId: createSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - callbackUrl
+                - event
+              properties:
+                id:
+                  type: integer
+                callbackUrl:
+                  type: string
+                event:
+                  type: string
+      responses:
+        '201':
+          description: Created
+webhooks:
+  orderStatusChanged:
+    post:
+      operationId: onOrderStatusChanged
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+                - status
+                - timestamp
+              properties:
+                orderId:
+                  type: integer
+                status:
+                  type: string
+                  enum:
+                    - pending
+                    - shipped
+                    - delivered
+                timestamp:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Webhook received

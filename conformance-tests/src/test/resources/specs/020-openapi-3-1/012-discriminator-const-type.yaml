@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - discriminator with const type values"
+  version: "1.0"
+paths:
+  /shapes:
+    get:
+      operationId: listShapes
+      responses:
+        '200':
+          description: Shape list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shape'
+    post:
+      operationId: createShape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shape'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Rectangle'
+      discriminator:
+        propertyName: shapeType
+    Circle:
+      type: object
+      required:
+        - shapeType
+        - radius
+      properties:
+        shapeType:
+          const: "circle"
+        radius:
+          type: number
+    Rectangle:
+      type: object
+      required:
+        - shapeType
+        - width
+        - height
+      properties:
+        shapeType:
+          const: "rectangle"
+        width:
+          type: number
+        height:
+          type: number

@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - type as array (union types)"
+  version: "1.0"
+paths:
+  /settings:
+    get:
+      operationId: listSettings
+      responses:
+        '200':
+          description: Settings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - key
+                    - value
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      type:
+                        - string
+                        - integer
+                        - boolean
+    post:
+      operationId: createSetting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                value:
+                  type:
+                    - string
+                    - integer
+                    - boolean
+      responses:
+        '201':
+          description: Created

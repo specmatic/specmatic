@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - dependentSchemas"
+  version: "1.0"
+paths:
+  /orders:
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingOrder'
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingOrder'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    ShippingOrder:
+      type: object
+      required:
+        - orderId
+        - method
+      properties:
+        orderId:
+          type: integer
+        method:
+          type: string
+        trackingNumber:
+          type: string
+        carrier:
+          type: string
+      dependentSchemas:
+        trackingNumber:
+          required:
+            - carrier
