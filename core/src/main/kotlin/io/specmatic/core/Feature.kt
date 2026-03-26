@@ -19,6 +19,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
+import io.specmatic.core.utilities.Decision
 import io.specmatic.core.value.*
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.NoMatchingScenario
@@ -812,71 +813,69 @@ data class Feature(
         return EarlyResult.Failures(failures.filterIsInstance<Result.Failure>())
     }
 
-    private fun failureResults(results: List<Pair<HttpStubData?, Result>>): Results =
-        Results(results.map { it.second }.filterIsInstance<Result.Failure>().toMutableList())
+    private fun Decision<ReturnValue<Scenario>, Scenario>.normalizeAcceptHeader(): Decision<ReturnValue<Scenario>, Scenario> {
+        return this.map { generatedScenarioReturnValue, originalScenario ->
+            if (generatedScenarioReturnValue !is HasValue) return@map generatedScenarioReturnValue
+            val normalisedScenario = normaliseAcceptHeaderForContractTest(generatedScenario = generatedScenarioReturnValue.value, originalScenario = originalScenario)
+            HasValue(normalisedScenario, generatedScenarioReturnValue.valueDetails)
+        }
+    }
+
+    private fun Decision<ReturnValue<Scenario>, Scenario>.checkAcceptCompatibility(): Decision<ReturnValue<Scenario>, Scenario> {
+        return this.flatMap { generatedScenarioReturnValue, originalScenario, reasoning ->
+            if (generatedScenarioReturnValue !is HasValue) {
+                return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
+            }
+
+            val responseContentType = originalScenario.responseContentType
+            val generatedHeaders = generatedScenarioReturnValue.value.generateHttpRequest().headers
+            val isCompatible = isAcceptHeaderCompatibleWithResponse(requestHeaders = generatedHeaders, responseContentType = responseContentType)
+            if (isCompatible) {
+                return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
+            }
+
+            Decision.Skip(context = originalScenario, reasoning = Reasoning(mainReason = TestRuleViolations.ACCEPT_MISMATCH))
+        }
+    }
 
     fun generateContractTests(
         suggestions: List<Scenario>,
         originalScenarios: List<Scenario> = scenarios,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ContractTest> {
+        val scenarioDecisions = originalScenarios.asSequence().map { Decision.Execute(it, it) }
+        return generateContractTestsWithDecision(suggestions, originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
+            if (decision !is Decision.Execute) return@mapNotNull null
+            return@mapNotNull decision.value
+        }
+    }
+
+    fun generateContractTestsWithDecision(
+        suggestions: List<Scenario>,
+        originalScenarios: List<Scenario>,
+        scenarios: Sequence<Decision<Scenario, Scenario>>,
+        fn: (Scenario, Row) -> Scenario = { s, _ -> s },
+    ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
-
-        return generateContractTestScenarios(
-            suggestions,
-            fn,
-            originalScenarios
-        ).map { generatedScenarioPair ->
-            val (originalScenario, generatedScenarioReturnValue) = generatedScenarioPair
-
-            when (generatedScenarioReturnValue) {
-                is HasValue -> {
-                    val normalisedScenario = normaliseAcceptHeaderForContractTest(
-                        generatedScenario = generatedScenarioReturnValue.value,
-                        originalScenario = originalScenario
-                    )
-                    Pair(originalScenario, HasValue(normalisedScenario, generatedScenarioReturnValue.valueDetails))
-                }
-
-                else -> generatedScenarioPair
+        return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).map { decision ->
+            decision.normalizeAcceptHeader().checkAcceptCompatibility()
+        }.map { decision ->
+            decision.flatMap { returnValue, originalScenario, reasoning ->
+                returnValue.realise(
+                    hasValue = { concreteTestScenario, comment ->
+                        val scenarioAsTest = scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
+                        Decision.Execute(scenarioAsTest, originalScenario, reasoning)
+                    },
+                    orFailure = {
+                        val testGenerationFailure = ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType)
+                        Decision.Execute(testGenerationFailure, originalScenario, reasoning)
+                    },
+                    orException = {
+                        val testGenerationException = ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType)
+                        Decision.Execute(testGenerationException, originalScenario, reasoning)
+                    }
+                )
             }
-        }.filter { generatedScenarioPair ->
-            generatedScenarioPair.second.withDefault(true) { generatedScenario ->
-                val responseContentType = generatedScenario.responseContentType
-                val isCompatible = runCatching {
-                    isAcceptHeaderCompatibleWithResponse(
-                        requestHeaders = generatedScenario.generateHttpRequest().headers,
-                        responseContentType = responseContentType
-                    )
-                }.getOrDefault(true)
-
-                if (!isCompatible && generatedScenario.exampleRow?.isEmpty() == false) {
-                    val exampleName = generatedScenario.exampleRow.name.takeUnless { it.isBlank() } ?: "(unnamed example)"
-                    val responseContentTypeClause = responseContentType?.let {
-                        ". Response Content-Type: $it"
-                    }.orEmpty()
-                    logger.debug(
-                        "Dropping generated contract test scenario due to Accept mismatch for example named " +
-                            "\"$exampleName\" for API \"${generatedScenario.method} ${generatedScenario.path}\"" +
-                            responseContentTypeClause
-                    )
-                }
-
-                isCompatible
-            }
-        }.map { generatedScenarioPair ->
-            val (originalScenario, returnValue) = generatedScenarioPair
-            returnValue.realise(
-                hasValue = { concreteTestScenario, comment ->
-                    scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
-                },
-                orFailure = {
-                    ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType)
-                },
-                orException = {
-                    ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType)
-                }
-            )
         }
     }
 
@@ -999,73 +998,97 @@ data class Feature(
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
         originalScenarios: List<Scenario> = scenarios
     ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
-        val positiveTestScenarios = positiveTestScenarios(suggestions, fn)
+        val scenarioDecisions = originalScenarios.asSequence().map { Decision.Execute(it, it) }
+        return generateContractTestScenariosWithDecision(suggestions, originalScenarios,scenarioDecisions, fn).mapNotNull { decision ->
+            if (decision !is Decision.Execute) return@mapNotNull null
+            return@mapNotNull Pair(decision.context, decision.value)
+        }
+    }
 
+    fun generateContractTestScenariosWithDecision(
+        suggestions: List<Scenario>,
+        originalScenarios: List<Scenario>,
+        scenarios: Sequence<Decision<Scenario, Scenario>>,
+        fn: (Scenario, Row) -> Scenario = { s, _ -> s },
+    ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
+        val positiveTestScenarios = positiveTestScenariosWithDecision(suggestions, scenarios, fn)
         return if (!specmaticConfig.isResiliencyTestingEnabled() || specmaticConfig.isOnlyPositiveTestingEnabled())
             positiveTestScenarios
         else
-            positiveTestScenarios + negativeTestScenarios(originalScenarios)
+            positiveTestScenarios + negativeTestScenariosWithDecision(scenarios, originalScenarios)
     }
 
-    private fun positiveTestScenarios(
+    private fun positiveTestScenariosWithDecision(
         suggestions: List<Scenario>,
-        fn: (Scenario, Row) -> Scenario = { s, _ -> s }
-    ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> =
-        scenarios.asSequence().filter {
-            it.isA2xxScenario() || it.examples.isNotEmpty() || it.isGherkinScenario
-        }.filter {
-            !strictMode || it.hasExampleRows()
-        }.map {
-            it.newBasedOn(suggestions)
-        }.flatMap { originalScenario ->
-            val resolverStrategies = if (originalScenario.isA2xxScenario())
-                flagsBased
-            else
-                flagsBased.withoutGenerativeTests()
+        scenarios: Sequence<Decision<Scenario, Scenario>>,
+        fn: (Scenario, Row) -> Scenario = { s, _ -> s },
+    ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
+        val resiliencyTestSuite = specmaticConfig.getResiliencyTestsEnabled()
+        return scenarios.mapNotNull { scenarioDecision ->
+            if (scenarioDecision !is Decision.Execute) return@mapNotNull scenarioDecision
+            scenarioDecision.value.newBasedOnWithDecision(suggestions, strictMode, resiliencyTestSuite)
+        }.flatMap { scenarioDecision ->
+            scenarioDecision.flatMapSequence { scenario, _, reasoning ->
+                val resolverStrategies = if (scenario.isA2xxScenario()) {
+                    flagsBased
+                } else {
+                    flagsBased.withoutGenerativeTests()
+                }
 
-            originalScenario.generateTestScenarios(
-                resolverStrategies,
-                testVariables,
-                testBaseURLs,
-                fn
-            ).map {
-                getScenarioWithDescription(it)
-            }.map {
-                Pair(originalScenario.copy(generativePrefix = flagsBased.positivePrefix), it)
+                scenario.generateTestScenarios(
+                    fn = fn,
+                    variables = testVariables,
+                    testBaseURLs = testBaseURLs,
+                    flagsBased = resolverStrategies,
+                ).map { generatedScenario ->
+                    val scenarioWithPrefix = scenario.copy(generativePrefix = flagsBased.positivePrefix)
+                    val returnValueWithDescription = getScenarioWithDescription(generatedScenario)
+                    val updatedReasoning = updatePositiveGenerationReasoning(resolverStrategies, generatedScenario, reasoning)
+                    Decision.Execute(returnValueWithDescription, scenarioWithPrefix, updatedReasoning)
+                }
             }
         }
+    }
 
     fun negativeTestScenarios(originalScenarios: List<Scenario> = scenarios): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
-        return originalScenarios.asSequence().filter {
-            it.isA2xxScenario()
-        }.filter {
-            !strictMode || it.hasExampleRows()
-        }.flatMap { originalScenario ->
-            val badRequestOrDefault = getBadRequestsOrDefault(originalScenario)
-            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, originalScenario, originalScenarios)) {
-                return@flatMap emptySequence()
+        val scenarioDecisions = originalScenarios.asSequence().map { Decision.Execute(it, it) }
+        return negativeTestScenariosWithDecision(scenarioDecisions, originalScenarios).mapNotNull { decision ->
+            if (decision !is Decision.Execute) return@mapNotNull null
+            return@mapNotNull Pair(decision.context, decision.value)
+        }
+    }
+
+    fun negativeTestScenariosWithDecision(scenarios: Sequence<Decision<Scenario, Scenario>>, originalScenarios: List<Scenario>): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
+        return scenarios.mapNotNull { scenarioDecision ->
+            if (scenarioDecision !is Decision.Execute) return@mapNotNull scenarioDecision
+            val badRequestOrDefault = getBadRequestsOrDefault(scenarioDecision.value)
+            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenarioDecision.value, originalScenarios)) {
+                return@mapNotNull null
             }
 
-            val negativeScenario = originalScenario.negativeBasedOn(badRequestOrDefault)
-            val negativeTestScenarios =
-                negativeScenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).map {
-                    getScenarioWithDescription(it)
+            scenarioDecision.value.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
+        }.flatMap { scenarioDecision ->
+            scenarioDecision.flatMapSequence { scenario, _, reasoning ->
+                scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
+                    negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
+                        val sampleRequest = negativeTestScenario.generateHttpRequest()
+                        scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()
+                    }
+                }.mapIndexed { index, negativeTestScenarioR ->
+                    val returnValueWithDescription = getScenarioWithDescription(negativeTestScenarioR)
+                    Decision.Execute(returnValueWithDescription.ifValue { negativeTestScenario ->
+                        negativeTestScenario.copy(generativePrefix = flagsBased.negativePrefix, disambiguate = { "[${(index + 1)}] " })
+                    }, scenario, reasoning)
                 }
-
-            negativeTestScenarios.filterNot { negativeTestScenarioR ->
-                negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
-                    val sampleRequest = negativeTestScenario.generateHttpRequest()
-                    originalScenario.httpRequestPattern.matches(sampleRequest, originalScenario.resolver).isSuccess()
-                }
-            }.mapIndexed { index, negativeTestScenarioR ->
-                Pair(negativeScenario, negativeTestScenarioR.ifValue { negativeTestScenario ->
-                    negativeTestScenario.copy(
-                        generativePrefix = flagsBased.negativePrefix,
-                        disambiguate = { "[${(index + 1)}] " }
-                    )
-                })
             }
         }
+    }
+
+    private fun updatePositiveGenerationReasoning(flagsBased: FlagsBased, scenario: ReturnValue<Scenario>, reasoning: Reasoning): Reasoning {
+        if (scenario !is HasValue || scenario.value.generatedFrom == GeneratedScenarioOrigin.EXAMPLE_ROW) return reasoning
+        if (flagsBased.generation !is GenerativeTestsEnabled) return reasoning
+        if (!specmaticConfig.isResiliencyTestingEnabled()) return reasoning
+        return reasoning.withMainReason(TestExecutionReason.executedPositiveGen())
     }
 
     private fun badRequestOrDefaultWasFilteredOut(
@@ -2380,6 +2403,18 @@ data class Feature(
     fun validateAndFilterExamples(): Pair<Feature, Result> {
         val result = scenarios.map { scenario -> scenario.validateAndFilterExamples(flagsBased) }
         return Pair(this.copy(scenarios = result.map { it.first }), Result.fromResults(result.map { it.second }))
+    }
+
+    fun validateAndFilterExamples(scenarioDecisions: Sequence<Decision<Scenario, Scenario>>): Pair<Sequence<Decision<Scenario, Scenario>>, Result> {
+        val validatedScenariosWithResult = scenarioDecisions.map { scenarioDecision ->
+            if (scenarioDecision !is Decision.Execute) return@map Pair(scenarioDecision, Success())
+            val (validatedScenario, result) = scenarioDecision.value.validateAndFilterExamples(flagsBased)
+            Decision.Execute(validatedScenario, scenarioDecision.context, scenarioDecision.reasoning) to result
+        }.toList()
+
+        val validatedScenarioDecisions = validatedScenariosWithResult.map { it.first }.asSequence()
+        val validationResult = Result.fromResults(validatedScenariosWithResult.map { it.second })
+        return validatedScenarioDecisions to validationResult
     }
 
     fun validateExamplesOrException(disallowExtraHeaders: Boolean = true) {

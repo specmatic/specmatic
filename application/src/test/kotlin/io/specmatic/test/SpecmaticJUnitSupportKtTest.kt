@@ -1,6 +1,7 @@
 package io.specmatic.test
 
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.utilities.Decision
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -10,7 +11,10 @@ fun <T> selectTestsToRunWrapper(
     filterNotName: String? = null,
     getTestDescription: (T) -> String
 ): List<T> {
-    return selectTestsToRun(testScenarios, filterName, filterNotName, getTestDescription).toList()
+    return selectTestsToRun(testScenarios, filterName, filterNotName, getTestDescription).mapNotNull { decision ->
+        if (decision !is Decision.Execute) return@mapNotNull null
+        decision.value
+    }.toList()
 }
 
 class SpecmaticJUnitSupportKtTest {

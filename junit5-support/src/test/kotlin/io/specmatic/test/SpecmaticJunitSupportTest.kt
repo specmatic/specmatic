@@ -25,6 +25,7 @@ import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
@@ -474,14 +475,10 @@ paths:
                 filter = ScenarioMetadataFilter.from("")
             )
 
+            // Verify the test name contains the correct endpoint and size
             val testsWithStrictModeList = testsWithStrictMode.toList()
-            val testCountWithStrictMode = testsWithStrictModeList.size
-
-            // Only GET /users/{id} should generate tests (has external example)
-            assertThat(testCountWithStrictMode).isEqualTo(1)
-
-            // Verify the test name contains the correct endpoint
-            val testDescriptionsWithStrictMode = testsWithStrictModeList.map { it.testDescription() }
+            val testDescriptionsWithStrictMode = testsWithStrictModeList.executedTestDescriptions()
+            assertThat(testDescriptionsWithStrictMode.size).isEqualTo(1)
             assertThat(testDescriptionsWithStrictMode).allMatch {
                 it.contains("GET /users/(id:number) -> 200")
             }
@@ -514,14 +511,10 @@ paths:
                 filter = ScenarioMetadataFilter.from("")
             )
 
+            // Verify test names include both endpoints and size
             val testsWithoutStrictModeList = testsWithoutStrictMode.toList()
-            val testCountWithoutStrictMode = testsWithoutStrictModeList.size
-
-            // Both endpoints should generate tests when strictMode is false
-            assertThat(testCountWithoutStrictMode).isGreaterThan(1)
-
-            // Verify test names include both endpoints
-            val testDescriptionsWithoutStrictMode = testsWithoutStrictModeList.map { it.testDescription() }
+            val testDescriptionsWithoutStrictMode = testsWithoutStrictModeList.executedTestDescriptions()
+            assertThat(testDescriptionsWithoutStrictMode.size).isGreaterThan(1)
             assertThat(testDescriptionsWithoutStrictMode).anyMatch {
                 it.contains("GET /users/(id:number) -> 200")
             }
@@ -544,7 +537,7 @@ paths:
             filter = ScenarioMetadataFilter.from("!(PATH='/products' && METHOD='POST' && STATUS='201')")
         )
 
-        assertThat(testData.scenarios.map { it.testDescription() }.toList()).doesNotContain(" Scenario: POST /products -> 201 with the request from the example 'SUCCESS'")
+        assertThat(testData.scenarios.executedTestDescriptions()).doesNotContain(" Scenario: POST /products -> 201 with the request from the example 'SUCCESS'")
         assertThat(testData.allEndpoints).contains(
             Endpoint(
                 path = "/products",
@@ -596,7 +589,7 @@ paths:
             )
         }
 
-        assertThat(loaded.scenarios.map { it.testDescription() }.toList()).allMatch { it.contains("GET /order_action_figure") }
+        assertThat(loaded.scenarios.executedTestDescriptions()).allMatch { it.contains("GET /order_action_figure") }
     }
 
     @Test
@@ -616,7 +609,7 @@ paths:
             )
         }
 
-        assertThat(loaded.scenarios.map { it.testDescription() }.toList())
+        assertThat(loaded.scenarios.executedTestDescriptions())
             .hasSize(1)
             .allMatch { it.contains("GET /orders -> 200") }
     }
@@ -636,7 +629,7 @@ paths:
             filter = ScenarioMetadataFilter.from("")
         )
 
-        val testDescriptions = loaded.scenarios.map { it.testDescription() }.toList()
+        val testDescriptions = loaded.scenarios.executedTestDescriptions()
         assertThat(loaded.exampleValidationResult).isInstanceOf(Result.Failure::class.java)
         assertThat(loaded.exampleValidationResult.reportString()).contains("invalid_test_GET_200.json").contains("Error loading example")
         assertThat(testDescriptions).anyMatch { it.contains("POST /test -> 201") }
@@ -1046,4 +1039,18 @@ paths:
         SpecmaticJUnitSupport.settingsStaging.remove()
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
     }
+}
+
+private fun Iterable<Decision<ContractTest, *>>.executedTestDescriptions(): List<String> {
+    return this.mapNotNull { decision ->
+        if (decision is Decision.Execute) decision.value.testDescription()
+        else null
+    }
+}
+
+private fun Sequence<Decision<ContractTest, *>>.executedTestDescriptions(): List<String> {
+    return this.mapNotNull { decision ->
+        if (decision is Decision.Execute) decision.value.testDescription()
+        else null
+    }.toList()
 }

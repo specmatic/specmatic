@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
+
 class BadRequestOrDefault(private val badRequestResponses: Map<Int, HttpResponsePattern>, private val defaultResponse: HttpResponsePattern?) {
     fun matches(httpResponse: HttpResponse, resolver: Resolver): Result =
         when(httpResponse.status) {
@@ -11,4 +13,9 @@ class BadRequestOrDefault(private val badRequestResponses: Map<Int, HttpResponse
 
     fun supports(httpStatus: Int): Boolean =
         httpStatus in badRequestResponses || defaultResponse != null
+
+    fun getBadRequestStatus(): Int {
+        if (badRequestResponses.containsKey(HttpStatusCode.BadRequest.value)) return HttpStatusCode.BadRequest.value
+        return badRequestResponses.keys.firstOrNull() ?: defaultResponse?.status ?: HttpStatusCode.BadRequest.value
+    }
 }

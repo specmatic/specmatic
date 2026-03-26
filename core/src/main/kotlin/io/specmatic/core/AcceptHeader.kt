@@ -9,7 +9,7 @@ fun isAcceptHeaderCompatibleWithResponse(requestHeaders: Map<String, String>, re
     val responseType = responseContentType?.trim().orEmpty()
     if (responseType.isBlank()) return true
 
-    return isResponseContentTypeAccepted(acceptHeader, responseType)
+    return runCatching { isResponseContentTypeAccepted(acceptHeader, responseType) }.getOrDefault(true)
 }
 
 fun isResponseContentTypeAccepted(acceptHeader: String, responseContentType: String): Boolean {
