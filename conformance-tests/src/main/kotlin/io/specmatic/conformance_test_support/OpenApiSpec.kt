@@ -103,8 +103,7 @@ class OpenApiSpec(private val specFile: File) {
             }
 
             else -> {
-                logger.warn("no support for validating requests of type ${operation.requestContentType}\nbody=${body}")
-                emptyList()
+                error("no support for validating requests of type:${operation.requestContentType}\nbody=${body}")
             }
         }
     }
