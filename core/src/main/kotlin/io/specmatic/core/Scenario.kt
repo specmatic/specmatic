@@ -787,7 +787,7 @@ data class Scenario(
     fun newBasedOn(suggestions: List<Scenario>) =
         this.newBasedOn(suggestions.find { it.name == this.name } ?: this)
 
-    fun newBasedOnWithDecision(suggestions: List<Scenario>, strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
+    fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
         val hasExamples = hasExamples()
         val isBadRequest = status == HttpStatusCode.BadRequest.value
 
@@ -813,13 +813,7 @@ data class Scenario(
 
     fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
         if (!this.isA2xxScenario()) return null
-        if (strictMode && !hasExamples()) {
-            val newStatus = badRequestOrDefault?.getBadRequestStatus() ?: HttpStatusCode.BadRequest.value
-            val modifiedScenario = this.copy(httpResponsePattern = httpResponsePattern.copy(status = newStatus))
-            val reason = Reasoning(TestRuleViolations.noExamples2xxAnd400(true))
-            return Decision.Skip(context = modifiedScenario, reasoning = reason)
-        }
-
+        if (strictMode && !hasExamples()) return null
         val reason = Reasoning(TestExecutionReason.executedNegativeGen())
         return Decision.Execute(value = negativeBasedOn(badRequestOrDefault), context = this, reasoning = reason)
     }
