@@ -166,7 +166,8 @@ class OpenApiSpec(private val specFile: File) {
         val obj = jsonMapper.createObjectNode()
         body.split("&").forEach { pair ->
             val (key, value) = pair.split("=", limit = 2).map { URLDecoder.decode(it, Charsets.UTF_8) }
-            val schemaType = schemaTypeOf(properties[key])
+            val schema = properties[key]
+            val schemaType = schema?.type ?: schema?.types?.firstOrNull()
             val parsedValue = parseFormValue(value, schemaType)
             if (schemaType == "array") {
                 if (parsedValue.isArray) {
@@ -184,9 +185,6 @@ class OpenApiSpec(private val specFile: File) {
         }
         return obj
     }
-
-    private fun schemaTypeOf(schema: io.swagger.v3.oas.models.media.Schema<*>?): String? =
-        schema?.type ?: schema?.types?.firstOrNull()
 
     private fun parseFormValue(value: String, schemaType: String?): JsonNode =
         when (schemaType) {
