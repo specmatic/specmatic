@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - nullable via type array"
+  version: "1.0"
+paths:
+  /employees:
+    get:
+      operationId: listEmployees
+      responses:
+        '200':
+          description: Employee list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                    - managerId
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    managerId:
+                      type:
+                        - integer
+                        - "null"
+    post:
+      operationId: createEmployee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+                - managerId
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                managerId:
+                  type:
+                    - integer
+                    - "null"
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - URL-encoded form with type arrays"
+  version: "1.0"
+paths:
+  /feedback:
+    post:
+      operationId: submitFeedback
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - name
+                - rating
+                - comment
+              properties:
+                name:
+                  type: string
+                rating:
+                  type: integer
+                comment:
+                  type:
+                    - string
+                    - "null"
+      responses:
+        '201':
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

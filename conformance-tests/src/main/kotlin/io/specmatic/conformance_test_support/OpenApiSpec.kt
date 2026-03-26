@@ -10,6 +10,7 @@ import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.dialect.Dialects
 import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.oas.models.PathItem
+import io.swagger.v3.oas.models.SpecVersion
 import io.swagger.v3.parser.core.models.ParseOptions
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -36,6 +37,7 @@ class OpenApiSpec(private val specFile: File) {
             isResolve = true
             isResolveFully = true
         }
+
         val result = OpenAPIParser().readLocation(specFile.absolutePath, null, options)
         result.openAPI ?: error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
     }
@@ -44,6 +46,12 @@ class OpenApiSpec(private val specFile: File) {
     // needs $ref pointers intact to handle discriminators correctly. Serializing the fully-resolved
     // model inlines all $refs, which breaks discriminator-based schema selection.
     private val rootNode: JsonNode = yamlMapper.readTree(specFile)
+
+    private val schemaRegistry = when (openApi.specVersion) {
+        SpecVersion.V30 -> openApi30SchemaRegistry
+        SpecVersion.V31 -> openApi31SchemaRegistry
+
+    }
 
     private val documentSchema: Schema = schemaRegistry.getSchema(
         SchemaLocation.of(specFile.toURI().toString()), rootNode
@@ -150,8 +158,12 @@ class OpenApiSpec(private val specFile: File) {
     private fun String.escapeJsonPointer(): String = replace("~", "~0").replace("/", "~1")
 
     companion object {
-        private val schemaRegistry =
-            SchemaRegistry.withDialect(Dialects.getOpenApi30()) // TODO: Make this configurable when we add OpenAPI 3.1 specs
+        private val openApi30SchemaRegistry =
+            SchemaRegistry.withDialect(Dialects.getOpenApi30())
+
+        private val openApi31SchemaRegistry =
+            SchemaRegistry.withDialect(Dialects.getOpenApi31())
+
         private val yamlMapper = ObjectMapper(YAMLFactory())
     }
 }

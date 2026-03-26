@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - multipart file upload with contentMediaType"
+  version: "1.0"
+paths:
+  /documents:
+    post:
+      operationId: uploadDocument
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - title
+                - file
+              properties:
+                title:
+                  type: string
+                file:
+                  type: string
+                  contentMediaType: application/pdf
+                  contentEncoding: base64
+      responses:
+        '201':
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - filename
+                properties:
+                  id:
+                    type: integer
+                  filename:
+                    type: string
