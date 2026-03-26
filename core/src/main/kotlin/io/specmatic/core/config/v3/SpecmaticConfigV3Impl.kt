@@ -27,6 +27,7 @@ import io.specmatic.core.SpecificationSource
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getEffectiveBranchForSource
+import io.specmatic.core.TestHealthCheck
 import io.specmatic.core.TESTS_DIRECTORY_ENV_VAR
 import io.specmatic.core.TESTS_DIRECTORY_PROPERTY
 import io.specmatic.core.TEST_BASE_URL_ENV_VAR
@@ -65,6 +66,7 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecif
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufRunOptions
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
@@ -419,6 +421,14 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
     override fun getTestBaseUrl(specType: SpecType): String? {
         val runOptions = specmaticConfig.systemUnderTest?.getRunOptions(resolver, specType)
         return runOptions?.getBaseUrlIfExists()
+    }
+
+    override fun getTestHealthCheck(specFile: File, specType: SpecType): TestHealthCheck? {
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: return null
+        val runOptions = systemUnderTest.getRunOptions(resolver, specType) as? OpenApiTestConfig ?: return null
+        val specId = findTestSpecDefinition(specFile, systemUnderTest)?.getSpecificationId()
+        val override = specId?.let(runOptions::getMatchingSpecification)?.getHealthCheck()
+        return override ?: runOptions.healthCheck
     }
 
     override fun getCoverageReportBaseUrl(specType: SpecType): String? {
@@ -832,4 +842,24 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         val schemes = specData.getSecuritySchemes()?.mapValues { it.value.toSecuritySchemeConfiguration() } ?: return null
         return SecurityConfiguration(OpenAPI = OpenAPISecurityConfiguration(schemes))
     }
+
+    private fun findTestSpecDefinition(specFile: File, systemUnderTest: TestServiceConfig): SpecificationDefinition? {
+        return systemUnderTest.getSpecDefinitionFor(specFile, resolver)
+            ?: findTestSpecDefinitionByPathSuffix(specFile, systemUnderTest)
+    }
+
+    private fun findTestSpecDefinitionByPathSuffix(specFile: File, systemUnderTest: TestServiceConfig): SpecificationDefinition? {
+        val serviceConfig = systemUnderTest.service.resolveElseThrow(resolver)
+        val normalizedSpecFilePath = specFile.path.replace('\\', '/')
+
+        return serviceConfig.definitions
+            .map { it.definition }
+            .firstNotNullOfOrNull { definition ->
+                definition.specs.firstOrNull { specDefinition ->
+                    val normalizedSpecPath = specDefinition.getSpecificationPath().replace('\\', '/')
+                    normalizedSpecFilePath.endsWith(normalizedSpecPath)
+                }
+            }
+    }
+
 }

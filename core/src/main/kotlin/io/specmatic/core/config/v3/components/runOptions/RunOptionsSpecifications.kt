@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
+import io.specmatic.core.TestHealthCheck
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import kotlin.String
 
@@ -11,6 +12,7 @@ interface IRunOptionSpecification {
     fun getBaseUrl(defaultHost: String): String?
     fun getConfig(): Map<String, Any>
     fun getOverlayFilePath(): String?
+    fun getHealthCheck(): TestHealthCheck? = null
 
     fun extractBaseUrlFromMap(map: Map<*, *>?, defaultHost: String): String? {
         if (map.isNullOrEmpty()) return null
@@ -119,6 +121,11 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     }
 
     @JsonIgnore
+    override fun getHealthCheck(): TestHealthCheck? {
+        return spec.healthCheck
+    }
+
+    @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
         if (spec.baseUrl != null) return spec.baseUrl
         if (spec.port == null) return null
@@ -132,5 +139,6 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
         val port: Int? = null,
         val overlayFilePath: String? = null,
         val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
+        val healthCheck: TestHealthCheck? = null,
     )
 }

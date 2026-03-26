@@ -870,6 +870,11 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getTestHealthCheck(specFile: File, specType: SpecType): TestHealthCheck? {
+        return null
+    }
+
+    @JsonIgnore
     override fun getCoverageReportBaseUrl(specType: SpecType): String? {
         val baseUrl = getExplicitTestBaseUrl()
         if (baseUrl != null) return baseUrl

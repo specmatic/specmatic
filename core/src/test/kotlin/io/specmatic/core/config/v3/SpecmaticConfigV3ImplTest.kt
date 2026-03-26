@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.TestHealthCheck
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.reporter.model.SpecType
@@ -239,6 +240,97 @@ class SpecmaticConfigV3ImplTest {
                 """.trimIndent()
             )
         }.hasMessageContaining("cert")
+    }
+
+    @Test
+    fun `should resolve service level health check from v3 run options`() {
+        val specFile = tempDir.resolve("specs/orders.yaml").apply {
+            parentFile.mkdirs()
+            writeText("openapi: 3.0.0\ninfo: { title: test, version: '1.0.0' }\npaths: {}\n")
+        }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: order-api
+                            path: orders.yaml
+                runOptions:
+                  openapi:
+                    baseUrl: http://localhost:9000
+                    healthCheck:
+                      method: GET
+                      path: /ready
+                      headers:
+                        X-Tenant: primary
+                      queryParameters:
+                        probe: liveness
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestHealthCheck(specFile, SpecType.OPENAPI)).isEqualTo(
+            TestHealthCheck(
+                method = "GET",
+                path = "/ready",
+                headers = mapOf("X-Tenant" to "primary"),
+                queryParameters = mapOf("probe" to "liveness"),
+            )
+        )
+    }
+
+    @Test
+    fun `should prefer spec level health check over service level health check`() {
+        val specsDir = tempDir.resolve("specs").apply { mkdirs() }
+        val orderSpec = specsDir.resolve("orders.yaml").apply {
+            writeText("openapi: 3.0.0\ninfo: { title: test, version: '1.0.0' }\npaths: {}\n")
+        }
+        specsDir.resolve("pets.yaml").writeText("openapi: 3.0.0\ninfo: { title: test, version: '1.0.0' }\npaths: {}\n")
+
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: order-api
+                            path: orders.yaml
+                        - spec:
+                            id: pet-api
+                            path: pets.yaml
+                runOptions:
+                  openapi:
+                    baseUrl: http://localhost:9000
+                    healthCheck:
+                      method: GET
+                      path: /ready
+                    specs:
+                      - spec:
+                          id: order-api
+                          healthCheck:
+                            method: HEAD
+                            path: /status
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestHealthCheck(orderSpec, SpecType.OPENAPI)).isEqualTo(
+            TestHealthCheck(
+                method = "HEAD",
+                path = "/status",
+            )
+        )
     }
 
     @Test

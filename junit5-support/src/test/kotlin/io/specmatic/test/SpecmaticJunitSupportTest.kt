@@ -5,6 +5,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.TestHealthCheck
 import io.specmatic.core.TestConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.v3.RefOrValue
@@ -308,6 +309,88 @@ class SpecmaticJunitSupportTest {
             .toMutableList()
 
         assertThat(registeredListeners).contains(ContractExecutionListener::class.java.name)
+    }
+
+    @Test
+    fun `should execute configured health check request with method path headers and query parameters`() {
+        val requests = mutableListOf<HttpRequest>()
+        val support = SpecmaticJUnitSupport()
+
+        val success = support.executeHealthCheck(
+            baseUrl = "http://localhost:9000",
+            healthCheck = TestHealthCheck(
+                method = "get",
+                path = "/ready",
+                headers = mapOf("X-Trace-Id" to "abc123"),
+                queryParameters = mapOf("deep" to "true"),
+            ),
+            client = object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    requests.add(request)
+                    return HttpResponse.OK
+                }
+            }
+        )
+
+        assertThat(success).isTrue()
+        assertThat(requests).containsExactly(
+            HttpRequest(
+                method = "GET",
+                path = "/ready",
+                headers = mapOf("X-Trace-Id" to "abc123"),
+                queryParametersMap = mapOf("deep" to "true"),
+            )
+        )
+    }
+
+    @Test
+    fun `should resolve fallback health checks for selected specs only once per base url`(@TempDir tempDir: File) {
+        val specsDir = tempDir.resolve("specs").apply { mkdirs() }
+        val orderSpec = specsDir.resolve("orders.yaml").apply { writeText(minimalOpenApiSpec()) }
+        val petSpec = specsDir.resolve("pets.yaml").apply { writeText(minimalOpenApiSpec()) }
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText(
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                id: order-api
+                                path: orders.yaml
+                            - spec:
+                                id: pet-api
+                                path: pets.yaml
+                    runOptions:
+                      openapi:
+                        baseUrl: http://localhost:9000
+                """.trimIndent()
+            )
+        }
+
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.absolutePath))
+        try {
+            val support = SpecmaticJUnitSupport()
+
+            val targets = support.resolveHealthCheckTargets(
+                sequenceOf(
+                    SelectedSpecRun(baseUrl = "http://localhost:9000", specFile = orderSpec),
+                    SelectedSpecRun(baseUrl = "http://localhost:9000", specFile = orderSpec),
+                    SelectedSpecRun(baseUrl = "http://localhost:9000", specFile = petSpec),
+                )
+            )
+
+            assertThat(targets).containsExactly(
+                HealthCheckTarget(baseUrl = "http://localhost:9000", healthCheck = null)
+            )
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
     }
 
     @Test
@@ -1022,6 +1105,16 @@ paths:
         )
         configFile.writeText(yamlMapper.writeValueAsString(config))
         return configFile
+    }
+
+    private fun minimalOpenApiSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Sample
+              version: 1.0.0
+            paths: {}
+        """.trimIndent()
     }
 
     private class RecordingExampleErrorsListener : TestReportListener {

@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import io.specmatic.core.TestHealthCheck
 import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
@@ -24,6 +25,7 @@ data class OpenApiTestConfig(
     val swaggerUiBaseUrl: String? = null,
     val swaggerUrl: String? = null,
     val actuatorUrl: String? = null,
+    val healthCheck: TestHealthCheck? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
     override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions, ConfigWithCert {

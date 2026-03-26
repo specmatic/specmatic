@@ -60,6 +60,22 @@ data class API(
     val path: String,
 )
 
+internal data class ContractTestRun(
+    val contractTest: ContractTest,
+    val baseUrl: String,
+    val specFile: File,
+)
+
+internal data class SelectedSpecRun(
+    val baseUrl: String,
+    val specFile: File,
+)
+
+internal data class HealthCheckTarget(
+    val baseUrl: String,
+    val healthCheck: TestHealthCheck?,
+)
+
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 open class SpecmaticJUnitSupport {
@@ -318,8 +334,14 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.allEndpoints }
                     val filteredEndpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosByContractPath.associate { (contractPath, loaded) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
-                        loaded.scenarios.map { test -> Pair(test, defaultBaseURL) }
+                    val testsWithUrls: Sequence<ContractTestRun> = loadedScenariosByContractPath.asSequence().flatMap { (contractPath, loaded) ->
+                        loaded.scenarios.map { test ->
+                            ContractTestRun(
+                                contractTest = test,
+                                baseUrl = defaultBaseURL,
+                                specFile = File(contractPath),
+                            )
+                        }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL), exampleValidationResults)
@@ -365,15 +387,27 @@ open class SpecmaticJUnitSupport {
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
-                        Triple(contractPathData.path, loadedTestScenarios, resolvedBaseURL)
+                        LoadedContractPathData(
+                            contractPath = contractPathData.path,
+                            loadedTestScenarios = loadedTestScenarios,
+                            resolvedBaseURL = resolvedBaseURL,
+                        )
                     }
 
-                    val baseUrls = loadedScenariosWithBaseUrlsByContractPath.map { (_, _, resolvedBaseURL) -> resolvedBaseURL }.toSet()
-                    val endpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.allEndpoints }
-                    val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
-                    val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
-                        loaded.scenarios.map { test -> Pair(test, resolvedBaseURL) }
+                    val baseUrls = loadedScenariosWithBaseUrlsByContractPath.map { it.resolvedBaseURL }.toSet()
+                    val endpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { it.loadedTestScenarios.allEndpoints }
+                    val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { it.loadedTestScenarios.filteredEndpoints }
+                    val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate {
+                        it.contractPath to it.loadedTestScenarios.exampleValidationResult
+                    }
+                    val testsWithUrls: Sequence<ContractTestRun> = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { loaded ->
+                        loaded.loadedTestScenarios.scenarios.map { test ->
+                            ContractTestRun(
+                                contractTest = test,
+                                baseUrl = loaded.resolvedBaseURL,
+                                specFile = File(loaded.contractPath),
+                            )
+                        }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
@@ -386,26 +420,16 @@ open class SpecmaticJUnitSupport {
         }
 
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
-        testBuildResult.baseUrls.forEach { baseUrl ->
-            if (isBaseURLReachable(baseUrl, keyData = keyDataFor(baseUrl))) return@forEach
-            return loadExceptionAsTestError(e = ContractException("""
-            Cannot connect to server at: $baseUrl
-            Please check:
-            - Is the server running?
-            - Is the testBaseURL correct?
-            """.trimIndent()))
-        }
-
         openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         val testScenariosWithUrls = try {
             val filteredPairsBasedOnName = selectTestsToRun(
                 testBuildResult.scenarios,
                 filterName,
                 filterNotName
-            ) { it.first.testDescription() }
+            ) { it.contractTest.testDescription() }
 
-            filteredPairsBasedOnName.filter { pair ->
-                testFilter.isSatisfiedBy(pair.first.toScenarioMetadata())
+            filteredPairsBasedOnName.filter { contractTestRun ->
+                testFilter.isSatisfiedBy(contractTestRun.contractTest.toScenarioMetadata())
             }
         } catch (e: ContractException) {
             return loadExceptionAsTestError(e)
@@ -434,6 +458,25 @@ open class SpecmaticJUnitSupport {
             return noTestsFoundError(reason)
         }
 
+        val limitedTestScenarios = firstNScenarios(testScenariosWithUrls)
+
+        try {
+            runHealthChecks(
+                resolveHealthCheckTargets(
+                    limitedTestScenarios.map {
+                        SelectedSpecRun(
+                            baseUrl = it.baseUrl,
+                            specFile = it.specFile,
+                        )
+                    }
+                )
+            )
+        } catch (e: ContractException) {
+            return loadExceptionAsTestError(e)
+        } catch (e: Throwable) {
+            return loadExceptionAsTestError(e)
+        }
+
         val actuatorBaseURL = settings.baseUrlFromArgOrSysProp()
             ?: settings.baseUrlFromConfig()
             ?: testBuildResult.baseUrls.firstOrNull()
@@ -441,7 +484,7 @@ open class SpecmaticJUnitSupport {
 
         return try {
             dynamicTestStream(
-                firstNScenarios(testScenariosWithUrls),
+                limitedTestScenarios,
                 actuatorBaseURL,
                 timeoutInMilliseconds
             )
@@ -451,13 +494,13 @@ open class SpecmaticJUnitSupport {
         }
     }
 
-    private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
+    private fun firstNScenarios(testScenarios: Sequence<ContractTestRun>): Sequence<ContractTestRun> {
         val maxTestCount = specmaticConfig.getMaxTestCount() ?: return testScenarios
         return testScenarios.take(maxTestCount)
     }
 
     private fun dynamicTestStream(
-        testScenarios: Sequence<Pair<ContractTest, String>>,
+        testScenarios: Sequence<ContractTestRun>,
         actuatorBaseURL: String,
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest>
@@ -476,7 +519,9 @@ open class SpecmaticJUnitSupport {
         logger.newLine()
 
         startTime = Instant.now()
-        return testScenarios.map { (contractTest, baseURL) ->
+        return testScenarios.map { testRun ->
+            val contractTest = testRun.contractTest
+            val baseURL = testRun.baseUrl
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 LicenseResolver.utilize(
                     product = LicensedProduct.OPEN_SOURCE,
@@ -536,6 +581,63 @@ open class SpecmaticJUnitSupport {
                 }
             }
         }.asStream()
+    }
+
+    internal fun resolveHealthCheckTargets(selectedSpecRuns: Sequence<SelectedSpecRun>): List<HealthCheckTarget> {
+        return selectedSpecRuns
+            .distinct()
+            .map { selectedSpec ->
+                HealthCheckTarget(
+                    baseUrl = selectedSpec.baseUrl,
+                    healthCheck = specmaticConfig.getTestHealthCheck(selectedSpec.specFile, SpecType.OPENAPI),
+                )
+            }
+            .distinct()
+            .toList()
+    }
+
+    internal fun runHealthChecks(healthCheckTargets: List<HealthCheckTarget>) {
+        healthCheckTargets.forEach { healthCheckTarget ->
+            val isSuccessful = when (val healthCheck = healthCheckTarget.healthCheck) {
+                null -> isBaseURLReachable(healthCheckTarget.baseUrl, keyData = keyDataFor(healthCheckTarget.baseUrl))
+                else -> executeHealthCheck(healthCheckTarget.baseUrl, healthCheck)
+            }
+
+            if (!isSuccessful) {
+                throw when (val healthCheck = healthCheckTarget.healthCheck) {
+                    null -> ContractException(
+                        """
+                        Cannot connect to server at: ${healthCheckTarget.baseUrl}
+                        Please check:
+                        - Is the server running?
+                        - Is the testBaseURL correct?
+                        """.trimIndent()
+                    )
+
+                    else -> ContractException(
+                        "Health check ${healthCheck.method.uppercase()} ${healthCheck.path} failed for ${healthCheckTarget.baseUrl}"
+                    )
+                }
+            }
+        }
+    }
+
+    internal fun executeHealthCheck(baseUrl: String, healthCheck: TestHealthCheck, client: TestExecutor? = null): Boolean {
+        val request = healthCheck.toHttpRequest()
+        val response = if (client != null) {
+            client.execute(request)
+        } else {
+            HttpClient(
+                baseUrl,
+                log = ignoreLog,
+                prettyPrint = prettyPrint,
+                keyData = keyDataFor(baseUrl)
+            ).use { httpClient ->
+                httpClient.execute(request)
+            }
+        }
+
+        return response.status in 200..299
     }
 
     fun constructTestBaseURL(): String {
@@ -782,11 +884,17 @@ data class LoadedTestScenarios(
 )
 
 private data class TestData(
-    val scenarios: Sequence<Pair<ContractTest, String>>,
+    val scenarios: Sequence<ContractTestRun>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
     val baseUrls: Set<String>,
     val exampleValidationResults: Map<String, Result>,
+)
+
+private data class LoadedContractPathData(
+    val contractPath: String,
+    val loadedTestScenarios: LoadedTestScenarios,
+    val resolvedBaseURL: String,
 )
 
 private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {

@@ -63,6 +63,22 @@ data class SpecificationSourceEntry(
     )
 }
 
+data class TestHealthCheck(
+    val method: String,
+    val path: String,
+    val headers: Map<String, String> = emptyMap(),
+    val queryParameters: Map<String, String> = emptyMap(),
+) {
+    fun toHttpRequest(): HttpRequest {
+        return HttpRequest(
+            method = method.uppercase(),
+            path = path,
+            headers = headers,
+            queryParametersMap = queryParameters,
+        )
+    }
+}
+
 interface SpecmaticConfig {
     @JsonIgnore
     fun getLogConfigurationOrDefault(): LoggingConfiguration
@@ -210,6 +226,9 @@ interface SpecmaticConfig {
 
     @JsonIgnore
     fun getTestBaseUrl(specType: SpecType): String?
+
+    @JsonIgnore
+    fun getTestHealthCheck(specFile: File, specType: SpecType): TestHealthCheck?
 
     @JsonIgnore
     fun getCoverageReportBaseUrl(specType: SpecType): String?
