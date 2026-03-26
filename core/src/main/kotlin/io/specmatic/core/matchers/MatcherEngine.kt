@@ -9,7 +9,7 @@ import java.util.ServiceLoader
 
 interface MatcherEngine {
     fun patternFrom(value: ScalarValue, originalPattern: Pattern, resolver: Resolver): Pattern
-    fun matchesResult(expectedValue: Value, actualValue: Value, resolver: Resolver): Result
+    fun matchResponseValue(expectedValue: Value, actualValue: Value, resolver: Resolver): Result
 
     companion object {
         fun load(): MatcherEngine? {

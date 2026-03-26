@@ -137,7 +137,7 @@ data class ScenarioAsTest(
 
             if(responseBodyFromExample != null) {
                 matcherEngine?.let {
-                    val matchesResult = it.matchesResult(
+                    val matchesResult = it.matchResponseValue(
                         responseBodyFromExample,
                         response.body,
                         testScenario.resolver
