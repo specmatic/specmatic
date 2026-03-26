@@ -3,8 +3,9 @@ package io.specmatic.core.pattern
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.log.logger
-import io.specmatic.core.matchers.Matcher
-import io.specmatic.core.utilities.*
+import io.specmatic.core.utilities.jsonStringToValueArray
+import io.specmatic.core.utilities.jsonStringToValueMap
+import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.*
 import io.specmatic.test.ExampleProcessor
 import java.io.File

@@ -5,6 +5,7 @@ import io.specmatic.core.*
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
@@ -14,7 +15,6 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
-import io.specmatic.test.matchers.MatcherExecutor
 import java.time.Instant
 import java.util.ServiceLoader
 import kotlin.jvm.java
@@ -44,6 +44,7 @@ data class ScenarioAsTest(
 
     private var startTime: Instant? = null
     private var endTime: Instant? = null
+    private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
@@ -122,7 +123,7 @@ data class ScenarioAsTest(
         try {
             val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
             if (beforeFixtureExecutionResult.isSuccess().not()) {
-                return ContractTestExecutionResult(result = beforeFixtureExecutionResult)
+                return ContractTestExecutionResult(result = beforeFixtureExecutionResult.updateScenario(testScenario))
             }
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
@@ -133,36 +134,27 @@ data class ScenarioAsTest(
             val response = testExecutor.execute(request)
 
             val responseBodyFromExample = testScenario.responseBodyFromExample()
-            val matcherExecutor = ServiceLoader.load(MatcherExecutor::class.java).firstOrNull()
-            if(responseBodyFromExample != null && matcherExecutor != null) {
-                val matchesResult = matcherExecutor.matchesResult(
-                    responseBodyFromExample,
-                    response.body,
-                    testScenario.resolver
-                )
-                if(matchesResult is Result.Failure) {
-                    return ContractTestExecutionResult(
-                        result = matchesResult.withBindings(testScenario.bindings, response),
-                        request = request,
-                        response = response
+
+            if(responseBodyFromExample != null) {
+                matcherEngine?.let {
+                    val matchesResult = it.matchesResult(
+                        responseBodyFromExample,
+                        response.body,
+                        testScenario.resolver
                     )
+                    if(matchesResult is Result.Failure) {
+                        return ContractTestExecutionResult(
+                            result = matchesResult.withBindings(testScenario.bindings, response),
+                            request = request,
+                            response = response
+                        )
+                    }
                 }
             }
 
             //TODO: Review - Do we need workflow anymore
             workflow.extractDataFrom(response, originalScenario)
             val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, response) }.firstOrNull()
-
-            if(validatorResult !is Result.Failure) {
-                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
-                if (afterFixtureExecutionResult.isSuccess().not()) {
-                    return ContractTestExecutionResult(
-                        result = afterFixtureExecutionResult,
-                        request = request,
-                        response = response
-                    )
-                }
-            }
 
             if (validatorResult is Result.Failure) {
                 return ContractTestExecutionResult(
@@ -206,6 +198,16 @@ data class ScenarioAsTest(
 
             testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
 
+            if(result !is Result.Failure) {
+                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+                if (afterFixtureExecutionResult.isSuccess().not()) {
+                    return ContractTestExecutionResult(
+                        result = afterFixtureExecutionResult.withBindings(testScenario.bindings, response),
+                        request = request,
+                        response = response
+                    )
+                }
+            }
             return ContractTestExecutionResult(
                 result = result.withBindings(testScenario.bindings, response),
                 request = request,

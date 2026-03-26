@@ -391,24 +391,6 @@ Feature: Recursive test
     }
 
     @Test
-    fun `patternFrom should apply optional key patterns and matcher tokens`() {
-        val pattern = toTabularPattern(mapOf(
-            "name?" to StringPattern(),
-            "age" to StringPattern()
-        ))
-        val value = JSONObjectValue(mapOf(
-            "name" to StringValue("(string)"),
-            "age" to StringValue("\$match(pattern: POSITIVE_REGEX)")
-        ))
-
-        val result = pattern.patternFrom(value, Resolver()) as TabularPattern
-
-        assertThat(result.pattern.getValue("name")).isEqualTo(DeferredPattern("(string)"))
-        assertThat(result.pattern.getValue("age"))
-            .isEqualTo(RegexConstrainedPattern(StringPattern(), "POSITIVE_REGEX", Resolver()))
-    }
-
-    @Test
     fun `tabular type should encompass JSON type`() {
         val tabular = toTabularPattern(mapOf("key1" to StringPattern(), "key2" to StringPattern()))
         val json = JSONObjectPattern(tabular.pattern)
