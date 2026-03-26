@@ -35,9 +35,16 @@ class OpenApiSpec(private val specFile: File) {
         val options = ParseOptions().apply {
             isResolve = true
             isResolveFully = true
+            isValidateInternalRefs = true
+            isValidateExternalRefs = true
         }
         val result = OpenAPIParser().readLocation(specFile.absolutePath, null, options)
-        result.openAPI ?: error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
+
+        if (result.messages.isNotEmpty() || result.openAPI == null) {
+            error("Failed to parse OpenAPI spec at ${specFile.absolutePath}: ${result.messages}")
+        }
+
+        result.openAPI
     }
 
     // We read the raw YAML (not the fully-resolved openApi model) because json-schema-validator
