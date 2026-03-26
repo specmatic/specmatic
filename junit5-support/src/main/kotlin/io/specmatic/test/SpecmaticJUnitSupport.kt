@@ -4,7 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.filters.ScenarioMetadataFilter
-import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
+import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsingDecisions
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.ignoreLog
@@ -54,6 +54,7 @@ import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import kotlin.math.max
 
 @Serializable
 data class API(
@@ -266,10 +267,10 @@ open class SpecmaticJUnitSupport {
         }).asStream()
     }
 
-    private fun noTestsFoundError(reason: String): Stream<DynamicTest> {
+    private fun noTestsFoundError(reason: String): Sequence<DynamicTest> {
         return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure("No tests found to run. $reason")).isSuccess()
-        }).asStream()
+        })
     }
 
     @TestFactory
@@ -325,8 +326,8 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.allEndpoints }
                     val filteredEndpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosByContractPath.associate { (contractPath, loaded) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
-                        loaded.scenarios.map { test -> Pair(test, defaultBaseURL) }
+                    val testsWithUrls = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
+                        loaded.scenarios.map { test -> test.mapValue { Pair(it, defaultBaseURL) }  }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL), exampleValidationResults)
@@ -379,8 +380,8 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.allEndpoints }
                     val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
-                        loaded.scenarios.map { test -> Pair(test, resolvedBaseURL) }
+                    val testsWithUrls = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
+                        loaded.scenarios.map { test -> test.mapValue { Pair(it, resolvedBaseURL) } }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
@@ -395,40 +396,21 @@ open class SpecmaticJUnitSupport {
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
         openApiCoverage.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         val testScenariosWithUrls = try {
-            val filteredPairsBasedOnName = selectTestsToRun(
-                testBuildResult.scenarios,
-                filterName,
-                filterNotName
+            val filteredPairsBasedOnName = selectTestsToRunWithDecision(
+                testScenarios = testBuildResult.scenarios,
+                filterName = filterName,
+                filterNotName = filterNotName
             ) { it.first.testDescription() }
 
-            filteredPairsBasedOnName.filter { pair ->
-                testFilter.isSatisfiedBy(pair.first.toScenarioMetadata())
+            filteredPairsBasedOnName.map { decision ->
+                if (decision !is Decision.Execute) return@map decision
+                if (testFilter.isSatisfiedBy(decision.value.first.toScenarioMetadata())) return@map decision
+                Decision.Skip(decision.context, Reasoning(TestRuleViolations.EXCLUDED))
             }
         } catch (e: ContractException) {
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
             return loadExceptionAsTestError(e)
-        }
-
-        // Check if no tests remain after filtering
-        if (!testScenariosWithUrls.iterator().hasNext()) {
-            val filterDetails = buildString {
-                if (!filterName.isNullOrBlank()) append("name filter: '$filterName'")
-                if (!filterNotName.isNullOrBlank()) {
-                    if (isNotEmpty()) append(", ")
-                    append("exclude filter: '$filterNotName'")
-                }
-                if (testFilter.expression != null) {
-                    if (isNotEmpty()) append(", ")
-                    append("expression filter: \"${specmaticConfig.getTestFilter()}\"")
-                }
-            }
-            val reason = if (filterDetails.isNotEmpty()) {
-                "Applied filters ($filterDetails) matched no test scenarios."
-            } else {
-                "No test scenarios found."
-            }
-            return noTestsFoundError(reason)
         }
 
         val actuatorBaseURL = settings.baseUrlFromArgOrSysProp()
@@ -448,13 +430,18 @@ open class SpecmaticJUnitSupport {
         }
     }
 
-    private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
+    private fun firstNScenarios(testScenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>): Sequence<Decision<Pair<ContractTest, String>, Scenario>> {
+        var taken = 0
         val maxTestCount = specmaticConfig.getMaxTestCount() ?: return testScenarios
-        return testScenarios.take(maxTestCount)
+        return testScenarios.map { decision ->
+            if (decision is Decision.Skip) return@map decision
+            if (taken++ < maxTestCount) return@map decision
+            Decision.Skip(decision.context, Reasoning(TestRuleViolations.MAX_TEST_COUNT_EXCEEDED))
+        }
     }
 
     private fun dynamicTestStream(
-        testScenarios: Sequence<Pair<ContractTest, String>>,
+        testScenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>,
         actuatorBaseURL: String,
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest>
@@ -475,7 +462,18 @@ open class SpecmaticJUnitSupport {
         logger.newLine()
 
         startTime = Instant.now()
-        return testScenarios.map { (contractTest, baseURL) ->
+        return testScenarios.mapNotNull { contractTestDecision ->
+            if (contractTestDecision !is Decision.Execute) {
+                logger.boundary()
+                logger.log(buildString {
+                    appendLine("--------------------")
+                    this.appendLine("Skipping ${contractTestDecision.context.defaultAPIDescription}")
+                    this.appendLine(contractTestDecision.reasoning.toRuleViolationText())
+                })
+                return@mapNotNull null
+            }
+
+            val (contractTest, baseURL) = contractTestDecision.value
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 suiteAbortMessage.get()?.let { message ->
                     throw TestAbortedException(message)
@@ -537,6 +535,10 @@ open class SpecmaticJUnitSupport {
                 } catch (e: Throwable) {
                     throw e
                 } finally {
+                    logger.log(buildString {
+                        appendLine("Execution reasons for ${contractTestDecision.context.defaultAPIDescription}")
+                        appendLine(contractTestDecision.reasoning.toRuleViolationText())
+                    })
                     if (testResult != null) {
                         contractTest.testResultRecord(testResult)?.let { testResultRecord ->
                             openApiCoverage.addTestReportRecords(testResultRecord)
@@ -544,7 +546,29 @@ open class SpecmaticJUnitSupport {
                     }
                 }
             }
-        }.asStream()
+        }.ifEmpty { noTestsFoundError(noTestsFoundErrorMessage()) }.asStream()
+    }
+
+    private fun noTestsFoundErrorMessage(): String {
+        val filterDetails = buildString {
+            if (!settings.filterName.isNullOrBlank()) append("name filter: '${settings.filterName}'")
+            if (!settings.filterNotName.isNullOrBlank()) {
+                if (isNotEmpty()) append(", ")
+                append("exclude filter: '${settings.filterNotName}'")
+            }
+            if (testFilter.expression != null) {
+                if (isNotEmpty()) append(", ")
+                append("expression filter: \"${specmaticConfig.getTestFilter()}\"")
+            }
+        }
+
+        val reason = if (filterDetails.isNotEmpty()) {
+            "Applied filters ($filterDetails) matched no test scenarios."
+        } else {
+            "No test scenarios found."
+        }
+
+        return reason
     }
 
     private fun connectivityFailureMessage(baseURL: String, reason: String): String {
@@ -682,8 +706,7 @@ open class SpecmaticJUnitSupport {
         }
 
         val featureWithExternalizedExamples = feature.loadExternalisedExamples()
-
-        val filteredScenariosBasedOnName = selectTestsToRun(
+        val filteredScenarioDecisionsBasedOnName = selectTestsToRun(
             featureWithExternalizedExamples.scenarios.asSequence(),
             filterName,
             filterNotName
@@ -691,12 +714,14 @@ open class SpecmaticJUnitSupport {
             it.testDescription()
         }
 
-        val filteredScenarios = filterUsing(
-            filteredScenariosBasedOnName,
+        val filteredScenarioDecisionsBasedOnFilter = filterUsingDecisions(
+            filteredScenarioDecisionsBasedOnName,
             filter
         )
 
-        val filteredEndpoints = filteredScenarios.map { scenario ->
+        val filteredEndpoints = filteredScenarioDecisionsBasedOnFilter.mapNotNull { decision ->
+            if (decision !is Decision.Execute) return@mapNotNull null
+            val scenario = decision.value
             Endpoint(
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
@@ -713,19 +738,20 @@ open class SpecmaticJUnitSupport {
             )
         }.toList()
 
-        val filteredFeature = featureWithExternalizedExamples.copy(scenarios = filteredScenarios.toList())
-        val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
+        val (validatedScenarioDecisions, result) = featureWithExternalizedExamples.validateAndFilterExamples(filteredScenarioDecisionsBasedOnFilter)
         if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 
+        val validatedScenarios = validatedScenarioDecisions.mapNotNull { (it as? Decision.Execute)?.value }
+        val validExampleFeature = featureWithExternalizedExamples.copy(scenarios = validatedScenarios.toList())
         validExampleFeature.validateExamplesOrException()
-        val tests: Sequence<ContractTest> = validExampleFeature.also {
+        val tests = validExampleFeature.also {
             if (it.scenarios.isEmpty()) {
                 logger.log("All scenarios were filtered out.")
             } else if (it.scenarios.size < feature.scenarios.size) {
                 logger.debug("Selected scenarios:")
                 it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
             }
-        }.generateContractTests(suggestions, originalScenarios = feature.scenarios)
+        }.generateContractTestsWithDecision(suggestions, feature.scenarios, validatedScenarioDecisions)
 
         return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
     }
@@ -794,14 +820,14 @@ open class SpecmaticJUnitSupport {
 }
 
 data class LoadedTestScenarios(
-    val scenarios: Sequence<ContractTest>,
+    val scenarios: Sequence<Decision<ContractTest, Scenario>>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
     val exampleValidationResult: Result = Result.Success()
 )
 
 private data class TestData(
-    val scenarios: Sequence<Pair<ContractTest, String>>,
+    val scenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
     val baseUrls: Set<String>,
@@ -830,21 +856,35 @@ fun <T> selectTestsToRun(
     filterName: String? = null,
     filterNotName: String? = null,
     getTestDescription: (T) -> String
-): Sequence<T> {
+): Sequence<Decision<T, T>> {
+    val decisionSequence = testScenarios.map { Decision.Execute(it, it) }
+    return selectTestsToRunWithDecision(decisionSequence, filterName, filterNotName) {
+        getTestDescription(it)
+    }
+}
+
+fun <T, U> selectTestsToRunWithDecision(
+    testScenarios: Sequence<Decision<T, U>>,
+    filterName: String? = null,
+    filterNotName: String? = null,
+    getTestDescription: (T) -> String
+): Sequence<Decision<T, U>> {
     val filteredByName = if (!filterName.isNullOrBlank()) {
         val filterNames = filterName.split(",").map { it.trim() }
-
-        testScenarios.filter { test ->
-            filterNames.any { getTestDescription(test).contains(it) }
+        testScenarios.map { test ->
+            if (test !is Decision.Execute) return@map test
+            if (filterNames.any { getTestDescription(test.value).contains(it) }) return@map test
+            Decision.Skip(test.context, Reasoning(TestRuleViolations.EXCLUDED))
         }
     } else
         testScenarios
 
-    val filteredByNotName: Sequence<T> = if (!filterNotName.isNullOrBlank()) {
+    val filteredByNotName = if (!filterNotName.isNullOrBlank()) {
         val filterNotNames = filterNotName.split(",").map { it.trim() }
-
-        filteredByName.filterNot { test ->
-            filterNotNames.any { getTestDescription(test).contains(it) }
+        filteredByName.map { test ->
+            if (test !is Decision.Execute) return@map test
+            if (!filterNotNames.any { getTestDescription(test.value).contains(it) }) return@map test
+            Decision.Skip(test.context, Reasoning(TestRuleViolations.EXCLUDED))
         }
     } else
         filteredByName

@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
@@ -8,6 +9,8 @@ import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.nullOrExceptionString
@@ -21,6 +24,8 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
+import io.specmatic.test.TestExecutionReason
+import io.specmatic.test.TestRuleViolations
 
 interface ScenarioDetailsForResult {
     val status: Int
@@ -38,6 +43,7 @@ interface ScenarioDetailsForResult {
 const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIELDS"
 const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM_KEY"
 
+enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
 data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
@@ -68,7 +74,8 @@ data class Scenario(
     val attributeSelectionPattern: AttributeSelectionPatternDetails = AttributeSelectionPatternDetails.default,
     val exampleRow: Row? = null,
     val operationMetadata: OperationMetadata? = null,
-    val requestChangeSummary: String? = null
+    val requestChangeSummary: String? = null,
+    val generatedFrom: GeneratedScenarioOrigin? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -473,7 +480,8 @@ data class Scenario(
                     else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
-                newRequestPatterns.map { newHttpRequestPattern ->
+                newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
+                    val generatedFrom = if (index == 0) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -484,6 +492,7 @@ data class Scenario(
                                     ignoreFailure = ignoreFailure,
                                     exampleName = row.name,
                                     exampleRow = row,
+                                    generatedFrom = generatedFrom,
                                     generativePrefix = generativePrefix,
                                 ), (newHttpRequestPattern as HasValue<HttpRequestPattern>).valueDetails
                             )
@@ -778,6 +787,43 @@ data class Scenario(
     fun newBasedOn(suggestions: List<Scenario>) =
         this.newBasedOn(suggestions.find { it.name == this.name } ?: this)
 
+    fun newBasedOnWithDecision(suggestions: List<Scenario>, strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
+        val hasExamples = hasExamples()
+        val isBadRequest = status == HttpStatusCode.BadRequest.value
+
+        if (!isGherkinScenario && isBadRequest && !hasExamples && resiliencyTestSuite != ResiliencyTestSuite.all) {
+            val otherReasons = listOf(TestRuleViolations.noExamples2xxAnd400(strictMode))
+            val reason = Reasoning(mainReason = TestRuleViolations.GENERATIVE_DISABLED, otherReasons = otherReasons)
+            return Decision.Skip(context = this, reasoning = reason)
+        }
+
+        if (!isGherkinScenario && !isA2xxScenario() && !hasExamples) {
+            val ruleViolation = TestRuleViolations.noExamplesNon2xxAndNon400()
+            return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
+        }
+
+        if (strictMode && !hasExamples) {
+            val ruleViolation = TestRuleViolations.noExamples2xxAnd400(true)
+            return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
+        }
+
+        val reason = Reasoning(TestExecutionReason.executed(hasExamples))
+        return Decision.Execute(value = newBasedOn(suggestions), context = this, reasoning = reason)
+    }
+
+    fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
+        if (!this.isA2xxScenario()) return null
+        if (strictMode && !hasExamples()) {
+            val newStatus = badRequestOrDefault?.getBadRequestStatus() ?: HttpStatusCode.BadRequest.value
+            val modifiedScenario = this.copy(httpResponsePattern = httpResponsePattern.copy(status = newStatus))
+            val reason = Reasoning(TestRuleViolations.noExamples2xxAnd400(true))
+            return Decision.Skip(context = modifiedScenario, reasoning = reason)
+        }
+
+        val reason = Reasoning(TestExecutionReason.executedNegativeGen())
+        return Decision.Execute(value = negativeBasedOn(badRequestOrDefault), context = this, reasoning = reason)
+    }
+
     fun newBasedOnAttributeSelectionFields(queryParams: QueryParameters?): Scenario {
         val fieldsToBeMadeMandatory = fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams)
         if (fieldsToBeMadeMandatory.isEmpty()) return this
@@ -801,6 +847,8 @@ data class Scenario(
     fun isA4xxScenario(): Boolean = this.httpResponsePattern.status in 400..499
 
     fun hasExampleRows(): Boolean = examples.any { it.rows.isNotEmpty() }
+
+    fun hasExamples(): Boolean = examples.isNotEmpty() && hasExampleRows()
 
     fun calculatePath(httpRequest: HttpRequest): Set<String> {
         val bodyPattern = resolvedHop(this.httpRequestPattern.body, this.resolver)
