@@ -49,7 +49,7 @@ data class HasFailure<T>(val failure: Result.Failure, val message: String = "") 
     }
 
     override fun toFailure(): Result.Failure {
-        return Result.Failure(message, failure).updateScenario(failure.scenario) as Result.Failure
+        return Result.Failure(message, failure, isPartial = failure.isPartial).updateScenario(failure.scenario)
     }
 
     override fun breadCrumb(breadCrumb: String?, message: String?): ReturnFailure {
@@ -58,7 +58,7 @@ data class HasFailure<T>(val failure: Result.Failure, val message: String = "") 
     }
 
     override fun addDetails(message: String, breadCrumb: String): HasFailure<T> {
-        return HasFailure(Result.Failure(message, this.toFailure(), breadCrumb))
+        return HasFailure(Result.Failure(message, this.toFailure(), breadCrumb, isPartial = failure.isPartial))
     }
 
     override fun <U> realise(hasValue: (T, String?) -> U, orFailure: (HasFailure<T>) -> U, orException: (HasException<T>) -> U): U {
