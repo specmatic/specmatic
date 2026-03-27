@@ -469,7 +469,7 @@ data class Scenario(
                 }
 
                 newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
-                    val generatedFrom = if (index == 0) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
+                    val generatedFrom = if (index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -777,9 +777,10 @@ data class Scenario(
 
     fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
         val hasExamples = hasExamples()
-        val isBadRequest = status == HttpStatusCode.BadRequest.value
+        val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
+        if (badRequestHasNoExample && resiliencyTestSuite == ResiliencyTestSuite.all) return null
 
-        if (!isGherkinScenario && isBadRequest && !hasExamples && resiliencyTestSuite != ResiliencyTestSuite.all) {
+        if (badRequestHasNoExample) {
             val otherReasons = listOf(TestRuleViolations.noExamples2xxAnd400(strictMode))
             val reason = Reasoning(mainReason = TestRuleViolations.GENERATIVE_DISABLED, otherReasons = otherReasons)
             return Decision.Skip(context = this, reasoning = reason)

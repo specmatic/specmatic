@@ -1,0 +1,144 @@
+openapi: 3.0.3
+info:
+  title: Feature Decision Matrix API
+  version: 1.0.0
+paths:
+  /matrix:
+    get:
+      operationId: getMatrixWithExamples
+      parameters:
+        - in: query
+          name: type
+          required: true
+          schema:
+            type: string
+            enum:
+              - case1
+              - case2
+          examples:
+            success:
+              value: case1
+            badRequest:
+              value: case2
+            notFound:
+              value: case1
+            serverError:
+              value: case2
+      responses:
+        '200':
+          description: Example-backed success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+              examples:
+                success:
+                  value:
+                    message: success
+        '400':
+          description: Example-backed bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+              examples:
+                badRequest:
+                  value:
+                    message: bad request
+        '404':
+          description: Example-backed not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+              examples:
+                notFound:
+                  value:
+                    message: not found
+        '500':
+          description: Example-backed server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+              examples:
+                serverError:
+                  value:
+                    message: server error
+  /matrix/no-example:
+    get:
+      operationId: getMatrixWithoutExamples
+      parameters:
+        - in: query
+          name: type
+          required: true
+          schema:
+            type: string
+            enum:
+              - case1s
+              - case2
+      responses:
+        '200':
+          description: Schema-backed success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        '400':
+          description: Schema-backed bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        '404':
+          description: Schema-backed not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
+        '500':
+          description: Schema-backed other status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required:
+                  - message
