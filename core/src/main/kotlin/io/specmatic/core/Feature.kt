@@ -1039,25 +1039,23 @@ data class Feature(
         return scenarios.mapNotNull { scenarioDecision ->
             if (scenarioDecision !is Decision.Execute) return@mapNotNull scenarioDecision
             scenarioDecision.value.newBasedOnWithDecision(suggestions, strictMode, resiliencyTestSuite)
-        }.flatMap { scenarioDecision ->
-            scenarioDecision.flatMapSequence { scenario, _, reasoning ->
-                val resolverStrategies = if (scenario.isA2xxScenario()) {
-                    flagsBased
-                } else {
-                    flagsBased.withoutGenerativeTests()
-                }
+        }.flatMapSequence { scenario, _, reasoning ->
+            val resolverStrategies = if (scenario.isA2xxScenario()) {
+                flagsBased
+            } else {
+                flagsBased.withoutGenerativeTests()
+            }
 
-                scenario.generateTestScenarios(
-                    fn = fn,
-                    variables = testVariables,
-                    testBaseURLs = testBaseURLs,
-                    flagsBased = resolverStrategies,
-                ).map { generatedScenario ->
-                    val scenarioWithPrefix = scenario.copy(generativePrefix = flagsBased.positivePrefix)
-                    val returnValueWithDescription = getScenarioWithDescription(generatedScenario)
-                    val updatedReasoning = updatePositiveGenerationReasoning(generatedScenario, reasoning)
-                    Decision.Execute(returnValueWithDescription, scenarioWithPrefix, updatedReasoning)
-                }
+            scenario.generateTestScenarios(
+                fn = fn,
+                variables = testVariables,
+                testBaseURLs = testBaseURLs,
+                flagsBased = resolverStrategies,
+            ).map { generatedScenario ->
+                val scenarioWithPrefix = scenario.copy(generativePrefix = flagsBased.positivePrefix)
+                val returnValueWithDescription = getScenarioWithDescription(generatedScenario)
+                val updatedReasoning = updatePositiveGenerationReasoning(generatedScenario, reasoning)
+                Decision.Execute(returnValueWithDescription, scenarioWithPrefix, updatedReasoning)
             }
         }
     }
@@ -1079,19 +1077,17 @@ data class Feature(
             }
 
             scenarioDecision.value.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
-        }.flatMap { scenarioDecision ->
-            scenarioDecision.flatMapSequence { scenario, _, reasoning ->
-                scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
-                    negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
-                        val sampleRequest = negativeTestScenario.generateHttpRequest()
-                        scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()
-                    }
-                }.mapIndexed { index, negativeTestScenarioR ->
-                    val returnValueWithDescription = getScenarioWithDescription(negativeTestScenarioR)
-                    Decision.Execute(returnValueWithDescription.ifValue { negativeTestScenario ->
-                        negativeTestScenario.copy(generativePrefix = flagsBased.negativePrefix, disambiguate = { "[${(index + 1)}] " })
-                    }, scenario, reasoning)
+        }.flatMapSequence { scenario, _, reasoning ->
+            scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
+                negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
+                    val sampleRequest = negativeTestScenario.generateHttpRequest()
+                    scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()
                 }
+            }.mapIndexed { index, negativeTestScenarioR ->
+                val returnValueWithDescription = getScenarioWithDescription(negativeTestScenarioR)
+                Decision.Execute(returnValueWithDescription.ifValue { negativeTestScenario ->
+                    negativeTestScenario.copy(generativePrefix = flagsBased.negativePrefix, disambiguate = { "[${(index + 1)}] " })
+                }, scenario, reasoning)
             }
         }
     }
