@@ -82,6 +82,8 @@ open class SpecmaticJUnitSupport {
         const val PROTOCOL = "protocol"
         const val TEST_BASE_URL = "testBaseURL"
         const val FILTER = "filter"
+        const val LOG_SEPARATOR = "--------------------"
+        const val LOG_INDENT = "  "
 
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
@@ -465,11 +467,11 @@ open class SpecmaticJUnitSupport {
         return testScenarios.mapNotNull { contractTestDecision ->
             if (contractTestDecision !is Decision.Execute) {
                 logger.boundary()
+                logger.log(LOG_SEPARATOR)
                 logger.log(buildString {
-                    appendLine("--------------------")
                     this.appendLine("Skipping ${contractTestDecision.context.fullApiDescription}")
                     this.appendLine(contractTestDecision.reasoning.toRuleViolationText())
-                })
+                }.prependIndent(LOG_INDENT))
                 return@mapNotNull null
             }
 
@@ -526,9 +528,9 @@ open class SpecmaticJUnitSupport {
                     throw e
                 } finally {
                     logger.log(buildString {
-                        appendLine("Execution reasons for ${contractTestDecision.context.fullApiDescription}")
+                        appendLine("Executed ${contractTestDecision.context.fullApiDescription}")
                         appendLine(contractTestDecision.reasoning.toRuleViolationText())
-                    })
+                    }.prependIndent(LOG_INDENT))
                     if (testResult != null) {
                         contractTest.testResultRecord(testResult)?.let { testResultRecord ->
                             openApiCoverageReportInput.addTestReportRecords(testResultRecord)
