@@ -11,7 +11,7 @@ import java.net.URL
 class WebSource(override val testContracts: List<ContractSourceEntry>, override val stubContracts: List<ContractSourceEntry>) : ContractSource {
     override val type: String = "web"
     override fun pathDescriptor(path: String): String {
-        return ""
+        return path
     }
 
     override fun install(workingDirectory: File) {
