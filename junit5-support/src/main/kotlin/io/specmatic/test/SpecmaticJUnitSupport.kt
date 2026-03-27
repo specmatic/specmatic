@@ -852,7 +852,7 @@ fun <T> selectTestsToRun(
     filterNotName: String? = null,
     getTestDescription: (T) -> String
 ): Sequence<Decision<T, T>> {
-    val decisionSequence = testScenarios.map { Decision.Execute(it, it) }
+    val decisionSequence = testScenarios.map { Decision.execute(it) }
     return selectTestsToRunWithDecision(decisionSequence, filterName, filterNotName) {
         getTestDescription(it)
     }

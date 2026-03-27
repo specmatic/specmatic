@@ -6,6 +6,10 @@ sealed interface Decision<out Item, out Ctx> {
 
     data class Execute<Item, Ctx>(val value: Item, override val context: Ctx, override val reasoning: Reasoning = Reasoning()) : Decision<Item, Ctx>
     data class Skip<Ctx>(override val context: Ctx, override val reasoning: Reasoning) : Decision<Nothing, Ctx>
+
+    companion object {
+        fun <Item> execute(item: Item): Execute<Item, Item> = Execute(item, item)
+    }
 }
 
 inline fun <Item, Ctx, NewItem> Decision<Item, Ctx>.flatMap(fn: (Item, Ctx, Reasoning) -> Decision<NewItem, Ctx>): Decision<NewItem, Ctx> = when (this) {
