@@ -48,7 +48,7 @@ class FeatureDecisionMatrixTest {
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
                 assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.NO_EXAMPLES)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -74,7 +74,7 @@ class FeatureDecisionMatrixTest {
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
                 assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.NO_EXAMPLES)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -126,7 +126,7 @@ class FeatureDecisionMatrixTest {
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
                 assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.NO_EXAMPLES)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -152,7 +152,7 @@ class FeatureDecisionMatrixTest {
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
                 assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.NO_EXAMPLES)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }

@@ -5,8 +5,10 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.utilities.Decision
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.coverage.Endpoint
 
@@ -35,6 +37,7 @@ interface TestReportListener {
     fun onCoverageCalculated(coverage: Int)
     fun onPathCoverageCalculated(path: String, pathCoverage: Int)
     fun onGovernance(result: Result)
+    fun onTestDecision(decision: Decision<ContractTest, Scenario>)
 }
 
 internal fun List<TestReportListener>.onEachListener(block: TestReportListener.() -> Unit) {

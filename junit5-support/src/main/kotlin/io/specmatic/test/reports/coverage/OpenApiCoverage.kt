@@ -1,12 +1,16 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.core.Scenario
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.mapValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportListener
@@ -26,6 +30,7 @@ class OpenApiCoverage(
     private val excludedAPIs: MutableList<String> = mutableListOf()
     private val allSpecEndpoints: MutableList<Endpoint> = mutableListOf()
     private val specEndpointsInScope: MutableList<Endpoint> = mutableListOf()
+    private val contractTestDecisions: MutableList<Decision<ContractTest, Scenario>> = mutableListOf()
     private var endpointsAPISet: Boolean = false
 
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
@@ -66,6 +71,11 @@ class OpenApiCoverage(
     fun setEndpointsAPIFlag(isSet: Boolean) {
         endpointsAPISet = isSet
         coverageHooks.onEachListener { onActuator(isSet) }
+    }
+
+    fun onContractTestDecision(contractTestDecision: Decision<Pair<ContractTest, String>, Scenario>) {
+        coverageHooks.onEachListener { onTestDecision(contractTestDecision.mapValue { it.first }) }
+        contractTestDecisions.add(contractTestDecision.mapValue { it.first })
     }
 
     fun isEndpointsApiSet(): Boolean {

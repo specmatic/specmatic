@@ -1,13 +1,15 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.loadSpecmaticConfig
+import io.specmatic.core.utilities.Decision
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.TestExecutionResult
@@ -1309,5 +1311,6 @@ class OpenApiCoverageReportInputTest {
         override fun onTestsComplete() = Unit
         override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) = Unit
         override fun onEnd() = Unit
+        override fun onTestDecision(decision: Decision<ContractTest, Scenario>) = Unit
     }
 }

@@ -1,13 +1,16 @@
 package io.specmatic.test.utils
 
 import io.specmatic.core.JSON
+import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.YAML
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.config.v3.SpecmaticConfigV3Impl
+import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.reports.TestExecutionResult
@@ -114,4 +117,5 @@ class RecordingTestReportListener : TestReportListener {
     override fun onCoverageCalculated(coverage: Int) = Unit
     override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
     override fun onGovernance(result: io.specmatic.core.Result) = Unit
+    override fun onTestDecision(decision: Decision<ContractTest, Scenario>) = Unit
 }

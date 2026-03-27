@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfig
@@ -37,6 +38,7 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.listeners.ContractExecutionListener
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
+import io.specmatic.test.reports.TestExecutionResult
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.AfterEach
@@ -564,7 +566,7 @@ paths:
     }
 
     @Test
-    fun `contractTest should mark scenarios as EXCLUDED when filter excludes them`(@TempDir tempDir: File) {
+    fun `contractTest should mark scenarios as EXCLUDED when filter excludes them`() {
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
         val (server, baseUrl) = startAlphaBetaStubServer()
         try {
@@ -585,7 +587,7 @@ paths:
     }
 
     @Test
-    fun `contractTest should use expression filter in no tests found message and mark scenarios as EXCLUDED`(@TempDir tempDir: File) {
+    fun `contractTest should use expression filter in no tests found message and mark scenarios as EXCLUDED`() {
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
         val (server, baseUrl) = startAlphaBetaStubServer()
         try {
@@ -758,6 +760,22 @@ paths:
     }
 
     @Test
+    fun `contractTest should send test decisions to coverage hooks via OpenApiCoverageReportInput`() {
+        val listener = RecordingExampleErrorsListener()
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        val (server, baseUrl) = startAlphaBetaStubServer()
+
+        try {
+            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, coverageHooks = listOf(listener)))
+            SpecmaticJUnitSupport().contractTest().toList()
+            assertThat(listener.decisions).isNotEmpty.allSatisfy { assertThat(it).isInstanceOf(Decision.Execute::class.java) }
+        } finally {
+            server.stop(0)
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
     fun `contractTest should abort remaining scenarios after first connectivity failure during execution`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("api.yaml").apply {
             writeText(
@@ -820,7 +838,7 @@ paths:
 
     @Test
     fun `report should calculate coverage once for coverage hooks`() {
-        val listener = CountingCoverageListener()
+        val listener = RecordingExampleErrorsListener()
         SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(reportBaseDirectory = ".", coverageHooks = listOf(listener)))
 
         try {
@@ -1212,30 +1230,22 @@ paths:
             exampleErrorsCalls.add(resultsBySpecFile)
         }
 
-        override fun onActuator(enabled: Boolean) = Unit
-        override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
-        override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
-        override fun onTestResult(result: io.specmatic.test.reports.TestExecutionResult) = Unit
-        override fun onTestsComplete() = Unit
-        override fun onEnd() = Unit
-        override fun onCoverageCalculated(coverage: Int) = Unit
-        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
-        override fun onGovernance(result: Result) = Unit
-    }
+        val decisions = mutableListOf<Decision<ContractTest, Scenario>>()
+        override fun onTestDecision(decision: Decision<ContractTest, Scenario>) {
+            decisions.add(decision)
+        }
 
-    private class CountingCoverageListener : TestReportListener {
         var onCoverageCalculatedCalls: Int = 0
-        var onTestsCompleteCalls: Int = 0
-        var onEndCalls: Int = 0
-
         override fun onCoverageCalculated(coverage: Int) {
             onCoverageCalculatedCalls++
         }
 
+        var onTestsCompleteCalls: Int = 0
         override fun onTestsComplete() {
             onTestsCompleteCalls++
         }
 
+        var onEndCalls: Int = 0
         override fun onEnd() {
             onEndCalls++
         }
@@ -1244,7 +1254,6 @@ paths:
         override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
         override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
         override fun onTestResult(result: io.specmatic.test.reports.TestExecutionResult) = Unit
-        override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
         override fun onGovernance(result: Result) = Unit
     }

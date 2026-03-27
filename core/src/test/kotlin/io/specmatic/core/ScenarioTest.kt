@@ -2,7 +2,6 @@ package io.specmatic.core
 
 import com.ezylang.evalex.Expression
 import com.ezylang.evalex.config.ExpressionConfiguration
-import io.ktor.http.HttpStatusCode
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.*
@@ -1115,7 +1114,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.GENERATIVE_DISABLED, otherReasons = listOf(TestRuleViolations.NO_EXAMPLES))
+                    reasoning = Reasoning(mainReason = TestRuleViolations.GENERATIVE_DISABLED, otherReasons = listOf(TestRuleViolations.EXAMPLES_REQUIRED))
                 )
             )
         }
@@ -1134,7 +1133,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.NO_EXAMPLES)
+                    reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED)
                 )
             )
         }
@@ -1172,7 +1171,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
+                    reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
                 )
             )
         }
@@ -1279,7 +1278,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = scenarioForNegativeBasedOnWithDecision(status = 400),
-                    reasoning = Reasoning(mainReason = TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
+                    reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
                 )
             )
         }
@@ -1293,7 +1292,7 @@ class ScenarioTest {
             assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
             assertThat(decision.context.httpResponsePattern.status).isEqualTo(401)
             assertThat(decision.context.statusInDescription).isEqualTo("401")
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
         }
 
         @Test
@@ -1305,7 +1304,7 @@ class ScenarioTest {
             assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
             assertThat(decision.context.httpResponsePattern.status).isEqualTo(DEFAULT_RESPONSE_CODE)
             assertThat(decision.context.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
         }
 
         @Test
