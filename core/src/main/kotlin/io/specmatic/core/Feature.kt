@@ -987,12 +987,12 @@ data class Feature(
         val badRequestResponses = scenariosToLookInto.filter {
             it.httpRequestPattern.httpPathPattern!!.toInternalPath() == scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
                     && it.httpResponsePattern.status.toString().startsWith("4")
-        }.associate { it.httpResponsePattern.status to it.httpResponsePattern }
+        }.associate { it.httpResponsePattern.status to it }
 
-        val defaultResponse: HttpResponsePattern? = scenariosToLookInto.find {
+        val defaultResponse: Scenario? = scenariosToLookInto.find {
             it.httpRequestPattern.httpPathPattern!!.toInternalPath() == scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
                     && it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE
-        }?.httpResponsePattern
+        }
 
         if (badRequestResponses.isEmpty() && defaultResponse == null)
             return null

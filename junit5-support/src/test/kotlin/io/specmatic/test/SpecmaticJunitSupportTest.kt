@@ -613,7 +613,7 @@ paths:
             }
 
             assertThat(output).containsSubsequence(
-                "Execution reasons for GET /alpha -> 200 (returns application/json)",
+                "Executed GET /alpha -> 200 (returns application/json)",
                 "Executed Using Example",
                 "This operation was executed by using an available example"
             )
