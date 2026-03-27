@@ -194,6 +194,11 @@ class OpenApiSpec(private val specFile: File) {
         return obj
     }
 
+    // Form data is all strings on the wire, but the JSON Schema validator needs correctly-typed
+    // JsonNodes (e.g. IntNode, not TextNode("42")). We coerce the four primitive types explicitly;
+    // "string" needs its own branch to prevent the `else` fallback from parsing values like "true"
+    // or "42" as JSON literals. All other types (array, object, unknown) fall through to `readTree`
+    // which handles JSON-encoded values, with a string fallback for plain scalars.
     private fun parseFormValue(value: String, schemaType: String?): JsonNode =
         when (schemaType) {
             "string" -> jsonMapper.valueToTree(value)
