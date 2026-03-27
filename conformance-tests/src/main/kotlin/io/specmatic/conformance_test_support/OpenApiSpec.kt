@@ -169,18 +169,26 @@ class OpenApiSpec(private val specFile: File) {
             val schema = properties[key]
             val schemaType = schema?.type ?: schema?.types?.firstOrNull()
             val parsedValue = parseFormValue(value, schemaType)
-            if (schemaType == "array") {
-                if (parsedValue.isArray) {
-                    // Array sent as a single JSON-encoded value e.g. tags=["foo","bar"]
-                    obj.set<JsonNode>(key, parsedValue)
-                } else {
-                    // Array sent as repeated fields e.g. tags=foo&tags=bar.
-                    // Specmatic currently sends arrays as JSON-encoded single values,
-                    // but this handles the repeated-field encoding if it's ever used.
-                    obj.withArray(key).add(parsedValue)
+            when (schemaType) {
+                "array" -> {
+                    when {
+                        parsedValue.isArray -> {
+                            // Array sent as a single JSON-encoded value e.g. tags=["foo","bar"]
+                            obj.set<JsonNode>(key, parsedValue)
+                        }
+
+                        else -> {
+                            // Array sent as repeated fields e.g. tags=foo&tags=bar.
+                            // Specmatic currently sends arrays as JSON-encoded single values,
+                            // but this handles the repeated-field encoding if it's ever used.
+                            obj.withArray(key).add(parsedValue)
+                        }
+                    }
                 }
-            } else {
-                obj.set<JsonNode>(key, parsedValue)
+
+                else -> {
+                    obj.set(key, parsedValue)
+                }
             }
         }
         return obj
