@@ -1,19 +1,15 @@
 package application.validate
 
 import io.specmatic.core.CONTRACT_EXTENSIONS
-import io.specmatic.core.OPENAPI_FILE_EXTENSIONS
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.utilities.ContractsSelectorPredicate
-import io.specmatic.core.utilities.GitRepo
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
 import io.specmatic.loader.SpecCompatibilityChecker
 import io.specmatic.loader.SpecificationWithExamples
-import org.yaml.snakeyaml.Yaml
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import java.io.File
@@ -45,22 +41,16 @@ class ValidateCommand(
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug))
         validateArguments()
 
-        val invalidSpecifications = findInvalidSpecificationCandidates()
         val data = loadSpecificationData()
-
-        if (invalidSpecifications.isNotEmpty()) {
-            println("Failed to parse ${invalidSpecifications.size} specification(s):")
-            invalidSpecifications.forEach { println(it.path) }
-        }
 
         if (data.isEmpty()) {
             println("No specifications found to validate.")
-            return if (invalidSpecifications.isNotEmpty()) 1 else 0
+            return 0
         }
 
         val processor = ValidationProcessor(validator)
         val summary = processor.processValidation(data)
-        return if (summary.isSuccess && invalidSpecifications.isEmpty()) 0 else 1
+        return if (summary.isSuccess) 0 else 1
     }
 
     private fun loadSpecificationData(): List<SpecificationWithExamples> {
@@ -83,73 +73,6 @@ class ValidateCommand(
             .distinctBy { specificationWithExamples -> specificationWithExamples.specFile.normalizedPath() }
     }
 
-    private fun findInvalidSpecificationCandidates(): List<File> {
-        return when {
-            file != null -> listOfNotNull(file).filter(::isMalformedOpenApiSpecification)
-            directory != null -> findInvalidSpecificationsInDirectory(directory ?: return emptyList())
-            else -> {
-                val resolvedDirectory = currentDirectoryProvider()
-                (findInvalidSpecificationsInDirectory(resolvedDirectory) + findInvalidConfigSpecifications())
-                    .distinctBy { it.normalizedPath() }
-            }
-        }
-    }
-
-    private fun findInvalidSpecificationsInDirectory(directory: File): List<File> {
-        return findContractCandidates(directory)
-            .filter(::isMalformedOpenApiSpecification)
-            .distinctBy { it.normalizedPath() }
-    }
-
-    private fun findInvalidConfigSpecifications(): List<File> {
-        val configFile = File(getConfigFilePath()).canonicalFile
-        if (!configFile.exists()) return emptyList()
-
-        val classificationWorkingDirectory = configFile.parentFile?.canonicalFile ?: currentDirectoryProvider()
-        val contractLoadingBaseDir = classificationWorkingDirectory.resolve(".specmatic").canonicalFile
-
-        return specmaticConfig.loadSources().flatMap { source ->
-            val contractLoadingWorkingDirectory =
-                if (source is GitRepo) contractLoadingBaseDir.canonicalPath else classificationWorkingDirectory.canonicalPath
-            source.loadContracts(
-                ContractsSelectorPredicate { contractSource -> contractSource.testContracts + contractSource.stubContracts },
-                contractLoadingWorkingDirectory,
-                configFile.canonicalPath
-            )
-        }.map { contractPathData ->
-            File(contractPathData.path).canonicalFile
-        }.filter { specificationFile ->
-            specificationFile.exists() && isMalformedOpenApiSpecification(specificationFile)
-        }.distinctBy { it.normalizedPath() }
-    }
-
-    private fun findContractCandidates(directory: File): List<File> {
-        if (!directory.isDirectory) return emptyList()
-        if (directory.isExcludedScanDirectory()) return emptyList()
-
-        return directory.listFiles()?.flatMap { file ->
-            when {
-                file.isDirectory && !file.isExcludedScanDirectory() -> findContractCandidates(file)
-                file.isFile && file.extension.lowercase() in CONTRACT_EXTENSIONS -> listOf(file.canonicalFile)
-                else -> emptyList()
-            }
-        }.orEmpty()
-    }
-
-    private fun isMalformedOpenApiSpecification(specificationFile: File): Boolean {
-        if (!specificationFile.isFile) return false
-        if (specificationFile.extension.lowercase() !in OPENAPI_FILE_EXTENSIONS) return false
-
-        return try {
-            specificationFile.reader().use { reader ->
-                Yaml().load<Any?>(reader)
-            }
-            false
-        } catch (_: Throwable) {
-            true
-        }
-    }
-
     private fun validateArguments() {
         if (file != null) {
             val specification = file ?: return
@@ -167,9 +90,5 @@ class ValidateCommand(
 
     private fun File.normalizedPath(): String {
         return runCatching { canonicalPath }.getOrElse { absolutePath }
-    }
-
-    private fun File.isExcludedScanDirectory(): Boolean {
-        return isDirectory && name == ".specmatic"
     }
 }

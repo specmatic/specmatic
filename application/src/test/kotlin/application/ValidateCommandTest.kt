@@ -221,7 +221,7 @@ class ValidateCommandTest {
     }
 
     @Test
-    fun `when config derived spec cannot be parsed validate returns non zero`(@TempDir tempDir: File) {
+    fun `when config derived spec cannot be parsed validate ignores it`(@TempDir tempDir: File) {
         val malformedSpec = tempDir.resolve("contracts/dependencies/broken.yaml")
         malformedSpec.parentFile.mkdirs()
         malformedSpec.writeText(
@@ -256,9 +256,8 @@ class ValidateCommandTest {
             CommandLine(commandWithCurrentConfig(tempDir, TrackingValidator())).execute()
         }
 
-        assertThat(exitCode).isEqualTo(1)
-        assertThat(output).contains("Failed to parse 1 specification(s):")
-        assertThat(output).contains(malformedSpec.canonicalPath)
+        assertThat(exitCode).isZero()
+        assertThat(output).contains("No specifications found to validate.")
     }
 
     @Test
@@ -287,7 +286,6 @@ class ValidateCommandTest {
         }
 
         assertThat(exitCode).isZero()
-        assertThat(output).doesNotContain("Failed to parse 1 specification(s):")
         assertThat(output).doesNotContain(malformedSpec.canonicalPath)
         assertThat(validator.validatedSpecifications).containsExactly(scannedSpec.canonicalPath)
     }
