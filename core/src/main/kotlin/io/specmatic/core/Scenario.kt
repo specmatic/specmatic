@@ -761,16 +761,30 @@ data class Scenario(
             }
         }
 
-    val defaultAPIDescription: String
-        get() {
-            if(customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
-            val soapActionInfo = httpRequestPattern.getSOAPAction()
-            return if (soapActionInfo != null) {
-                "$method $path SOAPAction $soapActionInfo ${disambiguate()}-> $statusInDescription"
-            } else {
-                "$method $path ${disambiguate()}-> $statusInDescription"
-            }
+    private fun baseApiDescription(): String {
+        val soapActionInfo = httpRequestPattern.getSOAPAction()
+        return if (soapActionInfo != null) {
+            "$method $path SOAPAction $soapActionInfo ${disambiguate()}-> $statusInDescription"
+        } else {
+            "$method $path ${disambiguate()}-> $statusInDescription"
         }
+    }
+
+    private fun contentDescription(): String {
+        val contentTypes = listOfNotNull(requestContentType?.let { "accepts $it" }, responseContentType?.let { "returns $it" })
+        return contentTypes.takeIf { it.isNotEmpty() }?.joinToString(prefix = "(", separator = ", ", postfix = ")").orEmpty()
+    }
+
+    val defaultAPIDescription: String get() {
+        if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
+        return baseApiDescription()
+    }
+
+    val fullApiDescription: String get() {
+        if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}".trimEnd()
+        val content = contentDescription()
+        return if (content.isBlank()) baseApiDescription() else listOf(baseApiDescription(), content).joinToString(separator = " ")
+    }
 
     override fun testDescription(): String {
         val apiDescription = customAPIDescription ?: this.defaultAPIDescription

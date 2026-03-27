@@ -1121,15 +1121,10 @@ class ScenarioTest {
         }
 
         @Test
-        fun `newBasedOnWithDecision should skip bad request scenarios without examples when resiliency suite is all`() {
+        fun `newBasedOnWithDecision should return null for bad request scenarios without examples when resiliency suite is all`() {
             val original = scenarioForNewBasedOnWithDecision(status = 400)
             val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
-            assertThat(decision).isEqualTo(
-                Decision.Skip(
-                    context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.NO_EXAMPLES)
-                )
-            )
+            assertThat(decision).isEqualTo(null)
         }
 
         @Test
@@ -1199,6 +1194,50 @@ class ScenarioTest {
             status = status,
             examples = listOf(Examples(listOf("id"), listOf(Row(mapOf("id" to "123")))))
         )
+    }
+
+    @Nested
+    inner class FullApiDescriptionTests {
+        @Test
+        fun `fullApiDescription should return base description when no content types are declared`() {
+            val scenario = scenarioForFullApiDescription()
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201")
+        }
+
+        @Test
+        fun `fullApiDescription should include request content type only`() {
+            val scenario = scenarioForFullApiDescription(requestContentType = "application/json")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (accepts application/json)")
+        }
+
+        @Test
+        fun `fullApiDescription should include response content type only`() {
+            val scenario = scenarioForFullApiDescription(responseContentType = "application/xml")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (returns application/xml)")
+        }
+
+        @Test
+        fun `fullApiDescription should include request and response content types`() {
+            val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (accepts application/json, returns application/xml)")
+        }
+
+        @Test
+        fun `fullApiDescription should prefer custom api description`() {
+            val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml", customAPIDescription = "Create product")
+            assertThat(scenario.fullApiDescription).startsWith("Create product")
+        }
+
+        private fun scenarioForFullApiDescription(requestContentType: String? = null, responseContentType: String? = null, customAPIDescription: String? = null, ): Scenario {
+            return Scenario(
+                name = "content-types",
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                customAPIDescription = customAPIDescription,
+                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("/products"), headersPattern = HttpHeadersPattern(contentType = requestContentType)),
+                httpResponsePattern = HttpResponsePattern(status = 201, headersPattern = HttpHeadersPattern(contentType = responseContentType)),
+            )
+        }
     }
 
     @Nested
