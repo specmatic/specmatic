@@ -482,4 +482,40 @@ class OpenApiSpecificationParseTest {
             return OpenApiVersion.entries.flatMap(::casesFor).stream()
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["3.0.0", "3.1.0"])
+    fun `should parse array schema with minItems and maxItems constraints`(openApiVersion: String) {
+        val spec = """
+            openapi: $openApiVersion
+            info:
+              title: Array Constraints Test
+              version: 1.0.0
+            paths:
+              /items:
+                get:
+                  responses:
+                    '200':
+                      description: Success
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              items:
+                                type: array
+                                minItems: 2
+                                maxItems: 5
+                                items:
+                                  type: string
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val responsePattern = feature.scenarios.single().httpResponsePattern
+        val bodyPattern = responsePattern.body as io.specmatic.core.pattern.JSONObjectPattern
+        val itemsPattern = bodyPattern.pattern["items?"] as io.specmatic.core.pattern.ListPattern
+
+        assertThat(itemsPattern.minItems).isEqualTo(2)
+        assertThat(itemsPattern.maxItems).isEqualTo(5)
+    }
 }

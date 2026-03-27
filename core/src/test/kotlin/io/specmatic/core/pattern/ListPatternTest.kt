@@ -986,12 +986,26 @@ Feature: Recursive test
     fun `should reject array with fewer items than minItems`() {
         val pattern = ListPattern(
             pattern = StringPattern(),
-            minItems = 2  // ← This parameter doesn't exist - COMPILATION ERROR
+            minItems = 2
         )
 
         val arrayWithOneItem = JSONArrayValue(listOf(StringValue("item1")))
         val result = pattern.matches(arrayWithOneItem, Resolver())
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `should generate arrays within minItems and maxItems constraints`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        repeat(10) {
+            val generated = pattern.generate(Resolver()) as JSONArrayValue
+            assertThat(generated.list.size).isBetween(2, 5)
+        }
     }
 }

@@ -1,0 +1,24 @@
+openapi: 3.0.0
+info:
+  title: Array Constraints API
+  version: 1.0.0
+paths:
+  /items:
+    get:
+      summary: Get items with array constraints
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    minItems: 2
+                    maxItems: 5
+                    items:
+                      type: string

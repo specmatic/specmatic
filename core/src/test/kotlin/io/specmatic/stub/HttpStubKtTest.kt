@@ -31,6 +31,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
@@ -1842,5 +1843,28 @@ paths:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(results.testCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `should respect minItems and maxItems constraints in stub generation and validation`() {
+        val spec = File("src/test/resources/openapi/array_constraints.yaml")
+        val feature = parseContractFileToFeature(spec)
+
+        val results = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val response = stub.client.execute(request)
+                    val body = response.body as JSONObjectValue
+                    val items = body.jsonObject["items"] as JSONArrayValue
+
+                    assertThat(items.list.size).isGreaterThanOrEqualTo(2)
+                    assertThat(items.list.size).isLessThanOrEqualTo(5)
+
+                    return response
+                }
+            })
+        }
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 }
