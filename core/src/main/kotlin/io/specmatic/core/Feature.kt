@@ -843,7 +843,7 @@ data class Feature(
         originalScenarios: List<Scenario> = scenarios,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ContractTest> {
-        val scenarioDecisions = originalScenarios.asSequence().map { Decision.Execute(it, it) }
+        val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
         return generateContractTestsWithDecision(suggestions, originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull decision.value
@@ -998,7 +998,7 @@ data class Feature(
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
         originalScenarios: List<Scenario> = scenarios
     ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
-        val scenarioDecisions = originalScenarios.asSequence().map { Decision.Execute(it, it) }
+        val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
         return generateContractTestScenariosWithDecision(suggestions, originalScenarios,scenarioDecisions, fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull Pair(decision.context, decision.value)
@@ -1006,9 +1006,9 @@ data class Feature(
     }
 
     fun generateContractTestScenariosWithDecision(
-        suggestions: List<Scenario>,
-        originalScenarios: List<Scenario>,
-        scenarios: Sequence<Decision<Scenario, Scenario>>,
+        suggestions: List<Scenario> = emptyList(),
+        originalScenarios: List<Scenario> = emptyList(),
+        scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
         val positiveTestScenarios = positiveTestScenariosWithDecision(suggestions, scenarios, fn)
@@ -1051,7 +1051,7 @@ data class Feature(
     }
 
     fun negativeTestScenarios(originalScenarios: List<Scenario> = scenarios): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
-        val scenarioDecisions = originalScenarios.asSequence().map { Decision.Execute(it, it) }
+        val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
         return negativeTestScenariosWithDecision(scenarioDecisions, originalScenarios).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull Pair(decision.context, decision.value)
