@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: Two Endpoints
+  version: 1.0.0
+paths:
+  /alpha:
+    get:
+      responses:
+        '200':
+          description: alpha ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+                required:
+                  - value
+              examples:
+                ok:
+                  value:
+                    value: alpha
+  /beta:
+    get:
+      responses:
+        '200':
+          description: beta ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+                required:
+                  - value
+              examples:
+                ok:
+                  value:
+                    value: beta
