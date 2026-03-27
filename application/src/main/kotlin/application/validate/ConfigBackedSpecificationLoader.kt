@@ -5,6 +5,7 @@ import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.ContractsSelectorPredicate
+import io.specmatic.core.utilities.GitRepo
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
 import io.specmatic.loader.SpecificationWithExamples
 import java.io.File
@@ -22,8 +23,9 @@ class ConfigBackedSpecificationLoader(
         logger.boundary()
         logger.log("Loading specifications declared in ${configFile.path}")
 
-        val workingDirectory = configFile.parentFile?.canonicalFile ?: File(".").canonicalFile
-        val loadedSpecifications = loadSpecifications(configFile, workingDirectory)
+        val classificationWorkingDirectory = configFile.parentFile?.canonicalFile ?: File(".").canonicalFile
+        val contractLoadingBaseDir = classificationWorkingDirectory.resolve(".specmatic").canonicalFile
+        val loadedSpecifications = loadSpecifications(configFile, classificationWorkingDirectory, contractLoadingBaseDir)
             .distinctBy { it.specFile.normalizedPath() }
 
         logger.log("Resolved ${loadedSpecifications.size} specifications from config")
@@ -32,11 +34,17 @@ class ConfigBackedSpecificationLoader(
         return loadedSpecifications
     }
 
-    private fun loadSpecifications(configFile: File, workingDirectory: File): List<SpecificationWithExamples> {
+    private fun loadSpecifications(
+        configFile: File,
+        classificationWorkingDirectory: File,
+        contractLoadingBaseDir: File
+    ): List<SpecificationWithExamples> {
         return loadSources().flatMap { source ->
+            val contractLoadingWorkingDirectory =
+                if (source is GitRepo) contractLoadingBaseDir.canonicalPath else classificationWorkingDirectory.canonicalPath
             val contractPathDataList = source.loadContracts(
                 ContractsSelectorPredicate { contractSource -> contractSource.testContracts + contractSource.stubContracts },
-                workingDirectory.canonicalPath,
+                contractLoadingWorkingDirectory,
                 configFile.canonicalPath
             )
 
@@ -51,7 +59,7 @@ class ConfigBackedSpecificationLoader(
                 }
 
                 logger.log("Using specification declared in config: $descriptor -> ${specificationFile.path}")
-                classifier.load(specificationFile, workingDirectory)
+                classifier.load(specificationFile, classificationWorkingDirectory)
             }
         }
     }

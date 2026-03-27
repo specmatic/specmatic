@@ -8,6 +8,7 @@ import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.ContractsSelectorPredicate
+import io.specmatic.core.utilities.GitRepo
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
 import io.specmatic.loader.SpecCompatibilityChecker
@@ -103,12 +104,15 @@ class ValidateCommand(
         val configFile = File(getConfigFilePath()).canonicalFile
         if (!configFile.exists()) return emptyList()
 
-        val workingDirectory = configFile.parentFile?.canonicalFile ?: currentDirectoryProvider()
+        val classificationWorkingDirectory = configFile.parentFile?.canonicalFile ?: currentDirectoryProvider()
+        val contractLoadingBaseDir = classificationWorkingDirectory.resolve(".specmatic").canonicalFile
 
         return specmaticConfig.loadSources().flatMap { source ->
+            val contractLoadingWorkingDirectory =
+                if (source is GitRepo) contractLoadingBaseDir.canonicalPath else classificationWorkingDirectory.canonicalPath
             source.loadContracts(
                 ContractsSelectorPredicate { contractSource -> contractSource.testContracts + contractSource.stubContracts },
-                workingDirectory.canonicalPath,
+                contractLoadingWorkingDirectory,
                 configFile.canonicalPath
             )
         }.map { contractPathData ->

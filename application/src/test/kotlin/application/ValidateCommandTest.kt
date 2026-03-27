@@ -7,9 +7,11 @@ import application.validate.ValidateCommand
 import application.validate.Validator
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
+import io.specmatic.core.utilities.GitRepo
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
 import org.assertj.core.api.Assertions.assertThat
@@ -144,20 +146,20 @@ class ValidateCommandTest {
         val downloadedSpec = writeOpenApiFile(tempDir.resolve("downloads/remote.yaml"))
         writeSpecmaticYaml(tempDir, "version: 3")
         val classifier = RecursiveSpecificationAndExampleClassifier(loadedConfig(tempDir), OpenApiSpecCompatibilityChecker())
+        val remoteSource = mockk<GitRepo>()
+        every { remoteSource.loadContracts(any(), any(), any()) } returns listOf(
+            io.specmatic.core.utilities.ContractPathData(
+                baseDir = tempDir.canonicalPath,
+                path = downloadedSpec.canonicalPath,
+                provider = "git",
+                specificationPath = "apis/remote.yaml"
+            )
+        )
+        every { remoteSource.pathDescriptor("apis/remote.yaml") } returns "remote-repo:apis/remote.yaml"
         val loader = ConfigBackedSpecificationLoader(
             specmaticConfig = loadedConfig(tempDir),
             classifier = classifier,
             loadSources = {
-                val remoteSource = mockk<io.specmatic.core.utilities.ContractSource>()
-                every { remoteSource.loadContracts(any(), any(), any()) } returns listOf(
-                    io.specmatic.core.utilities.ContractPathData(
-                        baseDir = tempDir.canonicalPath,
-                        path = downloadedSpec.canonicalPath,
-                        provider = "git",
-                        specificationPath = "apis/remote.yaml"
-                    )
-                )
-                every { remoteSource.pathDescriptor("apis/remote.yaml") } returns "remote-repo:apis/remote.yaml"
                 listOf(
                     remoteSource
                 )
@@ -167,6 +169,13 @@ class ValidateCommandTest {
 
         val specifications = loader.load()
 
+        verify {
+            remoteSource.loadContracts(
+                any(),
+                tempDir.resolve(".specmatic").canonicalPath,
+                tempDir.resolve("specmatic.yaml").canonicalPath
+            )
+        }
         assertThat(specifications.map { it.specFile.canonicalPath }).containsExactly(downloadedSpec.canonicalPath)
     }
 
