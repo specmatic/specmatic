@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
+import io.specmatic.core.BadRequestOrDefault.Companion.updateScenarioWithBadRequestPattern
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.filters.HasScenarioMetadata
@@ -828,7 +829,12 @@ data class Scenario(
 
     fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
         if (!this.isA2xxScenario()) return null
-        if (strictMode && !hasExamples()) return null
+        if (strictMode && !hasExamples()) {
+            val ruleViolation = TestRuleViolations.noExamples2xxAnd400(true)
+            val updatedContext = badRequestOrDefault.updateScenarioWithBadRequestPattern(this)
+            return Decision.Skip(context = updatedContext, reasoning = Reasoning(mainReason = ruleViolation))
+        }
+
         val reason = Reasoning(TestExecutionReason.executedNegativeGen())
         return Decision.Execute(value = negativeBasedOn(badRequestOrDefault), context = this, reasoning = reason)
     }

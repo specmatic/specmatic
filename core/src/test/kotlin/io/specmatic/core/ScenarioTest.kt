@@ -1250,10 +1250,12 @@ class ScenarioTest {
         }
 
         @Test
-        fun `negativeBasedOnWithDecision should return null for 2xx scenarios without examples in strict mode`() {
+        fun `negativeBasedOnWithDecision should return modified skip 400 for 2xx scenarios without examples in strict mode`() {
             val original = scenarioForNegativeBasedOnWithDecision(status = 200)
             val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = true)
-            assertThat(decision).isEqualTo(null)
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamples2xxAnd400(true))
+            assertThat(decision.reasoning.otherReasons).isEmpty()
         }
 
         @Test
@@ -1267,6 +1269,43 @@ class ScenarioTest {
                     reasoning = Reasoning(mainReason = TestExecutionReason.NEGATIVE_GENERATION_ENABLED)
                 )
             )
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should return skip for 2xx scenarios that have no examples`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
+            val badRequestOrDefault = BadRequestOrDefault(mapOf(400 to scenarioForNegativeBasedOnWithDecision(status = 400)), null)
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = badRequestOrDefault, strictMode = true)
+            assertThat(decision).isEqualTo(
+                Decision.Skip(
+                    context = scenarioForNegativeBasedOnWithDecision(status = 400),
+                    reasoning = Reasoning(mainReason = TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
+                )
+            )
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should use the explicit bad request status in the skip context`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
+            val badRequestOrDefault = BadRequestOrDefault(mapOf(401 to scenarioForNegativeBasedOnWithDecision(status = 401)), null)
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = badRequestOrDefault, strictMode = true)
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.context.httpResponsePattern.status).isEqualTo(401)
+            assertThat(decision.context.statusInDescription).isEqualTo("401")
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should use the default bad request status in the skip context`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
+            val badRequestOrDefault = BadRequestOrDefault(emptyMap(), scenarioForNegativeBasedOnWithDecision(status = DEFAULT_RESPONSE_CODE))
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = badRequestOrDefault, strictMode = true)
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.context.httpResponsePattern.status).isEqualTo(DEFAULT_RESPONSE_CODE)
+            assertThat(decision.context.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.STRICT_MODE_NO_EXAMPLES)
         }
 
         @Test

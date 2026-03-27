@@ -343,7 +343,10 @@ class FeatureDecisionMatrixTest {
                 originalScenarios = listOf(scenario)
             ).toList()
 
-            assertThat(generated).isEmpty()
+            assertThat(generated).hasSize(1)
+            val decision = generated.filterIsInstance<Decision.Skip<Scenario>>().single()
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamples2xxAnd400(true))
+            assertThat(decision.reasoning.otherReasons).isEmpty()
         }
 
         @Test
