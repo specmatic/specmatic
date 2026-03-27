@@ -31,3 +31,11 @@ inline fun <Item, Ctx, NewItem> Decision<Item, Ctx>.flatMapSequence(fn: (Item, C
     is Decision.Execute -> fn(value, context, reasoning)
     is Decision.Skip -> sequenceOf(Decision.Skip(context, reasoning))
 }
+
+inline fun <Item, Ctx, NewItem> Sequence<Decision<Item, Ctx>>.mapSequence(crossinline fn: (Item) -> NewItem): Sequence<Decision<NewItem, Ctx>> {
+    return this.map { it.mapValue(fn) }
+}
+
+inline fun <Item, Ctx, NewItem> Sequence<Decision<Item, Ctx>>.flatMapSequence(crossinline fn: (Item, Ctx, Reasoning) -> Sequence<Decision<NewItem, Ctx>>): Sequence<Decision<NewItem, Ctx>> {
+    return flatMap { it.flatMapSequence(fn) }
+}
