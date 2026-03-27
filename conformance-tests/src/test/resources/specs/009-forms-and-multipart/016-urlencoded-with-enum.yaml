@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with enum field"
+  version: "1.0"
+paths:
+  /feedback:
+    post:
+      operationId: submitFeedback
+      summary: Submit feedback with a rating enum
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - rating
+                - comment
+              properties:
+                rating:
+                  type: string
+                  enum:
+                    - excellent
+                    - good
+                    - average
+                    - poor
+                comment:
+                  type: string
+      responses:
+        '201':
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

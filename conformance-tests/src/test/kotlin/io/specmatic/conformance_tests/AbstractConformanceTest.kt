@@ -54,7 +54,7 @@ abstract class AbstractConformanceTest(
     @Order(1)
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
-            .withFailMessage { "$loopTestsResult.output\n\n$allLogs" }
+            .withFailMessage { allLogs }
             .isTrue
     }
 
