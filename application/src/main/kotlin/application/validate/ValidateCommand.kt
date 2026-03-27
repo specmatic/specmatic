@@ -19,8 +19,8 @@ import java.util.concurrent.Callable
 class ValidateCommand(
     private val validator: Validator<out Any?> = OpenApiValidator(),
     specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker(),
-    private val specmaticConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
-    private val configBackedSpecificationLoader: ConfigBackedSpecificationLoader? = null,
+    specmaticConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
+    configBackedSpecificationLoader: ConfigBackedSpecificationLoader? = null,
     private val currentDirectoryProvider: () -> File = { File(".").canonicalFile }
 ) : Callable<Int> {
     @CommandLine.Option(names = ["--debug"], description = ["Enable debug logs"])

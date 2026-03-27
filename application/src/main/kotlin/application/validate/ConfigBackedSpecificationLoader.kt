@@ -43,7 +43,7 @@ class ConfigBackedSpecificationLoader(
             val contractLoadingWorkingDirectory =
                 if (source is GitRepo) contractLoadingBaseDir.canonicalPath else classificationWorkingDirectory.canonicalPath
             val contractPathDataList = source.loadContracts(
-                ContractsSelectorPredicate { contractSource -> contractSource.testContracts + contractSource.stubContracts },
+                { contractSource -> contractSource.testContracts + contractSource.stubContracts },
                 contractLoadingWorkingDirectory,
                 configFile.canonicalPath
             )
