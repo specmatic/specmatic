@@ -100,6 +100,47 @@ class ValidateCommandTest {
     }
 
     @Test
+    fun `when validate scans directories it omits specs under dot specmatic`(@TempDir tempDir: File) {
+        val scannedSpec = writeOpenApiFile(tempDir.resolve("contracts/kept.yaml"))
+        writeOpenApiFile(tempDir.resolve(".specmatic/repos/ignored.yaml"))
+
+        val validator = TrackingValidator()
+        val exitCode = CommandLine(commandWithCurrentConfig(tempDir, validator)).execute()
+
+        assertThat(exitCode).isZero()
+        assertThat(validator.validatedSpecifications).containsExactly(scannedSpec.canonicalPath)
+    }
+
+    @Test
+    fun `when config references spec under dot specmatic validate still includes it`(@TempDir tempDir: File) {
+        val scannedSpec = writeOpenApiFile(tempDir.resolve("contracts/kept.yaml"))
+        val configSpec = writeOpenApiFile(tempDir.resolve(".specmatic/repos/service.yaml"))
+        writeSpecmaticYaml(tempDir, "version: 3")
+        val configBackedLoader = mockk<ConfigBackedSpecificationLoader>()
+        every { configBackedLoader.load() } returns listOf(
+            RecursiveSpecificationAndExampleClassifier(loadedConfig(tempDir), OpenApiSpecCompatibilityChecker())
+                .load(configSpec, tempDir)
+                ?: error("Expected config spec to be loadable")
+        )
+        val validator = TrackingValidator()
+        val exitCode = CommandLine(
+            ValidateCommand(
+                validator = validator,
+                specmaticConfig = loadedConfig(tempDir),
+                configBackedSpecificationLoader = configBackedLoader,
+                currentDirectoryProvider = { tempDir.canonicalFile }
+            )
+        ).execute()
+
+        assertThat(exitCode).isZero()
+        assertThat(validator.validatedSpecifications).containsExactlyInAnyOrder(
+            scannedSpec.canonicalPath,
+            configSpec.canonicalPath
+        )
+        verify(exactly = 1) { configBackedLoader.load() }
+    }
+
+    @Test
     fun `when config derived spec fails validate returns non zero and mentions the spec`(@TempDir tempDir: File) {
         val failingSpec = writeOpenApiFile(tempDir.resolve("contracts/dependencies/broken.yaml"))
         writeSpecmaticYaml(tempDir, """
@@ -218,6 +259,37 @@ class ValidateCommandTest {
         assertThat(exitCode).isEqualTo(1)
         assertThat(output).contains("Failed to parse 1 specification(s):")
         assertThat(output).contains(malformedSpec.canonicalPath)
+    }
+
+    @Test
+    fun `when malformed spec exists only under dot specmatic scan does not report it`(@TempDir tempDir: File) {
+        val scannedSpec = writeOpenApiFile(tempDir.resolve("contracts/kept.yaml"))
+        val malformedSpec = tempDir.resolve(".specmatic/repos/broken.yaml")
+        malformedSpec.parentFile.mkdirs()
+        malformedSpec.writeText(
+            """
+            openapi: 3.0.1
+            info:
+              title: Broken API
+              version: "1"
+            paths:
+              /pets:
+                get:
+                  responses:
+                    '200'
+                      description: OK
+            """.trimIndent()
+        )
+
+        val validator = TrackingValidator()
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            CommandLine(commandWithCurrentConfig(tempDir, validator)).execute()
+        }
+
+        assertThat(exitCode).isZero()
+        assertThat(output).doesNotContain("Failed to parse 1 specification(s):")
+        assertThat(output).doesNotContain(malformedSpec.canonicalPath)
+        assertThat(validator.validatedSpecifications).containsExactly(scannedSpec.canonicalPath)
     }
 
     private fun commandWithCurrentConfig(baseDir: File, validator: TrackingValidator): ValidateCommand {

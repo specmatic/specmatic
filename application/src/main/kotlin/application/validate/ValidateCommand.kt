@@ -36,7 +36,8 @@ class ValidateCommand(
     @CommandLine.Option(names = ["--spec-file"], description = ["Specification to validate, along with respective examples"])
     var file: File? = null
 
-    private val recursiveSpecificationAndExampleClassifier = RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker)
+    private val recursiveSpecificationAndExampleClassifier =
+        RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker, setOf(".specmatic"))
     private val effectiveConfigBackedSpecificationLoader =
         configBackedSpecificationLoader ?: ConfigBackedSpecificationLoader(specmaticConfig, recursiveSpecificationAndExampleClassifier)
 
@@ -124,10 +125,11 @@ class ValidateCommand(
 
     private fun findContractCandidates(directory: File): List<File> {
         if (!directory.isDirectory) return emptyList()
+        if (directory.isExcludedScanDirectory()) return emptyList()
 
         return directory.listFiles()?.flatMap { file ->
             when {
-                file.isDirectory -> findContractCandidates(file)
+                file.isDirectory && !file.isExcludedScanDirectory() -> findContractCandidates(file)
                 file.isFile && file.extension.lowercase() in CONTRACT_EXTENSIONS -> listOf(file.canonicalFile)
                 else -> emptyList()
             }
@@ -165,5 +167,9 @@ class ValidateCommand(
 
     private fun File.normalizedPath(): String {
         return runCatching { canonicalPath }.getOrElse { absolutePath }
+    }
+
+    private fun File.isExcludedScanDirectory(): Boolean {
+        return isDirectory && name == ".specmatic"
     }
 }

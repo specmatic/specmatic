@@ -4,7 +4,11 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
 import java.io.File
 
-class RecursiveSpecificationAndExampleClassifier(private val specmaticConfig: SpecmaticConfig, private val strategy: SpecCompatibilityChecker) {
+class RecursiveSpecificationAndExampleClassifier(
+    private val specmaticConfig: SpecmaticConfig,
+    private val strategy: SpecCompatibilityChecker,
+    private val excludedDirectoryNames: Set<String> = emptySet()
+) {
     fun loadAll(directory: File): List<SpecificationWithExamples> {
         logger.boundary()
         logger.log("Scanning for specification and examples in entry directory ${directory.path}")
@@ -42,7 +46,7 @@ class RecursiveSpecificationAndExampleClassifier(private val specmaticConfig: Sp
         logger.debug("Scanning directory ${directory.path}")
         return directory.listFiles()?.flatMap { file ->
             when {
-                file.isDirectory -> findAllSpecifications(file)
+                file.isDirectory && file.name !in excludedDirectoryNames -> findAllSpecifications(file)
                 file.isFile && strategy.isCompatibleSpecification(file, specmaticConfig) -> {
                     logger.log("Specification found at ${file.path}")
                     listOf(file)
