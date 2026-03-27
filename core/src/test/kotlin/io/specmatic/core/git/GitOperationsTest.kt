@@ -1,14 +1,118 @@
 package io.specmatic.core.git
 
+import io.mockk.clearAllMocks
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import io.specmatic.core.Auth
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
-import org.assertj.core.api.AssertionsForClassTypes.assertThat
+import io.specmatic.core.pattern.ContractException
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import java.nio.file.Path
 
 class GitOperationsTest {
+    @AfterEach
+    fun tearDown() {
+        clearAllMocks()
+    }
+
+    @Test
+    fun `orchestration clone should use system git when it succeeds`(@TempDir tempDir: File) {
+        val gitRepositoryURI = "https://github.com/specmatic/enterprise.git"
+        val cloneDirectory = tempDir.resolve("enterprise")
+        val systemGit = mockk<GitCommand>()
+        val jGitCloneCommand = mockk<JGitCloneCmd>()
+
+        every { systemGit.clone(gitRepositoryURI, cloneDirectory) } returns mockk<SystemGit>()
+
+        clone(gitRepositoryURI, cloneDirectory, SpecmaticConfigV1V2Common(), systemGit, jGitCloneCommand)
+
+        verify(exactly = 1) { systemGit.clone(gitRepositoryURI, cloneDirectory) }
+        verify(exactly = 0) { jGitCloneCommand.execute(any(), any(), any()) }
+    }
+
+    @Test
+    fun `orchestration clone should fall back to jgit when system git fails`(@TempDir tempDir: File) {
+        val gitRepositoryURI = "https://github.com/specmatic/enterprise.git"
+        val cloneDirectory = tempDir.resolve("enterprise")
+        val systemGit = mockk<GitCommand>()
+        val jGitCloneCommand = mockk<JGitCloneCmd>()
+
+        every { systemGit.clone(gitRepositoryURI, cloneDirectory) } throws RuntimeException("system git failed")
+        every { jGitCloneCommand.execute(any(), any(), any()) } returns Unit
+
+        clone(gitRepositoryURI, cloneDirectory, SpecmaticConfigV1V2Common(), systemGit, jGitCloneCommand)
+
+        verify(exactly = 1) { systemGit.clone(gitRepositoryURI, cloneDirectory) }
+        verify(exactly = 1) { jGitCloneCommand.execute(any(), any(), any()) }
+    }
+
+    @Test
+    fun `orchestration clone should enrich auth related failures`(@TempDir tempDir: File) {
+        val gitRepositoryURI = "https://github.com/specmatic/enterprise.git"
+        val cloneDirectory = tempDir.resolve("enterprise")
+        val systemGit = mockk<GitCommand>()
+        val jGitCloneCommand = mockk<JGitCloneCmd>()
+        val originalMessage =
+            """
+            remote: Write access to repository not granted.
+            fatal: unable to access '$gitRepositoryURI/': The requested URL returned error: 403
+            """.trimIndent()
+
+        every { systemGit.clone(gitRepositoryURI, cloneDirectory) } throws RuntimeException("system git failed")
+        every { jGitCloneCommand.execute(any(), any(), any()) } throws RuntimeException(originalMessage)
+
+        val exception = assertThrows<ContractException> {
+            clone(gitRepositoryURI, cloneDirectory, SpecmaticConfigV1V2Common(), systemGit, jGitCloneCommand)
+        }
+
+        assertThat(exception.message).contains("Failed to read contract repository $gitRepositoryURI")
+        assertThat(exception.message).contains("Specmatic only needs read access to load contracts.")
+        assertThat(exception.message).contains("Write access to repository not granted")
+        assertThat(exception.message).contains("The requested URL returned error: 403")
+    }
+
+    @Test
+    fun `orchestration clone should preserve non auth failure messages`(@TempDir tempDir: File) {
+        val gitRepositoryURI = "https://github.com/specmatic/enterprise.git"
+        val cloneDirectory = tempDir.resolve("enterprise")
+        val systemGit = mockk<GitCommand>()
+        val jGitCloneCommand = mockk<JGitCloneCmd>()
+
+        every { systemGit.clone(gitRepositoryURI, cloneDirectory) } throws RuntimeException("system git failed")
+        every { jGitCloneCommand.execute(any(), any(), any()) } throws RuntimeException("repository unavailable")
+
+        val exception = assertThrows<ContractException> {
+            clone(gitRepositoryURI, cloneDirectory, SpecmaticConfigV1V2Common(), systemGit, jGitCloneCommand)
+        }
+
+        assertThat(exception.message).isEqualTo("repository unavailable")
+        assertThat(exception.message).doesNotContain("Specmatic only needs read access")
+    }
+
+    @Test
+    fun `orchestration clone should use cause message when throwable message is null`(@TempDir tempDir: File) {
+        val gitRepositoryURI = "https://github.com/specmatic/enterprise.git"
+        val cloneDirectory = tempDir.resolve("enterprise")
+        val systemGit = mockk<GitCommand>()
+        val jGitCloneCommand = mockk<JGitCloneCmd>()
+
+        every { systemGit.clone(gitRepositoryURI, cloneDirectory) } throws RuntimeException("system git failed")
+        every { jGitCloneCommand.execute(any(), any(), any()) } throws RuntimeException(null, IllegalStateException("deep cause"))
+
+        val exception = assertThrows<ContractException> {
+            clone(gitRepositoryURI, cloneDirectory, SpecmaticConfigV1V2Common(), systemGit, jGitCloneCommand)
+        }
+
+        assertThat(exception.message).isEqualTo("deep cause")
+    }
+
     @Test
     fun shouldNotChangeGitRepoUrlWhenThereAreNoEnvVariables() {
         val gitRepositoryURI = "https://gitlab.com/group/project.git"

@@ -151,31 +151,4 @@ data class GitRepo(
     }
 
     private fun localRepoDir(workingDirectory: String): File = File(workingDirectory).resolve("repos")
-
-    override fun install(workingDirectory: File) {
-        val baseReposDirectory = workingDirectory.resolve("repos")
-        val sourceDir = baseReposDirectory.resolve(repoName)
-        val sourceGit = SystemGit(sourceDir.path)
-
-        try {
-            println("Checking ${sourceDir.path}")
-            if (!sourceDir.exists())
-                sourceDir.mkdirs()
-
-            if (!sourceGit.workingDirectoryIsGitRepo() || isEmptyNestedGitDirectory(sourceGit, sourceDir)) {
-                println("Found it, not a git dir, recreating...")
-                sourceDir.deleteRecursively()
-                sourceDir.mkdirs()
-                println("Cloning ${this.gitRepositoryURL} into ${sourceDir.canonicalPath}")
-                this.cloneRepoAndCheckoutBranch(sourceDir.canonicalFile.parentFile, this)
-            } else {
-                println("Git repo already exists at ${sourceDir.path}, so ignoring it and moving on")
-            }
-        } catch (e: Throwable) {
-            println("Could not clone ${this.gitRepositoryURL}\n${e.javaClass.name}: ${exceptionCauseMessage(e)}")
-        }
-    }
-
-    private fun isEmptyNestedGitDirectory(sourceGit: SystemGit, sourceDir: File) =
-        (sourceGit.workingDirectoryIsGitRepo() && sourceGit.getRemoteUrl() != this.gitRepositoryURL && sourceDir.listFiles()?.isEmpty() == true)
 }

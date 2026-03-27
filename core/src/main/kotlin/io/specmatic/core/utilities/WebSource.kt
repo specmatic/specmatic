@@ -14,10 +14,6 @@ class WebSource(override val testContracts: List<ContractSourceEntry>, override 
         return ""
     }
 
-    override fun install(workingDirectory: File) {
-        logger.log("Install is not currently supported for web sources")
-    }
-
     override fun directoryRelativeTo(workingDirectory: File): File {
         return File(".")
     }
