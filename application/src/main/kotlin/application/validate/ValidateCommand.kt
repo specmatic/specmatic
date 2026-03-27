@@ -1,6 +1,8 @@
 package application.validate
 
+import io.specmatic.core.CONTRACT_EXTENSIONS
 import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.pattern.ContractException
@@ -16,7 +18,10 @@ import java.util.concurrent.Callable
 @Command(name = "validate", hidden = true, mixinStandardHelpOptions = true, description = ["Lint & Validate specification and external examples"])
 class ValidateCommand(
     private val validator: Validator<out Any?> = OpenApiValidator(),
-    specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker()
+    specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker(),
+    specmaticConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
+    configBackedSpecificationLoader: ConfigBackedSpecificationLoader? = null,
+    private val currentDirectoryProvider: () -> File = { File(".").canonicalFile }
 ) : Callable<Int> {
     @CommandLine.Option(names = ["--debug"], description = ["Enable debug logs"])
     var debug: Boolean? = null
@@ -27,12 +32,17 @@ class ValidateCommand(
     @CommandLine.Option(names = ["--spec-file"], description = ["Specification to validate, along with respective examples"])
     var file: File? = null
 
-    private val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
-    private val recursiveSpecificationAndExampleClassifier = RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker)
+    private val recursiveSpecificationAndExampleClassifier =
+        RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker, setOf(".specmatic"))
+    private val effectiveConfigBackedSpecificationLoader =
+        configBackedSpecificationLoader ?: ConfigBackedSpecificationLoader(specmaticConfig, recursiveSpecificationAndExampleClassifier)
 
     override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug))
+        validateArguments()
+
         val data = loadSpecificationData()
+
         if (data.isEmpty()) {
             println("No specifications found to validate.")
             return 0
@@ -44,16 +54,23 @@ class ValidateCommand(
     }
 
     private fun loadSpecificationData(): List<SpecificationWithExamples> {
-        validateArguments()
-
         if (file != null) {
             val specification = file ?: return emptyList()
             val loadedData = recursiveSpecificationAndExampleClassifier.load(specification) ?: return emptyList()
             return listOf(loadedData)
         }
 
-        val resolvedDirectory = directory ?: File(".").canonicalFile
-        return recursiveSpecificationAndExampleClassifier.loadAll(resolvedDirectory)
+        if (directory != null) {
+            val resolvedDirectory = directory ?: return emptyList()
+            return recursiveSpecificationAndExampleClassifier.loadAll(resolvedDirectory)
+        }
+
+        val resolvedDirectory = currentDirectoryProvider()
+        val discoveredSpecifications = recursiveSpecificationAndExampleClassifier.loadAll(resolvedDirectory)
+        val configSpecifications = if (File(getConfigFilePath()).exists()) effectiveConfigBackedSpecificationLoader.load() else emptyList()
+
+        return (discoveredSpecifications + configSpecifications)
+            .distinctBy { specificationWithExamples -> specificationWithExamples.specFile.normalizedPath() }
     }
 
     private fun validateArguments() {
@@ -69,5 +86,9 @@ class ValidateCommand(
             if (!directory.isDirectory)  throw ContractException("${directory.path} is not a directory")
             if (!directory.exists()) throw ContractException("Directory ${directory.path} does not exist")
         }
+    }
+
+    private fun File.normalizedPath(): String {
+        return runCatching { canonicalPath }.getOrElse { absolutePath }
     }
 }
