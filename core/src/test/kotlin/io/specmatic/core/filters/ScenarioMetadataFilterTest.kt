@@ -42,7 +42,7 @@ class ScenarioMetadataFilterTest {
     @Test
     fun `filterUsingDecisions should preserve existing skip decisions`() {
         val filter = ScenarioMetadataFilter.from("METHOD='POST'")
-        val originalSkip = Decision.Skip(context = "already-skipped", reasoning = Reasoning(mainReason = TestRuleViolations.NO_EXAMPLES))
+        val originalSkip = Decision.Skip(context = "already-skipped", reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED))
         val filtered = ScenarioMetadataFilter.filterUsingDecisions(sequenceOf(originalSkip), filter).toList()
         assertThat(filtered).containsExactly(originalSkip)
     }

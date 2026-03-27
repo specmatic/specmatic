@@ -8,19 +8,19 @@ enum class TestRuleViolations(override val id: String, override val title: Strin
         title = "Excluded from Run",
         summary = "This operation was skipped because it did not match the selected filters"
     ),
-    NO_EXAMPLES(
+    EXAMPLES_REQUIRED(
         id = "T00003",
-        title = "No Examples Available",
+        title = "Examples Required",
         summary = "This operation requires examples to run, but none were provided"
     ),
-    STRICT_MODE_NO_EXAMPLES(
+    EXAMPLES_REQUIRED_STRICT_MODE(
         id = "T00002",
         title = "Examples Required in Strict Mode",
         summary = "Strict mode requires at least one example, but none were found for this operation"
     ),
     ACCEPT_MISMATCH(
         id = "T00004",
-        title = "Content Type Mismatch",
+        title = "Accept Mismatch",
         summary = "The request Accept header does not match the response content type of the operation"
     ),
     GENERATIVE_DISABLED(
@@ -35,7 +35,7 @@ enum class TestRuleViolations(override val id: String, override val title: Strin
     );
 
     companion object {
-        fun noExamplesNon2xxAndNon400(): TestRuleViolations = NO_EXAMPLES
-        fun noExamples2xxAnd400(strictMode: Boolean): TestRuleViolations = if (strictMode) STRICT_MODE_NO_EXAMPLES else NO_EXAMPLES
+        fun noExamplesNon2xxAndNon400(): TestRuleViolations = EXAMPLES_REQUIRED
+        fun noExamples2xxAnd400(strictMode: Boolean): TestRuleViolations = if (strictMode) EXAMPLES_REQUIRED_STRICT_MODE else EXAMPLES_REQUIRED
     }
 }

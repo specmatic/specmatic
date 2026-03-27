@@ -459,6 +459,7 @@ open class SpecmaticJUnitSupport {
 
         startTime = Instant.now()
         return testScenarios.mapNotNull { contractTestDecision ->
+            openApiCoverageReportInput.onTestDecision(contractTestDecision)
             if (contractTestDecision !is Decision.Execute) {
                 logger.boundary()
                 logger.log(LOG_SEPARATOR)
