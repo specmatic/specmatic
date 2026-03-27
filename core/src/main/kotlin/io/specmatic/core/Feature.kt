@@ -211,6 +211,13 @@ data class Feature(
         return this.copy(scenarios = this.scenarios.map { scenario -> scenario.copy(dictionary = dictionary) })
     }
 
+    fun disableGenerativeTesting(): Feature {
+        return this.copy(
+            flagsBased = this.flagsBased.copy(generation = NonGenerativeTests, positivePrefix = "", negativePrefix = ""),
+            specmaticConfig = specmaticConfig.disableResiliencyTests()
+        )
+    }
+
     fun enableGenerativeTesting(onlyPositive: Boolean = false): Feature {
         return this.copy(
             flagsBased = this.flagsBased.copy(
@@ -834,7 +841,7 @@ data class Feature(
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
-            Decision.Skip(context = originalScenario, reasoning = Reasoning(mainReason = TestRuleViolations.ACCEPT_MISMATCH))
+            Decision.Skip(context = generatedScenarioReturnValue.value, reasoning = Reasoning(mainReason = TestRuleViolations.ACCEPT_MISMATCH))
         }
     }
 
@@ -851,9 +858,9 @@ data class Feature(
     }
 
     fun generateContractTestsWithDecision(
-        suggestions: List<Scenario>,
-        originalScenarios: List<Scenario>,
-        scenarios: Sequence<Decision<Scenario, Scenario>>,
+        suggestions: List<Scenario> = emptyList(),
+        originalScenarios: List<Scenario> = this.scenarios,
+        scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
@@ -1043,7 +1050,7 @@ data class Feature(
                 ).map { generatedScenario ->
                     val scenarioWithPrefix = scenario.copy(generativePrefix = flagsBased.positivePrefix)
                     val returnValueWithDescription = getScenarioWithDescription(generatedScenario)
-                    val updatedReasoning = updatePositiveGenerationReasoning(resolverStrategies, generatedScenario, reasoning)
+                    val updatedReasoning = updatePositiveGenerationReasoning(generatedScenario, reasoning)
                     Decision.Execute(returnValueWithDescription, scenarioWithPrefix, updatedReasoning)
                 }
             }
@@ -1084,10 +1091,9 @@ data class Feature(
         }
     }
 
-    private fun updatePositiveGenerationReasoning(flagsBased: FlagsBased, scenario: ReturnValue<Scenario>, reasoning: Reasoning): Reasoning {
+    private fun updatePositiveGenerationReasoning(scenario: ReturnValue<Scenario>, reasoning: Reasoning): Reasoning {
         if (scenario !is HasValue || scenario.value.generatedFrom == GeneratedScenarioOrigin.EXAMPLE_ROW) return reasoning
-        if (flagsBased.generation !is GenerativeTestsEnabled) return reasoning
-        if (!specmaticConfig.isResiliencyTestingEnabled()) return reasoning
+        if (specmaticConfig.getResiliencyTestsEnabled() == ResiliencyTestSuite.none) return reasoning
         return reasoning.withMainReason(TestExecutionReason.executedPositiveGen())
     }
 
