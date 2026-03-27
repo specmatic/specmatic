@@ -50,6 +50,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
 import java.io.File
 import java.io.PrintStream
 import java.net.ServerSocket
@@ -562,6 +564,72 @@ paths:
     }
 
     @Test
+    fun `contractTest should mark scenarios as EXCLUDED when filter excludes them`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        val (server, baseUrl) = startAlphaBetaStubServer()
+        try {
+            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, configFile = "", generative = false, filter = "PATH='/alpha'",))
+            val output = captureStdout {
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+                assertThat(tests).hasSize(1)
+            }
+
+            assertThat(output).containsSubsequence(
+                "Skipping GET /beta -> 200", "Excluded from Run",
+                "This operation was skipped because it did not match the selected filters"
+            )
+        } finally {
+            server.stop(0)
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `contractTest should use expression filter in no tests found message and mark scenarios as EXCLUDED`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        val (server, baseUrl) = startAlphaBetaStubServer()
+        try {
+            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, configFile = "", generative = false, filter = "METHOD='PATCH'"))
+            val tests = SpecmaticJUnitSupport().contractTest().toList()
+            val error = assertThrows<AssertionError> { tests.single().executable.execute() }
+            assertThat(error.message).contains("No tests found to run.")
+            assertThat(error.message).contains("expression filter: \"METHOD='PATCH'\"")
+        } finally {
+            server.stop(0)
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `contractTest should skip scenarios beyond maxTestCount and still print execution reasons for executed tests`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = null, maxTestCount = 1)
+        val (server, baseUrl) = startAlphaBetaStubServer()
+        try {
+            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath, generative = false, filter = ""))
+            val output = captureStdout {
+                val tests = SpecmaticJUnitSupport().contractTest()
+                assertDoesNotThrow { tests.forEach { it.executable.execute() } }
+            }
+
+            assertThat(output).containsSubsequence(
+                "Execution reasons for GET /alpha -> 200",
+                "Executed Using Example",
+                "This operation was executed by using an available example"
+            )
+
+            assertThat(output).containsSubsequence(
+                "Skipping GET /beta -> 200",
+                "Maximum Test Count Exceeded",
+                "This operation was skipped because it exceeded the maximum test count"
+            )
+        } finally {
+            server.stop(0)
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
     fun `should load only example of scenarios which have been filtered`() {
         val specFile = File("src/test/resources/invalid_example/openapi.yaml")
         assertDoesNotThrow {
@@ -1060,7 +1128,7 @@ paths:
             .isEqualTo(0)
     }
 
-    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null): File {
+    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, maxTestCount: Int? = null): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
             version = SpecmaticConfigVersion.VERSION_3,
@@ -1069,13 +1137,47 @@ paths:
                     CommonServiceConfig(
                         definitions = emptyList(),
                         runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl))),
-                        settings = RefOrValue.Value(TestSettings())
+                        settings = RefOrValue.Value(TestSettings(maxTestCount = maxTestCount))
                     )
                 )
             )
         )
         configFile.writeText(yamlMapper.writeValueAsString(config))
         return configFile
+    }
+
+    private fun startAlphaBetaStubServer(): Pair<HttpServer, String> {
+        val server = HttpServer.create(InetSocketAddress(0), 0)
+        server.createContext("/alpha") { exchange ->
+            val bytes = """{"value":"alpha"}""".toByteArray()
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+
+        server.createContext("/beta") { exchange ->
+            val bytes = """{"value":"beta"}""".toByteArray()
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+
+        server.start()
+        val baseUrl = "http://localhost:${server.address.port}"
+        return server to baseUrl
+    }
+
+    private fun captureStdout(block: () -> Unit): String {
+        val originalOut = System.out
+        val outputStream = java.io.ByteArrayOutputStream()
+        System.setOut(PrintStream(outputStream))
+        return try {
+            block()
+            outputStream.toString()
+        } finally {
+            System.out.flush()
+            System.setOut(originalOut)
+        }
     }
 
     private class RecordingExampleErrorsListener : TestReportListener {
