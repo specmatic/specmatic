@@ -467,7 +467,7 @@ open class SpecmaticJUnitSupport {
                 logger.boundary()
                 logger.log(buildString {
                     appendLine("--------------------")
-                    this.appendLine("Skipping ${contractTestDecision.context.defaultAPIDescription}")
+                    this.appendLine("Skipping ${contractTestDecision.context.fullApiDescription}")
                     this.appendLine(contractTestDecision.reasoning.toRuleViolationText())
                 })
                 return@mapNotNull null
@@ -526,7 +526,7 @@ open class SpecmaticJUnitSupport {
                     throw e
                 } finally {
                     logger.log(buildString {
-                        appendLine("Execution reasons for ${contractTestDecision.context.defaultAPIDescription}")
+                        appendLine("Execution reasons for ${contractTestDecision.context.fullApiDescription}")
                         appendLine(contractTestDecision.reasoning.toRuleViolationText())
                     })
                     if (testResult != null) {
