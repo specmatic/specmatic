@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.SpecVersion
 import io.swagger.v3.parser.core.models.ParseOptions
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.net.URLDecoder
 import io.swagger.v3.oas.models.Operation as SwaggerOperation
 
 data class Operation(
@@ -27,6 +28,9 @@ data class Operation(
     fun isJsonContent(): Boolean = hasRequestContentType() && requestContentType!!.lowercase().contains("json")
 
     fun isYamlContent(): Boolean = hasRequestContentType() && requestContentType!!.lowercase().contains("yaml")
+
+    fun isFormUrlEncodedContent(): Boolean =
+        hasRequestContentType() && requestContentType!!.lowercase() == "application/x-www-form-urlencoded"
 }
 
 class OpenApiSpec(private val specFile: File) {
@@ -108,19 +112,13 @@ class OpenApiSpec(private val specFile: File) {
     fun validateRequestBody(body: String, operation: Operation): List<Error> {
         require(operation.hasRequestContentType())
 
-        return when {
-            operation.isJsonContent() || operation.isYamlContent() -> {
-                val requestBodyPath =
-                    "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody"
-                val basePath = resolveRef(requestBodyPath)
-                val pointer = "$basePath/content/${operation.requestContentType!!.escapeJsonPointer()}/schema"
-                validate(pointer, body)
-            }
-
-            else -> {
-                error("no support for validating requests of type:${operation.requestContentType}\nbody=${body}")
-            }
+        val jsonNode = when {
+            operation.isJsonContent() || operation.isYamlContent() -> yamlMapper.readTree(body)
+            operation.isFormUrlEncodedContent() -> formUrlEncodedToJson(body, operation)
+            else -> error("no support for validating requests of type:${operation.requestContentType}\nbody=${body}")
         }
+
+        return requestBodySchema(operation).validate(jsonNode)
     }
 
     fun validateResponseBody(
@@ -131,6 +129,14 @@ class OpenApiSpec(private val specFile: File) {
         val basePath = resolveRef(responsePath)
         val pointer = "$basePath/content/${responseContentType.escapeJsonPointer()}/schema"
         return validate(pointer, body)
+    }
+
+    private fun requestBodySchema(operation: Operation): Schema {
+        val requestBodyPath =
+            "/paths/${operation.path.escapeJsonPointer()}/${operation.method.lowercase()}/requestBody"
+        val basePath = resolveRef(requestBodyPath)
+        val pointer = "$basePath/content/${operation.requestContentType!!.escapeJsonPointer()}/schema"
+        return documentSchema.getRefSchema(SchemaLocation.Fragment.of(pointer))
     }
 
     // Since rootNode preserves the raw YAML (see comment above), a node at a given path may be
@@ -144,6 +150,67 @@ class OpenApiSpec(private val specFile: File) {
             path
         }
     }
+
+    private fun requestBodyProperties(operation: Operation): Map<String, io.swagger.v3.oas.models.media.Schema<*>> {
+        val pathItem = openApi.paths[operation.path] ?: return emptyMap()
+        val swaggerOp = pathItem.readOperationsMap()[PathItem.HttpMethod.valueOf(operation.method.uppercase())]
+            ?: return emptyMap()
+        val schema = swaggerOp.requestBody?.content?.get(operation.requestContentType)?.schema
+            ?: return emptyMap()
+        return schema.properties.orEmpty()
+    }
+
+    private fun formUrlEncodedToJson(body: String, operation: Operation): JsonNode {
+        val properties = requestBodyProperties(operation)
+
+        val obj = jsonMapper.createObjectNode()
+        body.split("&").forEach { pair ->
+            val (key, value) = pair.split("=", limit = 2).map { URLDecoder.decode(it, Charsets.UTF_8) }
+            val schema = properties[key]
+            val schemaType = schema?.type ?: schema?.types?.firstOrNull()
+            val parsedValue = parseFormValue(value, schemaType)
+            when (schemaType) {
+                "array" -> {
+                    when {
+                        parsedValue.isArray -> {
+                            // Array sent as a single JSON-encoded value e.g. tags=["foo","bar"]
+                            obj.set<JsonNode>(key, parsedValue)
+                        }
+
+                        else -> {
+                            // Array sent as repeated fields e.g. tags=foo&tags=bar.
+                            // Specmatic currently sends arrays as JSON-encoded single values,
+                            // but this handles the repeated-field encoding if it's ever used.
+                            obj.withArray(key).add(parsedValue)
+                        }
+                    }
+                }
+
+                else -> {
+                    obj.set(key, parsedValue)
+                }
+            }
+        }
+        return obj
+    }
+
+    // Form data is all strings on the wire, but the JSON Schema validator needs correctly-typed
+    // JsonNodes (e.g. IntNode, not TextNode("42")). We coerce the four primitive types explicitly;
+    // "string" needs its own branch to prevent the `else` fallback from parsing values like "true"
+    // or "42" as JSON literals. All other types (array, object, unknown) fall through to `readTree`
+    // which handles JSON-encoded values, with a string fallback for plain scalars.
+    private fun parseFormValue(value: String, schemaType: String?): JsonNode =
+        when (schemaType) {
+            "string" -> jsonMapper.valueToTree(value)
+            "integer" -> jsonMapper.valueToTree(value.toLong())
+            "number" -> jsonMapper.valueToTree(value.toDouble())
+            "boolean" -> jsonMapper.valueToTree(value.toBoolean())
+            else -> try {
+                jsonMapper.readTree(value)
+            } catch (_: Exception) {
+                jsonMapper.valueToTree(value)
+            }
+        }
 
     private fun validate(pointer: String, body: String): List<Error> {
         val subSchema = documentSchema.getRefSchema(SchemaLocation.Fragment.of(pointer))
@@ -171,5 +238,6 @@ class OpenApiSpec(private val specFile: File) {
             SchemaRegistry.withDialect(Dialects.getOpenApi31())
 
         private val yamlMapper = ObjectMapper(YAMLFactory())
+        private val jsonMapper = ObjectMapper()
     }
 }

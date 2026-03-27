@@ -6,20 +6,6 @@ import java.io.File
 data class GitMonoRepo(override val testContracts: List<ContractSourceEntry>, override val stubContracts: List<ContractSourceEntry>,
                        override val type: String?) : ContractSource, GitSource {
     override fun pathDescriptor(path: String): String = path
-    override fun install(workingDirectory: File) {
-        println("Checking list of mono repo paths...")
-
-        val contracts = testContracts + stubContracts
-
-        for (contract in contracts) {
-            val existenceMessage = when {
-                File(contract.path).exists() -> "${contract.path} exists"
-                else -> "${contract.path} NOT FOUND!"
-            }
-
-            println(existenceMessage)
-        }
-    }
 
     override fun directoryRelativeTo(workingDirectory: File) = workingDirectory.resolve(gitRootDir())
 

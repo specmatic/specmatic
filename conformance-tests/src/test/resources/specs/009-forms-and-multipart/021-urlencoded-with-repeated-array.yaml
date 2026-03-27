@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with repeated array field"
+  version: "1.0"
+paths:
+  /tags:
+    post:
+      operationId: addTags
+      summary: Add tags to a resource using repeated form fields
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - resource
+                - tags
+              properties:
+                resource:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Tags added
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

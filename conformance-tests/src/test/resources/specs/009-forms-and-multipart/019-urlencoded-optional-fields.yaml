@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with optional fields"
+  version: "1.0"
+paths:
+  /contacts:
+    post:
+      operationId: createContact
+      summary: Create a contact with required and optional fields
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                company:
+                  type: string
+      responses:
+        '201':
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

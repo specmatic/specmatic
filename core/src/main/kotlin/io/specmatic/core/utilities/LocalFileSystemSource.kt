@@ -13,10 +13,6 @@ data class LocalFileSystemSource(
 
     override fun pathDescriptor(path: String): String = path
 
-    override fun install(workingDirectory: File) {
-        logger.log("No installation needed as this source is a directory on the local file system")
-    }
-
     override fun directoryRelativeTo(workingDirectory: File): File {
         if(File(directory).isAbsolute)
             return File(directory)
