@@ -54,7 +54,6 @@ import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
-import kotlin.math.max
 
 @Serializable
 data class API(
@@ -321,7 +320,7 @@ open class SpecmaticJUnitSupport {
                     val filteredEndpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosByContractPath.associate { (contractPath, loaded) -> contractPath to loaded.exampleValidationResult }
                     val testsWithUrls = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
-                        loaded.scenarios.map { test -> test.mapValue { Pair(it, defaultBaseURL) }  }
+                        loaded.scenarios.mapSequence { Pair(it, defaultBaseURL) }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL), exampleValidationResults)
@@ -375,7 +374,7 @@ open class SpecmaticJUnitSupport {
                     val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
                     val testsWithUrls = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
-                        loaded.scenarios.map { test -> test.mapValue { Pair(it, resolvedBaseURL) } }
+                        loaded.scenarios.mapSequence {  Pair(it, resolvedBaseURL) }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
@@ -709,12 +708,12 @@ open class SpecmaticJUnitSupport {
             it.testDescription()
         }
 
-        val filteredScenarioDecisionsBasedOnFilter = filterUsingDecisions(
+        val filteredScenarioDecisions = filterUsingDecisions(
             filteredScenarioDecisionsBasedOnName,
             filter
         )
 
-        val filteredEndpoints = filteredScenarioDecisionsBasedOnFilter.mapNotNull { decision ->
+        val filteredEndpoints = filteredScenarioDecisions.mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             val scenario = decision.value
             Endpoint(
@@ -733,7 +732,7 @@ open class SpecmaticJUnitSupport {
             )
         }.toList()
 
-        val (validatedScenarioDecisions, result) = featureWithExternalizedExamples.validateAndFilterExamples(filteredScenarioDecisionsBasedOnFilter)
+        val (validatedScenarioDecisions, result) = featureWithExternalizedExamples.validateAndFilterExamples(filteredScenarioDecisions)
         if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 
         val validatedScenarios = validatedScenarioDecisions.mapNotNull { (it as? Decision.Execute)?.value }
