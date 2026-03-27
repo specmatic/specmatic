@@ -1,9 +1,11 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.utilities.Decision
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
@@ -14,6 +16,7 @@ import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
@@ -79,6 +82,8 @@ class OpenApiCoverageReportInput(
     fun onProcessingComplete() = coverageHooks.onEachListener { onEnd() }
 
     fun onGovernanceResult(result: Result) = coverageHooks.onEachListener { onGovernance(result) }
+
+    fun onTestDecision(decision: Decision<Pair<ContractTest, String>, Scenario>) = coverageHooks.onEachListener { onTestDecision(decision) }
 
     fun totalDuration(): Long {
         return httpInteractionsLog.totalDuration()

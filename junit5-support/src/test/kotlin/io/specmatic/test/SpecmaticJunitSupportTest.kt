@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfig
@@ -37,6 +38,7 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.listeners.ContractExecutionListener
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
+import io.specmatic.test.reports.TestExecutionResult
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.AfterEach
@@ -757,6 +759,22 @@ paths:
     }
 
     @Test
+    fun `contractTest should send test decisions to coverage hooks via OpenApiCoverageReportInput`() {
+        val listener = RecordingTestDecisionListener()
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        val (server, baseUrl) = startAlphaBetaStubServer()
+
+        try {
+            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, coverageHooks = listOf(listener)))
+            SpecmaticJUnitSupport().contractTest().toList()
+            assertThat(listener.decisions).isNotEmpty.allSatisfy { assertThat(it).isInstanceOf(Decision.Execute::class.java) }
+        } finally {
+            server.stop(0)
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
     fun `should load soapAction from scenarios into Endpoints if specification is WSDL`() {
         val specFile = File("src/test/resources/simple.wsdl")
         val specmaticJUnitSupport = SpecmaticJUnitSupport()
@@ -1134,6 +1152,26 @@ paths:
         override fun onCoverageCalculated(coverage: Int) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
         override fun onGovernance(result: Result) = Unit
+        override fun onTestDecision(decision: Decision<Pair<ContractTest, String>, Scenario>) = Unit
+    }
+
+    private class RecordingTestDecisionListener : TestReportListener {
+        val decisions = mutableListOf<Decision<Pair<ContractTest, String>, Scenario>>()
+
+        override fun onTestDecision(decision: Decision<Pair<ContractTest, String>, Scenario>) {
+            decisions.add(decision)
+        }
+
+        override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
+        override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
+        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
+        override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) = Unit
+        override fun onTestResult(result: TestExecutionResult) = Unit
+        override fun onCoverageCalculated(coverage: Int) = Unit
+        override fun onActuator(enabled: Boolean) = Unit
+        override fun onGovernance(result: Result) = Unit
+        override fun onTestsComplete() = Unit
+        override fun onEnd() = Unit
     }
 
     @AfterEach
