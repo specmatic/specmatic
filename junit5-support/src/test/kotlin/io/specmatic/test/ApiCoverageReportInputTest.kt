@@ -13,12 +13,18 @@ import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.renderers.CoverageReportTextRenderer
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
 class ApiCoverageReportInputTest {
     companion object {
         const val CONFIG_FILE_PATH = "./specmatic.json"
         val specmaticConfig = SpecmaticConfig()
+    }
+
+    @AfterEach
+    fun clearFilterProperty() {
+        System.clearProperty(FILTER)
     }
 
     @Test
