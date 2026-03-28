@@ -841,7 +841,7 @@ data class Feature(
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
-            Decision.Skip(context = generatedScenarioReturnValue.value, reasoning = Reasoning(mainReason = TestRuleViolations.ACCEPT_MISMATCH))
+            Decision.Skip(context = generatedScenarioReturnValue.value, reasoning = Reasoning(mainReason = TestSkipReason.ACCEPT_MISMATCH))
         }
     }
 

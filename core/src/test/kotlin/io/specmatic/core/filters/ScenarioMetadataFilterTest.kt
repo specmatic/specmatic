@@ -5,7 +5,7 @@ import io.mockk.mockk
 import io.specmatic.core.Scenario
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
-import io.specmatic.test.TestRuleViolations
+import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -36,13 +36,13 @@ class ScenarioMetadataFilterTest {
         val filter = ScenarioMetadataFilter.from("METHOD='POST'")
         val decisions = sequenceOf(Decision.Execute(FakeMetadata(scenario()), context = "original-context"))
         val filtered = ScenarioMetadataFilter.filterUsingDecisions(decisions, filter).toList()
-        assertThat(filtered).containsExactly(Decision.Skip(context = "original-context", reasoning = Reasoning(mainReason = TestRuleViolations.EXCLUDED)))
+        assertThat(filtered).containsExactly(Decision.Skip(context = "original-context", reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED)))
     }
 
     @Test
     fun `filterUsingDecisions should preserve existing skip decisions`() {
         val filter = ScenarioMetadataFilter.from("METHOD='POST'")
-        val originalSkip = Decision.Skip(context = "already-skipped", reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED))
+        val originalSkip = Decision.Skip(context = "already-skipped", reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED))
         val filtered = ScenarioMetadataFilter.filterUsingDecisions(sequenceOf(originalSkip), filter).toList()
         assertThat(filtered).containsExactly(originalSkip)
     }

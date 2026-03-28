@@ -3,7 +3,7 @@ package io.specmatic.core.filters
 import com.ezylang.evalex.Expression
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
-import io.specmatic.test.TestRuleViolations
+import io.specmatic.test.TestSkipReason
 
 data class ScenarioMetadataFilter(
     val expression: Expression? = null
@@ -47,7 +47,7 @@ data class ScenarioMetadataFilter(
             return items.map { item ->
                 if (item !is Decision.Execute) return@map item
                 if (scenarioMetadataFilter.isSatisfiedBy(item.value.toScenarioMetadata())) return@map item
-                Decision.Skip(item.context, Reasoning(TestRuleViolations.EXCLUDED))
+                Decision.Skip(item.context, Reasoning(TestSkipReason.EXCLUDED))
             }
         }
     }

@@ -409,7 +409,7 @@ open class SpecmaticJUnitSupport {
             filteredPairsBasedOnName.map { decision ->
                 if (decision !is Decision.Execute) return@map decision
                 if (testFilter.isSatisfiedBy(decision.value.first.toScenarioMetadata())) return@map decision
-                Decision.Skip(decision.context, Reasoning(TestRuleViolations.EXCLUDED))
+                Decision.Skip(decision.context, Reasoning(TestSkipReason.EXCLUDED))
             }
         } catch (e: ContractException) {
             return loadExceptionAsTestError(e)
@@ -440,7 +440,7 @@ open class SpecmaticJUnitSupport {
         return testScenarios.map { decision ->
             if (decision is Decision.Skip) return@map decision
             if (taken++ < maxTestCount) return@map decision
-            Decision.Skip(decision.context, Reasoning(TestRuleViolations.MAX_TEST_COUNT_EXCEEDED))
+            Decision.Skip(decision.context, Reasoning(TestSkipReason.MAX_TEST_COUNT_EXCEEDED))
         }
     }
 
@@ -857,7 +857,7 @@ fun <T, U> selectTestsToRunWithDecision(
         testScenarios.map { test ->
             if (test !is Decision.Execute) return@map test
             if (filterNames.any { getTestDescription(test.value).contains(it) }) return@map test
-            Decision.Skip(test.context, Reasoning(TestRuleViolations.EXCLUDED))
+            Decision.Skip(test.context, Reasoning(TestSkipReason.EXCLUDED))
         }
     } else
         testScenarios
@@ -867,7 +867,7 @@ fun <T, U> selectTestsToRunWithDecision(
         filteredByName.map { test ->
             if (test !is Decision.Execute) return@map test
             if (!filterNotNames.any { getTestDescription(test.value).contains(it) }) return@map test
-            Decision.Skip(test.context, Reasoning(TestRuleViolations.EXCLUDED))
+            Decision.Skip(test.context, Reasoning(TestSkipReason.EXCLUDED))
         }
     } else
         filteredByName

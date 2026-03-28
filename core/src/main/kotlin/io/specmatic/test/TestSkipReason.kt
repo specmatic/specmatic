@@ -2,7 +2,7 @@ package io.specmatic.test
 
 import io.specmatic.core.RuleViolation
 
-enum class TestRuleViolations(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {
+enum class TestSkipReason(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {
     EXCLUDED(
         id = "T00001",
         title = "Excluded from Run",
@@ -35,7 +35,7 @@ enum class TestRuleViolations(override val id: String, override val title: Strin
     );
 
     companion object {
-        fun noExamplesNon2xxAndNon400(): TestRuleViolations = EXAMPLES_REQUIRED
-        fun noExamples2xxAnd400(strictMode: Boolean): TestRuleViolations = if (strictMode) EXAMPLES_REQUIRED_STRICT_MODE else EXAMPLES_REQUIRED
+        fun noExamplesNon2xxAndNon400(): TestSkipReason = EXAMPLES_REQUIRED
+        fun noExamples2xxAnd400(strictMode: Boolean): TestSkipReason = if (strictMode) EXAMPLES_REQUIRED_STRICT_MODE else EXAMPLES_REQUIRED
     }
 }

@@ -30,7 +30,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.util.function.Consumer
 import java.util.stream.Stream
 import io.specmatic.test.TestExecutionReason
-import io.specmatic.test.TestRuleViolations
+import io.specmatic.test.TestSkipReason
 
 class ScenarioTest {
 
@@ -1114,7 +1114,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.GENERATIVE_DISABLED, otherReasons = listOf(TestRuleViolations.EXAMPLES_REQUIRED))
+                    reasoning = Reasoning(mainReason = TestSkipReason.GENERATIVE_DISABLED, otherReasons = listOf(TestSkipReason.EXAMPLES_REQUIRED))
                 )
             )
         }
@@ -1133,7 +1133,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED)
+                    reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED)
                 )
             )
         }
@@ -1171,7 +1171,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = original,
-                    reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
+                    reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
                 )
             )
         }
@@ -1253,7 +1253,7 @@ class ScenarioTest {
             val original = scenarioForNegativeBasedOnWithDecision(status = 200)
             val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = true)
             assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamples2xxAnd400(true))
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd400(true))
             assertThat(decision.reasoning.otherReasons).isEmpty()
         }
 
@@ -1278,7 +1278,7 @@ class ScenarioTest {
             assertThat(decision).isEqualTo(
                 Decision.Skip(
                     context = scenarioForNegativeBasedOnWithDecision(status = 400),
-                    reasoning = Reasoning(mainReason = TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
+                    reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
                 )
             )
         }
@@ -1292,7 +1292,7 @@ class ScenarioTest {
             assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
             assertThat(decision.context.httpResponsePattern.status).isEqualTo(401)
             assertThat(decision.context.statusInDescription).isEqualTo("401")
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
         }
 
         @Test
@@ -1304,7 +1304,7 @@ class ScenarioTest {
             assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
             assertThat(decision.context.httpResponsePattern.status).isEqualTo(DEFAULT_RESPONSE_CODE)
             assertThat(decision.context.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.EXAMPLES_REQUIRED_STRICT_MODE)
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
         }
 
         @Test

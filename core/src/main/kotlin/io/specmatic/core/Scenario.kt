@@ -26,7 +26,7 @@ import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutionReason
-import io.specmatic.test.TestRuleViolations
+import io.specmatic.test.TestSkipReason
 
 interface ScenarioDetailsForResult {
     val status: Int
@@ -796,18 +796,18 @@ data class Scenario(
         if (badRequestHasNoExample && resiliencyTestSuite == ResiliencyTestSuite.all) return null
 
         if (badRequestHasNoExample) {
-            val otherReasons = listOf(TestRuleViolations.noExamples2xxAnd400(strictMode))
-            val reason = Reasoning(mainReason = TestRuleViolations.GENERATIVE_DISABLED, otherReasons = otherReasons)
+            val otherReasons = listOf(TestSkipReason.noExamples2xxAnd400(strictMode))
+            val reason = Reasoning(mainReason = TestSkipReason.GENERATIVE_DISABLED, otherReasons = otherReasons)
             return Decision.Skip(context = this, reasoning = reason)
         }
 
         if (!isGherkinScenario && !isA2xxScenario() && !hasExamples) {
-            val ruleViolation = TestRuleViolations.noExamplesNon2xxAndNon400()
+            val ruleViolation = TestSkipReason.noExamplesNon2xxAndNon400()
             return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
         }
 
         if (strictMode && !hasExamples) {
-            val ruleViolation = TestRuleViolations.noExamples2xxAnd400(true)
+            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
             return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
         }
 
@@ -818,7 +818,7 @@ data class Scenario(
     fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
         if (!this.isA2xxScenario()) return null
         if (strictMode && !hasExamples()) {
-            val ruleViolation = TestRuleViolations.noExamples2xxAnd400(true)
+            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
             val updatedContext = badRequestOrDefault.updateScenarioWithBadRequestPattern(this)
             return Decision.Skip(context = updatedContext, reasoning = Reasoning(mainReason = ruleViolation))
         }
