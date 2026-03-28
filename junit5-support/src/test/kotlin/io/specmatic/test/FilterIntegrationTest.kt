@@ -6,6 +6,7 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.ContractStub
 import io.specmatic.stub.createStub
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -20,10 +21,15 @@ import java.util.stream.Stream
 private const val MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND = "No tests found to run"
 
 class FilterIntegrationTest {
+    @AfterEach
+    fun restoreFilterProperty() {
+        System.clearProperty(FILTER_PROPERTY_KEY)
+    }
+
     @ParameterizedTest
     @MethodSource("filterProvider")
     fun contractTestWithDifferentFilters(filter: String, expectedSuccessfulTestCount: Int) {
-        System.setProperty("filter", filter)
+        System.setProperty(FILTER_PROPERTY_KEY, filter)
 
         val contractTestHarness = SpecmaticJUnitSupport()
 
@@ -43,7 +49,7 @@ class FilterIntegrationTest {
 
     @Test
     fun shouldThrowExceptionWhenNoTestsFoundDueToFiltering() {
-        System.setProperty("filter", "METHOD='NONEXISTENT'")
+        System.setProperty(FILTER_PROPERTY_KEY, "METHOD='NONEXISTENT'")
 
         val tests = SpecmaticJUnitSupport().contractTest().toList()
 
@@ -61,7 +67,7 @@ class FilterIntegrationTest {
 
     @Test
     fun shouldNotThrowExceptionWhenTestsRunButNoneSucceed() {
-        System.setProperty("filter", "EXAMPLE-NAME='SUCCESS'")
+        System.setProperty(FILTER_PROPERTY_KEY, "EXAMPLE-NAME='SUCCESS'")
 
         val tests = SpecmaticJUnitSupport().contractTest().toList()
 
@@ -79,6 +85,8 @@ class FilterIntegrationTest {
     }
 
     companion object {
+        private const val FILTER_PROPERTY_KEY = "filter"
+
         @JvmStatic
         fun filterProvider(): Stream<Arguments> {
             return Stream.of(
