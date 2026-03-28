@@ -12,7 +12,7 @@ import io.specmatic.test.ContractTest
 import io.specmatic.test.ScenarioAsTest
 import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestExecutor
-import io.specmatic.test.TestRuleViolations
+import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -47,8 +47,8 @@ class FeatureDecisionMatrixTest {
             val badRequest = generated.filter { it.context.isA4xxScenario() }
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
-                assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestSkipReason.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -73,8 +73,8 @@ class FeatureDecisionMatrixTest {
             val badRequest = generated.filter { it.context.isA4xxScenario() }
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
-                assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestSkipReason.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -125,8 +125,8 @@ class FeatureDecisionMatrixTest {
             val badRequest = generated.filter { it.context.isA4xxScenario() }
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
-                assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestSkipReason.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -151,8 +151,8 @@ class FeatureDecisionMatrixTest {
             val badRequest = generated.filter { it.context.isA4xxScenario() }
             assertThat(badRequest).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java)
-                assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestRuleViolations.EXAMPLES_REQUIRED)
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestSkipReason.EXAMPLES_REQUIRED)
             }
 
             val successRequest = generated.filter { it.context.isA2xxScenario() }
@@ -181,7 +181,7 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(1)
             val skip = generated.single() as Decision.Skip
-            assertThat(skip.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamples2xxAnd400(true))
+            assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd400(true))
             assertThat(skip.reasoning.otherReasons).isEmpty()
         }
 
@@ -196,8 +196,8 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(1)
             val skip = generated.single() as Decision.Skip<*>
-            assertThat(skip.reasoning.mainReason).isEqualTo(TestRuleViolations.GENERATIVE_DISABLED)
-            assertThat(skip.reasoning.otherReasons).containsExactly(TestRuleViolations.noExamples2xxAnd400(true))
+            assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+            assertThat(skip.reasoning.otherReasons).containsExactly(TestSkipReason.noExamples2xxAnd400(true))
         }
 
         @Test
@@ -212,7 +212,7 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(2).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java); it as Decision.Skip
-                assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamplesNon2xxAndNon400())
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.noExamplesNon2xxAndNon400())
                 assertThat(it.reasoning.otherReasons).isEmpty()
             }
         }
@@ -310,7 +310,7 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(2).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java); it as Decision.Skip
-                assertThat(it.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamplesNon2xxAndNon400())
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.noExamplesNon2xxAndNon400())
                 assertThat(it.reasoning.otherReasons).isEmpty()
             }
         }
@@ -345,7 +345,7 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(1)
             val decision = generated.filterIsInstance<Decision.Skip<Scenario>>().single()
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestRuleViolations.noExamples2xxAnd400(true))
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd400(true))
             assertThat(decision.reasoning.otherReasons).isEmpty()
         }
 
@@ -424,7 +424,7 @@ class FeatureDecisionMatrixTest {
 
             val skip = generated.filterIsInstance<Decision.Skip<Scenario>>().single()
             assertThat(skip.context.httpRequestPattern.headersPattern.pattern.getValue(ACCEPT)).isEqualTo(ExactValuePattern(StringValue("application/xml")))
-            assertThat(skip.reasoning).isEqualTo(Reasoning(mainReason = TestRuleViolations.ACCEPT_MISMATCH))
+            assertThat(skip.reasoning).isEqualTo(Reasoning(mainReason = TestSkipReason.ACCEPT_MISMATCH))
         }
 
         @Test
@@ -449,7 +449,7 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(1)
             val skip = generated.single() as Decision.Skip
-            assertThat(skip.reasoning.mainReason).isEqualTo(TestRuleViolations.ACCEPT_MISMATCH)
+            assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.ACCEPT_MISMATCH)
             assertThat(skip.reasoning.otherReasons).isEmpty()
         }
 
