@@ -1849,19 +1849,17 @@ paths:
     fun `should respect minItems and maxItems constraints in stub generation and validation`() {
         val spec = File("src/test/resources/openapi/array_constraints.yaml")
         val feature = parseContractFileToFeature(spec)
+        val getScenario = feature.copy(scenarios = feature.scenarios.filter { it.method == "GET" })
 
-        val results = HttpStub(feature).use { stub ->
-            feature.executeTests(object : TestExecutor {
+        val results = HttpStub(getScenario).use { stub ->
+            getScenario.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val response = stub.client.execute(request)
-                    
-                    if (request.method == "GET" && response.body is JSONObjectValue) {
-                        val body = response.body as JSONObjectValue
-                        val items = body.jsonObject["items"] as JSONArrayValue
+                    val body = response.body as JSONObjectValue
+                    val items = body.jsonObject["items"] as JSONArrayValue
 
-                        assertThat(items.list.size).isGreaterThanOrEqualTo(2)
-                        assertThat(items.list.size).isLessThanOrEqualTo(5)
-                    }
+                    assertThat(items.list.size).isGreaterThanOrEqualTo(2)
+                    assertThat(items.list.size).isLessThanOrEqualTo(5)
 
                     return response
                 }
