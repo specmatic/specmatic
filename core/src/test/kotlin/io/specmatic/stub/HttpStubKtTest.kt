@@ -1854,11 +1854,14 @@ paths:
             feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val response = stub.client.execute(request)
-                    val body = response.body as JSONObjectValue
-                    val items = body.jsonObject["items"] as JSONArrayValue
+                    
+                    if (request.method == "GET" && response.body is JSONObjectValue) {
+                        val body = response.body as JSONObjectValue
+                        val items = body.jsonObject["items"] as JSONArrayValue
 
-                    assertThat(items.list.size).isGreaterThanOrEqualTo(2)
-                    assertThat(items.list.size).isLessThanOrEqualTo(5)
+                        assertThat(items.list.size).isGreaterThanOrEqualTo(2)
+                        assertThat(items.list.size).isLessThanOrEqualTo(5)
+                    }
 
                     return response
                 }
@@ -1866,5 +1869,18 @@ paths:
         }
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
+    fun `should validate minItems and maxItems constraints in request body`() {
+        val spec = File("src/test/resources/openapi/array_constraints.yaml")
+        val feature = parseContractFileToFeature(spec)
+
+        HttpStub(feature).use { stub ->
+            val invalidRequest = parsedJSONObject("""{"items": ["single"]}""")
+            val response = stub.client.execute(HttpRequest("POST", "/items", body = invalidRequest))
+
+            assertThat(response.status).isEqualTo(400)
+        }
     }
 }

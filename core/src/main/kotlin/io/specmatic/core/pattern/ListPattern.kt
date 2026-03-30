@@ -109,11 +109,11 @@ data class ListPattern(
             }
 
         if (minItems != null && sampleData.list.size < minItems) {
-            return Result.Failure("Expected at least $minItems items, got ${sampleData.list.size}")
+            return Result.Failure("List is expected to contain at least $minItems items, but it contained ${sampleData.list.size} items", ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION)
         }
 
         if (maxItems != null && sampleData.list.size > maxItems) {
-            return Result.Failure("Expected at most $maxItems items, got ${sampleData.list.size}")
+            return Result.Failure("List is expected to contain at most $maxItems items, but it contained ${sampleData.list.size} items", ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION)
         }
 
         val resolverWithEmptyType = withEmptyType(pattern, resolver)

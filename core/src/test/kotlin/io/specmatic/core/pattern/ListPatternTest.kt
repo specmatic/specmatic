@@ -996,6 +996,19 @@ Feature: Recursive test
     }
 
     @Test
+    fun `should reject array with more items than maxItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            maxItems = 3
+        )
+
+        val arrayWithFourItems = JSONArrayValue(listOf(StringValue("item1"), StringValue("item2"), StringValue("item3"), StringValue("item4")))
+        val result = pattern.matches(arrayWithFourItems, Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
     fun `should generate arrays within minItems and maxItems constraints`() {
         val pattern = ListPattern(
             pattern = StringPattern(),
