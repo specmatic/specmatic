@@ -68,6 +68,7 @@ class DockerCompose(
 
     private fun mustRun(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): String {
         val result = run(command, timeout, timeUnit)
+
         return when {
             result.isSuccessful() -> result.output
             else -> error(
