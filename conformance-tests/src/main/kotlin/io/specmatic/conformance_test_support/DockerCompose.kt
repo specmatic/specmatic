@@ -39,7 +39,7 @@ class DockerCompose(
     }
 
     fun mustStop() {
-        mustRun(buildCommand("down", "--volumes"), 30, TimeUnit.SECONDS)
+        mustRun(buildCommand("down", "--volumes", "--timeout", "10"), 30, TimeUnit.SECONDS)
     }
 
     private fun run(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): CommandResult {
