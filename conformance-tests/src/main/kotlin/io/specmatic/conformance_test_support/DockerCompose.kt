@@ -38,8 +38,8 @@ class DockerCompose(
             }
     }
 
-    fun stopAsync() {
-        buildCommand("down", "--volumes").start()
+    fun mustStop() {
+        mustRun(buildCommand("down", "--volumes"), 30, TimeUnit.SECONDS)
     }
 
     private fun run(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): CommandResult {

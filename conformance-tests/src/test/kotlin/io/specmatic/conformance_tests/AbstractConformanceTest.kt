@@ -43,11 +43,8 @@ abstract class AbstractConformanceTest(
         httpExchanges =
             HttpExchange.parseAll(dockerCompose.mustGetHttpTrafficLogs())
                 .filterNot(HttpExchange::isInfraRequest)
-    }
 
-    @AfterAll
-    fun tearDown() {
-        dockerCompose.stopAsync()
+        dockerCompose.mustStop()
     }
 
     @Test
