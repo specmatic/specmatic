@@ -42,7 +42,7 @@ class ImportCommand : Callable<Int> {
                 path.endsWith(".json") ->
                     convertStub(path, userSpecifiedOutFile)
                 else -> {
-                    throw Exception("File type not recognized. Support exceptions include .postman_collection.json (Postman), .json ($APPLICATION_NAME stub), .wsdl (WSDL)")
+                    throw Exception("File type not recognized. You can import Postman collections (extension .postman_collection.json) and Specmatic example files.")
                 }
             }
         }
