@@ -3,6 +3,8 @@ package io.specmatic.core.pattern
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
+import kotlinx.coroutines.yield
+import kotlin.math.min
 
 const val LIST_BREAD_CRUMB = "[]"
 
@@ -156,7 +158,7 @@ data class ListPattern(
                 try {
                     patterns.firstOrNull()?.value
                     patterns.map {
-                        it.ifValue { ListPattern(it) }
+                        it.ifValue { ListPattern(it, minItems = minItems, maxItems = maxItems) }
                     }
                 } catch(e: ContractException) {
                     if(e.isCycle)
@@ -172,7 +174,7 @@ data class ListPattern(
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
             resolverWithEmptyType.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                pattern.newBasedOn(cyclePreventedResolver).map { ListPattern(it) }
+                pattern.newBasedOn(cyclePreventedResolver).map { ListPattern(it, minItems = minItems, maxItems = maxItems) }
             }
         }
     }
@@ -183,12 +185,34 @@ data class ListPattern(
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
-            pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
-                .map { negativePatternValue ->
-                    negativePatternValue.ifValue { pattern ->
-                        ListPattern(pattern) as Pattern
-                    }.breadCrumb(LIST_BREAD_CRUMB)
+            sequence {
+                yieldAll(pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
+                    .map { negativePatternValue ->
+                        negativePatternValue.ifValue { pattern ->
+                            ListPattern(pattern, minItems = minItems, maxItems = maxItems) as Pattern
+                        }.breadCrumb(LIST_BREAD_CRUMB)
+                    })
+
+                if (minItems != null) {
+                    val pattern = copy(
+                        minItems = minItems - 1,
+                        maxItems = minItems - 1
+                    )
+                    yield(
+                        HasValue(pattern, "is set to a value with items less than minItems '$minItems'")
+                    )
                 }
+
+                if (maxItems != null) {
+                    val pattern = copy(
+                        maxItems = maxItems + 1,
+                        minItems = maxItems + 1
+                    )
+                    yield(
+                        HasValue(pattern, "is set to a value with items greater than maxItems '$maxItems'")
+                    )
+                }
+            }
         }
     }
 

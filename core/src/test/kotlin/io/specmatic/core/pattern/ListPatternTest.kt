@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
@@ -1019,6 +1020,42 @@ Feature: Recursive test
         repeat(10) {
             val generated = pattern.generate(Resolver()) as JSONArrayValue
             assertThat(generated.list.size).isBetween(2, 5)
+        }
+    }
+
+    @Test
+    fun `negativeBasedOn should generate size violations for minItems and maxItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        val negatives = pattern.negativeBasedOn(Row(), Resolver(), NegativePatternConfiguration())
+            .map { it.value }
+            .filterIsInstance<ListPattern>()
+            .toList()
+
+        val minItemsViolation = negatives.find { it.maxItems != null && it.maxItems < 2 }
+        val maxItemsViolation = negatives.find { it.minItems != null && it.minItems > 5 }
+
+        assertThat(minItemsViolation).isNotNull()
+        assertThat(maxItemsViolation).isNotNull()
+    }
+
+    @Test
+    fun `newBasedOn should preserve minItems and maxItems constraints`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        val newPatterns = pattern.newBasedOn(Resolver()).filterIsInstance<ListPattern>().toList()
+
+        assertThat(newPatterns).allSatisfy {
+            assertThat(it.minItems).isEqualTo(2)
+            assertThat(it.maxItems).isEqualTo(5)
         }
     }
 }

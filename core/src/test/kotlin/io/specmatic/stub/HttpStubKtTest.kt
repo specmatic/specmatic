@@ -1881,4 +1881,25 @@ paths:
             assertThat(response.status).isEqualTo(400)
         }
     }
+
+    @Test
+    fun `should generate POST request bodies with arrays within minItems and maxItems bounds`() {
+        val spec = File("src/test/resources/openapi/array_constraints.yaml")
+        val feature = parseContractFileToFeature(spec)
+        val scenario = feature.copy(scenarios = feature.scenarios.filter { it.method == "POST" })
+
+        val results = scenario.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val body = request.body as JSONObjectValue
+                val items = body.jsonObject["items"] as JSONArrayValue
+
+                assertThat(items.list.size).isGreaterThanOrEqualTo(2)
+                assertThat(items.list.size).isLessThanOrEqualTo(5)
+
+                return HttpResponse(201, emptyMap(), StringValue(""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
 }
