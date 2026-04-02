@@ -23,5 +23,5 @@ dependencies {
     implementation("org.assertj:assertj-core:3.27.7")
 
     implementation("info.picocli:picocli:4.7.7")
-    implementation("org.fusesource.jansi:jansi:2.4.2")
+    implementation("org.fusesource.jansi:jansi:2.4.3")
 }
