@@ -32,7 +32,7 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
 
-    implementation("org.apache.ant:ant-junit:1.10.15")
+    implementation("org.apache.ant:ant-junit:1.10.16")
 
     implementation(project(":specmatic-core"))
     implementation(project(":junit5-support"))
