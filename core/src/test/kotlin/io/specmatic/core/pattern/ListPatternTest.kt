@@ -6,6 +6,7 @@ import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import io.specmatic.shouldNotMatch
@@ -1031,16 +1032,98 @@ Feature: Recursive test
             maxItems = 5
         )
 
+        val allNegatives = pattern.negativeBasedOn(Row(), Resolver(), NegativePatternConfiguration())
+            .map { it.value }
+            .filterIsInstance<ListPattern>()
+            .toList()
+
+        // Filter to only size violations (where constraints differ from original)
+        val sizeViolations = allNegatives.filter {
+            (it.minItems != pattern.minItems) || (it.maxItems != pattern.maxItems)
+        }
+
+        val minItemsViolationCount = sizeViolations.count { it.maxItems != null && it.maxItems < 2 }
+        val maxItemsViolationCount = sizeViolations.count { it.minItems != null && it.minItems > 5 }
+
+        assertThat(minItemsViolationCount).isGreaterThan(0)
+        assertThat(maxItemsViolationCount).isGreaterThan(0)
+        assertThat(minItemsViolationCount + maxItemsViolationCount).isEqualTo(sizeViolations.size)
+    }
+
+    @Test
+    fun `negativeBasedOn should not generate invalid patterns when minItems is 0`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 0,
+            maxItems = 5
+        )
+
         val negatives = pattern.negativeBasedOn(Row(), Resolver(), NegativePatternConfiguration())
             .map { it.value }
             .filterIsInstance<ListPattern>()
             .toList()
 
-        val minItemsViolation = negatives.find { it.maxItems != null && it.maxItems < 2 }
-        val maxItemsViolation = negatives.find { it.minItems != null && it.minItems > 5 }
+        // Should not have any patterns with negative minItems/maxItems
+        negatives.forEach {
+            if (it.minItems != null) {
+                assertThat(it.minItems).isGreaterThanOrEqualTo(0)
+            }
+            if (it.maxItems != null) {
+                assertThat(it.maxItems).isGreaterThanOrEqualTo(0)
+            }
+        }
+    }
 
-        assertThat(minItemsViolation).isNotNull()
-        assertThat(maxItemsViolation).isNotNull()
+    @Test
+    fun `should create ListPattern with valid minItems and maxItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = 5)
+        assertThat(pattern.minItems).isEqualTo(2)
+        assertThat(pattern.maxItems).isEqualTo(5)
+    }
+
+    @Test
+    fun `should create ListPattern with minItems equal to maxItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = 3, maxItems = 3)
+        assertThat(pattern.minItems).isEqualTo(3)
+        assertThat(pattern.maxItems).isEqualTo(3)
+    }
+
+    @Test
+    fun `should create ListPattern with only minItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = null)
+        assertThat(pattern.minItems).isEqualTo(2)
+        assertThat(pattern.maxItems).isNull()
+    }
+
+    @Test
+    fun `should create ListPattern with only maxItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = null, maxItems = 5)
+        assertThat(pattern.minItems).isNull()
+        assertThat(pattern.maxItems).isEqualTo(5)
+    }
+
+    @Test
+    fun `should throw exception when minItems is negative`() {
+        assertThatThrownBy {
+            ListPattern(StringPattern(), minItems = -1, maxItems = 5)
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("minItems -1 cannot be less than 0")
+    }
+
+    @Test
+    fun `should throw exception when maxItems is negative`() {
+        assertThatThrownBy {
+            ListPattern(StringPattern(), minItems = 0, maxItems = -1)
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("maxItems -1 cannot be less than minItems 0")
+    }
+
+    @Test
+    fun `should throw exception when minItems is greater than maxItems`() {
+        assertThatThrownBy {
+            ListPattern(StringPattern(), minItems = 5, maxItems = 2)
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("maxItems 2 cannot be less than minItems 5")
     }
 
     @Test

@@ -16,6 +16,20 @@ data class ListPattern(
     val minItems: Int? = null,
     val maxItems: Int? = null
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
+    
+    private val effectiveMinItems = minItems ?: 0
+    
+    init {
+        if (effectiveMinItems < 0) {
+            throw ContractException("minItems $effectiveMinItems cannot be less than 0")
+        }
+        maxItems?.let {
+            if (effectiveMinItems > it) {
+                throw ContractException("maxItems $it cannot be less than minItems $effectiveMinItems")
+            }
+        }
+    }
+    
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
@@ -193,7 +207,7 @@ data class ListPattern(
                         }.breadCrumb(LIST_BREAD_CRUMB)
                     })
 
-                if (minItems != null) {
+                if (minItems != null && minItems > 0) {
                     val pattern = copy(
                         minItems = minItems - 1,
                         maxItems = minItems - 1
