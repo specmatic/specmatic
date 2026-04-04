@@ -23,9 +23,15 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
-import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.core.log.MordantDiagnosticLogger
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
+import io.specmatic.core.log.resetLogger
+import io.specmatic.core.log.withLogger
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -49,6 +55,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
 import java.net.ServerSocket
@@ -666,6 +673,44 @@ paths:
     }
 
     @Test
+    fun `loadTestScenarios should emit one invalid external example failure in non lenient mode`() {
+        val specFile = File("src/test/resources/invalid_example/openapi.yaml")
+        val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = false)
+        System.setProperty("SPECMATIC_NEW_LOGGER", "true")
+        resetLogger()
+
+        try {
+            val output = captureStdout {
+                withExecutionContext(ExecutionContext(ExecutionMode.TEST)) {
+                    withLogger(MordantDiagnosticLogger()) {
+                        assertThrows<ContractException> {
+                            SpecmaticJUnitSupport().loadTestScenarios(
+                                path = specFile.canonicalPath,
+                                suggestionsPath = "",
+                                suggestionsData = "",
+                                config = TestConfig(emptyMap(), emptyMap()),
+                                filterName = null,
+                                filterNotName = null,
+                                specmaticConfig = specmaticConfig,
+                                filter = ScenarioMetadataFilter.from("")
+                            )
+                        }
+                    }
+                }
+            }
+
+            val plainText = output.replace(Regex("\\u001B\\[[;\\d]*m"), "").trim()
+            assertThat(plainText).contains("[Specmatic::Test] Error: 1 of 2 external examples are invalid for openapi.yaml")
+            assertThat(plainText).doesNotContain("Could not prepare contract")
+            assertThat(plainText).doesNotContain("Contract test preparation failed")
+            assertThat(plainText).doesNotContain("Rule Violations")
+        } finally {
+            System.clearProperty("SPECMATIC_NEW_LOGGER")
+            resetLogger()
+        }
+    }
+
+    @Test
     fun `contractTest should send example validation errors to coverage hooks`() {
         val specFile = File("src/test/resources/invalid_example/openapi.yaml")
         val listener = RecordingExampleErrorsListener()
@@ -1106,5 +1151,18 @@ paths:
     fun tearDown() {
         SpecmaticJUnitSupport.settingsStaging.remove()
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
+    }
+
+    private fun captureStdout(action: () -> Unit): String {
+        val originalOut = System.out
+        val output = ByteArrayOutputStream()
+        System.setOut(PrintStream(output))
+        try {
+            action()
+        } finally {
+            System.out.flush()
+            System.setOut(originalOut)
+        }
+        return output.toString()
     }
 }

@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.log.LoggedFailureScope
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.Value
@@ -70,6 +71,7 @@ sealed class Result {
     abstract fun testResult(): TestResult
     abstract fun withFailureReason(urlPathMisMatch: FailureReason): Result
     abstract fun throwOnFailure(): Success
+    abstract fun throwOnFailureAsLogged(): Success
     abstract fun <T> toReturnValue(returnValue: T, errorMessage: String? = null): ReturnValue<T>
     abstract fun <V> onSuccessElseNull(function: () -> V): V?
 
@@ -210,6 +212,12 @@ sealed class Result {
 
         override fun throwOnFailure(): Success {
             throw ContractException(this.toFailureReport())
+        }
+
+        override fun throwOnFailureAsLogged(): Success {
+            val exception = ContractException(this.toFailureReport())
+            LoggedFailureScope.markLogged(exception)
+            throw exception
         }
 
         override fun <T> toReturnValue(returnValue: T, errorMessage: String?): ReturnValue<T> {
@@ -384,6 +392,10 @@ sealed class Result {
         }
 
         override fun throwOnFailure(): Success {
+            return this
+        }
+
+        override fun throwOnFailureAsLogged(): Success {
             return this
         }
 

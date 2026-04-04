@@ -4,6 +4,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.specmatic.core.CONTRACT_EXTENSION
+import io.specmatic.core.log.resetLogger
 import io.specmatic.core.log.ThreadSafeLog
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
@@ -45,6 +46,8 @@ internal class TestCommandTest {
     fun `clean up test command`() {
         testCommand.contractPaths = arrayListOf()
         testCommand.junitReportDirName = null
+        System.clearProperty("SPECMATIC_NEW_LOGGER")
+        resetLogger()
     }
 
     @Test
@@ -121,6 +124,32 @@ internal class TestCommandTest {
         verify { junitLauncher.registerTestExecutionListeners(any<ContractExecutionListener>()) }
         verify { junitLauncher.registerTestExecutionListeners(any<org.junit.platform.reporting.legacy.xml.LegacyXmlReportGeneratingListener>()) }
         verify(exactly = 1) { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }
+    }
+
+    @Test
+    fun `when new logger is enabled config-backed test runs log specmatic yaml loading`(@TempDir tempDir: File) {
+        every { junitLauncher.discover(any()) }.returns(mockk())
+        every { junitLauncher.execute(any<LauncherDiscoveryRequest>()) }.returns(Unit)
+
+        val configFile = writeSpecmaticYaml(tempDir, """
+        version: 2
+        contracts:
+        - provides:
+            - api_1.$CONTRACT_EXTENSION
+        """.trimIndent())
+
+        System.setProperty("SPECMATIC_NEW_LOGGER", "true")
+        resetLogger()
+
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+                CommandLine(TestCommand(junitLauncher), factory).execute()
+            }
+        }
+
+        assertThat(exitCode).isEqualTo(0)
+        assertThat(output).contains("[Specmatic::Test] Loading specifications from specmatic.yaml")
+        assertThat(output).contains("Specification Config: ${configFile.canonicalPath}")
     }
 
     @ParameterizedTest

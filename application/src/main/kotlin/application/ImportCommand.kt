@@ -6,9 +6,13 @@ import io.specmatic.conversions.runTests
 import io.specmatic.conversions.toFragment
 import io.specmatic.core.*
 import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
+import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
@@ -34,15 +38,18 @@ class ImportCommand : Callable<Int> {
     var verbose: Boolean? = null
 
     override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
-        return logException {
-            when {
-                path.endsWith(".postman_collection.json") ->
-                    convertPostman(path, userSpecifiedOutFile)
-                path.endsWith(".json") ->
-                    convertStub(path, userSpecifiedOutFile)
-                else -> {
-                    throw Exception("File type not recognized. You can import Postman collections (extension .postman_collection.json) and Specmatic example files.")
+        return withExecutionContext(ExecutionContext(ExecutionMode.LIBRARY, component = "import")) {
+            configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = verbose))
+            logException {
+                when {
+                    path.endsWith(".postman_collection.json") ->
+                        convertPostman(path, userSpecifiedOutFile)
+                    path.endsWith(".json") ->
+                        convertStub(path, userSpecifiedOutFile)
+
+                    else -> {
+                        throw Exception("File type not recognized. You can import Postman collections (extension .postman_collection.json) and Specmatic example files.")
+                    }
                 }
             }
         }

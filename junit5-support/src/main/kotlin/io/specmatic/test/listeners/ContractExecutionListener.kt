@@ -1,5 +1,6 @@
 package io.specmatic.test.listeners
 
+import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.core.log.logger
 import io.specmatic.test.SpecmaticJUnitSupport
 import org.junit.platform.engine.TestDescriptor
@@ -24,6 +25,14 @@ fun getContractExecutionPrinter(): ContractExecutionPrinter {
 private fun colorIsRequested() = System.getenv("SPECMATIC_COLOR") == "1"
 
 private fun stdOutIsRedirected() = System.console() == null
+private const val NEW_LOGGER_SWITCH = "SPECMATIC_NEW_LOGGER"
+private const val SUITE_FAILURE_LABEL = "Specification test preparation failed"
+
+private fun newLoggerEnabled(): Boolean {
+    return readEnvVarOrProperty(NEW_LOGGER_SWITCH, NEW_LOGGER_SWITCH)
+        ?.trim()
+        ?.lowercase() == "true"
+}
 
 class ContractExecutionListener : TestExecutionListener {
     private val success = AtomicInteger(0)
@@ -43,9 +52,16 @@ class ContractExecutionListener : TestExecutionListener {
         private val latestListener = AtomicReference<ContractExecutionListener?>(null)
         internal fun reset() { latestListener.get()?.reset() }
         fun exitCode(): Int = latestListener.get()?.exitCode() ?: 1
+        fun summary(): TestSummary? = latestListener.get()?.summary()
     }
 
     internal fun exitCode(): Int = if (testSuiteFailed.get() || couldNotStart.get() || failure.get() > 0) 1 else 0
+    internal fun summary(): TestSummary = TestSummary(
+        success = success.get(),
+        partialSuccesses = SpecmaticJUnitSupport.partialSuccesses.size,
+        aborted = aborted.get(),
+        failure = failure.get()
+    )
     internal fun reset() {
         success.set(0)
         failure.set(0)
@@ -77,12 +93,16 @@ class ContractExecutionListener : TestExecutionListener {
             return
         }
 
-        printer.printTestSummary(testIdentifier, testExecutionResult)
+        if (!newLoggerEnabled()) {
+            printer.printTestSummary(testIdentifier, testExecutionResult)
+        }
 
         when (testExecutionResult?.status) {
             Status.SUCCESSFUL -> {
                 success.incrementAndGet()
-                println()
+                if (!newLoggerEnabled()) {
+                    println()
+                }
             }
             Status.ABORTED -> {
                 aborted.incrementAndGet()
@@ -101,10 +121,21 @@ class ContractExecutionListener : TestExecutionListener {
     private fun printAndLogFailure(testExecutionResult: TestExecutionResult, testIdentifier: TestIdentifier?) {
         val message = testExecutionResult.throwable?.get()?.message?.trimIndent().orEmpty()
         val reason = "Reason:\n$message"
-        println("$reason\n\n")
+        if (!newLoggerEnabled()) {
+            println("$reason\n\n")
+        }
 
-        val log = """"${testIdentifier?.displayName} ${testExecutionResult.status}"
+        val displayName = when (testIdentifier?.displayName) {
+            "Specmatic Test Suite" -> SUITE_FAILURE_LABEL
+            else -> testIdentifier?.displayName
+        }
+
+        val log = if (newLoggerEnabled()) {
+            displayName.orEmpty()
+        } else {
+            """"${displayName} ${testExecutionResult.status}"
     ${reason.prependIndent("  ")}"""
+        }
 
         failedLog.add(log)
     }
@@ -144,12 +175,7 @@ class ContractExecutionListener : TestExecutionListener {
         }
 
         printer.printFinalSummary(
-            TestSummary(
-                success = success.get(),
-                partialSuccesses = SpecmaticJUnitSupport.partialSuccesses.size,
-                aborted = aborted.get(),
-                failure = failure.get()
-            )
+            summary()
         )
     }
 }

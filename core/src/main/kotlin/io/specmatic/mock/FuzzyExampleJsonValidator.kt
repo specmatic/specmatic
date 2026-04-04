@@ -10,6 +10,7 @@ import io.specmatic.core.log.CompositePrinter
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.withoutLogging
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.utilities.capitalizeFirstChar
@@ -46,7 +47,9 @@ object FuzzyExampleJsonValidator {
         val noLogStrategy = Verbose(NoLogPrinter())
         val schemaContent = this::class.java.getResourceAsStream(EXAMPLE_SCHEMA_PATH)?.bufferedReader()?.use { it.readText() } ?: throw IllegalStateException("CRITICAL: External Example Schema not found at '$EXAMPLE_SCHEMA_PATH'. Verify the file exists in resources")
         try {
-            OpenApiSpecification.fromYAML(schemaContent, EXAMPLE_SCHEMA_PATH, logger = noLogStrategy).parseUnreferencedSchemas()
+            withoutLogging {
+                OpenApiSpecification.fromYAML(schemaContent, EXAMPLE_SCHEMA_PATH, logger = noLogStrategy).parseUnreferencedSchemas()
+            }
         } catch (e: Throwable) {
             throw IllegalStateException("CRITICAL: Failed to parse External Example Schema YAML at '$EXAMPLE_SCHEMA_PATH'.\nError: ${e.message}", e)
         }

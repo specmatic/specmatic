@@ -1,6 +1,33 @@
 package io.specmatic.core
 
 data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
+    fun hasAnyErrors(): Boolean = matchFailureDetailList.any { !it.isPartial }
+
+    fun hasOnlyWarnings(): Boolean = matchFailureDetailList.isNotEmpty() && matchFailureDetailList.all { it.isPartial }
+
+    fun summary(): String {
+        return matchFailureDetailList.asSequence()
+            .flatMap { detail -> (detail.ruleViolationReport?.toText()?.let(::listOfNotNull) ?: emptyList<String>()).asSequence() + detail.errorMessages.asSequence() }
+            .map(String::trim)
+            .firstOrNull(String::isNotBlank)
+            ?: errorMessage()
+    }
+
+    fun scenarioLabel(): String? = scenario?.name
+
+    fun primaryBreadCrumb(): String? {
+        return matchFailureDetailList.asSequence()
+            .map { breadCrumbString(it.breadCrumbs) }
+            .map(String::trim)
+            .firstOrNull(String::isNotBlank)
+    }
+
+    fun ruleViolationMessages(): List<String> {
+        return matchFailureDetailList.mapNotNull { it.ruleViolationReport?.toText() }
+            .filter { it.isNotBlank() }
+            .distinct()
+    }
+
     fun errorMessage(): String {
         if (matchFailureDetailList.size != 1) return toText()
         return matchFailureDetailsErrorMessage(matchFailureDetailList.first()).joinToString("\n\n")

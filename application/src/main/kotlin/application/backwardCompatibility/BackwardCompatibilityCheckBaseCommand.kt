@@ -8,8 +8,11 @@ import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
@@ -87,26 +90,28 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
 
     final override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
-        addShutdownHook()
+        return withExecutionContext(ExecutionContext(ExecutionMode.BACKWARD_COMPATIBILITY)) {
+            configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
+            addShutdownHook()
 
-        val filteredSpecs = getChangedSpecs()
-        if (filteredSpecs.isEmpty()) {
-            logger.log(CompatibilityReport.emptyReport())
-            return 0
+            val filteredSpecs = getChangedSpecs()
+            if (filteredSpecs.isEmpty()) {
+                logger.log(CompatibilityReport.emptyReport())
+                return@withExecutionContext 0
+            }
+
+            val result = try {
+                runBackwardCompatibilityCheckFor(files = filteredSpecs, baseBranch = effectiveBaseBranch)
+            } catch (e: Throwable) {
+                logger.newLine()
+                logger.newLine()
+                logger.log(e)
+                return@withExecutionContext 1
+            }
+
+            logger.log(result.report)
+            result.exitCode
         }
-
-        val result = try {
-            runBackwardCompatibilityCheckFor(files = filteredSpecs, baseBranch = effectiveBaseBranch)
-        } catch (e: Throwable) {
-            logger.newLine()
-            logger.newLine()
-            logger.log(e)
-            return 1
-        }
-
-        logger.log(result.report)
-        return result.exitCode
     }
 
     private fun getChangedSpecs(): Set<String> {

@@ -3,6 +3,7 @@ package io.specmatic.core.examples.source
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.log.SpecificationPreparationDiagnostics
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Row
@@ -30,6 +31,8 @@ class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Bool
 
         if (files.isEmpty()) return emptyMap()
 
+        SpecificationPreparationDiagnostics.externalExamplesDiscovered(testsDirectory.path, files.size)
+
         val examplesInSubdirectories: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
             files.filter {
                 it.isDirectory
@@ -47,6 +50,11 @@ class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Bool
                     logger.log("Could not load test file ${exampleFile.canonicalPath}")
                     logger.log(e)
                     logger.boundary()
+                    SpecificationPreparationDiagnostics.externalExampleLoadFailed(
+                        exampleFile = exampleFile.canonicalPath,
+                        throwable = e,
+                        remediation = "Fix the example JSON structure or remove the file if it should not participate in this test run.",
+                    )
                     if (strictMode) throw ContractException(exceptionCauseMessage(e))
                     null
                 }

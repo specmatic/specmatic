@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.ReportConfiguration
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.log.TestFlowDiagnostics
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
@@ -26,10 +27,15 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
         val openAPICoverageReport = openApiCoverageReportInput.generate()
 
         if (openAPICoverageReport.coverageRows.isEmpty()) {
-            logger.log("The Open API coverage report generated is blank.\nThis can happen if your open api specification does not have any paths documented.")
+            val message = "The Open API coverage report generated is blank.\nThis can happen if your open api specification does not have any paths documented."
+            TestFlowDiagnostics.reportOutputOrFallbackTo(message) {
+                logger.log(message)
+            }
         } else {
             val textReport = CoverageReportTextRenderer().render(openAPICoverageReport, specmaticConfig)
-            logger.log(textReport)
+            TestFlowDiagnostics.reportOutputOrFallbackTo(textReport) {
+                logger.log(textReport)
+            }
             CoverageReportHtmlRenderer(openApiCoverageReportInput, reportBaseDirectory).render(openAPICoverageReport, specmaticConfig)
             saveAsJson(openApiCoverageReportInput.generateJsonReport())
         }
@@ -42,7 +48,10 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
     } ?: emptyList()
 
     private fun saveAsJson(openApiCoverageJsonReport: SpecmaticCoverageReport) {
-        println("Saving Coverage Report json to $JSON_REPORT_PATH ...")
+        val message = "Saving Coverage Report json to $JSON_REPORT_PATH ..."
+        TestFlowDiagnostics.reportOutputOrFallbackTo(message) {
+            println(message)
+        }
         val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)
         val directory = File(reportBaseDirectory).resolve(JSON_REPORT_PATH)
         directory.mkdirs()
@@ -67,15 +76,27 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
                 report.missedOperations <= successCriteria.getMaxMissedEndpointsInSpecOrDefault()
             val coverageReportSuccessCriteriaMet = minCoverageThresholdCriteriaMet && maxMissingOperationsExceededCriteriaMet
             if(!coverageReportSuccessCriteriaMet){
-                logger.newLine()
-                logger.log("Failed the following API Coverage Report success criteria:")
-                if(!minCoverageThresholdCriteriaMet) {
-                    logger.log(coverageThresholdNotMetMessage)
+                val lines = buildList {
+                    add("Failed the following API Coverage Report success criteria:")
+                    if(!minCoverageThresholdCriteriaMet) {
+                        add(coverageThresholdNotMetMessage)
+                    }
+                    if(!maxMissingOperationsExceededCriteriaMet) {
+                        add(missedOperationsExceededMessage)
+                    }
+                }.joinToString(System.lineSeparator())
+
+                TestFlowDiagnostics.reportOutputOrFallbackTo(lines) {
+                    logger.newLine()
+                    logger.log("Failed the following API Coverage Report success criteria:")
+                    if(!minCoverageThresholdCriteriaMet) {
+                        logger.log(coverageThresholdNotMetMessage)
+                    }
+                    if(!maxMissingOperationsExceededCriteriaMet) {
+                        logger.log(missedOperationsExceededMessage)
+                    }
+                    logger.newLine()
                 }
-                if(!maxMissingOperationsExceededCriteriaMet) {
-                    logger.log(missedOperationsExceededMessage)
-                }
-                logger.newLine()
             }
 
             val results = buildList {

@@ -5,7 +5,13 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
+import io.specmatic.core.log.ExecutionMode as SpecmaticExecutionMode
+import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.LoggingScope
+import io.specmatic.core.log.NoOpDiagnosticLogger
+import io.specmatic.core.log.SpecificationPreparationDiagnostics
+import io.specmatic.core.log.TestFlowDiagnostics
 import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
@@ -288,9 +294,22 @@ open class SpecmaticJUnitSupport {
         val suggestionsData = settings.inlineSuggestions.orEmpty()
         val suggestionsPath = settings.suggestionsPath.orEmpty()
         val envConfig = getEnvConfig(settings.envName)
+        TestFlowDiagnostics.testRunStarted(
+            filters = activeFilterDescription(filterName, filterNotName),
+        )
         val testConfig = try {
             loadTestConfig(envConfig).withVariablesFromFilePath(settings.variablesFileName)
         } catch (e: Throwable) {
+            TestFlowDiagnostics.environmentProblem(
+                summary = "Could not load test configuration",
+                remediation = "Fix the Specmatic config, environment configuration, or variables file before rerunning the tests.",
+                context = mapOfNotNull(
+                    "config file" to settings.configFile,
+                    "environment" to settings.envName,
+                    "variables file" to settings.variablesFileName,
+                ),
+                throwable = e,
+            )
             return loadExceptionAsTestError(e)
         }
         val testBuildResult = try {
@@ -312,7 +331,8 @@ open class SpecmaticJUnitSupport {
                             filterNotName = filterNotName,
                             specmaticConfig = specmaticConfig,
                             overlayContent = overlayContent,
-                            filter = testFilter
+                            filter = testFilter,
+                            overlayFilePath = overlayFilePath,
                         )
                     }
 
@@ -362,7 +382,8 @@ open class SpecmaticJUnitSupport {
                             generative = contractPathData.generative,
                             overlayContent = overlayContent,
                             filter = testFilter,
-                            exampleDirPaths = contractPathData.exampleDirPaths.orEmpty()
+                            exampleDirPaths = contractPathData.exampleDirPaths.orEmpty(),
+                            overlayFilePath = overlayFilePath,
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
@@ -381,8 +402,18 @@ open class SpecmaticJUnitSupport {
                 }
             }
         } catch (e: ContractException) {
+            TestFlowDiagnostics.internalError(
+                summary = "Contract test preparation failed",
+                throwable = e,
+                remediation = "Fix the contract, overlay, examples, or test configuration reported above and rerun the tests.",
+            )
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
+            TestFlowDiagnostics.internalError(
+                summary = "Unexpected error while preparing contract tests",
+                throwable = e,
+                remediation = "Inspect the stack trace and the test inputs above, then retry once the issue is fixed.",
+            )
             return loadExceptionAsTestError(e)
         }
 
@@ -400,8 +431,18 @@ open class SpecmaticJUnitSupport {
                 testFilter.isSatisfiedBy(pair.first.toScenarioMetadata())
             }
         } catch (e: ContractException) {
+            TestFlowDiagnostics.internalError(
+                summary = "Could not finish selecting runnable scenarios",
+                throwable = e,
+                remediation = "Fix the filter expression or contract metadata and rerun the test command.",
+            )
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
+            TestFlowDiagnostics.internalError(
+                summary = "Unexpected error while selecting runnable scenarios",
+                throwable = e,
+                remediation = "Inspect the failing filter or scenario metadata and rerun the test command.",
+            )
             return loadExceptionAsTestError(e)
         }
 
@@ -423,6 +464,7 @@ open class SpecmaticJUnitSupport {
             } else {
                 "No test scenarios found."
             }
+            TestFlowDiagnostics.noTestsFound(reason)
             return noTestsFoundError(reason)
         }
 
@@ -439,6 +481,11 @@ open class SpecmaticJUnitSupport {
             )
         } catch (e: Throwable) {
             logger.logError(e)
+            TestFlowDiagnostics.internalError(
+                summary = "The test run failed before any scenario could complete",
+                throwable = e,
+                remediation = "Inspect the error above and rerun the contract tests after fixing the issue.",
+            )
             loadExceptionAsTestError(e)
         }
     }
@@ -459,12 +506,17 @@ open class SpecmaticJUnitSupport {
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
-                logger.boundary()
-                logger.log("Endpoints API and SwaggerUI URL were not exposed by the application, so cannot calculate actual coverage")
+                SpecificationPreparationDiagnostics.specificationPreparationDetail(
+                    summary = "Coverage discovery skipped",
+                    details = "Endpoints API and SwaggerUI URL were not exposed by the application, so actual coverage could not be calculated.",
+                )
             }
         } catch (exception: Throwable) {
             openApiCoverageReportInput.setEndpointsAPIFlag(false)
-            logger.debug(exception, "Failed to query actuator with error")
+            SpecificationPreparationDiagnostics.specificationPreparationDetail(
+                summary = "Could not inspect actuator endpoints",
+                details = exceptionCauseMessage(exception),
+            )
         }
 
         logger.newLine()
@@ -487,8 +539,13 @@ open class SpecmaticJUnitSupport {
                 var testResult: ContractTestExecutionResult? = null
 
                 try {
+                    TestFlowDiagnostics.scenarioStarted(
+                        name = contractTest.testDescription(),
+                        contractPath = testContractPath(contractTest),
+                        baseUrl = baseURL,
+                    )
                     val log: (LogMessage) -> Unit = { logMessage ->
-                        logger.log(logMessage)
+                        emitTestExecutionLog(contractTest, logMessage)
                     }
 
                     val httpClient =
@@ -510,11 +567,22 @@ open class SpecmaticJUnitSupport {
                     if (result is Result.Failure && result.failureReason == FailureReason.ConnectivityFailure) {
                         val message = connectivityFailureMessage(baseURL, result.message)
                         suiteAbortMessage.compareAndSet(null, message)
+
+                        TestFlowDiagnostics.environmentProblem(
+                            "Connectivity Failure",
+                            message,
+                            "Ensure that the system under test is running at $baseURL"
+                        )
                         throw ContractException(message)
                     }
 
                     if (result is Result.Success && result.isPartialSuccess()) {
                         partialSuccesses.add(result)
+                        TestFlowDiagnostics.scenarioPartialSuccess(
+                            name = contractTest.testDescription(),
+                            message = result.partialSuccessMessage.orEmpty(),
+                            contractPath = testContractPath(contractTest),
+                        )
                     }
 
                     when {
@@ -523,10 +591,18 @@ open class SpecmaticJUnitSupport {
                                 "Test FAILED, ignoring since the scenario is tagged @WIP${System.lineSeparator()}${
                                     result.toReport().toText().prependIndent("  ")
                                 }"
+                            TestFlowDiagnostics.scenarioAborted(contractTest.testDescription(), message)
                             throw TestAbortedException(message)
                         }
 
-                        else -> ResultAssert.assertThat(result).isSuccess()
+                        else -> {
+                            ResultAssert.assertThat(result).isSuccess()
+                            if (!result.isPartialSuccess()) {
+                                TestFlowDiagnostics.scenarioPassed(
+                                    durationMs = null,
+                                )
+                            }
+                        }
                     }
 
                 } catch (e: Throwable) {
@@ -550,6 +626,23 @@ open class SpecmaticJUnitSupport {
             - Is the server running?
             - Is the testBaseURL correct?
         """.trimIndent()
+    }
+
+    private fun emitTestExecutionLog(contractTest: ContractTest, logMessage: LogMessage) {
+        if (LoggingScope.diagnosticLogger() !== NoOpDiagnosticLogger && LoggingScope.executionContext().mode == SpecmaticExecutionMode.TEST) {
+            when (logMessage) {
+                is HttpLogMessage -> TestFlowDiagnostics.httpInteraction(logMessage)
+                else -> TestFlowDiagnostics.scenarioExecutionDetail(
+                    name = contractTest.testDescription(),
+                    summary = "Scenario execution detail",
+                    details = logMessage.toLogString(),
+                    contractPath = testContractPath(contractTest),
+                )
+            }
+            return
+        }
+
+        logger.log(logMessage)
     }
 
     fun constructTestBaseURL(): String {
@@ -621,112 +714,162 @@ open class SpecmaticJUnitSupport {
         generative: ResiliencyTestSuite? = null,
         overlayContent: String = "",
         filter: ScenarioMetadataFilter,
-        exampleDirPaths: List<String> = emptyList()
+        exampleDirPaths: List<String> = emptyList(),
+        overlayFilePath: String? = null,
     ): LoadedTestScenarios {
         if (hasOpenApiFileExtension(path) && !isOpenAPI(path)) {
             return LoadedTestScenarios(emptySequence(), emptyList(), emptyList())
         }
 
         val contractFile = File(path)
-        val strictMode = specmaticConfig.getTestStrictMode() ?: false
-        val effectiveSpecmaticConfig =
-            when (generative) {
-                ResiliencyTestSuite.positiveOnly -> specmaticConfig.enableResiliencyTests(onlyPositive = true)
-                ResiliencyTestSuite.all -> specmaticConfig.enableResiliencyTests(onlyPositive = false)
-                ResiliencyTestSuite.none, null -> specmaticConfig
-            }
-
-        val testDictionary = specmaticConfig.getTestDictionary()
-        val feature =
-            parseContractFileToFeature(
-                contractFile.path,
-                CommandHook(HookName.test_load_contract, contractFile),
-                sourceProvider,
-                sourceRepository,
-                sourceRepositoryBranch,
-                specificationPath,
-                securityConfiguration,
-                specmaticConfig = effectiveSpecmaticConfig,
-                overlayContent = overlayContent,
-                strictMode = strictMode,
-                lenientMode = specmaticConfig.getTestLenientMode() ?: false,
-                exampleDirPaths = exampleDirPaths
-            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).useDictionary(testDictionary)
-
-        val suggestions = when {
-            suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)
-            suggestionsData.isNotEmpty() -> suggestionsFromCommandLine(suggestionsData)
-            else -> emptyList()
-        }
-
-        val allEndpoints = feature.scenarios.map { scenario ->
-            Endpoint(
-                convertPathParameterStyle(scenario.path),
-                scenario.method,
-                scenario.httpResponsePattern.status,
-                scenario.soapActionUnescaped,
-                scenario.sourceProvider,
-                scenario.sourceRepository,
-                scenario.sourceRepositoryBranch,
-                scenario.specification,
-                scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
-                scenario.protocol,
-                scenario.specType
-            )
-        }
-
-        val featureWithExternalizedExamples = feature.loadExternalisedExamples()
-
-        val filteredScenariosBasedOnName = selectTestsToRun(
-            featureWithExternalizedExamples.scenarios.asSequence(),
-            filterName,
-            filterNotName
-        ) {
-            it.testDescription()
-        }
-
-        val filteredScenarios = filterUsing(
-            filteredScenariosBasedOnName,
-            filter
+        val parser = parserFor(path)
+        TestFlowDiagnostics.contractLoadingStarted(
+            contractPath = contractFile.path,
+            parser = parser,
+            overlayFilePath = overlayFilePath,
+            exampleDirectories = exampleDirPaths,
         )
 
-        val filteredEndpoints = filteredScenarios.map { scenario ->
-            Endpoint(
-                convertPathParameterStyle(scenario.path),
-                scenario.method,
-                scenario.httpResponsePattern.status,
-                scenario.soapActionUnescaped,
-                scenario.sourceProvider,
-                scenario.sourceRepository,
-                scenario.sourceRepositoryBranch,
-                scenario.specification,
-                scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
-                scenario.protocol,
-                scenario.specType
-            )
-        }.toList()
+        try {
+            val strictMode = specmaticConfig.getTestStrictMode() ?: false
+            val effectiveSpecmaticConfig =
+                when (generative) {
+                    ResiliencyTestSuite.positiveOnly -> specmaticConfig.enableResiliencyTests(onlyPositive = true)
+                    ResiliencyTestSuite.all -> specmaticConfig.enableResiliencyTests(onlyPositive = false)
+                    ResiliencyTestSuite.none, null -> specmaticConfig
+                }
 
-        val filteredFeature = featureWithExternalizedExamples.copy(scenarios = filteredScenarios.toList())
-        val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
-        if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
+            val testDictionary = specmaticConfig.getTestDictionary()
+            val feature =
+                parseContractFileToFeature(
+                    contractFile.path,
+                    CommandHook(HookName.test_load_contract, contractFile),
+                    sourceProvider,
+                    sourceRepository,
+                    sourceRepositoryBranch,
+                    specificationPath,
+                    securityConfiguration,
+                    specmaticConfig = effectiveSpecmaticConfig,
+                    overlayContent = overlayContent,
+                    strictMode = strictMode,
+                    lenientMode = specmaticConfig.getTestLenientMode() ?: false,
+                    exampleDirPaths = exampleDirPaths
+                ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).useDictionary(testDictionary)
 
-        validExampleFeature.validateExamplesOrException()
-        val tests: Sequence<ContractTest> = validExampleFeature.also {
-            if (it.scenarios.isEmpty()) {
-                logger.log("All scenarios were filtered out.")
-            } else if (it.scenarios.size < feature.scenarios.size) {
-                logger.debug("Selected scenarios:")
-                it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
+            val suggestions = when {
+                suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)
+                suggestionsData.isNotEmpty() -> suggestionsFromCommandLine(suggestionsData)
+                else -> emptyList()
             }
-        }.generateContractTests(suggestions, originalScenarios = feature.scenarios)
 
-        return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
+            val allEndpoints = feature.scenarios.map { scenario ->
+                Endpoint(
+                    convertPathParameterStyle(scenario.path),
+                    scenario.method,
+                    scenario.httpResponsePattern.status,
+                    scenario.soapActionUnescaped,
+                    scenario.sourceProvider,
+                    scenario.sourceRepository,
+                    scenario.sourceRepositoryBranch,
+                    scenario.specification,
+                    scenario.requestContentType,
+                    scenario.httpResponsePattern.headersPattern.contentType,
+                    scenario.protocol,
+                    scenario.specType
+                )
+            }
+
+            val featureWithExternalizedExamples = feature.loadExternalisedExamples()
+
+            val filteredScenariosBasedOnName = selectTestsToRun(
+                featureWithExternalizedExamples.scenarios.asSequence(),
+                filterName,
+                filterNotName
+            ) {
+                it.testDescription()
+            }
+
+            val filteredScenarios = filterUsing(
+                filteredScenariosBasedOnName,
+                filter
+            )
+
+            val filteredEndpoints = filteredScenarios.map { scenario ->
+                Endpoint(
+                    convertPathParameterStyle(scenario.path),
+                    scenario.method,
+                    scenario.httpResponsePattern.status,
+                    scenario.soapActionUnescaped,
+                    scenario.sourceProvider,
+                    scenario.sourceRepository,
+                    scenario.sourceRepositoryBranch,
+                    scenario.specification,
+                    scenario.requestContentType,
+                    scenario.httpResponsePattern.headersPattern.contentType,
+                    scenario.protocol,
+                    scenario.specType
+                )
+            }.toList()
+
+            val filteredFeature = featureWithExternalizedExamples.copy(scenarios = filteredScenarios.toList())
+            val totalExternalExampleFileCount = externalExampleFileCount(filteredFeature)
+            val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
+            if (specmaticConfig.getTestLenientMode() == false && result is Result.Failure) {
+                val validExternalExampleFileCount = externalExampleFileCount(validExampleFeature)
+                val invalidExternalExampleFileCount = (totalExternalExampleFileCount - validExternalExampleFileCount)
+                    .takeIf { it > 0 }
+                SpecificationPreparationDiagnostics.exampleValidationFailed(
+                    contractPath = contractFile.path,
+                    failure = result,
+                    remediation = "Fix the example payloads so they match the contract, or run in lenient mode if this mismatch is expected.",
+                    invalidExampleFileCount = invalidExternalExampleFileCount,
+                    totalExampleFileCount = totalExternalExampleFileCount.takeIf { it > 0 },
+                )
+                result.throwOnFailureAsLogged()
+            }
+
+            validExampleFeature.validateExamplesOrException()
+
+            val tests: Sequence<ContractTest> = validExampleFeature.also {
+                if (it.scenarios.isEmpty()) {
+                    logger.log("All scenarios were filtered out.")
+                } else if (it.scenarios.size < feature.scenarios.size) {
+                    logger.debug("Selected scenarios:")
+                    it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
+                }
+            }.generateContractTests(suggestions, originalScenarios = feature.scenarios)
+
+            return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
+        } catch (e: ContractException) {
+            TestFlowDiagnostics.contractLoadFailed(
+                contractPath = contractFile.path,
+                parser = parser,
+                throwable = e,
+                remediation = "Fix the contract, overlay, or examples referenced above and rerun the tests.",
+            )
+            throw e
+        } catch (e: Throwable) {
+            TestFlowDiagnostics.contractLoadFailed(
+                contractPath = contractFile.path,
+                parser = parser,
+                throwable = e,
+                remediation = "Inspect the parser or contract inputs and rerun once the unexpected error is fixed.",
+            )
+            throw e
+        }
     }
 
     private fun suggestionsFromFile(suggestionsPath: String): List<Scenario> {
         return Suggestions.fromFile(suggestionsPath).scenarios
+    }
+
+    private fun externalExampleFileCount(feature: Feature): Int {
+        return feature.scenarios.asSequence()
+            .flatMap { scenario -> scenario.examples.asSequence() }
+            .flatMap { example -> example.rows.asSequence() }
+            .mapNotNull(Row::fileSource)
+            .distinct()
+            .count()
     }
 
     private fun suggestionsFromCommandLine(suggestions: String): List<Scenario> {
@@ -786,6 +929,31 @@ open class SpecmaticJUnitSupport {
 
         return keyDataRegistry.get(host, port)
     }
+
+    private fun parserFor(path: String): String {
+        return when (File(path).extension.lowercase()) {
+            in OPENAPI_FILE_EXTENSIONS -> "OpenAPI"
+            WSDL.lowercase() -> "WSDL"
+            else -> "Gherkin"
+        }
+    }
+
+    private fun activeFilterDescription(filterName: String?, filterNotName: String?): String? {
+        val values = buildList {
+            filterName?.takeIf(String::isNotBlank)?.let { add("name=$it") }
+            filterNotName?.takeIf(String::isNotBlank)?.let { add("exclude=$it") }
+            testFilter.expression?.toString()?.takeIf(String::isNotBlank)?.let { add("expression=$it") }
+        }
+
+        return values.takeIf { it.isNotEmpty() }?.joinToString(", ")
+    }
+
+    private fun testContractPath(contractTest: ContractTest): String? {
+        return when (contractTest) {
+            is ScenarioAsTest -> contractTest.scenario.specification
+            else -> null
+        }
+    }
 }
 
 data class LoadedTestScenarios(
@@ -818,6 +986,10 @@ private fun asJSONObjectValue(value: Value): Map<String, Value> {
         throw ContractException(errorMessage)
 
     return value.jsonObject
+}
+
+private fun mapOfNotNull(vararg pairs: Pair<String, String?>): Map<String, String> {
+    return pairs.mapNotNull { (key, value) -> value?.takeIf(String::isNotBlank)?.let { key to it } }.toMap()
 }
 
 fun <T> selectTestsToRun(

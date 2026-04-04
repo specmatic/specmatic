@@ -5,6 +5,9 @@ import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
@@ -38,19 +41,21 @@ class ValidateCommand(
         configBackedSpecificationLoader ?: ConfigBackedSpecificationLoader(specmaticConfig, recursiveSpecificationAndExampleClassifier)
 
     override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug))
-        validateArguments()
+        return withExecutionContext(ExecutionContext(ExecutionMode.LIBRARY, component = "validate")) {
+            configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug))
+            validateArguments()
 
-        val data = loadSpecificationData()
+            val data = loadSpecificationData()
 
-        if (data.isEmpty()) {
-            println("No specifications found to validate.")
-            return 0
+            if (data.isEmpty()) {
+                println("No specifications found to validate.")
+                return@withExecutionContext 0
+            }
+
+            val processor = ValidationProcessor(validator)
+            val summary = processor.processValidation(data)
+            if (summary.isSuccess) 0 else 1
         }
-
-        val processor = ValidationProcessor(validator)
-        val summary = processor.processValidation(data)
-        return if (summary.isSuccess) 0 else 1
     }
 
     private fun loadSpecificationData(): List<SpecificationWithExamples> {

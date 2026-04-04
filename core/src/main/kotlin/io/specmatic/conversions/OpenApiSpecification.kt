@@ -17,6 +17,8 @@ import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.SpecificationPreparationDiagnostics
+import io.specmatic.core.log.newLoggingEnabled
 import io.specmatic.core.overlay.OverlayMerger
 import io.specmatic.core.overlay.OverlayParser
 import io.specmatic.core.pattern.*
@@ -105,6 +107,10 @@ class OpenApiSpecification(
 
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
+        SpecificationPreparationDiagnostics.specificationLoaded(
+            contractPath = openApiFilePath,
+            details = openApiSpecificationInfo(openApiFilePath, parsedOpenApi).trim(),
+        )
         logger.log(openApiSpecificationInfo(openApiFilePath, parsedOpenApi))
     }
 
@@ -292,6 +298,7 @@ class OpenApiSpecification(
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
             val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
+            val preprocessingApplied = preprocessedYaml != mergedYaml
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -301,21 +308,46 @@ class OpenApiSpecification(
                     openApiFilePath.replace("\\", "/")
                 )
             val parsedOpenApi: OpenAPI? = parseResult.openAPI
+            val parserMessages = parseMessages(parseResult)
+            val preprocessingDetails = preprocessedYaml.takeIf { preprocessingApplied }?.let {
+                "Preprocessed YAML used for parsing:${System.lineSeparator()}${it.truncateForDiagnosticDetail()}"
+            }
 
             if (parsedOpenApi == null) {
-                logger.log("FATAL: Failed to parse OpenAPI from file $openApiFilePath after preprocessing additionalProperties\n\n$preprocessedYaml")
-
-                printMessages(parseResult, logger)
+                SpecificationPreparationDiagnostics.specificationParseFailed(
+                    contractPath = openApiFilePath,
+                    parser = "OpenAPI",
+                    messages = parserMessages,
+                    remediation = "Fix the OpenAPI syntax or validation problems and rerun. You can also validate the contract using https://editor.swagger.io",
+                    details = preprocessingDetails,
+                    context = mapOf(
+                        "preprocessed" to preprocessingApplied.toString(),
+                    ),
+                )
+                if (!newLoggingEnabled()) {
+                    logger.log("FATAL: Failed to parse OpenAPI from file $openApiFilePath after preprocessing additionalProperties\n\n$preprocessedYaml")
+                    parserMessages?.let(logger::log)
+                }
 
                 throw ContractException("Could not parse contract $openApiFilePath, please validate the syntax using https://editor.swagger.io")
             } else if (parseResult.messages?.isNotEmpty() == true) {
-                logger.boundary()
-                logger.log("WARNING: The OpenAPI file $openApiFilePath was read successfully but with some issues")
-
-                logger.withIndentation(2) {
-                    printMessages(parseResult, logger)
+                SpecificationPreparationDiagnostics.specificationParseWarning(
+                    contractPath = openApiFilePath,
+                    parser = "OpenAPI",
+                    messages = parserMessages.orEmpty(),
+                    remediation = "Review the parser warnings and fix the contract before relying on generated tests or stubs.",
+                    context = mapOf(
+                        "preprocessed" to preprocessingApplied.toString(),
+                    ),
+                )
+                if (!newLoggingEnabled()) {
+                    logger.boundary()
+                    logger.log("WARNING: The OpenAPI file $openApiFilePath was read successfully but with some issues")
+                    logger.withIndentation(2) {
+                        parserMessages?.let(logger::log)
+                    }
+                    logger.boundary()
                 }
-                logger.boundary()
             }
 
             return OpenApiSpecification(
@@ -349,13 +381,13 @@ class OpenApiSpecification(
             }.firstOrNull(File::exists)
         }
 
-        private fun printMessages(parseResult: SwaggerParseResult, loggerForErrors: LogStrategy) {
-            parseResult.messages.filterNotNull().let { message ->
-                if (message.isNotEmpty()) {
-                    val parserMessages = parseResult.messages.joinToString(System.lineSeparator()) { "- $it" }
-                    loggerForErrors.log(parserMessages)
-                }
-            }
+        private fun parseMessages(parseResult: SwaggerParseResult): String? {
+            return parseResult.messages.filterNotNull().takeIf { it.isNotEmpty() }
+                ?.joinToString(System.lineSeparator()) { "- $it" }
+        }
+
+        private fun String.truncateForDiagnosticDetail(maxLength: Int = 4000): String {
+            return if (length <= maxLength) this else take(maxLength) + "${System.lineSeparator()}... (truncated)"
         }
 
         private fun resolveExternalReferences(): ParseOptions {
@@ -865,9 +897,17 @@ class OpenApiSpecification(
             }
 
         if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
-            data.flatMap { it.unusedRequestExampleNames }.forEach { unusedRequestExampleName ->
-                // TODO: Collect as warning
-                logger.log(missingResponseExampleErrorMessageForTest(unusedRequestExampleName))
+            val unusedRequestExampleNames = data.flatMap { it.unusedRequestExampleNames }
+            if (unusedRequestExampleNames.isNotEmpty()) {
+                SpecificationPreparationDiagnostics.examplePairingWarning(
+                    contractPath = openApiFilePath,
+                    exampleNames = unusedRequestExampleNames,
+                    messages = unusedRequestExampleNames.map(::missingResponseExampleErrorMessageForTest),
+                    remediation = "Add matching response examples with the same names or remove the unused request examples.",
+                )
+                unusedRequestExampleNames.forEach { unusedRequestExampleName ->
+                    logger.log(missingResponseExampleErrorMessageForTest(unusedRequestExampleName))
+                }
             }
         }
 
@@ -1101,7 +1141,8 @@ class OpenApiSpecification(
         first2xxResponseStatus: Int?
     ): List<Row> {
 
-        return responseExamples.mapNotNull { (exampleName, responseExample) ->
+        val warnings = mutableListOf<String>()
+        val rows = responseExamples.mapNotNull { (exampleName, responseExample) ->
             val parameterExamples: Map<String, Any> = parameterExamples(parameters, exampleName)
 
             val requestBodyExample: Map<String, Any> =
@@ -1117,9 +1158,10 @@ class OpenApiSpecification(
                     throw ContractException(missingRequestExampleErrorMessageForTest(exampleName))
                 }
                 if (responseExample.status != first2xxResponseStatus) {
-                    // TODO: Collect as warning
-                    if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
+                    if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
+                        warnings += exampleName
                         logger.log(missingRequestExampleErrorMessageForTest(exampleName))
+                    }
                     return@mapNotNull null
                 }
             }
@@ -1147,6 +1189,17 @@ class OpenApiSpecification(
                 responseExample = responseExample
             )
         }
+
+        if (warnings.isNotEmpty()) {
+            SpecificationPreparationDiagnostics.examplePairingWarning(
+                contractPath = openApiFilePath,
+                exampleNames = warnings,
+                messages = warnings.map(::missingRequestExampleErrorMessageForTest),
+                remediation = "Add matching request examples with the same names or remove the response-only examples.",
+            )
+        }
+
+        return rows
     }
 
     data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?) {

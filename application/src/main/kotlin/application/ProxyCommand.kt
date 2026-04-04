@@ -7,10 +7,13 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
 import io.specmatic.core.log.StringLog
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.consolePrintableURL
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -95,17 +98,19 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call() {
-        configureLogging(LoggingFromOpts(debug = debugLog))
-        val configSource = specmaticConfigSource()
-        val specmaticConfigLoaded = configSource.load().config
-        val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
-        val fromConfig = specmaticConfigLoaded.getProxyConfig()?.getHttpsConfig()
-        val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
+        withExecutionContext(ExecutionContext(ExecutionMode.PROXY)) {
+            configureLogging(LoggingFromOpts(debug = debugLog))
+            val configSource = specmaticConfigSource()
+            val specmaticConfigLoaded = configSource.load().config
+            val fromCli = HttpsConfiguration.Companion.HttpsFromOpts(keyStoreFile, keyStoreDir, keyStorePassword, keyStoreAlias, keyPassword)
+            val fromConfig = specmaticConfigLoaded.getProxyConfig()?.getHttpsConfig()
+            val keyStoreData = CertInfo(fromCli, fromConfig).getHttpsCert(aliasSuffix = "proxy")
 
-        proxy = createProxyServer(specmaticConfigLoaded, keyStoreData, configSource)
-        addShutdownHook()
-        logger.boundary()
-        while(true) sleep(10000)
+            proxy = createProxyServer(specmaticConfigLoaded, keyStoreData, configSource)
+            addShutdownHook()
+            logger.boundary()
+            while(true) sleep(10000)
+        }
     }
 
     private fun createProxyServer(specmaticConfig: SpecmaticConfig, keyStoreData: KeyData?, configSource: SpecmaticConfigSource): Proxy {

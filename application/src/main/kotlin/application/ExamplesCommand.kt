@@ -5,8 +5,11 @@ import io.specmatic.core.*
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.examples.module.*
 import io.specmatic.core.examples.server.ScenarioFilter
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.license.core.cli.Category
 import io.specmatic.stub.isOpenAPI
@@ -116,47 +119,49 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         private val exampleValidationModule = ExampleValidationModule(lenientMode = lenientMode, specmaticConfig = specmaticConfig)
 
         override fun call(): Int {
-            configureLogger(this.verbose)
+            return withExecutionContext(ExecutionContext(ExecutionMode.EXAMPLES)) {
+                configureLogger(this.verbose)
 
-            if(contractFile != null) {
-                OpenApiSpecification.checkSpecValidity(contractFile!!.canonicalPath, lenientMode)
+                if(contractFile != null) {
+                    OpenApiSpecification.checkSpecValidity(contractFile!!.canonicalPath, lenientMode)
 
-                if(exampleFile != null) return validateExampleFile(contractFile!!, exampleFile)
-                if(examplesDir != null) {
-                    val (exitCode, validationResults) = validateExamplesDir(contractFile!!, examplesDir)
+                    if(exampleFile != null) return@withExecutionContext validateExampleFile(contractFile!!, exampleFile)
+                    if(examplesDir != null) {
+                        val (exitCode, validationResults) = validateExamplesDir(contractFile!!, examplesDir)
 
-                    printValidationResult(validationResults.exampleValidationResults, "Example directory")
-                    return if (exitCode == FAILURE_EXIT_CODE) FAILURE_EXIT_CODE else validationResults.exitCode
+                        printValidationResult(validationResults.exampleValidationResults, "Example directory")
+                        return@withExecutionContext if (exitCode == FAILURE_EXIT_CODE) FAILURE_EXIT_CODE else validationResults.exitCode
+                    }
+                    return@withExecutionContext validateImplicitAndConfigExamples(contractFile!!)
                 }
-                return validateImplicitAndConfigExamples(contractFile!!)
+
+                if (specsDir != null && examplesBaseDir != null) {
+                    logger.log("- Validating associated examples in the directory: ${examplesBaseDir.path}")
+                    logger.newLine()
+                    val externalExampleValidationResults = validateAllExamplesAssociatedToEachSpecIn(specsDir, examplesBaseDir)
+
+                    logger.newLine()
+                    logger.log("- Validating associated examples in the directory: ${specsDir.path}")
+                    logger.newLine()
+                    val implicitExampleValidationResults = validateAllExamplesAssociatedToEachSpecIn(specsDir, specsDir)
+
+                    logger.newLine()
+                    val summaryTitle = "- Validation summary across all example directories:"
+                    logger.log("_".repeat(summaryTitle.length))
+                    logger.log("- Validation summary across all example directories:")
+                    val allResults = implicitExampleValidationResults + externalExampleValidationResults
+                    printValidationResult(allResults.ofAllExamples(), "")
+
+                    return@withExecutionContext allResults.exitCode()
+                }
+
+                if (specsDir != null) {
+                    return@withExecutionContext validateAllExamplesAssociatedToEachSpecIn(specsDir, specsDir).exitCode()
+                }
+
+                logger.log("Invalid combination of CLI options. Please refer to the help section using --help command to understand how to use this command")
+                FAILURE_EXIT_CODE
             }
-
-            if (specsDir != null && examplesBaseDir != null) {
-                logger.log("- Validating associated examples in the directory: ${examplesBaseDir.path}")
-                logger.newLine()
-                val externalExampleValidationResults = validateAllExamplesAssociatedToEachSpecIn(specsDir, examplesBaseDir)
-
-                logger.newLine()
-                logger.log("- Validating associated examples in the directory: ${specsDir.path}")
-                logger.newLine()
-                val implicitExampleValidationResults = validateAllExamplesAssociatedToEachSpecIn(specsDir, specsDir)
-
-                logger.newLine()
-                val summaryTitle = "- Validation summary across all example directories:"
-                logger.log("_".repeat(summaryTitle.length))
-                logger.log("- Validation summary across all example directories:")
-                val allResults = implicitExampleValidationResults + externalExampleValidationResults
-                printValidationResult(allResults.ofAllExamples(), "")
-
-                return allResults.exitCode()
-            }
-
-            if (specsDir != null) {
-                return validateAllExamplesAssociatedToEachSpecIn(specsDir, specsDir).exitCode()
-            }
-
-            logger.log("Invalid combination of CLI options. Please refer to the help section using --help command to understand how to use this command")
-            return FAILURE_EXIT_CODE
         }
 
         private fun validateExampleFile(contractFile: File, exampleFile: File): Int {

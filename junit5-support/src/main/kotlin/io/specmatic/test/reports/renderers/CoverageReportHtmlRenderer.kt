@@ -3,6 +3,7 @@ package io.specmatic.test.reports.renderers
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.log.TestFlowDiagnostics
 import io.specmatic.core.log.logger
 import io.specmatic.junit5.support.VersionInfo
 import io.specmatic.reporter.model.SpecType
@@ -18,7 +19,9 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
     val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
-        logger.log("Generating HTML report...")
+        TestFlowDiagnostics.reportOutputOrFallbackTo("Generating HTML report...") {
+            logger.log("Generating HTML report...")
+        }
         val reportConfiguration = specmaticConfig.getReport()!!
         val openApiSuccessCriteria = reportConfiguration.getSuccessCriteria()
 

@@ -4,8 +4,12 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.LoggingScope
+import io.specmatic.core.log.TestFlowDiagnostics
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.newLoggingEnabled
 import io.specmatic.core.matchers.MatcherEngine
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
@@ -90,7 +94,7 @@ data class ScenarioAsTest(
 
     override fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult {
         val log: (LogMessage) -> Unit = { logMessage ->
-            logger.log(logMessage.withComment(this.annotations))
+            emitScenarioLog(logMessage)
         }
 
         val httpClient = LegacyHttpClient(testBaseURL, log = log, timeoutInMilliseconds = timeoutInMilliseconds)
@@ -102,7 +106,7 @@ data class ScenarioAsTest(
         startTime = Instant.now()
         val newExecutor = if (testExecutor is HttpClient) {
             val log: (LogMessage) -> Unit = { logMessage ->
-                logger.log(logMessage.withComment(this.annotations))
+                emitScenarioLog(logMessage)
             }
 
             testExecutor.withLogger(log)
@@ -129,7 +133,13 @@ data class ScenarioAsTest(
         try {
             val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
             if (beforeFixtureExecutionResult.isSuccess().not()) {
-                return ContractTestExecutionResult(result = beforeFixtureExecutionResult.updateScenario(testScenario))
+                val result = beforeFixtureExecutionResult.updateScenario(testScenario)
+                logFailure(
+                    summary = "Scenario setup failed before the request could be sent",
+                    remediation = "Fix the before-fixture data or setup hooks used by this scenario.",
+                    result = result,
+                )
+                return ContractTestExecutionResult(result = result)
             }
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
@@ -149,6 +159,13 @@ data class ScenarioAsTest(
                         testScenario.resolver
                     )
                     if(matchesResult is Result.Failure) {
+                        logFailure(
+                            summary = "Response body did not match the example linked to this scenario",
+                            remediation = "Update the response body example or fix the service response so they agree.",
+                            result = matchesResult,
+                            request = request,
+                            response = response,
+                        )
                         return ContractTestExecutionResult(
                             result = matchesResult.withBindings(testScenario.bindings, response),
                             request = request,
@@ -163,6 +180,13 @@ data class ScenarioAsTest(
             val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, response) }.firstOrNull()
 
             if (validatorResult is Result.Failure) {
+                logFailure(
+                    summary = "A response validator rejected the scenario response",
+                    remediation = "Inspect the validator rules and adjust either the validator or the response payload.",
+                    result = validatorResult,
+                    request = request,
+                    response = response,
+                )
                 return ContractTestExecutionResult(
                     result = validatorResult.withBindings(testScenario.bindings, response),
                     request = request,
@@ -173,6 +197,13 @@ data class ScenarioAsTest(
             val testResult = validatorResult ?: testResult(request, response, testScenario, flagsBased)
             val responseHandler = response.getResponseHandlerIfExists()
             if (testResult is Result.Failure && responseHandler == null) {
+                logFailure(
+                    summary = "The service response did not match the contract",
+                    remediation = "Compare the failing breadcrumb and rule violations above with the actual response from the service.",
+                    result = testResult,
+                    request = request,
+                    response = response,
+                )
                 return ContractTestExecutionResult(
                     result = testResult.withBindings(testScenario.bindings, response),
                     request = request,
@@ -188,6 +219,13 @@ data class ScenarioAsTest(
                         is ResponseHandlingResult.Continue -> handlerResult.response
                         is ResponseHandlingResult.Stop -> {
                             val bindingResponse = handlerResult.response ?: response
+                            logFailure(
+                                summary = "A response handler stopped this scenario",
+                                remediation = "Inspect the response handler logic and the captured response before rerunning the test.",
+                                result = handlerResult.result,
+                                request = request,
+                                response = bindingResponse,
+                            )
                             return ContractTestExecutionResult(
                                 result = handlerResult.result.withBindings(testScenario.bindings, bindingResponse),
                                 request = request,
@@ -207,6 +245,13 @@ data class ScenarioAsTest(
             if(result !is Result.Failure) {
                 val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
                 if (afterFixtureExecutionResult.isSuccess().not()) {
+                    logFailure(
+                        summary = "Scenario cleanup failed after the response was validated",
+                        remediation = "Fix the after-fixture logic so the scenario can clean up successfully.",
+                        result = afterFixtureExecutionResult,
+                        request = request,
+                        response = response,
+                    )
                     return ContractTestExecutionResult(
                         result = afterFixtureExecutionResult.withBindings(testScenario.bindings, response),
                         request = request,
@@ -220,6 +265,7 @@ data class ScenarioAsTest(
                 response = response
             )
         } catch (exception: Throwable) {
+            logUnexpectedException(exception)
             return ContractTestExecutionResult(
                 result = Result.Failure(
                     exceptionCauseMessage(exception),
@@ -281,6 +327,67 @@ data class ScenarioAsTest(
     private fun HttpResponse.getResponseHandlerIfExists(): ResponseHandler? {
         if (scenario.isNegative) return null
         return responseHandlerRegistry.getHandlerFor(this, scenario)
+    }
+
+    private fun logFailure(
+        summary: String,
+        remediation: String,
+        result: Result,
+        request: HttpRequest? = null,
+        response: HttpResponse? = null,
+    ) {
+        val failure = result as? Result.Failure ?: return
+        TestFlowDiagnostics.scenarioFailed(
+            name = scenario.testDescription(),
+            summary = summary,
+            remediation = remediation,
+            contractPath = scenario.specification,
+            failure = failure.updateScenario(scenario),
+            details = buildString {
+                request?.let { appendLine("Request: ${it.method} ${it.path}") }
+                response?.let { append("Response status: ${it.status}") }
+            }.trim().ifBlank { null },
+        )
+    }
+
+    private fun logUnexpectedException(exception: Throwable) {
+        when (exception) {
+            is ContractException -> TestFlowDiagnostics.scenarioFailed(
+                name = scenario.testDescription(),
+                summary = exception.summary(),
+                remediation = "Fix the scenario setup, contract, or request generation issue described above and rerun the test.",
+                contractPath = scenario.specification,
+                throwable = exception,
+            )
+            else -> TestFlowDiagnostics.internalError(
+                summary = "Unexpected error while executing scenario ${scenario.testDescription()}",
+                throwable = exception,
+                remediation = "Inspect the exception and scenario data, then rerun once the issue is fixed.",
+                context = mapOf(
+                    "scenario" to scenario.testDescription(),
+                    "contract" to scenario.specification.orEmpty(),
+                ).filterValues { it.isNotBlank() },
+            )
+        }
+    }
+
+    private fun emitScenarioLog(logMessage: LogMessage) {
+        val annotatedLogMessage = logMessage.withComment(this.annotations)
+
+        if (newLoggingEnabled() && LoggingScope.executionContext().mode == io.specmatic.core.log.ExecutionMode.TEST) {
+            when (annotatedLogMessage) {
+                is HttpLogMessage -> TestFlowDiagnostics.httpInteraction(annotatedLogMessage)
+                else -> TestFlowDiagnostics.scenarioExecutionDetail(
+                    name = scenario.testDescription(),
+                    summary = "Scenario execution detail",
+                    details = annotatedLogMessage.toLogString(),
+                    contractPath = scenario.specification,
+                )
+            }
+            return
+        }
+
+        logger.log(annotatedLogMessage)
     }
 }
 

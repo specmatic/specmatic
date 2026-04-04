@@ -15,7 +15,9 @@ import io.specmatic.core.examples.source.ExampleSource
 import io.specmatic.core.examples.source.FeatureAndExamples
 import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.filters.ScenarioMetadataFilter
+import io.specmatic.core.log.SpecificationPreparationDiagnostics
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.newLoggingEnabled
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
 import io.specmatic.core.utilities.*
@@ -2342,7 +2344,9 @@ data class Feature(
 
         val unusedExternalizedExamples = (externalizedExampleFilePaths - utilizedFileSources)
         if (unusedExternalizedExamples.isNotEmpty()) {
-            println()
+            if (!newLoggingEnabled()) {
+                println()
+            }
             logger.log("The following externalized examples were not used:")
 
             val errorMessages = unusedExternalizedExamples.sorted().map { externalizedExamplePath: String ->
@@ -2366,6 +2370,12 @@ data class Feature(
             if(strictMode && errorMessages.isNotEmpty()) {
                 throw ContractException(errorMessages.joinToString(System.lineSeparator()))
             }
+
+            SpecificationPreparationDiagnostics.unusedExamplesFound(
+                contractPath = path,
+                examplePaths = unusedExternalizedExamples.sorted(),
+                details = errorMessages.joinToString(System.lineSeparator()),
+            )
 
             logger.newLine()
         }
@@ -2419,6 +2429,11 @@ data class Feature(
 
             return when {
                 testDirectory?.exists() == true -> {
+                    SpecificationPreparationDiagnostics.specificationPreparationDetail(
+                        summary = "Using test examples directory",
+                        details = testDirectory.canonicalPath,
+                        context = mapOf("contract" to contractFile.canonicalPath),
+                    )
                     logger.log("Test directory ${testDirectory.canonicalPath} found")
                     testDirectory
                 }

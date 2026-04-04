@@ -43,6 +43,11 @@ data class ContractException(
         }
 
     fun report(): String = failure().toReport().toText()
+
+    fun summary(): String {
+        return errorMessage.lineSequence().map(String::trim).firstOrNull(String::isNotBlank)
+            ?: exceptionCauseMessage(this)
+    }
 }
 
 fun <ReturnType> attempt(errorMessage: String = "", breadCrumb: String = "", f: ()->ReturnType): ReturnType {

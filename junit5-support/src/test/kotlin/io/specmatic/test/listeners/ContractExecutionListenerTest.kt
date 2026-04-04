@@ -1,6 +1,7 @@
 package io.specmatic.test.listeners
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.assertj.core.api.Assertions.assertThat
 import io.specmatic.core.Result
 import io.specmatic.core.ScenarioDetailsForResult
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -11,6 +12,8 @@ import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.engine.UniqueId
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor
 import org.junit.platform.launcher.TestIdentifier
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.util.UUID
 
 class ContractExecutionListenerTest {
@@ -18,6 +21,7 @@ class ContractExecutionListenerTest {
     fun resetState() {
         ContractExecutionListener.reset()
         SpecmaticJUnitSupport.partialSuccesses.clear()
+        System.clearProperty("SPECMATIC_NEW_LOGGER")
     }
 
     @Test
@@ -126,6 +130,36 @@ class ContractExecutionListenerTest {
         assertEquals(0, listener.exitCode())
         assertEquals(0, ContractExecutionListener.exitCode())
     }
+
+    @Test
+    fun `listener runs in recap only mode when new logger is enabled`() {
+        System.setProperty("SPECMATIC_NEW_LOGGER", "true")
+        val listener = ContractExecutionListener()
+
+        val output = captureStdout {
+            listener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.failed(AssertionError("boom")))
+            listener.testPlanExecutionFinished(null)
+        }
+
+        assertThat(output).doesNotContain("sample has FAILED")
+        assertThat(output).doesNotContain("Reason:\nboom\n\n")
+        assertThat(output).contains("Unsuccessful Scenarios:")
+        assertThat(output).contains("sample")
+        assertThat(output).doesNotContain("boom")
+        assertThat(output).contains("Tests run: 1, Successes: 0, Failures: 1, Errors: 0")
+    }
+
+    @Test
+    fun `listener keeps legacy live output when new logger is disabled`() {
+        val listener = ContractExecutionListener()
+
+        val output = captureStdout {
+            listener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.failed(AssertionError("boom")))
+        }
+
+        assertThat(output).contains("sample has FAILED")
+        assertThat(output).contains("Reason:\nboom")
+    }
 }
 
 private fun testIdentifier(type: TestDescriptor.Type): TestIdentifier {
@@ -144,4 +178,16 @@ private class FakeScenario : ScenarioDetailsForResult {
     override val path: String = "/partial-success"
 
     override fun testDescription(): String = name
+}
+
+private fun captureStdout(action: () -> Unit): String {
+    val originalOut = System.out
+    val output = ByteArrayOutputStream()
+    System.setOut(PrintStream(output))
+    return try {
+        action()
+        output.toString()
+    } finally {
+        System.setOut(originalOut)
+    }
 }

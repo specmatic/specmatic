@@ -2,9 +2,23 @@ package io.specmatic.core.log
 
 import io.specmatic.core.config.ConfigLoggingLevel
 import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 
-var logger: LogStrategy = ThreadSafeLog(NonVerbose(CompositePrinter()))
+private const val NEW_LOGGER_SWITCH = "SPECMATIC_NEW_LOGGER"
+
+var logger: LogStrategy = createDefaultLogStrategy()
+
+private fun createDefaultLogStrategy(): LogStrategy {
+    val defaultConfig = LoggingConfiguration.default()
+    return if (newLoggingEnabled()) {
+        setDefaultDiagnosticLogger(diagnosticLoggerFromConfig(defaultConfig))
+        NoOpLogStrategy
+    } else {
+        setDefaultDiagnosticLogger(NoOpDiagnosticLogger)
+        ThreadSafeLog(NonVerbose(CompositePrinter()))
+    }
+}
 
 fun logStrategyFromConfig(): LogStrategy {
     val specmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
@@ -12,6 +26,11 @@ fun logStrategyFromConfig(): LogStrategy {
 }
 
 fun logStrategyFromConfig(logConfig: LoggingConfiguration): LogStrategy {
+    if (newLoggingEnabled()) {
+        setDefaultDiagnosticLogger(diagnosticLoggerFromConfig(logConfig))
+        return NoOpLogStrategy
+    }
+    setDefaultDiagnosticLogger(NoOpDiagnosticLogger)
     return newLogger(printers = textPrinters(logConfig) + jsonPrinters(logConfig), logConfig)
 }
 
@@ -86,6 +105,30 @@ fun <T> withLogger(
     }
 }
 
+fun <T> withLogger(
+    logger: DiagnosticLogger,
+    fn: () -> T,
+): T {
+    return LoggingScope.withLogger(logger, fn)
+}
+
+fun <T> withoutLogging(fn: () -> T): T {
+    return LoggingScope.withLoggingEnabled(false) {
+        if (newLoggingEnabled()) {
+            fn()
+        } else {
+            withLogger(NoOpLogStrategy, fn)
+        }
+    }
+}
+
+fun <T> withExecutionContext(
+    context: ExecutionContext,
+    fn: () -> T,
+): T {
+    return LoggingScope.withExecutionContext(context, fn)
+}
+
 fun logException(fn: () -> Unit): Int =
     try {
         fn()
@@ -144,3 +187,25 @@ val dontPrintToConsole = { event: LogMessage ->
 }
 
 val ignoreLog = { _: LogMessage -> }
+
+internal fun diagnosticLoggerFromConfig(config: LoggingConfiguration): DiagnosticLogger {
+    val consoleEnabled = when {
+        config.hasTextConfiguration() -> config.textConfigurationOrDefault().isConsoleLoggingEnabled(default = true)
+        else -> true
+    }
+
+    return MordantDiagnosticLogger(consoleEnabled = consoleEnabled)
+}
+
+internal fun newLoggingEnabled(): Boolean {
+    return parseBooleanSwitch(readEnvVarOrProperty(NEW_LOGGER_SWITCH, NEW_LOGGER_SWITCH)) ?: false
+}
+
+private fun parseBooleanSwitch(value: String?): Boolean? {
+    val normalized = value?.trim()?.lowercase() ?: return null
+    return when (normalized) {
+        "true" -> true
+        "false" -> false
+        else -> null
+    }
+}

@@ -7,6 +7,8 @@ import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
 import io.specmatic.core.config.Switch
 import io.specmatic.core.log.*
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.ContractPathData.Companion.specToBaseUrlMap
 import io.specmatic.core.loadSpecmaticConfigOrNull
@@ -193,78 +195,81 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call(): Int {
-        configureLogging(
-            LoggingFromOpts(
-                debug = verbose,
-                textLogDirectory = textLogDir,
-                textConsoleLog = noConsoleLog?.let { !it },
-                jsonConsoleLog = jsonConsoleLog,
-                jsonLogDirectory = jsonLogDir,
-                logPrefix = logPrefix,
-            ),
-            LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
+        return withExecutionContext(ExecutionContext(ExecutionMode.STUB)) {
+            configureLogging(
+                LoggingFromOpts(
+                    debug = verbose,
+                    textLogDirectory = textLogDir,
+                    textConsoleLog = noConsoleLog?.let { !it },
+                    jsonConsoleLog = jsonConsoleLog,
+                    jsonLogDirectory = jsonLogDir,
+                    logPrefix = logPrefix,
+                ),
+                LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
 
-        val parseResult = commandSpec.commandLine().parseResult
-        val hostSpecified = parseResult?.hasMatchedOption("--host") == true
-        val portSpecified = parseResult?.hasMatchedOption("--port") == true
-        if (!hostSpecified && !portSpecified) {
-            resolveHostAndPortFromBaseUrl(specmaticConfiguration.getDefaultBaseUrl())?.let { (resolvedHost, resolvedPort) ->
-                host = resolvedHost
-                port = resolvedPort
-            }
-        }
-
-        port = when (isDefaultPort(port)) {
-            true -> if (portIsInUse(host, port)) findRandomFreePort() else port
-            false -> port
-        }
-        val baseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
-        System.setProperty(SPECMATIC_BASE_URL, baseUrl)
-
-        try {
-            val matchBranchEnabled = specmaticConfiguration.getMatchBranchEnabled()
-            contractSources = when (contractPaths.isEmpty()) {
-                true -> {
-                    logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
-                    specmaticConfig.contractStubPathData(matchBranchEnabled).filter {
-                        isSupportedAPISpecification(it.path)
-                    }.map {
-                        it.copy(lenientMode = lenientMode)
-                    }
-                }
-                else -> contractPaths.map {
-                    ContractPathData("", it, lenientMode = lenientMode)
+            val parseResult = commandSpec.commandLine().parseResult
+            val hostSpecified = parseResult?.hasMatchedOption("--host") == true
+            val portSpecified = parseResult?.hasMatchedOption("--port") == true
+            if (!hostSpecified && !portSpecified) {
+                resolveHostAndPortFromBaseUrl(specmaticConfiguration.getDefaultBaseUrl())?.let { (resolvedHost, resolvedPort) ->
+                    host = resolvedHost
+                    port = resolvedPort
                 }
             }
-            contractPaths = contractSources.map { it.path }
-            exitIfAnyDoNotExist("The following specifications do not exist", contractPaths)
-            validateContractFileExtensions(contractPaths)
-            startServer()
 
-            if (httpStub != null) {
-                if (registerShutdownHook) addShutdownHook()
+            port = when (isDefaultPort(port)) {
+                true -> if (portIsInUse(host, port)) findRandomFreePort() else port
+                false -> port
+            }
+            val baseUrl = endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
+            System.setProperty(SPECMATIC_BASE_URL, baseUrl)
 
-                val configuredHotReload = configuredHotReload()
-
-                when (configuredHotReload) {
-                    Switch.enabled -> {
-                        val watcher = watchMaker.make(contractPaths.plus(exampleDirs))
-                        watcher.watchForChanges {
-                            restartServer()
+            try {
+                val matchBranchEnabled = specmaticConfiguration.getMatchBranchEnabled()
+                contractSources = when (contractPaths.isEmpty()) {
+                    true -> {
+                        logger.debug("Using the spec paths configured for stubs in the configuration file '$specmaticConfigPath'")
+                        specmaticConfig.contractStubPathData(matchBranchEnabled).filter {
+                            isSupportedAPISpecification(it.path)
+                        }.map {
+                            it.copy(lenientMode = lenientMode)
                         }
                     }
-                    Switch.disabled -> {
-                        Thread.currentThread().join()
+                    else -> contractPaths.map {
+                        ContractPathData("", it, lenientMode = lenientMode)
                     }
                 }
+                contractPaths = contractSources.map { it.path }
+                exitIfAnyDoNotExist("The following specifications do not exist", contractPaths)
+                validateContractFileExtensions(contractPaths)
+                startServer()
+
+                if (httpStub != null) {
+                    if (registerShutdownHook) addShutdownHook()
+
+                    val configuredHotReload = configuredHotReload()
+
+                    when (configuredHotReload) {
+                        Switch.enabled -> {
+                            val watcher = watchMaker.make(contractPaths.plus(exampleDirs))
+                            watcher.watchForChanges {
+                                restartServer()
+                            }
+                        }
+                        Switch.disabled -> {
+                            Thread.currentThread().join()
+                        }
+                    }
+                }
+
+                0
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                0
+            } catch (e: Throwable) {
+                consoleLog(e)
+                1
             }
-            return 0
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            return 0
-        } catch (e: Throwable) {
-            consoleLog(e)
-            return 1
         }
     }
 

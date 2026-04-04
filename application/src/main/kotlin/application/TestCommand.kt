@@ -3,9 +3,13 @@ package application
 import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts
+import io.specmatic.core.log.ExecutionContext
+import io.specmatic.core.log.ExecutionMode
 import io.specmatic.core.log.LoggingConfigSource
+import io.specmatic.core.log.TestFlowDiagnostics
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
+import io.specmatic.core.log.withExecutionContext
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
@@ -140,41 +144,61 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         loadSpecmaticConfigOrNull(resolvedConfigPath, explicitlySpecifiedByUser = configFileName != null).orDefault()
     }
 
-    override fun call(): Int = try {
-        configureLogging(
-            LoggingFromOpts(debug = verboseMode),
-            LoggingConfigSource.FromConfig(specmaticConfig.getLogConfigurationOrDefault()))
-        setParallelism(specmaticConfig)
-        setTestThreadLocalSettings()
-
-        val request: LauncherDiscoveryRequest = LauncherDiscoveryRequestBuilder.request()
-                .selectors(selectClass(SpecmaticJUnitSupport::class.java))
-                .build()
-
-        junitLauncher.discover(request)
-        resolvedJunitReportDir()?.let { dirName ->
-            val reportListener = LegacyXmlReportGeneratingListener(Paths.get(dirName), PrintWriter(System.out, true))
-            junitLauncher.registerTestExecutionListeners(reportListener)
-        }
-
-        junitLauncher.execute(request)
-        resolvedJunitReportDir()?.let { reportDir ->
-            val reportDirectory = File(reportDir)
-            val reportFile = reportDirectory.resolve("TEST-junit-jupiter.xml")
-
-            if(reportFile.isFile) {
-                val updatedJUnitXML = updateNamesInJUnitXML(reportFile.readText())
-                reportFile.writeText(updatedJUnitXML)
-            } else {
-                throw ContractException("Was expecting a JUnit report file called TEST-junit-jupiter.xml inside $reportDir but could not find it.")
+    override fun call(): Int = withExecutionContext(ExecutionContext(ExecutionMode.TEST)) {
+        try {
+            val resolvedConfigPath = configFileName ?: Configuration.configFilePath
+            if (contractPaths.isNullOrEmpty()) {
+                TestFlowDiagnostics.specificationConfigLoadingStarted(resolvedConfigPath)
             }
-        }
 
-        ContractExecutionListener.exitCode()
-    }
-    catch (e: Throwable) {
-        logger.log(e)
-        1
+            configureLogging(
+                LoggingFromOpts(debug = verboseMode),
+                LoggingConfigSource.FromConfig(specmaticConfig.getLogConfigurationOrDefault()))
+            setParallelism(specmaticConfig)
+            setTestThreadLocalSettings()
+
+            val request: LauncherDiscoveryRequest = LauncherDiscoveryRequestBuilder.request()
+                    .selectors(selectClass(SpecmaticJUnitSupport::class.java))
+                    .build()
+
+            junitLauncher.discover(request)
+            resolvedJunitReportDir()?.let { dirName ->
+                val reportListener = LegacyXmlReportGeneratingListener(Paths.get(dirName), PrintWriter(System.out, true))
+                junitLauncher.registerTestExecutionListeners(reportListener)
+            }
+
+            junitLauncher.execute(request)
+            resolvedJunitReportDir()?.let { reportDir ->
+                val reportDirectory = File(reportDir)
+                val reportFile = reportDirectory.resolve("TEST-junit-jupiter.xml")
+
+                if(reportFile.isFile) {
+                    val updatedJUnitXML = updateNamesInJUnitXML(reportFile.readText())
+                    reportFile.writeText(updatedJUnitXML)
+                } else {
+                    throw ContractException("Was expecting a JUnit report file called TEST-junit-jupiter.xml inside $reportDir but could not find it.")
+                }
+            }
+
+            ContractExecutionListener.exitCode()
+        }
+        catch (e: Throwable) {
+            if (contractPaths.isNullOrEmpty() && e is ContractException) {
+                val resolvedConfigPath = configFileName ?: Configuration.configFilePath
+                TestFlowDiagnostics.specificationConfigLoadFailed(
+                    configPath = resolvedConfigPath,
+                    throwable = e,
+                    remediation = "Fix the specification config or the referenced specifications and rerun the tests.",
+                )
+            }
+            TestFlowDiagnostics.internalError(
+                summary = "The specification test command failed unexpectedly",
+                throwable = e,
+                remediation = "Inspect the error above and rerun the test command after fixing the underlying issue.",
+            )
+            logger.log(e)
+            1
+        }
     }
 
     private fun setParallelism(specmaticConfig: SpecmaticConfig) {

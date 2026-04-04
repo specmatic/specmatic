@@ -2,6 +2,7 @@ package io.specmatic.core.report
 
 import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.log.TestFlowDiagnostics
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -29,7 +30,10 @@ object ReportGenerator {
             put("specmaticConfigPath", getConfigFilePath())
         }
 
-        consoleLog("Generating report for ${testResultRecords.size} tests...")
+        val reportMessage = "Generating report for ${testResultRecords.size} tests..."
+        TestFlowDiagnostics.reportOutputOrFallbackTo(reportMessage) {
+            consoleLog(reportMessage)
+        }
 
         val report = CtrfReportGenerator.generate(
             testResultRecords = testResultRecords,
