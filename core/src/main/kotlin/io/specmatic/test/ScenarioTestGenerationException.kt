@@ -13,7 +13,7 @@ import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 
 class ScenarioTestGenerationException(
-    var scenario: Scenario,
+    override var scenario: Scenario,
     val e: Throwable,
     val message: String,
     val breadCrumb: String?,

@@ -376,7 +376,7 @@ open class SpecmaticJUnitSupport {
                     val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
                     val testsWithUrls = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
-                        loaded.scenarios.mapSequence {  Pair(it, resolvedBaseURL) }
+                        loaded.scenarios.mapSequence { Pair(it, resolvedBaseURL) }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
@@ -395,13 +395,15 @@ open class SpecmaticJUnitSupport {
             val filteredPairsBasedOnName = selectTestsToRunWithDecision(
                 testScenarios = testBuildResult.scenarios,
                 filterName = filterName,
-                filterNotName = filterNotName
-            ) { it.first.testDescription() }
+                filterNotName = filterNotName,
+                getTestDescription = { it.first.testDescription() },
+                getSkipContext = { it.first.scenario }
+            )
 
             filteredPairsBasedOnName.map { decision ->
                 if (decision !is Decision.Execute) return@map decision
                 if (testFilter.isSatisfiedBy(decision.value.first.toScenarioMetadata())) return@map decision
-                Decision.Skip(decision.context, Reasoning(TestSkipReason.EXCLUDED))
+                Decision.Skip(decision.value.first.scenario, Reasoning(TestSkipReason.EXCLUDED))
             }
         } catch (e: ContractException) {
             return loadExceptionAsTestError(e)
@@ -430,9 +432,9 @@ open class SpecmaticJUnitSupport {
         var taken = 0
         val maxTestCount = specmaticConfig.getMaxTestCount() ?: return testScenarios
         return testScenarios.map { decision ->
-            if (decision is Decision.Skip) return@map decision
+            if (decision !is Decision.Execute) return@map decision
             if (taken++ < maxTestCount) return@map decision
-            Decision.Skip(decision.context, Reasoning(TestSkipReason.MAX_TEST_COUNT_EXCEEDED))
+            Decision.Skip(decision.value.first.scenario, Reasoning(TestSkipReason.MAX_TEST_COUNT_EXCEEDED))
         }
     }
 
@@ -464,7 +466,7 @@ open class SpecmaticJUnitSupport {
                 logger.boundary()
                 logger.log(LOG_SEPARATOR)
                 logger.log(buildString {
-                    this.appendLine("Skipping ${contractTestDecision.context.fullApiDescription}")
+                    this.appendLine("Skipping ${contractTestDecision.context.fullApiTestDescription()}")
                     this.appendLine(contractTestDecision.reasoning.toRuleViolationText())
                 }.prependIndent(LOG_INDENT))
                 return@mapNotNull null
@@ -533,7 +535,7 @@ open class SpecmaticJUnitSupport {
                     throw e
                 } finally {
                     logger.log(buildString {
-                        appendLine("Executed ${contractTestDecision.context.fullApiDescription}")
+                        appendLine("Executed ${contractTestDecision.value.first.scenario.fullApiTestDescription()}")
                         appendLine(contractTestDecision.reasoning.toRuleViolationText())
                     }.prependIndent(LOG_INDENT))
                     if (testResult != null) {
@@ -712,8 +714,9 @@ open class SpecmaticJUnitSupport {
         }
 
         val filteredScenarioDecisions = filterUsingDecisions(
-            filteredScenarioDecisionsBasedOnName,
-            filter
+            items = filteredScenarioDecisionsBasedOnName,
+            scenarioMetadataFilter = filter,
+            getSkipContext = { it }
         )
 
         val filteredEndpoints = filteredScenarioDecisions.mapNotNull { decision ->
@@ -855,23 +858,22 @@ fun <T> selectTestsToRun(
     getTestDescription: (T) -> String
 ): Sequence<Decision<T, T>> {
     val decisionSequence = testScenarios.map { Decision.execute(it) }
-    return selectTestsToRunWithDecision(decisionSequence, filterName, filterNotName) {
-        getTestDescription(it)
-    }
+    return selectTestsToRunWithDecision(decisionSequence, filterName, filterNotName, getTestDescription, getSkipContext = { it })
 }
 
 fun <T, U> selectTestsToRunWithDecision(
     testScenarios: Sequence<Decision<T, U>>,
     filterName: String? = null,
     filterNotName: String? = null,
-    getTestDescription: (T) -> String
+    getTestDescription: (T) -> String,
+    getSkipContext: (T) -> U
 ): Sequence<Decision<T, U>> {
     val filteredByName = if (!filterName.isNullOrBlank()) {
         val filterNames = filterName.split(",").map { it.trim() }
         testScenarios.map { test ->
             if (test !is Decision.Execute) return@map test
             if (filterNames.any { getTestDescription(test.value).contains(it) }) return@map test
-            Decision.Skip(test.context, Reasoning(TestSkipReason.EXCLUDED))
+            Decision.Skip(getSkipContext(test.value), Reasoning(TestSkipReason.EXCLUDED))
         }
     } else
         testScenarios
@@ -881,7 +883,7 @@ fun <T, U> selectTestsToRunWithDecision(
         filteredByName.map { test ->
             if (test !is Decision.Execute) return@map test
             if (!filterNotNames.any { getTestDescription(test.value).contains(it) }) return@map test
-            Decision.Skip(test.context, Reasoning(TestSkipReason.EXCLUDED))
+            Decision.Skip(getSkipContext(test.value), Reasoning(TestSkipReason.EXCLUDED))
         }
     } else
         filteredByName

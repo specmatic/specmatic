@@ -52,6 +52,18 @@ class ScenarioAsTestTest {
         }
 
         @Test
+        fun `does not call fixture executor for negative scenario`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val exampleRow = Row(scenarioStub = ScenarioStub(id = "fixture-id", beforeFixtures = listOf(StringValue("before")), afterFixtures = listOf(StringValue("after"))))
+            val scenario = scenario(status = 400, exampleRow = exampleRow,).copy(isNegative = true)
+            withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+                scenarioAsTest(scenario).runTest(fixedResponseExecutor("anything", 400))
+            }
+
+            assertThat(ServiceLoaderTestFixtureExecutor.calls).isEmpty()
+        }
+
+        @Test
         fun `does not call fixture executor when missing from service loader`() {
             ServiceLoaderTestFixtureExecutor.reset()
 
@@ -74,17 +86,11 @@ class ScenarioAsTestTest {
         }
     }
 
-    private fun scenario(exampleRow: Row? = null): Scenario {
+    private fun scenario(exampleRow: Row? = null, status: Int = 200): Scenario {
         return Scenario(
             ScenarioInfo(
-                httpRequestPattern = HttpRequestPattern(
-                    httpPathPattern = buildHttpPathPattern("/resource"),
-                    method = "GET"
-                ),
-                httpResponsePattern = HttpResponsePattern(
-                    status = 200,
-                    body = StringPattern()
-                ),
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = status, body = StringPattern()),
                 protocol = SpecmaticProtocol.HTTP,
                 specType = SpecType.OPENAPI
             )
@@ -103,10 +109,10 @@ class ScenarioAsTestTest {
         )
     }
 
-    private fun fixedResponseExecutor(body: String): TestExecutor {
+    private fun fixedResponseExecutor(body: String, status: Int = 200): TestExecutor {
         return object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                return HttpResponse(200, body)
+                return HttpResponse(status, body)
             }
         }
     }
