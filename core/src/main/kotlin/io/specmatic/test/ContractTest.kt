@@ -21,6 +21,7 @@ interface ResponseValidator {
 interface ContractTest : HasScenarioMetadata {
     val protocol: SpecmaticProtocol?
     val specType: SpecType
+    val scenario: Scenario
 
     fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord?
     fun testDescription(): String

@@ -1222,9 +1222,9 @@ class ScenarioTest {
         }
 
         @Test
-        fun `fullApiDescription should prefer custom api description`() {
+        fun `fullApiDescription should prefer custom api description but include contentDescription`() {
             val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml", customAPIDescription = "Create product")
-            assertThat(scenario.fullApiDescription).startsWith("Create product")
+            assertThat(scenario.fullApiDescription).startsWith("Create product").contains("accepts application/json").contains("returns application/xml")
         }
 
         private fun scenarioForFullApiDescription(requestContentType: String? = null, responseContentType: String? = null, customAPIDescription: String? = null, ): Scenario {

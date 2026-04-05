@@ -11,7 +11,7 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 
 class ScenarioTestGenerationFailure(
-    var scenario: Scenario,
+    override var scenario: Scenario,
     val failure: Result.Failure,
     val message: String,
     override val protocol: SpecmaticProtocol?,

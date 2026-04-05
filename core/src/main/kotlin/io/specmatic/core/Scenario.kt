@@ -332,6 +332,14 @@ data class Scenario(
         }
     }
 
+    fun generateHeaders(flagsBased: FlagsBased = DefaultStrategies): Map<String, String> {
+        return scenarioBreadCrumb(this) {
+            httpRequestPattern.headersPattern.generate(
+                flagsBased.update(resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative))
+            )
+        }
+    }
+
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
             httpRequestPattern.generate(
@@ -771,9 +779,10 @@ data class Scenario(
         }
     }
 
-    private fun contentDescription(): String {
+    private fun contentDescription(): String? {
         val contentTypes = listOfNotNull(requestContentType?.let { "accepts $it" }, responseContentType?.let { "returns $it" })
-        return contentTypes.takeIf { it.isNotEmpty() }?.joinToString(prefix = "(", separator = ", ", postfix = ")").orEmpty()
+        if (contentTypes.isEmpty()) return null
+        return contentTypes.joinToString(prefix = "(", separator = ", ", postfix = ")")
     }
 
     val defaultAPIDescription: String get() {
@@ -782,9 +791,17 @@ data class Scenario(
     }
 
     val fullApiDescription: String get() {
-        if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}".trimEnd()
-        val content = contentDescription()
-        return if (content.isBlank()) baseApiDescription() else listOf(baseApiDescription(), content).joinToString(separator = " ")
+        val baseDescription = customAPIDescription ?: baseApiDescription()
+        return buildList {
+            add(baseDescription)
+            contentDescription()?.takeIf(String::isNotBlank)?.let(::add)
+            disambiguate().takeIf(String::isNotBlank)?.let(::add)
+        }.joinToString(separator = " ")
+    }
+
+    fun fullApiTestDescription(): String {
+        val apiDescription = this.fullApiDescription
+        return testDescription(generativePrefix, apiDescription, exampleName, requestChangeSummary)
     }
 
     override fun testDescription(): String {
@@ -1065,7 +1082,7 @@ fun testDescription(
             "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"
 
         else -> "$generativePrefix Scenario: $apiDescription"
-    }
+    }.trim()
 }
 
 fun newExpectedServerStateBasedOn(

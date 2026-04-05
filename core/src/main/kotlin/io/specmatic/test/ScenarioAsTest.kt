@@ -30,7 +30,7 @@ private const val BEFORE_FIXTURE_DISCRIMINATOR_KEY = "before"
 private const val AFTER_FIXTURE_DISCRIMINATOR_KEY = "after"
 
 data class ScenarioAsTest(
-    val scenario: Scenario,
+    override val scenario: Scenario,
     private val feature: Feature,
     private val flagsBased: FlagsBased,
     private val sourceProvider: String? = null,
@@ -255,6 +255,7 @@ data class ScenarioAsTest(
     }
 
     private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): Result {
+        if (scenario.isNegative) return Result.Success()
         val row = scenario.exampleRow ?: return Result.Success()
         val scenarioStub = row.scenarioStub ?: return Result.Success()
         val id = scenarioStub.id.orEmpty()
@@ -262,6 +263,7 @@ data class ScenarioAsTest(
             BEFORE_FIXTURE_DISCRIMINATOR_KEY -> scenarioStub.beforeFixtures
             else -> scenarioStub.afterFixtures
         }
+
         return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
             .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: Result.Success()
     }

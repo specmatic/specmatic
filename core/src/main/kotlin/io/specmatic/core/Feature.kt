@@ -835,7 +835,7 @@ data class Feature(
             }
 
             val responseContentType = originalScenario.responseContentType
-            val generatedHeaders = generatedScenarioReturnValue.value.generateHttpRequest().headers
+            val generatedHeaders = generatedScenarioReturnValue.value.generateHeaders(flagsBased)
             val isCompatible = isAcceptHeaderCompatibleWithResponse(requestHeaders = generatedHeaders, responseContentType = responseContentType)
             if (isCompatible) {
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)

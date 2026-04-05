@@ -13,7 +13,7 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 
 class ScenarioTestGenerationException(
-    var scenario: Scenario,
+    override var scenario: Scenario,
     val e: Throwable,
     val message: String,
     val breadCrumb: String?,

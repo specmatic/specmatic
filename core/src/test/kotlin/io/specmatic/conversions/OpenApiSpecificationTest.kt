@@ -7253,9 +7253,9 @@ components:
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
-            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'FIRST' from enum",
-            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'SECOND' from enum",
-            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'THIRD' from enum"
+            "Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'FIRST' from enum",
+            "Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'SECOND' from enum",
+            "Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'THIRD' from enum"
         )
     }
 
@@ -9125,8 +9125,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' AND id which is a mandatory query param, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' AND age which is a mandatory query param, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' AND id which is a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' AND age which is a mandatory query param, is not sent")
         }
 
         @Test
@@ -9181,7 +9181,7 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /items -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'category' AND ids which is a mandatory query param, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo("Scenario: GET /items -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the param 'category' AND ids which is a mandatory query param, is not sent")
         }
 
         @Test
@@ -9266,8 +9266,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' AND id which is a mandatory query param, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' AND age which is a mandatory query param, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'name', 'age' AND id which is a mandatory query param, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with the request from the example 'EXAMPLE' where REQUEST.PARAMETERS.QUERY contains the params 'id', 'name' AND age which is a mandatory query param, is not sent")
         }
 
     }
@@ -9349,8 +9349,8 @@ paths:
                 }
             })
 
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' AND X-Required-Header which is a mandatory header, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' AND X-Another-Required-Header which is a mandatory header, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' AND X-Required-Header which is a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' AND X-Another-Required-Header which is a mandatory header, is not sent")
         }
 
         @Test
@@ -9441,8 +9441,8 @@ paths:
                     return HttpResponse.OK
                 }
             })
-            assertThat(firstScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' AND X-Required-Header which is a mandatory header, is not sent")
-            assertThat(secondScenario.testDescription()).isEqualTo(" Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' AND X-Another-Required-Header which is a mandatory header, is not sent")
+            assertThat(firstScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Optional-Header', 'X-Another-Required-Header' AND X-Required-Header which is a mandatory header, is not sent")
+            assertThat(secondScenario.testDescription()).isEqualTo("Scenario: GET /persons -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Required-Header', 'X-Optional-Header' AND X-Another-Required-Header which is a mandatory header, is not sent")
         }
     }
 
