@@ -370,6 +370,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
                     when {
                         pattern is ListPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
+                        pattern is XMLChoiceGroupPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
                         pattern is XMLPattern && pattern.occurMultipleTimes() ->
                             0.until(randomNumber(RANDOM_NUMBER_CEILING))
                                 .map { pattern.generate(cyclePreventedResolver) }

@@ -2,6 +2,7 @@ package io.specmatic.core.wsdl
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.stub.HttpStub
@@ -34,6 +35,22 @@ class WSDLParserContractBlackBoxTest {
     }
 
     @Test
+    fun `scenario generation for scalar choice only emits valid single-branch payloads`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
+
+        val generatedScenarios = feature.scenarios.single()
+            .generateTestScenarios(feature.flagsBased)
+            .map { it.value }
+            .toList()
+
+        assertThat(generatedScenarios).hasSize(2)
+        assertThat(generatedScenarios.map { it.generateHttpRequest(feature.flagsBased).body.toStringLiteral() })
+            .allSatisfy { body ->
+                assertThat(body.contains("CustomerNumber")).isNotEqualTo(body.contains("LoginId"))
+            }
+    }
+
+    @Test
     fun `contract test without examples exercises all complex choice branches`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
 
@@ -53,6 +70,39 @@ class WSDLParserContractBlackBoxTest {
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(2)
         assertThat(seenRequestBodies.map(::complexRequestBranch)).containsExactlyInAnyOrder("customerByPermId", "customerByLogin")
+    }
+
+    @Test
+    fun `scenario generation for complex choice only emits valid single-branch payloads`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
+
+        val generatedScenarios = feature.scenarios.single()
+            .generateTestScenarios(feature.flagsBased)
+            .map { it.value }
+            .toList()
+
+        assertThat(generatedScenarios).hasSize(2)
+        assertThat(generatedScenarios.map { it.generateHttpRequest(feature.flagsBased).body.toStringLiteral() })
+            .allSatisfy { body ->
+                assertThat(body.contains("CustomerByPermId")).isNotEqualTo(body.contains("CustomerByLogin"))
+            }
+    }
+
+    @Test
+    fun `scenario generation for repeating scalar choice only emits valid repeated occurrence payloads`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice_repeating.wsdl"))
+
+        val generatedBodies = feature.scenarios.single()
+            .generateTestScenarios(feature.flagsBased)
+            .map { it.value.generateHttpRequest(feature.flagsBased).body.toStringLiteral() }
+            .toList()
+
+        assertThat(generatedBodies).isNotEmpty()
+        assertThat(generatedBodies).allSatisfy { body ->
+            val customerCount = countOccurrences(body, "<Choice-scalar-repeating:CustomerNumber>")
+            val loginCount = countOccurrences(body, "<Choice-scalar-repeating:LoginId>")
+            assertThat(customerCount + loginCount).isBetween(1, 2)
+        }
     }
 
     @Test
@@ -262,5 +312,9 @@ class WSDLParserContractBlackBoxTest {
             "CustomerByLogin" in body -> "customerByLogin"
             else -> error("No complex choice branch found in request body: $body")
         }
+    }
+
+    private fun countOccurrences(text: String, token: String): Int {
+        return text.windowed(token.length, 1).count { it == token }
     }
 }

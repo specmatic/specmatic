@@ -1,0 +1,87 @@
+<definitions name="RepeatingComplexChoiceService"
+             targetNamespace="http://choice-complex-repeating"
+             xmlns:tns="http://choice-complex-repeating"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://choice-complex-repeating" elementFormDefault="qualified">
+            <xsd:element name="PrimaryName" type="xsd:string"/>
+            <xsd:element name="PermId" type="xsd:string"/>
+            <xsd:element name="Domain" type="xsd:string"/>
+            <xsd:element name="LoginId" type="xsd:string"/>
+            <xsd:element name="StatusCode" type="xsd:string"/>
+
+            <xsd:element name="CustomerByPermId">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:PermId"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="CustomerByLogin">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:Domain"/>
+                        <xsd:element ref="tns:LoginId"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="RepeatingComplexChoiceRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:PrimaryName"/>
+                        <xsd:choice maxOccurs="2">
+                            <xsd:element ref="tns:CustomerByPermId"/>
+                            <xsd:element ref="tns:CustomerByLogin"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="RepeatingComplexChoiceResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:StatusCode"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <message name="RepeatingComplexChoiceRequestMessage">
+        <part name="parameters" element="tns:RepeatingComplexChoiceRequest"/>
+    </message>
+
+    <message name="RepeatingComplexChoiceResponseMessage">
+        <part name="parameters" element="tns:RepeatingComplexChoiceResponse"/>
+    </message>
+
+    <portType name="RepeatingComplexChoicePortType">
+        <operation name="repeatingComplexChoice">
+            <input message="tns:RepeatingComplexChoiceRequestMessage"/>
+            <output message="tns:RepeatingComplexChoiceResponseMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="RepeatingComplexChoiceBinding" type="tns:RepeatingComplexChoicePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="repeatingComplexChoice">
+            <soap:operation soapAction="/choice-complex-repeating/repeatingComplexChoice"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="RepeatingComplexChoiceService">
+        <port name="RepeatingComplexChoicePort" binding="tns:RepeatingComplexChoiceBinding">
+            <soap:address location="http://localhost:9000/choice-complex-repeating"/>
+        </port>
+    </service>
+</definitions>

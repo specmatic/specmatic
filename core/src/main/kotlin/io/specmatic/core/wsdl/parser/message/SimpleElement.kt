@@ -2,6 +2,7 @@ package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
@@ -102,9 +103,9 @@ fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = nul
 
 private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, Pattern>, prefix: String?): WSDLTypeInfo {
     return if (prefix != null) {
-        WSDLTypeInfo(nodes = nodes, types = existingTypes, namespacePrefixes = setOf(prefix))
+        WSDLTypeInfo(nodes = nodes, members = nodes.map { XMLPattern(it as XMLNode) }, types = existingTypes, namespacePrefixes = setOf(prefix))
     } else {
-        WSDLTypeInfo(nodes = nodes, types = existingTypes)
+        WSDLTypeInfo(nodes = nodes, members = nodes.map { XMLPattern(it as XMLNode) }, types = existingTypes)
     }
 }
 

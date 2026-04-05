@@ -62,6 +62,24 @@ class WSDLParserMockBlackBoxTest {
     }
 
     @Test
+    fun `mock for scalar choice wsdl rejects payload containing both branches in one choice occurrence`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-scalar",
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+        }
+
+        assertThat(response.status).isEqualTo(400)
+    }
+
+    @Test
     fun `mock for complex choice wsdl without examples returns generated response values`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
 
@@ -113,6 +131,24 @@ class WSDLParserMockBlackBoxTest {
     }
 
     @Test
+    fun `mock for complex choice wsdl rejects payload containing both branches in one choice occurrence`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice.wsdl"))
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/choice-complex",
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+                )
+            )
+        }
+
+        assertThat(response.status).isEqualTo(400)
+    }
+
+    @Test
     fun `mock for choice wsdl returns the example soap response for both variants`() {
         val fixture = loadWsdlExampleFixture(
             "src/test/resources/wsdl/state_machine/choice_ref.wsdl",
@@ -150,6 +186,60 @@ class WSDLParserMockBlackBoxTest {
         assertThat(response.body.toStringLiteral())
             .contains("OptionalChoiceResponse")
             .contains("status>")
+    }
+
+    @Test
+    fun `mock for repeating scalar choice wsdl accepts both choice occurrences in one request`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice_repeating.wsdl"))
+        val request = HttpRequest(
+            method = "POST",
+            path = "/choice-scalar-repeating",
+            headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating/repeatingScalarChoice\""),
+            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Repeatingscalar:RepeatingScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
+        )
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(request)
+        }
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body.toStringLiteral()).contains("RepeatingScalarChoiceResponse")
+    }
+
+    @Test
+    fun `mock for repeating complex choice wsdl accepts both choice occurrences in one request`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/complex_choice_repeating.wsdl"))
+        val request = HttpRequest(
+            method = "POST",
+            path = "/choice-complex-repeating",
+            headers = mapOf("SOAPAction" to "\"/choice-complex-repeating/repeatingComplexChoice\""),
+            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingcomplex=\"http://choice-complex-repeating\"><soapenv:Body><Repeatingcomplex:RepeatingComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Repeatingcomplex:CustomerByPermId><PermId>CP-123</PermId></Repeatingcomplex:CustomerByPermId><Repeatingcomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Repeatingcomplex:CustomerByLogin></Repeatingcomplex:RepeatingComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
+        )
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(request)
+        }
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body.toStringLiteral()).contains("RepeatingComplexChoiceResponse")
+    }
+
+    @Test
+    fun `mock for unbounded scalar choice wsdl accepts more than one choice occurrence in one request`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice_repeating_unbounded.wsdl"))
+        val request = HttpRequest(
+            method = "POST",
+            path = "/choice-scalar-repeating-unbounded",
+            headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating-unbounded/repeatingScalarChoiceUnbounded\""),
+            body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating-unbounded\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceUnboundedRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId><CustomerNumber>C-456</CustomerNumber></Repeatingscalar:RepeatingScalarChoiceUnboundedRequest></soapenv:Body></soapenv:Envelope>")
+        )
+
+        val response = HttpStub(feature).use { stub ->
+            stub.client.execute(request)
+        }
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body.toStringLiteral()).contains("RepeatingScalarChoiceUnboundedResponse")
     }
 
     @Test

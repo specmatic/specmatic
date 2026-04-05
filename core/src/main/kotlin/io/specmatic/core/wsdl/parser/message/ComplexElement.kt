@@ -42,8 +42,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             accumulated.plus(childTypeInfo.types)
         }
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
-            1 -> XMLPattern(childTypeInfos.single().nodeTypeInfo)
-            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.nodeTypeInfo) }, extensions = emptyMap())
+            1 -> XMLPattern(childTypeInfos.single().xmlTypeData)
+            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData) }, extensions = emptyMap())
         }
         val types = childTypes.plus(specmaticTypeName to resolvedPattern)
 
@@ -51,6 +51,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         return WSDLTypeInfo(
             listOf(inPlaceNode),
+            listOf(XMLPattern(inPlaceNode)),
             types,
             namespaces
         )

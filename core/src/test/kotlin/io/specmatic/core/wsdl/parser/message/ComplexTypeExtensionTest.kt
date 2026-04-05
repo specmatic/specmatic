@@ -41,7 +41,13 @@ internal class ComplexTypeExtensionTest {
 
         val wsdlTypeInfo = ComplexTypeExtension(child, wsdl, "ParentType").process(listOf(WSDLTypeInfo()), emptyMap(), emptySet())
 
-        val expected = WSDLTypeInfo(listOf(toXMLNode("<data1>(string)</data1>"), toXMLNode("<data2>(number)</data2>")))
+        val expected = WSDLTypeInfo(
+            nodes = listOf(toXMLNode("<data1>(string)</data1>"), toXMLNode("<data2>(number)</data2>")),
+            members = listOf(
+                XMLPattern(toXMLNode("<data1>(string)</data1>")),
+                XMLPattern(toXMLNode("<data2>(number)</data2>"))
+            )
+        )
         assertThat(wsdlTypeInfo).containsExactly(expected)
     }
 

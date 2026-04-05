@@ -1,0 +1,69 @@
+<definitions name="RepeatingScalarChoiceService"
+             targetNamespace="http://choice-scalar-repeating"
+             xmlns:tns="http://choice-scalar-repeating"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://choice-scalar-repeating" elementFormDefault="qualified">
+            <xsd:element name="PrimaryName" type="xsd:string"/>
+            <xsd:element name="CustomerNumber" type="xsd:string"/>
+            <xsd:element name="LoginId" type="xsd:string"/>
+            <xsd:element name="StatusCode" type="xsd:string"/>
+
+            <xsd:element name="RepeatingScalarChoiceRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:PrimaryName"/>
+                        <xsd:choice maxOccurs="2">
+                            <xsd:element ref="tns:CustomerNumber"/>
+                            <xsd:element ref="tns:LoginId"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="RepeatingScalarChoiceResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:StatusCode"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <message name="RepeatingScalarChoiceRequestMessage">
+        <part name="parameters" element="tns:RepeatingScalarChoiceRequest"/>
+    </message>
+
+    <message name="RepeatingScalarChoiceResponseMessage">
+        <part name="parameters" element="tns:RepeatingScalarChoiceResponse"/>
+    </message>
+
+    <portType name="RepeatingScalarChoicePortType">
+        <operation name="repeatingScalarChoice">
+            <input message="tns:RepeatingScalarChoiceRequestMessage"/>
+            <output message="tns:RepeatingScalarChoiceResponseMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="RepeatingScalarChoiceBinding" type="tns:RepeatingScalarChoicePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="repeatingScalarChoice">
+            <soap:operation soapAction="/choice-scalar-repeating/repeatingScalarChoice"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="RepeatingScalarChoiceService">
+        <port name="RepeatingScalarChoicePort" binding="tns:RepeatingScalarChoiceBinding">
+            <soap:address location="http://localhost:9000/choice-scalar-repeating"/>
+        </port>
+    </service>
+</definitions>

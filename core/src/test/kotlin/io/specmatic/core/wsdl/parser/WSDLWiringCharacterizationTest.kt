@@ -3,6 +3,7 @@ package io.specmatic.core.wsdl.parser
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.StringValue
@@ -53,6 +54,25 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `single choice child wiring defaults to exactly one required occurrence`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/state_machine/scalar_choice.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://choice-scalar", "ScalarChoiceRequest")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("ScalarChoiceRequestType", emptyMap(), emptySet())
+        val rootPattern = typeInfo.types.getValue("ScalarChoiceRequestType") as AnyPattern
+
+        assertThat(rootPattern.pattern).hasSize(2)
+        assertThat(rootPattern.pattern.map { (it as XMLPattern).toPrettyString() }).allSatisfy {
+            assertThat(it).contains("<Choice-scalar:PrimaryName>(string)</Choice-scalar:PrimaryName>")
+            assertThat(it.contains("<Choice-scalar:CustomerNumber>(string)</Choice-scalar:CustomerNumber>"))
+                .isNotEqualTo(it.contains("<Choice-scalar:LoginId>(string)</Choice-scalar:LoginId>"))
+        }
+    }
+
+    @Test
     fun `optional choice child wiring allows the whole choice group to be omitted`() {
         val wsdl = loadWsdl("src/test/resources/wsdl/state_machine/choice_optional.wsdl")
 
@@ -74,6 +94,119 @@ class WSDLWiringCharacterizationTest {
                 .contains("<Choice-optional:SPName>(string)</Choice-optional:SPName>")
                 .contains("<Choice-optional:CustLoginId>(string)</Choice-optional:CustLoginId>")
         }
+    }
+
+    @Test
+    fun `repeating scalar choice child wiring preserves one alternative per choice occurrence combination`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/state_machine/scalar_choice_repeating.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://choice-scalar-repeating", "RepeatingScalarChoiceRequest")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceRequestType", emptyMap(), emptySet())
+        val resolver = Resolver(newPatterns = typeInfo.types)
+        val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceRequestType") as XMLPattern
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
+        val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(rootPattern.pattern.nodes.first(), it))).generate(resolver).toStringLiteral() }
+
+        assertThat(variants).hasSize(6)
+        assertThat(generatedBodies).anySatisfy {
+            assertThat(it).contains("PrimaryName>") 
+            assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(1)
+            assertThat(it).doesNotContain("LoginId>")
+        }
+        assertThat(generatedBodies).anySatisfy {
+            assertThat(countOccurrences(it, "<Choice-scalar-repeating:LoginId>")).isEqualTo(1)
+            assertThat(it).doesNotContain("CustomerNumber>")
+        }
+        assertThat(generatedBodies).anySatisfy {
+            assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(2)
+            assertThat(it).doesNotContain("LoginId>")
+        }
+        assertThat(generatedBodies).anySatisfy {
+            assertThat(it).contains("CustomerNumber>").contains("LoginId>")
+        }
+        assertThat(generatedBodies).anySatisfy {
+            assertThat(it).contains("LoginId>").contains("CustomerNumber>")
+        }
+        assertThat(generatedBodies).anySatisfy {
+            assertThat(countOccurrences(it, "<Choice-scalar-repeating:LoginId>")).isEqualTo(2)
+            assertThat(it).doesNotContain("CustomerNumber>")
+        }
+    }
+
+    @Test
+    fun `unbounded scalar choice child wiring preserves repeated choice-group semantics`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/state_machine/scalar_choice_repeating_unbounded.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://choice-scalar-repeating-unbounded", "RepeatingScalarChoiceUnboundedRequest")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceUnboundedRequestType", emptyMap(), emptySet())
+        val resolver = Resolver(newPatterns = typeInfo.types)
+        val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceUnboundedRequestType") as XMLPattern
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+
+        assertThat(choiceGroup.newBasedOn(resolver).toList()).hasSizeGreaterThan(2)
+    }
+
+    @Test
+    fun `repeating complex choice child wiring preserves one alternative per choice occurrence combination`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/state_machine/complex_choice_repeating.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://choice-complex-repeating", "RepeatingComplexChoiceRequest")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingComplexChoiceRequestType", emptyMap(), emptySet())
+        val resolver = Resolver(newPatterns = typeInfo.types)
+        val rootPattern = typeInfo.types.getValue("RepeatingComplexChoiceRequestType") as XMLPattern
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
+        val sequences = variants.map { variant ->
+            variant.concreteSequence.orEmpty().map { occurrence ->
+                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
+            }
+        }
+
+        assertThat(variants).hasSize(6)
+        assertThat(sequences).contains(listOf("CustomerByPermId"))
+        assertThat(sequences).contains(listOf("CustomerByLogin"))
+        assertThat(sequences).contains(listOf("CustomerByPermId", "CustomerByPermId"))
+        assertThat(sequences).contains(listOf("CustomerByPermId", "CustomerByLogin"))
+        assertThat(sequences).contains(listOf("CustomerByLogin", "CustomerByPermId"))
+        assertThat(sequences).contains(listOf("CustomerByLogin", "CustomerByLogin"))
+    }
+
+    @Test
+    fun `min occurs greater than one on choice wiring requires repeated occurrences`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/state_machine/scalar_choice_repeating_min2.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://choice-scalar-repeating-min2", "RepeatingScalarChoiceMinTwoRequest")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceMinTwoRequestType", emptyMap(), emptySet())
+        val resolver = Resolver(newPatterns = typeInfo.types)
+        val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceMinTwoRequestType") as XMLPattern
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
+        val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(rootPattern.pattern.nodes.first(), it))).generate(resolver).toStringLiteral() }
+
+        assertThat(variants).hasSize(4)
+        assertThat(generatedBodies).allSatisfy {
+            assertThat(
+                countOccurrences(it, "<Choice-scalar-repeating-min2:CustomerNumber>") +
+                    countOccurrences(it, "<Choice-scalar-repeating-min2:LoginId>")
+            ).isEqualTo(2)
+        }
+    }
+
+    private fun countOccurrences(text: String, token: String): Int {
+        return text.windowed(token.length, 1).count { it == token }
     }
 
     @Test

@@ -49,7 +49,11 @@ internal class ComplexElementTest {
         val complexElement = ComplexElement("ns0:PersonRequest", element, wsdl)
         val wsdlTypeInfo = complexElement.deriveSpecmaticTypes("PersonRequest", emptyMap(), emptySet())
 
-        val expected = WSDLTypeInfo(listOf(toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>")), mapOf("PersonRequest" to XMLPattern("<$TYPE_NODE_NAME><data>(string)</data></$TYPE_NODE_NAME>")))
+        val expected = WSDLTypeInfo(
+            nodes = listOf(toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>")),
+            members = listOf(XMLPattern(toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>"))),
+            types = mapOf("PersonRequest" to XMLPattern("<$TYPE_NODE_NAME><data>(string)</data></$TYPE_NODE_NAME>"))
+        )
         assertThat(wsdlTypeInfo).isEqualTo(expected)
     }
 

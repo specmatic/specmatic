@@ -1,6 +1,7 @@
 package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
@@ -15,12 +16,34 @@ internal class ChoiceOfChildrenInComplexType(
             complexTypeChildNode(choiceChild, wsdl, parentTypeName).process(listOf(WSDLTypeInfo()), existingTypes, typeStack)
         }
 
-        val optionalChoiceVariants = if (child.attributes["minOccurs"]?.toStringLiteral() == "0") {
-            choiceVariants.plus(WSDLTypeInfo())
-        } else {
-            choiceVariants
-        }
+        val choiceTypeInfos = choiceTypeInfos(choiceVariants, existingTypes)
 
-        return combineVariants(wsdlTypeInfos, optionalChoiceVariants)
+        return combineVariants(wsdlTypeInfos, choiceTypeInfos)
+    }
+
+    private fun choiceTypeInfos(choiceVariants: List<WSDLTypeInfo>, existingTypes: Map<String, Pattern>): List<WSDLTypeInfo> {
+        val minOccurs = child.attributes["minOccurs"]?.toStringLiteral()?.toIntOrNull() ?: 1
+        val maxOccursLiteral = child.attributes["maxOccurs"]?.toStringLiteral() ?: "1"
+
+        return when {
+            maxOccursLiteral == "1" && minOccurs <= 1 ->
+                if (minOccurs == 0) choiceVariants.plus(WSDLTypeInfo()) else choiceVariants
+
+            else -> {
+                listOf(
+                    WSDLTypeInfo(
+                        members = listOf(
+                            XMLChoiceGroupPattern(
+                                choices = choiceVariants.map { it.effectiveMembers },
+                                minOccurs = minOccurs,
+                                maxOccurs = maxOccursLiteral.takeUnless { it == "unbounded" }?.toInt()
+                            )
+                        ),
+                        types = choiceVariants.fold(existingTypes) { accumulated, variant -> accumulated + variant.types },
+                        namespacePrefixes = choiceVariants.flatMap { it.namespacePrefixes }.toSet()
+                    )
+                )
+            }
+        }
     }
 }
