@@ -42,12 +42,13 @@ data class ScenarioMetadataFilter(
 
         fun <T : HasScenarioMetadata, U> filterUsingDecisions(
             items: Sequence<Decision<T, U>>,
-            scenarioMetadataFilter: ScenarioMetadataFilter
+            scenarioMetadataFilter: ScenarioMetadataFilter,
+            getSkipContext: (T) -> U
         ): Sequence<Decision<T, U>> {
             return items.map { item ->
                 if (item !is Decision.Execute) return@map item
                 if (scenarioMetadataFilter.isSatisfiedBy(item.value.toScenarioMetadata())) return@map item
-                Decision.Skip(item.context, Reasoning(TestSkipReason.EXCLUDED))
+                Decision.Skip(getSkipContext(item.value), Reasoning(TestSkipReason.EXCLUDED))
             }
         }
     }

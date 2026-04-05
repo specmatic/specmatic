@@ -27,23 +27,24 @@ class ScenarioMetadataFilterTest {
         val filter = ScenarioMetadataFilter.from("METHOD='GET'")
         val scenario = scenario()
         val decisions = sequenceOf(Decision.Execute(FakeMetadata(scenario), context = "kept"))
-        val filtered = ScenarioMetadataFilter.filterUsingDecisions(decisions, filter).toList()
+        val filtered = ScenarioMetadataFilter.filterUsingDecisions(decisions, filter) { it }.toList()
         assertThat(filtered).containsExactly(Decision.Execute(FakeMetadata(scenario), context = "kept"))
     }
 
     @Test
     fun `filterUsingDecisions should convert non matching execute decisions to excluded skips`() {
+        val metadata = FakeMetadata(scenario())
         val filter = ScenarioMetadataFilter.from("METHOD='POST'")
-        val decisions = sequenceOf(Decision.Execute(FakeMetadata(scenario()), context = "original-context"))
-        val filtered = ScenarioMetadataFilter.filterUsingDecisions(decisions, filter).toList()
-        assertThat(filtered).containsExactly(Decision.Skip(context = "original-context", reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED)))
+        val decisions = sequenceOf(Decision.Execute(metadata, context = "original-context"))
+        val filtered = ScenarioMetadataFilter.filterUsingDecisions(decisions, filter) { it }.toList()
+        assertThat(filtered).containsExactly(Decision.Skip(context = metadata, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED)))
     }
 
     @Test
     fun `filterUsingDecisions should preserve existing skip decisions`() {
         val filter = ScenarioMetadataFilter.from("METHOD='POST'")
         val originalSkip = Decision.Skip(context = "already-skipped", reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED))
-        val filtered = ScenarioMetadataFilter.filterUsingDecisions(sequenceOf(originalSkip), filter).toList()
+        val filtered = ScenarioMetadataFilter.filterUsingDecisions(sequenceOf(originalSkip), filter) { it }.toList()
         assertThat(filtered).containsExactly(originalSkip)
     }
 }

@@ -27,6 +27,7 @@ interface ContractTest : HasScenarioMetadata {
     fun plusValidator(validator: ResponseValidator): ContractTest
     val protocol: SpecmaticProtocol?
     val specType: SpecType
+    val scenario: Scenario
 }
 
 data class ContractTestExecutionResult(
