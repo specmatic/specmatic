@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Scenario
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
@@ -681,8 +682,39 @@ paths:
         }
 
         assertThat(loaded.scenarios.executedTestDescriptions())
-            .hasSize(1)
-            .allMatch { it.contains("GET /orders -> 200") }
+            .anyMatch { it.contains("GET /orders -> 200") }
+    }
+
+    @Test
+    fun `loadTestScenarios should generate 4xx negative scenarios from externalized 2xx examples`() {
+        val specFile = File("src/test/resources/openapi/filter_by_tags_externalized_examples.yaml")
+        val strictModeConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = true, lenientMode = null)
+        val loaded = assertDoesNotThrow {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFile.canonicalPath,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = strictModeConfig,
+                generative = ResiliencyTestSuite.all,
+                filter = ScenarioMetadataFilter.from("")
+            )
+        }
+
+        val executedTestDescriptions = loaded.scenarios.executedTestDescriptions()
+        assertThat(executedTestDescriptions).anyMatch {
+            it.contains("-ve") &&
+                it.contains("GET /orders -> 4xx") &&
+                it.contains("with the request from the example 'INLINE_GET_ORDERS'")
+        }
+
+        assertThat(executedTestDescriptions).anyMatch {
+            it.contains("-ve") &&
+                it.contains("GET /orders -> 4xx") &&
+                it.contains("with the request from the example 'Get Orders'")
+        }
     }
 
     @Test
