@@ -54,16 +54,20 @@ class XMLChoiceGroupPatternTest {
         )
 
         val generated = pattern.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
+        val sequences = generated.map { variant ->
+            variant.concreteSequence.orEmpty().map { occurrence ->
+                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
+            }
+        }
 
         assertThat(generated).hasSize(6)
-        assertThat(generated.map { it.generate(resolver).toStringLiteral() }).allSatisfy { xml ->
-            val aCount = countOccurrences(xml, "<A>")
-            val bCount = countOccurrences(xml, "<B>")
-            assertThat(aCount + bCount).isBetween(1, 2)
-        }
-    }
-
-    private fun countOccurrences(text: String, token: String): Int {
-        return text.windowed(token.length, 1).count { it == token }
+        assertThat(sequences).containsExactlyInAnyOrder(
+            listOf("A"),
+            listOf("B"),
+            listOf("A", "A"),
+            listOf("A", "B"),
+            listOf("B", "A"),
+            listOf("B", "B"),
+        )
     }
 }

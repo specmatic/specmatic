@@ -194,15 +194,20 @@ class WSDLWiringCharacterizationTest {
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceMinTwoRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
         val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
-        val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(rootPattern.pattern.nodes.first(), it))).generate(resolver).toStringLiteral() }
+        val sequences = variants.map { variant ->
+            variant.concreteSequence.orEmpty().map { occurrence ->
+                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
+            }
+        }
 
         assertThat(variants).hasSize(4)
-        assertThat(generatedBodies).allSatisfy {
-            assertThat(
-                countOccurrences(it, "<Choice-scalar-repeating-min2:CustomerNumber>") +
-                    countOccurrences(it, "<Choice-scalar-repeating-min2:LoginId>")
-            ).isEqualTo(2)
-        }
+        assertThat(sequences).allSatisfy { assertThat(it).hasSize(2) }
+        assertThat(sequences).containsExactlyInAnyOrder(
+            listOf("CustomerNumber", "CustomerNumber"),
+            listOf("CustomerNumber", "LoginId"),
+            listOf("LoginId", "CustomerNumber"),
+            listOf("LoginId", "LoginId"),
+        )
     }
 
     private fun countOccurrences(text: String, token: String): Int {
