@@ -33,7 +33,7 @@ internal class ComplexElementTest {
         val complexType2 = mockk<ComplexType>()
         every {
             complexType2.generateChildren(any(), any(), any())
-        } returns WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>")))
+        } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
         every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2
@@ -49,14 +49,18 @@ internal class ComplexElementTest {
         val complexElement = ComplexElement("ns0:PersonRequest", element, wsdl)
         val wsdlTypeInfo = complexElement.deriveSpecmaticTypes("PersonRequest", emptyMap(), emptySet())
 
-        val expected = WSDLTypeInfo(listOf(toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>")), mapOf("PersonRequest" to XMLPattern("<$TYPE_NODE_NAME><data>(string)</data></$TYPE_NODE_NAME>")))
+        val expected = WSDLTypeInfo(
+            nodes = listOf(toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>")),
+            members = listOf(XMLPattern(toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>"))),
+            types = mapOf("PersonRequest" to XMLPattern("<$TYPE_NODE_NAME><data>(string)</data></$TYPE_NODE_NAME>"))
+        )
         assertThat(wsdlTypeInfo).isEqualTo(expected)
     }
 
     @Test
     fun `complex node with no children returns no children`() {
         val typeInfo = ComplexElement("", mockk(), mockk()).generateChildren("", toXMLNode("<complexType/>"), emptyMap(), emptySet())
-        assertThat(typeInfo.nodes).isEmpty()
+        assertThat(typeInfo).containsExactly(WSDLTypeInfo())
     }
 
     @Test
@@ -68,7 +72,7 @@ internal class ComplexElementTest {
         val complexType2 = mockk<ComplexType>()
         every {
             complexType2.generateChildren(any(), any(), any())
-        } returns WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>")))
+        } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
         every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2

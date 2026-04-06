@@ -1,0 +1,62 @@
+<definitions name="ElementRefAPI"
+             targetNamespace="http://elementref"
+             xmlns:Elementref="http://elementref"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <types>
+        <xsd:schema targetNamespace="http://elementref">
+            <xsd:complexType name="CreateProduct">
+                <xsd:sequence>
+                    <xsd:element name="name" type="xsd:string"/>
+                    <xsd:element name="type" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="CreateProduct" type="Elementref:CreateProduct"/>
+
+            <xsd:complexType name="Id">
+                <xsd:sequence>
+                    <xsd:element name="id" type="xsd:int" minOccurs="1" maxOccurs="1"/>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="Id" type="Elementref:Id"/>
+        </xsd:schema>
+    </types>
+
+    <message name="CreateProductMessage">
+        <part name="parameters" element="Elementref:CreateProduct"/>
+    </message>
+
+    <message name="CreatedProductIdMessage">
+        <part name="parameters" element="Elementref:Id"/>
+    </message>
+
+    <portType name="ElementRefPortType">
+        <operation name="createProduct">
+            <input message="Elementref:CreateProductMessage"/>
+            <output message="Elementref:CreatedProductIdMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="ElementRefBinding" type="Elementref:ElementRefPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="createProduct">
+            <soap:operation soapAction="/orders/createProductElementRef"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="ElementRefService">
+        <port name="ElementRefPort" binding="Elementref:ElementRefBinding">
+            <soap:address location="http://localhost:8090/element-ref"/>
+        </port>
+    </service>
+</definitions>

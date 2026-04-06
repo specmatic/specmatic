@@ -1,0 +1,19 @@
+{
+  "name": "createProductTypeRef",
+  "http-request": {
+    "method": "POST",
+    "path": "/type-ref",
+    "headers": {
+      "SOAPAction": "\"/orders/createProductTypeRef\"",
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Typeref=\"http://typeref\"><soapenv:Body><Typeref:CreateProductRequestMessage><parameters><name>Phone</name><type>Gadget</type></parameters></Typeref:CreateProductRequestMessage></soapenv:Body></soapenv:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Typeref=\"http://typeref\"><soapenv:Body><Typeref:CreateProductResponseMessage><result><id>123</id></result></Typeref:CreateProductResponseMessage></soapenv:Body></soapenv:Envelope>"
+  }
+}

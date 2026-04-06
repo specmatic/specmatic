@@ -1,0 +1,107 @@
+<definitions name="ComplexChoiceService"
+             targetNamespace="http://choice-complex"
+             xmlns:tns="http://choice-complex"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://choice-complex" elementFormDefault="qualified">
+            <xsd:element name="PrimaryName" type="xsd:string"/>
+            <xsd:element name="PermId" type="xsd:string"/>
+            <xsd:element name="Domain" type="xsd:string"/>
+            <xsd:element name="LoginId" type="xsd:string"/>
+            <xsd:element name="CustomerId" type="xsd:string"/>
+            <xsd:element name="Reference" type="xsd:string"/>
+
+            <xsd:element name="CustomerByPermId">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:PermId"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="CustomerByLogin">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:Domain"/>
+                        <xsd:element ref="tns:LoginId"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="CustomerFound">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:CustomerId"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="CustomerPending">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:Reference"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="ComplexChoiceRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:PrimaryName"/>
+                        <xsd:choice>
+                            <xsd:element ref="tns:CustomerByPermId"/>
+                            <xsd:element ref="tns:CustomerByLogin"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="ComplexChoiceResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:choice>
+                            <xsd:element ref="tns:CustomerFound"/>
+                            <xsd:element ref="tns:CustomerPending"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <message name="ComplexChoiceRequestMessage">
+        <part name="parameters" element="tns:ComplexChoiceRequest"/>
+    </message>
+
+    <message name="ComplexChoiceResponseMessage">
+        <part name="parameters" element="tns:ComplexChoiceResponse"/>
+    </message>
+
+    <portType name="ComplexChoicePortType">
+        <operation name="complexChoice">
+            <input message="tns:ComplexChoiceRequestMessage"/>
+            <output message="tns:ComplexChoiceResponseMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="ComplexChoiceBinding" type="tns:ComplexChoicePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="complexChoice">
+            <soap:operation soapAction="/choice-complex/complexChoice"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="ComplexChoiceService">
+        <port name="ComplexChoicePort" binding="tns:ComplexChoiceBinding">
+            <soap:address location="http://localhost:9000/choice-complex"/>
+        </port>
+    </service>
+</definitions>

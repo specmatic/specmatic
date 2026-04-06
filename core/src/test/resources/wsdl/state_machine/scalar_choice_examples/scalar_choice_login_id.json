@@ -1,0 +1,19 @@
+{
+  "name": "scalarChoiceWithLoginId",
+  "http-request": {
+    "method": "POST",
+    "path": "/choice-scalar",
+    "headers": {
+      "SOAPAction": "\"/choice-scalar/scalarChoice\"",
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><ScalarChoiceResponse><StatusMessage>READY</StatusMessage></ScalarChoiceResponse></soapenv:Body></soapenv:Envelope>"
+  }
+}

@@ -1,0 +1,79 @@
+<definitions name="ChoiceService"
+             targetNamespace="http://choice-ref"
+             xmlns:tns="http://choice-ref"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://choice-ref" elementFormDefault="qualified">
+            <xsd:element name="SPName" type="xsd:string"/>
+            <xsd:element name="CustPermId" type="xsd:string"/>
+            <xsd:element name="SPNameDescS01" type="xsd:string"/>
+            <xsd:element name="CustLoginId" type="xsd:string"/>
+
+            <xsd:element name="CustId">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element minOccurs="0" ref="tns:SPName"/>
+                        <xsd:element minOccurs="0" ref="tns:CustPermId"/>
+                        <xsd:element minOccurs="0" ref="tns:SPNameDescS01"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="SignonCustId">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:SPName"/>
+                        <xsd:choice>
+                            <xsd:element ref="tns:CustId"/>
+                            <xsd:element ref="tns:CustLoginId"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="SignonCustIdResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="status" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <message name="SignonCustIdRequest">
+        <part name="parameters" element="tns:SignonCustId"/>
+    </message>
+
+    <message name="SignonCustIdResponse">
+        <part name="parameters" element="tns:SignonCustIdResponse"/>
+    </message>
+
+    <portType name="ChoicePortType">
+        <operation name="signonCustId">
+            <input message="tns:SignonCustIdRequest"/>
+            <output message="tns:SignonCustIdResponse"/>
+        </operation>
+    </portType>
+
+    <binding name="ChoiceBinding" type="tns:ChoicePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="signonCustId">
+            <soap:operation soapAction="/choice-ref/signonCustId"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="ChoiceService">
+        <port name="ChoicePort" binding="tns:ChoiceBinding">
+            <soap:address location="http://localhost:9000/choice-ref"/>
+        </port>
+    </service>
+</definitions>

@@ -1,0 +1,19 @@
+{
+  "name": "signonCustIdWithCustLoginId",
+  "http-request": {
+    "method": "POST",
+    "path": "/choice-ref",
+    "headers": {
+      "SOAPAction": "\"/choice-ref/signonCustId\"",
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choiceref=\"http://choice-ref\"><soapenv:Body><Choiceref:SignonCustId><SPName>PrimaryName</SPName><CustLoginId>login-123</CustLoginId></Choiceref:SignonCustId></soapenv:Body></soapenv:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><SignonCustIdResponse><status>OK-SIMPLE</status></SignonCustIdResponse></soapenv:Body></soapenv:Envelope>"
+  }
+}

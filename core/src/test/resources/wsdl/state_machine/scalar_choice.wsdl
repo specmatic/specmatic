@@ -1,0 +1,73 @@
+<definitions name="ScalarChoiceService"
+             targetNamespace="http://choice-scalar"
+             xmlns:tns="http://choice-scalar"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://choice-scalar" elementFormDefault="qualified">
+            <xsd:element name="PrimaryName" type="xsd:string"/>
+            <xsd:element name="CustomerNumber" type="xsd:string"/>
+            <xsd:element name="LoginId" type="xsd:string"/>
+            <xsd:element name="StatusCode" type="xsd:string"/>
+            <xsd:element name="StatusMessage" type="xsd:string"/>
+
+            <xsd:element name="ScalarChoiceRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:PrimaryName"/>
+                        <xsd:choice>
+                            <xsd:element ref="tns:CustomerNumber"/>
+                            <xsd:element ref="tns:LoginId"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="ScalarChoiceResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:choice>
+                            <xsd:element ref="tns:StatusCode"/>
+                            <xsd:element ref="tns:StatusMessage"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <message name="ScalarChoiceRequestMessage">
+        <part name="parameters" element="tns:ScalarChoiceRequest"/>
+    </message>
+
+    <message name="ScalarChoiceResponseMessage">
+        <part name="parameters" element="tns:ScalarChoiceResponse"/>
+    </message>
+
+    <portType name="ScalarChoicePortType">
+        <operation name="scalarChoice">
+            <input message="tns:ScalarChoiceRequestMessage"/>
+            <output message="tns:ScalarChoiceResponseMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="ScalarChoiceBinding" type="tns:ScalarChoicePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="scalarChoice">
+            <soap:operation soapAction="/choice-scalar/scalarChoice"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="ScalarChoiceService">
+        <port name="ScalarChoicePort" binding="tns:ScalarChoiceBinding">
+            <soap:address location="http://localhost:9000/choice-scalar"/>
+        </port>
+    </service>
+</definitions>

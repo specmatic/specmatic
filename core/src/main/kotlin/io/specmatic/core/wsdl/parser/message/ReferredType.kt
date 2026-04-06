@@ -1,8 +1,7 @@
 package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.XMLPattern
-import io.specmatic.core.value.StringValue
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
@@ -21,13 +20,13 @@ data class ReferredType(val wsdlTypeReference: String, val element: XMLNode, val
               if(!isPrimitiveType(typeNode))
                   throw ContractException("Simple type $type in restriction not recognized")
 
-              SimpleElement(wsdlTypeReference, element.copy(attributes = element.attributes.plus("type" to StringValue(type))), wsdl)
+              SimpleElement(wsdlTypeReference, element, wsdl, simpleTypeNode = typeNode)
           } ?: ComplexElement(wsdlTypeReference, element, wsdl)
       }
 
     override fun deriveSpecmaticTypes(
         specmaticTypeName: String,
-        existingTypes: Map<String, XMLPattern>,
+        existingTypes: Map<String, Pattern>,
         typeStack: Set<String>
     ): WSDLTypeInfo {
         return elementType.deriveSpecmaticTypes(specmaticTypeName, existingTypes, typeStack)

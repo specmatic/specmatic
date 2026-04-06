@@ -1,6 +1,8 @@
 package io.specmatic.core.wsdl.payload
 
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
+import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
@@ -14,9 +16,17 @@ data class ComplexTypedSOAPPayload(
     val attributes: List<AttributeElement> = emptyList()
 ) : SOAPPayload {
     override fun specmaticStatement(requestHeaders: RequestHeaders): List<String> {
-        val xml = buildXmlDataForComplexElement(nodeName, specmaticTypeName, attributes)
-        val body = soapMessage(toXMLNode(xml), namespaces, requestHeaders)
+        val body = toEnvelope(requestHeaders)
         return listOf("And ${soapMessageType.specmaticBodyType}-body\n\"\"\"\n${body.toPrettyStringValue()}\n\"\"\"")
+    }
+
+    override fun toPattern(requestHeaders: RequestHeaders): Pattern {
+        return XMLPattern(toEnvelope(requestHeaders), isSOAP = true)
+    }
+
+    private fun toEnvelope(requestHeaders: RequestHeaders): XMLNode {
+        val xml = buildXmlDataForComplexElement(nodeName, specmaticTypeName, attributes)
+        return soapMessage(toXMLNode(xml), namespaces, requestHeaders)
     }
 }
 

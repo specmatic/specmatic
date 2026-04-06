@@ -6,18 +6,13 @@ import io.specmatic.conversions.runTests
 import io.specmatic.conversions.toFragment
 import io.specmatic.core.*
 import io.specmatic.core.config.LoggingConfiguration
-import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.utilities.jsonStringToValueMap
-import io.specmatic.core.utilities.parseXML
-import io.specmatic.core.value.toXMLNode
-import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
-import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.mockFromJSON
 import io.swagger.v3.core.util.Yaml
@@ -26,13 +21,13 @@ import java.util.concurrent.Callable
 
 @Command(name = "import",
         mixinStandardHelpOptions = true,
-        description = ["Converts a $APPLICATION_NAME stub, Postman or WSDL file into a $APPLICATION_NAME spec file"])
+        description = ["Converts a $APPLICATION_NAME example file into an OpenAPI spec file, or a Postman file into an OpenAPI spec file with examples if present"])
 @Category("Contract conversion")
 class ImportCommand : Callable<Int> {
     @Parameters(description = ["File to convert"], index = "0")
     lateinit var path: String
 
-    @Option(names = ["--output"], description = ["Write the contract into this file"], required = false)
+    @Option(names = ["--output"], description = ["Write the specification into this file"], required = false)
     var userSpecifiedOutFile: String? = null
 
     @Option(names = ["--debug"], required = false, defaultValue = "false")
@@ -46,10 +41,8 @@ class ImportCommand : Callable<Int> {
                     convertPostman(path, userSpecifiedOutFile)
                 path.endsWith(".json") ->
                     convertStub(path, userSpecifiedOutFile)
-                path.endsWith(".wsdl") ->
-                    convertWSDL(path, userSpecifiedOutFile)
                 else -> {
-                    throw Exception("File type not recognized. Support exceptions include .postman_collection.json (Postman), .json ($APPLICATION_NAME stub), .wsdl (WSDL)")
+                    throw Exception("File type not recognized. You can import Postman collections (extension .postman_collection.json) and Specmatic example files.")
                 }
             }
         }
@@ -97,22 +90,6 @@ fun convertPostman(path: String, userSpecifiedOutPath: String?) {
             }
         }
     }
-}
-
-fun convertWSDL(path: String, userSpecifiedOutFile: String?) {
-    val inputFile = File(path)
-    val inputFileContent = inputFile.readText()
-    val wsdlXML = toXMLNode(parseXML(inputFileContent))
-    val contract = WSDL(wsdlXML, path).convertToGherkin()
-
-    val outFile = userSpecifiedOutFile ?: "${inputFile.nameWithoutExtension}.$CONTRACT_EXTENSION"
-    LicenseResolver.utilize(
-        product = LicensedProduct.OPEN_SOURCE,
-        feature = SpecmaticFeature.EXAMPLES_IMPORTED_FROM_WSDL,
-        protocol = listOf(SpecmaticProtocol.SOAP)
-    )
-
-    writeOut(contract, outFile)
 }
 
 private fun writeOut(gherkin: String, outputFilePath: String, hostAndPort: String? = null) {
