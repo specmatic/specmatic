@@ -18,6 +18,7 @@ import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.pattern.Examples.Companion.examplesFrom
+import io.specmatic.core.pattern.Row.Companion.isNullOrEmpty
 import io.specmatic.core.utilities.*
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.value.*
@@ -828,7 +829,7 @@ data class Feature(
         }
     }
 
-    private fun Decision<ReturnValue<Scenario>, Scenario>.checkAcceptCompatibility(): Decision<ReturnValue<Scenario>, Scenario> {
+    private fun Decision<ReturnValue<Scenario>, Scenario>.checkAcceptCompatibility(): Decision<ReturnValue<Scenario>, Scenario>? {
         return this.flatMap { generatedScenarioReturnValue, originalScenario, reasoning ->
             if (generatedScenarioReturnValue !is HasValue) {
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
@@ -841,6 +842,7 @@ data class Feature(
                 return@flatMap Decision.Execute(generatedScenarioReturnValue, originalScenario, reasoning)
             }
 
+            if (generatedScenarioReturnValue.value.exampleRow.isNullOrEmpty()) return null
             Decision.Skip(context = generatedScenarioReturnValue.value, reasoning = Reasoning(mainReason = TestSkipReason.ACCEPT_MISMATCH))
         }
     }
@@ -864,7 +866,7 @@ data class Feature(
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
-        return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).map { decision ->
+        return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).mapNotNull { decision ->
             decision.normalizeAcceptHeader().checkAcceptCompatibility()
         }.map { decision ->
             decision.flatMap { returnValue, originalScenario, reasoning ->
@@ -1065,13 +1067,13 @@ data class Feature(
 
     fun negativeTestScenariosWithDecision(scenarios: Sequence<Decision<Scenario, Scenario>>, originalScenarios: List<Scenario>): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
         return scenarios.mapNotNull { scenarioDecision ->
-            if (scenarioDecision !is Decision.Execute) return@mapNotNull scenarioDecision
-            val badRequestOrDefault = getBadRequestsOrDefault(scenarioDecision.value)
-            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenarioDecision.value, originalScenarios)) {
+            val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
+            val badRequestOrDefault = getBadRequestsOrDefault(scenario)
+            if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
                 return@mapNotNull null
             }
 
-            scenarioDecision.value.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
+            scenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
         }.flatMapSequence { scenario, _, reasoning ->
             scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
                 negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
@@ -1090,7 +1092,8 @@ data class Feature(
     private fun updatePositiveGenerationReasoning(scenario: ReturnValue<Scenario>, reasoning: Reasoning): Reasoning {
         if (scenario !is HasValue || scenario.value.generatedFrom == GeneratedScenarioOrigin.EXAMPLE_ROW) return reasoning
         if (specmaticConfig.getResiliencyTestsEnabled() == ResiliencyTestSuite.none) return reasoning
-        return reasoning.withMainReason(TestExecutionReason.executedPositiveGen())
+        val otherReasons = reasoning.reasonsMatching { it != TestExecutionReason.NO_EXAMPLE }.orEmpty()
+        return Reasoning(mainReason = TestExecutionReason.executedPositiveGen(), otherReasons = otherReasons)
     }
 
     private fun badRequestOrDefaultWasFilteredOut(

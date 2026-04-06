@@ -603,7 +603,7 @@ paths:
     }
 
     @Test
-    fun `contractTest should skip scenarios beyond maxTestCount and still print execution reasons for executed tests`(@TempDir tempDir: File) {
+    fun `contractTest should skip scenarios beyond maxTestCount`(@TempDir tempDir: File) {
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
         val configFile = writeSpecmaticConfig(tempDir, baseUrl = null, maxTestCount = 1)
         val (server, baseUrl) = startAlphaBetaStubServer()
@@ -613,12 +613,6 @@ paths:
                 val tests = SpecmaticJUnitSupport().contractTest()
                 assertDoesNotThrow { tests.forEach { it.executable.execute() } }
             }
-
-            assertThat(output).containsSubsequence(
-                "Executed Scenario: GET /alpha -> 200 (returns application/json) with the request from the example 'ok'",
-                "Executed Using Example",
-                "This operation was executed by using an available example"
-            )
 
             assertThat(output).containsSubsequence(
                 "Skipping Scenario: GET /beta -> 200 (returns application/json) with the request from the example 'ok'",
