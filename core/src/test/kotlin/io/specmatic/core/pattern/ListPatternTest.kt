@@ -1115,7 +1115,7 @@ Feature: Recursive test
         assertThatThrownBy {
             ListPattern(StringPattern(), minItems = 0, maxItems = -1)
         }.isInstanceOf(ContractException::class.java)
-            .hasMessageContaining("maxItems -1 cannot be less than minItems 0")
+            .hasMessageContaining("maxItems -1 cannot be less than 0")
     }
 
     @Test

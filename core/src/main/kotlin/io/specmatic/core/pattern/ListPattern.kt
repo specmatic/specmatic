@@ -3,8 +3,6 @@ package io.specmatic.core.pattern
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
-import kotlinx.coroutines.yield
-import kotlin.math.min
 
 const val LIST_BREAD_CRUMB = "[]"
 
@@ -17,16 +15,19 @@ data class ListPattern(
     val maxItems: Int? = null
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
     
-    private val effectiveMinItems = minItems ?: 0
-    
     init {
-        if (effectiveMinItems < 0) {
-            throw ContractException("minItems $effectiveMinItems cannot be less than 0")
+        minItems?.let {
+            if (it < 0) {
+                throw ContractException("minItems $it cannot be less than 0")
+            }
         }
         maxItems?.let {
-            if (effectiveMinItems > it) {
-                throw ContractException("maxItems $it cannot be less than minItems $effectiveMinItems")
+            if (it < 0) {
+                throw ContractException("maxItems $it cannot be less than 0")
             }
+        }
+        if (minItems != null && maxItems != null && minItems > maxItems) {
+            throw ContractException("maxItems $maxItems cannot be less than minItems $minItems")
         }
     }
     
@@ -199,34 +200,8 @@ data class ListPattern(
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
-            sequence {
-                yieldAll(pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
-                    .map { negativePatternValue ->
-                        negativePatternValue.ifValue { pattern ->
-                            ListPattern(pattern, minItems = minItems, maxItems = maxItems) as Pattern
-                        }.breadCrumb(LIST_BREAD_CRUMB)
-                    })
-
-                if (minItems != null && minItems > 0) {
-                    val pattern = copy(
-                        minItems = minItems - 1,
-                        maxItems = minItems - 1
-                    )
-                    yield(
-                        HasValue(pattern, "is set to a value with items less than minItems '$minItems'")
-                    )
-                }
-
-                if (maxItems != null) {
-                    val pattern = copy(
-                        maxItems = maxItems + 1,
-                        minItems = maxItems + 1
-                    )
-                    yield(
-                        HasValue(pattern, "is set to a value with items greater than maxItems '$maxItems'")
-                    )
-                }
-            }
+            listPatternsWithNegativePatternsWithin(row, resolver, config) +
+                    sizeViolationPatterns()
         }
     }
 
@@ -336,6 +311,39 @@ data class ListPattern(
                 else -> emptyList()
             }
         }.toSet()
+    }
+
+    private fun listPatternsWithNegativePatternsWithin(
+        row: Row,
+        resolver: Resolver,
+        config: NegativePatternConfiguration
+    ): Sequence<ReturnValue<Pattern>> =
+        pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
+            .map { negativePatternValue ->
+                negativePatternValue.ifValue { pattern ->
+                    ListPattern(pattern, minItems = minItems, maxItems = maxItems) as Pattern
+                }.breadCrumb(LIST_BREAD_CRUMB)
+            }
+
+    private fun sizeViolationPatterns(): Sequence<ReturnValue<Pattern>> {
+        val minItemsViolationPattern: ReturnValue<Pattern>? = minItems
+            ?.takeIf { it > 0 }
+            ?.let {
+                HasValue(
+                    copy(minItems = it - 1, maxItems = it - 1),
+                    "is set to a value with items less than minItems '$it'"
+                )
+            }
+
+        val maxItemsViolationPattern: ReturnValue<Pattern>? = maxItems
+            ?.let {
+                HasValue(
+                    copy(minItems = it + 1, maxItems = it + 1),
+                    "is set to a value with items greater than maxItems '$it'"
+                )
+            }
+
+        return listOfNotNull(minItemsViolationPattern, maxItemsViolationPattern).asSequence()
     }
 }
 
