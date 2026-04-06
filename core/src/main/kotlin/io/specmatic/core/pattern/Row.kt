@@ -180,4 +180,11 @@ data class Row(
 
         return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + bodyEntry).copy(requestExample = request)
     }
+
+    companion object {
+        fun Row?.isNullOrEmpty(): Boolean {
+            if (this == null) return true
+            return this.isEmpty()
+        }
+    }
 }
