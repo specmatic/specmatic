@@ -43,18 +43,15 @@ abstract class AbstractConformanceTest(
         httpExchanges =
             HttpExchange.parseAll(dockerCompose.mustGetHttpTrafficLogs())
                 .filterNot(HttpExchange::isInfraRequest)
-    }
 
-    @AfterAll
-    fun tearDown() {
-        dockerCompose.stopAsync()
+        dockerCompose.mustStop()
     }
 
     @Test
     @Order(1)
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
-            .withFailMessage { allLogs }
+            .withFailMessage { "${loopTestsResult.command}\n${loopTestsResult.errorOutput}\n\n$allLogs" }
             .isTrue
     }
 

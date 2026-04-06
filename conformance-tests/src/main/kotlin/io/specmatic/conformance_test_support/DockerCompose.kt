@@ -1,6 +1,7 @@
 package io.specmatic.conformance_test_support
 
 import java.io.File
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 class DockerCompose(
@@ -11,7 +12,10 @@ class DockerCompose(
     private val specsDirName: String
 ) {
     data class CommandResult(
-        val exitCode: Int, val output: String
+        val command: String,
+        val exitCode: Int,
+        val output: String,
+        val errorOutput: String
     ) {
         fun isSuccessful(): Boolean = exitCode == 0
     }
@@ -34,25 +38,44 @@ class DockerCompose(
             }
     }
 
-    fun stopAsync() {
-        buildCommand("down", "--volumes").start()
+    fun mustStop() {
+        mustRun(buildCommand("down", "--volumes", "--timeout", "10"), 30, TimeUnit.SECONDS)
     }
 
     private fun run(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): CommandResult {
         val process = command.start()
-        process.waitFor(timeout, timeUnit)
+
+        val stdoutFuture = CompletableFuture.supplyAsync {
+            process.inputReader(Charsets.UTF_8).readText()
+        }
+
+        val stderrFuture = CompletableFuture.supplyAsync {
+            process.errorReader(Charsets.UTF_8).readText()
+        }
+
+        val finished = process.waitFor(timeout, timeUnit)
+        if (!finished) {
+            process.destroyForcibly()
+        }
 
         return CommandResult(
+            command = command.command().joinToString(" "),
             exitCode = process.exitValue(),
-            output = process.inputReader(Charsets.UTF_8).use { it.readText() }
+            output = stdoutFuture.get(),
+            errorOutput = stderrFuture.get()
         )
     }
 
     private fun mustRun(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): String {
         val result = run(command, timeout, timeUnit)
+
         return when {
             result.isSuccessful() -> result.output
-            else -> error("failed to run ${command.command()}\nexit code: ${result.exitCode}\noutput: ${result.output}")
+            else -> error(
+                "failed to run ${result.command}" +
+                        "\nexit code: ${result.exitCode}" +
+                        "\noutput: ${result.errorOutput}"
+            )
         }
     }
 
@@ -62,7 +85,7 @@ class DockerCompose(
             .replace(Regex("[^a-zA-Z0-9]"), "-")
 
         return ProcessBuilder("docker", "compose", "--project-name", composeProjectName, *args)
-            .redirectErrorStream(true)
+            .redirectErrorStream(false)
             .directory(workDir)
             .also {
                 it.environment().putAll(
