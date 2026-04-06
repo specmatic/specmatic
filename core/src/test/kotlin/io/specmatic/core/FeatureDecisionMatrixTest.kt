@@ -107,7 +107,7 @@ class FeatureDecisionMatrixTest {
             assertThat(successRequest).hasSize(2).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Execute::class.java)
                 assertThat(it.reasoning.mainReason).isEqualTo(TestExecutionReason.POSITIVE_GENERATION_ENABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestExecutionReason.NO_EXAMPLE)
+                assertThat(it.reasoning.otherReasons).isEmpty()
             }
         }
 
@@ -133,7 +133,7 @@ class FeatureDecisionMatrixTest {
             assertThat(successRequest).hasSize(2).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Execute::class.java)
                 assertThat(it.reasoning.mainReason).isEqualTo(TestExecutionReason.POSITIVE_GENERATION_ENABLED)
-                assertThat(it.reasoning.otherReasons).containsExactly(TestExecutionReason.NO_EXAMPLE)
+                assertThat(it.reasoning.otherReasons).isEmpty()
             }
         }
 
@@ -363,6 +363,53 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generatedWithBadRequestFilteredOut).isEmpty()
         }
+
+        @Test
+        fun `negative generation should still execute when 2xx is filtered but matching 400 is available`() {
+            val fullFeature = featureFromResourceOpenapi("feature_decision_matrix.yaml")
+            val successScenario = fullFeature.scenarios.first { it.httpResponsePattern.status == 200 }
+            val badRequestScenario = fullFeature.scenarios.first { it.matchesOperationId(successScenario) && it.status == 400 }
+
+            val feature = fullFeature.copy(scenarios = listOf(badRequestScenario))
+            val generated = feature.negativeTestScenariosWithDecision(
+                originalScenarios = listOf(successScenario, badRequestScenario),
+                scenarios = sequenceOf(
+                    Decision.Skip(context = successScenario, reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd400(true))),
+                    Decision.execute(badRequestScenario)
+                ),
+            ).toList()
+
+            assertThat(generated).isNotEmpty()
+            assertThat(generated).allSatisfy { decision ->
+                assertThat(decision).isInstanceOf(Decision.Execute::class.java)
+                assertThat(decision.context.isNegative).isTrue()
+                assertThat(decision.reasoning.mainReason).isEqualTo(TestExecutionReason.NEGATIVE_GENERATION_ENABLED)
+            }
+        }
+
+        @Test
+        fun `negative generation should not execute when matching 400 is filtered out`() {
+            val fullFeature = featureFromResourceOpenapi("feature_decision_matrix.yaml")
+            val successScenario = fullFeature.scenarios.first { it.httpResponsePattern.status == 200 }
+            val badRequestScenario = fullFeature.scenarios.first { it.matchesOperationId(successScenario) && it.status == 400 }
+
+            val feature = fullFeature.copy(scenarios = listOf(successScenario))
+            val generated = feature.negativeTestScenariosWithDecision(
+                originalScenarios = listOf(successScenario, badRequestScenario),
+                scenarios = sequenceOf(
+                    Decision.Skip(
+                        context = successScenario,
+                        reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd400(true))
+                    ),
+                    Decision.Skip(
+                        context = badRequestScenario,
+                        reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd400(true))
+                    )
+                ),
+            ).toList()
+
+            assertThat(generated).isEmpty()
+        }
     }
 
     @Nested
@@ -428,7 +475,7 @@ class FeatureDecisionMatrixTest {
         }
 
         @Test
-        fun `incompatible exact accept without examples should be skipped with accept mismatch`() {
+        fun `incompatible exact accept without examples should be skipped without any trace`() {
             val scenario = Scenario(
                 specType = SpecType.OPENAPI,
                 protocol = SpecmaticProtocol.HTTP,
@@ -447,10 +494,7 @@ class FeatureDecisionMatrixTest {
                 scenarios = sequenceOf(Decision.execute(scenario))
             ).toList()
 
-            assertThat(generated).hasSize(1)
-            val skip = generated.single() as Decision.Skip
-            assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.ACCEPT_MISMATCH)
-            assertThat(skip.reasoning.otherReasons).isEmpty()
+            assertThat(generated).isEmpty()
         }
 
         @Test

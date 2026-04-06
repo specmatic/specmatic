@@ -10,4 +10,10 @@ data class Reasoning(val mainReason: RuleViolation? = null, val otherReasons: Li
         val violations = linkedSetOf<RuleViolation>().apply { mainReason?.let(::add); addAll(otherReasons) }
         return RuleViolationReport(violations)
     }
+
+    fun reasonsMatching(predicate: (RuleViolation) -> Boolean): List<RuleViolation>? {
+        val reasons = listOfNotNull(mainReason).plus(otherReasons).filter(predicate)
+        if (reasons.isEmpty()) return null
+        return reasons
+    }
 }

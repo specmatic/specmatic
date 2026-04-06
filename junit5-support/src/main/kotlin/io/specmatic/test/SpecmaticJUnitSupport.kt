@@ -539,10 +539,6 @@ open class SpecmaticJUnitSupport {
                 } catch (e: Throwable) {
                     throw e
                 } finally {
-                    logger.log(buildString {
-                        appendLine("Executed ${contractTestDecision.value.first.scenario.fullApiTestDescription()}")
-                        appendLine(contractTestDecision.reasoning.toRuleViolationText())
-                    }.prependIndent(LOG_INDENT))
                     if (testResult != null) {
                         contractTest.testResultRecord(testResult)?.let { testResultRecord ->
                             openApiCoverage.addTestReportRecords(testResultRecord)
