@@ -1,5 +1,7 @@
 services:
   mock:
+    environment:
+      - SPECMATIC_TELEMETRY_EXTRA_LABELS=${SPECMATIC_TELEMETRY_EXTRA_LABELS:?error}
     image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
     command: mock /service.yaml --port 9000
     expose:
@@ -29,6 +31,8 @@ services:
       - ./dump_http_traffic_to_stdout.py:/addons/dump_http_traffic_to_stdout.py:ro
 
   test:
+    environment:
+      - SPECMATIC_TELEMETRY_EXTRA_LABELS=${SPECMATIC_TELEMETRY_EXTRA_LABELS:?error}
     image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
     depends_on:
       mitm:
