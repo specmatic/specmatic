@@ -166,6 +166,44 @@ class FeatureDecisionMatrixTest {
             assertThat(positiveGeneration.reasoning.mainReason).isEqualTo(TestExecutionReason.POSITIVE_GENERATION_ENABLED)
             assertThat(positiveGeneration.reasoning.otherReasons).containsExactly(TestExecutionReason.HAS_EXAMPLE)
         }
+
+        @Test
+        fun `should not duplicate 4xx strict mode example required with the amount of 2xx scenarios`() {
+            val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml").copy(strictMode = true)
+            val scenario200 = firstScenario(feature, 200, hasExamples = false)
+            val scenario400 = firstScenario(feature, 400, hasExamples = false)
+            val generated = feature.generateContractTestScenariosWithDecision(
+                originalScenarios = listOf(scenario200, scenario200, scenario400),
+                scenarios = sequenceOf(Decision.execute(scenario200), Decision.execute(scenario200), Decision.execute(scenario400))
+            ).toList()
+
+            assertThat(generated).hasSize(3)
+            val badRequest = generated.filter { it.context.isA4xxScenario() }
+            assertThat(badRequest).hasSize(1).allSatisfy {
+                assertThat(it).isInstanceOf(Decision.Skip::class.java)
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).containsExactly(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+            }
+        }
+
+        @Test
+        fun `should not duplicate 4xx strict mode example required with the amount of 2xx scenarios with resiliency`() {
+            val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml").copy(strictMode = true).enableGenerativeTesting()
+            val scenario200 = firstScenario(feature, 200, hasExamples = false)
+            val scenario400 = firstScenario(feature, 400, hasExamples = false)
+            val generated = feature.generateContractTestScenariosWithDecision(
+                originalScenarios = listOf(scenario200, scenario200, scenario400),
+                scenarios = sequenceOf(Decision.execute(scenario200), Decision.execute(scenario200), Decision.execute(scenario400))
+            ).toList()
+
+            assertThat(generated).hasSize(3)
+            val badRequest = generated.filter { it.context.isA4xxScenario() }
+            assertThat(badRequest).hasSize(1).allSatisfy {
+                assertThat(it).isInstanceOf(Decision.Skip::class.java)
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+                assertThat(it.reasoning.otherReasons).isEmpty()
+            }
+        }
     }
 
     @Nested
@@ -343,10 +381,7 @@ class FeatureDecisionMatrixTest {
                 originalScenarios = listOf(scenario)
             ).toList()
 
-            assertThat(generated).hasSize(1)
-            val decision = generated.filterIsInstance<Decision.Skip<Scenario>>().single()
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd400(true))
-            assertThat(decision.reasoning.otherReasons).isEmpty()
+            assertThat(generated).hasSize(0)
         }
 
         @Test

@@ -578,7 +578,7 @@ paths:
             }
 
             assertThat(output).containsSubsequence(
-                "Skipping Scenario: GET /beta -> 200 (returns application/json)", "Excluded from Run",
+                "Skipping Scenario: GET /beta -> 200 (responseContentType application/json)", "Excluded from Run",
                 "This operation was skipped because it did not match the selected filters"
             )
         } finally {
@@ -616,7 +616,7 @@ paths:
             }
 
             assertThat(output).containsSubsequence(
-                "Skipping Scenario: GET /beta -> 200 (returns application/json) with the request from the example 'ok'",
+                "Skipping Scenario: GET /beta -> 200 (responseContentType application/json) with the request from the example 'ok'",
                 "Maximum Test Count Exceeded",
                 "This operation was skipped because it exceeded the maximum test count"
             )

@@ -31,6 +31,7 @@ import java.util.function.Consumer
 import java.util.stream.Stream
 import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
+import org.assertj.core.api.Assertions.assertThat
 
 class ScenarioTest {
 
@@ -1176,6 +1177,26 @@ class ScenarioTest {
             )
         }
 
+        @Test
+        fun `negativeBasedOnWithDecision should return examples required in strict mode for 400 response when resiliency is enabled`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = true, resiliencyTestSuite = ResiliencyTestSuite.all)
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+            assertThat(decision.reasoning.otherReasons).isEmpty()
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should return examples required in strict mode and resiliency disabled for 400 response`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = true, resiliencyTestSuite = ResiliencyTestSuite.none)
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+            assertThat(decision.reasoning.otherReasons).containsExactlyInAnyOrder(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+        }
+
         private fun scenarioForNewBasedOnWithDecision(name: String = "scenario-name", method: String = "GET", status: Int = 200, examples: List<Examples> = emptyList(), isGherkinScenario: Boolean = false): Scenario {
             return Scenario(
                 name = name,
@@ -1206,25 +1227,25 @@ class ScenarioTest {
         @Test
         fun `fullApiDescription should include request content type only`() {
             val scenario = scenarioForFullApiDescription(requestContentType = "application/json")
-            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (accepts application/json)")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (requestContentType application/json)")
         }
 
         @Test
         fun `fullApiDescription should include response content type only`() {
             val scenario = scenarioForFullApiDescription(responseContentType = "application/xml")
-            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (returns application/xml)")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (responseContentType application/xml)")
         }
 
         @Test
         fun `fullApiDescription should include request and response content types`() {
             val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml")
-            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (accepts application/json, returns application/xml)")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (requestContentType application/json, responseContentType application/xml)")
         }
 
         @Test
         fun `fullApiDescription should prefer custom api description but include contentDescription`() {
             val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml", customAPIDescription = "Create product")
-            assertThat(scenario.fullApiDescription).startsWith("Create product").contains("accepts application/json").contains("returns application/xml")
+            assertThat(scenario.fullApiDescription).startsWith("Create product").contains("requestContentType application/json").contains("responseContentType application/xml")
         }
 
         private fun scenarioForFullApiDescription(requestContentType: String? = null, responseContentType: String? = null, customAPIDescription: String? = null, ): Scenario {
@@ -1249,12 +1270,10 @@ class ScenarioTest {
         }
 
         @Test
-        fun `negativeBasedOnWithDecision should return modified skip 400 for 2xx scenarios without examples in strict mode`() {
+        fun `negativeBasedOnWithDecision should return null for 2xx scenarios without examples in strict mode`() {
             val original = scenarioForNegativeBasedOnWithDecision(status = 200)
             val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = true)
-            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd400(true))
-            assertThat(decision.reasoning.otherReasons).isEmpty()
+            assertThat(decision).isNull()
         }
 
         @Test
@@ -1268,43 +1287,6 @@ class ScenarioTest {
                     reasoning = Reasoning(mainReason = TestExecutionReason.NEGATIVE_GENERATION_ENABLED)
                 )
             )
-        }
-
-        @Test
-        fun `negativeBasedOnWithDecision should return skip for 2xx scenarios that have no examples`() {
-            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
-            val badRequestOrDefault = BadRequestOrDefault(mapOf(400 to scenarioForNegativeBasedOnWithDecision(status = 400)), null)
-            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = badRequestOrDefault, strictMode = true)
-            assertThat(decision).isEqualTo(
-                Decision.Skip(
-                    context = scenarioForNegativeBasedOnWithDecision(status = 400),
-                    reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
-                )
-            )
-        }
-
-        @Test
-        fun `negativeBasedOnWithDecision should use the explicit bad request status in the skip context`() {
-            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
-            val badRequestOrDefault = BadRequestOrDefault(mapOf(401 to scenarioForNegativeBasedOnWithDecision(status = 401)), null)
-            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = badRequestOrDefault, strictMode = true)
-
-            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
-            assertThat(decision.context.httpResponsePattern.status).isEqualTo(401)
-            assertThat(decision.context.statusInDescription).isEqualTo("401")
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
-        }
-
-        @Test
-        fun `negativeBasedOnWithDecision should use the default bad request status in the skip context`() {
-            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
-            val badRequestOrDefault = BadRequestOrDefault(emptyMap(), scenarioForNegativeBasedOnWithDecision(status = DEFAULT_RESPONSE_CODE))
-            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = badRequestOrDefault, strictMode = true)
-
-            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
-            assertThat(decision.context.httpResponsePattern.status).isEqualTo(DEFAULT_RESPONSE_CODE)
-            assertThat(decision.context.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
-            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
         }
 
         @Test

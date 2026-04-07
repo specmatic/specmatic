@@ -3,7 +3,6 @@ package io.specmatic.core
 import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
-import io.specmatic.core.BadRequestOrDefault.Companion.updateScenarioWithBadRequestPattern
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.filters.HasScenarioMetadata
@@ -768,7 +767,7 @@ data class Scenario(
     }
 
     private fun contentDescription(): String? {
-        val contentTypes = listOfNotNull(requestContentType?.let { "accepts $it" }, responseContentType?.let { "returns $it" })
+        val contentTypes = listOfNotNull(requestContentType?.let { "requestContentType $it" }, responseContentType?.let { "responseContentType $it" })
         if (contentTypes.isEmpty()) return null
         return contentTypes.joinToString(prefix = "(", separator = ", ", postfix = ")")
     }
@@ -809,8 +808,14 @@ data class Scenario(
 
     fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
         val hasExamples = hasExamples()
+        val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
         val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
-        if (badRequestHasNoExample && resiliencyTestSuite == ResiliencyTestSuite.all) return null
+
+        if (badRequestHasNoExample && negativeGenerationEnabled) {
+            if (!strictMode) return null
+            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
+            return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
+        }
 
         if (badRequestHasNoExample) {
             val otherReasons = listOf(TestSkipReason.noExamples2xxAnd400(strictMode))
@@ -834,12 +839,7 @@ data class Scenario(
 
     fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
         if (!this.isA2xxScenario()) return null
-        if (strictMode && !hasExamples()) {
-            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
-            val updatedContext = badRequestOrDefault.updateScenarioWithBadRequestPattern(this)
-            return Decision.Skip(context = updatedContext, reasoning = Reasoning(mainReason = ruleViolation))
-        }
-
+        if (strictMode && !hasExamples()) return null
         val reason = Reasoning(TestExecutionReason.executedNegativeGen())
         return Decision.Execute(value = negativeBasedOn(badRequestOrDefault), context = this, reasoning = reason)
     }
