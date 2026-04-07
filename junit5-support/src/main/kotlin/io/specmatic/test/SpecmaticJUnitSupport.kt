@@ -475,6 +475,7 @@ open class SpecmaticJUnitSupport {
                     this.appendLine("Skipping ${contractTestDecision.context.fullApiTestDescription()}")
                     this.appendLine(contractTestDecision.reasoning.toRuleViolationText())
                 }.prependIndent(LOG_INDENT))
+                openApiCoverageReportInput.addSkipReasoning(contractTestDecision.mapValue { it.first.scenario })
                 return@mapNotNull null
             }
 

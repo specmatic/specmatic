@@ -1,11 +1,14 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
+import io.specmatic.core.utilities.mapValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.generated.dto.coverage.CoverageEntry
@@ -42,6 +45,7 @@ class OpenApiCoverageReportInput(
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
     private val previousTestResultRecord: List<TestResultRecord> = emptyList(),
     private val filteredEndpoints: MutableList<Endpoint> = mutableListOf(),
+    private val skipDecisions: MutableMap<Endpoint, Reasoning> = mutableMapOf(),
 ) {
     fun endpoints() = allEndpoints.toList()
 
@@ -127,6 +131,25 @@ class OpenApiCoverageReportInput(
         this.filteredEndpoints.addAll(filteredEndpoints)
         val excludedEndpoints = allEndpoints.toSet().minus(filteredEndpoints.toSet()).toList()
         coverageHooks.onEachListener { onEndpointApis(endpointsNotExcluded = filteredEndpoints, endpointsExcluded = excludedEndpoints) }
+    }
+
+    fun addSkipReasoning(skipDecision: Decision<Scenario, Scenario>) {
+        if (skipDecision !is Decision.Skip) return
+        val endpoint = Endpoint(
+            path = convertPathParameterStyle(skipDecision.context.path),
+            method = skipDecision.context.method,
+            responseStatus = skipDecision.context.httpResponsePattern.status,
+            soapAction = skipDecision.context.soapActionUnescaped,
+            sourceProvider = skipDecision.context.sourceProvider,
+            sourceRepository = skipDecision.context.sourceRepository,
+            sourceRepositoryBranch = skipDecision.context.sourceRepositoryBranch,
+            specification = skipDecision.context.specification,
+            requestContentType = skipDecision.context.requestContentType,
+            responseContentType = skipDecision.context.responseContentType,
+            protocol = skipDecision.context.protocol,
+            specType = skipDecision.context.specType
+        )
+        skipDecisions[endpoint] = skipDecision.reasoning
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {
@@ -235,6 +258,7 @@ class OpenApiCoverageReportInput(
                     path = endpoint.path,
                     method = endpoint.method,
                     requestContentType = endpoint.requestContentType,
+                    responseContentType = endpoint.responseContentType,
                     responseStatus = endpoint.responseStatus,
                     request = null,
                     response = null,
@@ -250,9 +274,11 @@ class OpenApiCoverageReportInput(
                             method = endpoint.method,
                             contentType = endpoint.requestContentType,
                             responseCode = endpoint.responseStatus,
+                            responseContentType = endpoint.responseContentType,
                             protocol = endpoint.protocol
                         )
-                    )
+                    ),
+                    reasoning = skipDecisions.getOrDefault(endpoint, Reasoning())
                 )
             }
         )
@@ -425,6 +451,7 @@ class OpenApiCoverageReportInput(
                     method = testResult.method,
                     contentType = testResult.requestContentType,
                     responseCode = testResult.actualResponseStatus,
+                    responseContentType = testResult.responseContentType,
                     protocol = SpecmaticProtocol.HTTP
                 )
             ),

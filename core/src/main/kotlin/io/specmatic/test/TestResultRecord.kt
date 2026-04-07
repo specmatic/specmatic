@@ -3,9 +3,12 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.RuleViolationReport
 import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestOutput
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
@@ -33,6 +36,7 @@ data class TestResultRecord(
     val scenarioResult: Result? = null,
     override val isWip: Boolean = false,
     val requestContentType: String? = null,
+    val responseContentType: String? = null,
     val soapAction: String? = null,
     val isGherkin: Boolean = false,
     val requestTime: Instant? = null,
@@ -46,10 +50,12 @@ data class TestResultRecord(
             method = method,
             contentType = requestContentType,
             responseCode = responseStatus,
+            responseContentType = responseContentType,
             protocol = SpecmaticProtocol.HTTP
         )
     ),
-    val exampleId: String? = null
+    val exampleId: String? = null,
+    val reasoning: Reasoning = Reasoning(),
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -72,7 +78,8 @@ data class TestResultRecord(
             wip = isWip,
             input = request?.toLogString().orEmpty(),
             outputs = outputs,
-            inputTime = requestTime?.toEpochMilli() ?: 0L
+            inputTime = requestTime?.toEpochMilli() ?: 0L,
+            decisions = reasoning.toRuleViolationReport().toCtrfSnapshots()
         )
     }
 
@@ -138,6 +145,12 @@ data class TestResultRecord(
                 "Cannot determine coverage status for API operation ${this.testName()} with unknown test result: ${this.result}"
             )
         }
+
+    private fun RuleViolationReport.toCtrfSnapshots(): List<CtrfRuleSnapshot> {
+        return this.toSnapShots().map { snapShot ->
+            CtrfRuleSnapshot(id = snapShot.id, title = snapShot.title, documentationUrl = snapShot.documentationUrl, summary = snapShot.summary)
+        }
+    }
 }
 
 fun CoverageStatus.isPresentInSpecForApiCoverage(): Boolean =
@@ -163,6 +176,7 @@ fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
         path = path,
         method = scenario.method,
         contentType = scenario.requestContentType,
+        responseContentType = scenario.responseContentType,
         responseCode = scenario.status,
         protocol = scenario.protocol
     )

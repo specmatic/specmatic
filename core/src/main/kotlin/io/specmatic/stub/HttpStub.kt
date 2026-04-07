@@ -530,8 +530,8 @@ class HttpStub(
     ) {
         val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
         val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
-        val requestContentType = httpLogMessage.scenario?.requestContentType
-            ?: httpRequest.headers["Content-Type"]
+        val requestContentType = httpLogMessage.scenario?.requestContentType ?: httpRequest.contentType()
+        val responseContentType = httpLogMessage.scenario?.responseContentType ?: httpResponse.contentType()
         val responseStatus = httpLogMessage.scenario?.status ?: 0
         val protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP
         val ctrfTestResultRecord = TestResultRecord(
@@ -544,12 +544,11 @@ class HttpStub(
             scenarioResult = (httpLogMessage.result ?: Result.Success()).updateScenario(httpLogMessage.scenario),
             specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
             requestContentType = requestContentType,
+            responseContentType = responseContentType,
             specification = httpStubResponse.scenario?.specification,
             testType = STUB_TEST_TYPE,
             actualResponseStatus = httpResponse.status,
-            operations = setOf(
-                OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
-            ),
+            operations = setOf(OpenAPIOperation(path, method, requestContentType, responseStatus, protocol, responseContentType)),
             exampleId = httpStubResponse.mock?.scenarioStub?.id
         )
         synchronized(ctrfTestResultRecords) { ctrfTestResultRecords.add(ctrfTestResultRecord) }
@@ -1189,6 +1188,7 @@ class HttpStub(
                         method = endpoint.method.orEmpty(),
                         contentType = endpoint.requestContentType,
                         responseCode = endpoint.responseCode,
+                        responseContentType = endpoint.responseContentType,
                         protocol = endpoint.protocol
                     )
                 )
@@ -1230,7 +1230,8 @@ class HttpStub(
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
                 scenario.protocol,
-                scenario.specType
+                scenario.specType,
+                scenario.responseContentType,
             )
         }
     }

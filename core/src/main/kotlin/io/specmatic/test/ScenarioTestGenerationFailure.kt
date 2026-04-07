@@ -6,6 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
@@ -15,7 +16,8 @@ class ScenarioTestGenerationFailure(
     val failure: Result.Failure,
     val message: String,
     override val protocol: SpecmaticProtocol?,
-    override val specType: SpecType
+    override val specType: SpecType,
+    val reasoning: Reasoning = Reasoning()
 ) : ContractTest {
     init {
         val exampleRow = scenario.examples.flatMap { it.rows }.firstOrNull { it.name == message }
@@ -36,6 +38,7 @@ class ScenarioTestGenerationFailure(
             path = path,
             method = scenario.method,
             requestContentType = scenario.requestContentType,
+            responseContentType = scenario.responseContentType,
             responseStatus = scenario.status,
             request = request,
             response = response,
@@ -49,9 +52,8 @@ class ScenarioTestGenerationFailure(
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
-            operations = setOf(
-                openAPIOperationFrom(scenario, path)
-            )
+            operations = setOf(openAPIOperationFrom(scenario, path)),
+            reasoning = reasoning
         )
     }
 
