@@ -18,7 +18,8 @@ class FoundStubbedResponse(override val response: HttpStubResponse) : StubbedRes
                 response.feature?.sourceRepositoryBranch,
                 response.feature?.specification,
                 response.scenario?.protocol ?: SpecmaticProtocol.HTTP,
-                response.scenario?.specType ?: SpecType.OPENAPI
+                response.scenario?.specType ?: SpecType.OPENAPI,
+                response.scenario?.responseContentType ?: response.response.contentType(),
             )
         )
     }

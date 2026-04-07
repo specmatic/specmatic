@@ -793,7 +793,7 @@ class OpenApiCoverageReportInputTest {
 
         // Assert that the responseStatus of testResultRecord's operation is updated
         val missingInSpecTestResult = report.testResultRecords.single { it.result == TestResult.MissingInSpec }
-        assertThat(missingInSpecTestResult.operations.first()).isEqualTo(OpenAPIOperation("/current", "GET", null, 400, SpecmaticProtocol.HTTP))
+        assertThat(missingInSpecTestResult.operations.first()).isEqualTo(OpenAPIOperation("/current", "GET", null, 400, SpecmaticProtocol.HTTP, null))
     }
 
     @Test

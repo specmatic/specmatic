@@ -3,10 +3,12 @@ package io.specmatic.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
@@ -50,6 +52,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     specification = actualSpec.canonicalPath,
                     specType = SpecType.OPENAPI,
                     requestContentType = endpoint.requestContentType,
+                    responseContentType = endpoint.responseContentType,
                 )
             )
         }
@@ -151,6 +154,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     specification = endpoint.specification,
                     specType = SpecType.OPENAPI,
                     requestContentType = endpoint.requestContentType,
+                    responseContentType = endpoint.responseContentType,
                 )
             )
         }
@@ -282,6 +286,43 @@ class CtrfApiCoverageReportIntegrationTest {
         assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
         assertThat(tests.single()["extra"]["wip"].asBoolean()).isTrue()
         assertThat(executionOperations.single()["coverageStatus"].asText()).isEqualTo("WIP")
+    }
+
+    @Test
+    fun `ctrf report should include decision snapshots in final test entries`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val endpoint = Endpoint(
+            path = "/pets/find",
+            method = "GET",
+            responseStatus = 200,
+            specification = specFile.canonicalPath,
+            protocol = io.specmatic.license.core.SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+        )
+
+        val input = OpenApiCoverageReportInput(configFilePath = specFile.canonicalPath, endpointsAPISet = true)
+        input.addEndpoints(listOf(endpoint), listOf(endpoint))
+        input.addTestReportRecords(
+            TestResultRecord(
+                path = endpoint.path,
+                method = endpoint.method,
+                responseStatus = endpoint.responseStatus,
+                request = null,
+                response = null,
+                result = TestResult.NotCovered,
+                specification = endpoint.specification,
+                specType = SpecType.OPENAPI,
+                reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED),
+            )
+        )
+
+        val consoleReport = input.generate()
+        val reportNode = ctrfReportNode(input, consoleReport)
+        val decisions = reportNode["results"]["tests"].single()["extra"]["decisions"].toList()
+        assertThat(decisions).hasSize(1)
+        assertThat(decisions.single()["id"].asText()).isNotBlank()
+        assertThat(decisions.single()["title"].asText()).isNotBlank()
+        assertThat(decisions.single()["summary"].asText()).contains("did not match the selected filters")
     }
 
     private fun findTextValue(node: com.fasterxml.jackson.databind.JsonNode, fieldName: String): String? {

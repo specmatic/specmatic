@@ -15,7 +15,8 @@ data class StubEndpoint(
     val sourceRepositoryBranch: String? = null,
     val specification: String? = null,
     val protocol: SpecmaticProtocol,
-    val specType: SpecType
+    val specType: SpecType,
+    val responseContentType: String? = null,
 ) {
     fun isEqualTo(testResultRecord: TestResultRecord): Boolean {
         return convertPathParameterStyle(path.orEmpty()) == testResultRecord.path
