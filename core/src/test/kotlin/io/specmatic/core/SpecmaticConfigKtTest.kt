@@ -537,6 +537,26 @@ internal class SpecmaticConfigKtTest {
         }
     }
 
+    @Test
+    fun `should read v2 test health endpoint from config`() {
+        val config = SpecmaticConfigV1V2Common(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(healthEndpoint = "/_specmatic/health")
+        )
+
+        assertThat(config.getTestHealthEndpoint()).isEqualTo("/_specmatic/health")
+    }
+
+    @Test
+    fun `should return null for v2 test health endpoint when not configured`() {
+        val config = SpecmaticConfigV1V2Common(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration()
+        )
+
+        assertThat(config.getTestHealthEndpoint()).isNull()
+    }
+
     @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {

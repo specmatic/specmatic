@@ -221,6 +221,9 @@ interface SpecmaticConfig {
     fun getTestSwaggerUIBaseUrl(): String?
 
     @JsonIgnore
+    fun getTestHealthEndpoint(): String?
+
+    @JsonIgnore
     fun getTestJunitReportDir(): String?
 
     @JsonIgnore

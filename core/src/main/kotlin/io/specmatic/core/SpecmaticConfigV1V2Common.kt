@@ -897,6 +897,11 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getTestHealthEndpoint(): String? {
+        return if (getVersion() == VERSION_2) test?.healthEndpoint else null
+    }
+
+    @JsonIgnore
     override fun getTestJunitReportDir(): String? {
         return if (getVersion() == VERSION_2) test?.junitReportDir else null
     }
@@ -1453,6 +1458,7 @@ data class TestConfiguration(
     val testsDirectory: String? = null,
     val swaggerUrl: String? = null,
     val swaggerUIBaseURL: String? = null,
+    val healthEndpoint: String? = null,
     val actuatorUrl: String? = null,
     val filter: String? = null,
     val baseUrl: String? = null,

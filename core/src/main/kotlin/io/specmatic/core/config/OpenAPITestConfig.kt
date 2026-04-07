@@ -9,6 +9,8 @@ import io.specmatic.core.ResiliencyTestsConfig
 data class OpenAPITestConfig(
     @JsonProperty("baseUrl")
     val baseUrl: String,
+    @JsonProperty("healthEndpoint")
+    val healthEndpoint: String? = null,
     @JsonProperty("resiliencyTests")
     val resiliencyTests: ResiliencyTestsConfig? = null,
     @JsonProperty("examples")
@@ -41,4 +43,3 @@ data class OpenAPITestConfig(
         }
     }
 }
-

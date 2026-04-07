@@ -387,12 +387,14 @@ open class SpecmaticJUnitSupport {
 
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
         testBuildResult.baseUrls.forEach { baseUrl ->
-            if (isBaseURLReachable(baseUrl, keyData = keyDataFor(baseUrl))) return@forEach
+            val preflightURL = preflightConnectivityURL(baseUrl)
+            if (isReachable(preflightURL, keyData = keyDataFor(preflightURL))) return@forEach
             return loadExceptionAsTestError(e = ContractException("""
             Cannot connect to server at: $baseUrl
             Please check:
             - Is the server running?
             - Is the testBaseURL correct?
+            - If the application does not support HEAD on the base URL, configure runOptions.openapi.healthEndpoint in specmatic.yaml
             """.trimIndent()))
         }
 
@@ -772,6 +774,16 @@ open class SpecmaticJUnitSupport {
 
         return keyDataRegistry.get(host, port)
     }
+
+    private fun preflightConnectivityURL(baseUrl: String): String {
+        val healthEndpoint = specmaticConfig.getTestHealthEndpoint()?.takeIf { it.isNotBlank() }
+            ?: return canonicalBaseUrl(baseUrl)
+
+        return when {
+            healthEndpoint.startsWith("http://") || healthEndpoint.startsWith("https://") -> healthEndpoint
+            else -> URI(canonicalBaseUrl(baseUrl)).resolve(healthEndpoint).toString()
+        }
+    }
 }
 
 data class LoadedTestScenarios(
@@ -835,8 +847,15 @@ fun <T> selectTestsToRun(
 
 
 fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000, keyData: KeyData? = null): Boolean {
+    return isReachable(canonicalBaseUrl(baseUrl), timeOutMs, keyData)
+}
+
+private fun canonicalBaseUrl(baseUrl: String): String {
+    return if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+}
+
+private fun isReachable(url: String, timeOutMs: Int = 3000, keyData: KeyData? = null): Boolean {
     return try {
-        val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         val connection = URL(url).openConnection() as HttpURLConnection
 
         if (connection is HttpsURLConnection) {

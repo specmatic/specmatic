@@ -1,5 +1,6 @@
 package io.specmatic.test
 
+import com.sun.net.httpserver.HttpServer
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
@@ -51,7 +52,10 @@ import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
 import java.io.File
 import java.io.PrintStream
+import java.net.InetSocketAddress
 import java.util.*
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class SpecmaticJunitSupportTest {
     companion object {
@@ -168,6 +172,188 @@ class SpecmaticJunitSupportTest {
             assertThat(url).isEqualTo("http://override.example:8080")
         } finally {
             SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `should use configured health endpoint for preflight connectivity check when available`(@TempDir tempDir: File) {
+        val specFile = writeSimpleSpec(tempDir)
+
+        localHttpTestServer(
+            mapOf(
+                "/" to mapOf(
+                    "HEAD" to ResponseSpec(500),
+                    "*" to ResponseSpec(404)
+                ),
+                "/_specmatic/health" to mapOf(
+                    "*" to ResponseSpec(200, "ok")
+                ),
+                "/hello" to mapOf(
+                    "*" to ResponseSpec(200)
+                )
+            )
+        ).use { server ->
+            val baseUrl = "http://localhost:${server.port}"
+            val configFile = writeSpecmaticConfig(
+                tempDir,
+                baseUrl = baseUrl,
+                healthEndpoint = "/_specmatic/health"
+            )
+
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.absolutePath,
+                    configFile = configFile.absolutePath,
+                    filter = ""
+                )
+            )
+
+            try {
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+                assertThat(tests).isNotEmpty
+                tests.forEach { test ->
+                    assertDoesNotThrow {
+                        test.executable.execute()
+                    }
+                }
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `should stop test execution when configured health endpoint preflight check fails`(@TempDir tempDir: File) {
+        val specFile = writeSimpleSpec(tempDir)
+
+        localHttpTestServer(
+            mapOf(
+                "/" to mapOf(
+                    "HEAD" to ResponseSpec(200),
+                    "*" to ResponseSpec(404)
+                ),
+                "/_specmatic/health" to mapOf(
+                    "*" to ResponseSpec(500)
+                ),
+                "/hello" to mapOf(
+                    "*" to ResponseSpec(200)
+                )
+            )
+        ).use { server ->
+            val baseUrl = "http://localhost:${server.port}"
+            val configFile = writeSpecmaticConfig(
+                tempDir,
+                baseUrl = baseUrl,
+                healthEndpoint = "/_specmatic/health"
+            )
+
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.absolutePath,
+                    configFile = configFile.absolutePath,
+                    filter = ""
+                )
+            )
+
+            try {
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+                assertThat(tests).hasSize(1)
+                val exception = assertThrows<AssertionError> {
+                    tests.single().executable.execute()
+                }
+
+                assertThat(exception.message).contains("Cannot connect to server at: $baseUrl")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `should use base URL HEAD for preflight connectivity check and continue test execution when health endpoint is not configured`(@TempDir tempDir: File) {
+        val specFile = writeSimpleSpec(tempDir)
+
+        localHttpTestServer(
+            mapOf(
+                "/" to mapOf(
+                    "HEAD" to ResponseSpec(200),
+                    "*" to ResponseSpec(404)
+                ),
+                "/hello" to mapOf(
+                    "*" to ResponseSpec(200)
+                )
+            )
+        ).use { server ->
+            val baseUrl = "http://localhost:${server.port}"
+            val configFile = writeSpecmaticConfig(tempDir, baseUrl = baseUrl)
+
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.absolutePath,
+                    configFile = configFile.absolutePath,
+                    filter = ""
+                )
+            )
+
+            try {
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+                assertThat(tests).isNotEmpty
+                tests.forEach { test ->
+                    assertDoesNotThrow {
+                        test.executable.execute()
+                    }
+                }
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `should use base URL HEAD for preflight connectivity check and if it fails stop test execution with health endpoint guidance`(@TempDir tempDir: File) {
+        val specFile = writeSimpleSpec(tempDir)
+
+        localHttpTestServer(
+            mapOf(
+                "/" to mapOf(
+                    "HEAD" to ResponseSpec(500),
+                    "*" to ResponseSpec(404)
+                ),
+                "/_specmatic/health" to mapOf(
+                    "*" to ResponseSpec(200, "ok")
+                ),
+                "/hello" to mapOf(
+                    "*" to ResponseSpec(200)
+                )
+            )
+        ).use { server ->
+            val baseUrl = "http://localhost:${server.port}"
+            val configFile = writeSpecmaticConfig(tempDir, baseUrl = baseUrl)
+
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(
+                    contractPaths = specFile.absolutePath,
+                    configFile = configFile.absolutePath,
+                    filter = ""
+                )
+            )
+
+            try {
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+                assertThat(tests).hasSize(1)
+                val exception = assertThrows<AssertionError> {
+                    tests.single().executable.execute()
+                }
+
+                assertThat(exception.message).contains("Cannot connect to server at: $baseUrl")
+                assertThat(exception.message).contains("runOptions.openapi.healthEndpoint")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
         }
     }
 
@@ -1005,7 +1191,7 @@ paths:
             .isEqualTo(0)
     }
 
-    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null): File {
+    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, healthEndpoint: String? = null): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
             version = SpecmaticConfigVersion.VERSION_3,
@@ -1013,7 +1199,7 @@ paths:
                 service = RefOrValue.Value(
                     CommonServiceConfig(
                         definitions = emptyList(),
-                        runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl))),
+                        runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl, healthEndpoint = healthEndpoint))),
                         settings = RefOrValue.Value(TestSettings())
                     )
                 )
@@ -1021,6 +1207,71 @@ paths:
         )
         configFile.writeText(yamlMapper.writeValueAsString(config))
         return configFile
+    }
+
+    private fun writeSimpleSpec(tempDir: File): File {
+        val specFile = tempDir.resolve("openapi.yaml")
+        specFile.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Reachability Test API
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+            """.trimIndent()
+        )
+        return specFile
+    }
+
+    private fun localHttpTestServer(
+        responsesByPath: Map<String, Map<String, ResponseSpec>>
+    ): LocalHttpTestServer {
+        val server = HttpServer.create(InetSocketAddress("localhost", 0), 0)
+
+        responsesByPath.forEach { (path, responsesByMethod) ->
+            server.createContext(path) { exchange ->
+                val response = responsesByMethod[exchange.requestMethod.uppercase()]
+                    ?: responsesByMethod["*"]
+                    ?: ResponseSpec(404)
+
+                if (response.body == null) {
+                    exchange.sendResponseHeaders(response.status, -1)
+                } else {
+                    val responseBytes = response.body.toByteArray()
+                    exchange.sendResponseHeaders(response.status, responseBytes.size.toLong())
+                    exchange.responseBody.use { outputStream -> outputStream.write(responseBytes) }
+                }
+                exchange.close()
+            }
+        }
+
+        val executor = Executors.newSingleThreadExecutor()
+        server.executor = executor
+        server.start()
+
+        return LocalHttpTestServer(server, executor)
+    }
+
+    private data class ResponseSpec(
+        val status: Int,
+        val body: String? = null
+    )
+
+    private data class LocalHttpTestServer(
+        val server: HttpServer,
+        val executor: ExecutorService
+    ) : AutoCloseable {
+        val port: Int get() = server.address.port
+
+        override fun close() {
+            server.stop(0)
+            executor.shutdownNow()
+        }
     }
 
     private class RecordingExampleErrorsListener : TestReportListener {

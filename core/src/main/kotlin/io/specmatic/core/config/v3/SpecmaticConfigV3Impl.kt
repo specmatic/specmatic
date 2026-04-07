@@ -441,6 +441,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
         return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUiBaseUrl
     }
 
+    override fun getTestHealthEndpoint(): String? {
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.healthEndpoint
+    }
+
     override fun getTestJunitReportDir(): String? {
         return testSettings.junitReportDir
     }

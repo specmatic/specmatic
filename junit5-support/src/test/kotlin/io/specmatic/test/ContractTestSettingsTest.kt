@@ -78,6 +78,26 @@ class ContractTestSettingsTest {
     }
 
     @Test
+    fun `getSpecmaticConfig should read preflight connectivity health endpoint from config`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(
+            tempDir,
+            baseUrl = "http://config.example:9000",
+            healthEndpoint = "/_specmatic/health"
+        )
+        val settings = ContractTestSettings(configFile = configFile.absolutePath)
+
+        assertThat(settings.getSpecmaticConfig().getTestHealthEndpoint()).isEqualTo("/_specmatic/health")
+    }
+
+    @Test
+    fun `getSpecmaticConfig should expose null preflight connectivity health endpoint when config is missing it`(@TempDir tempDir: File) {
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = "http://config.example:9000")
+        val settings = ContractTestSettings(configFile = configFile.absolutePath)
+
+        assertThat(settings.getSpecmaticConfig().getTestHealthEndpoint()).isNull()
+    }
+
+    @Test
     fun `getSpecmaticConfig should override resiliency config to all when generative is true`(@TempDir tempDir: File) {
         val configFile = writeSpecmaticConfig(tempDir, resiliency = ResiliencyTestSuite.positiveOnly)
         val settings = ContractTestSettings(configFile = configFile.absolutePath, generative = true)
@@ -107,7 +127,12 @@ class ContractTestSettingsTest {
         assertThat(copied.lenientMode).isNull()
     }
 
-    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, resiliency: ResiliencyTestSuite? = null): File {
+    private fun writeSpecmaticConfig(
+        tempDir: File,
+        baseUrl: String? = null,
+        healthEndpoint: String? = null,
+        resiliency: ResiliencyTestSuite? = null
+    ): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
             version = SpecmaticConfigVersion.VERSION_3,
@@ -115,7 +140,7 @@ class ContractTestSettingsTest {
                 service = RefOrValue.Value(
                     CommonServiceConfig(
                         definitions = emptyList(),
-                        runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl))),
+                        runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl, healthEndpoint = healthEndpoint))),
                         settings = RefOrValue.Value(TestSettings(schemaResiliencyTests = resiliency))
                     )
                 )

@@ -17,6 +17,7 @@ sealed interface OpenApiRunOptions : IRunOptions { val type: RunOptionType? }
 data class OpenApiTestConfig(
     override val type: RunOptionType? = null,
     val baseUrl: String? = null,
+    val healthEndpoint: String? = null,
     val host: String? = null,
     val port: Int? = null,
     val filter: String? = null,
