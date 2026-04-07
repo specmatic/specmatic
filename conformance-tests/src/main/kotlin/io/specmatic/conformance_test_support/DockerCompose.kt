@@ -92,7 +92,8 @@ class DockerCompose(
                     mapOf(
                         "SPECMATIC_VERSION" to specmaticVersion,
                         "MITM_PROXY_VERSION" to mitmProxyVersion,
-                        "PATH_TO_OPEN_API_SPEC_FILE" to "./${specsDirName}/${pathToOpenAPISpecFile}"
+                        "PATH_TO_OPEN_API_SPEC_FILE" to "./${specsDirName}/${pathToOpenAPISpecFile}",
+                        "SPECMATIC_TELEMETRY_EXTRA_LABELS" to "conformance-tests"
                     )
                 )
             }
