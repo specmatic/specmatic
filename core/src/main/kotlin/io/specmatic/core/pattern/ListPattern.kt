@@ -18,16 +18,16 @@ data class ListPattern(
     init {
         minItems?.let {
             if (it < 0) {
-                throw ContractException("minItems $it cannot be less than 0")
+                throw ContractException("minItems must be >= 0, but got $it")
             }
         }
         maxItems?.let {
             if (it < 0) {
-                throw ContractException("maxItems $it cannot be less than 0")
+                throw ContractException("maxItems must be >= 0, but got $it")
             }
         }
         if (minItems != null && maxItems != null && minItems > maxItems) {
-            throw ContractException("maxItems $maxItems cannot be less than minItems $minItems")
+            throw ContractException("maxItems ($maxItems) cannot be less than minItems ($minItems)")
         }
     }
     
