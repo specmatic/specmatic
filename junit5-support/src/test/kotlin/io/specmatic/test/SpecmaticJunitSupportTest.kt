@@ -39,7 +39,6 @@ import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.listeners.ContractExecutionListener
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
-import io.specmatic.test.reports.TestExecutionResult
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.AfterEach
@@ -53,8 +52,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
-import com.sun.net.httpserver.HttpServer
-import java.net.InetSocketAddress
+import io.specmatic.core.pattern.parsedJsonValue
+import io.specmatic.test.utils.MockHttpServer
 import java.io.File
 import java.io.PrintStream
 import java.net.ServerSocket
@@ -569,37 +568,55 @@ paths:
     @Test
     fun `contractTest should mark scenarios as EXCLUDED when filter excludes them`() {
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
-        val (server, baseUrl) = startAlphaBetaStubServer()
-        try {
-            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, configFile = "", generative = false, filter = "PATH='/alpha'",))
-            val output = captureStdout {
-                val tests = SpecmaticJUnitSupport().contractTest().toList()
-                assertThat(tests).hasSize(1)
-            }
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(
+                    ContractTestSettings(
+                        testBaseURL = server.baseUrl,
+                        contractPaths = specFile.canonicalPath,
+                        configFile = "",
+                        generative = false,
+                        filter = "PATH='/alpha'",
+                    )
+                )
 
-            assertThat(output).containsSubsequence(
-                "Skipping Scenario: GET /beta -> 200 (returns application/json)", "Excluded from Run",
-                "This operation was skipped because it did not match the selected filters"
-            )
-        } finally {
-            server.stop(0)
-            SpecmaticJUnitSupport.settingsStaging.remove()
+                val output = captureStdout {
+                    val tests = SpecmaticJUnitSupport().contractTest().toList()
+                    assertThat(tests).hasSize(1)
+                }
+
+                assertThat(output).containsSubsequence(
+                    "Skipping Scenario: GET /beta -> 200 (responseContentType application/json)", "Excluded from Run",
+                    "This operation was skipped because it did not match the selected filters"
+                )
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
         }
     }
 
     @Test
     fun `contractTest should use expression filter in no tests found message and mark scenarios as EXCLUDED`() {
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
-        val (server, baseUrl) = startAlphaBetaStubServer()
-        try {
-            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, configFile = "", generative = false, filter = "METHOD='PATCH'"))
-            val tests = SpecmaticJUnitSupport().contractTest().toList()
-            val error = assertThrows<AssertionError> { tests.single().executable.execute() }
-            assertThat(error.message).contains("No tests found to run.")
-            assertThat(error.message).contains("expression filter: \"METHOD='PATCH'\"")
-        } finally {
-            server.stop(0)
-            SpecmaticJUnitSupport.settingsStaging.remove()
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(
+                    ContractTestSettings(
+                        testBaseURL = server.baseUrl,
+                        contractPaths = specFile.canonicalPath,
+                        configFile = "",
+                        generative = false,
+                        filter = "METHOD='PATCH'"
+                    )
+                )
+
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+                val error = assertThrows<AssertionError> { tests.single().executable.execute() }
+                assertThat(error.message).contains("No tests found to run.")
+                assertThat(error.message).contains("expression filter: \"METHOD='PATCH'\"")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
         }
     }
 
@@ -607,22 +624,31 @@ paths:
     fun `contractTest should skip scenarios beyond maxTestCount`(@TempDir tempDir: File) {
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
         val configFile = writeSpecmaticConfig(tempDir, baseUrl = null, maxTestCount = 1)
-        val (server, baseUrl) = startAlphaBetaStubServer()
-        try {
-            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath, generative = false, filter = ""))
-            val output = captureStdout {
-                val tests = SpecmaticJUnitSupport().contractTest()
-                assertDoesNotThrow { tests.forEach { it.executable.execute() } }
-            }
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(
+                    ContractTestSettings(
+                        testBaseURL = server.baseUrl,
+                        contractPaths = specFile.canonicalPath,
+                        configFile = configFile.canonicalPath,
+                        generative = false,
+                        filter = ""
+                    )
+                )
 
-            assertThat(output).containsSubsequence(
-                "Skipping Scenario: GET /beta -> 200 (returns application/json) with the request from the example 'ok'",
-                "Maximum Test Count Exceeded",
-                "This operation was skipped because it exceeded the maximum test count"
-            )
-        } finally {
-            server.stop(0)
-            SpecmaticJUnitSupport.settingsStaging.remove()
+                val output = captureStdout {
+                    val tests = SpecmaticJUnitSupport().contractTest()
+                    assertDoesNotThrow { tests.forEach { it.executable.execute() } }
+                }
+
+                assertThat(output).containsSubsequence(
+                    "Skipping Scenario: GET /beta -> 200 (responseContentType application/json) with the request from the example 'ok'",
+                    "Maximum Test Count Exceeded",
+                    "This operation was skipped because it exceeded the maximum test count"
+                )
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
         }
     }
 
@@ -789,15 +815,14 @@ paths:
     fun `contractTest should send test decisions to coverage hooks via OpenApiCoverageReportInput`() {
         val listener = RecordingExampleErrorsListener()
         val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
-        val (server, baseUrl) = startAlphaBetaStubServer()
-
-        try {
-            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = baseUrl, contractPaths = specFile.canonicalPath, coverageHooks = listOf(listener)))
-            SpecmaticJUnitSupport().contractTest().toList()
-            assertThat(listener.decisions).isNotEmpty.allSatisfy { assertThat(it).isInstanceOf(Decision.Execute::class.java) }
-        } finally {
-            server.stop(0)
-            SpecmaticJUnitSupport.settingsStaging.remove()
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = server.baseUrl, contractPaths = specFile.canonicalPath, coverageHooks = listOf(listener)))
+                SpecmaticJUnitSupport().contractTest().toList()
+                assertThat(listener.decisions).isNotEmpty.allSatisfy { assertThat(it).isInstanceOf(Decision.Execute::class.java) }
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
         }
     }
 
@@ -1216,25 +1241,17 @@ paths:
         return configFile
     }
 
-    private fun startAlphaBetaStubServer(): Pair<HttpServer, String> {
-        val server = HttpServer.create(InetSocketAddress(0), 0)
-        server.createContext("/alpha") { exchange ->
-            val bytes = """{"value":"alpha"}""".toByteArray()
-            exchange.responseHeaders.add("Content-Type", "application/json")
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
-            exchange.responseBody.use { it.write(bytes) }
+    private fun createAlphaBetaServer(): MockHttpServer {
+        val server = MockHttpServer()
+        server.on("/alpha", "GET") {
+            respond(HttpResponse(status = 200, body = parsedJsonValue("""{"value":"alpha"}""")))
         }
 
-        server.createContext("/beta") { exchange ->
-            val bytes = """{"value":"beta"}""".toByteArray()
-            exchange.responseHeaders.add("Content-Type", "application/json")
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
-            exchange.responseBody.use { it.write(bytes) }
+        server.on("/beta", "GET") {
+            respond(HttpResponse(status = 200, body = parsedJsonValue("""{"value":"beta"}""")))
         }
 
-        server.start()
-        val baseUrl = "http://localhost:${server.address.port}"
-        return server to baseUrl
+        return server
     }
 
     private fun captureStdout(block: () -> Unit): String {

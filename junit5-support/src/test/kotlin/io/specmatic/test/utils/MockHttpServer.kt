@@ -111,6 +111,7 @@ class MockHttpServer(port: Int = randomFreePort(), private val resolver: Resolve
     private val server = HttpServer.create(InetSocketAddress(port), 0)
     private val expectations = CopyOnWriteArrayList<RegisteredExpectation>()
     val port: Int = server.address.port
+    val baseUrl: String = "http://localhost:$port"
 
     init {
         server.createContext("/", MockHttpServerHandler(::dispatch))
