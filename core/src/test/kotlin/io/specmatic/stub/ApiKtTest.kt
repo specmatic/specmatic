@@ -1,5 +1,6 @@
 package io.specmatic.stub
 
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
@@ -380,6 +381,55 @@ Feature: Math API
 
         assertThat(stub.request).isEqualTo(expectedRequest)
         assertThat(stub.response).isEqualTo(expectedResponse)
+    }
+
+    @Test
+    fun `should load a stub with no request body when OpenAPI requestBody is not explicitly required`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.1.0
+            info:
+              title: Test API
+              version: 1.0.0
+            paths:
+              /test:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          properties:
+                            prop:
+                              type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(),
+            ""
+        ).toFeature()
+
+        val stubInfo = loadContractStubs(
+            listOf("test.yaml" to feature),
+            listOf(
+                "sample.json" to ScenarioStub(
+                    HttpRequest(method = "POST", path = "/test", body = NoBodyValue),
+                    HttpResponse(status = 200, body = parsedValue("""{"message":"Test successful"}"""))
+                )
+            ),
+            logIgnoredFiles = true
+        )
+
+        assertThat(stubInfo.single().first).isEqualTo(feature)
+        assertThat(stubInfo.single().second).hasSize(1)
+        assertThat(stubInfo.single().second.single().request.body).isEqualTo(NoBodyValue)
     }
 
     @Test
