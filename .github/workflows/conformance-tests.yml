@@ -33,7 +33,7 @@ jobs:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         continue-on-error: true
         with:
-          gradle-extra-args: "-p conformance-tests test -PenableConformanceTests=true --tests 'io.specmatic.conformance_tests.S007Formats_003TimeTest"
+          gradle-extra-args: "-p conformance-tests test -PenableConformanceTests=true --tests 'io.specmatic.conformance_tests.S007Formats_003TimeTest'"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
 
       - name: Publish Test Report
