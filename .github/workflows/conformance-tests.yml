@@ -38,6 +38,7 @@ jobs:
 
       - name: Publish Test Report
         if: always()
+        continue-on-error: true
         uses: mikepenz/action-junit-report@v4
         with:
           report_paths: 'conformance-tests/build/test-results/test/*.xml'
