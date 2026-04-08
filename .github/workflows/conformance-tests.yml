@@ -15,5 +15,5 @@ jobs:
     steps:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
-          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true --tests \"io.specmatic.conformance_tests.S001Http*\""
+          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true --tests \"io.specmatic.conformance_tests.S001Http*\" --invalid-flag-to-test-failure"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
