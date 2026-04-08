@@ -14,6 +14,23 @@ jobs:
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
       checks: write # Required for test reporting
     steps:
+      - name: Configure Docker Daemon Networking
+        uses: docker/setup-docker-action@v5
+        with:
+          # the default address pools only allow upto 32 bridge networks. We create smaller ranges so
+          # that we can create many thousands of networks without worrying about running out of space.
+          # The conformance tests run and create networks in parallel and sometimes the cleanup of the network
+          # takes longer than expected.
+          # See also: https://straz.to/2021-09-08-docker-address-pools/
+          daemon-config: |
+            {
+              "default-address-pools": [
+                {
+                  "base": "172.17.0.0/12",
+                  "size": 25
+                }
+              ]
+            }
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
           gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true"
