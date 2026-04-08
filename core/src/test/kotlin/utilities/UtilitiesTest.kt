@@ -23,6 +23,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.mockk.*
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
@@ -570,8 +571,7 @@ internal class UtilitiesTest {
     )
     fun `unique names from operation information names should be path valid`(path: String?, baseURL: String, method: String, status: Int, expected: String) {
         val request = HttpRequest(method, path, emptyMap())
-        val actual = uniqueNameForApiOperation(request, baseURL, status, File("."))
-
+        val actual = uniqueNameForApiOperation(request, HttpResponse(status = status), baseURL, File("."))
         assertThat(actual).isEqualTo(expected)
         assertDoesNotThrow { File(actual).canonicalPath }
     }
@@ -583,7 +583,7 @@ internal class UtilitiesTest {
         every { scenario.operationMetadata } returns OperationMetadata(operationId = "create-order")
         every { scenario.status } returns 201
 
-        val output = uniqueNameForApiOperation(request, scenario, File("."), "prefix_")
+        val output = uniqueNameForApiOperation(request, HttpResponse(status = scenario.status), scenario, File("."), "prefix_")
         assertThat(output).isEqualTo("prefix_create-order_201")
     }
 
@@ -594,7 +594,7 @@ internal class UtilitiesTest {
         every { scenario.operationMetadata } returns OperationMetadata(operationId = "")
         every { scenario.status } returns 201
 
-        val output = uniqueNameForApiOperation(request, scenario, File("."), "prefix_")
+        val output = uniqueNameForApiOperation(request, HttpResponse(status = scenario.status), scenario, File("."), "prefix_")
         assertThat(output).isEqualTo("prefix_path_that_should_be_used_GET_201")
     }
 
@@ -605,7 +605,7 @@ internal class UtilitiesTest {
         every { scenario.operationMetadata } returns OperationMetadata(operationId = "create-order")
         every { scenario.status } returns 201
 
-        val output = uniqueNameForApiOperation(request, scenario, File("."))
+        val output = uniqueNameForApiOperation(request, HttpResponse(status = scenario.status), scenario, File("."))
         assertThat(output).isEqualTo("create-order_201")
     }
 
@@ -616,19 +616,39 @@ internal class UtilitiesTest {
         every { scenario.operationMetadata } returns OperationMetadata(operationId = "A".repeat(300))
         every { scenario.status } returns 200
 
-        val output = uniqueNameForApiOperation(request, scenario, File("."))
+        val output = uniqueNameForApiOperation(request, HttpResponse(status = scenario.status), scenario, File("."))
         assertThat(output.length).isLessThan(300)
         assertThat(output.length).isLessThanOrEqualTo(255)
         assertThat(output).matches("A*_[0-9a-f]{12}$")
     }
 
     @Test
+    fun `uniqueNameForApiOperation with scenario should include request and response media types`() {
+        val request = HttpRequest(method = "POST", path = "/orders", headers = mapOf("Content-Type" to "application/json; charset=utf-8"))
+        val response = HttpResponse(status = 201, headers = mapOf("Content-Type" to "application/problem+json; charset=utf-8"))
+        val scenario = mockk<Scenario>()
+        every { scenario.operationMetadata } returns OperationMetadata(operationId = "create-order")
+        every { scenario.status } returns 201
+
+        val output = uniqueNameForApiOperation(request, response, scenario, File("."))
+        assertThat(output).isEqualTo("create-order_application_json_201_application_problem+json")
+    }
+
+    @Test
     fun `uniqueNameForApiOperation with request details should budget long generated name`() {
         val request = HttpRequest("GET", "http://example.com/" + "segment/".repeat(80), emptyMap())
-        val output = uniqueNameForApiOperation(request, "http://example.com", 200, File("."))
+        val output = uniqueNameForApiOperation(request, HttpResponse(status = 200), "http://example.com", File("."))
         assertThat(output.length).isLessThan(request.path!!.length)
         assertThat(output.length).isLessThanOrEqualTo(255)
         assertThat(output).matches(".*_[0-9a-f]{12}$")
+    }
+
+    @Test
+    fun `uniqueNameForApiOperation with request details should include request and response media types`() {
+        val request = HttpRequest(method = "POST", path = "http://example.com/orders", headers = mapOf("Content-Type" to "application/json; charset=utf-8"))
+        val response = HttpResponse(status = 200, headers = mapOf("Content-Type" to "text/plain; charset=utf-8"))
+        val output = uniqueNameForApiOperation(request, response, "http://example.com", File("."))
+        assertThat(output).isEqualTo("orders_POST_application_json_200_text_plain")
     }
 
     @Test

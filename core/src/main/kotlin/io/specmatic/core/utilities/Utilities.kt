@@ -485,28 +485,27 @@ fun nullOrExceptionString(fn: () -> Result): String? {
 }
 
 private fun sanitizeFilename(input: String): String = input.replace(Regex("""[\\/:*?"'<>| ]"""), "_")
+private fun mediaTypeSuffix(contentType: String?): String = contentType?.substringBefore(";")?.takeUnless(String::isBlank)?.let { "_$it" }.orEmpty()
+private fun buildOperationFileName(baseName: String, httpRequest: HttpRequest, httpResponse: HttpResponse, prefix: String, suffix: String): String {
+    val reqContentType = mediaTypeSuffix(httpRequest.contentType())
+    val resContentType = mediaTypeSuffix(httpResponse.contentType())
+    return "$prefix$baseName${reqContentType}_${httpResponse.status}$resContentType$suffix"
+}
 
-fun uniqueNameForApiOperation(httpRequest: HttpRequest, scenario: Scenario, baseDir: File, prefix: String = ""): String {
-    val operationId = scenario.operationMetadata?.operationId?.takeUnless { it.isNullOrBlank() }
+fun uniqueNameForApiOperation(httpRequest: HttpRequest, httpResponse: HttpResponse, scenario: Scenario, baseDir: File, prefix: String = "", suffix: String = ""): String {
+    val operationId = scenario.operationMetadata?.operationId?.takeUnless { it.isBlank() }
     if (operationId != null) {
-        val fileName = "$prefix${operationId}_${scenario.status}"
+        val fileName = buildOperationFileName(operationId, httpRequest, httpResponse, prefix, suffix)
         return sanitizeAndFitOsPathBudget(baseDir, fileName)
     }
 
-    return uniqueNameForApiOperation(httpRequest, "", scenario.status, baseDir, prefix)
+    return uniqueNameForApiOperation(httpRequest, httpResponse, "", baseDir, prefix, suffix)
 }
 
-fun uniqueNameForApiOperation(httpRequest: HttpRequest, baseURL: String, responseStatus: Int, baseDir: File, prefix: String = ""): String {
-    val (method, path, headers) = httpRequest
-    val contentType = headers[CONTENT_TYPE]?.substringBefore(";")?.takeUnless { it.isBlank() }?.let { "_$it" }.orEmpty()
-
-    val formattedPath = path?.removePrefix(baseURL)?.removePrefix("/").orEmpty()
-    val fileName = if (formattedPath.isEmpty()) {
-        "$prefix${method}_$responseStatus$contentType"
-    } else {
-        "$prefix${formattedPath}_${method}_${responseStatus}$contentType"
-    }
-
+fun uniqueNameForApiOperation(httpRequest: HttpRequest, httpResponse: HttpResponse, baseURL: String, baseDir: File, prefix: String = "", suffix: String = ""): String {
+    val formattedPath = httpRequest.path?.removePrefix(baseURL)?.removePrefix("/").orEmpty()
+    val baseName = if (formattedPath.isEmpty()) { httpRequest.method } else { "${formattedPath}_${httpRequest.method}" }.orEmpty()
+    val fileName = buildOperationFileName(baseName, httpRequest, httpResponse, prefix, suffix)
     return sanitizeAndFitOsPathBudget(baseDir, fileName)
 }
 
