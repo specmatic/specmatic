@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
@@ -21,6 +22,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -131,6 +133,335 @@ class ExampleModuleTest {
 
         assertThat(badRequestScenarioExamples).hasSize(4)
         assertThat(badRequestScenarioExamples.map { it.first.file }).containsExactlyInAnyOrderElementsOf(badRequestExamples)
+    }
+
+    @Nested
+    inner class GetExistingExampleFilesDisambiguationTest {
+        @Test
+        fun `get existing examples should treat response content type as scenario-disambiguating`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+
+            val jsonExampleFile = examplesDir.resolve("json-response.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/hello"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "application/json"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val textExampleFile = examplesDir.resolve("text-response.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/hello"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val jsonScenario = feature.scenarios.first { it.status == 200 && it.responseContentType == "application/json" }
+            val jsonScenarioExamples = exampleModule.getExistingExampleFiles(feature, jsonScenario, allExamples)
+            assertThat(jsonScenarioExamples.map { it.first.file }).containsExactly(jsonExampleFile)
+
+            val textScenario = feature.scenarios.first { it.status == 200 && it.responseContentType == "text/plain" }
+            val textScenarioExamples = exampleModule.getExistingExampleFiles(feature, textScenario, allExamples)
+            assertThat(textScenarioExamples.map { it.first.file }).containsExactly(textExampleFile)
+        }
+
+        @Test
+        fun `get existing examples should treat request content type as scenario-disambiguating`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /hello:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                      text/plain:
+                        schema:
+                          type: string
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+
+            val jsonExampleFile = examplesDir.resolve("json-request.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/hello", headers = mapOf(CONTENT_TYPE to "application/json")),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val textExampleFile = examplesDir.resolve("text-request.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/hello", headers = mapOf(CONTENT_TYPE to "text/plain")),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val jsonScenario = feature.scenarios.first { it.method == "POST" && it.path == "/hello" && it.requestContentType == "application/json" }
+            val jsonScenarioExamples = exampleModule.getExistingExampleFiles(feature, jsonScenario, allExamples)
+            assertThat(jsonScenarioExamples.map { it.first.file }).containsExactly(jsonExampleFile)
+
+            val textScenario = feature.scenarios.first { it.method == "POST" && it.path == "/hello" && it.requestContentType == "text/plain" }
+            val textScenarioExamples = exampleModule.getExistingExampleFiles(feature, textScenario, allExamples)
+            assertThat(textScenarioExamples.map { it.first.file }).containsExactly(textExampleFile)
+        }
+
+        @Test
+        fun `get existing examples should treat method as scenario-disambiguating`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                post:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+
+            val getExampleFile = examplesDir.resolve("get-example.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/hello"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val postExampleFile = examplesDir.resolve("post-example.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/hello"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val getScenario = feature.scenarios.first { it.method == "GET" && it.path == "/hello" && it.status == 200 }
+            val getScenarioExamples = exampleModule.getExistingExampleFiles(feature, getScenario, allExamples)
+            assertThat(getScenarioExamples.map { it.first.file }).containsExactly(getExampleFile)
+
+            val postScenario = feature.scenarios.first { it.method == "POST" && it.path == "/hello" && it.status == 200 }
+            val postScenarioExamples = exampleModule.getExistingExampleFiles(feature, postScenario, allExamples)
+            assertThat(postScenarioExamples.map { it.first.file }).containsExactly(postExampleFile)
+        }
+
+        @Test
+        fun `get existing examples should treat path as scenario-disambiguating`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+              /customers:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+
+            val ordersExampleFile = examplesDir.resolve("orders-example.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/orders"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val customersExampleFile = examplesDir.resolve("customers-example.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/customers"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val ordersScenario = feature.scenarios.first { it.method == "GET" && it.path == "/orders" && it.status == 200 }
+            val ordersScenarioExamples = exampleModule.getExistingExampleFiles(feature, ordersScenario, allExamples)
+            assertThat(ordersScenarioExamples.map { it.first.file }).containsExactly(ordersExampleFile)
+
+            val customersScenario = feature.scenarios.first { it.method == "GET" && it.path == "/customers" && it.status == 200 }
+            val customersScenarioExamples = exampleModule.getExistingExampleFiles(feature, customersScenario, allExamples)
+            assertThat(customersScenarioExamples.map { it.first.file }).containsExactly(customersExampleFile)
+        }
+
+        @Test
+        fun `get existing examples should treat status as scenario-disambiguating`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                    '400':
+                      description: bad request
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+
+            val okExampleFile = examplesDir.resolve("ok-example.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/hello"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val badRequestExampleFile = examplesDir.resolve("bad-request-example.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/hello"),
+                        response = HttpResponse(status = 400, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val okScenario = feature.scenarios.first { it.method == "GET" && it.path == "/hello" && it.status == 200 }
+            val okScenarioExamples = exampleModule.getExistingExampleFiles(feature, okScenario, allExamples)
+            assertThat(okScenarioExamples.map { it.first.file }).containsExactly(okExampleFile)
+
+            val badRequestScenario = feature.scenarios.first { it.method == "GET" && it.path == "/hello" && it.status == 400 }
+            val badRequestScenarioExamples = exampleModule.getExistingExampleFiles(feature, badRequestScenario, allExamples)
+            assertThat(badRequestScenarioExamples.map { it.first.file }).containsExactly(badRequestExampleFile)
+        }
+
+        @Test
+        fun `get existing examples should retain url path param mismatch when structure matches`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val scenario = feature.scenarios.first { it.method == "GET" && it.status == 200 }
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+            val mismatchedExampleFile = examplesDir.resolve("path-param-type-mismatch.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("GET", "/orders/abc"),
+                        response = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "text/plain"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val matchedExamples = exampleModule.getExistingExampleFiles(feature, scenario, allExamples)
+            assertThat(matchedExamples.map { it.first.file }).containsExactly(mismatchedExampleFile)
+        }
     }
 
     private fun ScenarioStub.toExamples(examplesDir: File): List<File> {
