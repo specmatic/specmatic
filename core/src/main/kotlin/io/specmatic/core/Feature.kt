@@ -980,7 +980,7 @@ data class Feature(
         return this.scenarioAssociatedTo(
             scenarios = scenarios,
             path = scenario.path, method = scenario.method,
-            responseStatusCode = responseStatusCode, contentType = scenario.requestContentType
+            responseStatusCode = responseStatusCode, reqContentType = scenario.requestContentType
         ) != null
     }
 
@@ -1173,18 +1173,29 @@ data class Feature(
         method: String,
         path: String,
         responseStatusCode: Int,
-        contentType: String? = null,
+        reqContentType: String? = null,
+        resContentType: String? = null,
         scenarios: List<Scenario> = this.scenarios,
     ): Scenario? {
         return scenarios.firstOrNull {
             it.method == method && it.status == responseStatusCode && it.path == path
-                    && (contentType == null || it.requestContentType == null || it.requestContentType == contentType)
+            && (reqContentType == null || it.requestContentType == reqContentType)
+            && (resContentType == null || it.responseContentType == resContentType)
         }
     }
 
     fun identifierMatchingScenario(httpRequest: HttpRequest, furtherPredicate: (Scenario) -> Boolean = { true }, updateResolver: (Resolver) -> Resolver = { it }): Scenario? {
         return scenarios.firstOrNull { scenario ->
-            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updateResolver(scenario.resolver)).isSuccess() && furtherPredicate(scenario)
+            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updateResolver(scenario.resolver)).isSuccess()
+            && furtherPredicate(scenario)
+        }
+    }
+
+    fun identifierMatchingScenario(httpRequest: HttpRequest, httpResponse: HttpResponse, furtherPredicate: (Scenario) -> Boolean = { true }, updateResolver: (Resolver) -> Resolver = { it }): Scenario? {
+        return scenarios.firstOrNull { scenario ->
+            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updateResolver(scenario.resolver)).isSuccess()
+            && scenario.httpResponsePattern.matchesStatusAndContentType(httpResponse, updateResolver(scenario.resolver)).isSuccess()
+            && furtherPredicate(scenario)
         }
     }
 

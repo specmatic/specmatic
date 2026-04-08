@@ -261,6 +261,12 @@ data class HttpResponsePattern(
         val newBodyPattern: Pattern = bodyPattern.addToFirstString(errorReport, resolver)
         return this.copy(body = newBodyPattern)
     }
+
+    fun matchesStatusAndContentType(httpResponse: HttpResponse, resolver: Resolver): Result {
+        val contentTypeMatches = headersPattern.matchContentType(httpResponse.headers to resolver)
+        if (contentTypeMatches is MatchFailure<*>) return contentTypeMatches.error.breadCrumb(BreadCrumb.RESPONSE.plus(BreadCrumb.HEADER).value)
+        return matchStatus(Pair(httpResponse, resolver)).toResult { it }
+    }
 }
 
 private val valueMismatchMessages = object : MismatchMessages {

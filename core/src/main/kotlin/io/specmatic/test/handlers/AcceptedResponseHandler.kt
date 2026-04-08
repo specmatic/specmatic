@@ -135,7 +135,7 @@ class AcceptedResponseHandler(
             path = originalScenario.path,
             method = originalScenario.method,
             responseStatusCode = HttpStatusCode.Accepted.value,
-            contentType = originalScenario.requestContentType,
+            reqContentType = originalScenario.requestContentType,
         )
     }
 
