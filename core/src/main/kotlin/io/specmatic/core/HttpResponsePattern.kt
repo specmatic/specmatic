@@ -262,8 +262,16 @@ data class HttpResponsePattern(
         return this.copy(body = newBodyPattern)
     }
 
+    fun matchesStatusAndContentType(httpResponse: HttpResponse, resolver: Resolver): Result {
+        val contentTypeMatches = matchesContentType(httpResponse, resolver)
+        val statusResult = matchStatus(Pair(httpResponse, resolver)).toResult { it }
+        return Result.fromResults(listOf(statusResult, contentTypeMatches))
+    }
+
     fun matchesContentType(httpResponse: HttpResponse, resolver: Resolver): Result {
-        return this.headersPattern.matchContentType(httpResponse.headers to resolver).toResult { it }
+        return this.headersPattern.matchContentType(httpResponse.headers to resolver).toResult {
+            it.breadCrumb(BreadCrumb.RESPONSE.plus(BreadCrumb.HEADER).value)
+        }
     }
 }
 

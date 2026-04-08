@@ -129,6 +129,52 @@ internal class HttpResponsePatternTest {
         assertThat(response.body).isEqualTo(NoBodyValue)
     }
 
+    @Test
+    fun `matchesStatusAndContentType should succeed when status and content type both match`() {
+        val pattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json"))
+        val result = pattern.matchesStatusAndContentType(
+            httpResponse = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json")),
+            resolver = Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `matchesStatusAndContentType should succeed when status and simplified content type both match`() {
+        val pattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json"))
+        val result = pattern.matchesStatusAndContentType(
+            httpResponse = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/json; charset=utf-8")),
+            resolver = Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `matchesStatusAndContentType should fail with response breadcrumb when content type mismatches`() {
+        val pattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json"))
+        val result = pattern.matchesStatusAndContentType(
+            httpResponse = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml")),
+            resolver = Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains(">> RESPONSE.HEADER.Content-Type")
+    }
+
+    @Test
+    fun `matchesStatusAndContentType should fail with status breadcrumb when status mismatches`() {
+        val pattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json"))
+        val result = pattern.matchesStatusAndContentType(
+            httpResponse = HttpResponse(status = 201, headers = mapOf("Content-Type" to "application/json")),
+            resolver = Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains(">> RESPONSE.STATUS")
+    }
+
     @Nested
     inner class GenerateResponseV2Tests {
 
