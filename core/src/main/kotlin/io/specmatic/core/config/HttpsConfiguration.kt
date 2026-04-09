@@ -1,5 +1,6 @@
 package io.specmatic.core.config
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
@@ -108,6 +109,7 @@ data class HttpsConfiguration(
 
     fun keyPasswordOrDefault(): String = keyStore?.password ?: "forgotten"
 
+    @JsonIgnore
     fun isMtlsEnabled(): Boolean = mtlsEnabled == true
 
     fun overrideWith(other: HttpsConfiguration?): HttpsConfiguration {

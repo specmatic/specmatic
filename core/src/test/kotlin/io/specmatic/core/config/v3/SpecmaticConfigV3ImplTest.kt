@@ -114,6 +114,45 @@ class SpecmaticConfigV3ImplTest {
     }
 
     @Test
+    fun `should resolve mTLS setting from referenced v3 mock run options cert`() {
+        val config = v3Config(
+            """
+            version: 3
+            components:
+              runOptions:
+                mtlsMock:
+                  openapi:
+                    type: mock
+                    host: localhost
+                    port: 9443
+                    cert:
+                      mtlsEnabled: true
+                      keyStore:
+                        file: ./server-cert.jks
+                      keyStorePassword: password
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./specs
+                          specs:
+                            - spec:
+                                id: order-api
+                                path: order.yaml
+                    runOptions:
+                      ${'$'}ref: "#/components/runOptions/mtlsMock"
+            """.trimIndent()
+        )
+
+        val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
+
+        assertThat(incomingMtlsRegistry.get("localhost", 9443)).isTrue()
+    }
+
+    @Test
     fun `should resolve mTLS setting from v3 wsdl mock run options cert`() {
         val config = v3Config(
             """
