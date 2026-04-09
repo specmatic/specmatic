@@ -40,9 +40,10 @@ jobs:
         if: always()
         continue-on-error: true
         uses: mikepenz/action-junit-report@v4
-        check_name: ""
         with:
           report_paths: 'conformance-tests/build/test-results/test/*.xml'
           detailed_summary: false
           include_passed: true
           require_tests: false
+          check_name: "conformance-tests-results"
+          annotate_only: true
