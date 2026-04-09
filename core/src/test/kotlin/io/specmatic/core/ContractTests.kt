@@ -1082,7 +1082,13 @@ Examples:
             routing {
                 route("/{...}") {
                     handle {
-                        val body = parsedJSONObject(call.receiveText())
+                        val requestText = call.receiveText()
+                        if (requestText.isBlank()) {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@handle
+                        }
+
+                        val body = parsedJSONObject(requestText)
 
                         when(body.jsonObject["id"]) {
                             is NumberValue -> call.respondText("Hello, Ktor!")
