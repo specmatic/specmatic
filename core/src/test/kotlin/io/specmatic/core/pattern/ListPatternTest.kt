@@ -3,8 +3,10 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import io.specmatic.shouldNotMatch
@@ -954,6 +956,164 @@ Feature: Recursive test
 
             assertThat(paths).hasSize(100)
             assertThat(paths).allMatch { it.matches(Regex("\\{\\[\\d+]\\}\\{string\\}")) }
+        }
+    }
+
+    @Test
+    fun `should reject array with fewer items than minItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2
+        )
+
+        val arrayWithOneItem = JSONArrayValue(listOf(StringValue("item1")))
+        val result = pattern.matches(arrayWithOneItem, Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `should reject array with more items than maxItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            maxItems = 3
+        )
+
+        val arrayWithFourItems = JSONArrayValue(listOf(StringValue("item1"), StringValue("item2"), StringValue("item3"), StringValue("item4")))
+        val result = pattern.matches(arrayWithFourItems, Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `should generate arrays within minItems and maxItems constraints`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        repeat(10) {
+            val generated = pattern.generate(Resolver()) as JSONArrayValue
+            assertThat(generated.list.size).isBetween(2, 5)
+        }
+    }
+
+    @Test
+    fun `negativeBasedOn should generate size violations for minItems and maxItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        val allNegatives = pattern.negativeBasedOn(Row(), Resolver(), NegativePatternConfiguration())
+            .map { it.value }
+            .filterIsInstance<ListPattern>()
+            .toList()
+
+        // Filter to only size violations (where constraints differ from original)
+        val sizeViolations = allNegatives.filter {
+            (it.minItems != pattern.minItems) || (it.maxItems != pattern.maxItems)
+        }
+
+        val minItemsViolationCount = sizeViolations.count { it.maxItems != null && it.maxItems < 2 }
+        val maxItemsViolationCount = sizeViolations.count { it.minItems != null && it.minItems > 5 }
+
+        assertThat(minItemsViolationCount).isGreaterThan(0)
+        assertThat(maxItemsViolationCount).isGreaterThan(0)
+        assertThat(minItemsViolationCount + maxItemsViolationCount).isEqualTo(sizeViolations.size)
+    }
+
+    @Test
+    fun `negativeBasedOn should not generate invalid patterns when minItems is 0`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 0,
+            maxItems = 5
+        )
+
+        val negatives = pattern.negativeBasedOn(Row(), Resolver(), NegativePatternConfiguration())
+            .map { it.value }
+            .filterIsInstance<ListPattern>()
+            .toList()
+
+        // Should not have any patterns with negative minItems/maxItems
+        negatives.forEach {
+            if (it.minItems != null) {
+                assertThat(it.minItems).isGreaterThanOrEqualTo(0)
+            }
+            if (it.maxItems != null) {
+                assertThat(it.maxItems).isGreaterThanOrEqualTo(0)
+            }
+        }
+    }
+
+    @Test
+    fun `should create ListPattern with valid minItems and maxItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = 5)
+        assertThat(pattern.minItems).isEqualTo(2)
+        assertThat(pattern.maxItems).isEqualTo(5)
+    }
+
+    @Test
+    fun `should create ListPattern with minItems equal to maxItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = 3, maxItems = 3)
+        assertThat(pattern.minItems).isEqualTo(3)
+        assertThat(pattern.maxItems).isEqualTo(3)
+    }
+
+    @Test
+    fun `should create ListPattern with only minItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = 2, maxItems = null)
+        assertThat(pattern.minItems).isEqualTo(2)
+        assertThat(pattern.maxItems).isNull()
+    }
+
+    @Test
+    fun `should create ListPattern with only maxItems`() {
+        val pattern = ListPattern(StringPattern(), minItems = null, maxItems = 5)
+        assertThat(pattern.minItems).isNull()
+        assertThat(pattern.maxItems).isEqualTo(5)
+    }
+
+    @Test
+    fun `should throw exception when minItems is negative`() {
+        assertThatThrownBy {
+            ListPattern(StringPattern(), minItems = -1, maxItems = 5)
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("minItems must be >= 0, but got -1")
+    }
+
+    @Test
+    fun `should throw exception when maxItems is negative`() {
+        assertThatThrownBy {
+            ListPattern(StringPattern(), minItems = 0, maxItems = -1)
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("maxItems must be >= 0, but got -1")
+    }
+
+    @Test
+    fun `should throw exception when minItems is greater than maxItems`() {
+        assertThatThrownBy {
+            ListPattern(StringPattern(), minItems = 5, maxItems = 2)
+        }.isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("maxItems (2) cannot be less than minItems (5)")
+    }
+
+    @Test
+    fun `newBasedOn should preserve minItems and maxItems constraints`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        val newPatterns = pattern.newBasedOn(Resolver()).filterIsInstance<ListPattern>().toList()
+
+        assertThat(newPatterns).allSatisfy {
+            assertThat(it.minItems).isEqualTo(2)
+            assertThat(it.maxItems).isEqualTo(5)
         }
     }
 }
