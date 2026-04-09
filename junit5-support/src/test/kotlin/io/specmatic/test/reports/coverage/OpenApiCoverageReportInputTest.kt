@@ -1,6 +1,7 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.Result
+import io.specmatic.core.ScenarioDetailsForResult
 import io.specmatic.core.Scenario
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Decision
@@ -883,19 +884,99 @@ class OpenApiCoverageReportInputTest {
         )
 
         val report = reportInput.generate()
-        val wipRow = report.coverageRows.single { it.responseStatus == "405" }
-        val exercisedWipRow = report.coverageRows.single { it.responseStatus == "200" }
 
         assertThat(report.missedOperations).isEqualTo(0)
-        assertThat(exercisedWipRow.path).isEqualTo("/orders")
-        assertThat(exercisedWipRow.method).isEqualTo("GET")
-        assertThat(exercisedWipRow.remarks).isEqualTo(CoverageStatus.WIP)
-        assertThat(exercisedWipRow.count).isEqualTo("1")
-        assertThat(wipRow.path).isEqualTo("/orders")
-        assertThat(wipRow.method).isEqualTo("GET")
-        assertThat(wipRow.responseStatus).isEqualTo("405")
-        assertThat(wipRow.remarks).isEqualTo(CoverageStatus.WIP)
-        assertThat(wipRow.count).isEqualTo("0")
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 100, CoverageStatus.WIP)
+        )
+    }
+
+    @Test
+    fun `should not create synthetic missing in spec record for wip response mismatches`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/orders", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/orders",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 405,
+                specType = SpecType.OPENAPI,
+                isWip = true
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            endpointsAPISet = true,
+            applicationAPIs = mutableListOf(API("GET", "/orders")),
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints.toMutableList()
+        )
+
+        val report = reportInput.generate()
+
+        assertThat(report.missedOperations).isEqualTo(0)
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 100, CoverageStatus.WIP)
+        )
+    }
+
+    @Test
+    fun `should not create synthetic missing in spec record for response mismatches when scenario is marked wip`() {
+        val allEndpoints = mutableListOf(
+            Endpoint(
+                path = "/orders", method = "GET", responseStatus = 200,
+                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+            )
+        )
+        val wipScenario = object : ScenarioDetailsForResult {
+            override val status: Int = 200
+            override val ignoreFailure: Boolean = true
+            override val name: String = "orders wip"
+            override val method: String = "GET"
+            override val path: String = "/orders"
+            override fun testDescription(): String = "orders wip"
+        }
+
+        val testResultRecords = mutableListOf(
+            TestResultRecord(
+                "/orders",
+                "GET",
+                200,
+                request = null,
+                response = null,
+                result = TestResult.Error,
+                actualResponseStatus = 405,
+                scenarioResult = Result.Failure("status mismatch").updateScenario(wipScenario),
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val reportInput = OpenApiCoverageReportInput(
+            testResultRecords = testResultRecords,
+            configFilePath = "",
+            endpointsAPISet = true,
+            applicationAPIs = mutableListOf(API("GET", "/orders")),
+            allEndpoints = allEndpoints,
+            filteredEndpoints = allEndpoints.toMutableList()
+        )
+
+        val report = reportInput.generate()
+
+        assertThat(report.missedOperations).isEqualTo(0)
+        assertThat(report.coverageRows).containsExactly(
+            OpenApiCoverageConsoleRow("GET", "/orders", 200, 1, 100, CoverageStatus.WIP)
+        )
     }
 
     @Test

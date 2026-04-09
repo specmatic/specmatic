@@ -165,13 +165,14 @@ class OpenApiCoverageReportInput(
         val testResults = testResultRecords
             .plus(previousTestResultRecord)
             .filter { testResult -> excludedAPIs.none { it == testResult.path } }
+            .identifyWipTestsAndUpdateResult()
+
 
         val testResultsWithNotImplementedEndpoints =
             identifyFailedTestsDueToUnimplementedEndpointsAddMissingTests(testResults)
 
         return addTestResultsForMissingEndpoints(testResultsWithNotImplementedEndpoints)
             .addTestResultsForTestsNotGeneratedBySpecmatic(filteredEndpoints)
-            .identifyWipTestsAndUpdateResult()
     }
 
     fun generate(): OpenAPICoverageConsoleReport {
@@ -473,6 +474,10 @@ class OpenApiCoverageReportInput(
     }
 
     private fun TestResultRecord.testedEndpointIsMissingInSpec(): Boolean {
+        if (this.isWip) {
+            return false
+        }
+
         if (this.result == TestResult.NotImplemented) {
             return false
         }
