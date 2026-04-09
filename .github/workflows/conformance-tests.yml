@@ -48,3 +48,11 @@ jobs:
           check_name: "conformance-tests-results"
           annotate_only: true
           skip_annotations: true
+
+      - name: Upload HTML Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-test-report
+          path: conformance-tests/build/reports/tests/test/
+          retention-days: 30
