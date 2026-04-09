@@ -47,3 +47,4 @@ jobs:
           require_tests: false
           check_name: "conformance-tests-results"
           annotate_only: true
+          skip_annotations: true
