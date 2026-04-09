@@ -67,6 +67,7 @@ class RegexSupportTest {
                     post:
                       summary: "Get person by id"
                       requestBody:
+                        required: true
                         content:
                           application/json:
                             schema:
@@ -115,6 +116,7 @@ class RegexSupportTest {
                     post:
                       summary: "Get person by id"
                       requestBody:
+                        required: true
                         content:
                           application/json:
                             schema:
@@ -167,6 +169,7 @@ class RegexSupportTest {
                     post:
                       summary: "Get person by id"
                       requestBody:
+                        required: true
                         content:
                           application/json:
                             schema:

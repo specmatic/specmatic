@@ -16,6 +16,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/InputData'
+        required: true
       responses:
         '200':
           description: Says hello

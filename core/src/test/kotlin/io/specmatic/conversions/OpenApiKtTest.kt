@@ -408,7 +408,7 @@ Background:
                 }
             )
 
-        assertThat(results.results.size).isEqualTo(13)
+        assertThat(results.results.size).isEqualTo(14)
         assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(5)
         assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(8)
     }
@@ -453,7 +453,7 @@ Background:
             }
         )
 
-        assertThat(results.results.size).isEqualTo(17)
+        assertThat(results.results.size).isEqualTo(18)
         assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(4)
         assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(13)
     }

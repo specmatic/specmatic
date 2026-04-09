@@ -21,6 +21,7 @@ paths:
               value: 1
           required: true
       requestBody:
+        required: true
         content:
           application/json:
             schema:

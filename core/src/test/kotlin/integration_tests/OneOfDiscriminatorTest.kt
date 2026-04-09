@@ -2,8 +2,6 @@ package integration_tests
 
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
-import io.specmatic.core.SPECMATIC_TYPE_HEADER
-import io.specmatic.core.jsonObject
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.mock.ScenarioStub
@@ -21,7 +19,7 @@ class OneOfDiscriminatorTest {
     @Nested
     inner class ChildrenDoNotHaveDiscriminator {
         val getAPI = OpenApiSpecification.fromYAML(
-"""
+$$"""
 openapi: 3.0.3
 info:
   title: Product API
@@ -42,14 +40,14 @@ paths:
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Product'
 components:
   schemas:
     Product:
       type: object
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Food'
-        - ${"$"}ref: '#/components/schemas/Gadget'
+        - $ref: '#/components/schemas/Food'
+        - $ref: '#/components/schemas/Gadget'
       discriminator:
         propertyName: type
         mapping:
@@ -66,7 +64,7 @@ components:
 
     Food:
       allOf:
-        - ${"$"}ref: '#/components/schemas/ProductType'
+        - $ref: '#/components/schemas/ProductType'
         - type: object
           properties:
             id:
@@ -79,7 +77,7 @@ components:
 
     Gadget:
       allOf:
-        - ${"$"}ref: '#/components/schemas/ProductType'
+        - $ref: '#/components/schemas/ProductType'
         - type: object
           properties:
             id:
@@ -93,7 +91,7 @@ components:
         ).toFeature()
 
         val patchAPI = OpenApiSpecification.fromYAML(
-"""
+$$"""
 openapi: 3.0.3
 info:
   title: Product API
@@ -113,21 +111,21 @@ paths:
         content:
           application/json:
             schema:
-              ${"$"}ref: '#/components/schemas/Product'
+              $ref: '#/components/schemas/Product'
       responses:
         200:
           description: 'Successful response with product details'
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Product'
 components:
   schemas:
     Product:
       type: object
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Food'
-        - ${"$"}ref: '#/components/schemas/Gadget'
+        - $ref: '#/components/schemas/Food'
+        - $ref: '#/components/schemas/Gadget'
       discriminator:
         propertyName: type
         mapping:
@@ -144,7 +142,7 @@ components:
 
     Food:
       allOf:
-        - ${"$"}ref: '#/components/schemas/ProductType'
+        - $ref: '#/components/schemas/ProductType'
         - type: object
           properties:
             id:
@@ -157,7 +155,7 @@ components:
 
     Gadget:
       allOf:
-        - ${"$"}ref: '#/components/schemas/ProductType'
+        - $ref: '#/components/schemas/ProductType'
         - type: object
           properties:
             id:
@@ -290,11 +288,11 @@ components:
 
         @Test
         fun `tests from discriminator object without examples should generate the right objects`() {
-            val results = patchAPI.executeTests(object : TestExecutor {
+            patchAPI.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     val jsonRequest = request.body as? JSONObjectValue ?: fail("Expected request to be a json object")
 
-                    when(jsonRequest.findFirstChildByPath("type")?.toStringLiteral()) {
+                    when (jsonRequest.findFirstChildByPath("type")?.toStringLiteral()) {
                         "food" -> assertThat(jsonRequest.jsonObject).containsKey("expirationDate")
                         "gadget" -> assertThat(jsonRequest.jsonObject).containsKey("warrantyPeriod")
                         else -> fail("Expected request to have a type of either food or gadget")
@@ -309,7 +307,7 @@ components:
     @Test
     fun `discriminator in oneOf should be honored when children declare their own discriminator`() {
         val feature = OpenApiSpecification.fromYAML(
-            """
+            $$"""
 openapi: 3.0.3
 info:
   title: Product API
@@ -330,15 +328,15 @@ paths:
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Product'
 
 components:
   schemas:
     Product:
       type: object
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Food'
-        - ${"$"}ref: '#/components/schemas/Gadget'
+        - $ref: '#/components/schemas/Food'
+        - $ref: '#/components/schemas/Gadget'
       discriminator:
         propertyName: type
         mapping:
@@ -355,7 +353,7 @@ components:
 
     Food:
       allOf:
-        - ${"$"}ref: '#/components/schemas/ProductType'
+        - $ref: '#/components/schemas/ProductType'
         - type: object
           properties:
             id:
@@ -372,7 +370,7 @@ components:
 
     Gadget:
       allOf:
-        - ${"$"}ref: '#/components/schemas/ProductType'
+        - $ref: '#/components/schemas/ProductType'
         - type: object
           properties:
             id:
@@ -409,7 +407,7 @@ components:
 
     @Test
     fun `tests generated with discriminator should have only the discriminator values against the discriminator property`() {
-        val spec = """
+        val spec = $$"""
 openapi: 3.0.0
 info:
   title: Pet Store API
@@ -418,24 +416,25 @@ paths:
   /pets:
     post:
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              ${"$"}ref: '#/components/schemas/Pet'
+              $ref: '#/components/schemas/Pet'
       responses:
         '200':
           description: This is a 200 response.
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Pet'
+                $ref: '#/components/schemas/Pet'
 
 components:
   schemas:
     Pet:
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Dog'
-        - ${"$"}ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
       discriminator:
         propertyName: petType
         mapping:
@@ -458,7 +457,7 @@ components:
 
     Dog:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             barkVolume:
@@ -468,7 +467,7 @@ components:
 
     Cat:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             whiskerLength:
@@ -500,7 +499,7 @@ components:
 
     @Test
     fun `tests for api with discriminator having one example should result in one test`() {
-        val spec = """
+        val spec = $$"""
 openapi: 3.0.0
 info:
   title: Pet Store API
@@ -509,10 +508,11 @@ paths:
   /pets:
     post:
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              ${"$"}ref: '#/components/schemas/Pet'
+              $ref: '#/components/schemas/Pet'
             examples:
               dog:
                 value:
@@ -526,7 +526,7 @@ paths:
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Pet'
+                $ref: '#/components/schemas/Pet'
               examples:
                 dog:
                   value:
@@ -538,8 +538,8 @@ components:
   schemas:
     Pet:
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Dog'
-        - ${"$"}ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
       discriminator:
         propertyName: petType
         mapping:
@@ -562,7 +562,7 @@ components:
 
     Dog:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             barkVolume:
@@ -572,7 +572,7 @@ components:
 
     Cat:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             whiskerLength:
@@ -608,7 +608,7 @@ components:
 
     @Test
     fun `tests with discriminator should fail if the discriminator value is wrong`() {
-        val spec = """
+        val spec = $$"""
 openapi: 3.0.0
 info:
   title: Pet Store API
@@ -620,7 +620,7 @@ paths:
         content:
           application/json:
             schema:
-              ${"$"}ref: '#/components/schemas/Pet'
+              $ref: '#/components/schemas/Pet'
             examples:
               dog:
                 value:
@@ -640,7 +640,7 @@ paths:
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Pet'
+                $ref: '#/components/schemas/Pet'
               examples:
                 dog:
                   value:
@@ -659,8 +659,8 @@ components:
   schemas:
     Pet:
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Dog'
-        - ${"$"}ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
       discriminator:
         propertyName: petType
         mapping:
@@ -683,7 +683,7 @@ components:
 
     Dog:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             barkVolume:
@@ -693,7 +693,7 @@ components:
 
     Cat:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             whiskerLength:
@@ -720,7 +720,7 @@ components:
 
     @Test
     fun `positive generative tests with discriminator should contain only the discriminator value in the discriminator property`() {
-        val spec = """
+        val spec = $$"""
 openapi: 3.0.0
 info:
   title: Pet Store API
@@ -729,10 +729,11 @@ paths:
   /pets:
     post:
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              ${"$"}ref: '#/components/schemas/Pet'
+              $ref: '#/components/schemas/Pet'
             examples:
               dog:
                 value:
@@ -746,7 +747,7 @@ paths:
           content:
             application/json:
               schema:
-                ${"$"}ref: '#/components/schemas/Pet'
+                $ref: '#/components/schemas/Pet'
               examples:
                 dog:
                   value:
@@ -758,8 +759,8 @@ components:
   schemas:
     Pet:
       oneOf:
-        - ${"$"}ref: '#/components/schemas/Dog'
-        - ${"$"}ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
       discriminator:
         propertyName: petType
         mapping:
@@ -782,7 +783,7 @@ components:
 
     Dog:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             barkVolume:
@@ -792,7 +793,7 @@ components:
 
     Cat:
       allOf:
-        - ${"$"}ref: '#/components/schemas/Pet_base'
+        - $ref: '#/components/schemas/Pet_base'
         - type: object
           properties:
             whiskerLength:
@@ -823,7 +824,7 @@ components:
 
                 println(jsonRequest.toStringLiteral())
 
-                if (scenario.isNegative == false) {
+                if (!scenario.isNegative) {
                     jsonRequest.findFirstChildByPath("petType")?.toStringLiteral()?.let { petTypesSeen.add(it) }
                 }
             }
