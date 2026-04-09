@@ -42,7 +42,7 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         with:
           report_paths: 'conformance-tests/build/test-results/test/*.xml'
-          detailed_summary: false
+          detailed_summary: true
           include_passed: true
           require_tests: false
           check_name: "conformance-tests-results"
