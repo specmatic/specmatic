@@ -2,7 +2,7 @@ name: Conformance Tests
 
 on:
   push:
-    branches: [ "main", "conformance-reporting-in-ci" ]
+    branches: [ "main" ]
 
 jobs:
   conformance-tests:
