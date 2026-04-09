@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: "$ref to component parameter"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Items list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+    post:
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+components:
+  parameters:
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+    PageNumber:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer

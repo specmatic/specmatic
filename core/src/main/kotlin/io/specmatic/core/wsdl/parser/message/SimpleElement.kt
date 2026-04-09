@@ -1,6 +1,7 @@
 package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
@@ -12,15 +13,19 @@ import io.specmatic.core.wsdl.parser.WSDLTypeInfo
 import io.specmatic.core.wsdl.payload.SOAPPayload
 import io.specmatic.core.wsdl.payload.SimpleTypedSOAPPayload
 
-data class SimpleElement(val wsdlTypeReference: String, val element: XMLNode, val wsdl: WSDL) : WSDLElement {
-    override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, XMLPattern>, typeStack: Set<String>): WSDLTypeInfo {
-        return createSimpleType(element, wsdl).let { (nodes, prefix) ->
-            if(prefix != null) {
-                WSDLTypeInfo(nodes = nodes, existingTypes, setOf(prefix))
-            } else {
-                WSDLTypeInfo(nodes, existingTypes)
-            }
-        }
+data class SimpleElement(
+    val wsdlTypeReference: String,
+    val element: XMLNode,
+    val wsdl: WSDL,
+    val simpleTypeNode: XMLNode? = null
+) : WSDLElement {
+    override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, Pattern>, typeStack: Set<String>): WSDLTypeInfo {
+        return createSimpleTypeInfo(
+            typeSourceNode = simpleTypeNode ?: element,
+            wsdl = wsdl,
+            existingTypes = existingTypes,
+            actualElement = element
+        )
     }
 
     override fun getSOAPPayload(
@@ -35,6 +40,55 @@ data class SimpleElement(val wsdlTypeReference: String, val element: XMLNode, va
 
 }
 
+internal data class StringRestrictions(
+    val minLength: Int? = null,
+    val maxLength: Int? = null,
+    val regex: String? = null
+) {
+    val isEmpty: Boolean
+        get() = minLength == null && maxLength == null && regex == null
+}
+
+fun createSimpleTypeInfo(
+    typeSourceNode: XMLNode,
+    wsdl: WSDL,
+    existingTypes: Map<String, Pattern> = emptyMap(),
+    actualElement: XMLNode? = null
+): WSDLTypeInfo {
+    val resolvedElement = actualElement ?: typeSourceNode
+    val stringRestrictions = stringRestrictions(typeSourceNode)
+
+    return if (stringRestrictions != null && !stringRestrictions.isEmpty) {
+        createConstrainedStringTypeInfo(
+            resolvedElement = resolvedElement,
+            wsdl = wsdl,
+            stringRestrictions = stringRestrictions,
+            existingTypes = existingTypes
+        )
+    } else {
+        createSimpleType(typeSourceNode, wsdl, resolvedElement).let { (nodes, prefix) ->
+            toTypeInfo(nodes = nodes, existingTypes = existingTypes, prefix = prefix)
+        }
+    }
+}
+
+private fun createConstrainedStringTypeInfo(
+    resolvedElement: XMLNode,
+    wsdl: WSDL,
+    stringRestrictions: StringRestrictions,
+    existingTypes: Map<String, Pattern>
+): WSDLTypeInfo {
+    val specmaticAttributes = deriveSpecmaticAttributes(resolvedElement)
+    val fqname = resolvedElement.fullyQualifiedName(wsdl)
+    val prefix = fqname.prefix.ifBlank { null }
+    val constrainedNode = XMLNode(
+        fqname.qName,
+        specmaticAttributes,
+        listOf(constrainedStringValue(stringRestrictions))
+    )
+    return toTypeInfo(nodes = listOf(constrainedNode), existingTypes = existingTypes, prefix = prefix)
+}
+
 fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = null): Pair<List<XMLValue>, String?> {
     val value = elementTypeValue(element)
 
@@ -47,14 +101,92 @@ fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = nul
     return Pair(listOf(XMLNode(fqname.qName, specmaticAttributes, listOf(value))), prefix)
 }
 
-fun elementTypeValue(element: XMLNode): StringValue = when (val typeName = simpleTypeName(element)) {
+private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, Pattern>, prefix: String?): WSDLTypeInfo {
+    return if (prefix != null) {
+        WSDLTypeInfo(nodes = nodes, members = nodes.map { XMLPattern(it as XMLNode) }, types = existingTypes, namespacePrefixes = setOf(prefix))
+    } else {
+        WSDLTypeInfo(nodes = nodes, members = nodes.map { XMLPattern(it as XMLNode) }, types = existingTypes)
+    }
+}
+
+private fun stringRestrictions(element: XMLNode): StringRestrictions? {
+    val restrictionNode = restrictionNode(element) ?: return null
+    val baseType = restrictionNode.getAttributeValue("base").localName()
+
+    if (baseType != "token") {
+        return null
+    }
+
+    return StringRestrictions(
+        minLength = restrictionNode.findNumericRestrictionValue("minLength"),
+        maxLength = restrictionNode.findNumericRestrictionValue("maxLength"),
+        regex = restrictionNode.findRestrictionPattern()
+    )
+}
+
+private fun restrictionNode(element: XMLNode): XMLNode? {
+    if (element.name == "restriction") {
+        return element
+    }
+
+    val childElements = element.childNodes.filterIsInstance<XMLNode>()
+    return childElements.firstOrNull { it.name == "restriction" }
+        ?: childElements.firstOrNull { it.name == "simpleType" }?.let(::restrictionNode)
+}
+
+private fun XMLNode.findNumericRestrictionValue(name: String): Int? =
+    childNodes.filterIsInstance<XMLNode>()
+        .firstOrNull { it.name == name }
+        ?.attributes?.get("value")
+        ?.toStringLiteral()
+        ?.toIntOrNull()
+
+private fun XMLNode.findRestrictionPattern(): String? =
+    childNodes.filterIsInstance<XMLNode>()
+        .firstOrNull { it.name == "pattern" }
+        ?.attributes?.get("value")
+        ?.toStringLiteral()
+
+private fun constrainedStringValue(restrictions: StringRestrictions): StringValue {
+    val restrictionClauses = listOfNotNull(
+        restrictions.minLength?.let { "minLength $it" },
+        restrictions.maxLength?.let { "maxLength $it" },
+        restrictions.regex?.let { "regex $it" }
+    )
+
+    val token = if (restrictionClauses.isEmpty()) {
+        "(string)"
+    } else {
+        "(string) ${restrictionClauses.joinToString(" ")})"
+    }
+
+    return StringValue(token)
+}
+
+fun elementTypeValue(element: XMLNode): StringValue =
+    primitiveTypeValue(simpleTypeName(element))
+
+private fun primitiveTypeValue(typeName: String): StringValue = when (typeName) {
     in primitiveStringTypes -> StringValue("(string)")
+    in constrainedPrimitiveNumberTypes -> constrainedNumberValue(constrainedPrimitiveNumberTypes.getValue(typeName))
     in primitiveNumberTypes -> StringValue("(number)")
     in primitiveDateTypes -> StringValue("(datetime)")
     in primitiveBooleanType -> StringValue("(boolean)")
     "anyType" -> StringValue("(anything)")
-
     else -> throw ContractException("""Primitive type "$typeName" not recognized""")
+}
+
+private fun constrainedNumberValue(restriction: PrimitiveNumberRestriction): StringValue {
+    val clauses = listOfNotNull(
+        restriction.minimum?.let { "minimum $it" },
+        restriction.maximum?.let { "maximum $it" },
+    )
+
+    return if (clauses.isEmpty()) {
+        StringValue("(number)")
+    } else {
+        StringValue("(number) ${clauses.joinToString(" ")})")
+    }
 }
 
 fun simpleTypeName(element: XMLNode): String {

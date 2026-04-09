@@ -1,0 +1,60 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - contains and minContains"
+  version: "1.0"
+paths:
+  /teams:
+    get:
+      operationId: listTeams
+      responses:
+        '200':
+          description: Team list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+    post:
+      operationId: createTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Team'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Team:
+      type: object
+      required:
+        - name
+        - members
+      properties:
+        name:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+          contains:
+            type: object
+            required:
+              - role
+            properties:
+              role:
+                const: "lead"
+          minContains: 1
+    Member:
+      type: object
+      required:
+        - name
+        - role
+      properties:
+        name:
+          type: string
+        role:
+          type: string

@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Format - uint16 (OpenAPI)"
+  version: "1.0"
+paths:
+  /ports:
+    get:
+      operationId: listPorts
+      responses:
+        '200':
+          description: Port list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - service
+                    - port
+                  properties:
+                    service:
+                      type: string
+                    port:
+                      type: integer
+                      format: uint16
+    post:
+      operationId: createPorts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - service
+                - port
+              properties:
+                service:
+                  type: string
+                port:
+                  type: integer
+                  format: uint16
+      responses:
+        '201':
+          description: Created

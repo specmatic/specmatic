@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: "Path parameter - prefix before parameter"
+  version: "1.0"
+paths:
+  /items/item-{itemId}:
+    get:
+      operationId: getItem
+      summary: Get item with prefixed path segment
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Item found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - itemId
+                  - name
+                properties:
+                  itemId:
+                    type: integer
+                  name:
+                    type: string
+    post:
+      operationId: createItem
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - itemId
+                - name
+              properties:
+                itemId:
+                  type: integer
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created

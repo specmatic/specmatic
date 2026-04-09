@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - if/then/else conditional schema"
+  version: "1.0"
+paths:
+  /payments:
+    get:
+      operationId: listPayments
+      responses:
+        '200':
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - method
+                    - amount
+                  properties:
+                    id:
+                      type: integer
+                    method:
+                      type: string
+                      enum:
+                        - card
+                        - bank_transfer
+                    amount:
+                      type: number
+                    cardNumber:
+                      type: string
+                    bankAccount:
+                      type: string
+                  if:
+                    properties:
+                      method:
+                        const: "card"
+                  then:
+                    required:
+                      - cardNumber
+                  else:
+                    required:
+                      - bankAccount
+    post:
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - method
+                - amount
+              properties:
+                id:
+                  type: integer
+                method:
+                  type: string
+                  enum:
+                    - card
+                    - bank_transfer
+                amount:
+                  type: number
+                cardNumber:
+                  type: string
+                bankAccount:
+                  type: string
+              if:
+                properties:
+                  method:
+                    const: "card"
+              then:
+                required:
+                  - cardNumber
+              else:
+                required:
+                  - bankAccount
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - standalone null type"
+  version: "1.0"
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Event:
+      type: object
+      required:
+        - id
+        - name
+        - deletedAt
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        deletedAt:
+          type: "null"

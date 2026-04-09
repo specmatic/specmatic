@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - propertyNames"
+  version: "1.0"
+paths:
+  /content:
+    get:
+      operationId: listContent
+      responses:
+        '200':
+          description: Content list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocalizedContent'
+    post:
+      operationId: createContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocalizedContent'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    LocalizedContent:
+      type: object
+      required:
+        - id
+        - translations
+      properties:
+        id:
+          type: integer
+        translations:
+          type: object
+          additionalProperties:
+            type: string
+          propertyNames:
+            pattern: "^[a-z]{2}-[A-Z]{2}$"

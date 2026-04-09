@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - exclusiveMinimum/exclusiveMaximum as numbers"
+  version: "1.0"
+paths:
+  /measurements:
+    get:
+      operationId: listMeasurements
+      responses:
+        '200':
+          description: Measurement list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - temperature
+                    - pressure
+                  properties:
+                    id:
+                      type: integer
+                    temperature:
+                      type: number
+                      exclusiveMinimum: -273.15
+                      exclusiveMaximum: 1000.0
+                    pressure:
+                      type: integer
+                      exclusiveMinimum: 0
+                      exclusiveMaximum: 2000
+    post:
+      operationId: createMeasurement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - temperature
+                - pressure
+              properties:
+                id:
+                  type: integer
+                temperature:
+                  type: number
+                  exclusiveMinimum: -273.15
+                  exclusiveMaximum: 1000.0
+                pressure:
+                  type: integer
+                  exclusiveMinimum: 0
+                  exclusiveMaximum: 2000
+      responses:
+        '201':
+          description: Created

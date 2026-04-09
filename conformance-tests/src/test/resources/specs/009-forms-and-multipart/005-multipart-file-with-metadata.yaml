@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Multipart file upload with metadata fields"
+  version: "1.0"
+paths:
+  /attachments:
+    post:
+      operationId: uploadAttachment
+      summary: Upload a file with additional metadata
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - description
+              properties:
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+                category:
+                  type: string
+                  enum:
+                    - report
+                    - invoice
+                    - receipt
+      responses:
+        '201':
+          description: Attachment uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - filename
+                  - description
+                properties:
+                  id:
+                    type: integer
+                  filename:
+                    type: string
+                  description:
+                    type: string

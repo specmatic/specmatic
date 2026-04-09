@@ -11,11 +11,7 @@ import java.net.URL
 class WebSource(override val testContracts: List<ContractSourceEntry>, override val stubContracts: List<ContractSourceEntry>) : ContractSource {
     override val type: String = "web"
     override fun pathDescriptor(path: String): String {
-        return ""
-    }
-
-    override fun install(workingDirectory: File) {
-        logger.log("Install is not currently supported for web sources")
+        return path
     }
 
     override fun directoryRelativeTo(workingDirectory: File): File {

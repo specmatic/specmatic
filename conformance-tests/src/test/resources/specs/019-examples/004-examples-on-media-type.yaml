@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Examples on media type"
+  version: "1.0"
+paths:
+  /events:
+    post:
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - date
+              properties:
+                name:
+                  type: string
+                date:
+                  type: string
+                  format: date
+            examples:
+              conference:
+                summary: A conference event
+                value:
+                  name: Tech Summit
+                  date: "2025-06-15"
+              workshop:
+                summary: A workshop event
+                value:
+                  name: Kotlin Workshop
+                  date: "2025-07-01"
+      responses:
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

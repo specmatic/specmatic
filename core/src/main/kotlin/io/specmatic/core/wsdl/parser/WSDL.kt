@@ -1,6 +1,10 @@
 package io.specmatic.core.wsdl.parser
 
+import io.specmatic.core.Feature
 import io.specmatic.core.SPECMATIC_GITHUB_ISSUES
+import io.specmatic.core.Scenario
+import io.specmatic.core.ScenarioInfo
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.*
@@ -209,16 +213,37 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun convertToGherkin(): String {
+        val (url, soapParser) = endpoint()
+
+        return soapParser.convertToGherkin(url)
+    }
+
+    fun toFeature(path: String, specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Feature {
+        return Feature(
+            scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->
+                Scenario(scenarioInfo.copy(specification = path))
+            },
+            name = getServiceName().toStringLiteral(),
+            path = path,
+            specmaticConfig = specmaticConfig,
+            protocol = SpecmaticProtocol.SOAP,
+        )
+    }
+
+    fun toScenarioInfos(specmaticConfig: SpecmaticConfig = SpecmaticConfig()): List<ScenarioInfo> {
+        val (url, soapParser) = endpoint()
+        return soapParser.toScenarioInfos(url, specmaticConfig)
+    }
+
+    private fun endpoint(): Pair<String, SOAPParser> {
         val port = rootDefinition.getXMLNodeOrNull("service.port")
         val endpoint = rootDefinition.getXMLNodeOrNull("service.endpoint")
 
-        val (url, soapParser) = when {
+        return when {
             port != null -> Pair(port.getAttributeValueAtPath("address", "location"), SOAP11Parser(this))
             endpoint != null -> Pair(endpoint.getAttributeValueAtPath("address", "location"), SOAP20Parser())
             else -> throw ContractException("Could not find the service endpoint")
         }
-
-        return soapParser.convertToGherkin(url)
     }
 
     private fun findComplexType(

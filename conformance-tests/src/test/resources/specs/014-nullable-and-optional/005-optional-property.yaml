@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Optional (not required) property"
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                    bio:
+                      type: string
+                    age:
+                      type: integer
+    post:
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                bio:
+                  type: string
+                age:
+                  type: integer
+      responses:
+        '201':
+          description: Created

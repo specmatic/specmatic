@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with multiple field types"
+  version: "1.0"
+paths:
+  /registrations:
+    post:
+      operationId: registerUser
+      summary: Register with various field types via URL-encoded form
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - age
+                - subscribe
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                age:
+                  type: integer
+                subscribe:
+                  type: boolean
+      responses:
+        '201':
+          description: Registration created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

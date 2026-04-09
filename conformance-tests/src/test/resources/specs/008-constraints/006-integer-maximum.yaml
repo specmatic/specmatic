@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - integer maximum"
+  version: "1.0"
+paths:
+  /ratings:
+    get:
+      operationId: listRatings
+      responses:
+        '200':
+          description: Rating list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - item
+                    - rating
+                  properties:
+                    item:
+                      type: string
+                    rating:
+                      type: integer
+                      maximum: 5
+    post:
+      operationId: createRating
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - item
+                - rating
+              properties:
+                item:
+                  type: string
+                rating:
+                  type: integer
+                  maximum: 5
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - dependentRequired"
+  version: "1.0"
+paths:
+  /payments:
+    get:
+      operationId: listPayments
+      responses:
+        '200':
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethod'
+    post:
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethod'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    PaymentMethod:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+        cardNumber:
+          type: string
+        expirationDate:
+          type: string
+        bankAccount:
+          type: string
+      dependentRequired:
+        cardNumber:
+          - expirationDate

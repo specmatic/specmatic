@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "Multipart with multiple named file fields"
+  version: "1.0"
+paths:
+  /applications:
+    post:
+      operationId: submitApplication
+      summary: Submit an application with separate file fields
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - resume
+                - coverLetter
+              properties:
+                name:
+                  type: string
+                resume:
+                  type: string
+                  format: binary
+                coverLetter:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

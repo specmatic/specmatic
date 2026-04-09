@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: "Multipart binary with octet-stream encoding"
+  version: "1.0"
+paths:
+  /uploads:
+    post:
+      operationId: uploadBinaryFile
+      summary: Upload a binary file with octet-stream content type
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - filename
+              properties:
+                file:
+                  type: string
+                  format: binary
+                filename:
+                  type: string
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - size
+                properties:
+                  id:
+                    type: integer
+                  size:
+                    type: integer

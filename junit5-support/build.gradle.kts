@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.3.0"
+    kotlin("plugin.serialization") version "2.3.20"
 }
 
 dependencies {
@@ -29,5 +29,5 @@ dependencies {
     implementation("org.junit.platform:junit-platform-launcher:1.14.3")
     implementation("org.junit.platform:junit-platform-reporting:1.14.3")
 
-    implementation("org.fusesource.jansi:jansi:2.4.2")
+    implementation("org.fusesource.jansi:jansi:2.4.3")
 }

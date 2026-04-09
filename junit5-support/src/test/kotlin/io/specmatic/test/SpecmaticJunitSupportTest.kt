@@ -705,7 +705,6 @@ paths:
             filter = ScenarioMetadataFilter.from("")
         )
 
-        // asserting SpecType as OPENAPI because of the comment at io.specmatic.core.FeatureKt.getSpecType
         assertThat(loadedScenarios.allEndpoints).containsExactlyInAnyOrder(
             Endpoint(
                 path = "/ws",
@@ -713,8 +712,8 @@ paths:
                 responseStatus = 200,
                 soapAction = "getInventory",
                 specification = specFile.canonicalPath,
-                protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
+                protocol = SpecmaticProtocol.SOAP,
+                specType = SpecType.WSDL
             ),
             Endpoint(
                 path = "/ws",
@@ -722,8 +721,8 @@ paths:
                 responseStatus = 200,
                 soapAction = "addInventory",
                 specification = specFile.canonicalPath,
-                protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
+                protocol = SpecmaticProtocol.SOAP,
+                specType = SpecType.WSDL
             )
         )
     }
@@ -1038,6 +1037,7 @@ paths:
         override fun onEnd() = Unit
         override fun onCoverageCalculated(coverage: Int) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
+        override fun onGovernance(result: Result) = Unit
     }
 
     @AfterEach

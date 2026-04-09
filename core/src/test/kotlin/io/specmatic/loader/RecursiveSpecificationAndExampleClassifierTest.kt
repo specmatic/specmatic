@@ -497,6 +497,36 @@ class RecursiveSpecificationAndExampleClassifierTest {
     }
 
     @Test
+    fun `loadAll should skip excluded directories when configured`() {
+        directoryStructure {
+            spec("kept.spec")
+            dir(".specmatic") {
+                spec("ignored.spec")
+            }
+        }
+
+        val loader = createLoader(excludedDirectoryNames = setOf(".specmatic"))
+        val results = loader.loadAll(rootDir)
+
+        assertThat(results.map { it.specFile.name }).containsExactly("kept.spec")
+    }
+
+    @Test
+    fun `loadAll should scan dot specmatic by default`() {
+        directoryStructure {
+            spec("kept.spec")
+            dir(".specmatic") {
+                spec("included.spec")
+            }
+        }
+
+        val loader = createLoader()
+        val results = loader.loadAll(rootDir)
+
+        assertThat(results.map { it.specFile.name }).containsExactlyInAnyOrder("kept.spec", "included.spec")
+    }
+
+    @Test
     fun `should correctly isolate examples for multiple specs`() {
         val structure = directoryStructure {
             dir("common") {
@@ -731,10 +761,12 @@ class RecursiveSpecificationAndExampleClassifierTest {
         assertThat(adminSpec.examples.sharedExamples).hasSize(3)
     }
 
-    private fun createLoader(): RecursiveSpecificationAndExampleClassifier = RecursiveSpecificationAndExampleClassifier(
-        specmaticConfig = config.toSpecmaticConfig(),
-        strategy = strategy
-    )
+    private fun createLoader(excludedDirectoryNames: Set<String> = emptySet()): RecursiveSpecificationAndExampleClassifier =
+        RecursiveSpecificationAndExampleClassifier(
+            specmaticConfig = config.toSpecmaticConfig(),
+            strategy = strategy,
+            excludedDirectoryNames = excludedDirectoryNames
+        )
 
     private fun directoryStructure(builder: DirectoryBuilder.() -> Unit): DirectoryBuilder {
         val dirBuilder = DirectoryBuilder(rootDir)

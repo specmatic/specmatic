@@ -2,22 +2,14 @@
 
 package io.specmatic.core.git
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.azure.AzureAuthCredentials
-import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.utilities.GitRepo
-import io.specmatic.core.utilities.getTransportCallingCallback
+import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
-import io.ktor.http.*
-import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.transport.CredentialsProvider
-import org.eclipse.jgit.transport.HttpTransport
-import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.eclipse.jgit.transport.http.HttpConnection
 import org.eclipse.jgit.transport.http.HttpConnectionFactory
 import org.eclipse.jgit.transport.http.JDKHttpConnectionFactory
@@ -64,15 +56,57 @@ fun checkout(workingDirectory: File, branchName: String, useCurrentBranchForCent
 }
 
 private fun clone(gitRepositoryURI: String, cloneDirectory: File, specmaticConfig: SpecmaticConfig) {
-    try {
-        SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials(specmaticConfig, gitRepositoryURI)).clone(gitRepositoryURI, cloneDirectory)
-    } catch(exception: Exception) {
-        logger.debug("Falling back to jgit after trying shallow clone")
-        logger.debug(exception.localizedMessage ?: exception.message ?: "")
-        logger.debug(exception.stackTraceToString())
+    val systemGit: GitCommand = SystemGit(cloneDirectory.parent, "-", AzureAuthCredentials(specmaticConfig, gitRepositoryURI))
+    clone(gitRepositoryURI, cloneDirectory, specmaticConfig, systemGit, JGitCloneCmd())
+}
 
-        jgitClone(gitRepositoryURI, cloneDirectory, specmaticConfig)
+internal fun clone(
+    gitRepositoryURI: String,
+    cloneDirectory: File,
+    specmaticConfig: SpecmaticConfig,
+    systemGit: GitCommand,
+    jGitCloneCommand: JGitCloneCmd
+) {
+    try {
+        try {
+            systemGit.clone(gitRepositoryURI, cloneDirectory)
+        } catch(exception: Exception) {
+            logger.debug("Falling back to jgit after trying shallow clone")
+            logger.debug(exception.localizedMessage ?: exception.message ?: "")
+            logger.debug(exception.stackTraceToString())
+
+            jGitCloneCommand.execute(gitRepositoryURI, cloneDirectory, specmaticConfig)
+        }
+    } catch (e: Throwable) {
+        throw enrichContractRepoAccessError(e.message ?: exceptionCauseMessage(e), gitRepositoryURI)
     }
+}
+
+private fun enrichContractRepoAccessError(originalMessage: String, gitRepositoryURI: String): ContractException {
+    if (!looksLikeContractRepoReadAccessIssue(originalMessage)) {
+        return ContractException(originalMessage)
+    }
+
+    val enrichedMessage =
+        """
+        Failed to read contract repository $gitRepositoryURI
+        Specmatic only needs read access to load contracts.
+        Check that the supplied git credentials are valid, have read access to this repository, and are authorized for the organization or SSO if required.
+        
+        Original (misleading) error from Git repository hosting service:
+        $originalMessage
+        """.trimIndent()
+
+    return ContractException(enrichedMessage)
+}
+
+private fun looksLikeContractRepoReadAccessIssue(message: String): Boolean {
+    val normalizedMessage = message.lowercase()
+
+    return "requested url returned error: 403" in normalizedMessage ||
+            "requested url returned error: 401" in normalizedMessage ||
+            "write access to repository not granted" in normalizedMessage ||
+            "authentication failed" in normalizedMessage
 }
 
 private fun resetCloneDirectory(cloneDirectory: File) {
@@ -93,41 +127,6 @@ internal class InsecureHttpConnectionFactory : HttpConnectionFactory {
         val connection: HttpConnection = JDKHttpConnectionFactory().create(url, proxy)
         HttpSupport.disableSslVerify(connection)
         return connection
-    }
-}
-
-private fun jgitClone(gitRepositoryURI: String, cloneDirectory: File, specmaticConfig: SpecmaticConfig) {
-    val preservedConnectionFactory: HttpConnectionFactory = HttpTransport.getConnectionFactory()
-
-    try {
-        HttpTransport.setConnectionFactory(InsecureHttpConnectionFactory())
-
-        val evaluatedGitRepoURI = evaluateEnvVariablesInGitRepoURI(gitRepositoryURI, System.getenv())
-
-        val cloneCommand = Git.cloneRepository().apply {
-            setTransportConfigCallback(getTransportCallingCallback())
-            setURI(evaluatedGitRepoURI)
-            setDirectory(cloneDirectory)
-        }
-
-        val accessTokenText = getPersonalAccessToken(specmaticConfig, gitRepositoryURI)
-
-        if (accessTokenText != null) {
-            val credentialsProvider: CredentialsProvider = UsernamePasswordCredentialsProvider(accessTokenText, "")
-            cloneCommand.setCredentialsProvider(credentialsProvider)
-        } else {
-            val ciBearerToken = getBearerToken(specmaticConfig, gitRepositoryURI)
-
-            if (ciBearerToken != null) {
-                cloneCommand.setTransportConfigCallback(getTransportCallingCallback(ciBearerToken.encodeOAuth()))
-            }
-        }
-
-        logger.log("Cloning: $gitRepositoryURI -> ${cloneDirectory.canonicalPath}")
-
-        cloneCommand.call()
-    } finally {
-        HttpTransport.setConnectionFactory(preservedConnectionFactory)
     }
 }
 
@@ -185,13 +184,4 @@ fun getBearerToken(specmaticConfig: SpecmaticConfig, repositoryUrl: String): Str
 
 fun getPersonalAccessToken(specmaticConfig: SpecmaticConfig, repositoryUrl: String): String? {
     return specmaticConfig.getAuthPersonalAccessToken(repositoryUrl)?.takeIf { it.isNotBlank() }
-}
-
-private fun readConfig(configFile: File): Value {
-    try {
-        val config = loadSpecmaticConfig(configFile.path)
-        return parsedJSON(ObjectMapper().writeValueAsString(config))
-    } catch(e: Throwable) {
-        throw ContractException("Error loading Specmatic configuration: ${e.message}")
-    }
 }

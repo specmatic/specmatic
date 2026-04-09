@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: "Pagination with sorting parameters"
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users with pagination and sorting
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - name
+              - createdAt
+              - email
+            default: createdAt
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+      responses:
+        '200':
+          description: Paginated and sorted users
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - total
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                        - email
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        email:
+                          type: string
+                          format: email
+                  total:
+                    type: integer

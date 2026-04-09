@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: "Raw image request body (image/png)"
+  version: "1.0"
+paths:
+  /thumbnails:
+    post:
+      operationId: uploadThumbnail
+      summary: Upload a PNG image as raw body
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '201':
+          description: Thumbnail stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - url
+                properties:
+                  id:
+                    type: integer
+                  url:
+                    type: string

@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Security scheme - global security"
+  version: "1.0"
+security:
+  - bearerAuth: []
+paths:
+  /projects:
+    get:
+      operationId: listProjects
+      responses:
+        '200':
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+    post:
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

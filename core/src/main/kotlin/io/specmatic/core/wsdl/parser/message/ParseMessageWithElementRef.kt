@@ -1,30 +1,7 @@
 package io.specmatic.core.wsdl.parser.message
 
-import io.specmatic.core.pattern.XMLPattern
-import io.specmatic.core.utilities.capitalizeFirstChar
-import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
-import io.specmatic.core.wsdl.parser.SOAPMessageType
-import io.specmatic.core.wsdl.parser.WSDL
-import io.specmatic.core.wsdl.payload.SoapPayloadType
-
-data class ParseMessageWithElementRef(private val wsdl: WSDL, private val fullyQualifiedName: FullyQualifiedName, private val soapMessageType: SOAPMessageType, private val existingTypes: Map<String, XMLPattern>, private val operationName: String) : MessageTypeInfoParser {
-    override fun execute(): MessageTypeInfoParser {
-        val topLevelElement = wsdl.getSOAPElement(fullyQualifiedName)
-
-        val specmaticTypeName = "${operationName.replace(":", "_")}_SOAPPayload_${soapMessageType.messageTypeName.capitalizeFirstChar()}"
-
-        val typeInfo = topLevelElement.deriveSpecmaticTypes(specmaticTypeName, existingTypes, emptySet())
-
-        val namespaces: Map<String, String> = wsdl.getNamespaces(typeInfo)
-        val nodeNameForSOAPBody = (typeInfo.nodes.first() as XMLNode).realName
-
-        val soapPayload = topLevelElement.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
-
-        return MessageTypeProcessingComplete(SoapPayloadType(typeInfo.types, soapPayload))
-    }
-}
 
 fun deriveSpecmaticAttributes(element: XMLNode): Map<String, StringValue> {
     return when {
@@ -62,6 +39,7 @@ fun isPrimitiveType(node: XMLNode): Boolean {
 
 val primitiveStringTypes = listOf(
     "string",
+    "token",
     "duration",
     "time",
     "date",
@@ -76,10 +54,40 @@ val primitiveStringTypes = listOf(
     "QName",
     "NOTATION"
 )
-val primitiveNumberTypes = listOf("int", "integer", "long", "decimal", "float", "double", "numeric")
+val primitiveNumberTypes = listOf(
+    "byte",
+    "short",
+    "int",
+    "integer",
+    "long",
+    "unsignedByte",
+    "unsignedShort",
+    "unsignedInt",
+    "unsignedLong",
+    "positiveInteger",
+    "negativeInteger",
+    "nonPositiveInteger",
+    "nonNegativeInteger",
+    "decimal",
+    "float",
+    "double",
+    "numeric"
+)
 val primitiveDateTypes = listOf("dateTime")
 val primitiveBooleanType = listOf("boolean")
 val primitiveTypes = primitiveStringTypes.plus(primitiveNumberTypes).plus(primitiveDateTypes).plus(primitiveBooleanType)
+
+val constrainedPrimitiveNumberTypes = mapOf(
+    "positiveInteger" to PrimitiveNumberRestriction(minimum = "1"),
+    "negativeInteger" to PrimitiveNumberRestriction(maximum = "-1"),
+    "nonPositiveInteger" to PrimitiveNumberRestriction(maximum = "0"),
+    "nonNegativeInteger" to PrimitiveNumberRestriction(minimum = "0"),
+)
+
+data class PrimitiveNumberRestriction(
+    val minimum: String? = null,
+    val maximum: String? = null,
+)
 
 internal const val primitiveNamespace = "http://www.w3.org/2001/XMLSchema"
 

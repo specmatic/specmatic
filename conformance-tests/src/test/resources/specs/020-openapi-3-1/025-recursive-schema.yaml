@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - recursive schema"
+  version: "1.0"
+paths:
+  /categories:
+    get:
+      operationId: listCategories
+      responses:
+        '200':
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+    post:
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Category'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Category:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'

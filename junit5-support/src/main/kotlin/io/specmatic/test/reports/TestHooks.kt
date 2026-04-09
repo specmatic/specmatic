@@ -34,6 +34,7 @@ interface TestReportListener {
     fun onEnd()
     fun onCoverageCalculated(coverage: Int)
     fun onPathCoverageCalculated(path: String, pathCoverage: Int)
+    fun onGovernance(result: Result)
 }
 
 internal fun List<TestReportListener>.onEachListener(block: TestReportListener.() -> Unit) {

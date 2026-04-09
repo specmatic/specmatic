@@ -1,21 +1,10 @@
 package io.specmatic.stub
 
 import io.specmatic.core.*
-import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.log.logger
-import io.specmatic.core.matchers.CompositeMatcher
-import io.specmatic.core.matchers.Matcher
-import io.specmatic.core.matchers.MatcherContext
-import io.specmatic.core.matchers.MatcherResult
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.HasFailure
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.attempt
-import io.specmatic.core.pattern.unwrapOrContractException
-import io.specmatic.core.pattern.unwrapOrReturn
 import io.specmatic.core.utilities.ExternalCommand
-import io.specmatic.core.utilities.Transactional
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
@@ -60,8 +49,7 @@ data class HttpStubData(
     val requestBodyRegex = scenarioStub?.requestBodyRegex
     val delayInMilliseconds = scenarioStub?.delayInMilliseconds
 
-    private val matcher: CompositeMatcher? by lazy { buildMatcherFromRequest() }
-    private val sharedState: Transactional<ObjectValueOperator> = Transactional(ObjectValueOperator())
+    private val stubMatcher: HttpStubMatcher? by lazy { HttpStubMatcherFactory.load()?.create(this) }
     private val defaultMismatchMessages: MismatchMessages = ExampleAndRequestMismatchMessages(name)
 
     fun resolveOriginalRequest(): HttpRequest? {
@@ -84,9 +72,8 @@ data class HttpStubData(
     }
 
     fun utilize(): Boolean {
-        if (matcher == null) return stubToken != null
-        sharedState.commit()
-        return false
+        if(stubMatcher == null) return this.stubToken != null
+        return stubMatcher?.utilize() == true
     }
 
     fun matches(
@@ -96,10 +83,7 @@ data class HttpStubData(
         val exampleMatchResult = matchExample(httpRequest, mismatchMessages)
         if (exampleMatchResult is Result.Failure) return exampleMatchResult
 
-        sharedState.rollback()
-        val updatedSharedState = matchesMatcher(httpRequest).unwrapOrReturn { return it.toFailure() }
-        sharedState.stage(updatedSharedState)
-        return Result.Success()
+        return stubMatcher?.matches(httpRequest) ?: Result.Success()
     }
 
     private fun invokeExternalCommand(httpRequest: HttpRequest): HttpStubData {
@@ -136,30 +120,6 @@ data class HttpStubData(
             resolver.disableOverrideUnexpectedKeyCheck().copy(mismatchMessages = mismatchMessages),
             requestBodyReqex = requestBodyRegex,
         )
-    }
-
-    private fun matchesMatcher(httpRequest: HttpRequest): ReturnValue<ObjectValueOperator> {
-        val sharedState = sharedState.getCommitted()
-        val requestMatcher = matcher ?: return HasValue(sharedState)
-        val scenario = scenario ?: return HasValue(sharedState)
-
-        val context = MatcherContext.from(httpRequest, sharedState, scenario)
-        return when (val result = requestMatcher.match(context).checkOverArchingExhaustion()) {
-            is MatcherResult.Success -> HasValue(result.context.finalizeSharedState())
-            is MatcherResult.MisMatch -> HasFailure(result.failure)
-            is MatcherResult.Exhausted -> if (this.stubToken != null) {
-                HasFailure("transient http mock data matchers have been exhausted")
-            } else {
-                HasValue(result.context.finalizeSharedState())
-            }
-        }
-    }
-
-    private fun buildMatcherFromRequest(): CompositeMatcher? {
-        val requestJson = resolveOriginalRequest()?.toJSON() ?: return null
-        val matchers = Matcher.from(requestJson, resolver, "request").unwrapOrContractException()
-        if (matchers.isEmpty()) return null
-        return CompositeMatcher(BreadCrumb.from(), matchers)
     }
 }
 

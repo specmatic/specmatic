@@ -2,6 +2,7 @@ package io.specmatic.test.reports
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.ReportConfiguration
+import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
@@ -76,6 +77,13 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
                 }
                 logger.newLine()
             }
+
+            val results = buildList {
+                if (!minCoverageThresholdCriteriaMet) add(Result.Failure(coverageThresholdNotMetMessage))
+                if (!maxMissingOperationsExceededCriteriaMet) add(Result.Failure(missedOperationsExceededMessage))
+            }
+
+            openApiCoverageReportInput.onGovernanceResult(Result.fromResults(results))
             assertThat(coverageReportSuccessCriteriaMet).withFailMessage("One or more API Coverage report's success criteria were not met.").isTrue
         }
     }

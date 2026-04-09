@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: "Schema composition - array of arrays (matrix)"
+  version: "1.0"
+paths:
+  /matrices:
+    get:
+      operationId: listMatrices
+      responses:
+        '200':
+          description: Matrix list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - rows
+                  properties:
+                    name:
+                      type: string
+                    rows:
+                      type: array
+                      items:
+                        type: array
+                        items:
+                          type: number
+    post:
+      operationId: createMatrix
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - rows
+              properties:
+                name:
+                  type: string
+                rows:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+      responses:
+        '201':
+          description: Created

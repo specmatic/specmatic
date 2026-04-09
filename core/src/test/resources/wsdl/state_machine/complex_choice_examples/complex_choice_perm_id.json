@@ -1,0 +1,19 @@
+{
+  "name": "complexChoiceWithPermId",
+  "http-request": {
+    "method": "POST",
+    "path": "/choice-complex",
+    "headers": {
+      "SOAPAction": "\"/choice-complex/complexChoice\"",
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/xml"
+    },
+    "body": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"><soapenv:Body><ComplexChoiceResponse><CustomerFound><CustomerId>C-123</CustomerId></CustomerFound></ComplexChoiceResponse></soapenv:Body></soapenv:Envelope>"
+  }
+}

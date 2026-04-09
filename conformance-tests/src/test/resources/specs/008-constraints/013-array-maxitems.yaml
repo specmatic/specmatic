@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "Constraint - array maxItems"
+  version: "1.0"
+paths:
+  /polls:
+    get:
+      operationId: listPolls
+      responses:
+        '200':
+          description: Poll list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - question
+                    - choices
+                  properties:
+                    question:
+                      type: string
+                    choices:
+                      type: array
+                      maxItems: 5
+                      items:
+                        type: string
+    post:
+      operationId: createPoll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - question
+                - choices
+              properties:
+                question:
+                  type: string
+                choices:
+                  type: array
+                  maxItems: 5
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created

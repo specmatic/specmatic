@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: "Multipart multiple file upload via array"
+  version: "1.0"
+paths:
+  /galleries:
+    post:
+      operationId: uploadGalleryImages
+      summary: Upload multiple files as an array
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Gallery created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - count
+                properties:
+                  id:
+                    type: integer
+                  count:
+                    type: integer

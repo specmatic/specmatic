@@ -1,0 +1,55 @@
+openapi: 3.0.3
+info:
+  title: "$ref to nested object within schema"
+  version: "1.0"
+paths:
+  /invoices:
+    get:
+      operationId: listInvoices
+      responses:
+        '200':
+          description: Invoice list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+    post:
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Address:
+      type: object
+      required:
+        - street
+        - city
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        zipCode:
+          type: string
+    Invoice:
+      type: object
+      required:
+        - id
+        - amount
+        - billingAddress
+      properties:
+        id:
+          type: integer
+        amount:
+          type: number
+        billingAddress:
+          $ref: '#/components/schemas/Address'

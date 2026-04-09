@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: "Multipart with optional file upload"
+  version: "1.0"
+paths:
+  /contacts:
+    post:
+      operationId: createContact
+      summary: Create a contact with an optional photo
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

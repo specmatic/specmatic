@@ -1,12 +1,12 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.3.0"
+    kotlin("plugin.serialization") version "2.3.20"
 }
 
 dependencies {
-    implementation("io.netty:netty-codec-http:4.2.9.Final")
-    implementation("io.netty:netty-codec-http2:4.2.9.Final")
+    implementation("io.netty:netty-codec-http:4.2.12.Final")
+    implementation("io.netty:netty-codec-http2:4.2.12.Final")
 
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
@@ -30,7 +30,7 @@ dependencies {
     implementation("io.github.zenwave360:json-schema-ref-parser-jvm:0.8.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.21.2")
@@ -40,7 +40,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.37")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.39")
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - nullable keyword should be ignored"
+  version: "1.0"
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      responses:
+        '200':
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Contact'
+    post:
+      operationId: createContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contact'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Contact:
+      type: object
+      required:
+        - id
+        - name
+        - phone
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true

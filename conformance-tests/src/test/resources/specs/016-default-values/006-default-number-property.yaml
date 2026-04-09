@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "Default value - number property"
+  version: "1.0"
+paths:
+  /discounts:
+    get:
+      operationId: listDiscounts
+      responses:
+        '200':
+          description: Discount list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - code
+                  properties:
+                    code:
+                      type: string
+                    percentage:
+                      type: number
+                      default: 10.0
+    post:
+      operationId: createDiscount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                percentage:
+                  type: number
+                  default: 10.0
+      responses:
+        '201':
+          description: Created

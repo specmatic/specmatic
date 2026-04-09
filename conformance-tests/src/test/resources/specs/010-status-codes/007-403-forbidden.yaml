@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: "Status code - 403 Forbidden"
+  version: "1.0"
+paths:
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      summary: Get admin settings with possible 403
+      parameters:
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          examples:
+            ERROR:
+              value: "unauthorized-key"
+      responses:
+        '200':
+          description: Admin settings
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - maintenanceMode
+                properties:
+                  maintenanceMode:
+                    type: boolean
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: string
+              examples:
+                ERROR:
+                  value:
+                    error: "Access denied"

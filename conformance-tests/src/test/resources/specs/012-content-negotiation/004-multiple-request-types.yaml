@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "Content negotiation - multiple request content types"
+  version: "1.0"
+paths:
+  /messages:
+    post:
+      operationId: createMessage
+      summary: Accept message as JSON or XML
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+          application/xml:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '201':
+          description: Message created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

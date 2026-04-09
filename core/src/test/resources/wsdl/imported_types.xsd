@@ -1,0 +1,8 @@
+<schema targetNamespace="http://example.com/imported-types"
+        xmlns="http://www.w3.org/2001/XMLSchema">
+    <complexType name="ImportedPersonType">
+        <sequence>
+            <element name="name" type="string"/>
+        </sequence>
+    </complexType>
+</schema>

@@ -27,69 +27,6 @@ internal class ResolverKtTest {
         assertThat(resolver.dictionaryLookupPath).isEqualTo(expectedLookupPath)
     }
 
-    @Test
-    fun `actualPatternMatch should match using the pattern from dataType matcher when in mock mode and return failure`() {
-        val resolver = Resolver(mockMode = true)
-        val result = resolver.actualPatternMatch(
-            null,
-            NumberPattern(),
-            StringValue("\$match(dataType: string)")
-        )
-
-        assertThat(result).isInstanceOf(Result.Failure::class.java)
-    }
-
-    @Test
-    fun `actualPatternMatch should match using the pattern from dataType matcher when in mock mode and return success`() {
-        val resolver = Resolver(mockMode = true)
-        val result = resolver.actualPatternMatch(
-            null,
-            NumberPattern(),
-            StringValue("\$match(dataType: number)")
-        )
-
-        assertThat(result).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `actualPatternMatch should match using the pattern from regex matcher when in mock mode and return success`() {
-        val resolver = Resolver(mockMode = true)
-
-        val result = resolver.actualPatternMatch(
-            null,
-            NumberPattern(),
-            StringValue("\$match(pattern: 1)")
-        )
-
-        assertThat(result).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `actualPatternMatch should match using the pattern from equality matcher when in mock mode and return failure`() {
-        val resolver = Resolver(mockMode = true)
-
-        val result = resolver.actualPatternMatch(
-            null,
-            StringPattern(),
-            StringValue("\$match(exact: 1)")
-        )
-
-        assertThat(result).isInstanceOf(Result.Failure::class.java)
-    }
-
-    @Test
-    fun `actualPatternMatch should match using the pattern from equality matcher when in mock mode and return success`() {
-        val resolver = Resolver(mockMode = true)
-
-        val result = resolver.actualPatternMatch(
-            null,
-            ExactValuePattern(NumberValue(1)),
-            StringValue("\$match(exact: 1)")
-        )
-
-        assertThat(result).isInstanceOf(Result.Success::class.java)
-    }
-
     companion object {
         @JvmStatic
         fun typeAliasToLookupKeyProvider(): Stream<Arguments> {

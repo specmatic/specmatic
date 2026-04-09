@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: "URL-encoded form with field constraints"
+  version: "1.0"
+paths:
+  /products:
+    post:
+      operationId: createProduct
+      summary: Create a product with constrained fields
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+                - quantity
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                price:
+                  type: number
+                  minimum: 0
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer

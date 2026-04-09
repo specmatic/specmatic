@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: "Security scheme - API key in query"
+  version: "1.0"
+paths:
+  /data:
+    get:
+      operationId: getData
+      security:
+        - apiKeyQuery: []
+      responses:
+        '200':
+          description: Data
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - value
+                properties:
+                  value:
+                    type: string
+    post:
+      operationId: createData
+      security:
+        - apiKeyQuery: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - value
+              properties:
+                value:
+                  type: string
+      responses:
+        '201':
+          description: Created
+components:
+  securitySchemes:
+    apiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key

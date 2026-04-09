@@ -1,0 +1,35 @@
+<definitions name="EmptyPartAPI"
+             targetNamespace="http://emptypart"
+             xmlns:Emptypart="http://emptypart"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <message name="EmptyRequest"/>
+    <message name="EmptyResponse"/>
+
+    <portType name="EmptyPartPortType">
+        <operation name="ping">
+            <input message="Emptypart:EmptyRequest"/>
+            <output message="Emptypart:EmptyResponse"/>
+        </operation>
+    </portType>
+
+    <binding name="EmptyPartBinding" type="Emptypart:EmptyPartPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="ping">
+            <soap:operation soapAction="/empty-part/ping"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="EmptyPartService">
+        <port name="EmptyPartPort" binding="Emptypart:EmptyPartBinding">
+            <soap:address location="http://localhost:8090/empty-part"/>
+        </port>
+    </service>
+</definitions>

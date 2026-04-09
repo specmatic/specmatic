@@ -1,0 +1,56 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - enum with null value"
+  version: "1.0"
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+    post:
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Task:
+      type: object
+      required:
+        - id
+        - title
+        - status
+        - assignee
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+            - "todo"
+            - "in_progress"
+            - "done"
+        assignee:
+          type:
+            - string
+            - "null"
+          enum:
+            - "alice"
+            - "bob"
+            - null

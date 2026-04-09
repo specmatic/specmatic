@@ -854,12 +854,12 @@ data class Scenario(
                     && matchesResponseContentType(operationId)
         }
 
-        return examplesWithMatchingIdentifiers.mapValues { (_, rows) -> rows.filter(this::matchesOperationIfWsdl) }
+        return examplesWithMatchingIdentifiers.mapValues { (_, rows) ->
+            rows.filter(this::matchesOperationIfWsdl)
+        }
     }
 
     private fun matchesOperationIfWsdl(row: Row): Boolean {
-        if (!this.isGherkinScenario) return true
-
         val soapActionPattern = this.httpRequestPattern.headersPattern.getSOAPActionPattern()
         val hasSoapActionField = row.containsField(BreadCrumb.SOAP_ACTION.value)
         if (soapActionPattern == null) return !hasSoapActionField

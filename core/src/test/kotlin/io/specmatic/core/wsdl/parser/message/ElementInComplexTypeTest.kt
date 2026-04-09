@@ -18,7 +18,7 @@ internal class ElementInComplexTypeTest {
         val complexNameElement = mockk<WSDLElement>()
         val data2Type = mapOf("Data2" to XMLPattern(toXMLNode("<dataB/>")))
         val returned =
-            WSDLTypeInfo(listOf(toXMLNode("<node2/>")), data2Type, setOf("ns1"))
+            WSDLTypeInfo(nodes = listOf(toXMLNode("<node2/>")), types = data2Type, namespacePrefixes = setOf("ns1"))
         every {
             complexNameElement.deriveSpecmaticTypes("Name", emptyMap(), emptySet())
         } returns returned
@@ -37,14 +37,17 @@ internal class ElementInComplexTypeTest {
 
         val data1Type = mapOf("Data1" to XMLPattern(toXMLNode("<dataA/>")))
         val initial =
-            WSDLTypeInfo(listOf(toXMLNode("<node1/>")), data1Type, setOf("ns0"))
-        val wsdlTypeInfo = elementInType.process(initial, emptyMap(), emptySet())
+            WSDLTypeInfo(nodes = listOf(toXMLNode("<node1/>")), types = data1Type, namespacePrefixes = setOf("ns0"))
+        val wsdlTypeInfo = elementInType.process(listOf(initial), emptyMap(), emptySet())
 
-        println(wsdlTypeInfo)
+        val expected = WSDLTypeInfo(
+            nodes = listOf(toXMLNode("<node1/>"), toXMLNode("<node2/>")),
+            members = listOf(XMLPattern(toXMLNode("<node1/>")), XMLPattern(toXMLNode("<node2/>"))),
+            types = data1Type.plus(data2Type),
+            namespacePrefixes = setOf("ns0", "ns1")
+        )
 
-        val expected = WSDLTypeInfo(listOf(toXMLNode("<node1/>"), toXMLNode("<node2/>")), data1Type.plus(data2Type), setOf("ns1"))
-
-        assertThat(wsdlTypeInfo).isEqualTo(expected)
+        assertThat(wsdlTypeInfo).containsExactly(expected)
     }
 
 }

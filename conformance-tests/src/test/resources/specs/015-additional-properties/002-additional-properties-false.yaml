@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: "additionalProperties false"
+  version: "1.0"
+paths:
+  /settings:
+    get:
+      operationId: getSettings
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - theme
+                  - language
+                properties:
+                  theme:
+                    type: string
+                  language:
+                    type: string
+                additionalProperties: false
+    post:
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - theme
+                - language
+              properties:
+                theme:
+                  type: string
+                language:
+                  type: string
+              additionalProperties: false
+      responses:
+        '201':
+          description: Created

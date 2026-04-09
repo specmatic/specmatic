@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: "Header, path, and query parameters combined"
+  version: "1.0"
+paths:
+  /projects/{projectId}/tasks:
+    get:
+      operationId: listProjectTasks
+      summary: List tasks with path, query, and header params
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - open
+              - closed
+        - name: assignee
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Request-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tasks list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - title
+                    - status
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    status:
+                      type: string
+                    assignee:
+                      type: string
+    post:
+      operationId: createProjectTask
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Api-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                assignee:
+                  type: string
+      responses:
+        '201':
+          description: Created

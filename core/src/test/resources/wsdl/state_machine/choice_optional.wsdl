@@ -1,0 +1,66 @@
+<definitions name="ChoiceOptionalService"
+             targetNamespace="http://choice-optional"
+             xmlns:tns="http://choice-optional"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://choice-optional" elementFormDefault="qualified">
+            <xsd:element name="SPName" type="xsd:string"/>
+            <xsd:element name="CustLoginId" type="xsd:string"/>
+
+            <xsd:element name="OptionalChoiceRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element ref="tns:SPName"/>
+                        <xsd:choice minOccurs="0">
+                            <xsd:element ref="tns:CustLoginId"/>
+                        </xsd:choice>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+
+            <xsd:element name="OptionalChoiceResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="status" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <message name="OptionalChoiceRequestMessage">
+        <part name="parameters" element="tns:OptionalChoiceRequest"/>
+    </message>
+
+    <message name="OptionalChoiceResponseMessage">
+        <part name="parameters" element="tns:OptionalChoiceResponse"/>
+    </message>
+
+    <portType name="ChoiceOptionalPortType">
+        <operation name="optionalChoice">
+            <input message="tns:OptionalChoiceRequestMessage"/>
+            <output message="tns:OptionalChoiceResponseMessage"/>
+        </operation>
+    </portType>
+
+    <binding name="ChoiceOptionalBinding" type="tns:ChoiceOptionalPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="optionalChoice">
+            <soap:operation soapAction="/choice-optional/optionalChoice"/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <service name="ChoiceOptionalService">
+        <port name="ChoiceOptionalPort" binding="tns:ChoiceOptionalBinding">
+            <soap:address location="http://localhost:9000/choice-optional"/>
+        </port>
+    </service>
+</definitions>

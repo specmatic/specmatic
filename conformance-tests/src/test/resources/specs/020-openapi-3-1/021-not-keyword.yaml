@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: "OpenAPI 3.1 - not keyword (schema negation)"
+  version: "1.0"
+paths:
+  /tags:
+    get:
+      operationId: listTags
+      responses:
+        '200':
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+    post:
+      operationId: createTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tag'
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Tag:
+      type: object
+      required:
+        - name
+        - priority
+      properties:
+        name:
+          type: string
+          not:
+            enum:
+              - ""
+              - "undefined"
+        priority:
+          type: integer
+          not:
+            const: 0

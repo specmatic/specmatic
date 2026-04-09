@@ -1,30 +1,32 @@
 package io.specmatic.core.wsdl.parser.message
 
-import io.specmatic.core.value.FullyQualifiedName
-import io.specmatic.core.value.StringValue
-import io.mockk.every
-import io.mockk.mockk
-import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Test
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
+import java.io.File
 
 internal class ElementReferenceTest {
     @Test
-    fun `get a reference to another node`() {
-        val refValue = "ns0:Person"
-        val element = toXMLNode("<xsd:element xmlns:ns0=\"http://localhost/ns0\" ref=\"$refValue\" />")
-        val wsdl: WSDL = mockk()
+    fun `element refs still resolve to the same downstream payload shape`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/wiring_routes.wsdl")
+        val schema = wsdl.schemas.getValue("http://example.com/wiring")
+        val addressType = schema.findByNodeNameAndAttribute("complexType", "name", "AddressType")
+        val codeReference = addressType.findFirstChildByName("sequence")!!.findChildrenByName("element")[1]
 
-        val expectedResolvedElement: WSDLElement = mockk()
-        val expectedTypeName = "ns0_Person"
-        every {
-            wsdl.getSOAPElement(ofType<FullyQualifiedName>(), null, mapOf("xmlns:ns0" to StringValue("http://localhost/ns0")))
-        } returns expectedResolvedElement
-
-        val reference = ElementReference(element, wsdl)
+        val reference = ElementReference(codeReference, wsdl)
         val (typeName, resolvedElement) = reference.getWSDLElement()
-        assertThat(typeName).isEqualTo(expectedTypeName)
-        assertThat(resolvedElement).isEqualTo(expectedResolvedElement)
+        val typeInfo = resolvedElement.deriveSpecmaticTypes(typeName, emptyMap(), emptySet())
+        val node = typeInfo.nodes.single() as io.specmatic.core.value.XMLNode
+
+        assertThat(typeName).isEqualTo("tns_Code")
+        assertThat(node.name).isEqualTo("Code")
+        assertThat(node.attributes[OCCURS_ATTRIBUTE_NAME]?.toStringLiteral()).isEqualTo(OPTIONAL_ATTRIBUTE_VALUE)
+        assertThat(typeInfo.namespacePrefixes).hasSize(1)
+    }
+
+    private fun loadWsdl(path: String): WSDL {
+        val wsdlFile = File(path)
+        return WSDL(toXMLNode(wsdlFile.readText()), wsdlFile.canonicalPath)
     }
 }

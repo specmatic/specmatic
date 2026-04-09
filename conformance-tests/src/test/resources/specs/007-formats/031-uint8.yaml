@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: "Format - uint8 (OpenAPI)"
+  version: "1.0"
+paths:
+  /pixel:
+    get:
+      operationId: getPixel
+      responses:
+        '200':
+          description: Pixel value
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - red
+                  - green
+                  - blue
+                properties:
+                  red:
+                    type: integer
+                    format: uint8
+                  green:
+                    type: integer
+                    format: uint8
+                  blue:
+                    type: integer
+                    format: uint8
+    post:
+      operationId: createPixel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - red
+                - green
+                - blue
+              properties:
+                red:
+                  type: integer
+                  format: uint8
+                green:
+                  type: integer
+                  format: uint8
+                blue:
+                  type: integer
+                  format: uint8
+      responses:
+        '201':
+          description: Created

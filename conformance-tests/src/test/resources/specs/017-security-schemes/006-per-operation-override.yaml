@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: "Security scheme - per-operation override"
+  version: "1.0"
+security:
+  - bearerAuth: []
+paths:
+  /public/health:
+    get:
+      operationId: healthCheck
+      summary: Public endpoint overriding global security
+      security: []
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+  /private/data:
+    get:
+      operationId: getPrivateData
+      summary: Uses global bearer auth
+      responses:
+        '200':
+          description: Private data
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - secret
+                properties:
+                  secret:
+                    type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

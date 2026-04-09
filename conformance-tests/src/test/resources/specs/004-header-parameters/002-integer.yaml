@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: "Header parameter - integer type"
+  version: "1.0"
+paths:
+  /messages:
+    get:
+      operationId: listMessages
+      summary: List messages with rate limit header
+      parameters:
+        - name: X-Rate-Limit
+          in: header
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - text
+                  properties:
+                    id:
+                      type: integer
+                    text:
+                      type: string
+    post:
+      operationId: createMessage
+      parameters:
+        - name: X-Rate-Limit
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '201':
+          description: Created
