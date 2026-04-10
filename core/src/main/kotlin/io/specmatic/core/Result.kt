@@ -411,7 +411,8 @@ enum class FailureReason(val fluffLevel: Int, val objectMatchOccurred: Boolean) 
     DiscriminatorMismatch(0, true),
     FailedButDiscriminatorMatched(0, true),
     FailedButObjectTypeMatched(0, true),
-    ScenarioMismatch(2, false)
+    ScenarioMismatch(2, false),
+    ConnectivityFailure(0, false)
 }
 
 data class MatchFailureDetails(

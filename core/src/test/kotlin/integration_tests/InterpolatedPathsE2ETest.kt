@@ -21,6 +21,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
+import java.net.ServerSocket
 
 class InterpolatedPathsE2ETest {
     private val specFile = File("src/test/resources/openapi/interpolated_paths_e2e.yaml")
@@ -39,6 +40,8 @@ class InterpolatedPathsE2ETest {
     private fun Feature.onlyPath(internalPath: String): Feature {
         return copy(scenarios = scenarios.filter { it.path == internalPath })
     }
+
+    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
 
     private fun captureMockEvents(testBlock: (MockEventListener) -> Unit): List<MockEvent> {
         val events = mutableListOf<MockEvent>()
@@ -83,7 +86,7 @@ class InterpolatedPathsE2ETest {
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
-        assertThat(results.testCount).isEqualTo(12)
+        assertThat(results.testCount).isEqualTo(13)
         assertThat(expectedStatusesSeen).contains(200, 400)
         assertThat(positiveDictionaryPathSeen).isTrue()
     }
@@ -143,7 +146,12 @@ class InterpolatedPathsE2ETest {
     fun `stub should serve inline and external examples and emit expected mock events`(openApiVersion: String) {
         val feature = loadFeature(openApiVersion)
         val events = captureMockEvents { listener ->
-            HttpStub(feature, scenarioStubs = externalScenarioStubs(), listeners = listOf(listener)).use { stub ->
+            HttpStub(
+                feature,
+                scenarioStubs = externalScenarioStubs(),
+                port = freePort(),
+                listeners = listOf(listener)
+            ).use { stub ->
                 val inlineResponse = stub.client.execute(HttpRequest("GET", "/example/inline-A,inline-B/status"))
                 val externalResponse = stub.client.execute(HttpRequest("GET", "/example/external-A,external-B/status"))
                 val externalTokenResponse = stub.client.execute(HttpRequest("GET", "/example/token-A,DICT-ID2/status"))
@@ -193,7 +201,7 @@ class InterpolatedPathsE2ETest {
     @ValueSource(strings = ["3.0.3", "3.1.0"])
     fun `loop test should pass when contract tests run against stub for interpolated paths`(openApiVersion: String) {
         val feature = loadFeature(openApiVersion, loadExternalExamples = true)
-        val results = HttpStub(feature, scenarioStubs = externalScenarioStubs()).use { stub ->
+        val results = HttpStub(feature, scenarioStubs = externalScenarioStubs(), port = freePort()).use { stub ->
             feature.executeTests(stub.client)
         }
 

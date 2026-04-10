@@ -114,4 +114,111 @@ class OptionalBodyPatternTest {
 
         assertThat(result).isInstanceOf(HasFailure::class.java)
     }
+
+    @Test
+    fun `should generate a positive test with empty body when requestBody is marked optional`() {
+        val requests = generatedRequests(
+            """
+                openapi: 3.0.1
+                info:
+                  title: Person API
+                  version: 1.0.0
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        required: false
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: Success
+            """.trimIndent()
+        )
+
+        assertThat(requests.map { it.body }).anySatisfy {
+            assertThat(it).isEqualTo(NoBodyValue)
+        }
+    }
+
+    @Test
+    fun `should generate a positive test with empty body when requestBody required is omitted`() {
+        val requests = generatedRequests(
+            """
+                openapi: 3.0.1
+                info:
+                  title: Person API
+                  version: 1.0.0
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: Success
+            """.trimIndent()
+        )
+
+        assertThat(requests.map { it.body }).anySatisfy {
+            assertThat(it).isEqualTo(NoBodyValue)
+        }
+    }
+
+    @Test
+    fun `should generate both body and no body positive tests when requestBody is optional`() {
+        val requests = generatedRequests(
+            """
+                openapi: 3.0.1
+                info:
+                  title: Person API
+                  version: 1.0.0
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        required: false
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: Success
+            """.trimIndent()
+        )
+
+        assertThat(requests.map { it.body }).anySatisfy {
+            assertThat(it).isInstanceOf(JSONObjectValue::class.java)
+        }
+        assertThat(requests.map { it.body }).anySatisfy {
+            assertThat(it).isEqualTo(NoBodyValue)
+        }
+    }
+
+    private fun generatedRequests(openApiSpec: String): List<HttpRequest> {
+        val feature = OpenApiSpecification.fromYAML(openApiSpec, "").toFeature()
+
+        return feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value.generateHttpRequest() }
+    }
 }

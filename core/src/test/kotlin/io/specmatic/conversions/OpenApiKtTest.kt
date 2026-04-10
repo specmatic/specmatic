@@ -408,9 +408,9 @@ Background:
                 }
             )
 
-        assertThat(results.results.size).isEqualTo(13)
+        assertThat(results.results.size).isEqualTo(14)
         assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(5)
-        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(8)
+        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(9)
     }
 
     @Test
@@ -453,9 +453,9 @@ Background:
             }
         )
 
-        assertThat(results.results.size).isEqualTo(17)
+        assertThat(results.results.size).isEqualTo(18)
         assertThat(results.results.filterIsInstance<Result.Success>().size).isEqualTo(4)
-        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(13)
+        assertThat(results.results.filterIsInstance<Result.Failure>().size).isEqualTo(14)
     }
 
     @Test
@@ -1562,6 +1562,9 @@ Scenario: zero should return not found
 
         val results: Results = feature.enableGenerativeTesting().executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
+                if (request.body == NoBodyValue)
+                    return HttpResponse(400, headers = mapOf("Content-Type" to "application/json"), body = parsedJSONObject("""{"data": "information"}"""))
+
                 val jsonBody = request.body as JSONObjectValue
                 if (jsonBody.jsonObject["id"]?.toStringLiteral()?.toIntOrNull() != null)
                     return HttpResponse(200, body = StringValue("""{"data": "it worked!"}"""))
@@ -2026,6 +2029,9 @@ components:
 
         val results: Results = feature.enableGenerativeTesting().executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
+                if (request.body == NoBodyValue)
+                    return HttpResponse(400, body = parsedJSONObject("""{"error_in_400": "message"}"""))
+
                 val jsonBody = request.body as JSONObjectValue
                 if (jsonBody.jsonObject["id"]?.toStringLiteral()?.toIntOrNull() != null)
                     return HttpResponse(200, body = StringValue("it worked"))

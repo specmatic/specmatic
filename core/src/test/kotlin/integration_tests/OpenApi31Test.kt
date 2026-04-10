@@ -210,7 +210,7 @@ class OpenApi31Test {
             feature.executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(87)
+        assertThat(results.size).isEqualTo(95)
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -228,7 +228,7 @@ class OpenApi31Test {
             openApi30Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(87 + 2) // +2 Due to multiTypEnum representation
+        assertThat(results.size).isEqualTo(95 + 2) // +2 Due to multiTypEnum representation
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)
@@ -246,7 +246,7 @@ class OpenApi31Test {
             openApi31Specification.toFeature().copy(specmaticConfig = specmaticConfig).executeTests(stub.client)
         }.results
 
-        assertThat(results.size).isEqualTo(87)
+        assertThat(results.size).isEqualTo(95)
         assertThat(Result.fromResults(results))
             .withFailMessage { Result.fromResults(results).reportString() }
             .isInstanceOf(Result.Success::class.java)

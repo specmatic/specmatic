@@ -261,6 +261,34 @@ class ValidateCommandTest {
     }
 
     @Test
+    fun `when validate is given a relative json spec file in current directory it does not fail`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("petstore.json")
+        specFile.writeText(
+            """
+            {
+              "openapi": "3.0.1",
+              "info": {
+                "title": "Test API",
+                "version": "1"
+              },
+              "paths": {}
+            }
+            """.trimIndent()
+        )
+
+        val validator = TrackingValidator()
+        val exitCode = CommandLine(
+            ValidateCommand(
+                validator = validator,
+                currentDirectoryProvider = { tempDir.canonicalFile }
+            )
+        ).execute("--spec-file", "petstore.json")
+
+        assertThat(exitCode).isZero()
+        assertThat(validator.validatedSpecifications).containsExactly(specFile.canonicalPath)
+    }
+
+    @Test
     fun `when malformed spec exists only under dot specmatic scan does not report it`(@TempDir tempDir: File) {
         val scannedSpec = writeOpenApiFile(tempDir.resolve("contracts/kept.yaml"))
         val malformedSpec = tempDir.resolve(".specmatic/repos/broken.yaml")
