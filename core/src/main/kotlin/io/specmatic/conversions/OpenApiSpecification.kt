@@ -118,7 +118,7 @@ class OpenApiSpecification(
 
         fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
             val definitions = try {
-                (jsonSchema["${'$'}defs"] as? Map<String, Any>).orEmpty()
+                (jsonSchema[$$"$defs"] as? Map<String, Any>).orEmpty()
             } catch (_: Throwable) {
                 emptyMap()
             }
@@ -144,8 +144,8 @@ class OpenApiSpecification(
                 when (value) {
                     is String -> {
                         when {
-                            key == "\$ref" && value.startsWith("#/\$defs/") -> value.replace(
-                                "#/\$defs/",
+                            key == $$"$ref" && value.startsWith($$"#/$defs/") -> value.replace(
+                                $$"#/$defs/",
                                 "#/components/schemas/"
                             )
 
@@ -401,7 +401,7 @@ class OpenApiSpecification(
             val pathNames = pathsNode.fieldNames().asSequence().toList()
             pathNames.forEach { pathName ->
                 val pathNode = pathsNode.get(pathName) as? ObjectNode ?: return@forEach
-                val ref = pathNode.get("\$ref")?.asText() ?: return@forEach
+                val ref = pathNode.get($$"$ref")?.asText() ?: return@forEach
                 if (!ref.startsWith("#/components/pathItems/")) return@forEach
 
                 val referencedPathItem = root.at(ref.removePrefix("#"))
@@ -410,7 +410,7 @@ class OpenApiSpecification(
                 val resolvedPathItem = referencedPathItem.deepCopy<ObjectNode>()
                 val inlineFieldNames = pathNode.fieldNames().asSequence().toList()
                 inlineFieldNames.forEach { fieldName ->
-                    if (fieldName != "\$ref") {
+                    if (fieldName != $$"$ref") {
                         val fieldValue = pathNode.get(fieldName)
                         if (fieldValue != null) {
                             resolvedPathItem.set<JsonNode>(fieldName, fieldValue.deepCopy())
@@ -1265,7 +1265,7 @@ class OpenApiSpecification(
         val headerComponentName = header.`$ref`.substringAfterLast("/")
         val hasReusableHeader = parsedOpenApi.components?.headers?.contains(headerComponentName) == true
         return Pair(
-            first = collectorContext.at("\$ref").requirePojo(
+            first = collectorContext.at($$"$ref").requirePojo(
                 message = { "Header reference '${header.`$ref`}' could not be resolved, defaulting to empty schema" },
                 extract = { parsedOpenApi.components?.headers?.get(headerComponentName) },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
@@ -1284,7 +1284,7 @@ class OpenApiSpecification(
         val responseComponentName = response.`$ref`.substringAfterLast("/")
         val hasReusableResponse = parsedOpenApi.components?.responses?.contains(responseComponentName) == true
         return Pair(
-            first = collectorContext.at("\$ref").requirePojo(
+            first = collectorContext.at($$"$ref").requirePojo(
                 message = { "Response reference '${response.`$ref`}' could not be resolved, defaulting to empty response" },
                 extract = { parsedOpenApi.components?.responses?.get(responseComponentName) },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
@@ -1566,7 +1566,7 @@ class OpenApiSpecification(
                         else
                             exampleRequestBuilder.examplesWithRequestBodies(exampleBodies, actualContentType)
 
-                    val bodyIsRequired: Boolean = requestBody.required ?: true
+                    val bodyIsRequired: Boolean = requestBody.required ?: false
 
                     val body = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext).let {
                         if (bodyIsRequired)
@@ -1960,7 +1960,7 @@ class OpenApiSpecification(
         }
 
         val schemasWithOneOf = deepListOfAllOfs.filter { it.schema.oneOf != null }
-        val oneOfs = schemasWithOneOf.map { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
+        val oneOfs = schemasWithOneOf.flatMap { (schemaToProcess, schemaPatternName, schemaCollectorContext) ->
             schemaToProcess.oneOf.mapIndexed { index, schema ->
                 val indexContext = schemaCollectorContext.at("oneOf").at(index)
                 val resolvedRef = resolveSchemaIfRef(schema, schemaPatternName, indexContext)
@@ -1982,7 +1982,7 @@ class OpenApiSpecification(
                     )
                 }
             }
-        }.flatten().map { (componentName, schemaProperty) ->
+        }.map { (componentName, schemaProperty) ->
             toJSONObjectPattern(schemaProperty.properties, "(${componentName})", schemaProperty.extensions)
         }
 
@@ -2133,7 +2133,7 @@ class OpenApiSpecification(
 
         collectorContext.checkPojo(
             value = schema,
-            message = { "Schema has both \$ref (${schema.`$ref`}) and a type ${schema.type} defined, ignoring other properties" },
+            message = { $$"Schema has both $ref ($${schema.`$ref`}) and a type $${schema.type} defined, ignoring other properties" },
             isValid = { parsedOpenApi.specVersion == SpecVersion.V31 || it.type == null },
             createDefault = { it },
             ruleViolation = { OpenApiLintViolations.REF_HAS_SIBLINGS },
@@ -2556,7 +2556,7 @@ class OpenApiSpecification(
         val componentName = extractComponentName(component, collectorContext)
         val components = parsedOpenApi.components ?: Components()
         val schemas = components.schemas.orEmpty()
-        return componentName to collectorContext.at("\$ref").requirePojo(
+        return componentName to collectorContext.at($$"$ref").requirePojo(
             message = { "Failed to resolve reference to schema $componentName, defaulting to any schema" },
             extract = { schemas[componentName] },
             createDefault = { Schema<Any>().also { it.properties = emptyMap() } },
@@ -2568,7 +2568,7 @@ class OpenApiSpecification(
         val componentName = extractComponentName(component, collectorContext)
         val hasRefedOutBody = parsedOpenApi.components?.requestBodies?.contains(componentName) == true
         return Pair(
-            first = collectorContext.at("\$ref").requirePojo(
+            first = collectorContext.at($$"$ref").requirePojo(
                 message = { "Failed to resolve reference to requestBodies $componentName, defaulting to empty requestBody" },
                 ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },
                 extract = { parsedOpenApi.components?.requestBodies?.get(componentName) },
@@ -2584,7 +2584,7 @@ class OpenApiSpecification(
 
     private fun extractComponentName(component: String, collectorContext: CollectorContext): String {
         if (!component.startsWith("#")) {
-            val refContext = collectorContext.at("\$ref")
+            val refContext = collectorContext.at($$"$ref")
             val componentPath = component.substringAfterLast("#")
             val filePath = component.substringBeforeLast("#")
             refContext.record(
@@ -2840,7 +2840,7 @@ class OpenApiSpecification(
         val parameterComponentName = extractComponentName(parameter.`$ref`, collectorContext)
         val hasReusableParameter = parsedOpenApi.components?.parameters?.contains(parameterComponentName) == true
 
-        val resolvedParameter = collectorContext.at("\$ref").requirePojo(
+        val resolvedParameter = collectorContext.at($$"$ref").requirePojo(
             message = { "Parameter reference '${parameter.`$ref`}' could not be resolved, keeping unresolved parameter definition" },
             extract = { parsedOpenApi.components?.parameters?.get(parameterComponentName) },
             ruleViolation = { OpenApiLintViolations.UNRESOLVED_REFERENCE },

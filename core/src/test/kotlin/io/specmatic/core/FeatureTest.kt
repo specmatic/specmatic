@@ -2503,6 +2503,7 @@ paths:
     post:
       summary: Add Pet
       requestBody:
+        required: true
         content:
           application/json:
             schema:

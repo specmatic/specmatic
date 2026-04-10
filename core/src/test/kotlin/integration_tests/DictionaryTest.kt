@@ -10,6 +10,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Resolver
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.Scenario
@@ -886,18 +887,21 @@ class DictionaryTest {
                         )
                         HttpResponse.OK
                     } else {
-                        assertThat((request.body as JSONObjectValue).findFirstChildByName("id")).satisfiesAnyOf(
-                            { id -> assertThat(id).isInstanceOf(StringValue::class.java) },
-                            { id -> assertThat(id).isInstanceOf(BooleanValue::class.java) },
-                            { id -> assertThat(id).isInstanceOf(NullValue::class.java) }
-                        )
+                        when (val requestBody = request.body) {
+                            is JSONObjectValue -> assertThat(requestBody.findFirstChildByName("id")).satisfiesAnyOf(
+                                { id -> assertThat(id).isInstanceOf(StringValue::class.java) },
+                                { id -> assertThat(id).isInstanceOf(BooleanValue::class.java) },
+                                { id -> assertThat(id).isInstanceOf(NullValue::class.java) }
+                            )
+                            else -> assertThat(requestBody).isEqualTo(NoBodyValue)
+                        }
                         HttpResponse.ERROR_400
                     }
                 }
             })
 
-            assertThat(result.results).hasSize(4)
-            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(4)
+            assertThat(result.results).hasSize(5)
+            assertThat(result.successCount).withFailMessage(result.report()).isEqualTo(5)
         }
 
         private fun Scenario.withBadRequest(): List<Scenario> {

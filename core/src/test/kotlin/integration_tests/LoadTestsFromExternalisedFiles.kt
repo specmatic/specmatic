@@ -1497,6 +1497,9 @@ class LoadTestsFromExternalisedFiles {
                                     return if (request.headers["Specmatic-Response-Code"] == "400") {
                                         evidences.add("bad request")
                                         HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
+                                    } else if (request.headers["PET-ID"] == null || request.headers["CREATOR-ID"] == null || request.body !is JSONObjectValue) {
+                                        evidences.add("bad request")
+                                        HttpResponse(status = 400, body = parsedJSONObject("""{"code": 400, "message": "BadRequest"}"""))
                                     } else {
                                         assertThat(request.method).isEqualTo(expectedGoodRequest.method)
                                         assertThat(request.path).isEqualTo(expectedGoodRequest.path)
@@ -1525,7 +1528,7 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(evidences.distinct()).containsExactlyInAnyOrder(
                     "bad request",
                 )
-                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(23)
+                assertThat(results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(24)
             }
         }
 
