@@ -15,8 +15,14 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.time.Instant
 import java.util.ServiceLoader
+import javax.net.ssl.SSLException
 import kotlin.jvm.java
 
 private const val BEFORE_FIXTURE_DISCRIMINATOR_KEY = "before"
@@ -215,8 +221,26 @@ data class ScenarioAsTest(
             )
         } catch (exception: Throwable) {
             return ContractTestExecutionResult(
-                result = Result.Failure(exceptionCauseMessage(exception)).updateScenario(testScenario)
+                result = Result.Failure(
+                    exceptionCauseMessage(exception),
+                    failureReason = exception.connectivityFailureReason()
+                ).updateScenario(testScenario)
             )
+        }
+    }
+
+    private fun Throwable.connectivityFailureReason(): FailureReason? {
+        return if (isConnectivityFailure()) FailureReason.ConnectivityFailure else null
+    }
+
+    private fun Throwable.isConnectivityFailure(): Boolean {
+        return generateSequence(this) { it.cause }.any {
+            it is ConnectException ||
+                it is SocketTimeoutException ||
+                it is HttpRequestTimeoutException ||
+                it is UnknownHostException ||
+                it is NoRouteToHostException ||
+                it is SSLException
         }
     }
 

@@ -51,6 +51,7 @@ import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
 import java.io.File
 import java.io.PrintStream
+import java.net.ServerSocket
 import java.util.*
 
 class SpecmaticJunitSupportTest {
@@ -690,6 +691,67 @@ paths:
             val result = resultsBySpec.getValue(specFile.canonicalPath)
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).contains("invalid_test_GET_200.json").contains("Error loading example")
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `contractTest should abort remaining scenarios after first connectivity failure during execution`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml").apply {
+            writeText(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Connectivity Abort Test
+                  version: 1.0.0
+                paths:
+                  /hello:
+                    get:
+                      responses:
+                        '200':
+                          description: OK
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                              examples:
+                                FIRST:
+                                  value: hello
+                                SECOND:
+                                  value: world
+                """.trimIndent()
+            )
+        }
+        val unusedPort = ServerSocket(0).use { it.localPort }
+        val baseUrl = "http://localhost:$unusedPort"
+
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(
+                testBaseURL = baseUrl,
+                contractPaths = specFile.absolutePath,
+                filter = "",
+                configFile = "",
+                generative = false,
+                reportBaseDirectory = null,
+                coverageHooks = emptyList()
+            )
+        )
+
+        try {
+            val tests = SpecmaticJUnitSupport().contractTest().toList()
+
+            assertThat(tests).hasSize(2)
+
+            val failure = assertThrows<ContractException> {
+                tests[0].executable.execute()
+            }
+            assertThat(failure.message).contains("Cannot connect to server at: $baseUrl")
+
+            val aborted = assertThrows<TestAbortedException> {
+                tests[1].executable.execute()
+            }
+            assertThat(aborted.message).contains("Cannot connect to server at: $baseUrl")
         } finally {
             SpecmaticJUnitSupport.settingsStaging.remove()
         }

@@ -43,6 +43,7 @@ import java.net.URL
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.atomic.AtomicReference
 import java.util.stream.Stream
 import kotlin.streams.asStream
 import java.security.SecureRandom
@@ -386,15 +387,6 @@ open class SpecmaticJUnitSupport {
         }
 
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
-        testBuildResult.baseUrls.forEach { baseUrl ->
-            if (isBaseURLReachable(baseUrl, keyData = keyDataFor(baseUrl))) return@forEach
-            return loadExceptionAsTestError(e = ContractException("""
-            Cannot connect to server at: $baseUrl
-            Please check:
-            - Is the server running?
-            - Is the testBaseURL correct?
-            """.trimIndent()))
-        }
 
         openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         val testScenariosWithUrls = try {
@@ -462,6 +454,8 @@ open class SpecmaticJUnitSupport {
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest>
     {
+        val suiteAbortMessage = AtomicReference<String?>(null)
+
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
                 openApiCoverageReportInput.setEndpointsAPIFlag(false)
@@ -478,6 +472,10 @@ open class SpecmaticJUnitSupport {
         startTime = Instant.now()
         return testScenarios.map { (contractTest, baseURL) ->
             DynamicTest.dynamicTest(contractTest.testDescription()) {
+                suiteAbortMessage.get()?.let { message ->
+                    throw TestAbortedException(message)
+                }
+
                 LicenseResolver.utilize(
                     product = LicensedProduct.OPEN_SOURCE,
                     feature = SpecmaticFeature.TEST,
@@ -509,6 +507,12 @@ open class SpecmaticJUnitSupport {
                         }
                     val (result) = testResult
 
+                    if (result is Result.Failure && result.failureReason == FailureReason.ConnectivityFailure) {
+                        val message = connectivityFailureMessage(baseURL, result.message)
+                        suiteAbortMessage.compareAndSet(null, message)
+                        throw ContractException(message)
+                    }
+
                     if (result is Result.Success && result.isPartialSuccess()) {
                         partialSuccesses.add(result)
                     }
@@ -536,6 +540,16 @@ open class SpecmaticJUnitSupport {
                 }
             }
         }.asStream()
+    }
+
+    private fun connectivityFailureMessage(baseURL: String, reason: String): String {
+        return """
+            Cannot connect to server at: $baseURL
+            Reason: $reason
+            Please check:
+            - Is the server running?
+            - Is the testBaseURL correct?
+        """.trimIndent()
     }
 
     fun constructTestBaseURL(): String {
