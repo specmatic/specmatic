@@ -39,7 +39,7 @@ jobs:
       - name: Publish Test Report
         if: always()
         continue-on-error: true
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: 'conformance-tests/build/test-results/test/*.xml'
           detailed_summary: true
@@ -47,6 +47,7 @@ jobs:
           require_tests: false
           check_name: "conformance-tests-results"
           annotate_only: true
+          skip_annotations: true
 
       - name: Upload HTML Test Report
         if: always()
