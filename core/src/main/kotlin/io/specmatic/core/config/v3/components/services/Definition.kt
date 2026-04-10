@@ -8,7 +8,7 @@ data class Definition(val definition: Value) {
 
     companion object {
         fun create(specificationDefinition: SpecificationDefinition): Definition {
-            val source = SourceV3(git = null, fileSystem = SourceV3.FileSystem())
+            val source = SourceV3(git = null, fileSystem = SourceV3.FileSystem(), web = null)
             val value = Value(RefOrValue.Value(source), specs = listOf(specificationDefinition))
             return Definition(value)
         }

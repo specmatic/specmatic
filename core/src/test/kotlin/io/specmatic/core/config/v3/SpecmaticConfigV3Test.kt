@@ -3,7 +3,9 @@ package io.specmatic.core.config.v3
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.readValue
+import io.specmatic.core.SourceProvider
 import io.specmatic.core.config.SpecmaticConfigVersion
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.License
@@ -23,6 +25,7 @@ import java.nio.file.Path
 import kotlin.io.path.pathString
 import kotlin.io.path.writeText
 import io.zenwave360.jsonrefparser.`$RefParser`
+import io.specmatic.core.utilities.ResolvedWebSource
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -54,6 +57,120 @@ class SpecmaticConfigV3Test {
         // TODO: Ensure it contains all the possible fields
         val configFile = File("src/test/resources/specmaticConfigFiles/v3/refed_out.yaml")
         assertDoesNotThrow { configFile.toSpecmaticConfig() }
+    }
+
+    @Test
+    fun `should deserialize web source in v3`() {
+        val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        web:
+                          url: http://specmatic.io/specifications
+                      specs:
+                        - spec1.yaml
+        """.trimIndent()
+
+        assertDoesNotThrow { loadConfig(yaml, dereference = false) }
+    }
+
+    @Test
+    fun `should reject missing url in v3 web source`() {
+        val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        web: {}
+                      specs:
+                        - spec1.yaml
+        """.trimIndent()
+
+        val exception = assertThrows<Throwable> { loadConfig(yaml, dereference = false) }
+        assertThat(exceptionCauseMessage(exception)).contains("Missing required field 'url' in 'web' source")
+    }
+
+    @Test
+    fun `should reject absolute URL spec entries in v3 web source`() {
+        val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        web:
+                          url: http://specmatic.io/specifications
+                      specs:
+                        - http://specmatic.io/specifications/spec1.yaml
+        """.trimIndent()
+
+        val config = loadConfig(yaml, dereference = false).transform(null) as SpecmaticConfigV3Impl
+
+        val exception = assertThrows<ContractException> { config.getSpecificationSources() }
+        assertThat(exception.message).contains("Web source specifications must be relative paths")
+    }
+
+    @Test
+    fun `should load resolved web source for v3 web source`() {
+        val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        web:
+                          url: http://specmatic.io/specifications
+                      specs:
+                        - spec1.yaml
+        """.trimIndent()
+
+        val config = loadConfig(yaml, dereference = false).transform(null) as SpecmaticConfigV3Impl
+
+        assertThat(config.loadSources().single()).isInstanceOf(ResolvedWebSource::class.java)
+    }
+
+    @Test
+    fun `should load resolved web source for reffed out v3 web source`() {
+        val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        ${'$'}ref: "#/components/sources/specifications"
+                      specs:
+                        - spec1.yaml
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            ${'$'}ref: "#/components/sources/specifications"
+                          specs:
+                            - spec1.yaml
+            components:
+              sources:
+                specifications:
+                  web:
+                    url: http://specmatic.io/specifications
+        """.trimIndent()
+
+        val config = loadConfig(yaml, dereference = false).transform(null) as SpecmaticConfigV3Impl
+
+        val source = config.getSpecificationSources().single()
+        assertThat(source.type).isEqualTo(SourceProvider.web)
+        assertThat(source.test.single().webSourceBaseUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(source.mock.single().webSourceBaseUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(config.loadSources().single()).isInstanceOf(ResolvedWebSource::class.java)
     }
 
     @Test
@@ -273,7 +390,7 @@ class SpecmaticConfigV3Test {
             """.trimIndent()
 
             val exception = assertThrows<Throwable> { loadConfig(yaml) }
-            assertThat(exceptionCauseMessage(exception)).contains("Must specify either 'git' or 'filesystem'")
+            assertThat(exceptionCauseMessage(exception)).contains("Must specify exactly one of 'git', 'filesystem', or 'web'")
         }
 
         @Test
@@ -290,7 +407,7 @@ class SpecmaticConfigV3Test {
             """.trimIndent()
 
             val exception = assertThrows<Throwable> { loadConfig(yaml) }
-            assertThat(exceptionCauseMessage(exception)).contains("Specify only one of 'git' or 'filesystem'")
+            assertThat(exceptionCauseMessage(exception)).contains("Specify only one of 'git', 'filesystem', or 'web'")
         }
 
         @Test

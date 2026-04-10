@@ -68,6 +68,31 @@ class MockServiceConfigTest {
     }
 
     @Test
+    fun `getSpecificationSources should preserve web source url for v3 dependencies`() {
+        val source = SourceV3.create(web = SourceV3.Web(url = "http://specmatic.io/specifications"))
+
+        val serviceConfig = CommonServiceConfig<MockRunOptions, MockSettings>(
+            definitions = listOf(
+                Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(source),
+                        specs = listOf(SpecificationDefinition.StringValue("spec1.yaml"))
+                    )
+                )
+            )
+        )
+
+        val sourceEntries = MockServiceConfig(
+            services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))),
+            settings = null
+        ).getSpecificationSources(resolver).values.flatten()
+
+        assertThat(sourceEntries).hasSize(1)
+        assertThat(sourceEntries.single().webSourceBaseUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(sourceEntries.single().specFile.path.replace('\\', '/')).endsWith("/.specmatic/web/specmatic.io/specifications/spec1.yaml")
+    }
+
+    @Test
     fun `getSpecificationSources should use asyncapi inMemoryBroker for async runOptions`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("contract.yaml").apply { writeText("asyncapi: 3.0.0") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
