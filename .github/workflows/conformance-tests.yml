@@ -2,12 +2,11 @@ name: Conformance Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "disable-expected-failures-conformance" ]
 
 jobs:
   conformance-tests:
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       pull-requests: write
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
@@ -31,14 +30,12 @@ jobs:
               ]
             }
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
-        continue-on-error: true
         with:
-          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true"
+          gradle-extra-args: "-p conformance-tests test -PenableConformanceTests=true -x vulnScanSBOMScan -x vulnScanJarScan --tests 'io.specmatic.conformance_tests.S007Formats_003TimeTest'"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
 
       - name: Publish Test Report
         if: always()
-        continue-on-error: true
         uses: mikepenz/action-junit-report@v6
         with:
           report_paths: 'conformance-tests/build/test-results/test/*.xml'

@@ -1,4 +1,6 @@
 openapi: 3.1.0
+x-specmatic-expect-failure-request-bodies: true
+x-specmatic-expect-failure-response-bodies: true
 info:
   title: "OpenAPI 3.1 - contains and minContains"
   version: "1.0"

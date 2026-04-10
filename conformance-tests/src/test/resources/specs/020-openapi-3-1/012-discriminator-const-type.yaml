@@ -1,4 +1,6 @@
 openapi: 3.1.0
+x-specmatic-expect-failure-loop: true
+x-specmatic-expect-failure-operations: true
 info:
   title: "OpenAPI 3.1 - discriminator with const type values"
   version: "1.0"

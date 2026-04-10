@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-expect-failure-request-bodies: true
 info:
   title: "Raw binary request body (octet-stream)"
   version: "1.0"

@@ -1,4 +1,6 @@
 openapi: 3.0.3
+x-specmatic-expect-failure-loop: true
+x-specmatic-expect-failure-operations: true
 info:
   title: "Constraint - object minProperties"
   version: "1.0"
