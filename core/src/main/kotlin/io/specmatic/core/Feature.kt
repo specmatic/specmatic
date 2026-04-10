@@ -974,24 +974,23 @@ data class Feature(
         ) != null
     }
 
-    private fun getBadRequestsOrDefault(
-        scenario: Scenario,
-        scenariosToLookInto: List<Scenario> = scenarios
-    ): BadRequestOrDefault? {
-        val badRequestResponses = scenariosToLookInto.filter {
-            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
-                    && it.httpResponsePattern.status.toString().startsWith("4")
-        }.associate { it.httpResponsePattern.status to it.httpResponsePattern }
+    // TODO: Should this filter include requestContentType to find matchingScenarios ?
+    internal fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
+        val targetPath = scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
+        val targetMethod = scenario.httpRequestPattern.method
+        val matchingScenarios = scenariosToLookInto.filter {
+            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == targetPath
+            && it.httpRequestPattern.method == targetMethod
+        }
 
-        val defaultResponse: HttpResponsePattern? = scenariosToLookInto.find {
-            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
-                    && it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE
-        }?.httpResponsePattern
+        val badRequestResponses = matchingScenarios.filter { it.httpResponsePattern.status in 400..499 }
+        val defaultResponses = matchingScenarios.filter { it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE }
 
-        if (badRequestResponses.isEmpty() && defaultResponse == null)
-            return null
-
-        return BadRequestOrDefault(badRequestResponses, defaultResponse)
+        if (badRequestResponses.isEmpty() && defaultResponses.isEmpty()) return null
+        return BadRequestOrDefault(
+            badRequestResponses = badRequestResponses.groupBy(keySelector = { it.httpResponsePattern.status }),
+            defaultResponses = defaultResponses
+        )
     }
 
     fun generateContractTestScenarios(

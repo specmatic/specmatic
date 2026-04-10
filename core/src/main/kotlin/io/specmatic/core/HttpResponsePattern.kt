@@ -261,6 +261,10 @@ data class HttpResponsePattern(
         val newBodyPattern: Pattern = bodyPattern.addToFirstString(errorReport, resolver)
         return this.copy(body = newBodyPattern)
     }
+
+    fun matchesContentType(httpResponse: HttpResponse, resolver: Resolver): Result {
+        return this.headersPattern.matchContentType(httpResponse.headers to resolver).toResult { it }
+    }
 }
 
 private val valueMismatchMessages = object : MismatchMessages {

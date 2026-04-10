@@ -180,6 +180,11 @@ data class Scenario(
         return result.isSuccess()
     }
 
+    fun matchesContentType(httpResponse: HttpResponse): Boolean {
+        val result = this.httpResponsePattern.matchesContentType(httpResponse, resolver)
+        return result.isSuccess()
+    }
+
     fun matches(
         httpRequest: HttpRequest,
         serverState: Map<String, Value>,

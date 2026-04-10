@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: Multiple 4xx for same operation
+  version: 1.0.0
+paths:
+  /orders:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+      responses:
+        "201":
+          description: created
+        "400":
+          description: bad request json
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: default error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+            text/plain:
+              schema:
+                type: string
