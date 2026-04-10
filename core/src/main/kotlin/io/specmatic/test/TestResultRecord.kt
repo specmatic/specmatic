@@ -91,16 +91,10 @@ data class TestResultRecord(
     }
 
     override fun testMessage(): String {
-        return when {
-            result == TestResult.Failed && actualResponseStatus != responseStatus ->
-                "Expected status ${responseStatus}, but got $actualResponseStatus"
-
-            result == TestResult.Failed ->
-                "Test failed: ${scenarioResult?.let { "Scenario failure" } ?: "Unknown error"}"
-
-            isWip -> "Work in progress test"
-            else -> ""
-        }
+        if(isWip) return "Work in progress test"
+        if(scenarioResult == null) return ""
+        if(scenarioResult.isSuccess()) return ""
+        return scenarioResult.reportString()
     }
 
     override fun testName(): String {
