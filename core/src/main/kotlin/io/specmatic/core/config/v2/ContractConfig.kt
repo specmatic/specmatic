@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.pattern.ContractException
 
 data class ContractConfig(
     @JsonIgnore
@@ -19,10 +20,11 @@ data class ContractConfig(
     constructor(
         @JsonProperty("git") git: GitContractSource? = null,
         @JsonProperty("filesystem") filesystem: FileSystemContractSource? = null,
+        @JsonProperty("web") web: WebContractSource? = null,
         @JsonDeserialize(using = ProvidesDeserializer::class) @JsonProperty("provides") provides: List<SpecExecutionConfig>? = null,
         @JsonDeserialize(using = ConsumesDeserializer::class) @JsonProperty("consumes") consumes: List<SpecExecutionConfig>? = null
     ) : this(
-        contractSource = git ?: filesystem,
+        contractSource = git ?: filesystem ?: web,
         provides = provides,
         consumes = consumes
     )
@@ -31,6 +33,7 @@ data class ContractConfig(
         contractSource = when {
             source.provider == SourceProvider.git -> GitContractSource(source)
             source.directory != null -> FileSystemContractSource(source)
+            source.provider == SourceProvider.web && source.webBaseUrl != null -> WebContractSource(source.webBaseUrl)
             else -> null
         },
         provides = source.test,
@@ -47,6 +50,12 @@ data class ContractConfig(
     @Suppress("unused")
     fun getFilesystemSource(): FileSystemContractSource? {
         return contractSource as? FileSystemContractSource
+    }
+
+    @JsonProperty("web")
+    @Suppress("unused")
+    fun getWebSource(): WebContractSource? {
+        return contractSource as? WebContractSource
     }
 
     fun transform(): Source {
@@ -86,6 +95,22 @@ data class ContractConfig(
             return Source(
                 provider = SourceProvider.filesystem,
                 directory = this.directory,
+                test = provides.orEmpty(),
+                stub = consumes.orEmpty(),
+            )
+        }
+    }
+
+    data class WebContractSource(
+        val url: String? = null
+    ) : ContractSource {
+        override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
+            val resolvedUrl = url?.takeIf { it.isNotBlank() }
+                ?: throw ContractException("Missing required field 'url' in 'web' contract source in Specmatic configuration")
+
+            return Source(
+                provider = SourceProvider.web,
+                webBaseUrl = resolvedUrl,
                 test = provides.orEmpty(),
                 stub = consumes.orEmpty(),
             )

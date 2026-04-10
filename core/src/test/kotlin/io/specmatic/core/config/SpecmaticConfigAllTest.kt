@@ -8,6 +8,7 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider.filesystem
 import io.specmatic.core.SourceProvider.git
+import io.specmatic.core.SourceProvider.web
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
@@ -15,6 +16,7 @@ import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
 import io.specmatic.core.config.v2.ContractConfig.GitContractSource
+import io.specmatic.core.config.v2.ContractConfig.WebContractSource
 import io.specmatic.core.config.v2.SpecmaticConfigV2
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.loadSpecmaticConfig
@@ -23,6 +25,7 @@ import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
+import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toContractSourceEntries
 import org.assertj.core.api.Assertions.assertThat
@@ -217,6 +220,86 @@ internal class SpecmaticConfigAllTest {
         val contractsJson = objectMapper.writeValueAsString(contracts)
 
         assertThat(parsedJSON(contractsJson)).isEqualTo(parsedJSON(expectedContractsJson))
+    }
+
+    @Test
+    fun `should deserialize v2 web contract source successfully`() {
+        val contractConfigYaml = """
+            web:
+              url: http://specmatic.io/specifications
+            provides:
+              - spec1.yaml
+        """.trimIndent()
+
+        val contractConfig = objectMapper.readValue(contractConfigYaml, ContractConfig::class.java)
+
+        assertThat(contractConfig.contractSource).isEqualTo(WebContractSource(url = "http://specmatic.io/specifications"))
+        assertThat(contractConfig.provides).containsExactly(SpecExecutionConfig.StringValue("spec1.yaml"))
+    }
+
+    @Test
+    fun `should transform v2 web contract source successfully`() {
+        val contractConfig = ContractConfig(
+            contractSource = WebContractSource(url = "http://specmatic.io/specifications"),
+            provides = listOf(SpecExecutionConfig.StringValue("spec1.yaml"))
+        )
+
+        val source = contractConfig.transform()
+
+        assertThat(source.provider).isEqualTo(web)
+        assertThat(source.webBaseUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(source.test).containsExactly(SpecExecutionConfig.StringValue("spec1.yaml"))
+    }
+
+    @Test
+    fun `should reject missing url in v2 web contract source`(@TempDir tempDir: File) {
+        val contractConfigYaml = """
+            version: 2
+            contracts:
+              - web: {}
+                provides:
+                  - spec1.yaml
+        """.trimIndent()
+
+        val configFile = tempDir.resolve("specmatic-v2-web-missing-url.yaml").apply { writeText(contractConfigYaml) }
+
+        val exception = assertThrows<ContractException> { configFile.toSpecmaticConfig() }
+        assertThat(exception.message).contains("Missing required field 'url' in 'web' contract source")
+    }
+
+    @Test
+    fun `should reject absolute URL spec entries in v2 web contract source`() {
+        val configYaml = """
+            version: 2
+            contracts:
+              - web:
+                  url: http://specmatic.io/specifications
+                provides:
+                  - http://specmatic.io/specifications/spec1.yaml
+        """.trimIndent()
+
+        val config = objectMapper.readValue(configYaml, SpecmaticConfigV2::class.java).transform()
+
+        val exception = assertThrows<ContractException> { config.getSpecificationSources() }
+        assertThat(exception.message).contains("Web source specifications must be relative paths")
+    }
+
+    @Test
+    fun `should load resolved web source for v2 web contract source`() {
+        val configYaml = """
+            version: 2
+            contracts:
+              - web:
+                  url: http://specmatic.io/specifications
+                provides:
+                  - spec1.yaml
+        """.trimIndent()
+
+        val config = objectMapper.readValue(configYaml, SpecmaticConfigV2::class.java).transform()
+
+        val loadedSources = config.loadSources()
+
+        assertThat(loadedSources.single()).isInstanceOf(ResolvedWebSource::class.java)
     }
 
     @CsvSource(
