@@ -142,6 +142,11 @@ data class Scenario(
             return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
         }
 
+    fun updateBasedOnResponseIfNegativeGeneration(httpResponse: HttpResponse): Scenario {
+        if (!this.isNegative || badRequestOrDefault == null) return this
+        return badRequestOrDefault.updateScenarioWithResponse(httpResponse, this)
+    }
+
     fun getExamplesMatching(exampleType: ExampleType): List<NamedStub> {
         return examples.flatMap { example ->
             example.rows
@@ -413,16 +418,13 @@ data class Scenario(
     }
 
     fun matches(httpResponse: HttpResponse, resolver: Resolver): Result {
-
         if (this.isNegative) {
             return if (is4xxResponse(httpResponse)) {
-                if(badRequestOrDefault != null && badRequestOrDefault.supports(httpResponse.status))
-                    badRequestOrDefault.matches(httpResponse, resolver).updateScenario(this)
-                else
-                    Result.Failure("Received ${httpResponse.status}, but the specification does not contain a 4xx response, hence unable to verify this response", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
-            }
-            else
+                badRequestOrDefault?.matches(httpResponse, resolver)?.updateScenario(this)
+                    ?: Result.Failure("Received ${httpResponse.status}, but the specification does not contain a 4xx or default response, hence unable to verify this response", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
+            } else {
                 Result.Failure("Expected 4xx status, but received ${httpResponse.status}", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
+            }
         }
 
         return try {

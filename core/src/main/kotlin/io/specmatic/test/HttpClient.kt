@@ -149,6 +149,10 @@ data class HttpClient(
         httpInteractionsLog.addHttpLog(httpLogMessage)
     }
 
+    override fun postExecuteScenario(scenario: Scenario) {
+        httpLogMessage.scenario = scenario
+    }
+
     override fun close() {
         httpClient.value.close()
     }
@@ -183,6 +187,10 @@ data class LegacyHttpClient(
 
     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
         HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).preExecuteScenario(scenario, request)
+    }
+
+    override fun postExecuteScenario(scenario: Scenario) {
+        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).postExecuteScenario(scenario)
     }
 }
 

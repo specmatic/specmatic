@@ -11,7 +11,19 @@ class BadRequestOrDefault(val badRequestResponses: Map<Int, List<Scenario>> = em
         }
     }
 
-    fun supports(httpStatus: Int): Boolean = httpStatus in badRequestResponses || defaultResponses.isNotEmpty()
+    fun updateScenarioWithResponse(httpResponse: HttpResponse, scenario: Scenario): Scenario {
+        val matchingScenario = findBestMatchingScenario(httpResponse)?.scenario ?: return scenario
+        return scenario.copy(
+            name = matchingScenario.name,
+            bindings = matchingScenario.bindings,
+            examples = matchingScenario.examples,
+            patterns = matchingScenario.patterns,
+            fixtures = matchingScenario.fixtures,
+            ignoreFailure = matchingScenario.ignoreFailure,
+            statusInDescription = matchingScenario.statusInDescription,
+            httpResponsePattern = matchingScenario.httpResponsePattern,
+        )
+    }
 
     private fun findBestMatchingScenario(httpResponse: HttpResponse): BestEffortMatch? {
         val sameStatus = badRequestResponses[httpResponse.status].orEmpty()

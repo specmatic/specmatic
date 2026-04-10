@@ -7,8 +7,8 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 
 class ScenarioTestGenerationFailure(
     var scenario: Scenario,
@@ -31,7 +31,9 @@ class ScenarioTestGenerationFailure(
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
+        val scenario = result.scenario as? Scenario ?: updateBasedOnResponseIfNegativeGeneration(scenario, response)
         val path = convertPathParameterStyle(scenario.path)
+
         return TestResultRecord(
             path = path,
             method = scenario.method,
@@ -49,9 +51,7 @@ class ScenarioTestGenerationFailure(
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
-            operations = setOf(
-                openAPIOperationFrom(scenario, path)
-            )
+            operations = setOf(openAPIOperationFrom(scenario, path))
         )
     }
 
@@ -67,9 +67,8 @@ class ScenarioTestGenerationFailure(
 
     override fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult {
         testExecutor.preExecuteScenario(scenario, httpRequest)
-        return ContractTestExecutionResult(
-            result = failureCause.updateScenario(scenario)
-        )
+        val updatedTestScenario = updateBasedOnResponseIfNegativeGeneration(scenario, null)
+        return ContractTestExecutionResult(result = failureCause.updateScenario(updatedTestScenario))
     }
 
     override fun plusValidator(validator: ResponseValidator): ContractTest {

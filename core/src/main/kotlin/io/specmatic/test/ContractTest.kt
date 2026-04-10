@@ -19,14 +19,20 @@ interface ResponseValidator {
 }
 
 interface ContractTest : HasScenarioMetadata {
+    val protocol: SpecmaticProtocol?
+    val specType: SpecType
+
     fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord?
     fun testDescription(): String
     fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult
     fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult
-
     fun plusValidator(validator: ResponseValidator): ContractTest
-    val protocol: SpecmaticProtocol?
-    val specType: SpecType
+
+    companion object {
+        internal fun updateBasedOnResponseIfNegativeGeneration(scenario: Scenario, httpResponse: HttpResponse?): Scenario {
+            return scenario.updateBasedOnResponseIfNegativeGeneration(httpResponse ?: HttpResponse())
+        }
+    }
 }
 
 data class ContractTestExecutionResult(

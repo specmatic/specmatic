@@ -1,7 +1,9 @@
 package io.specmatic.test
 
 import io.specmatic.core.Feature
+import io.specmatic.core.BadRequestOrDefault
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpHeadersPattern
 import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpResponsePattern
@@ -13,6 +15,14 @@ import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.buildHttpPathPattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.call
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.routing
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
@@ -20,6 +30,7 @@ import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.net.ServerSocket
 import java.net.URLClassLoader
 import java.nio.file.Files
 
@@ -44,7 +55,7 @@ class ScenarioAsTestTest {
             val result = withServiceLoaderEntries(
                 mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
             ) {
-                scenarioAsTest(scenario).runTest(fixedResponseExecutor("anything")).result
+                scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything")).result
             }
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -66,7 +77,7 @@ class ScenarioAsTestTest {
             )
 
             val result = withServiceLoaderEntries(emptyMap()) {
-                scenarioAsTest(scenario).runTest(fixedResponseExecutor("anything")).result
+                scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything")).result
             }
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -74,21 +85,111 @@ class ScenarioAsTestTest {
         }
     }
 
+    @Test
+    fun `runTest with testExecutor should update negative scenario based on response and retain it in testResultRecord`() {
+        val negativeScenario = negativeScenario(
+            expectedResponses = mapOf(
+                400 to listOf(
+                    expectationScenario(status = 400, contentType = "application/json"),
+                    expectationScenario(status = 400, contentType = "application/xml")
+                )
+            )
+        )
+
+        val testExecutor = fixedResponseExecutor(status = 400, body = "response", headers = mapOf("Content-Type" to "application/xml"))
+        val executionResult = scenarioAsTest(negativeScenario).runTest(testExecutor)
+        val updatedScenario = executionResult.result.scenario as Scenario
+        val testResultRecord = scenarioAsTest(negativeScenario).testResultRecord(executionResult)
+        val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
+
+        assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+        assertThat(scenarioInRecord.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+    }
+
+    @Test
+    fun `runTest with base url should update negative scenario based on response and retain it in testResultRecord`() {
+        val negativeScenario = negativeScenario(
+            expectedResponses = mapOf(
+                400 to listOf(
+                    expectationScenario(status = 400, contentType = "application/json"),
+                    expectationScenario(status = 400, contentType = "application/xml")
+                )
+            )
+        )
+
+        val port = ServerSocket(0).use { it.localPort }
+        val server = embeddedServer(Netty, port = port) {
+            routing {
+                get("/resource") {
+                    call.respondText(
+                        text = "response",
+                        contentType = ContentType.parse("application/xml"),
+                        status = HttpStatusCode.BadRequest
+                    )
+                }
+            }
+        }
+
+        server.start(wait = false)
+        try {
+            val contractTest = scenarioAsTest(negativeScenario)
+            val executionResult = contractTest.runTest("http://localhost:$port", 5000)
+            val updatedScenario = executionResult.result.scenario as Scenario
+            val testResultRecord = contractTest.testResultRecord(executionResult)
+            val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
+            assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+            assertThat(scenarioInRecord.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+        } finally {
+            server.stop(1000, 1000)
+        }
+    }
+
+    @Test
+    fun `runTest should choose default response with matching content type when same-status content type does not match`() {
+        val negativeScenario = negativeScenario(
+            expectedResponses = mapOf(400 to listOf(expectationScenario(status = 400, contentType = "text/plain"))),
+            defaultResponses = listOf(expectationScenario(status = 1000, contentType = "application/xml"))
+        )
+
+        val testExecutor = fixedResponseExecutor(status = 400, body = "response", headers = mapOf("Content-Type" to "application/xml"))
+        val executionResult = scenarioAsTest(negativeScenario).runTest(testExecutor)
+        val updatedScenario = executionResult.result.scenario as Scenario
+        val testResultRecord = scenarioAsTest(negativeScenario).testResultRecord(executionResult)
+        val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
+
+        assertThat(updatedScenario.statusInDescription).isEqualTo("1000")
+        assertThat(scenarioInRecord.statusInDescription).isEqualTo("1000")
+        assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+    }
+
     private fun scenario(exampleRow: Row? = null): Scenario {
         return Scenario(
             ScenarioInfo(
-                httpRequestPattern = HttpRequestPattern(
-                    httpPathPattern = buildHttpPathPattern("/resource"),
-                    method = "GET"
-                ),
-                httpResponsePattern = HttpResponsePattern(
-                    status = 200,
-                    body = StringPattern()
-                ),
+                specType = SpecType.OPENAPI,
                 protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = 200, body = StringPattern()),
             )
         ).copy(exampleRow = exampleRow)
+    }
+
+    private fun expectationScenario(status: Int, contentType: String): Scenario {
+        return Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = status, body = StringPattern(), headersPattern = HttpHeadersPattern(contentType = contentType)),
+            )
+        )
+    }
+
+    private fun negativeScenario(expectedResponses: Map<Int, List<Scenario>>, defaultResponses: List<Scenario> = emptyList()): Scenario {
+        val baseScenario = expectationScenario(status = 200, contentType = "application/json")
+        return baseScenario.copy(
+            isNegative = true,
+            badRequestOrDefault = BadRequestOrDefault(badRequestResponses = expectedResponses, defaultResponses = defaultResponses)
+        )
     }
 
     private fun scenarioAsTest(scenario: Scenario): ScenarioAsTest {
@@ -103,10 +204,10 @@ class ScenarioAsTestTest {
         )
     }
 
-    private fun fixedResponseExecutor(body: String): TestExecutor {
+    private fun fixedResponseExecutor(status: Int = 200, body: String, headers: Map<String, String> = emptyMap()): TestExecutor {
         return object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                return HttpResponse(200, body)
+                return HttpResponse(status = status, body = body, headers = headers)
             }
         }
     }

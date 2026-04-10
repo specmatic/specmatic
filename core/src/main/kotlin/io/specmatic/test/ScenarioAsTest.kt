@@ -16,6 +16,7 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -56,7 +57,7 @@ data class ScenarioAsTest(
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
-        val resultStatus = result.testResult()
+        val scenario = result.scenario as? Scenario ?: updateBasedOnResponseIfNegativeGeneration(scenario, response)
         val path = convertPathParameterStyle(scenario.path)
 
         return TestResultRecord(
@@ -66,7 +67,7 @@ data class ScenarioAsTest(
             responseStatus = scenario.status,
             request = request,
             response = response,
-            result = resultStatus,
+            result = result.testResult(),
             sourceProvider = sourceProvider,
             repository = sourceRepository,
             branch = sourceRepositoryBranch,
@@ -78,9 +79,7 @@ data class ScenarioAsTest(
             isGherkin = scenario.isGherkinScenario,
             requestTime = startTime,
             responseTime = Instant.now(),
-            operations = setOf(
-                openAPIOperationFrom(scenario, path)
-            )
+            operations = setOf(openAPIOperationFrom(scenario, path))
         )
     }
 
@@ -112,7 +111,10 @@ data class ScenarioAsTest(
 
         val executionResult = executeTestAndReturnResultAndResponse(scenario, newExecutor, flagsBased)
         endTime = Instant.now()
-        return executionResult.copy(result = executionResult.result.updateScenario(scenario))
+
+        val updatedTestScenario = updateBasedOnResponseIfNegativeGeneration(scenario, executionResult.response)
+        newExecutor.postExecuteScenario(updatedTestScenario)
+        return executionResult.copy(result = executionResult.result.updateScenario(updatedTestScenario))
     }
 
     override fun plusValidator(validator: ResponseValidator): ScenarioAsTest {

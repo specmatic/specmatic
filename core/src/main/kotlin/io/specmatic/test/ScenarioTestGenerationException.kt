@@ -9,8 +9,8 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 
 class ScenarioTestGenerationException(
     var scenario: Scenario,
@@ -34,7 +34,9 @@ class ScenarioTestGenerationException(
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
+        val scenario = result.scenario as? Scenario ?: updateBasedOnResponseIfNegativeGeneration(scenario, response)
         val path = convertPathParameterStyle(scenario.path)
+
         return TestResultRecord(
             path = path,
             method = scenario.method,
@@ -52,9 +54,7 @@ class ScenarioTestGenerationException(
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
             isGherkin = scenario.isGherkinScenario,
-            operations = setOf(
-                openAPIOperationFrom(scenario, path)
-            )
+            operations = setOf(openAPIOperationFrom(scenario, path))
         )
     }
 
@@ -79,10 +79,11 @@ class ScenarioTestGenerationException(
 
     fun error(): ContractTestExecutionResult {
         val result: Result = when(e) {
-            is ContractException -> Result.Failure(errorMessage, e.failure(), breadCrumb = breadCrumb ?: "").updateScenario(scenario)
-            else -> Result.Failure(errorMessage + " - " + exceptionCauseMessage(e), breadCrumb = breadCrumb ?: "").updateScenario(scenario)
+            is ContractException -> Result.Failure(errorMessage, e.failure(), breadCrumb = breadCrumb ?: "")
+            else -> Result.Failure(errorMessage + " - " + exceptionCauseMessage(e), breadCrumb = breadCrumb ?: "")
         }
 
-        return ContractTestExecutionResult(result = result)
+        val updatedTestScenario = updateBasedOnResponseIfNegativeGeneration(scenario, null)
+        return ContractTestExecutionResult(result = result.updateScenario(updatedTestScenario))
     }
 }

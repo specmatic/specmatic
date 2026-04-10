@@ -108,23 +108,110 @@ class BadRequestOrDefaultTest {
     }
 
     @Nested
-    inner class Supports {
+    inner class UpdateScenarioWithResponse {
         @Test
-        fun `should return true when bad request responses contain the given status`() {
-            val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(400 to listOf(scenario(status = 400, contentType = "application/json"))))
-            assertThat(badRequestOrDefault.supports(400)).isTrue()
+        fun `should choose same status and content type first`() {
+            val target = scenario(status = 400, contentType = "application/json", name = "same-status-and-content-type")
+            val nonMatchingSameStatus = scenario(status = 400, contentType = "text/plain", name = "same-status-non-matching-content")
+            val badRequestOrDefault = BadRequestOrDefault(
+                badRequestResponses = mapOf(400 to listOf(nonMatchingSameStatus, target)),
+                defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json", name = "default"))
+            )
+
+            val updated = badRequestOrDefault.updateScenarioWithResponse(
+                httpResponse(status = 400, contentType = "application/json"),
+                scenario(status = 201, contentType = "application/xml", name = "input")
+            )
+
+            assertThat(updated.statusInDescription).isEqualTo("400")
+            assertThat(updated.httpResponsePattern).isEqualTo(target.httpResponsePattern)
         }
 
         @Test
-        fun `should return true when default responses exist even if status is absent`() {
-            val badRequestOrDefault = BadRequestOrDefault(defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json")))
-            assertThat(badRequestOrDefault.supports(418)).isTrue()
+        fun `should choose default and content type when same status content type does not match`() {
+            val badRequestOrDefault = BadRequestOrDefault(
+                badRequestResponses = mapOf(400 to listOf(scenario(status = 400, contentType = "text/plain", name = "same-status"))),
+                defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json", name = "default"))
+            )
+
+            val updated = badRequestOrDefault.updateScenarioWithResponse(
+                httpResponse(status = 400, contentType = "application/json"),
+                scenario(status = 201, contentType = "application/xml", name = "input")
+            )
+
+            assertThat(updated.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
         }
 
         @Test
-        fun `should return false when status is absent and no default responses exist`() {
+        fun `should choose first same status when no content type matches`() {
+            val firstSameStatus = scenario(status = 400, contentType = "text/plain", name = "first-same-status")
+            val badRequestOrDefault = BadRequestOrDefault(
+                badRequestResponses = mapOf(400 to listOf(firstSameStatus, scenario(status = 400, contentType = "application/xml", name = "second-same-status"))),
+                defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json", name = "default"))
+            )
+
+            val updated = badRequestOrDefault.updateScenarioWithResponse(
+                httpResponse(status = 400, contentType = "application/pdf"),
+                scenario(status = 201, contentType = "application/xml", name = "input")
+            )
+
+            assertThat(updated.statusInDescription).isEqualTo("400")
+            assertThat(updated.httpResponsePattern).isEqualTo(firstSameStatus.httpResponsePattern)
+        }
+
+        @Test
+        fun `should choose other status and content type when same status absent`() {
+            val otherStatusMatch = scenario(status = 401, contentType = "application/json", name = "other-status-match")
+            val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(401 to listOf(otherStatusMatch)))
+            val updated = badRequestOrDefault.updateScenarioWithResponse(
+                httpResponse(status = 400, contentType = "application/json"),
+                scenario(status = 201, contentType = "application/xml", name = "input")
+            )
+
+            assertThat(updated.statusInDescription).isEqualTo("401")
+            assertThat(updated.httpResponsePattern).isEqualTo(otherStatusMatch.httpResponsePattern)
+        }
+
+        @Test
+        fun `should choose first default when no content type matches and same status absent`() {
+            val firstDefault = scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/xml", name = "first-default")
+            val secondDefault = scenario(status = DEFAULT_RESPONSE_CODE, contentType = "text/plain", name = "second-default")
+
+            val badRequestOrDefault = BadRequestOrDefault(
+                badRequestResponses = mapOf(401 to listOf(scenario(status = 401, contentType = "application/pdf", name = "other-status"))),
+                defaultResponses = listOf(firstDefault, secondDefault)
+            )
+
+            val updated = badRequestOrDefault.updateScenarioWithResponse(
+                httpResponse(status = 400, contentType = "application/json"),
+                scenario(status = 201, contentType = "application/xml", name = "input")
+            )
+
+            assertThat(updated.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
+            assertThat(updated.httpResponsePattern).isEqualTo(firstDefault.httpResponsePattern)
+        }
+
+        @Test
+        fun `should choose first other status when no content type matches and no default exists`() {
+            val firstOtherStatus = scenario(status = 401, contentType = "application/xml", name = "first-other")
+            val secondOtherStatus = scenario(status = 402, contentType = "text/plain", name = "second-other")
+            val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(401 to listOf(firstOtherStatus), 402 to listOf(secondOtherStatus)))
+
+            val updated = badRequestOrDefault.updateScenarioWithResponse(
+                httpResponse(status = 400, contentType = "application/json"),
+                scenario(status = 201, contentType = "application/xml", name = "input")
+            )
+
+            assertThat(updated.statusInDescription).isEqualTo("401")
+            assertThat(updated.httpResponsePattern).isEqualTo(firstOtherStatus.httpResponsePattern)
+        }
+
+        @Test
+        fun `should return original scenario when no candidates exist`() {
             val badRequestOrDefault = BadRequestOrDefault()
-            assertThat(badRequestOrDefault.supports(400)).isFalse()
+            val inputScenario = scenario(status = 201, contentType = "application/json", name = "input")
+            val updated = badRequestOrDefault.updateScenarioWithResponse(httpResponse(status = 400, contentType = "application/json"), inputScenario)
+            assertThat(updated).isEqualTo(inputScenario)
         }
     }
 
