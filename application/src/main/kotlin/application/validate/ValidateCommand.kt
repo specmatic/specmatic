@@ -55,13 +55,15 @@ class ValidateCommand(
 
     private fun loadSpecificationData(): List<SpecificationWithExamples> {
         if (file != null) {
-            val specification = file ?: return emptyList()
-            val loadedData = recursiveSpecificationAndExampleClassifier.load(specification) ?: return emptyList()
+            val specification = resolvePath(file ?: return emptyList())
+            val normalizedSpecification = specification.canonicalFile
+            val entryDirectory = normalizedSpecification.parentFile ?: currentDirectoryProvider()
+            val loadedData = recursiveSpecificationAndExampleClassifier.load(normalizedSpecification, entryDirectory) ?: return emptyList()
             return listOf(loadedData)
         }
 
         if (directory != null) {
-            val resolvedDirectory = directory ?: return emptyList()
+            val resolvedDirectory = resolvePath(directory ?: return emptyList())
             return recursiveSpecificationAndExampleClassifier.loadAll(resolvedDirectory)
         }
 
@@ -75,17 +77,21 @@ class ValidateCommand(
 
     private fun validateArguments() {
         if (file != null) {
-            val specification = file ?: return
+            val specification = resolvePath(file ?: return)
             if (!specification.isFile)  throw ContractException("Specification is not a file ${specification.path}")
             if (!specification.exists()) throw ContractException("Specification ${specification.path} does not exist")
             if (!specification.canRead())  throw ContractException("Specification ${specification.path} cannot be read")
         }
 
         if (directory != null) {
-            val directory = directory ?: return
+            val directory = resolvePath(directory ?: return)
             if (!directory.isDirectory)  throw ContractException("${directory.path} is not a directory")
             if (!directory.exists()) throw ContractException("Directory ${directory.path} does not exist")
         }
+    }
+
+    private fun resolvePath(path: File): File {
+        return if (path.isAbsolute) path.canonicalFile else currentDirectoryProvider().resolve(path.path).canonicalFile
     }
 
     private fun File.normalizedPath(): String {
