@@ -1,5 +1,6 @@
 package io.specmatic.test
 
+
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.Instant
+
 
 class TestResultRecordTest {
 
@@ -172,6 +174,44 @@ class TestResultRecordTest {
         ).getCoverageStatus()
 
         assertEquals(CoverageStatus.WIP, coverageStatus)
+    }
+
+    @Test
+    fun `returns WIP message when isWip is true`() {
+        val record = testResultRecord(isWip = true, result = TestResult.NotCovered)
+        val result = record.testMessage()
+        assertEquals("Work in progress test", result)
+    }
+
+    @Test
+    fun `returns empty string when scenarioResult is null`() {
+        val record = testResultRecord(result = TestResult.MissingInSpec, isWip = false)
+        val result = record.testMessage()
+        assertEquals("", result)
+    }
+
+    @Test
+    fun `returns empty string when scenarioResult is success`() {
+        val record = testResultRecord(
+            result = TestResult.Success,
+            isWip = false
+        ).copy(scenarioResult = io.specmatic.core.Result.Success())
+
+        val result = record.testMessage()
+        assertEquals("", result)
+    }
+
+    @Test
+    fun `returns report string when scenarioResult fails`() {
+        val failure = io.specmatic.core.Result.Failure("Something went wrong")
+
+        val record = testResultRecord(
+            result = TestResult.Failed,
+            isWip = false
+        ).copy(scenarioResult = failure)
+
+        val result = record.testMessage()
+        assertTrue(result.contains("Something went wrong"))
     }
 
     private fun testResultRecord(
