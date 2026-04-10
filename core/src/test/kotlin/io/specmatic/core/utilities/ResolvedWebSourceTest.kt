@@ -80,6 +80,15 @@ class ResolvedWebSourceTest {
         assertThat(exception.message).contains("Web source specifications must be relative paths")
     }
 
+    @Test
+    fun `should reject absolute url in web source specification list after Windows path normalization`() {
+        val exception = assertThrows<ContractException> {
+            ResolvedWebSource.validateRelativeSpecPath("http:\\\\example.com\\spec.yaml")
+        }
+
+        assertThat(exception.message).contains("Web source specifications must be relative paths")
+    }
+
     @AfterEach
     fun tearDown() {
         File(DEFAULT_WORKING_DIRECTORY).deleteRecursively()
