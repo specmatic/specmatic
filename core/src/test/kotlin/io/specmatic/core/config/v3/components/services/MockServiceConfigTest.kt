@@ -88,7 +88,7 @@ class MockServiceConfigTest {
         ).getSpecificationSources(resolver).values.flatten()
 
         assertThat(sourceEntries).hasSize(1)
-        assertThat(sourceEntries.single().webSourceBaseUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(sourceEntries.single().webSourceUrl).isEqualTo("http://specmatic.io/specifications")
         assertThat(sourceEntries.single().specFile.path.replace('\\', '/')).endsWith("/.specmatic/web/specmatic.io/specifications/spec1.yaml")
     }
 

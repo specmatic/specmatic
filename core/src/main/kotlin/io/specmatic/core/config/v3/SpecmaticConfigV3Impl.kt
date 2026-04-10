@@ -329,8 +329,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
                 }
                 SourceProvider.filesystem -> LocalFileSystemSource(specificationSourceEntry.directory ?: ".", testPaths, stubPaths)
                 SourceProvider.web -> {
-                    val webSourceBaseUrl = (specificationSourceEntry.test.firstOrNull() ?: specificationSourceEntry.mock.firstOrNull())?.webSourceBaseUrl
-                    webSourceBaseUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) }
+                    val webSourceUrl = (specificationSourceEntry.test.firstOrNull() ?: specificationSourceEntry.mock.firstOrNull())?.webSourceUrl
+                    webSourceUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) }
                 }
                 else -> null
             }

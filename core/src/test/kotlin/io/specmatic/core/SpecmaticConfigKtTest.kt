@@ -144,7 +144,7 @@ internal class SpecmaticConfigKtTest {
             specPathInConfig = "contracts/petstore.yaml",
             port = null,
             baseUrl = "http://localhost:9000",
-            webSourceBaseUrl = null,
+            webSourceUrl = null,
             resiliencyTestSuite = ResiliencyTestSuite.positiveOnly,
             type = SourceProvider.filesystem,
             repository = null,

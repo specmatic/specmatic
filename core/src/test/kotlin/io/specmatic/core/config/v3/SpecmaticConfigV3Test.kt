@@ -168,8 +168,60 @@ class SpecmaticConfigV3Test {
 
         val source = config.getSpecificationSources().single()
         assertThat(source.type).isEqualTo(SourceProvider.web)
-        assertThat(source.test.single().webSourceBaseUrl).isEqualTo("http://specmatic.io/specifications")
-        assertThat(source.mock.single().webSourceBaseUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(source.test.single().webSourceUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(source.mock.single().webSourceUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(config.loadSources().single()).isInstanceOf(ResolvedWebSource::class.java)
+    }
+
+    @Test
+    fun `should load resolved web source with reffed out v3 run options`() {
+        val yaml = """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        ${'$'}ref: "#/components/sources/specifications"
+                      specs:
+                        - spec1.yaml
+                runOptions:
+                  ${'$'}ref: "#/components/runOptions/testOptions"
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            ${'$'}ref: "#/components/sources/specifications"
+                          specs:
+                            - spec1.yaml
+                    runOptions:
+                      ${'$'}ref: "#/components/runOptions/mockOptions"
+            components:
+              sources:
+                specifications:
+                  web:
+                    url: http://specmatic.io/specifications
+              runOptions:
+                testOptions:
+                  openapi:
+                    type: test
+                    baseUrl: http://localhost:9000
+                mockOptions:
+                  openapi:
+                    type: mock
+                    baseUrl: http://localhost:9001
+        """.trimIndent()
+
+        val config = loadConfig(yaml, dereference = false).transform(null) as SpecmaticConfigV3Impl
+
+        val source = config.getSpecificationSources().single()
+        assertThat(source.type).isEqualTo(SourceProvider.web)
+        assertThat(source.test.single().webSourceUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(source.test.single().baseUrl).isEqualTo("http://localhost:9000")
+        assertThat(source.mock.single().webSourceUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(source.mock.single().baseUrl).isEqualTo("http://localhost:9001")
         assertThat(config.loadSources().single()).isInstanceOf(ResolvedWebSource::class.java)
     }
 
