@@ -230,6 +230,17 @@ internal class AnyPatternTest {
     }
 
     @Test
+    @Tag(GENERATION)
+    fun `newBasedOn should preserve value details and comments from child patterns`() {
+        val pattern = AnyPattern(listOf(parsedPattern("""{"id": "(number)", "name": "(string)"}""")), extensions = emptyMap())
+        val generatedPattern = pattern.newBasedOn(Row(), Resolver()).toList()
+        assertThat(generatedPattern.filterIsInstance<HasValue<Pattern>>()).isNotEmpty.allSatisfy {
+            assertThat(it.valueDetails).isNotEmpty
+            assertThat(it.comments()).isNotBlank
+        }
+    }
+
+    @Test
     fun `should generate a value based on the pattern given`() {
         NumberValue(10) shouldMatch AnyPattern(listOf(parsedPattern("(number)")), extensions = emptyMap())
     }
@@ -363,6 +374,17 @@ internal class AnyPatternTest {
             NumberPattern(),
             BooleanPattern()
         )
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `negativeBasedOn should preserve value details and comments from child patterns`() {
+        val pattern = AnyPattern(listOf(EnumPattern(listOf(StringValue("red"), StringValue("blue")))), extensions = emptyMap())
+        val results = pattern.negativeBasedOn(Row(), Resolver()).toList()
+        assertThat(results.filterIsInstance<HasValue<Pattern>>()).isNotEmpty.allSatisfy {
+            assertThat(it.valueDetails).isNotEmpty
+            assertThat(it.comments()).isNotBlank
+        }
     }
 
     @Test

@@ -1,7 +1,6 @@
 plugins {
     kotlin("jvm")
 }
-
 dependencies {
     implementation("ch.qos.logback:logback-core:1.5.32")
     implementation("org.slf4j:slf4j-api:2.0.17")
@@ -54,20 +53,18 @@ val generateConformanceTests by tasks.registering {
             .sorted()
             .toList()
 
-        val header = "package io.specmatic.conformance_tests\nimport org.junit.jupiter.api.DisplayName\n"
+        val header = """package io.specmatic.conformance_tests
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.extension.ExtendWith
+"""
 
         val classes = specFiles.joinToString("\n") { relativePath ->
-            val segments = relativePath.split("/")
-            val className = "S" + segments.joinToString("_") { segment ->
-                segment.removeSuffix(".yaml").removeSuffix(".yml")
-                    .split("-")
-                    .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
-            } + "Test"
-
+            val className = generateClassName(relativePath)
             val displayName = relativePath.substringBefore(".")
 
             """
                 |@DisplayName("$displayName")
+                |@ExtendWith(SkipTestExtension::class)
                 |class $className : AbstractConformanceTest("$relativePath")
                 |""".trimMargin()
         }
@@ -76,6 +73,15 @@ val generateConformanceTests by tasks.registering {
 
         println("Generated ${specFiles.size} conformance test classes")
     }
+}
+
+fun generateClassName(relativePath: String): String {
+    val segments = relativePath.split("/")
+    return "S" + segments.joinToString("_") { segment ->
+        segment.removeSuffix(".yaml").removeSuffix(".yml")
+            .split("-")
+            .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
+    } + "Test"
 }
 
 kotlin {

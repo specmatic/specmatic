@@ -735,7 +735,7 @@ data class SpecmaticConfigV1V2Common(
 
                 filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
 
-                web -> WebSource(testPaths, stubPaths)
+                web -> source.webBaseUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) } ?: WebSource(testPaths, stubPaths)
             }
         }
     }
@@ -1424,20 +1424,6 @@ data class SpecmaticConfigV1V2Common(
             resolveSpecFile(specPath).sameAs(specFile)
         }
     }
-
-    private fun Source.resolveSpecFile(specPath: String): File {
-        val sourceBaseDir = getBaseDirectory()
-        if (provider != web) {
-            return sourceBaseDir.resolve(specPath).canonicalFile
-        }
-
-        return try {
-            val url = URL(specPath)
-            sourceBaseDir.resolve("web").resolve(url.host).resolve(url.path.removePrefix("/")).canonicalFile
-        } catch (_: MalformedURLException) {
-            sourceBaseDir.resolve(specPath).canonicalFile
-        }
-    }
 }
 
 data class TestConfiguration(
@@ -1543,6 +1529,7 @@ data class Source(
     @JsonDeserialize(using = ConsumesDeserializer::class)
     val stub: List<SpecExecutionConfig>? = null,
     val directory: String? = null,
+    val webBaseUrl: String? = null,
     val matchBranch: Boolean? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
@@ -1638,6 +1625,28 @@ data class Source(
                 val specmaticFolder = File(".").resolve(WorkingDirectory(DEFAULT_WORKING_DIRECTORY).path)
                 val repository = repository?.split("/")?.lastOrNull()?.removeSuffix(".git")
                 if (repository != null) specmaticFolder.resolve("repos").resolve(repository) else workingDirectory
+            }
+        }
+    }
+
+    fun resolveSpecFile(specPath: String): File {
+        val sourceBaseDir = getBaseDirectory()
+        return if (provider != web) {
+            sourceBaseDir.resolve(specPath).canonicalFile
+        } else {
+            val cachedWebSpec = webBaseUrl?.let { baseUrl ->
+                ResolvedWebSource.localPathFor(
+                    rootDir = sourceBaseDir.resolve(DEFAULT_WORKING_DIRECTORY).resolve("web"),
+                    baseUrl = baseUrl,
+                    specPath = specPath
+                )
+            }
+
+            cachedWebSpec ?: try {
+                val url = URL(specPath)
+                sourceBaseDir.resolve("web").resolve(url.host).resolve(url.path.removePrefix("/")).canonicalFile
+            } catch (_: MalformedURLException) {
+                sourceBaseDir.resolve(specPath).canonicalFile
             }
         }
     }

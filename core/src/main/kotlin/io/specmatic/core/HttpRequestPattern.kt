@@ -870,7 +870,7 @@ data class HttpRequestPattern(
                 this.body.negativeBasedOn(row.noteRequestBody(), resolver)
             }).let { generatedBodyNegatives ->
                 if (shouldGenerateNoBodyNegativeScenario()) {
-                    sequenceOf(HasValue(NoBodyPattern)).plus(generatedBodyNegatives)
+                    sequenceOf(HasValue(NoBodyPattern, "has been omitted", "BODY")).plus(generatedBodyNegatives)
                 } else {
                     generatedBodyNegatives
                 }

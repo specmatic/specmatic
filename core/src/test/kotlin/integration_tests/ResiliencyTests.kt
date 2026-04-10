@@ -198,6 +198,124 @@ class GenerativeTests {
     }
 
     @Test
+    fun `generative tests for optional request body with enum should include change summary for positive and negative tests`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: "3.0.1"
+        info:
+          title: "Order API"
+          version: "1"
+        paths:
+          /order:
+            post:
+              summary: Create order
+              requestBody:
+                required: false
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - new
+                            - processing
+              responses:
+                200:
+                  description: Order created
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            type: integer
+        """.trimIndent(), "").toFeature()
+
+        val positiveGenerativeChangeSummaries = mutableListOf<String?>()
+        val negativeGenerativeChangeSummaries = mutableListOf<String?>()
+        feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse.OK
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                when {
+                    scenario.testDescription().startsWith("+ve") -> positiveGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                    scenario.testDescription().startsWith("-ve") -> negativeGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                }
+            }
+        })
+
+        assertThat(positiveGenerativeChangeSummaries).isNotEmpty
+        assertThat(negativeGenerativeChangeSummaries).isNotEmpty
+        assertThat(positiveGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(negativeGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(positiveGenerativeChangeSummaries).contains("REQUEST.BODY has been omitted")
+    }
+
+    @Test
+    fun `generative tests for required request body with enum should include change summary for positive and negative tests`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: "3.0.1"
+        info:
+          title: "Order API"
+          version: "1"
+        paths:
+          /order:
+            post:
+              summary: Create order
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - new
+                            - processing
+              responses:
+                200:
+                  description: Order created
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            type: integer
+        """.trimIndent(), "").toFeature()
+
+        val positiveGenerativeChangeSummaries = mutableListOf<String?>()
+        val negativeGenerativeChangeSummaries = mutableListOf<String?>()
+        feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse.OK
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                when {
+                    scenario.testDescription().startsWith("+ve") -> positiveGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                    scenario.testDescription().startsWith("-ve") -> negativeGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                }
+            }
+        })
+
+        assertThat(positiveGenerativeChangeSummaries).isNotEmpty
+        assertThat(negativeGenerativeChangeSummaries).isNotEmpty
+        assertThat(negativeGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(positiveGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(negativeGenerativeChangeSummaries).contains("REQUEST.BODY has been omitted")
+    }
+
+    @Test
     fun `generative tests for headers`() {
         val feature = OpenApiSpecification.fromYAML(
             """
@@ -2333,7 +2451,7 @@ class GenerativeTests {
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys",
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys AND the key quantity is set to the largest possible value",
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys AND the key quantity is set to the smallest possible value '1'",
-            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY has been omitted",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean AND quantity is set to the largest possible value",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean AND quantity is set to the smallest possible value '1'",

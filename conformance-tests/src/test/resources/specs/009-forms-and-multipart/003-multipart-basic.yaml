@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-expect-failure-request-bodies: true
 info:
   title: "Multipart form data - basic fields"
   version: "1.0"

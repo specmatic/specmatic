@@ -96,6 +96,7 @@ import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import io.specmatic.core.utilities.GitMonoRepo
 import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
+import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -327,6 +328,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
                     }
                 }
                 SourceProvider.filesystem -> LocalFileSystemSource(specificationSourceEntry.directory ?: ".", testPaths, stubPaths)
+                SourceProvider.web -> {
+                    val webSourceUrl = (specificationSourceEntry.test.firstOrNull() ?: specificationSourceEntry.mock.firstOrNull())?.webSourceUrl
+                    webSourceUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) }
+                }
                 else -> null
             }
         }

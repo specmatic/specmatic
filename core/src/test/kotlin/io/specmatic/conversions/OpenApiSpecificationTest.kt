@@ -12422,7 +12422,7 @@ paths:
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum",
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum",
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains only the mandatory keys",
-            "-ve  Scenario: POST /orders -> 4xx",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY has been omitted",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to null AND status is set to 'fulfilled' from enum",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to boolean AND status is set to 'pending' from enum",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to string AND status is set to 'fulfilled' from enum",
