@@ -281,19 +281,16 @@ data class AnyPattern(
         }
 
         val isNullable = updatedPatterns.any(::isEmpty)
-        val patternResults: Sequence<Pair<Sequence<ReturnValue<Pattern>>?, Throwable?>> =
-            updatedPatterns.asSequence().sortedBy(::isEmpty).map { innerPattern ->
-                try {
-                    val patterns =
-                        resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
-                            val row = discriminator?.removeKeyFromRow(row) ?: row
-                            innerPattern.newBasedOn(row, cyclePreventedResolver).map { it.value }
-                        } ?: sequenceOf()
-                    Pair(patterns.map { HasValue(it) }, null)
-                } catch (e: Throwable) {
-                    Pair(null, e)
+        val patternResults: Sequence<Pair<Sequence<ReturnValue<Pattern>>?, Throwable?>> = updatedPatterns.asSequence().sortedBy(::isEmpty).mapNotNull { innerPattern ->
+            try {
+                resolver.withCyclePrevention(innerPattern, isNullable) { cyclePreventedResolver ->
+                    val row = discriminator?.removeKeyFromRow(row) ?: row
+                    Pair(innerPattern.newBasedOn(row, cyclePreventedResolver), null)
                 }
+            } catch (e: Throwable) {
+                Pair(null, e)
             }
+        }
 
         return newTypesOrExceptionIfNone(patternResults, "Could not generate new tests")
     }
