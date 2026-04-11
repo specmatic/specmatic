@@ -7253,9 +7253,9 @@ components:
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
-            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'FIRST' from enum",
-            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'SECOND' from enum",
-            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'THIRD' from enum"
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'FIRST' from enum AND REQUEST.BODY has been omitted",
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'SECOND' from enum AND REQUEST.BODY has been omitted",
+            " Scenario: GET /items -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the header 'X-region' AND X-region is set to 'THIRD' from enum AND REQUEST.BODY has been omitted"
         )
     }
 
@@ -12330,12 +12330,12 @@ paths:
         })
 
         assertThat(testDescriptions).containsExactlyInAnyOrder(
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'fulfilled' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'pending' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the param 'quantity'",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' AND status is set to 'fulfilled' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' AND status is set to 'pending' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.BODY has been omitted AND REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'fulfilled' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.BODY has been omitted AND REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND status is set to 'pending' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.BODY has been omitted AND REQUEST.PARAMETERS.QUERY contains the param 'quantity'",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.BODY has been omitted AND REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' AND status is set to 'fulfilled' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.BODY has been omitted AND REQUEST.PARAMETERS.QUERY contains the params 'status', 'quantity' AND status is set to 'pending' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.BODY has been omitted AND REQUEST.PARAMETERS.QUERY contains the params 'productId', 'quantity'",
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to boolean AND status is set to 'fulfilled' from enum",
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to string AND status is set to 'pending' from enum",
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.QUERY contains the params 'productId', 'status', 'quantity' AND productId is mutated from number to boolean AND status is set to 'pending' from enum",
@@ -12373,12 +12373,12 @@ paths:
         })
 
         assertThat(testDescriptions).containsExactlyInAnyOrder(
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'fulfilled' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'pending' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity'",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity', 'X-Request-Source'",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' AND X-Order-Status is set to 'fulfilled' from enum",
-            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' AND X-Order-Status is set to 'pending' from enum",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'fulfilled' from enum AND REQUEST.BODY has been omitted",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Order-Status is set to 'pending' from enum AND REQUEST.BODY has been omitted",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity' AND REQUEST.BODY has been omitted",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Quantity', 'X-Request-Source' AND REQUEST.BODY has been omitted",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' AND X-Order-Status is set to 'fulfilled' from enum AND REQUEST.BODY has been omitted",
+            "+ve  Scenario: GET /orders -> 200 with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity' AND X-Order-Status is set to 'pending' from enum AND REQUEST.BODY has been omitted",
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to boolean AND X-Order-Status is set to 'fulfilled' from enum",
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to string AND X-Order-Status is set to 'pending' from enum",
             "-ve  Scenario: GET /orders -> 4xx with a request where REQUEST.PARAMETERS.HEADER contains the headers 'X-Product-Id', 'X-Order-Status', 'X-Quantity', 'X-Request-Source' AND X-Product-Id is mutated from number to boolean AND X-Order-Status is set to 'pending' from enum",
@@ -12422,7 +12422,7 @@ paths:
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum",
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum",
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains only the mandatory keys",
-            "-ve  Scenario: POST /orders -> 4xx",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY has been omitted",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to null AND status is set to 'fulfilled' from enum",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to boolean AND status is set to 'pending' from enum",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to string AND status is set to 'fulfilled' from enum",
