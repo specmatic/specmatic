@@ -27,6 +27,11 @@ data class OptionalBodyPattern(override val pattern: AnyPattern, private val bod
         return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        val newBasedOnNoBodyPattern = sequenceOf<ReturnValue<Pattern>>(HasValue(NoBodyPattern, "has been omitted"))
+        val newBasedOnBodyPattern = bodyPattern.newBasedOn(row, resolver)
+        return newBasedOnNoBodyPattern.plus(newBasedOnBodyPattern)
+    }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         val bodyPatternMatchResult = bodyPattern.matches(sampleData, resolver)
