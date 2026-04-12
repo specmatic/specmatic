@@ -135,6 +135,7 @@ class FilterIntegrationTest {
         fun tearDown() {
             System.clearProperty("testBaseURL")
             System.clearProperty(Flags.CONFIG_FILE_PATH)
+            System.clearProperty("filter")
             httpStub.close()
         }
 

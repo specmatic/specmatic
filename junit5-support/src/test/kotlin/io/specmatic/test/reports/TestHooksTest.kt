@@ -1,22 +1,19 @@
 package io.specmatic.test.reports
 
-import com.sun.net.httpserver.HttpServer
+import io.ktor.http.HttpHeaders
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.reporter.model.TestResult
-import io.specmatic.test.API
-import io.specmatic.test.ContractTestSettings
-import io.specmatic.test.SpecmaticJUnitSupport
-import io.specmatic.test.reports.coverage.Endpoint
+import io.specmatic.test.utils.ContractTestScope
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import java.net.InetSocketAddress
 
 class TestHooksTest {
     @Test
     fun `onTestResult should report updated negative scenario for generative tests`(@TempDir tempDir: File) {
-        val specFile = tempDir.resolve("openapi.yaml")
-        specFile.writeText("""
+        val specYaml = """
         openapi: 3.0.0
         info:
           title: TestHooks generative reporting
@@ -26,7 +23,7 @@ class TestHooksTest {
             get:
               parameters:
                 - in: header
-                  name: X-Rate
+                  name: X-Header
                   required: true
                   schema:
                     type: integer
@@ -35,29 +32,15 @@ class TestHooksTest {
                   description: OK
                 '400':
                   description: Bad request
-        """.trimIndent())
+        """.trimIndent()
 
-        val listener = RecordingTestReportListener()
-        val server = startServer()
-        val baseUrl = "http://localhost:${server.address.port}"
-        SpecmaticJUnitSupport.settingsStaging.set(
-            ContractTestSettings(
-                testBaseURL = baseUrl,
-                contractPaths = specFile.absolutePath,
-                filter = "",
-                configFile = "",
-                generative = true,
-                reportBaseDirectory = null,
-                coverageHooks = listOf(listener)
-            )
-        )
-
-        try {
-            val tests = SpecmaticJUnitSupport().contractTest().toList()
-            assertThat(tests.map { it.displayName }).anyMatch { it.contains("-ve") }
-            tests.forEach { it.executable.execute() }
-            assertThat(listener.testResults).hasSize(tests.size)
-
+        ContractTestScope.from(specYaml, tempDir).execute(SpecmaticConfig().enableResiliencyTests()) { server ->
+            server.on("/products", "GET") {
+                header("X-Header", "(number)")
+                respond(200); otherwise(400)
+            }
+        }.verify { listener ->
+            assertThat(listener.testResults).hasSize(listener.dynamicTests.size)
             val negativeResults = listener.testResults.filter { it.scenario.generativePrefix.contains("-ve") }
             assertThat(negativeResults).isNotEmpty
             assertThat(negativeResults).allSatisfy { testExecutionResult ->
@@ -67,37 +50,61 @@ class TestHooksTest {
                 assertThat(testExecutionResult.result.scenario).isNotNull
                 assertThat(testExecutionResult.result.scenario?.status).isEqualTo(400)
             }
-        } finally {
-            SpecmaticJUnitSupport.settingsStaging.remove()
-            server.stop(0)
         }
     }
 
-    private fun startServer(): HttpServer {
-        val server = HttpServer.create(InetSocketAddress(0), 0)
-        server.createContext("/products") { exchange ->
-            val rate = exchange.requestHeaders.getFirst("X-Rate")
-            val isValidHeader = rate?.toIntOrNull() != null
-            val status = if (isValidHeader) 200 else 400
-            exchange.sendResponseHeaders(status, 0)
-            exchange.responseBody.close()
+    @Test
+    fun `onTestResult should report retries for special handling cases like 429`(@TempDir tempDir: File) {
+        val specYaml = """
+        openapi: 3.0.0
+        info:
+          title: TestHooks special case reporting
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              parameters:
+                - in: header
+                  name: X-Header
+                  required: true
+                  schema:
+                    type: integer
+                  examples:
+                    TOO_MANY_REQUESTS:
+                      value: 0
+              responses:
+                '200':
+                  description: OK
+                '429':
+                  description: Bad request
+                  headers:
+                    X-Retry-After:
+                      schema:
+                        type: integer
+                      examples:
+                        TOO_MANY_REQUESTS:
+                          value: 0
+        """.trimIndent()
+
+        ContractTestScope.from(specYaml, tempDir).execute { server ->
+            server.on("/products", "GET") {
+                header("X-Header", "0")
+                respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
+                times(3)
+            }
+
+            server.on("/products", "GET") {
+                header("X-Header", "(number)")
+                respond(200)
+            }
+        }.verify { listener ->
+            assertThat(listener.testResults).hasSize(listener.dynamicTests.size).hasSize(2)
+            assertThat(listener.testResults.filter { it.scenario.status == 429 }).hasSize(1).allSatisfy { record ->
+                assertThat(record.actualResponseStatus).isEqualTo(429)
+                assertThat(record.testResult).isEqualTo(TestResult.Success)
+                assertThat(record.request).hasSize(record.response.size).hasSize(4)
+                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 429, 200)
+            }
         }
-
-        server.start()
-        return server
-    }
-
-    private class RecordingTestReportListener : TestReportListener {
-        val testResults = mutableListOf<TestExecutionResult>()
-        override fun onActuator(enabled: Boolean) = Unit
-        override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
-        override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
-        override fun onTestResult(result: TestExecutionResult) { testResults.add(result) }
-        override fun onExampleErrors(resultsBySpecFile: Map<String, io.specmatic.core.Result>) = Unit
-        override fun onTestsComplete() = Unit
-        override fun onEnd() = Unit
-        override fun onCoverageCalculated(coverage: Int) = Unit
-        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
-        override fun onGovernance(result: io.specmatic.core.Result) = Unit
     }
 }

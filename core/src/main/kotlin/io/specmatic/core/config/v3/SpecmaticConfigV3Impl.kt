@@ -107,7 +107,7 @@ import java.nio.file.Path
 import kotlin.collections.mapNotNull
 import kotlin.collections.orEmpty
 
-data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticConfig: SpecmaticConfigV3) : SpecmaticConfig {
+data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: SpecmaticConfigV3) : SpecmaticConfig {
     private val effectiveWorkingFile: File = file?.canonicalFile ?: File(".").canonicalFile
     private val resolver = SpecmaticConfigV3Resolver(specmaticConfig.components ?: Components(), effectiveWorkingFile.toPath())
     private fun emptyTestServiceConfig() = TestServiceConfig(service = RefOrValue.Value(CommonServiceConfig(definitions = emptyList())))
@@ -332,7 +332,6 @@ data class SpecmaticConfigV3Impl(val file: File? = null, private val specmaticCo
                     val webSourceUrl = (specificationSourceEntry.test.firstOrNull() ?: specificationSourceEntry.mock.firstOrNull())?.webSourceUrl
                     webSourceUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) }
                 }
-                else -> null
             }
         }
     }
