@@ -253,8 +253,7 @@ class GenerativeTests {
         assertThat(positiveGenerativeChangeSummaries).isNotEmpty
         assertThat(negativeGenerativeChangeSummaries).isNotEmpty
         assertThat(negativeGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
-        assertThat(positiveGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
-        assertThat(positiveGenerativeChangeSummaries).contains("REQUEST.BODY has been omitted")
+        assertThat(positiveGenerativeChangeSummaries).anySatisfy { assertThat(it == null || it.isBlank()).isTrue() }
     }
 
     @Test

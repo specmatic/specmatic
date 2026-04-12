@@ -16,7 +16,7 @@ object NoBodyPattern : Pattern {
 
     override fun generate(resolver: Resolver): Value = NoBodyValue
 
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this, "has been omitted"))
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(this))
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
 
