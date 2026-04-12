@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.GENERATION
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -10,6 +11,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 
 internal class AnyOfPatternTest {
@@ -147,6 +149,40 @@ internal class AnyOfPatternTest {
 
         assertThat(generatedPatterns.any { it is StringPattern }).isTrue()
         assertThat(generatedPatterns.any { it is NumberPattern }).isTrue()
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `newBasedOn should preserve value details and comments from delegate patterns`() {
+        val pattern = AnyOfPattern(
+            listOf(
+                JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern())),
+                JSONObjectPattern(mapOf("id" to NumberPattern(), "code?" to StringPattern())),
+            ),
+        )
+
+        val generated = pattern.newBasedOn(Row(), resolver).toList().filterIsInstance<HasValue<Pattern>>()
+        assertThat(generated).isNotEmpty.allSatisfy {
+            assertThat(it.valueDetails).isNotEmpty
+            assertThat(it.comments()).isNotBlank
+        }
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `negativeBasedOn should preserve value details and comments from delegate patterns`() {
+        val pattern = AnyOfPattern(
+            listOf(
+                JSONObjectPattern(mapOf("id" to NumberPattern(), "name" to StringPattern())),
+                JSONObjectPattern(mapOf("id" to NumberPattern(), "code?" to StringPattern())),
+            ),
+        )
+
+        val generated = pattern.negativeBasedOn(Row(), resolver).toList().filterIsInstance<HasValue<Pattern>>()
+        assertThat(generated).isNotEmpty.allSatisfy {
+            assertThat(it.valueDetails).isNotEmpty
+            assertThat(it.comments()).isNotBlank
+        }
     }
 
     @Test
