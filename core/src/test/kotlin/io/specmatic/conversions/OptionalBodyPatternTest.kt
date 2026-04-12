@@ -12,6 +12,38 @@ import org.junit.jupiter.api.Test
 
 class OptionalBodyPatternTest {
     @Test
+    fun `fixValue should retain NoBodyValue instead of converting to body pattern`() {
+        val pattern = OptionalBodyPattern.fromPattern(StringPattern())
+        val fixedValue = pattern.fixValue(NoBodyValue, Resolver())
+        assertThat(fixedValue).isEqualTo(NoBodyValue)
+    }
+
+    @Test
+    fun `fixValue should prefer body pattern when value is not no body value`() {
+        val pattern = OptionalBodyPattern.fromPattern(
+            JSONObjectPattern(
+                mapOf(
+                    "one" to NumberPattern(),
+                    "two" to NumberPattern(),
+                    "three" to NumberPattern()
+                )
+            )
+        )
+
+        val value = JSONObjectValue(
+            mapOf(
+                "one" to NumberValue(1),
+                "two" to StringValue("bad"),
+                "three" to StringValue("also_bad")
+            )
+        )
+
+        val fixedValue = pattern.fixValue(value, Resolver())
+        assertThat(fixedValue).isInstanceOf(JSONObjectValue::class.java); fixedValue as JSONObjectValue
+        assertThat(fixedValue.jsonObject.keys).containsExactlyInAnyOrder("one", "two", "three")
+    }
+
+    @Test
     fun `optional body error match`() {
         val body = OptionalBodyPattern.fromPattern(NumberPattern())
 

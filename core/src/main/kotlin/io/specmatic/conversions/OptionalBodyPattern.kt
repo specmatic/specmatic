@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.NoBodyPattern
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
@@ -45,5 +46,10 @@ data class OptionalBodyPattern(override val pattern: AnyPattern, private val bod
             return nobodyPatternMatchResult
 
         return bodyPatternMatchResult
+    }
+
+    override fun fixValue(value: Value, resolver: Resolver): Value {
+        if (value is NoBodyValue) return NoBodyValue
+        return bodyPattern.fixValue(value, resolver)
     }
 }
