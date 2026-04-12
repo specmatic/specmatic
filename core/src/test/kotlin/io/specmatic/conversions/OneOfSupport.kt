@@ -18,6 +18,7 @@ class OneOfSupport {
               /test:
                 post:
                   requestBody:
+                    required: true
                     content:
                       application/json:
                         schema:

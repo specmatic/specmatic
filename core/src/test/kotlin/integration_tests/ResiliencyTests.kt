@@ -10,7 +10,6 @@ import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.NoBodyPattern
 import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Scenario
@@ -252,8 +251,9 @@ class GenerativeTests {
 
         assertThat(positiveGenerativeChangeSummaries).isNotEmpty
         assertThat(negativeGenerativeChangeSummaries).isNotEmpty
+        assertThat(positiveGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
         assertThat(negativeGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
-        assertThat(positiveGenerativeChangeSummaries).anySatisfy { assertThat(it == null || it.isBlank()).isTrue() }
+        assertThat(positiveGenerativeChangeSummaries).contains("REQUEST.BODY has been omitted")
     }
 
     @Test
