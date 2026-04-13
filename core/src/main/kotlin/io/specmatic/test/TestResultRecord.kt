@@ -1,5 +1,7 @@
 package io.specmatic.test
 
+import io.ktor.http.ContentType
+import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
@@ -8,6 +10,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestOutput
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -72,11 +75,27 @@ data class TestResultRecord(
             }
 
         return CtrfTestMetadata(
-            wip = isWip,
-            input = request?.toLogString().orEmpty(),
+            attempt = true,
             outputs = outputs,
-            inputTime = requestTime?.toEpochMilli() ?: 0L
+            reasons = emptyList(),
+            match = matchesResponseIdentifiers(),
+            input = request?.toLogString().orEmpty(),
+            inputTime = requestTime?.toEpochMilli() ?: 0L,
+            qualifiers = buildList { if (isWip) add(CtrfTestQualifiers.WIP) },
         )
+    }
+
+    fun matchesResponseIdentifiers(code: Int = actualResponseStatus, contentType: String? = actualResponseContentType): Boolean {
+        if (responseStatus !in setOf(DEFAULT_RESPONSE_CODE, code)) return false
+        return runCatching {
+            val expected = this.responseContentType?.let(ContentType::parse)
+            val actual = contentType?.let(ContentType::parse)
+            Pair(expected, actual)
+        }.mapCatching { (expected, actual) ->
+            if (expected == null && actual == null) return@mapCatching true
+            if (expected == null || actual == null) return@mapCatching false
+            actual.match(expected)
+        }.getOrDefault(false)
     }
 
     override fun tags(): List<String> {

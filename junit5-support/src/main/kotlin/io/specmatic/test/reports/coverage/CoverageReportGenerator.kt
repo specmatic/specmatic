@@ -8,8 +8,9 @@ import io.specmatic.test.TestResultRecord
 
 data class OpenApiCoverageFacts(
     val operation: OpenAPIOperation,
-    val attemptRecords: List<TestResultRecord>,
+    val tests: List<TestResultRecord>,
     val matchRecords: List<TestResultRecord>,
+    val attemptRecords: List<TestResultRecord>,
 )
 
 class CoverageReportGenerator {
@@ -23,26 +24,22 @@ class CoverageReportGenerator {
             val coverageStatus = coverageStatusFor(operation, facts, specOperations)
 
             CoverageReportOperation(
+                tests = facts.tests,
                 operation = operation,
-                specConfig = specConfigFor(operation, coverageStatus, facts.attemptRecords, context),
-                tests = (facts.attemptRecords + facts.matchRecords).distinct(),
                 coverageStatus = coverageStatus,
                 eligibleForCoverage = coverageStatus != CoverageStatus.MISSING_IN_SPEC,
+                specConfig = specConfigFor(operation, coverageStatus, facts.attemptRecords, context),
             )
         }
     }
 
-    private fun factsFor(
-        operation: OpenAPIOperation,
-        testResultRecords: List<TestResultRecord>,
-    ): OpenApiCoverageFacts {
-        val attemptRecords = testResultRecords.filter { it.attempts(operation) }
-        val matchRecords = testResultRecords.filter { it.matches(operation) }
-
+    private fun factsFor(operation: OpenAPIOperation, testResultRecords: List<TestResultRecord>): OpenApiCoverageFacts {
+        val (tests) = testResultRecords.partition { record -> record.attempts(operation) || record.matches(operation) }
         return OpenApiCoverageFacts(
+            tests = tests,
             operation = operation,
-            attemptRecords = attemptRecords,
-            matchRecords = matchRecords,
+            matchRecords = tests.filter { it.matches(operation) },
+            attemptRecords = tests.filter { it.attempts(operation) },
         )
     }
 
