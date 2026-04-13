@@ -1,6 +1,6 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-request-bodies: true
-x-specmatic-expect-failure-response-bodies: true
+x-specmatic-expect-failure-request-bodies: "invalid request/response body because integer-multipleof constraint not respected"
+x-specmatic-expect-failure-response-bodies: "invalid request/response body because integer-multipleof constraint not respected"
 info:
   title: "Constraint - integer multipleOf"
   version: "1.0"

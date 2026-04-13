@@ -1,5 +1,5 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-request-bodies: true
+x-specmatic-expect-failure-request-bodies: "Limitation of conformance test harness. Cannot validate application/octet-stream bodies."
 info:
   title: "Raw binary request body (octet-stream)"
   version: "1.0"

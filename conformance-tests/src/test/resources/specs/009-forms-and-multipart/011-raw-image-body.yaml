@@ -1,5 +1,5 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-request-bodies: true
+x-specmatic-expect-failure-request-bodies: "Limitation of conformance test harness. Cannot validate image/png bodies."
 info:
   title: "Raw image request body (image/png)"
   version: "1.0"

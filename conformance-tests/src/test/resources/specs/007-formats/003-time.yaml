@@ -1,6 +1,6 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-request-bodies: true
-x-specmatic-expect-failure-response-bodies: true
+x-specmatic-expect-failure-request-bodies: "invalid RFC 3339 time"
+x-specmatic-expect-failure-response-bodies: "invalid RFC 3339 time"
 info:
   title: "Format - time (JSON Schema)"
   version: "1.0"

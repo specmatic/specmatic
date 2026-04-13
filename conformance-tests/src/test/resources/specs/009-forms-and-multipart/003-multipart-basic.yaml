@@ -1,5 +1,5 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-request-bodies: true
+x-specmatic-expect-failure-request-bodies: "Limitation of conformance test harness. Cannot validate multipart bodies."
 info:
   title: "Multipart form data - basic fields"
   version: "1.0"

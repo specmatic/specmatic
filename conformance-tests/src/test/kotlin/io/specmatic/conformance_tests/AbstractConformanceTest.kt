@@ -37,23 +37,22 @@ abstract class AbstractConformanceTest(
 
     protected data class ExpectedFailure(val xFieldName: String, val reason: String)
 
-    protected fun expectFailureFor(methodName: String): ExpectedFailure? {
-        val xFieldName = when (methodName) {
-            "loop tests should succeed" -> X_FIELD_LOOP
-            "should only exercise all operations in the openAPI spec and not make any additional non-compliant requests" -> X_FIELD_OPERATIONS
-            "should send valid request bodies" -> X_FIELD_REQUEST_BODIES
-            "should return valid response bodies" -> X_FIELD_RESPONSE_BODIES
-            else -> return null
-        }
+    protected enum class TestType(val xFieldName: String) {
+        LOOP_TESTS(X_FIELD_LOOP),
+        OPERATIONS(X_FIELD_OPERATIONS),
+        REQUEST_BODIES(X_FIELD_REQUEST_BODIES),
+        RESPONSE_BODIES(X_FIELD_RESPONSE_BODIES)
+    }
 
+    protected fun expectFailureFor(testType: TestType): ExpectedFailure? {
         return try {
             val specFile = File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile")
             if (!specFile.exists()) return null
 
             val yaml = yamlMapper.readTree(specFile)
-            val fieldValue = yaml.get(xFieldName)?.asText()
+            val fieldValue = yaml.get(testType.xFieldName)?.asText()
             if (fieldValue.isNullOrBlank()) return null
-            ExpectedFailure(xFieldName, fieldValue)
+            ExpectedFailure(testType.xFieldName, fieldValue)
         } catch (e: Exception) {
             null
         }
@@ -84,7 +83,7 @@ abstract class AbstractConformanceTest(
     @Test
     @Order(1)
     fun `loop tests should succeed`() {
-        val expectedFailure = expectFailureFor("loop tests should succeed")
+        val expectedFailure = expectFailureFor(TestType.LOOP_TESTS)
         val actualResult = loopTestsResult.isSuccessful()
 
         if (expectedFailure != null) {
@@ -117,7 +116,7 @@ abstract class AbstractConformanceTest(
         val exchangeOps = httpExchanges.map { it.toOperation(spec) ?: it.toOperation() }.toSet()
         debugInfoBuilder.appendLine("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations): $exchangeOps")
 
-        val expectedFailure = expectFailureFor("should only exercise all operations in the openAPI spec and not make any additional non-compliant requests")
+        val expectedFailure = expectFailureFor(TestType.OPERATIONS)
         val actualResult = specOps == exchangeOps
 
         if (expectedFailure != null) {
@@ -162,7 +161,7 @@ abstract class AbstractConformanceTest(
                 )
             }
 
-        val expectedFailure = expectFailureFor("should send valid request bodies")
+        val expectedFailure = expectFailureFor(TestType.REQUEST_BODIES)
         val actualResult = errors.isEmpty()
 
         if (expectedFailure != null) {
@@ -206,7 +205,7 @@ abstract class AbstractConformanceTest(
                 )
             }
 
-        val expectedFailure = expectFailureFor("should return valid response bodies")
+        val expectedFailure = expectFailureFor(TestType.RESPONSE_BODIES)
 
         if (expectedFailure != null) {
             // INVERTED: Expected to fail

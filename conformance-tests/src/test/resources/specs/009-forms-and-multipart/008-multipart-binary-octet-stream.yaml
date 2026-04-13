@@ -1,6 +1,6 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-loop: true
-x-specmatic-expect-failure-operations: true
+x-specmatic-expect-failure-loop: "loop test failed because tests sent invalid requests that were rejected by the mock"
+x-specmatic-expect-failure-operations: "loop test failed because tests sent invalid requests that were rejected by the mock"
 info:
   title: "Multipart binary with octet-stream encoding"
   version: "1.0"

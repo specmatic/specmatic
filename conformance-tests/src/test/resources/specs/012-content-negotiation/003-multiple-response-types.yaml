@@ -1,6 +1,6 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-loop: true
-x-specmatic-expect-failure-operations: true
+x-specmatic-expect-failure-loop: "Mock fails to load with error: Could not determine name for an xml node"
+x-specmatic-expect-failure-operations: "Mock fails to load with error: Could not determine name for an xml node"
 info:
   title: "Content negotiation - multiple response content types"
   version: "1.0"

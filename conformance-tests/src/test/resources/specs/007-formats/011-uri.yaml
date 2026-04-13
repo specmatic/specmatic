@@ -1,6 +1,6 @@
 openapi: 3.0.3
-x-specmatic-expect-failure-request-bodies: true
-x-specmatic-expect-failure-response-bodies: true
+x-specmatic-expect-failure-request-bodies: "invalid RFC 3986 URI"
+x-specmatic-expect-failure-response-bodies: "invalid RFC 3986 URI"
 info:
   title: "Format - uri (JSON Schema)"
   version: "1.0"
