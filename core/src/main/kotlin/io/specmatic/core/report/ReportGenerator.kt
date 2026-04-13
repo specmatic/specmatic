@@ -4,6 +4,7 @@ import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
+import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -38,6 +39,42 @@ object ReportGenerator {
             extra = extra,
             specConfig = specConfigs,
             getCoverageStatus = getCoverageStatus,
+            toolName = toolName
+        )
+
+        ReportProvider.generateCtrfReport(report, reportDir)
+        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+    }
+
+    fun generateReport(
+        testResultRecords: List<CtrfTestResultRecord>,
+        coverageReportOperations: List<CoverageReportOperation>,
+        startTime: Long,
+        endTime: Long,
+        specConfigs: List<CtrfSpecConfig>,
+        coverage: Int? = null,
+        reportDir: File,
+        toolName: String = "Specmatic ${VersionInfo.describe()}",
+    ) {
+        if(isCtrfSpecConfigsValid(specConfigs).not()) return
+
+        val extra = buildMap<String, Any> {
+            coverage?.let { put("apiCoverage", "$coverage%") }
+            put("specmaticConfigPath", getConfigFilePath())
+        }
+
+        consoleLog(
+            "Generating report for ${testResultRecords.size} tests and ${coverageReportOperations.size} coverage operations..."
+        )
+
+        consoleLog("Using new report generation method that accepts coverage report operations.")
+        val report = CtrfReportGenerator.generate(
+            testResultRecords = testResultRecords,
+            coverageReportOperations = coverageReportOperations,
+            startTime = startTime,
+            endTime = endTime,
+            extra = extra,
+            specConfig = specConfigs,
             toolName = toolName
         )
 

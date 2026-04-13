@@ -21,7 +21,6 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReportInput: Ope
 
     override fun process(specmaticConfig: SpecmaticConfig) {
         val reportConfiguration = specmaticConfig.getReport()!!
-
         openApiCoverageReportInput.addExcludedAPIs(reportConfiguration.excludedOpenAPIEndpoints() + excludedEndpointsFromEnv())
         val openAPICoverageReport = openApiCoverageReportInput.generate()
 

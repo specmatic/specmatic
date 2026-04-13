@@ -21,6 +21,7 @@ data class TestResultRecord(
     val path: String,
     val method: String,
     val responseStatus: Int,
+    val responseContentType: String? = null,
     val request: HttpRequest?,
     val response: HttpResponse?,
     override val result: TestResult,
@@ -30,6 +31,7 @@ data class TestResultRecord(
     override val specification: String? = null,
     override val specType: SpecType,
     val actualResponseStatus: Int = 0,
+    val actualResponseContentType: String? = response.normalizedContentType(),
     val scenarioResult: Result? = null,
     override val isWip: Boolean = false,
     val requestContentType: String? = null,
@@ -46,7 +48,8 @@ data class TestResultRecord(
             method = method,
             contentType = requestContentType,
             responseCode = responseStatus,
-            protocol = SpecmaticProtocol.HTTP
+            protocol = SpecmaticProtocol.HTTP,
+            responseContentType = responseContentType,
         )
     ),
     val exampleId: String? = null
@@ -134,6 +137,10 @@ data class TestResultRecord(
         }
 }
 
+fun HttpResponse?.normalizedContentType(): String? {
+    return this?.contentType()?.substringBefore(";")?.trim()?.takeIf { it.isNotBlank() }
+}
+
 fun CoverageStatus.isPresentInSpecForApiCoverage(): Boolean =
     this != CoverageStatus.MISSING_IN_SPEC
 
@@ -158,6 +165,7 @@ fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
         method = scenario.method,
         contentType = scenario.requestContentType,
         responseCode = scenario.status,
-        protocol = scenario.protocol
+        protocol = scenario.protocol,
+        responseContentType = scenario.httpResponsePattern.headersPattern.contentType,
     )
 }

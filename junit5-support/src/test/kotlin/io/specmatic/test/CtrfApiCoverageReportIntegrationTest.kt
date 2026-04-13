@@ -9,6 +9,7 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.reports.coverage.Endpoint
+import io.specmatic.test.reports.coverage.OpenApiCoverage
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -44,6 +45,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     path = endpoint.path,
                     method = endpoint.method,
                     responseStatus = endpoint.responseStatus,
+                    responseContentType = endpoint.responseContentType,
                     request = null,
                     response = null,
                     result = TestResult.Success,
@@ -145,6 +147,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     path = endpoint.path,
                     method = endpoint.method,
                     responseStatus = endpoint.responseStatus,
+                    responseContentType = endpoint.responseContentType,
                     request = null,
                     response = null,
                     result = TestResult.Success,
@@ -222,6 +225,7 @@ class CtrfApiCoverageReportIntegrationTest {
                 path = endpoint.path,
                 method = endpoint.method,
                 responseStatus = endpoint.responseStatus,
+                responseContentType = endpoint.responseContentType,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
@@ -261,6 +265,7 @@ class CtrfApiCoverageReportIntegrationTest {
                 path = endpoint.path,
                 method = endpoint.method,
                 responseStatus = endpoint.responseStatus,
+                responseContentType = endpoint.responseContentType,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
@@ -282,6 +287,61 @@ class CtrfApiCoverageReportIntegrationTest {
         assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
         assertThat(tests.single()["extra"]["wip"].asBoolean()).isTrue()
         assertThat(executionOperations.single()["coverageStatus"].asText()).isEqualTo("WIP")
+    }
+
+    @Test
+    fun `operation based ctrf generation should include not covered and missing in spec rows`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val endpoints = endpointsFrom(specFile)
+        val testedEndpoint = endpoints.first { it.path == "/pets/find" }
+        val notCoveredEndpoint = endpoints.first { it.path != testedEndpoint.path }
+
+        val coverage = OpenApiCoverage()
+        coverage.addEndpoints(endpoints, endpoints)
+        coverage.setEndpointsAPIFlag(true)
+        coverage.addAPIs(listOf(API(method = "GET", path = "/pets/unknown")))
+        coverage.addTestReportRecords(
+            TestResultRecord(
+                path = testedEndpoint.path,
+                method = testedEndpoint.method,
+                responseStatus = testedEndpoint.responseStatus,
+                responseContentType = testedEndpoint.responseContentType,
+                request = null,
+                response = null,
+                result = TestResult.Success,
+                specification = testedEndpoint.specification,
+                specType = SpecType.OPENAPI,
+                requestContentType = testedEndpoint.requestContentType,
+                operations = setOf(testedEndpoint.toOpenApiOperation()),
+                actualResponseStatus = testedEndpoint.responseStatus,
+                actualResponseContentType = testedEndpoint.responseContentType,
+            )
+        )
+        val coverageReportOperations = coverage.generate()
+        val attemptedTestRecords = coverageReportOperations.flatMap { it.tests }.distinct()
+
+        val ctrfReport = CtrfReportGenerator.generate(
+            testResultRecords = attemptedTestRecords,
+            coverageReportOperations = coverageReportOperations,
+            specConfig = coverage.ctrfSpecConfigs(),
+            startTime = 0L,
+            endTime = 0L,
+            extra = emptyMap(),
+            toolName = "Specmatic test",
+        )
+
+        val reportNode = ObjectMapper().readTree(ObjectMapper().writeValueAsString(ctrfReport))
+        val executionOperations = reportNode["results"]["summary"]["extra"]["executionDetails"]
+            .single()
+            .get("operations")
+            .toList()
+
+        assertThat(executionOperations).anyMatch {
+            it["path"].asText() == notCoveredEndpoint.path && it["coverageStatus"].asText() == CoverageStatus.NOT_TESTED.value
+        }
+        assertThat(executionOperations).anyMatch {
+            it["path"].asText() == "/pets/unknown" && it["coverageStatus"].asText() == CoverageStatus.MISSING_IN_SPEC.value
+        }
     }
 
     private fun findTextValue(node: com.fasterxml.jackson.databind.JsonNode, fieldName: String): String? {
@@ -357,4 +417,14 @@ class CtrfApiCoverageReportIntegrationTest {
             )
         }.distinct()
     }
+
+    private fun Endpoint.toOpenApiOperation() =
+        io.specmatic.reporter.model.OpenAPIOperation(
+            path = path,
+            method = soapAction ?: method,
+            contentType = requestContentType,
+            responseCode = responseStatus,
+            protocol = protocol,
+            responseContentType = responseContentType,
+        )
 }
