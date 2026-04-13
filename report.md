@@ -3,7 +3,6 @@
 ## Overview
 
 This document defines the coverage reporting model for Specmatic across Console and Studio.
-
 The goal is to provide a clear, spec-centric view of API contract coverage, while also surfacing runtime deviations and execution evidence.
 
 ---
@@ -11,15 +10,15 @@ The goal is to provide a clear, spec-centric view of API contract coverage, whil
 ## 🧠 Core Principles
 
 1. Spec-centric reporting
-   - Coverage is computed only from behaviours declared in the specification.
+   * Coverage is computed only from behaviours declared in the specification.
 2. Separation of concerns
-   - Spec-declared behaviours vs runtime-only findings must be distinct but capture in the same report.
+   * Spec-declared behaviours vs runtime-only findings must be distinct but captured in the same report.
 3. Truthful coverage
-   - Coverage reflects what was actually observed, not what was attempted.
+   * Coverage reflects what was actually observed against declared contract behaviours, not what was merely attempted.
 4. WIP affects suite result, not coverage
-   - WIP tests do not fail the suite, but still contribute to coverage.
+   * WIP tests do not fail the suite, but still contribute to coverage.
 5. Execution evidence is first-class
-   - Attempts and Matches must be tracked and displayed.
+   * Attempts and Matches must be tracked and displayed.
 
 ---
 
@@ -39,32 +38,31 @@ Each row represents a single reporting unit for an observed or expected contract
 
 Enum:
 
-- Covered
-- Not Implemented
-- Not Tested (test mode only)
-- Not Used (mock mode only)
-- Missing in Spec
-- Undeclared Response
+* Covered
+* Not Implemented
+* Not Tested (test mode only)
+* Not Used (mock mode only)
+* Missing in Spec
 
 ---
 
-#### 2.2 Decisions (Optional)
+#### 2.2 Reasons (Optional)
 
 Applicable when Status = Not Tested
 
 Enum:
 
-- Excluded
-- No Examples
-- Generation Disabled
-- Unsupported by Specmatic
+* Excluded
+* No Examples
+* Generation Disabled
+* Unsupported by Specmatic
 
 ---
 
 #### 2.3 Qualifiers (Optional, Multiple Allowed)
 
-- WIP
-- Filtered
+* WIP
+* Filtered
 
 Qualifiers are visual only and do not affect semantic status.
 
@@ -74,15 +72,17 @@ Qualifiers are visual only and do not affect semantic status.
 
 Boolean:
 
-- true (default)
-- false
+* true (default)
+* false
+
+Coverage Eligibility is derived from Status and Reasons.
 
 ---
 
 #### 2.5 Execution Metrics (Required)
 
-- Attempts (integer ≥ 0)
-- Matches (integer ≥ 0) - all 5 elements in an operation matched
+* Attempts (integer ≥ 0)
+* Matches (integer ≥ 0) - all 5 elements in an operation matched
 
 ---
 
@@ -104,60 +104,38 @@ IF Attempts ≥ 1 AND Matches = 0 AND the expected response (status and content 
 
 ---
 
-### Not Tested
+### Not Tested / Not Used
 
-IF Attempts = 0
-→ Status = Not Tested
-→ Decisions MUST be provided
-→ Coverage Eligibility = true unless Decisions = Excluded or Unsupported by Specmatic
+IF Attempts = 0:
 
----
+* Status = Not Tested when derived from test execution
+* Status = Not Used when derived from mock usage
 
-### Not Used (Mock Mode Only)
+For Not Tested:
+→ Reasons MUST be provided
+→ Coverage Eligibility = true unless Reasons = Excluded or Unsupported by Specmatic
 
-IF operation exists but was never invoked during mock execution
-→ Status = Not Used
+For Not Used:
 → Coverage Eligibility = true
-
 ---
 
 ### Missing in Spec
 
 IF service exposes (Path, Method) not present in spec
 → Report as "Missing in Spec"
-
 → Coverage Eligibility = false
 
 Also applies when Specmatic generates a negative test expectation for a response that is not declared in the spec.
 In such cases, the generated expectation should be reported as Missing in Spec so the developer can first add it to the spec.
-This classification takes precedence over Not Implemented.
+This classification takes precedence over all other statuses, including Covered and Not Implemented.
 
 ---
 
-### Undeclared Response
+### Important
 
-IF service exposes (Path, Method) which is present in spec, but service returns response not defined in spec
-→ Report as "Undeclared Response"
-
-Includes:
-
-- Unexpected status codes
-- Unexpected content types
-
-→ Coverage Eligibility = false
-
-Also applies when
-IF Attempts = 0 AND Matches > 0 AND the response status code is absent from the spec
-→ Status = Undeclared Response
-→ Coverage Eligibility = false
-
----
-
-Important
-
-- Missing in Spec and Undeclared Response are part of the main status model
-- They are shown along with other rows
-- Must NOT influence coverage numerator or denominator
+* Missing in Spec is part of the main status model
+* They are shown along with other rows
+* Must NOT influence coverage numerator or denominator
 
 ---
 
@@ -166,28 +144,24 @@ Important
 ### Included in Coverage
 
 A row is Included if:
-
-- It is not excluded
-- It is not unsupported by Specmatic
+* It is not excluded
+* It is not unsupported by Specmatic
 
 This includes:
-
-- Covered
-- Not Implemented
-- Not Tested (unless excluded or unsupported by Specmatic)
-- Not Used (mock mode only)
+* Covered
+* Not Implemented
+* Not Tested (unless excluded or unsupported by Specmatic)
+* Not Used (mock mode only)
 
 ---
 
 ### Excluded from Coverage
 
 A row is Excluded if:
-
-- Decisions = Excluded
-- It cannot be tested due to:
-  - Unsupported by Specmatic
-- It is Missing in Spec
-- It is an Undeclared Response
+* Reasons = Excluded
+* It cannot be tested due to:
+  * Unsupported by Specmatic
+* It is Missing in Spec
 
 ---
 
@@ -197,8 +171,8 @@ Coverage % = (Number of Covered rows) / (Number of Included rows) × 100
 
 Where:
 
-- Numerator = count of rows where Status = Covered AND Coverage Eligibility = true
-- Denominator = count of rows where Coverage Eligibility = true
+* Numerator = count of rows where Status = Covered AND Coverage Eligibility = true
+* Denominator = count of rows where Coverage Eligibility = true
 
 ---
 
@@ -210,27 +184,28 @@ Number of times Specmatic sent a request to validate this expected behaviour.
 
 Includes:
 
-- Generated tests
-- Variations (property-based / generative cases)
+* Generated tests
+* Variations (property-based / generative cases)
 
 ---
 
 ### Matches
 
-Number of times the actual operation matched the expected contract behavior (Path, Method, Request Content-Type, Response Status, Response Content-Type).
+Number of times the actual operation matched the expected contract behavior
+(Path, Method, Request Content-Type, Response Status, Response Content-Type).
 
 ---
 
 ### Example
 
-| Attempts | Matches | Status          |
-|----------|---------|-----------------|
-| 10       | 10      | Covered         |
-| 10       | 1       | Covered         |
-| 10       | 0       | Not Implemented |
-| 1        | 0       | Not Implemented |
-| 0        | 0       | Not Tested      |
-| 20       | 20      | Missing in Spec |
+| Attempts | Matches | Status                                |
+| -------- | ------- | ------------------------------------- |
+| 10       | 10      | Covered                               |
+| 10       | 1       | Covered                               |
+| 10       | 0       | Not Implemented                       |
+| 1        | 0       | Not Implemented                       |
+| 0        | 0       | Not Tested                            |
+| 20       | 20      | Missing in Spec (Was not in the spec) |
 
 ---
 
@@ -238,13 +213,13 @@ Number of times the actual operation matched the expected contract behavior (Pat
 
 ### Rules
 
-- WIP is a qualifier only
-- It does NOT change status
-- It does NOT affect coverage inclusion
+* WIP is a qualifier only
+* It does NOT change status
+* It does NOT affect coverage inclusion
 
 ### Suite Execution
 
-IF Status = Not Implemented AND Qualifier = WIP
+IF Status = Not Implemented OR row has failures AND Qualifier = WIP
 → Do NOT fail the test suite
 
 ---
@@ -260,21 +235,14 @@ Matches = 0
 Status = Not Implemented
 Coverage = Included
 
-Row: 400
-
-Attempts = 0
-Matches = 10
-Status = Undeclared Response
-Coverage = Excluded
-
 Notes:
 
-- The 201 row is still part of the main spec coverage model, so it remains Not Implemented.
-- The observed 400 row is not declared in spec, so it is reported separately and excluded from coverage.
+* The 201 row is still part of the main spec coverage model, so it remains Not Implemented.
+* The observed 400 response is not declared in spec and is not reported as a separate row in this scenario; the user can instead drill down into execution details.
 
 ---
 
-### Scenario 2: Expected 201, got only 400 (which is present in spec)
+### Scenario 2: Expected 201, got only 400 (which is present in spec) + A test for 400 is executed
 
 Row: 201
 
@@ -285,12 +253,12 @@ Coverage = Included
 
 Row: 400
 
-Attempts = 10
-Matches = 10
+Attempts = 1
+Matches = 1
 Status = Covered (since 400 is declared in spec)
 Coverage = Included
 
-This is true even when the 201 row is Not Implemented. Different response rows for the same `(Path, Method, Request Content-Type)` are evaluated independently.
+Both `201` and `400` tests were executed here, total test count was 11
 
 ---
 
@@ -309,7 +277,7 @@ Coverage = Included
 ### Scenario 4: Filtered operation
 
 Status = Not Tested
-Decisions = Excluded
+Reasons = Excluded
 Qualifier = Filtered
 Coverage = Excluded
 Attempts = 0
@@ -330,14 +298,14 @@ This row is allowed even with zero attempts and zero matches when it comes from 
 
 ---
 
-### Scenario 6: Not Tested with decision
+### Scenario 6: Not Tested with reason
 
 Row: 201 / application/json
 
 Attempts = 0
 Matches = 0
 Status = Not Tested
-Decisions = Excluded
+Reasons = Excluded
 Coverage = Excluded
 
 ---
@@ -345,8 +313,7 @@ Coverage = Excluded
 ### Scenario 7: Missing-in-spec response generated by negative tests
 
 Declared row:
-
-/order POST application/json -> 201 / application/json
+/order POST application/json → 201 / application/json
 
 Attempts = 10
 Matches = 10
@@ -354,27 +321,20 @@ Status = Covered
 Coverage = Included
 
 Generated negative row:
-
-/order POST application/json -> 400 / application/json
+/order POST application/json → 400 / application/json
 
 Attempts = 20
 Matches = 20
 Status = Missing in Spec
 Coverage = Excluded
 
-If only some of those generated runs match, for example:
-
-- Attempts = 20
-- Matches = 10
-
-the status still remains Missing in Spec. Match count does not override the missing-in-spec classification.
+The status remains Missing in Spec. Match count does not override the missing-in-spec classification.
 
 ---
 
-### Scenario 8: Declared negative response with generative tests
+### Scenario 8: Declared negative response (400 defined in spec) with generative tests
 
-/order POST application/json -> 400 / application/json
-
+/order POST application/json → 400 / application/json
 Attempts = 20
 Matches = 10
 Status = Covered
@@ -386,97 +346,65 @@ As long as the row is declared in spec and Matches > 0, the row is Covered.
 
 ### Scenario 9: Response content type matters
 
-Rows are distinct per:
+Assume the spec declares these responses:
 
-`(Path, Method, Request Content-Type, Response Status, Response Content-Type)`
+* `201 / application/json`
+* `400 / application/json`
+* `400 / text/plain`
+* `422 / application/json`
+* `422 / text/plain`
 
-So these are different rows:
+Now let's say a negative test returns:
 
-- `400 / application/json`
-- `400 / text/plain`
-- `422 / application/json`
-- `422 / text/plain`
-- `500 / application/json`
-
-Implications:
-
-- If `400 / text/plain` is declared and matched, it is Covered.
-- `422` and `500` variants must each be evaluated independently.
-
----
-
-### Scenario 10: Negative test returns undeclared content type, but is reported against best matching declared row
-
-Assume the spec declares these rows for the same operation:
-
-- `201 / application/json`
-- `400 / application/json`
-- `400 / text/plain`
-- `422 / application/json`
-- `422 / text/plain`
-
-Now a negative test returns:
-
-- actual response = `400 / application/xml`
+* actual response = `400 / application/xml`
 
 In this case:
 
-- `400 / application/xml` does **not** automatically become a new reporting row
-- the failed test is attached to the best matching declared row in the spec
-- that chosen row gets:
-  - `Attempts += 1`
-  - `Matches += 0`
-- the final status is determined on that declared row using the normal rules
+* `400 / application/xml` does **not** automatically become a new reporting row
+* the failed test is attached to the best matching declared row in the spec
+* that chosen row gets:
+  * `Attempts += 1`
+  * `Matches += 0`
+* the final status is determined on that declared row using the normal rules
 
 The exact best-match algorithm is out of scope here, but the reporting rule is:
-
-> When an actual response does not exactly match a declared response row, Specmatic may associate that failure to the closest declared row instead of creating a new operation row.
-
+> When an actual response does not exactly match a declared response row, Specmatic may associate that failure to the closest declared row instead of creating a new operation row
 This keeps the report spec-centric while still preserving the failure evidence.
-
 ---
 
-### Scenario 11: No examples
+### Scenario 10: No examples
 
 Status = Not Tested
-Decisions = No Examples
+Reasons = No Examples
 Coverage = Included
 Attempts = 0
 Matches = 0
 
 ---
 
-### Scenario 12: Mock usage
+### Scenario 11: Mock usage
 
 Status = Not Used
-Coverage = Included.
+Coverage = Included
 
 ---
 
-### Scenario 13: Negative test expects 400, but 400 is not declared in spec
+### Scenario 12: Negative test expects 400, but 400 is not declared in spec
 
 Specmatic generates a negative test expecting 400.
 The spec does not declare 400 for this operation.
 The service returns 405.
 
 Row: 400
-
 Attempts = 1
 Matches = 0
 Status = Missing in Spec
 Coverage = Excluded
 
-Row: 405
-
-Attempts = 0
-Matches = 1
-Status = Undeclared Response
-Coverage = Excluded
-
 Explanation:
 
-- The expected 400 is reported as Missing in Spec because the response itself is absent from the contract and should be added to the spec first.
-- The observed 405 is reported as Undeclared Response if it is also not declared in the spec.
+* The expected 400 is reported as Missing in Spec because the response itself is absent from the contract and should be added to the spec first.
+* The observed 405 is not reported separately; it is categorized under the expected row
 
 ---
 
@@ -484,17 +412,17 @@ Explanation:
 
 Each row should display:
 
-- Path + Method
-- Request Content-Type
-- Expected Response Status Code
-- Expected Response Content-Type
-- Status
-- Remarks
-  - Qualifiers (WIP, Filtered)
-  - Decisions (if Not Tested)
-  - Attempts
-  - Matches
-  - Coverage Indicator (Included / Excluded)
+* Path + Method
+* Request Content-Type
+* Expected Response Status Code
+* Expected Response Content-Type
+* Status
+* Remarks
+  * Qualifiers (WIP, Filtered)
+  * Reasons (if Not Tested)
+  * Attempts
+  * Matches
+  * Coverage Indicator (Included / Excluded)
 
 ---
 
@@ -504,15 +432,15 @@ Coverage: 56% (7 / 12 behaviours covered)
 
 Excluded:
 
-- 3 Excluded
-- 2 Missing in Spec
+* 3 Excluded
+* 2 Missing in Spec
 
 ---
 
 ## 🧱 Implementation Notes
 
-- Always prioritise spec-declared behaviour as source of truth
-- Ensure deterministic computation of status from Attempts/Matches
+* Always prioritise spec-declared behaviour as source of truth
+* Ensure deterministic computation of status from Attempts/Matches
 
 ---
 
