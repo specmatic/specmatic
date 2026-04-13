@@ -88,6 +88,7 @@ class CoverageBuilder {
 }
 
 class CoverageContextView(val context: CoverageContext, val report: List<CoverageReportOperation>) {
+    constructor(openApiCoverage: OpenApiCoverage): this(openApiCoverage.coverageContext(), openApiCoverage.generate())
     val operations: List<CoverageOperationView> = report.map(::CoverageOperationView)
 
     fun matching(method: String, path: String, responseCode: Int? = null, requestType: String? = null, responseType: String? = null): List<CoverageOperationView> {

@@ -62,7 +62,7 @@ data class RegisteredExpectation(val request: HttpRequestPattern, val response: 
             }
 
             fun respond(status: Int) {
-                respond(HttpResponse(status = status))
+                respond(HttpResponse(status = status, body = NoBodyValue))
             }
 
             fun respond(response: HttpResponse) {

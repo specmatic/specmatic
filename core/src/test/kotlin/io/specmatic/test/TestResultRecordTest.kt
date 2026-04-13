@@ -3,10 +3,12 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.*
@@ -102,8 +104,7 @@ class TestResultRecordTest {
 
         val meta = record.extraFields()
 
-        assertTrue(meta.valid)
-        assertFalse(meta.wip)
+        assertThat(meta.qualifiers).doesNotContain(CtrfTestQualifiers.WIP)
         assertEquals(request.toLogString().trim(), meta.input.trim())
         assertNotNull(meta.outputs)
         assertEquals(1, meta.outputs!!.size)
@@ -129,8 +130,7 @@ class TestResultRecordTest {
 
         val meta = record.extraFields()
 
-        assertTrue(meta.valid)
-        assertTrue(meta.wip)
+        assertThat(meta.qualifiers).contains(CtrfTestQualifiers.WIP)
         assertEquals("", meta.input)
         assertNull(meta.outputs)
         assertEquals(0L, meta.inputTime)

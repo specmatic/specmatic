@@ -110,9 +110,9 @@ class ScenarioAsTestTest {
     fun `runTest with base url should update negative scenario based on response and retain it in testResultRecord`() {
         val negativeScenario = negativeScenario(
             expectedResponses = mapOf(
-                400 to listOf(
-                    expectationScenario(status = 400, contentType = "application/json"),
-                    expectationScenario(status = 400, contentType = "application/xml")
+                422 to listOf(
+                    expectationScenario(status = 422, contentType = "application/json"),
+                    expectationScenario(status = 422, contentType = "application/xml")
                 )
             )
         )
@@ -124,7 +124,7 @@ class ScenarioAsTestTest {
                     call.respondText(
                         text = "response",
                         contentType = ContentType.parse("application/xml"),
-                        status = HttpStatusCode.BadRequest
+                        status = HttpStatusCode.UnprocessableEntity
                     )
                 }
             }
@@ -137,6 +137,9 @@ class ScenarioAsTestTest {
             val updatedScenario = executionResult.result.scenario as Scenario
             val testResultRecord = contractTest.testResultRecord(executionResult)
             val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
+
+            assertThat(updatedScenario.status).isEqualTo(422)
+            assertThat(updatedScenario.isNegative).isTrue
             assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
             assertThat(scenarioInRecord.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
         } finally {

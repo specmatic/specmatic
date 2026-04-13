@@ -123,7 +123,7 @@ data class Scenario(
 
     override val status: Int
         get() {
-            return if(isNegative) 400 else httpResponsePattern.status
+            return if (isNegative && !isA4xxScenario()) 400 else httpResponsePattern.status
         }
 
     val requestContentType: String?

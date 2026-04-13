@@ -20,6 +20,7 @@ import java.util.UUID
 class ContractTestScope(private val specification: File) {
     private val server: MockHttpServer = MockHttpServer()
     private val listener: RecordingTestReportListener = RecordingTestReportListener()
+    @Volatile private var specmaticJunitSupport: SpecmaticJUnitSupport? = null
 
     fun execute(specmaticConfig: SpecmaticConfig = SpecmaticConfig(), block: (MockHttpServer) -> Unit): ContractTestScope {
         val configFile = specification.parentFile.resolve("${specification.name}.specmatic.yaml").apply {
@@ -36,8 +37,10 @@ class ContractTestScope(private val specification: File) {
 
         try {
             SpecmaticJUnitSupport.settingsStaging.set(contractTestSettings)
+            val newInstance = SpecmaticJUnitSupport()
+            specmaticJunitSupport = newInstance
             block(server)
-            SpecmaticJUnitSupport().contractTest().forEach { dynamicTest ->
+            newInstance.contractTest().forEach { dynamicTest ->
                 listener.onContractTest(dynamicTest)
                 runCatching { dynamicTest.executable.execute() }
             }
@@ -51,6 +54,13 @@ class ContractTestScope(private val specification: File) {
 
     fun verify(block: (RecordingTestReportListener) -> Unit): ContractTestScope {
         block(listener)
+        return this
+    }
+
+    fun verifyOpenApiCoverage(block: CoverageContextView.() -> Unit): ContractTestScope {
+        requireNotNull(specmaticJunitSupport) { "verify must be called post test execution" }
+        val instance = specmaticJunitSupport as SpecmaticJUnitSupport
+        block(CoverageContextView(instance.openApiCoverage))
         return this
     }
 
