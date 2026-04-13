@@ -31,6 +31,11 @@ abstract class AbstractConformanceTest(
         private const val X_FIELD_OPERATIONS = "x-specmatic-expect-failure-operations"
         private const val X_FIELD_REQUEST_BODIES = "x-specmatic-expect-failure-request-bodies"
         private const val X_FIELD_RESPONSE_BODIES = "x-specmatic-expect-failure-response-bodies"
+
+        private const val TEST_NAME_LOOP = "loop tests should succeed()"
+        private const val TEST_NAME_OPERATIONS = "should only exercise all operations in the openAPI spec and not make any additional non-compliant requests"
+        private const val TEST_NAME_REQUEST_BODIES = "should send valid request bodies()"
+        private const val TEST_NAME_RESPONSE_BODIES = "should return valid response bodies()"
     }
 
     private val yamlMapper = ObjectMapper(YAMLFactory())
@@ -42,6 +47,33 @@ abstract class AbstractConformanceTest(
         OPERATIONS(X_FIELD_OPERATIONS),
         REQUEST_BODIES(X_FIELD_REQUEST_BODIES),
         RESPONSE_BODIES(X_FIELD_RESPONSE_BODIES)
+    }
+
+    protected fun reportExpectedFailure(expectedFailure: ExpectedFailure, testName: String) {
+        System.err.println("")
+        System.err.println("╔════════════════════════════════════════════════════════════════════════════════")
+        System.err.println("║ ⚠️  EXPECTED FAILURE: ${expectedFailure.reason}")
+        System.err.println("║ Test: $testName")
+        System.err.println("║ Status: Test failed as expected (known issue)")
+        System.err.println("╚════════════════════════════════════════════════════════════════════════════════")
+        System.err.println("")
+    }
+
+    protected fun buildUnexpectedPassMessage(expectedFailure: ExpectedFailure): String {
+        return buildString {
+            appendLine("Test passed unexpectedly! The bug has been fixed.")
+            appendLine("Reason: ${expectedFailure.reason}")
+            append("Remove `${expectedFailure.xFieldName}` from the spec file.")
+        }
+    }
+
+    private fun logTestDisplayName(baseName: String, expectedFailure: ExpectedFailure?) {
+        val displayName = if (expectedFailure != null) {
+            "$baseName [EXPECTED FAILURE: ${expectedFailure.reason}]"
+        } else {
+            baseName
+        }
+        System.out.println("DISPLAY_NAME:$displayName")
     }
 
     protected fun expectFailureFor(testType: TestType): ExpectedFailure? {
@@ -84,18 +116,17 @@ abstract class AbstractConformanceTest(
     @Order(1)
     fun `loop tests should succeed`() {
         val expectedFailure = expectFailureFor(TestType.LOOP_TESTS)
+        logTestDisplayName(TEST_NAME_LOOP, expectedFailure)
         val actualResult = loopTestsResult.isSuccessful()
 
         if (expectedFailure != null) {
             // INVERTED: Expected to fail
+            if (!actualResult) {
+                System.out.println("<<<EXPECTED_FAILURE>>>${expectedFailure.reason}<<<EXPECTED_FAILURE>>>")
+                reportExpectedFailure(expectedFailure, "loop tests should succeed()")
+            }
             assertThat(actualResult)
-                .withFailMessage {
-                    buildString {
-                        appendLine("Test passed but was expected to fail.")
-                        appendLine("Reason: ${expectedFailure.reason}")
-                        append("Remove `${expectedFailure.xFieldName}` from the spec file.")
-                    }
-                }
+                .withFailMessage { buildUnexpectedPassMessage(expectedFailure) }
                 .isFalse
         } else {
             // NORMAL: Expected to pass
@@ -117,18 +148,17 @@ abstract class AbstractConformanceTest(
         debugInfoBuilder.appendLine("HTTP exchanges mapped to operations (${httpExchanges.size} exchanges -> ${exchangeOps.size} unique operations): $exchangeOps")
 
         val expectedFailure = expectFailureFor(TestType.OPERATIONS)
+        logTestDisplayName(TEST_NAME_OPERATIONS, expectedFailure)
         val actualResult = specOps == exchangeOps
 
         if (expectedFailure != null) {
             // INVERTED: Expected to fail
+            if (!actualResult) {
+                System.out.println("<<<EXPECTED_FAILURE>>>${expectedFailure.reason}<<<EXPECTED_FAILURE>>>")
+                reportExpectedFailure(expectedFailure, "should only exercise all operations in the openAPI spec")
+            }
             assertThat(actualResult)
-                .withFailMessage {
-                    buildString {
-                        appendLine("Test passed but was expected to fail.")
-                        appendLine("Reason: ${expectedFailure.reason}")
-                        append("Remove `${expectedFailure.xFieldName}` from the spec file.")
-                    }
-                }
+                .withFailMessage { buildUnexpectedPassMessage(expectedFailure) }
                 .isFalse
         } else {
             // NORMAL: Expected to pass
@@ -162,18 +192,17 @@ abstract class AbstractConformanceTest(
             }
 
         val expectedFailure = expectFailureFor(TestType.REQUEST_BODIES)
+        logTestDisplayName(TEST_NAME_REQUEST_BODIES, expectedFailure)
         val actualResult = errors.isEmpty()
 
         if (expectedFailure != null) {
             // INVERTED: Expected to fail
+            if (!actualResult) {
+                System.out.println("<<<EXPECTED_FAILURE>>>${expectedFailure.reason}<<<EXPECTED_FAILURE>>>")
+                reportExpectedFailure(expectedFailure, "should send valid request bodies()")
+            }
             assertThat(actualResult)
-                .withFailMessage {
-                    buildString {
-                        appendLine("Test passed but was expected to fail.")
-                        appendLine("Reason: ${expectedFailure.reason}")
-                        append("Remove `${expectedFailure.xFieldName}` from the spec file.")
-                    }
-                }
+                .withFailMessage { buildUnexpectedPassMessage(expectedFailure) }
                 .isFalse
         } else {
             // NORMAL: Expected to pass
@@ -206,17 +235,16 @@ abstract class AbstractConformanceTest(
             }
 
         val expectedFailure = expectFailureFor(TestType.RESPONSE_BODIES)
+        logTestDisplayName(TEST_NAME_RESPONSE_BODIES, expectedFailure)
 
         if (expectedFailure != null) {
             // INVERTED: Expected to fail
+            if (!errors.isEmpty()) {
+                System.out.println("<<<EXPECTED_FAILURE>>>${expectedFailure.reason}<<<EXPECTED_FAILURE>>>")
+                reportExpectedFailure(expectedFailure, "should return valid response bodies()")
+            }
             assertThat(errors.isEmpty())
-                .withFailMessage {
-                    buildString {
-                        appendLine("Test passed but was expected to fail.")
-                        appendLine("Reason: ${expectedFailure.reason}")
-                        append("Remove `${expectedFailure.xFieldName}` from the spec file.")
-                    }
-                }
+                .withFailMessage { buildUnexpectedPassMessage(expectedFailure) }
                 .isFalse
         } else {
             // NORMAL: Expected to pass
