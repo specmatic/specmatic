@@ -94,6 +94,7 @@ import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import io.specmatic.test.normalizedContentType
 import io.specmatic.test.internalHeadersToKtorHeaders
 import io.netty.handler.ssl.ClientAuth
 import io.netty.handler.ssl.ApplicationProtocolConfig
@@ -538,6 +539,7 @@ class HttpStub(
             path = path,
             method = method,
             responseStatus = responseStatus,
+            responseContentType = httpLogMessage.scenario?.httpResponsePattern?.headersPattern?.contentType,
             request = httpRequest,
             response = httpResponse,
             result = httpLogMessage.toResult(),
@@ -547,8 +549,16 @@ class HttpStub(
             specification = httpStubResponse.scenario?.specification,
             testType = STUB_TEST_TYPE,
             actualResponseStatus = httpResponse.status,
+            actualResponseContentType = httpResponse.normalizedContentType(),
             operations = setOf(
-                OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
+                OpenAPIOperation(
+                    path = path,
+                    method = method,
+                    contentType = requestContentType,
+                    responseCode = responseStatus,
+                    protocol = protocol,
+                    responseContentType = httpLogMessage.scenario?.httpResponsePattern?.headersPattern?.contentType,
+                )
             ),
             exampleId = httpStubResponse.mock?.scenarioStub?.id
         )
@@ -1189,7 +1199,7 @@ class HttpStub(
                         method = endpoint.method.orEmpty(),
                         contentType = endpoint.requestContentType,
                         responseCode = endpoint.responseCode,
-                        protocol = endpoint.protocol
+                        protocol = endpoint.protocol,
                     )
                 )
             )

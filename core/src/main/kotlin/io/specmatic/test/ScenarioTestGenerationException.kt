@@ -42,6 +42,7 @@ class ScenarioTestGenerationException(
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
+            responseContentType = scenario.httpResponsePattern.headersPattern.contentType,
             request = request,
             response = response,
             result = result.testResult(),

@@ -297,10 +297,10 @@ class ApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Success,
-                "git",
-                "https://github.com/specmatic/specmatic-order-contracts.git",
-                "main",
-                "in/specmatic/examples/store/route1.yaml",
+                sourceProvider = "git",
+                repository = "https://github.com/specmatic/specmatic-order-contracts.git",
+                branch = "main",
+                specification = "in/specmatic/examples/store/route1.yaml",
                 specType = SpecType.OPENAPI
             ),
             TestResultRecord(
@@ -310,10 +310,10 @@ class ApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Success,
-                "git",
-                "https://github.com/specmatic/specmatic-order-contracts.git",
-                "main",
-                "in/specmatic/examples/store/route1.yaml",
+                sourceProvider = "git",
+                repository = "https://github.com/specmatic/specmatic-order-contracts.git",
+                branch = "main",
+                specification = "in/specmatic/examples/store/route1.yaml",
                 specType = SpecType.OPENAPI
             ),
             TestResultRecord(
@@ -323,10 +323,10 @@ class ApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Success,
-                "git",
-                "https://github.com/specmatic/specmatic-order-contracts.git",
-                "main",
-                "in/specmatic/examples/store/route2.yaml",
+                sourceProvider = "git",
+                repository = "https://github.com/specmatic/specmatic-order-contracts.git",
+                branch = "main",
+                specification = "in/specmatic/examples/store/route2.yaml",
                 specType = SpecType.OPENAPI
             ),
             TestResultRecord(
@@ -336,10 +336,10 @@ class ApiCoverageReportInputTest {
                 request = null,
                 response = null,
                 result = TestResult.Failed,
-                "git",
-                "https://github.com/specmatic/specmatic-order-contracts.git",
-                "main",
-                "in/specmatic/examples/store/route2.yaml",
+                sourceProvider = "git",
+                repository = "https://github.com/specmatic/specmatic-order-contracts.git",
+                branch = "main",
+                specification = "in/specmatic/examples/store/route2.yaml",
                 specType = SpecType.OPENAPI,
                 actualResponseStatus = 404
             )
