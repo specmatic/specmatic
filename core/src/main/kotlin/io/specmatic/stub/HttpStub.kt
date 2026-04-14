@@ -549,6 +549,7 @@ class HttpStub(
             branch = httpStubResponse.feature?.sourceRepositoryBranch,
             scenarioResult = (httpLogMessage.result ?: Result.Success()).updateScenario(httpLogMessage.scenario),
             specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
+            protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP,
             requestContentType = requestContentType,
             specification = httpStubResponse.scenario?.specification,
             testType = STUB_TEST_TYPE,

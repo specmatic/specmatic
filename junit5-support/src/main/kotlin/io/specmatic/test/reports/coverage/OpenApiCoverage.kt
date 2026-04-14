@@ -3,13 +3,11 @@ package io.specmatic.test.reports.coverage
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.report.OpenApiCoverageReportOperation
-import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
-import kotlin.math.roundToInt
+import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 
 class OpenApiCoverage(
     private val filterExpression: String = "",
@@ -43,7 +41,15 @@ class OpenApiCoverage(
         endpointsAPISet = isSet
     }
 
-    fun coverageContext(): CoverageContext {
+    fun generateReportOperations(): List<OpenApiCoverageReportOperation> {
+        return coverageReportGenerator.generateReportOperations(coverageContext())
+    }
+
+    fun generate(): OpenAPICoverageConsoleReport {
+        return coverageReportGenerator.generate(coverageContext())
+    }
+
+    private fun coverageContext(): CoverageContext {
         return CoverageContext(
             tests = filteredTestResultRecords(),
             allSpecEndpoints = allSpecEndpoints.toList(),
@@ -51,28 +57,6 @@ class OpenApiCoverage(
             applicationEndpoints = filteredApplicationEndpoints(),
             endpointsApiAvailable = endpointsAPISet,
         )
-    }
-
-    fun generate(): List<OpenApiCoverageReportOperation> {
-        return coverageReportGenerator.generate(coverageContext())
-    }
-
-    fun testResultRecords(): List<TestResultRecord> {
-        return coverageContext().tests
-    }
-
-    fun ctrfSpecConfigs(): List<CtrfSpecConfig> {
-        return generate().map { it.specConfig }.distinct()
-    }
-
-    fun totalCoveragePercentage(): Int {
-        val coverageReportOperations = generate().filter { it.eligibleForCoverage }
-        if (coverageReportOperations.isEmpty()) {
-            return 0
-        }
-
-        val coveredOperationCount = coverageReportOperations.count { it.coverageStatus == CoverageStatus.COVERED }
-        return ((coveredOperationCount.toDouble() / coverageReportOperations.size) * 100).roundToInt()
     }
 
     private fun filteredTestResultRecords(): List<TestResultRecord> {

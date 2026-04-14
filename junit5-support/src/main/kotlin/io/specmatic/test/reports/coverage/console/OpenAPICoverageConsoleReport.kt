@@ -17,29 +17,13 @@ data class OpenAPICoverageConsoleReport(
     val totalOperations: Int,
     val missedOperations: Int,
     val notImplementedOperations: Int,
-    private val coverageHooks: List<TestReportListener> = emptyList(),
+    val coverageHooks: List<TestReportListener> = emptyList(),
+    val totalCoveragePercentage: Int = calculateTotalCoveragePercentage(totalOperations, coverageRows)
 ) {
-    val totalCoveragePercentage: Int = calculateTotalCoveragePercentage()
-    val isGherkinReport = testResultRecords.all { it.isGherkin }
+    val isGherkinReport = testResultRecords.isNotEmpty() && testResultRecords.all { it.isGherkin }
 
     init {
         coverageHooks.onEachListener { onCoverageCalculated(totalCoveragePercentage) }
-    }
-
-    private fun calculateTotalCoveragePercentage(): Int {
-        if (totalOperations == 0) return 0
-
-        val countOfOperationsPresentInSpec =
-            coverageRows.count { it.remarks.isPresentInSpecForApiCoverage() }
-
-        if(countOfOperationsPresentInSpec == 0 ) return 0
-
-        val countOfOperationsHitThatArePresentInSpec = coverageRows.count {
-            it.count.toInt() > 0 &&
-                it.remarks.countsAsCoveredForApiCoverage()
-        }
-
-        return ((countOfOperationsHitThatArePresentInSpec * 100) / countOfOperationsPresentInSpec.toDouble()).roundToInt()
     }
 
     fun getGroupedTestResultRecords(testResultRecords: List<TestResultRecord>): GroupedTestResultRecords {
@@ -53,6 +37,16 @@ data class OpenAPICoverageConsoleReport(
                     contentTypeMap.groupBy { it.responseStatus }
                 }
             }
+        }
+    }
+
+    companion object {
+        private fun calculateTotalCoveragePercentage(totalOperations: Int, coverageRows: List<OpenApiCoverageConsoleRow>): Int {
+            if (totalOperations == 0) return 0
+            val countOfOperationsPresentInSpec = coverageRows.count { it.remarks.isPresentInSpecForApiCoverage() }
+            if (countOfOperationsPresentInSpec == 0) return 0
+            val countOfOperationsHitThatArePresentInSpec = coverageRows.count { it.count.toInt() > 0 && it.remarks.countsAsCoveredForApiCoverage() }
+            return ((countOfOperationsHitThatArePresentInSpec * 100) / countOfOperationsPresentInSpec.toDouble()).roundToInt()
         }
     }
 }

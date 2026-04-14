@@ -39,8 +39,10 @@ class OpenApiCoverageBuilder {
         responseCode: Int,
         requestType: String? = null,
         responseType: String? = null,
+        specType: SpecType = SpecType.OPENAPI,
+        protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
     ) {
-        endpoint(method, path, requestType, responseCode, responseType).also {
+        endpoint(method, path, requestType, responseCode, responseType, specType, protocol).also {
             allSpecEndpoints += it
             inScopeEndpoints += it
         }
@@ -52,8 +54,10 @@ class OpenApiCoverageBuilder {
         responseCode: Int,
         requestType: String? = null,
         responseType: String? = null,
+        specType: SpecType = SpecType.OPENAPI,
+        protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
     ) {
-        endpoint(method, path, requestType, responseCode, responseType).also {
+        endpoint(method, path, requestType, responseCode, responseType, specType, protocol).also {
             allSpecEndpoints += it
         }
     }
@@ -65,16 +69,18 @@ class OpenApiCoverageBuilder {
         result: TestResult,
         requestType: String? = null,
         responseType: String? = null,
+        isWip: Boolean = false,
+        specType: SpecType = SpecType.OPENAPI,
+        protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
         actualResponseCode: Int = responseCode,
         actualResponseType: String? = responseType,
-        isWip: Boolean = false,
     ) {
-        val endpoint = endpoint(method, path, requestType, responseCode, responseType)
+        val endpoint = endpoint(method, path, requestType, responseCode, responseType, specType, protocol)
         testRecords += testRecord(
-            result = result, isWip = isWip,
             operation = endpoint.toOpenApiOperation(),
             actualResponseStatus = actualResponseCode,
             actualResponseContentType = actualResponseType,
+            result = result, isWip = isWip, specType = specType, protocol = protocol
         )
     }
 
@@ -96,7 +102,7 @@ class OpenApiCoverageBuilder {
 }
 
 class OpenApiCoverageVerifier(val report: List<OpenApiCoverageReportOperation>) {
-    constructor(openApiCoverage: OpenApiCoverage): this(openApiCoverage.generate())
+    constructor(openApiCoverage: OpenApiCoverage): this(openApiCoverage.generateReportOperations())
     val operations: List<OpenApiCoverageOperationVerifier> by lazy(LazyThreadSafetyMode.NONE) {
         report.map(::OpenApiCoverageOperationVerifier)
     }
@@ -129,13 +135,15 @@ internal fun endpoint(
     requestType: String? = null,
     responseCode: Int,
     responseType: String? = null,
+    specType: SpecType = SpecType.OPENAPI,
+    protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
 ) = Endpoint(
     path = path,
     method = method,
-    specType = SpecType.OPENAPI,
+    specType = specType,
+    protocol = protocol,
     responseStatus = responseCode,
     requestContentType = requestType,
-    protocol = SpecmaticProtocol.HTTP,
     responseContentType = responseType,
     specification = "specs/openapi.yaml",
 )
@@ -144,17 +152,21 @@ internal fun testRecord(
     result: TestResult,
     operation: OpenAPIOperation,
     actualResponseStatus: Int,
+    isWip: Boolean = false,
+    specType: SpecType = SpecType.OPENAPI,
     actualResponseContentType: String? = null,
-    isWip: Boolean = false
+    protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
 ) = TestResultRecord(
     isWip = isWip,
     request = null,
     response = null,
     result = result,
+    specType = specType,
+    protocol = protocol,
     path = operation.path,
     method = operation.method,
-    specType = SpecType.OPENAPI,
     specification = "specs/openapi.yaml",
+    isGherkin = specType == SpecType.WSDL,
     responseStatus = operation.responseCode,
     requestContentType = operation.contentType,
     actualResponseStatus = actualResponseStatus,

@@ -29,6 +29,7 @@ import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverage
 import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
+import io.specmatic.test.reports.coverage.calculateCoverage
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
@@ -210,23 +211,19 @@ open class SpecmaticJUnitSupport {
 
     fun generateCtrfReport() {
         val start = startTime?.toEpochMilli() ?: 0L
-        val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-
-        val testResultRecords = openApiCoverage.testResultRecords()
-        val coverageReportOperations = openApiCoverage.generate()
-        val specConfigs = openApiCoverage.ctrfSpecConfigs()
-        val totalCoveragePercentage = openApiCoverage.totalCoveragePercentage()
-
         val reportDirPath = specmaticConfig.getReportDirPath()
+        val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
+        val coverageReportOperations = openApiCoverage.generateReportOperations()
+
         consoleLog("Generating CTRF report using  coverageReportOperations...")
         ReportGenerator.generateReport(
-            testResultRecords = testResultRecords,
-            coverageReportOperations = coverageReportOperations,
-            startTime = start,
             endTime = end,
-            specConfigs = specConfigs,
-            coverage = totalCoveragePercentage,
-            reportDir = File("$reportDirPath/test")
+            startTime = start,
+            reportDir = File("$reportDirPath/test"),
+            coverageReportOperations = coverageReportOperations,
+            coverage = coverageReportOperations.calculateCoverage(),
+            testResultRecords = coverageReportOperations.flatMap { it.tests },
+            specConfigs = coverageReportOperations.map { it.specConfig }.distinct(),
         )
     }
 

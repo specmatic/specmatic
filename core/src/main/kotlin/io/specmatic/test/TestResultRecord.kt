@@ -45,13 +45,14 @@ data class TestResultRecord(
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
     override val testType: String = CONTRACT_TEST_TEST_TYPE,
+    val protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
     override val operations: Set<APIOperation> = setOf(
         OpenAPIOperation(
             path = path,
+            protocol = protocol,
             method = soapAction ?: method,
-            contentType = requestContentType,
             responseCode = responseStatus,
-            protocol = SpecmaticProtocol.HTTP,
+            contentType = requestContentType,
             responseContentType = responseContentType,
         )
     ),

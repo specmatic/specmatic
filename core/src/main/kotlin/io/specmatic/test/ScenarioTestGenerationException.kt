@@ -52,6 +52,7 @@ class ScenarioTestGenerationException(
             branch = scenario.sourceRepositoryBranch,
             specification = scenario.specification,
             specType = scenario.specType,
+            protocol = scenario.protocol,
             actualResponseStatus = 0,
             scenarioResult = result,
             soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },

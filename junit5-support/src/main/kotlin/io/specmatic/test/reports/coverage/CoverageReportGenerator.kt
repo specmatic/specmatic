@@ -8,6 +8,7 @@ import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 
 data class OpenApiCoverageFacts(
     val matchCount: Int,
@@ -17,7 +18,19 @@ data class OpenApiCoverageFacts(
 )
 
 class CoverageReportGenerator {
-    fun generate(context: CoverageContext): List<OpenApiCoverageReportOperation> {
+    fun generate(context: CoverageContext): OpenAPICoverageConsoleReport {
+        val reportOperations = generateReportOperations(context)
+        return OpenAPICoverageConsoleReport(
+            testResultRecords = context.tests,
+            totalOperations = reportOperations.size,
+            coverageRows = reportOperations.toConsoleRows(),
+            totalCoveragePercentage = reportOperations.calculateCoverage(),
+            missedOperations = reportOperations.count { it.coverageStatus == CoverageStatus.MISSING_IN_SPEC },
+            notImplementedOperations = reportOperations.count { it.coverageStatus == CoverageStatus.NOT_IMPLEMENTED },
+        )
+    }
+
+    fun generateReportOperations(context: CoverageContext): List<OpenApiCoverageReportOperation> {
         val filteredTestResultRecords = context.tests
         val specOperations = context.specOperations()
         val allCoverageOperations = context.allCoverageOperations()

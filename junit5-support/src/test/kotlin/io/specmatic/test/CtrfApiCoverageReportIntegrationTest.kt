@@ -317,13 +317,15 @@ class CtrfApiCoverageReportIntegrationTest {
                 actualResponseContentType = testedEndpoint.responseContentType,
             )
         )
-        val coverageReportOperations = coverage.generate()
+
+        val coverageReportOperations = coverage.generateReportOperations()
         val attemptedTestRecords = coverageReportOperations.flatMap { it.tests }.distinct()
+        val specConfigs = coverageReportOperations.map { it.specConfig }.distinct()
 
         val ctrfReport = CtrfReportGenerator.generate(
             testResultRecords = attemptedTestRecords,
             coverageReportOperations = coverageReportOperations,
-            specConfig = coverage.ctrfSpecConfigs(),
+            specConfig = specConfigs,
             startTime = 0L,
             endTime = 0L,
             extra = emptyMap(),

@@ -55,26 +55,16 @@ class CoverageReportGeneratorTest {
             endpointsApiAvailable = true,
         )
 
-        val reportOperations = reportGenerator.generate(context)
+        val reportOperations = reportGenerator.generateReportOperations(context)
+        assertThat(reportOperations.single { it.operation.responseCode == 200 && it.operation.method == "POST" }.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+        assertThat(reportOperations.single { it.operation.method == "GET" }.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+        assertThat(reportOperations.single { it.operation.method == "PUT" }.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
 
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).responseCode == 200 && (it.operation as OpenAPIOperation).method == "POST" }.coverageStatus)
-            .isEqualTo(CoverageStatus.COVERED)
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).method == "GET" }.coverageStatus)
-            .isEqualTo(CoverageStatus.NOT_TESTED)
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).method == "PUT" }.coverageStatus)
-            .isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
-
-        val missingInSpecFromTest = reportOperations.single {
-            val operation = it.operation as OpenAPIOperation
-            operation.path == "/orders" && operation.responseCode == 400
-        }
+        val missingInSpecFromTest = reportOperations.single { it.operation.path == "/orders" && it.operation.responseCode == 400 }
         assertThat(missingInSpecFromTest.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
         assertThat(missingInSpecFromTest.specConfig.specification).isEqualTo("specs/openapi.yaml")
 
-        val missingInSpecFromApplicationEndpoint = reportOperations.single {
-            val operation = it.operation as OpenAPIOperation
-            operation.path == "/payments"
-        }
+        val missingInSpecFromApplicationEndpoint = reportOperations.single { it.operation.path == "/payments" }
         assertThat(missingInSpecFromApplicationEndpoint.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
         assertThat(missingInSpecFromApplicationEndpoint.specConfig.specification).isEqualTo("specs/openapi.yaml")
     }

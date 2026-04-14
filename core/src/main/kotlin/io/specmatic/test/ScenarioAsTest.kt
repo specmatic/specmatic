@@ -75,6 +75,7 @@ data class ScenarioAsTest(
             branch = sourceRepositoryBranch,
             specification = specification,
             specType = specType,
+            protocol = protocol,
             actualResponseStatus = response?.status ?: 0,
             actualResponseContentType = response.normalizedContentType(),
             scenarioResult = result,
