@@ -31,7 +31,7 @@ jobs:
             }
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
-          gradle-extra-args: "-p conformance-tests test -PenableConformanceTests=true --tests 'S008Constraints_009IntegerMultipleofTest' -x vulnScanSBOMScan -x vulnScanJarScan --info"
+          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true -x vulnScanSBOMScan -x vulnScanJarScan --info"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
 
       - name: Publish Test Report
@@ -40,7 +40,7 @@ jobs:
         with:
           report_paths: 'conformance-tests/build/test-results/test/*.xml'
           detailed_summary: true
-          include_passed: true
+          include_passed: false
           require_tests: false
           check_name: "conformance-tests-results"
           annotate_only: true
@@ -58,6 +58,26 @@ jobs:
         if: always()
         run: |
           echo "### Conformance Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### ⚠️ Expected Failures" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Class | Test Method | Reason |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          for xml_file in conformance-tests/build/test-results/test/*.xml; do
+              full_classname=$(grep -m1 'classname=' "$xml_file" | sed 's/.*classname="\([^"]*\)".*/\1/')
+              test_class=$(echo "$full_classname" | sed 's/.*\.\([^.]*\)$/\1/')
+
+              grep "DISPLAY_NAME.*\[EXPECTED FAILURE:" "$xml_file" 2>/dev/null | \
+              sed 's/DISPLAY_NAME://' | \
+              sed 's/ \[EXPECTED FAILURE: /|/' | \
+              sed 's/\]$//' | \
+              while IFS='|' read -r test_method reason; do
+                  echo "| $test_class | $test_method | $reason |" >> $GITHUB_STEP_SUMMARY
+              done
+          done
+
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Count expected failures from test logs
