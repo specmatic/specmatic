@@ -40,6 +40,7 @@ class ScenarioTestGenerationFailure(
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
             responseContentType = scenario.httpResponsePattern.headersPattern.contentType,
+            isWip = scenario.ignoreFailure,
             request = request,
             response = response,
             result = result.testResult(),

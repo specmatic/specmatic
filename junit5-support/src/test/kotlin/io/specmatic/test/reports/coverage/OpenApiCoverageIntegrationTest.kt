@@ -6,6 +6,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.utils.ContractTestScope
@@ -113,6 +114,41 @@ class OpenApiCoverageIntegrationTest {
                 assertThat(test.result).isEqualTo(TestResult.Failed)
                 assertThat(test.actualResponseContentType).isEqualTo("text/xml")
             }
+        }
+    }
+
+    @Test
+    fun `should report wip tests with appropriate qualifier`(@TempDir tempDir: File) {
+        val specYaml = """
+        openapi: 3.0.0
+        info:
+          title: Reporting wip endpoint
+          version: 1.0.0
+        tags:
+          - name: WIP
+          - name: Ordering
+        paths:
+          /orders:
+            get:
+              tags:
+                - WIP
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent()
+
+        ContractTestScope.from(specYaml, tempDir).execute { server ->
+            server.on("/orders", "GET") { respond(405) }
+        }.verifyOpenApiCoverage {
+            assertThat(report).hasSize(1)
+            assertThat(operations).hasSize(1)
+            val wipView = single("GET", "/orders", 200)
+            assertThat(wipView.operation.eligibleForCoverage).isTrue
+            assertThat(wipView.operation.metrics?.attempts).isEqualTo(1)
+            assertThat(wipView.operation.metrics?.matches).isEqualTo(0)
+            assertThat(wipView.operation.qualifiers).contains(CtrfTestQualifiers.WIP)
+            assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
+            assertThat(wipView.tests).hasSize(1).allSatisfy { test -> assertThat(test.result).isEqualTo(TestResult.Error) }
         }
     }
 }
