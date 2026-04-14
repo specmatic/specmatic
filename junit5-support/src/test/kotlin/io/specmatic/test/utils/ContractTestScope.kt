@@ -57,10 +57,10 @@ class ContractTestScope(private val specification: File) {
         return this
     }
 
-    fun verifyOpenApiCoverage(block: CoverageContextView.() -> Unit): ContractTestScope {
+    fun verifyOpenApiCoverage(block: OpenApiCoverageVerifier.() -> Unit): ContractTestScope {
         requireNotNull(specmaticJunitSupport) { "verify must be called post test execution" }
         val instance = specmaticJunitSupport as SpecmaticJUnitSupport
-        block(CoverageContextView(instance.openApiCoverage))
+        block(OpenApiCoverageVerifier(instance.openApiCoverage))
         return this
     }
 
