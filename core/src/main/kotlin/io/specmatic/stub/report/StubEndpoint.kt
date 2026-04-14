@@ -10,6 +10,7 @@ data class StubEndpoint(
     val method: String?,
     val responseCode: Int,
     val requestContentType: String? = null,
+    val responseContentType: String? = null,
     val sourceProvider: String? = null,
     val sourceRepository: String? = null,
     val sourceRepositoryBranch: String? = null,

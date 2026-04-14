@@ -56,7 +56,6 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
-import io.specmatic.core.report.ctrfSpecConfigsFrom
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
@@ -85,15 +84,14 @@ import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
+import io.specmatic.stub.report.OpenApiMockUsage
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
-import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.normalizedContentType
 import io.specmatic.test.internalHeadersToKtorHeaders
 import io.netty.handler.ssl.ClientAuth
@@ -1161,47 +1159,18 @@ class HttpStub(
     private fun generateReports() {
         generateStubUsageReport()
         synchronized(ctrfTestResultRecords) {
-            ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
+            val mockUsage = OpenApiMockUsage()
+            mockUsage.addEndpoints(_allEndpoints)
+            ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
+
             ReportGenerator.generateReport(
-                testResultRecords = ctrfTestResultRecords,
+                testResultRecords = mockUsage.testResultRecords(),
+                coverageReportOperations = mockUsage.generate(),
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfigInstance, ctrfTestResultRecords),
+                specConfigs = mockUsage.ctrfSpecConfigs(),
                 coverage = 0,
                 reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
-            )
-            { ctrfTestResultRecords ->
-                ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
-            }
-        }
-    }
-
-    private fun notCoveredTestResultRecords(): List<TestResultRecord> {
-        return _allEndpoints.toSet().filter { endpoint ->
-            ctrfTestResultRecords.none { testResultRecord ->
-                endpoint.isEqualTo(testResultRecord)
-            }
-        }.map { endpoint ->
-            val path = convertPathParameterStyle(endpoint.path.orEmpty())
-            TestResultRecord(
-                path = path,
-                method = endpoint.method.orEmpty(),
-                responseStatus = endpoint.responseCode,
-                request = null,
-                response = null,
-                result = TestResult.NotCovered,
-                specification = endpoint.specification.orEmpty(),
-                testType = STUB_TEST_TYPE,
-                specType = endpoint.specType,
-                operations = setOf(
-                    OpenAPIOperation(
-                        path = path,
-                        method = endpoint.method.orEmpty(),
-                        contentType = endpoint.requestContentType,
-                        responseCode = endpoint.responseCode,
-                        protocol = endpoint.protocol,
-                    )
-                )
             )
         }
     }
@@ -1235,6 +1204,7 @@ class HttpStub(
                 scenario.method,
                 scenario.status,
                 scenario.requestContentType,
+                scenario.httpResponsePattern.headersPattern.contentType,
                 scenario.sourceProvider,
                 scenario.sourceRepository,
                 scenario.sourceRepositoryBranch,
