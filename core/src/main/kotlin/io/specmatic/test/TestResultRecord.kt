@@ -48,7 +48,7 @@ data class TestResultRecord(
     override val operations: Set<APIOperation> = setOf(
         OpenAPIOperation(
             path = path,
-            method = method,
+            method = soapAction ?: method,
             contentType = requestContentType,
             responseCode = responseStatus,
             protocol = SpecmaticProtocol.HTTP,
@@ -75,14 +75,17 @@ data class TestResultRecord(
             }
 
         return CtrfTestMetadata(
-            attempt = true,
+            wip = isWip,
             outputs = outputs,
-            reasons = emptyList(),
             match = matchesResponseIdentifiers(),
             input = request?.toLogString().orEmpty(),
-            inputTime = requestTime?.toEpochMilli() ?: 0L,
-            qualifiers = buildList { if (isWip) add(CtrfTestQualifiers.WIP) },
+            inputTime = requestTime?.toEpochMilli() ?: 0L
         )
+    }
+
+    fun qualifiers(): List<CtrfTestQualifiers> {
+        if (!this.isWip) return emptyList()
+        return listOf(CtrfTestQualifiers.WIP)
     }
 
     fun matchesResponseIdentifiers(code: Int = actualResponseStatus, contentType: String? = actualResponseContentType): Boolean {
@@ -181,7 +184,7 @@ private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
 fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
     return OpenAPIOperation(
         path = path,
-        method = scenario.method,
+        method = scenario.soapActionUnescaped ?: scenario.method,
         contentType = scenario.requestContentType,
         responseCode = scenario.status,
         protocol = scenario.protocol,

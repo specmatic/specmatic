@@ -103,8 +103,7 @@ class TestResultRecordTest {
         )
 
         val meta = record.extraFields()
-
-        assertThat(meta.qualifiers).doesNotContain(CtrfTestQualifiers.WIP)
+        assertThat(meta.wip).isFalse()
         assertEquals(request.toLogString().trim(), meta.input.trim())
         assertNotNull(meta.outputs)
         assertEquals(1, meta.outputs!!.size)
@@ -129,8 +128,7 @@ class TestResultRecordTest {
         )
 
         val meta = record.extraFields()
-
-        assertThat(meta.qualifiers).contains(CtrfTestQualifiers.WIP)
+        assertThat(meta.wip).isTrue()
         assertEquals("", meta.input)
         assertNull(meta.outputs)
         assertEquals(0L, meta.inputTime)

@@ -8,10 +8,13 @@ import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
+import io.specmatic.test.TestResultRecord
 import java.io.File
 
+typealias OpenApiCoverageReportOperation = CoverageReportOperation<OpenAPIOperation, TestResultRecord>
 object ReportGenerator {
     fun generateReport(
         testResultRecords: List<CtrfTestResultRecord>,
@@ -48,7 +51,7 @@ object ReportGenerator {
 
     fun generateReport(
         testResultRecords: List<CtrfTestResultRecord>,
-        coverageReportOperations: List<CoverageReportOperation>,
+        coverageReportOperations: List<OpenApiCoverageReportOperation>,
         startTime: Long,
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,

@@ -3,7 +3,6 @@ package io.specmatic.test.reports.coverage
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.OpenAPIOperation
-import io.specmatic.test.API
 import io.specmatic.test.TestResultRecord
 
 internal fun Endpoint.toOpenApiOperation(): OpenAPIOperation {
@@ -54,22 +53,6 @@ internal fun TestResultRecord.toCtrfSpecConfigOrNull(): CtrfSpecConfig? {
         repository = repository,
         branch = branch ?: "main",
     )
-}
-
-internal fun TestResultRecord.attempts(operation: OpenAPIOperation): Boolean {
-    return path == operation.path &&
-        (soapAction ?: method).equals(operation.method, ignoreCase = true) &&
-        requestContentType == operation.contentType &&
-        responseStatus == operation.responseCode &&
-        responseContentType == operation.responseContentType
-}
-
-internal fun TestResultRecord.matches(operation: OpenAPIOperation): Boolean {
-    return path == operation.path &&
-        (soapAction ?: method).equals(operation.method, ignoreCase = true) &&
-        requestContentType == operation.contentType &&
-        actualResponseStatus == operation.responseCode &&
-        actualResponseContentType == operation.responseContentType
 }
 
 internal fun closestMatchingEndpointFor(path: String, method: String, endpoints: List<Endpoint>): Endpoint? {

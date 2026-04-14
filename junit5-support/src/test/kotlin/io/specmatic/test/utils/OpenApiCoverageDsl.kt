@@ -1,7 +1,7 @@
 package io.specmatic.test.utils
 
+import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -25,6 +25,14 @@ class OpenApiCoverageBuilder {
         endpointsApiFlag = true
     }
 
+    fun applicationApisUnavailable() {
+        endpointsApiFlag = false
+    }
+
+    fun excludeApplicationPath(path: String) {
+        excludedPaths += path
+    }
+
     fun specEndpoint(
         method: String,
         path: String,
@@ -35,6 +43,18 @@ class OpenApiCoverageBuilder {
         endpoint(method, path, requestType, responseCode, responseType).also {
             allSpecEndpoints += it
             inScopeEndpoints += it
+        }
+    }
+
+    fun outOfScopeSpecEndpoint(
+        method: String,
+        path: String,
+        responseCode: Int,
+        requestType: String? = null,
+        responseType: String? = null,
+    ) {
+        endpoint(method, path, requestType, responseCode, responseType).also {
+            allSpecEndpoints += it
         }
     }
 
@@ -75,7 +95,7 @@ class OpenApiCoverageBuilder {
     }
 }
 
-class OpenApiCoverageVerifier(val report: List<CoverageReportOperation>) {
+class OpenApiCoverageVerifier(val report: List<OpenApiCoverageReportOperation>) {
     constructor(openApiCoverage: OpenApiCoverage): this(openApiCoverage.generate())
     val operations: List<OpenApiCoverageOperationVerifier> by lazy(LazyThreadSafetyMode.NONE) {
         report.map(::OpenApiCoverageOperationVerifier)
@@ -91,15 +111,13 @@ class OpenApiCoverageVerifier(val report: List<CoverageReportOperation>) {
         }
     }
 
-    class OpenApiCoverageOperationVerifier(val operation: CoverageReportOperation) {
-        val apiOperation: OpenAPIOperation = operation.operation as? OpenAPIOperation ?: error("Expected OpenAPIOperation but found ${operation.operation::class.simpleName}")
-        val tests: List<TestResultRecord> = operation.tests.map { test ->
-            test as? TestResultRecord ?: error("Expected TestResultRecord but found ${test::class.simpleName}")
-        }
+    class OpenApiCoverageOperationVerifier(val operation: OpenApiCoverageReportOperation) {
+        val apiOperation: OpenAPIOperation = operation.operation
+        val tests: List<TestResultRecord> = operation.tests
     }
 
     companion object {
-        fun List<CoverageReportOperation>.verify(block: OpenApiCoverageVerifier.() -> Unit): OpenApiCoverageVerifier {
+        fun List<OpenApiCoverageReportOperation>.verify(block: OpenApiCoverageVerifier.() -> Unit): OpenApiCoverageVerifier {
             return OpenApiCoverageVerifier(this).apply(block)
         }
     }

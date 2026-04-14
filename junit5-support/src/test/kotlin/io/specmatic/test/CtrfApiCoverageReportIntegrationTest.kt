@@ -285,7 +285,7 @@ class CtrfApiCoverageReportIntegrationTest {
 
         assertThat(consoleReport.totalCoveragePercentage).isEqualTo(100)
         assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
-        assertThat(tests.single()["extra"]["qualifiers"].get(0).asText()).isEqualTo("wip")
+        assertThat(tests.single()["extra"]["wip"].asBoolean()).isTrue()
         assertThat(executionOperations.single()["coverageStatus"].asText()).isEqualTo("WIP")
     }
 

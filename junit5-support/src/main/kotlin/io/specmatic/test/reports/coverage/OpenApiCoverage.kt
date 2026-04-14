@@ -2,7 +2,7 @@ package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
-import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
@@ -53,7 +53,7 @@ class OpenApiCoverage(
         )
     }
 
-    fun generate(): List<CoverageReportOperation> {
+    fun generate(): List<OpenApiCoverageReportOperation> {
         return coverageReportGenerator.generate(coverageContext())
     }
 
