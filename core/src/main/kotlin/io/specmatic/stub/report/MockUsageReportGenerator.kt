@@ -14,19 +14,19 @@ data class MockUsageFacts(
 )
 
 class MockUsageReportGenerator {
-    fun generate(context: MockUsageContext): List<CoverageReportOperation> {
+    fun generate(context: MockUsageContext): List<CoverageReportOperation<OpenAPIOperation, TestResultRecord>> {
         val specOperations = context.specOperations()
 
         return context.allCoverageOperations().map { operation ->
             val facts = factsFor(operation, context.tests)
             val coverageStatus = coverageStatusFor(operation, facts, specOperations)
 
-            CoverageReportOperation(
-                tests = facts.tests,
+            CoverageReportOperation<OpenAPIOperation, TestResultRecord>(
                 operation = operation,
+                specConfig = specConfigFor(operation, coverageStatus, facts.attemptRecords, context),
                 coverageStatus = coverageStatus,
                 eligibleForCoverage = coverageStatus != CoverageStatus.MISSING_IN_SPEC,
-                specConfig = specConfigFor(operation, coverageStatus, facts.attemptRecords, context),
+                tests = facts.tests,
             )
         }
     }

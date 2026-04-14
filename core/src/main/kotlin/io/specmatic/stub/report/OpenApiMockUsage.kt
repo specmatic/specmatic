@@ -3,6 +3,7 @@ package io.specmatic.stub.report
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
 import kotlin.math.roundToInt
 
@@ -27,7 +28,7 @@ class OpenApiMockUsage(
         )
     }
 
-    fun generate(): List<CoverageReportOperation> {
+    fun generate(): List<CoverageReportOperation<OpenAPIOperation, TestResultRecord>> {
         return mockUsageReportGenerator.generate(mockUsageContext())
     }
 
