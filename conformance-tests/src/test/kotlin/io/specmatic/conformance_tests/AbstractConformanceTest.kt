@@ -207,11 +207,6 @@ abstract class AbstractConformanceTest(
             return !errors.isEmpty() || hasUnsupportedContentTypeErrors
         }
 
-        // DEBUG: Print errors and flag status
-        System.out.println("DEBUG: errors.size = ${errors.size}")
-        System.out.println("DEBUG: hasUnsupportedContentTypeErrors = $hasUnsupportedContentTypeErrors")
-        System.out.println("DEBUG: errors = $errors")
-
         if (expectedFailure != null) {
             // INVERTED: Expected to fail
             if (hasValidationErrors()) {
