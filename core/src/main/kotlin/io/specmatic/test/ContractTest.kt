@@ -6,6 +6,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfFixtureExecutionRecord
 import io.specmatic.reporter.model.SpecType
 
 interface ResponseValidator {
@@ -32,5 +33,6 @@ interface ContractTest : HasScenarioMetadata {
 data class ContractTestExecutionResult(
     val result: Result,
     val request: HttpRequest? = null,
-    val response: HttpResponse? = null
+    val response: HttpResponse? = null,
+    val ctrfFixtureExecutionResult: CtrfFixtureExecutionRecord? = null
 )

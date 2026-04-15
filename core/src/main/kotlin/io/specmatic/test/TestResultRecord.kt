@@ -6,8 +6,10 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfFixtureExecutionRecord
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
-import io.specmatic.reporter.ctrf.model.CtrfTestOutput
+import io.specmatic.reporter.ctrf.model.CtrfTestContent
+import io.specmatic.reporter.ctrf.model.CtrfTestExtraFields
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -16,6 +18,16 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.reporter.model.SpecType
 import java.time.Duration
 import java.time.Instant
+
+data class FixtureExecutionResultRecord(
+    val result: Result,
+    val fixtureExecutionResult: CtrfTestMetadata
+)
+
+data class FixtureExecutionResultRecords(
+    val result: Result,
+    val fixtureExecutionResults: List<CtrfTestMetadata>
+)
 
 data class TestResultRecord(
     val path: String,
@@ -49,18 +61,19 @@ data class TestResultRecord(
             protocol = SpecmaticProtocol.HTTP
         )
     ),
-    val exampleId: String? = null
+    val exampleId: String? = null,
+    val ctrfFixtureExecutionResult: CtrfFixtureExecutionRecord? = null
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
 
     fun isConnectionRefused() = actualResponseStatus == 0
 
-    override fun extraFields(): CtrfTestMetadata {
+    override fun extraFields(): CtrfTestExtraFields {
         val outputs =
             response?.toLogString()?.let {
                 listOf(
-                    CtrfTestOutput(
+                    CtrfTestContent(
                         title = "Response",
                         content = it,
                         time = responseTime?.toEpochMilli() ?: 0L
@@ -68,12 +81,16 @@ data class TestResultRecord(
                 )
             }
 
-        return CtrfTestMetadata(
-            wip = isWip,
-            input = request?.toLogString().orEmpty(),
-            outputs = outputs,
-            inputTime = requestTime?.toEpochMilli() ?: 0L
+        return CtrfTestExtraFields(
+            CtrfTestMetadata(
+                wip = isWip,
+                input = CtrfTestContent(title = "Request", request?.toLogString().orEmpty()),
+                outputs = outputs,
+                inputTime = requestTime?.toEpochMilli() ?: 0L
+            ),
+            ctrfFixtureExecutionResult
         )
+
     }
 
     override fun tags(): List<String> {

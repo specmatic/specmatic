@@ -16,6 +16,8 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.specmatic.core.log.consoleLog
+import io.specmatic.reporter.ctrf.model.CtrfFixtureExecutionRecord
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -55,7 +57,7 @@ data class ScenarioAsTest(
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
-        val (result, request, response) = executionResult
+        val (result, request, response, ctrfFixtureExecutionResult) = executionResult
         val resultStatus = result.testResult()
         val path = convertPathParameterStyle(scenario.path)
 
@@ -80,7 +82,8 @@ data class ScenarioAsTest(
             responseTime = Instant.now(),
             operations = setOf(
                 openAPIOperationFrom(scenario, path)
-            )
+            ),
+            ctrfFixtureExecutionResult = ctrfFixtureExecutionResult
         )
     }
 
@@ -111,8 +114,9 @@ data class ScenarioAsTest(
         }
 
         val executionResult = executeTestAndReturnResultAndResponse(scenario, newExecutor, flagsBased)
+        consoleLog("execution result --> $executionResult")
         endTime = Instant.now()
-        return executionResult.copy(result = executionResult.result.updateScenario(scenario))
+        return executionResult.copy(result = executionResult.result.updateScenario(scenario), ctrfFixtureExecutionResult = executionResult.ctrfFixtureExecutionResult)
     }
 
     override fun plusValidator(validator: ResponseValidator): ScenarioAsTest {
@@ -127,9 +131,11 @@ data class ScenarioAsTest(
         flagsBased: FlagsBased
     ): ContractTestExecutionResult {
         try {
-            val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
+            val beforeFixtureExecutionResultRecord = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
+            val beforeFixtureExecutionResult = beforeFixtureExecutionResultRecord.result
+            consoleLog("only before --> ${beforeFixtureExecutionResultRecord.fixtureExecutionResults}")
             if (beforeFixtureExecutionResult.isSuccess().not()) {
-                return ContractTestExecutionResult(result = beforeFixtureExecutionResult.updateScenario(testScenario))
+                return ContractTestExecutionResult(result = beforeFixtureExecutionResult.updateScenario(testScenario), ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults))
             }
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
@@ -140,6 +146,7 @@ data class ScenarioAsTest(
             val response = testExecutor.execute(request)
 
             val responseBodyFromExample = testScenario.responseBodyFromExample()
+            consoleLog("only before 1 --> ${beforeFixtureExecutionResultRecord.fixtureExecutionResults}")
 
             if(responseBodyFromExample != null) {
                 matcherEngine?.let {
@@ -152,7 +159,8 @@ data class ScenarioAsTest(
                         return ContractTestExecutionResult(
                             result = matchesResult.withBindings(testScenario.bindings, response),
                             request = request,
-                            response = response
+                            response = response,
+                            ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults)
                         )
                     }
                 }
@@ -161,12 +169,15 @@ data class ScenarioAsTest(
             //TODO: Review - Do we need workflow anymore
             workflow.extractDataFrom(response, originalScenario)
             val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, response) }.firstOrNull()
+            consoleLog("only before 2--> ${beforeFixtureExecutionResultRecord.fixtureExecutionResults}")
 
             if (validatorResult is Result.Failure) {
                 return ContractTestExecutionResult(
                     result = validatorResult.withBindings(testScenario.bindings, response),
                     request = request,
-                    response = response
+                    response = response,
+                    ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults)
+
                 )
             }
 
@@ -176,9 +187,12 @@ data class ScenarioAsTest(
                 return ContractTestExecutionResult(
                     result = testResult.withBindings(testScenario.bindings, response),
                     request = request,
-                    response = response
+                    response = response,
+                    ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults)
+
                 )
             }
+            consoleLog("only before -->3 ${beforeFixtureExecutionResultRecord.fixtureExecutionResults}")
 
             val responseToCheckAndStore = when (responseHandler) {
                 null -> response
@@ -191,33 +205,43 @@ data class ScenarioAsTest(
                             return ContractTestExecutionResult(
                                 result = handlerResult.result.withBindings(testScenario.bindings, bindingResponse),
                                 request = request,
-                                response = bindingResponse
+                                response = bindingResponse,
+                                ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults)
+
                             )
                         }
                     }
                 }
             }
+            consoleLog("only before --> 5${beforeFixtureExecutionResultRecord.fixtureExecutionResults}")
+
 
             val result = validators.asSequence().mapNotNull {
                 it.postValidate(testScenario, originalScenario, request, responseToCheckAndStore)
             }.firstOrNull() ?: Result.Success()
 
             testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
-
+            var afterFixtureExecutionResultRecord: FixtureExecutionResultRecords? = null
             if(result !is Result.Failure) {
-                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+
+                afterFixtureExecutionResultRecord = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+                val afterFixtureExecutionResult = afterFixtureExecutionResultRecord.result
                 if (afterFixtureExecutionResult.isSuccess().not()) {
                     return ContractTestExecutionResult(
                         result = afterFixtureExecutionResult.withBindings(testScenario.bindings, response),
                         request = request,
-                        response = response
+                        response = response,
+                        ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults , afterFixtureExecutionResultRecord?.fixtureExecutionResults)
                     )
                 }
             }
+
+            consoleLog("before --> ${beforeFixtureExecutionResultRecord.fixtureExecutionResults}, after --> ${afterFixtureExecutionResultRecord?.fixtureExecutionResults}")
             return ContractTestExecutionResult(
                 result = result.withBindings(testScenario.bindings, response),
                 request = request,
-                response = response
+                response = response,
+                ctrfFixtureExecutionResult = CtrfFixtureExecutionRecord(beforeFixtureExecutionResultRecord.fixtureExecutionResults , afterFixtureExecutionResultRecord?.fixtureExecutionResults)
             )
         } catch (exception: Throwable) {
             return ContractTestExecutionResult(
@@ -244,16 +268,28 @@ data class ScenarioAsTest(
         }
     }
 
-    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): Result {
-        val row = scenario.exampleRow ?: return Result.Success()
-        val scenarioStub = row.scenarioStub ?: return Result.Success()
+    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): FixtureExecutionResultRecords {
+        val row = scenario.exampleRow ?: return FixtureExecutionResultRecords(
+            fixtureExecutionResults = emptyList(),
+            result = Result.Success()
+        )
+        val scenarioStub = row.scenarioStub ?: return FixtureExecutionResultRecords(
+            fixtureExecutionResults = emptyList(),
+            result = Result.Success()
+        )
         val id = scenarioStub.id.orEmpty()
         val fixtures = when (fixtureDiscriminatorKey) {
             BEFORE_FIXTURE_DISCRIMINATOR_KEY -> scenarioStub.beforeFixtures
             else -> scenarioStub.afterFixtures
         }
-        return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
-            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: Result.Success()
+
+        val res = ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
+            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: FixtureExecutionResultRecords(
+            fixtureExecutionResults = emptyList(),
+            result = Result.Success()
+        )
+        consoleLog("executed $fixtureDiscriminatorKey Fixture --> $res")
+        return res
     }
 
     private fun testResult(
