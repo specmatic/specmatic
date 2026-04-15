@@ -57,6 +57,34 @@ class MockUsageReportGeneratorTest {
             .isEqualTo(CoverageStatus.MISSING_IN_SPEC)
     }
 
+    @Test
+    fun `should not duplicate parameterized spec operation when test path is normalized`() {
+        val parameterizedEndpoint = endpoint("/orders/(id:number)", "GET", null, 200, "application/json")
+        val normalizedTestRecord = testResultRecord(
+            operation = OpenAPIOperation(
+                path = "/orders/{id}",
+                method = "GET",
+                contentType = null,
+                responseCode = 200,
+                protocol = SpecmaticProtocol.HTTP,
+                responseContentType = "application/json",
+            ),
+            actualResponseStatus = 200,
+            actualResponseContentType = "application/json",
+        )
+
+        val context = MockUsageContext(
+            tests = listOf(normalizedTestRecord),
+            allSpecEndpoints = listOf(parameterizedEndpoint),
+        )
+
+        val reportOperations = reportGenerator.generate(context)
+
+        assertThat(reportOperations).hasSize(1)
+        assertThat(reportOperations.single().tests).hasSize(1)
+        assertThat((reportOperations.single().operation as OpenAPIOperation).path).isEqualTo("/orders/{id}")
+    }
+
     private fun endpoint(
         path: String,
         method: String,

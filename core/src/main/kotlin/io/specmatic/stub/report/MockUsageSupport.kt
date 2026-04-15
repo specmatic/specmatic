@@ -1,5 +1,6 @@
 package io.specmatic.stub.report
 
+import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -7,7 +8,7 @@ import io.specmatic.test.TestResultRecord
 
 internal fun StubEndpoint.toOpenApiOperation(): OpenAPIOperation {
     return OpenAPIOperation(
-        path = path.orEmpty(),
+        path = convertPathParameterStyle(path.orEmpty()),
         method = method.orEmpty(),
         contentType = requestContentType,
         responseCode = responseCode,
@@ -78,8 +79,8 @@ internal fun closestMatchingEndpointFor(path: String, method: String, endpoints:
 
     return candidateEndpoints
         .maxWithOrNull(
-            compareBy<StubEndpoint> { commonPathPrefixSegments(path, it.path.orEmpty()) }
-                .thenBy { normalizedPathSegments(it.path.orEmpty()).size }
+            compareBy<StubEndpoint> { commonPathPrefixSegments(path, convertPathParameterStyle(it.path.orEmpty())) }
+                .thenBy { normalizedPathSegments(convertPathParameterStyle(it.path.orEmpty())).size }
         )
         ?: endpointsWithSpecs.first()
 }

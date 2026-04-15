@@ -1,5 +1,7 @@
 package io.specmatic.stub.report
 
+import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.report.ctrfSpecConfigsFrom
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -8,6 +10,7 @@ import io.specmatic.test.TestResultRecord
 import kotlin.math.roundToInt
 
 class OpenApiMockUsage(
+    private val specmaticConfig: SpecmaticConfig,
     private val mockUsageReportGenerator: MockUsageReportGenerator = MockUsageReportGenerator(),
 ) {
     private val testResultRecords: MutableList<TestResultRecord> = mutableListOf()
@@ -37,7 +40,7 @@ class OpenApiMockUsage(
     }
 
     fun ctrfSpecConfigs(): List<CtrfSpecConfig> {
-        return generate().map { it.specConfig }.distinct()
+        return ctrfSpecConfigsFrom(specmaticConfig, testResultRecords())
     }
 
     fun totalCoveragePercentage(): Int {

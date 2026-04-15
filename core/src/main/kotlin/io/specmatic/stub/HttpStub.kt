@@ -530,7 +530,6 @@ class HttpStub(
         val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
         val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
         val requestContentType = httpLogMessage.scenario?.requestContentType
-            ?: httpRequest.headers["Content-Type"]
         val responseStatus = httpLogMessage.scenario?.status ?: 0
         val protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP
         val ctrfTestResultRecord = TestResultRecord(
@@ -541,6 +540,9 @@ class HttpStub(
             request = httpRequest,
             response = httpResponse,
             result = httpLogMessage.toResult(),
+            sourceProvider = httpStubResponse.feature?.sourceProvider,
+            repository = httpStubResponse.feature?.sourceRepository,
+            branch = httpStubResponse.feature?.sourceRepositoryBranch,
             scenarioResult = (httpLogMessage.result ?: Result.Success()).updateScenario(httpLogMessage.scenario),
             specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
             requestContentType = requestContentType,
@@ -1159,7 +1161,7 @@ class HttpStub(
     private fun generateReports() {
         generateStubUsageReport()
         synchronized(ctrfTestResultRecords) {
-            val mockUsage = OpenApiMockUsage()
+            val mockUsage = OpenApiMockUsage(specmaticConfigInstance)
             mockUsage.addEndpoints(_allEndpoints)
             ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
 
