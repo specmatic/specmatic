@@ -57,7 +57,7 @@ class MockUsageReportGenerator {
     private fun coverageStatusFor(attempts: Int, matches: Int): CoverageStatus {
         return when {
             matches > 0 -> CoverageStatus.COVERED
-            attempts == 0 -> CoverageStatus.NOT_COVERED
+            attempts == 0 -> CoverageStatus.NOT_USED
             else -> CoverageStatus.MISMATCH
         }
     }

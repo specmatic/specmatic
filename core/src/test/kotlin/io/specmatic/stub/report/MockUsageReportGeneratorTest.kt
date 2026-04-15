@@ -14,7 +14,7 @@ class MockUsageReportGeneratorTest {
     private val reportGenerator = MockUsageReportGenerator()
 
     @Test
-    fun `should generate covered not covered mismatch and missing in spec rows for mock usage`() {
+    fun `should generate covered not used mismatch and missing in spec rows for mock usage`() {
         val coveredEndpoint = endpoint("/orders", "POST", "application/json", 201, "application/json")
         val unusedEndpoint = endpoint("/orders", "GET", null, 200, "application/json")
         val mismatchEndpoint = endpoint("/orders", "PUT", "application/json", 202, "application/json")
@@ -47,13 +47,13 @@ class MockUsageReportGeneratorTest {
 
         val reportOperations = reportGenerator.generate(context)
 
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).path == "/orders" && (it.operation as OpenAPIOperation).method == "POST" }.coverageStatus)
+        assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "POST" }.coverageStatus)
             .isEqualTo(CoverageStatus.COVERED)
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).path == "/orders" && (it.operation as OpenAPIOperation).method == "GET" }.coverageStatus)
-            .isEqualTo(CoverageStatus.NOT_COVERED)
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).path == "/orders" && (it.operation as OpenAPIOperation).method == "PUT" }.coverageStatus)
+        assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "GET" }.coverageStatus)
+            .isEqualTo(CoverageStatus.NOT_USED)
+        assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "PUT" }.coverageStatus)
             .isEqualTo(CoverageStatus.MISMATCH)
-        assertThat(reportOperations.single { (it.operation as OpenAPIOperation).path == "/unknown" }.coverageStatus)
+        assertThat(reportOperations.single { it.operation.path == "/unknown" }.coverageStatus)
             .isEqualTo(CoverageStatus.MISSING_IN_SPEC)
     }
 
@@ -82,7 +82,7 @@ class MockUsageReportGeneratorTest {
 
         assertThat(reportOperations).hasSize(1)
         assertThat(reportOperations.single().tests).hasSize(1)
-        assertThat((reportOperations.single().operation as OpenAPIOperation).path).isEqualTo("/orders/{id}")
+        assertThat(reportOperations.single().operation.path).isEqualTo("/orders/{id}")
     }
 
     private fun endpoint(
