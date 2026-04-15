@@ -50,7 +50,6 @@ class CoverageReportGeneratorTest {
         val context = CoverageContext(
             tests = listOf(coveredRecord, notImplementedRecord, testDerivedMissingInSpec),
             allSpecEndpoints = listOf(coveredEndpoint, notTestedEndpoint, attemptedButNotMatchedEndpoint),
-            specEndpointsInScope = listOf(coveredEndpoint, notTestedEndpoint, attemptedButNotMatchedEndpoint),
             applicationEndpoints = listOf(API(method = "POST", path = "/payments")),
             endpointsApiAvailable = true,
         )

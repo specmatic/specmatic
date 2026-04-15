@@ -27,7 +27,7 @@ class CoverageReportTextRendererTest {
         }
 
 
-        val report = coverage.generate()
+        val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
         assertThat(lines).contains("| coverage | path    | method | requestContentType | response | responseContentType | remark     | #exercised |")
         assertThat(lines).contains("| 50%      | /orders | POST   | application/json   | 200      | application/json    | covered    | 1          |")
@@ -62,7 +62,7 @@ class CoverageReportTextRendererTest {
             )
         }
 
-        val report = coverage.generate()
+        val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
         assertThat(lines).contains("| coverage | port  | soapAction   | remark  | #exercised |")
         assertThat(lines).contains("| 100%     | /soap | urn:getOrder | covered | 1          |")
@@ -97,7 +97,7 @@ class CoverageReportTextRendererTest {
             )
         }
 
-        val report = coverage.generate()
+        val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
         assertThat(lines).contains("| 100%     | /orders | POST   | application/json   | 200      | application/json    | covered | 1          |")
         assertThat(lines).contains("|          |         | PATCH  | application/json   | 200      | application/json    | covered | 1          |")
@@ -134,7 +134,7 @@ class CoverageReportTextRendererTest {
             )
         }
 
-        val report = coverage.generate()
+        val report = coverage.generate().toConsoleReport()
         val rendered = CoverageReportTextRenderer().render(report, SpecmaticConfig())
         assertThat(rendered).contains("2 operations found in the service are not documented in the spec.")
         assertThat(rendered).contains("2 operations found in the spec are not implemented.")
@@ -156,7 +156,7 @@ class CoverageReportTextRendererTest {
             )
         }
 
-        val report = coverage.generate()
+        val report = coverage.generate().toConsoleReport()
         val rendered = CoverageReportTextRenderer().render(report, SpecmaticConfig())
         assertThat(rendered).doesNotContain("found in the service")
         assertThat(rendered).doesNotContain("found in the spec")
@@ -165,7 +165,7 @@ class CoverageReportTextRendererTest {
     @Test
     fun `renders NA when content types are missing`() {
         val coverage = OpenApiCoverageBuilder.buildCoverage { specEndpoint(path = "/orders", method = "GET", responseCode = 200) }
-        val report = coverage.generate()
+        val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
         assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested | 0          |")
     }

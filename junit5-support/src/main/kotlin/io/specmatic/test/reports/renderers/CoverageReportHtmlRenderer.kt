@@ -7,15 +7,15 @@ import io.specmatic.core.log.logger
 import io.specmatic.junit5.support.VersionInfo
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord
-import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
+import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.html.*
 
 typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, List<ScenarioData>>>>>
 
-class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
-    val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
+class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApiCoverageReport, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
+    val actuatorEnabled = openApiCoverageReportInput.deprecatedData.endpointsApiSet
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
         logger.log("Generating HTML report...")

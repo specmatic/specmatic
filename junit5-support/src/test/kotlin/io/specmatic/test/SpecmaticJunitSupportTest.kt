@@ -359,8 +359,8 @@ class SpecmaticJunitSupportTest {
             }
         })
 
-        assertThat(contractTestHarness.openApiCoverageReportInput.endpointsAPISet).isTrue()
-        assertThat(contractTestHarness.openApiCoverageReportInput.getApplicationAPIs()).isEqualTo(listOf(
+        assertThat(contractTestHarness.openApiCoverage.isEndpointsApiSet()).isTrue()
+        assertThat(contractTestHarness.openApiCoverage.getApplicationAPIs()).isEqualTo(listOf(
             API("POST", "/orders"),
             API("POST", "/products"),
             API("GET", "/findAvailableProducts/{date_time}")
@@ -808,6 +808,13 @@ paths:
         SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(previousTestRuns = listOf(previousRecord)))
         try {
             val support = SpecmaticJUnitSupport()
+            support.openApiCoverage.addEndpoints(
+                allEndpoints = listOf(
+                    Endpoint(path = "/previous", method = "POST", responseStatus = 201, specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                    Endpoint(path = "/current", method = "GET", responseStatus = 200, specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+                )
+            )
+
             val currentRecord = TestResultRecord(
                 path = "/current",
                 method = "GET",
@@ -818,8 +825,8 @@ paths:
                 specType = SpecType.OPENAPI
             )
 
-            support.openApiCoverageReportInput.addTestReportRecords(currentRecord)
-            val report = support.openApiCoverageReportInput.generate()
+            support.openApiCoverage.addTestReportRecords(currentRecord)
+            val report = support.openApiCoverage.generate().toConsoleReport()
 
             assertThat(report.testResultRecords).contains(previousRecord, currentRecord)
             assertThat(report.coverageRows).anyMatch { it.path == "/previous" }

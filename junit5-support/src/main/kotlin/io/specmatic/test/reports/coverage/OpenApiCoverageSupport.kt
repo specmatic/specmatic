@@ -73,30 +73,6 @@ internal fun closestMatchingEndpointFor(path: String, method: String, endpoints:
         ?: endpointsWithSpecs.first()
 }
 
-internal fun List<OpenApiCoverageReportOperation>.calculateCoverage(): Int {
-    val coverageReportOperations = this.filter { it.eligibleForCoverage }
-    if (coverageReportOperations.isEmpty()) return 0
-    val coveredOperationCount = coverageReportOperations.count { it.coverageStatus == CoverageStatus.COVERED }
-    return ((coveredOperationCount.toDouble() / coverageReportOperations.size) * 100).roundToInt()
-}
-
-internal fun List<OpenApiCoverageReportOperation>.toConsoleRows(): List<OpenApiCoverageConsoleRow> {
-    val reportsByPath = this.groupBy(keySelector = { it.operation.path })
-    val coverageByPath = reportsByPath.mapValues { it.value.calculateCoverage() }
-    return this.zipWithPrevious { previous, current ->
-        val samePath = previous?.operation?.path == current.operation.path
-        val sameMethod = samePath && previous.operation.method == current.operation.method
-        val sameRequestContentType = sameMethod && previous.operation.contentType == current.operation.contentType
-        OpenApiCoverageConsoleRow(
-            report = current,
-            showPath = !samePath,
-            showMethod = !sameMethod,
-            showRequestContentType = !sameRequestContentType,
-            coveragePercentage = coverageByPath.getOrDefault(current.operation.path, 0),
-        )
-    }
-}
-
 private fun commonPathPrefixSegments(leftPath: String, rightPath: String): Int {
     val leftSegments = normalizedPathSegments(leftPath)
     val rightSegments = normalizedPathSegments(rightPath)
@@ -108,6 +84,6 @@ private fun normalizedPathSegments(path: String): List<String> {
     return path.trim('/').split('/').filter { it.isNotBlank() }
 }
 
-private fun <T, U> List<T>.zipWithPrevious(block: (previous: T?, current: T) -> U): List<U> {
+internal fun <T, U> List<T>.zipWithPrevious(block: (previous: T?, current: T) -> U): List<U> {
     return mapIndexed { index, current -> block(getOrNull(index - 1), current) }
 }

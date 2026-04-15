@@ -35,9 +35,7 @@ class FilterIntegrationTest {
             }
         }
 
-        val count = contractTestHarness.openApiCoverageReportInput.generate().testResultRecords.count {
-            it.result == TestResult.Success
-        }
+        val count = contractTestHarness.openApiCoverage.generate().testResultRecords.count { it.result == TestResult.Success }
         assertEquals(expectedSuccessfulTestCount, count)
     }
 

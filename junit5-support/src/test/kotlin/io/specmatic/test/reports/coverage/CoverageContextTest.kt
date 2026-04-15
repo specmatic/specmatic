@@ -40,7 +40,6 @@ class CoverageContextTest {
         val context = CoverageContext(
             tests = listOf(testDerivedRecord),
             allSpecEndpoints = listOf(specEndpoint),
-            specEndpointsInScope = listOf(specEndpoint),
             applicationEndpoints = listOf(API(method = "POST", path = "/payments")),
             endpointsApiAvailable = true,
         )
@@ -73,7 +72,6 @@ class CoverageContextTest {
         val context = CoverageContext(
             tests = emptyList(),
             allSpecEndpoints = listOf(endpoint("/orders", "GET", null, 200, "application/json")),
-            specEndpointsInScope = listOf(endpoint("/orders", "GET", null, 200, "application/json")),
             applicationEndpoints = emptyList(),
             endpointsApiAvailable = true,
         )

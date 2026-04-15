@@ -28,8 +28,6 @@ import io.specmatic.stub.isSupportedAPISpecification
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverage
-import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
-import io.specmatic.test.reports.coverage.calculateCoverage
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
@@ -89,17 +87,13 @@ open class SpecmaticJUnitSupport {
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
 
-    internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
-        OpenApiCoverageReportInput(
-            configFilePath = getConfigFileWithAbsolutePath(),
-            filterExpression = settings.getReportFilter().orEmpty(),
-            coverageHooks = settings.coverageHooks,
-            httpInteractionsLog = httpInteractionsLog,
-            previousTestResultRecord = settings.previousTestRuns,
-        )
-
-    internal val openApiCoverage: OpenApiCoverage =
-        OpenApiCoverage(filterExpression = settings.getReportFilter().orEmpty())
+    internal val openApiCoverage: OpenApiCoverage = OpenApiCoverage(
+        configFilePath = getConfigFileWithAbsolutePath(),
+        filterExpression = settings.getReportFilter().orEmpty(),
+        coverageHooks = settings.coverageHooks,
+        previousTestResultRecord = settings.previousTestRuns,
+        httpInteractionsLog = httpInteractionsLog
+    )
 
     private val threads: Vector<String> = Vector<String>()
 
@@ -149,8 +143,6 @@ open class SpecmaticJUnitSupport {
             API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
         }
 
-        openApiCoverageReportInput.addAPIs(apis.distinct())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
         openApiCoverage.addAPIs(apis.distinct())
         openApiCoverage.setEndpointsAPIFlag(true)
 
@@ -175,7 +167,6 @@ open class SpecmaticJUnitSupport {
         }
 
         logger.debug(response.toLogString())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
         openApiCoverage.setEndpointsAPIFlag(true)
         val endpointData = response.body as JSONObjectValue
         val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
@@ -201,9 +192,8 @@ open class SpecmaticJUnitSupport {
                 }
             }
         }
-        openApiCoverageReportInput.addAPIs(apis)
-        openApiCoverage.addAPIs(apis)
 
+        openApiCoverage.addAPIs(apis)
         return ActuatorSetupResult.Success
     }
 
@@ -213,17 +203,17 @@ open class SpecmaticJUnitSupport {
         val start = startTime?.toEpochMilli() ?: 0L
         val reportDirPath = specmaticConfig.getReportDirPath()
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-        val coverageReportOperations = openApiCoverage.generateReportOperations()
+        val coverageReport = openApiCoverage.generate()
 
         consoleLog("Generating CTRF report using  coverageReportOperations...")
         ReportGenerator.generateReport(
             endTime = end,
             startTime = start,
             reportDir = File("$reportDirPath/test"),
-            coverageReportOperations = coverageReportOperations,
-            coverage = coverageReportOperations.calculateCoverage(),
-            testResultRecords = coverageReportOperations.flatMap { it.tests },
-            specConfigs = coverageReportOperations.map { it.specConfig }.distinct(),
+            coverageReportOperations = coverageReport.coverageOperations,
+            coverage = coverageReport.totalCoveragePercentage,
+            testResultRecords = coverageReport.testResultRecords,
+            specConfigs = coverageReport.getSpecConfigs(),
         )
     }
 
@@ -233,13 +223,14 @@ open class SpecmaticJUnitSupport {
         val reportConfiguration = getReportConfiguration()
         val excludedOpenAPIEndpoints = reportConfiguration.excludedOpenAPIEndpoints() + excludedEndpointsFromEnv()
         openApiCoverage.addExcludedAPIs(excludedOpenAPIEndpoints)
-        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
-        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
+        val report = openApiCoverage.generate()
 
         try {
+            val reportProcessors = listOf(OpenApiCoverageReportProcessor(report, settings.reportBaseDirectory ?: "."))
+            val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
             reportProcessors.forEach { it.process(config) }
         } finally {
-            openApiCoverageReportInput.onProcessingComplete()
+            report.onProcessingComplete()
             this.generateCtrfReport()
             threads.distinct().let {
                 if (it.size > 1) {
@@ -400,8 +391,6 @@ open class SpecmaticJUnitSupport {
         }
 
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
-
-        openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         openApiCoverage.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         val testScenariosWithUrls = try {
             val filteredPairsBasedOnName = selectTestsToRun(
@@ -472,13 +461,11 @@ open class SpecmaticJUnitSupport {
 
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
-                openApiCoverageReportInput.setEndpointsAPIFlag(false)
                 openApiCoverage.setEndpointsAPIFlag(false)
                 logger.boundary()
                 logger.log("Endpoints API and SwaggerUI URL were not exposed by the application, so cannot calculate actual coverage")
             }
         } catch (exception: Throwable) {
-            openApiCoverageReportInput.setEndpointsAPIFlag(false)
             openApiCoverage.setEndpointsAPIFlag(false)
             logger.debug(exception, "Failed to query actuator with error")
         }
@@ -550,7 +537,6 @@ open class SpecmaticJUnitSupport {
                 } finally {
                     if (testResult != null) {
                         contractTest.testResultRecord(testResult)?.let { testResultRecord ->
-                            openApiCoverageReportInput.addTestReportRecords(testResultRecord)
                             openApiCoverage.addTestReportRecords(testResultRecord)
                         }
                     }

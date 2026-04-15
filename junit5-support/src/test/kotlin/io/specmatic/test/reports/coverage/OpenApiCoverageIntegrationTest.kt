@@ -84,7 +84,7 @@ class OpenApiCoverageIntegrationTest {
                 respond(HttpResponse(status = 400, body = StringValue("text/plain")))
             }
         }.verifyOpenApiCoverage {
-            assertThat(report).hasSize(5)
+            assertThat(totalOperations).isEqualTo(5)
             assertThat(operations).hasSize(5)
 
             val successView = single("GET", "/orders", 200)
@@ -143,7 +143,7 @@ class OpenApiCoverageIntegrationTest {
         ContractTestScope.from(specYaml, tempDir).execute { server ->
             server.on("/orders", "GET") { respond(405) }
         }.verifyOpenApiCoverage {
-            assertThat(report).hasSize(1)
+            assertThat(totalOperations).isEqualTo(1)
             assertThat(operations).hasSize(1)
             val wipView = single("GET", "/orders", 200)
             assertThat(wipView.operation.eligibleForCoverage).isTrue
@@ -197,7 +197,7 @@ class OpenApiCoverageIntegrationTest {
                 respond(getInventoryResponse)
             }
         }.verifyOpenApiCoverage {
-            assertThat(report).hasSize(2)
+            assertThat(totalOperations).isEqualTo(2)
             assertThat(operations).hasSize(2)
 
             val addInventory = single("addInventory", "/ws", 200)

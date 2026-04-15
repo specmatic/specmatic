@@ -28,7 +28,7 @@ class OpenApiCoverageTest {
             )
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             assertThat(single(method = "GET", path = "/orders").operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
             assertThat(single(method = "POST", path = "/payments").operation.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
@@ -54,7 +54,7 @@ class OpenApiCoverageTest {
             }
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             val ordersView = single("POST", "/orders", 201, requestType = "application/json", responseType = "application/json")
             assertThat(ordersView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
@@ -102,7 +102,7 @@ class OpenApiCoverageTest {
             )
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             val successView = single("POST", "/orders", 201)
             assertThat(successView.operation.metrics?.matches).isEqualTo(0)
@@ -145,7 +145,7 @@ class OpenApiCoverageTest {
             )
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             val wipView = single("POST", "/orders/{id}", 201)
             assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
@@ -169,7 +169,7 @@ class OpenApiCoverageTest {
             specEndpoint(method = "GET", path = "/orders", responseCode = 200, responseType = "application/json")
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             val didNotRunView = single(method = "GET", path = "/orders", responseCode = 200, responseType = "application/json")
             assertThat(didNotRunView.tests).isEmpty()
@@ -220,7 +220,7 @@ class OpenApiCoverageTest {
             }
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             val okResponseView = single(method = "POST", path = "/order", responseCode = 201)
             assertThat(okResponseView.operation.eligibleForCoverage).isTrue
@@ -292,7 +292,7 @@ class OpenApiCoverageTest {
             }
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             val okResponseView = single(method = "POST", path = "/order", responseCode = 201)
             assertThat(okResponseView.operation.eligibleForCoverage).isTrue
@@ -328,11 +328,11 @@ class OpenApiCoverageTest {
     }
 
     @Test
-    fun `should build coverage from in-scope endpoints and include actuator-only operations`() {
+    fun `should build coverage from in-scope and out-of-scope endpoints and include actuator-only operations`() {
         val coverage = OpenApiCoverageBuilder.buildCoverage {
             applicationApi(method = "POST", path = "/payments")
             specEndpoint(method = "GET", path = "/orders", responseCode = 200, responseType = "application/json")
-            outOfScopeSpecEndpoint(method = "GET", path = "/internal/orders", responseCode = 200, responseType = "application/json")
+            outOfScopeSpecEndpoint(method = "GET", path = "/skipped/orders", responseCode = 200, responseType = "application/json")
             testResult(
                 method = "GET",
                 path = "/orders",
@@ -344,11 +344,12 @@ class OpenApiCoverageTest {
             )
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
-            assertThat(operations.map { it.apiOperation.path }).containsExactlyInAnyOrder("/orders", "/payments")
+            assertThat(operations.map { it.apiOperation.path }).containsExactlyInAnyOrder("/orders", "/payments", "/skipped/orders")
             assertThat(single(method = "GET", path = "/orders", responseCode = 200).operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
             assertThat(single(method = "POST", path = "/payments", responseCode = 0).operation.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
+            assertThat(single(method = "GET", path = "/skipped/orders", responseCode = 200).operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
         }
     }
 
@@ -359,7 +360,7 @@ class OpenApiCoverageTest {
             applicationApisUnavailable()
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             assertThat(operations).hasSize(1)
             assertThat(single(method = "GET", path = "/orders", responseCode = 200).apiOperation.path).isEqualTo("/orders")
@@ -374,7 +375,7 @@ class OpenApiCoverageTest {
             excludeApplicationPath("/payments")
         }
 
-        val report: List<OpenApiCoverageReportOperation> = coverage.generateReportOperations()
+        val report = coverage.generate()
         report.verify {
             assertThat(operations).hasSize(1)
             assertThat(single(method = "GET", path = "/orders", responseCode = 200).apiOperation.path).isEqualTo("/orders")

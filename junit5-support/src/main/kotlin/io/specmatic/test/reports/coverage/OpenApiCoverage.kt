@@ -2,15 +2,23 @@ package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
-import io.specmatic.core.report.OpenApiCoverageReportOperation
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
-import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
+import io.specmatic.test.reports.TestReportListener
+import io.specmatic.test.reports.onEachListener
+import io.specmatic.test.reports.onTestResult
 
 class OpenApiCoverage(
+    private val configFilePath: String,
     private val filterExpression: String = "",
+    private val coverageHooks: List<TestReportListener> = emptyList(),
+    private val previousTestResultRecord: List<TestResultRecord> = emptyList(),
+    private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
     private val coverageReportGenerator: CoverageReportGenerator = CoverageReportGenerator(),
 ) {
     private val testResultRecords: MutableList<TestResultRecord> = mutableListOf()
@@ -21,41 +29,82 @@ class OpenApiCoverage(
     private var endpointsAPISet: Boolean = false
 
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
+        coverageHooks.onTestResult(testResultRecord, httpInteractionsLog.testHttpLogMessages.toList())
         testResultRecords.add(testResultRecord)
     }
 
     fun addAPIs(apis: List<API>) {
+        val filterExpression = ExpressionStandardizer.filterToEvalEx(filterExpression)
+        val apisNotExcluded = apis.filter { api ->
+            val operation = OpenAPIOperation(path = api.path, method = api.method, contentType = null, responseCode = 0, protocol = SpecmaticProtocol.HTTP)
+            val testResultRecord = TestResultRecord(path = api.path, method = api.method, responseStatus = 0, request = null, response = null, result = TestResult.MissingInSpec, specType = SpecType.OPENAPI, operations = setOf(operation))
+            filterExpression.with("context", TestRecordFilter(testResultRecord)).evaluate().booleanValue
+        }
+
         applicationAPIs.addAll(apis)
+        coverageHooks.onEachListener {
+            onActuatorApis(
+                apisNotExcluded = apisNotExcluded,
+                apisExcluded = apis.toSet().minus(apisNotExcluded.toSet()).toList()
+            )
+        }
     }
 
     fun addExcludedAPIs(apis: List<String>) {
         excludedAPIs.addAll(apis)
     }
 
-    fun addEndpoints(allEndpoints: List<Endpoint>, filteredEndpoints: List<Endpoint>) {
+    fun addEndpoints(allEndpoints: List<Endpoint> = emptyList(), filteredEndpoints: List<Endpoint> = emptyList()) {
         this.allSpecEndpoints.addAll(allEndpoints)
         this.specEndpointsInScope.addAll(filteredEndpoints)
+        val excludedEndpoints = allEndpoints.toSet().minus(filteredEndpoints.toSet()).toList()
+        coverageHooks.onEachListener {
+            onEndpointApis(endpointsNotExcluded = filteredEndpoints, endpointsExcluded = excludedEndpoints)
+        }
     }
 
     fun setEndpointsAPIFlag(isSet: Boolean) {
         endpointsAPISet = isSet
+        coverageHooks.onEachListener { onActuator(isSet) }
     }
 
-    fun generateReportOperations(): List<OpenApiCoverageReportOperation> {
-        return coverageReportGenerator.generateReportOperations(coverageContext())
+    fun isEndpointsApiSet(): Boolean {
+        return endpointsAPISet
     }
 
-    fun generate(): OpenAPICoverageConsoleReport {
-        return coverageReportGenerator.generate(coverageContext())
+    fun getApplicationAPIs(): List<API> {
+        return applicationAPIs.toList()
+    }
+
+    fun generate(): OpenApiCoverageReport {
+        val context = coverageContext()
+        val coverageOperations = coverageReportGenerator.generateReportOperations(context)
+        return OpenApiCoverageReport(
+            coverageHooks = coverageHooks,
+            configFilePath = configFilePath,
+            testResultRecords = context.tests,
+            deprecatedData = createDeprecateData(),
+            coverageOperations = coverageOperations,
+            httpInteractionsLog = httpInteractionsLog,
+        )
+    }
+
+    private fun createDeprecateData(): OpenApiCoverageDeprecatedData {
+        return OpenApiCoverageDeprecatedData(
+            excludedAPIs = excludedAPIs,
+            endpointsApiSet = endpointsAPISet,
+            applicationAPIs = applicationAPIs,
+            allSpecEndpoints = allSpecEndpoints,
+            filterExpression = filterExpression
+        )
     }
 
     private fun coverageContext(): CoverageContext {
         return CoverageContext(
-            tests = filteredTestResultRecords(),
-            allSpecEndpoints = allSpecEndpoints.toList(),
-            specEndpointsInScope = specEndpointsInScope.toList(),
-            applicationEndpoints = filteredApplicationEndpoints(),
             endpointsApiAvailable = endpointsAPISet,
+            allSpecEndpoints = allSpecEndpoints.toList(),
+            applicationEndpoints = filteredApplicationEndpoints(),
+            tests = filteredTestResultRecords().plus(previousTestResultRecord),
         )
     }
 

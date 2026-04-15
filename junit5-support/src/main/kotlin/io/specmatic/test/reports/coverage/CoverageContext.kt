@@ -8,12 +8,11 @@ import io.specmatic.test.TestResultRecord
 data class CoverageContext(
     val tests: List<TestResultRecord>,
     val allSpecEndpoints: List<Endpoint>,
-    val specEndpointsInScope: List<Endpoint>,
     val applicationEndpoints: List<API> = emptyList(),
     val endpointsApiAvailable: Boolean = false,
 ) {
     fun specOperations(): Set<OpenAPIOperation> {
-        return specEndpointsInScope.map { it.toOpenApiOperation() }.toSet()
+        return allSpecEndpoints.map { it.toOpenApiOperation() }.toSet()
     }
 
     fun allCoverageOperations(): Set<OpenAPIOperation> {
