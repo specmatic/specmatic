@@ -17,13 +17,13 @@ import org.junit.jupiter.api.DynamicTest
 import java.io.File
 import java.util.UUID
 
-class ContractTestScope(private val specification: File) {
+class ContractTestScope(private val specification: File, private val tempDir: File = specification.parentFile) {
     private val server: MockHttpServer = MockHttpServer()
     private val listener: RecordingTestReportListener = RecordingTestReportListener()
     @Volatile private var specmaticJunitSupport: SpecmaticJUnitSupport? = null
 
     fun execute(specmaticConfig: SpecmaticConfig = SpecmaticConfig(), block: (MockHttpServer) -> Unit): ContractTestScope {
-        val configFile = specification.parentFile.resolve("${specification.name}.specmatic.yaml").apply {
+        val configFile = tempDir.resolve("${specification.name}.specmatic.yaml").apply {
             writeText(specmaticConfig.toYaml())
         }
 
@@ -45,6 +45,7 @@ class ContractTestScope(private val specification: File) {
                 runCatching { dynamicTest.executable.execute() }
             }
         } finally {
+            server.close()
             configFile.delete()
             SpecmaticJUnitSupport.settingsStaging.remove()
         }
@@ -72,7 +73,13 @@ class ContractTestScope(private val specification: File) {
 
     companion object {
         fun from(content: String, tempDir: File): ContractTestScope {
-            val extension = if (content.startsWith("{")) JSON else YAML
+            val trimmed = content.trimStart()
+            val extension = when {
+                trimmed.startsWith("{") -> JSON
+                trimmed.startsWith("<") -> "wsdl"
+                else -> YAML
+            }
+
             val specFile = tempDir.resolve("${UUID.randomUUID()}.$extension")
             specFile.parentFile.mkdirs()
             specFile.writeText(content)

@@ -6,12 +6,15 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
+import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.utils.ContractTestScope
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
@@ -149,6 +152,73 @@ class OpenApiCoverageIntegrationTest {
             assertThat(wipView.operation.qualifiers).contains(CtrfTestQualifiers.WIP)
             assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
             assertThat(wipView.tests).hasSize(1).allSatisfy { test -> assertThat(test.result).isEqualTo(TestResult.Error) }
+        }
+    }
+
+    @Test
+    @Disabled // TODO: Needs to be fixed in Core, PR Raised separately
+    fun `should report wsdl soap coverage end to end with protocol and spec type`(@TempDir tempDir: File) {
+        val wsdlSpecFile = File("src/test/resources/simple.wsdl")
+        val addInventoryResponse = HttpResponse(
+            status = 200,
+            headers = mapOf("Content-Type" to "text/xml"),
+            body = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://www.example.com/inventory">
+              <soap:Body>
+                <tns:AddInventoryResponse>
+                  <tns:message>ok</tns:message>
+                </tns:AddInventoryResponse>
+              </soap:Body>
+            </soap:Envelope>""".toXML()
+        )
+
+        val getInventoryResponse = HttpResponse(
+            status = 200,
+            headers = mapOf("Content-Type" to "text/xml"),
+            body = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://www.example.com/inventory">
+              <soap:Body>
+                <tns:GetInventoryResponse>
+                  <tns:productid>101</tns:productid>
+                  <tns:inventory>10</tns:inventory>
+                </tns:GetInventoryResponse>
+              </soap:Body>
+            </soap:Envelope>""".toXML()
+        )
+
+        ContractTestScope(wsdlSpecFile, tempDir).execute { server ->
+            server.on("/ws", "POST") {
+                header("SOAPAction", "/addInventory")
+                body("(anything)")
+                respond(addInventoryResponse)
+            }
+
+            server.on("/ws", "POST") {
+                header("SOAPAction", "/getInventory")
+                body("(anything)")
+                respond(getInventoryResponse)
+            }
+        }.verifyOpenApiCoverage {
+            assertThat(report).hasSize(2)
+            assertThat(operations).hasSize(2)
+
+            val addInventory = single("addInventory", "/ws", 200)
+            assertThat(addInventory.operation.eligibleForCoverage).isTrue
+            assertThat(addInventory.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+            assertThat(addInventory.apiOperation.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+            assertThat(addInventory.tests).hasSize(1).allSatisfy { test ->
+                assertThat(test.result).isEqualTo(TestResult.Success)
+                assertThat(test.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+                assertThat(test.specType).isEqualTo(SpecType.WSDL)
+            }
+
+            val getInventory = single("getInventory", "/ws", 200)
+            assertThat(getInventory.operation.eligibleForCoverage).isTrue
+            assertThat(getInventory.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+            assertThat(getInventory.apiOperation.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+            assertThat(getInventory.tests).hasSize(1).allSatisfy { test ->
+                assertThat(test.result).isEqualTo(TestResult.Success)
+                assertThat(test.protocol).isEqualTo(SpecmaticProtocol.SOAP)
+                assertThat(test.specType).isEqualTo(SpecType.WSDL)
+            }
         }
     }
 }

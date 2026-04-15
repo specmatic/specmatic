@@ -687,7 +687,7 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
                 scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.responseContentType,
                 scenario.protocol,
                 scenario.specType
             )
@@ -719,7 +719,7 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
                 scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.responseContentType,
                 scenario.protocol,
                 scenario.specType
             )

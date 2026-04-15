@@ -189,6 +189,6 @@ fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
         contentType = scenario.requestContentType,
         responseCode = scenario.status,
         protocol = scenario.protocol,
-        responseContentType = scenario.httpResponsePattern.headersPattern.contentType,
+        responseContentType = scenario.responseContentType,
     )
 }
