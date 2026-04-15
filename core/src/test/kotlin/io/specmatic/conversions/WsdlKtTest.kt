@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.ktor.http.ContentType
 import io.specmatic.Utils.readTextResource
 import io.specmatic.core.*
 import io.specmatic.core.pattern.ContractException
@@ -531,10 +532,7 @@ Scenario: test request returns test response
         val soapRequest = HttpRequest(
             "POST",
             "/SOAPService/SimpleSOAP",
-            mapOf(
-                "SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation",
-                "Content-Type" to "application/xml"
-            ),
+            mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="22"><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
@@ -548,10 +546,7 @@ Scenario: test request returns test response
         val soapRequest = HttpRequest(
             "POST",
             "/SOAPService/SimpleSOAP",
-            mapOf(
-                "SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation",
-                "Content-Type" to "application/xml"
-            ),
+            mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
@@ -566,10 +561,7 @@ Scenario: test request returns test response
         val soapRequest = HttpRequest(
             "POST",
             "/SOAPService/SimpleSOAP",
-            mapOf(
-                "SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation",
-                "Content-Type" to "application/xml"
-            ),
+            mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person age="22"><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()
@@ -583,10 +575,7 @@ Scenario: test request returns test response
         val soapRequest = HttpRequest(
             "POST",
             "/SOAPService/SimpleSOAP",
-            mapOf(
-                "SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation",
-                "Content-Type" to "application/xml"
-            ),
+            mapOf("SOAPAction" to "http://specmatic.io/SOAPService/SimpleOperation", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = parsedValue("""<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><qr:Person><qr:Id>2</qr:Id><qr:Name>James Taylor</qr:Name></qr:Person></soapenv:Body></soapenv:Envelope>""")
         )
         val wsdlScenario = wsdlFeature.scenarios.single()

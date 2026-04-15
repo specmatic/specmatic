@@ -773,6 +773,8 @@ paths:
                 method = "POST",
                 responseStatus = 200,
                 soapAction = "getInventory",
+                requestContentType = "text/xml",
+                responseContentType = "text/xml",
                 specification = specFile.canonicalPath,
                 protocol = SpecmaticProtocol.SOAP,
                 specType = SpecType.WSDL
@@ -782,6 +784,8 @@ paths:
                 method = "POST",
                 responseStatus = 200,
                 soapAction = "addInventory",
+                requestContentType = "text/xml",
+                responseContentType = "text/xml",
                 specification = specFile.canonicalPath,
                 protocol = SpecmaticProtocol.SOAP,
                 specType = SpecType.WSDL

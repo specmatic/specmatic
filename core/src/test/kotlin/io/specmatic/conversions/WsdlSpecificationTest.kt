@@ -29,17 +29,44 @@ internal class WsdlSpecificationTest {
     }
 
     @Test
-    fun `existence of content type header`() {
+    fun `request and response content type should be parsed as text-xml for soap version_1_1`() {
         val wsdlPath = "src/test/resources/wsdl/stockquote.wsdl"
-
         val wsdlContract = wsdlContentToFeature(File(wsdlPath).readText(), wsdlPath)
-
         assertThat(wsdlContract.scenarios).allSatisfy { scenario ->
             val request = scenario.generateHttpRequest()
             assertThat(request.contentType()).isEqualTo("text/xml")
 
             val response = scenario.generateHttpResponse(emptyMap())
             assertThat(response.contentType()).isEqualTo("text/xml")
+        }
+    }
+
+    @Test
+    fun `request and response content type should be parsed as application-soap-xml for soap version_1_2`() {
+        val wsdlPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
+        val wsdlContract = wsdlContentToFeature(File(wsdlPath).readText(), wsdlPath)
+        assertThat(wsdlContract.scenarios).allSatisfy { scenario ->
+            val request = scenario.generateHttpRequest()
+            assertThat(request.contentType()).isEqualTo("application/soap+xml")
+
+            val response = scenario.generateHttpResponse(emptyMap())
+            assertThat(response.contentType()).isEqualTo("application/soap+xml")
+        }
+    }
+
+    @Test
+    fun `request and response content type should default to application-soap-xml for unknown soap version`() {
+        val wsdlPath = "src/test/resources/wsdl/stockquote.wsdl"
+        val wsdlContentWithUnknownSoapNamespace = File(wsdlPath).readText()
+            .replace("http://schemas.xmlsoap.org/wsdl/soap/", "http://example.com/unknown-soap/")
+
+        val wsdlContract = wsdlContentToFeature(wsdlContentWithUnknownSoapNamespace, wsdlPath)
+        assertThat(wsdlContract.scenarios).allSatisfy { scenario ->
+            val request = scenario.generateHttpRequest()
+            assertThat(request.contentType()).isEqualTo("application/soap+xml")
+
+            val response = scenario.generateHttpResponse(emptyMap())
+            assertThat(response.contentType()).isEqualTo("application/soap+xml")
         }
     }
 }
