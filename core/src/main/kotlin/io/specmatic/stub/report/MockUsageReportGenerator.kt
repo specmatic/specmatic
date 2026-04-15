@@ -32,13 +32,13 @@ class MockUsageReportGenerator {
     }
 
     private fun factsFor(operation: OpenAPIOperation, testResultRecords: List<TestResultRecord>): MockUsageFacts {
-        val tests = testResultRecords.filter { record -> record.attempts(operation) || record.matches(operation) }
+        val tests = testResultRecords.filter { it.operations.contains(operation) }
 
         return MockUsageFacts(
             operation = operation,
             tests = tests,
             matchRecords = tests.filter { it.matches(operation) },
-            attemptRecords = tests.filter { it.attempts(operation) },
+            attemptRecords = tests,
         )
     }
 
@@ -56,9 +56,12 @@ class MockUsageReportGenerator {
 
     private fun coverageStatusFor(attempts: Int, matches: Int): CoverageStatus {
         return when {
-            matches > 0 -> CoverageStatus.COVERED
-            attempts == 0 -> CoverageStatus.NOT_USED
-            else -> CoverageStatus.MISMATCH
+            attempts > 0 && matches > 0 -> CoverageStatus.COVERED
+            attempts > 0 && matches == 0 -> CoverageStatus.MISMATCH
+            attempts == 0 && matches == 0 -> CoverageStatus.NOT_USED
+            else -> throw IllegalArgumentException(
+                "Cannot determine mock usage coverage status with attempts=$attempts and matches=$matches"
+            )
         }
     }
 
