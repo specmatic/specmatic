@@ -27,4 +27,19 @@ internal class WsdlSpecificationTest {
         println(result.toReport().toText())
         assertThat(result).isInstanceOf(Result.Success::class.java)
     }
+
+    @Test
+    fun `existence of content type header`() {
+        val wsdlPath = "src/test/resources/wsdl/stockquote.wsdl"
+
+        val wsdlContract = wsdlContentToFeature(File(wsdlPath).readText(), wsdlPath)
+
+        assertThat(wsdlContract.scenarios).allSatisfy { scenario ->
+            val request = scenario.generateHttpRequest()
+            assertThat(request.contentType()).isEqualTo("text/xml")
+
+            val response = scenario.generateHttpResponse(emptyMap())
+            assertThat(response.contentType()).isEqualTo("text/xml")
+        }
+    }
 }
