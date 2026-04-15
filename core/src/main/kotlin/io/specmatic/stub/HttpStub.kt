@@ -529,7 +529,11 @@ class HttpStub(
     ) {
         val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
         val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
-        val requestContentType = httpLogMessage.scenario?.requestContentType
+        val requestContentType =  when ( val scenario = httpLogMessage.scenario) {
+            null -> httpRequest.headers["Content-Type"]
+            else -> scenario.requestContentType
+        }
+
         val responseStatus = httpLogMessage.scenario?.status ?: 0
         val protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP
         val ctrfTestResultRecord = TestResultRecord(
@@ -1200,22 +1204,25 @@ class HttpStub(
     }
 
     private fun extractAllEndpoints(): List<StubEndpoint> {
-        return features.flatMap { it.scenarios }.map { scenario ->
-            StubEndpoint(
-                scenario.path,
-                scenario.method,
-                scenario.status,
-                scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
-                scenario.sourceProvider,
-                scenario.sourceRepository,
-                scenario.sourceRepositoryBranch,
-                scenario.specification,
-                scenario.protocol,
-                scenario.specType
-            )
+        return features.flatMap { feature ->
+            feature.scenarios.map { scenario ->
+                StubEndpoint(
+                    scenario.path,
+                    scenario.method,
+                    scenario.status,
+                    scenario.requestContentType,
+                    scenario.httpResponsePattern.headersPattern.contentType,
+                    scenario.sourceProvider,
+                    scenario.sourceRepository,
+                    scenario.sourceRepositoryBranch,
+                    scenario.specification ?: feature.path,
+                    scenario.protocol,
+                    scenario.specType
+                )
+            }
         }
     }
+
 
     private fun generateStubUsageReport() {
         specmaticConfigPath?.let {

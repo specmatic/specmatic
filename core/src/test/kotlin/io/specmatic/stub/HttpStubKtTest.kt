@@ -53,6 +53,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.fail
 import java.io.File
+import java.nio.file.Files
 import java.security.KeyStore
 import java.util.*
 import java.util.function.Consumer
@@ -1625,6 +1626,102 @@ paths:
 
             assertThat(responseString).contains("Specification expected")
             assertThat(responseString).contains("request contained")
+        }
+    }
+
+    @Test
+    fun `stub request mismatch should return custom error mismatch for payload level mismatch from spec file`() {
+        val tempDir = Files.createTempDirectory("specmatic-stub-request-mismatch").toFile()
+        val openApiSpec = tempDir.resolve("api.yaml")
+        openApiSpec.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data:
+                post:
+                  summary: hello world
+                  description: test
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            type: number
+                  responses:
+                    '200':
+                      description: Says hello
+                      content:
+                        text/plain:
+                          schema:
+                            type: number
+            """.trimIndent()
+        )
+
+        try {
+            val contract = parseContractFileToFeature(openApiSpec)
+
+            HttpStub(contract, emptyList()).use {
+                val response = it.client.execute(HttpRequest("POST", "/data", body = StringValue("""hello world""".trimIndent())))
+
+                val responseString = response.toLogString()
+                println(responseString)
+
+                assertThat(responseString).contains("Specification expected")
+                assertThat(responseString).contains("request contained")
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `matched no-body get request should not record incidental content type from request header`() {
+        val tempDir = Files.createTempDirectory("specmatic-stub-get-products").toFile()
+        val openApiSpec = tempDir.resolve("api.yaml")
+        openApiSpec.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Products API
+              version: 1.0.0
+            paths:
+              /products:
+                get:
+                  responses:
+                    '200':
+                      description: Products
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: object
+            """.trimIndent()
+        )
+
+        try {
+            val contract = parseContractFileToFeature(openApiSpec)
+
+            HttpStub(contract, emptyList()).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "GET",
+                        path = "/products",
+                        headers = mapOf("Content-Type" to "application/json"),
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(200)
+                val testResultRecord = stub.ctrfTestResultRecords().single()
+                assertThat(testResultRecord.requestContentType).isNull()
+            }
+        } finally {
+            tempDir.deleteRecursively()
         }
     }
 
