@@ -28,9 +28,14 @@ class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseComman
         return testBackwardCompatibility(oldFeature as Feature, newFeature as Feature)
     }
 
+    companion object {
+        private val jsonMapper = ObjectMapper()
+        private val yamlMapper = ObjectMapper(YAMLFactory())
+    }
+
     private fun isYAML(string: String): Boolean {
         return try {
-            ObjectMapper(YAMLFactory()).readValue(string, Map::class.java)
+            yamlMapper.readValue(string, Map::class.java)
             true
         } catch (e: Throwable) {
             false
@@ -39,8 +44,17 @@ class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseComman
 
     private fun isJSON(string: String): Boolean {
         return try {
-            ObjectMapper().readValue(string, Map::class.java)
+            jsonMapper.readValue(string, Map::class.java)
             true
+        } catch (e: Throwable) {
+            false
+        }
+    }
+
+    private fun isAsyncAPI(string: String): Boolean {
+        return try {
+            val map = yamlMapper.readValue(string, Map::class.java)
+            map.containsKey("asyncapi")
         } catch (e: Throwable) {
             false
         }
@@ -50,6 +64,12 @@ class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseComman
         if (this.extension !in CONTRACT_EXTENSIONS) return false
 
         val content = this.readText()
+
+        // The current design conflates the collection of changes to specs and examples.
+        // This means that we must filter out asyncapi files with a negative check when loading up all files.
+        if (isAsyncAPI(content)) {
+            return false
+        }
 
         return when (this.extension.lowercase()) {
             "yaml", "yml" -> isYAML(content)

@@ -9,13 +9,14 @@ import io.mockk.spyk
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
-import io.specmatic.core.utilities.SystemExit
-import io.specmatic.core.utilities.SystemExitException
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -459,6 +460,38 @@ class BackwardCompatibilityCheckCommandV2Test {
             val exampleDir = BackwardCompatibilityCheckCommandV2().getParentExamplesDirectory(Paths.get(exampleFile))
             assertThat(exampleDir).isEqualTo(expectedDir?.let(Paths::get))
         }
+    }
+
+    @Test
+    fun `should skip asyncapi spec files`() {
+        val asyncApiFile = File("src/test/resources/specifications/asyncapi.yaml").canonicalFile
+        val gitAsyncApiFile = tempDir.resolve("asyncapi.yaml").canonicalFile
+        asyncApiFile.copyTo(gitAsyncApiFile)
+
+        val apiFile = File("src/test/resources/specifications/spec_with_examples/api.yaml").canonicalFile
+        val gitApiFile = tempDir.resolve("api.yaml").canonicalFile
+        apiFile.copyTo(gitApiFile)
+
+        commitAndPush(tempDir, "Initial commit")
+        gitAsyncApiFile.writeText(gitAsyncApiFile.readText().replace("address: ping", "address: ping-v2"))
+        gitApiFile.writeText(gitApiFile.readText().replace("endpoint", "modified endpoint"))
+
+        val (stdOut, exitCode) = captureStandardOutput {
+            BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+        }
+
+        assertThat(exitCode).isEqualTo(0)
+
+        assertThat(stdOut).containsIgnoringWhitespaces(
+            """
+            - Specs that have changed: 
+            1. $gitApiFile
+            """.trimIndent()
+        ).containsIgnoringWhitespaces(
+            """
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent()
+        )
     }
 
     @AfterEach
