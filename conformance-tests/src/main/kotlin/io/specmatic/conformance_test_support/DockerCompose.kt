@@ -27,19 +27,19 @@ class DockerCompose(
 
     fun mustGetHttpTrafficLogs(): String {
         val command = buildCommand("logs", "mitm", "--no-color", "--no-log-prefix")
-        return mustRun(command, 5, TimeUnit.SECONDS)
+        return mustRun(command, 60, TimeUnit.SECONDS)
     }
 
     // must fetch logs individually otherwise they come out of order
     fun mustGetAllLogs(): String {
         return listOf("mock", "test", "mitm")
             .joinToString("\n") {
-                mustRun(buildCommand("logs", it, "--no-color"), 5, TimeUnit.SECONDS)
+                mustRun(buildCommand("logs", it, "--no-color"), 60, TimeUnit.SECONDS)
             }
     }
 
     fun mustStop() {
-        mustRun(buildCommand("down", "--volumes", "--timeout", "10"), 30, TimeUnit.SECONDS)
+        mustRun(buildCommand("down", "--volumes", "--timeout", "10"), 60, TimeUnit.SECONDS)
     }
 
     private fun run(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): CommandResult {
