@@ -1,8 +1,12 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.core.Scenario
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
 
 data class CoverageContext(
@@ -10,7 +14,19 @@ data class CoverageContext(
     val allSpecEndpoints: List<Endpoint>,
     val applicationEndpoints: List<API> = emptyList(),
     val endpointsApiAvailable: Boolean = false,
+    val decisions: Map<Endpoint, List<Decision<ContractTest, Scenario>>> = emptyMap()
 ) {
+    private val skipDecisionsByOperation: Map<OpenAPIOperation, Sequence<Reasoning>> by lazy(LazyThreadSafetyMode.NONE) {
+        decisions.entries.associate { (endpoint, endpointDecisions) ->
+            val snapshots = endpointDecisions.asSequence().filterIsInstance<Decision.Skip<Scenario>>().map { it.reasoning }
+            endpoint.toOpenApiOperation() to snapshots
+        }
+    }
+
+    fun getSkipDecisionsFor(operation: OpenAPIOperation): List<Reasoning> {
+        return skipDecisionsByOperation.getOrDefault(operation, emptySequence()).toList()
+    }
+
     fun specOperations(): Set<OpenAPIOperation> {
         return allSpecEndpoints.map { it.toOpenApiOperation() }.toSet()
     }

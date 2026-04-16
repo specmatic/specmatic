@@ -1,11 +1,16 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Scenario
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -79,6 +84,26 @@ class CoverageContextTest {
         val allCoverageOperations = context.allCoverageOperations()
 
         assertThat(allCoverageOperations).containsExactly(endpoint("/orders", "GET", null, 200, "application/json").toOpenApiOperation())
+    }
+
+    @Test
+    fun `should return skip decisions for matching operation`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val excluded = Reasoning(mainReason = TestSkipReason.EXCLUDED)
+        val examplesRequired = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED)
+        val context = CoverageContext(
+            tests = emptyList(),
+            allSpecEndpoints = listOf(endpoint),
+            decisions = mapOf(endpoint to listOf(skipDecision(excluded), skipDecision(examplesRequired)))
+        )
+
+        val skipDecisions = context.getSkipDecisionsFor(endpoint.toOpenApiOperation())
+        assertThat(skipDecisions).containsExactly(excluded, examplesRequired)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun skipDecision(reasoning: Reasoning): Decision<ContractTest, Scenario> {
+        return Decision.Skip(context = Any(), reasoning = reasoning) as Decision<ContractTest, Scenario>
     }
 
     private fun endpoint(

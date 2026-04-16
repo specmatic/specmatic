@@ -30,7 +30,7 @@ class OpenApiCoverage(
     private val excludedAPIs: MutableList<String> = mutableListOf()
     private val allSpecEndpoints: MutableList<Endpoint> = mutableListOf()
     private val specEndpointsInScope: MutableList<Endpoint> = mutableListOf()
-    private val contractTestDecisions: MutableList<Decision<ContractTest, Scenario>> = mutableListOf()
+    private val contractTestDecisions: MutableMap<Endpoint, List<Decision<ContractTest, Scenario>>> = mutableMapOf()
     private var endpointsAPISet: Boolean = false
 
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
@@ -74,8 +74,10 @@ class OpenApiCoverage(
     }
 
     fun onContractTestDecision(contractTestDecision: Decision<Pair<ContractTest, String>, Scenario>) {
-        coverageHooks.onEachListener { onTestDecision(contractTestDecision.mapValue { it.first }) }
-        contractTestDecisions.add(contractTestDecision.mapValue { it.first })
+        val key = Endpoint(contractTestDecision.context)
+        val decision = contractTestDecision.mapValue { it.first }
+        coverageHooks.onEachListener { onTestDecision(decision) }
+        contractTestDecisions[key] = contractTestDecisions.getOrDefault(key, emptyList()).plus(decision)
     }
 
     fun isEndpointsApiSet(): Boolean {
@@ -120,6 +122,7 @@ class OpenApiCoverage(
 
     private fun coverageContext(): CoverageContext {
         return CoverageContext(
+            decisions = contractTestDecisions,
             endpointsApiAvailable = endpointsAPISet,
             allSpecEndpoints = allSpecEndpoints.toList(),
             applicationEndpoints = filteredApplicationEndpoints(),

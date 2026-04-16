@@ -1,12 +1,18 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Scenario
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
+import io.specmatic.test.TestExecutionReason
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -66,6 +72,42 @@ class CoverageReportGeneratorTest {
         val missingInSpecFromApplicationEndpoint = reportOperations.single { it.operation.path == "/payments" }
         assertThat(missingInSpecFromApplicationEndpoint.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
         assertThat(missingInSpecFromApplicationEndpoint.specConfig.specification).isEqualTo("specs/openapi.yaml")
+    }
+
+    @Test
+    fun `should include skip reasons in report operation and mark ineligible for coverage when excluded reason exists`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val reasoningWithExcluded = Reasoning(mainReason = TestSkipReason.EXCLUDED, otherReasons = listOf(TestSkipReason.EXAMPLES_REQUIRED))
+        val reasoningWithoutExcluded = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED)
+
+        val context = CoverageContext(
+            tests = emptyList(),
+            allSpecEndpoints = listOf(endpoint),
+            decisions = mapOf(endpoint to listOf(skipDecision(reasoningWithExcluded), skipDecision(reasoningWithoutExcluded)))
+        )
+
+        val operation = reportGenerator.generateReportOperations(context).single()
+        assertThat(operation.reasons.map { it.id }).containsExactly(TestSkipReason.EXCLUDED.id, TestSkipReason.EXAMPLES_REQUIRED.id, TestSkipReason.EXAMPLES_REQUIRED.id)
+        assertThat(operation.eligibleForCoverage).isFalse()
+    }
+
+    @Test
+    fun `should keep operation eligible for coverage when skip reasons do not contain excluded`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val context = CoverageContext(
+            tests = emptyList(),
+            allSpecEndpoints = listOf(endpoint),
+            decisions = mapOf(endpoint to listOf(skipDecision(Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE))))
+        )
+
+        val operation = reportGenerator.generateReportOperations(context).single()
+        assertThat(operation.reasons.map { it.id }).containsExactly(TestExecutionReason.NO_EXAMPLE.id)
+        assertThat(operation.eligibleForCoverage).isTrue()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun skipDecision(reasoning: Reasoning): Decision<ContractTest, Scenario> {
+        return Decision.Skip(context = Any(), reasoning = reasoning) as Decision<ContractTest, Scenario>
     }
 
     private fun endpoint(

@@ -6,6 +6,7 @@ import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.matchers.MatcherEngine
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
@@ -44,6 +45,7 @@ data class ScenarioAsTest(
     private val originalScenario: Scenario,
     private val workflow: Workflow = Workflow(),
     private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
+    val reasoning: Reasoning = Reasoning()
 ) : ContractTest {
     companion object {
         private var id: Value? = null
@@ -84,6 +86,7 @@ data class ScenarioAsTest(
             requestTime = startTime,
             responseTime = Instant.now(),
             operations = setOf(openAPIOperationFrom(scenario, path)),
+            reasoning = reasoning,
             isResponseInSpecification = response?.let {
                 if (result.isSuccess() || scenario.matchesStatusAndContentType(it)) return@let true
                 feature.isResponsePossible(scenario, it)

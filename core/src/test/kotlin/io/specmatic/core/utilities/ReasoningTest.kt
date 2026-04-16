@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.RuleViolationReport
+import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -33,5 +34,19 @@ class ReasoningTest {
 
         assertThat(text).isEqualTo(RuleViolationReport(linkedSetOf(TestSkipReason.EXCLUDED, TestSkipReason.EXAMPLES_REQUIRED)).toText())
         assertThat(text).containsSubsequence(TestSkipReason.EXCLUDED.id, TestSkipReason.EXAMPLES_REQUIRED.id)
+    }
+
+    @Test
+    fun `toCtrfSnapshots should deduplicate reasons and preserve order`() {
+        val snapshots = Reasoning(
+            mainReason = TestSkipReason.EXCLUDED,
+            otherReasons = listOf(TestSkipReason.EXCLUDED, TestSkipReason.EXAMPLES_REQUIRED, TestExecutionReason.NO_EXAMPLE)
+        ).toCtrfSnapshots()
+
+        assertThat(snapshots.map { it.id }).containsExactly(
+            TestSkipReason.EXCLUDED.id,
+            TestSkipReason.EXAMPLES_REQUIRED.id,
+            TestExecutionReason.NO_EXAMPLE.id
+        )
     }
 }

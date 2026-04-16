@@ -530,7 +530,7 @@ class HttpStub(
         val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
         val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
         val requestContentType =  when ( val scenario = httpLogMessage.scenario) {
-            null -> httpRequest.headers["Content-Type"]
+            null -> httpRequest.contentType()
             else -> scenario.requestContentType
         }
 

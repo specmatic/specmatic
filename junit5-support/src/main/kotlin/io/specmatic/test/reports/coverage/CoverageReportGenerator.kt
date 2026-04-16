@@ -1,6 +1,7 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.report.OpenApiCoverageReportOperation
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -8,6 +9,7 @@ import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.TestSkipReason
 
 data class OpenApiCoverageFacts(
     val matchCount: Int,
@@ -25,12 +27,15 @@ class CoverageReportGenerator {
         return allCoverageOperations.map { operation ->
             val facts = factsFor(operation, filteredTestResultRecords)
             val coverageStatus = coverageStatusFor(operation, facts, specOperations)
+            val skipReasons = context.getSkipDecisionsFor(operation)
+
             CoverageReportOperation(
                 tests = facts.tests,
                 operation = operation,
                 qualifiers = facts.qualifiers,
                 coverageStatus = coverageStatus,
-                eligibleForCoverage = coverageStatus != CoverageStatus.MISSING_IN_SPEC,
+                reasons = skipReasons.flatMap { it.toCtrfSnapshots() },
+                eligibleForCoverage = isEligibleForCoverage(coverageStatus, skipReasons),
                 metrics = CtrfOperationMetrics(matches = facts.matchCount, attempts = facts.tests.size),
                 specConfig = specConfigFor(operation, coverageStatus, facts.tests, context),
             )
@@ -45,6 +50,11 @@ class CoverageReportGenerator {
             matchCount = tests.count { it.matchesResponseIdentifiers() },
             qualifiers = tests.flatMap { it.operationQualifiers() }.distinct()
         )
+    }
+
+    private fun isEligibleForCoverage(coverageStatus: CoverageStatus, reasons: List<Reasoning>): Boolean {
+        if (coverageStatus == CoverageStatus.MISSING_IN_SPEC) return false
+        return reasons.none { reasoning -> reasoning.hasReason(TestSkipReason.EXCLUDED) }
     }
 
     private fun coverageStatusFor(

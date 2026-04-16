@@ -7,6 +7,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestOutput
@@ -59,6 +60,7 @@ data class TestResultRecord(
     ),
     val exampleId: String? = null,
     val isResponseInSpecification: Boolean? = null,
+    val reasoning: Reasoning = Reasoning(),
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -83,7 +85,8 @@ data class TestResultRecord(
             qualifiers = testQualifiers(),
             match = matchesResponseIdentifiers(),
             input = request?.toLogString().orEmpty(),
-            inputTime = requestTime?.toEpochMilli() ?: 0L
+            inputTime = requestTime?.toEpochMilli() ?: 0L,
+            reasons = reasoning.toCtrfSnapshots()
         )
     }
 
@@ -165,6 +168,7 @@ data class TestResultRecord(
                 "Cannot determine coverage status for API operation ${this.testName()} with unknown test result: ${this.result}"
             )
         }
+
 }
 
 fun HttpResponse?.normalizedContentType(): String? {

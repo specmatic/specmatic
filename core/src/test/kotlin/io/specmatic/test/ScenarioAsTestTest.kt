@@ -1,6 +1,8 @@
 package io.specmatic.test
 
 import io.specmatic.core.Feature
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.BadRequestOrDefault
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpHeadersPattern
@@ -28,6 +30,7 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.net.ServerSocket
@@ -191,7 +194,7 @@ class ScenarioAsTestTest {
             )
         )
 
-        val testResultRecord = contractTest.testResultRecord(executionResult)
+        val testResultRecord = requireNotNull(contractTest.testResultRecord(executionResult))
         assertThat(testResultRecord.result).isEqualTo(io.specmatic.reporter.model.TestResult.Failed)
         assertThat(testResultRecord.isResponseInSpecification).isTrue()
     }
@@ -211,6 +214,26 @@ class ScenarioAsTestTest {
         val testResultRecord = contractTest.testResultRecord(executionResult)
         assertThat(testResultRecord.result).isEqualTo(io.specmatic.reporter.model.TestResult.Failed)
         assertThat(testResultRecord.isResponseInSpecification).isFalse()
+    }
+
+    @Test
+    fun `testResultRecord should retain reasoning when contract test is generated from feature decision`() {
+        val scenario = expectationScenario(status = 200, contentType = "application/json")
+        val feature = Feature(name = "feature", scenarios = listOf(scenario), protocol = SpecmaticProtocol.HTTP)
+        val reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE)
+        val contractTest = feature.generateContractTestsWithDecision(
+            originalScenarios = listOf(scenario),
+            scenarios = sequenceOf(Decision.Execute(value = scenario, context = scenario, reasoning = reasoning))
+        ).filterIsInstance<Decision.Execute<ContractTest, Scenario>>().single().value
+
+        val executionResult = contractTest.runTest(fixedResponseExecutor(status = 200, body = "ok", headers = mapOf("Content-Type" to "application/json")))
+        val testResultRecord = requireNotNull(contractTest.testResultRecord(executionResult))
+        val ctrfReasons = requireNotNull(testResultRecord.extraFields().reasons)
+
+        assertEquals(1, ctrfReasons.size)
+        assertEquals(reasoning, testResultRecord.reasoning)
+        assertEquals(TestExecutionReason.NO_EXAMPLE.id, ctrfReasons.single().id)
+        assertEquals(TestExecutionReason.NO_EXAMPLE.title, ctrfReasons.single().title)
     }
 
     private fun scenario(exampleRow: Row? = null, status: Int = 200): Scenario {

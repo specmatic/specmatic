@@ -7,6 +7,7 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.parseContractFileToFeature
+import io.specmatic.core.utilities.Decision
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
@@ -16,12 +17,15 @@ import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.Endpoint
+import io.specmatic.test.reports.coverage.CoverageContext
+import io.specmatic.test.reports.coverage.CoverageReportGenerator
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.utils.OpenApiCoverageBuilder.Companion.buildCoverage
 import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.io.File
+import io.specmatic.core.utilities.Reasoning
 
 class CtrfApiCoverageReportIntegrationTest {
     @Test
@@ -320,6 +324,81 @@ class CtrfApiCoverageReportIntegrationTest {
         assertThat(executionOperations).anyMatch {
             it["path"].asText() == "/pets/unknown" && it["coverageStatus"].asText() == CoverageStatus.MISSING_IN_SPEC.value
         }
+    }
+
+    @Test
+    fun `ctrf report should include test reasoning snapshots in json`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val record = TestResultRecord(
+            path = "/pets/find",
+            method = "GET",
+            responseStatus = 200,
+            request = null,
+            response = null,
+            result = TestResult.Success,
+            specification = specFile.canonicalPath,
+            specType = SpecType.OPENAPI,
+            reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE)
+        )
+
+        val reportNode = ctrfReportNode(
+            report = buildCoverage {
+                configFilePath(specFile.canonicalPath)
+                specEndpoint(method = "GET", path = "/pets/find", responseCode = 200, specification = specFile.canonicalPath)
+                testResult(record)
+            }.generate()
+        )
+
+        val reasons = reportNode["results"]["tests"].single()["extra"]["reasons"]
+        assertThat(reasons).isNotNull
+        assertThat(reasons).hasSize(1)
+        assertThat(reasons.single()["id"].asText()).isEqualTo(TestExecutionReason.NO_EXAMPLE.id)
+        assertThat(reasons.single()["title"].asText()).isEqualTo(TestExecutionReason.NO_EXAMPLE.title)
+    }
+
+    @Test
+    fun `ctrf report should include operation skip reasons in execution details`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val endpoint = Endpoint(
+            path = "/pets/find",
+            method = "GET",
+            responseStatus = 200,
+            specification = specFile.canonicalPath,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+        )
+
+        val reportOperations = CoverageReportGenerator().generateReportOperations(
+            CoverageContext(
+                tests = emptyList(),
+                allSpecEndpoints = listOf(endpoint),
+                decisions = mapOf(
+                    endpoint to listOf(
+                        Decision.Skip(
+                            context = parseContractFileToFeature(specFile, sourceProvider = SourceProvider.filesystem.name).scenarios.first(),
+                            reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED, otherReasons = listOf(TestSkipReason.EXAMPLES_REQUIRED))
+                        )
+                    )
+                )
+            )
+        )
+
+        val reportNode = ObjectMapper().readTree(
+            ObjectMapper().writeValueAsString(
+                CtrfReportGenerator.generate(
+                    endTime = 0L,
+                    startTime = 0L,
+                    toolName = "Specmatic test",
+                    specConfig = reportOperations.map { it.specConfig }.distinct(),
+                    testResultRecords = emptyList(),
+                    coverageReportOperations = reportOperations,
+                    extra = emptyMap(),
+                )
+            )
+        )
+
+        val operationReasons = reportNode["results"]["summary"]["extra"]["executionDetails"].single()["operations"].single()["reasons"]
+        assertThat(operationReasons.map { it["id"].asText() }).containsExactly(TestSkipReason.EXCLUDED.id, TestSkipReason.EXAMPLES_REQUIRED.id)
     }
 
     private fun findTextValue(node: JsonNode, fieldName: String): String? {

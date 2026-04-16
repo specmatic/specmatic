@@ -872,15 +872,15 @@ data class Feature(
             decision.flatMap { returnValue, originalScenario, reasoning ->
                 returnValue.realise(
                     hasValue = { concreteTestScenario, comment ->
-                        val scenarioAsTest = scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios)
+                        val scenarioAsTest = scenarioAsTest(concreteTestScenario, comment, workflow, originalScenario, originalScenarios, reasoning)
                         Decision.Execute(scenarioAsTest, originalScenario, reasoning)
                     },
                     orFailure = {
-                        val testGenerationFailure = ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType)
+                        val testGenerationFailure = ScenarioTestGenerationFailure(originalScenario, it.failure, it.message, originalScenario.protocol, originalScenario.specType, reasoning)
                         Decision.Execute(testGenerationFailure, originalScenario, reasoning)
                     },
                     orException = {
-                        val testGenerationException = ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType)
+                        val testGenerationException = ScenarioTestGenerationException(originalScenario, it.t, it.message, it.breadCrumb, originalScenario.protocol, originalScenario.specType, reasoning)
                         Decision.Execute(testGenerationException, originalScenario, reasoning)
                     }
                 )
@@ -945,7 +945,8 @@ data class Feature(
         comment: String?,
         workflow: Workflow,
         originalScenario: Scenario,
-        originalScenarios: List<Scenario> = emptyList()
+        originalScenarios: List<Scenario> = emptyList(),
+        reasoning: Reasoning = Reasoning()
     ): ContractTest = ScenarioAsTest(
         scenario = adjustTestDescription(concreteTestScenario, originalScenarios),
         feature = this.copy(scenarios = originalScenarios),
@@ -959,7 +960,8 @@ data class Feature(
         comment,
         validators = listOf(ExamplePostValidator),
         workflow = workflow,
-        originalScenario = originalScenario
+        originalScenario = originalScenario,
+        reasoning = reasoning
     )
 
     fun adjustTestDescription(scenario: Scenario, scenarios: List<Scenario> = this.scenarios): Scenario {
