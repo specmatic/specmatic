@@ -7,10 +7,12 @@ import io.specmatic.conformance_test_support.OpenApiSpec
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
+import org.junit.jupiter.api.extension.ExtendWith
 import java.io.File
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(OrderAnnotation::class)
+@ExtendWith(ExpectedFailureExtension::class)
 abstract class AbstractConformanceTest(
     private val openAPISpecFile: String,
     private val workDir: File = File("build/resources/test"),
@@ -21,7 +23,7 @@ abstract class AbstractConformanceTest(
     private lateinit var allLogs: String
     private lateinit var httpExchanges: List<HttpExchange>
 
-    private val spec: OpenApiSpec =
+    internal val spec: OpenApiSpec =
         OpenApiSpec(File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"))
 
 
@@ -49,6 +51,7 @@ abstract class AbstractConformanceTest(
 
     @Test
     @Order(1)
+    @ExpectFailureTag("x-specmatic-expect-failure-loop")
     fun `loop tests should succeed`() {
         assertThat(loopTestsResult.isSuccessful())
             .withFailMessage { "${loopTestsResult.command}\n${loopTestsResult.errorOutput}\n\n$allLogs" }
@@ -57,6 +60,7 @@ abstract class AbstractConformanceTest(
 
     @Test
     @Order(2)
+    @ExpectFailureTag("x-specmatic-expect-failure-operations")
     fun `should only exercise all operations in the openAPI spec and not make any additional non-compliant requests`() {
         val specOps = spec.operations
         val debugInfoBuilder = StringBuilder()
@@ -80,6 +84,7 @@ abstract class AbstractConformanceTest(
 
     @Test
     @Order(4)
+    @ExpectFailureTag("x-specmatic-expect-failure-request-bodies")
     fun `should send valid request bodies`() {
         val errors = httpExchanges
             // requests in the test that produce 4xx, 5xx may contain invalid request bodies by design
@@ -103,6 +108,7 @@ abstract class AbstractConformanceTest(
 
     @Test
     @Order(5)
+    @ExpectFailureTag("x-specmatic-expect-failure-response-bodies")
     fun `should return valid response bodies`() {
         val errors = httpExchanges
             // Only validate responses for operations defined in the spec.

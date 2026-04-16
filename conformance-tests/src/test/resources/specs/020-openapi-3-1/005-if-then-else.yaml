@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-expect-failure-request-bodies: "invalid request bodies: error=[: required property 'cardNumber' not found, : required property 'bankAccount' not found]"
 info:
   title: "OpenAPI 3.1 - if/then/else conditional schema"
   version: "1.0"

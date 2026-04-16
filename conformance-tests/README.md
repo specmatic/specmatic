@@ -22,6 +22,14 @@ This runs the suite `001-http-methods` in `conformance-tests/src/test/resources/
 ./gradlew :conformance-tests:check -P enableConformanceTests=true -P specmaticVersionForConformanceTests=2.39.4
 ```
 
+### Allowing expected failures
+
+In CI, we allow for expected failures by running the tests with `succeedOnExpectedFailures`:
+
+```
+./gradlew :conformance-tests:check -P enableConformanceTests=true -P succeedOnExpectedFailures=true 
+```
+
 ## Conformance test features:
 1. Tests Specmatic's conformance with OpenAPI 3.0.3 and 3.1 specifications by validating:
     1. Loop test: Specmatic can load, mock and test the same OpenAPI spec.
