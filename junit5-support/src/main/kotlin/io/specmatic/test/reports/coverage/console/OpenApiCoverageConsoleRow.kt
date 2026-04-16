@@ -1,10 +1,7 @@
 package io.specmatic.test.reports.coverage.console
 
 import io.specmatic.core.report.OpenApiCoverageReportOperation
-import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.model.OpenAPIOperation
-import io.specmatic.test.TestResultRecord
 
 data class OpenApiCoverageConsoleRow(
     val method: String,

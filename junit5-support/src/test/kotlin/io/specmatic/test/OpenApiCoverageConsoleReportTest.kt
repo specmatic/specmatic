@@ -1,99 +1,97 @@
 package io.specmatic.test
 
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
-import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
+import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.utils.OpenApiCoverageBuilder.Companion.buildCoverage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class OpenApiCoverageConsoleReportTest {
-
     @Test
     fun `test calculates total percentage based on number of exercised endpoints`() {
-        val rows = listOf(
-            OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route1", 200, 0, 0, CoverageStatus.NOT_COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 25, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route2", 200, 0, 0, CoverageStatus.NOT_COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route2", 400, 0, 0, CoverageStatus.NOT_COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route2", 500, 0, 0, CoverageStatus.NOT_COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route3", 200, 0, 0, CoverageStatus.NOT_COVERED),
-        )
+        val report = buildCoverage {
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            specEndpoint(method = "POST", path = "/route1", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route2", responseCode = 200)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 200)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 400)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 500)
+            specEndpoint(method = "GET", path = "/route3", responseCode = 200)
 
-        val coverageReport = OpenAPICoverageConsoleReport(rows, emptyList(), totalOperations = 3, missedOperations = 0, notImplementedOperations = 0)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+            testResult(path = "/route2", method = "GET", responseCode = 200, result = TestResult.Success)
+        }.generate()
 
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(29)
+        assertThat(report.totalCoveragePercentage).isEqualTo(29)
     }
 
     @Test
     fun `should calculate overall coverage percentage based on exercised endpoints with WIP`() {
-        val rows = listOf(
-            OpenApiCoverageConsoleRow("GET", "/route1", 200, 2, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route1", 400, 2, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route1", 503, 1, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route2", 200, 2, 80, CoverageStatus.WIP),
-            OpenApiCoverageConsoleRow("GET", "/route2", 400, 2, 80, CoverageStatus.WIP),
-            OpenApiCoverageConsoleRow("POST", "/route2", 201, 1, 80, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route2", 400, 6, 80, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route2", 503, 0, 80, CoverageStatus.NOT_COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route3", 210, 12, 67, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route3", 400, 65, 67, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route3", 503, 0, 67, CoverageStatus.NOT_COVERED),
-        )
+        val report = buildCoverage {
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 400)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 503)
+            specEndpoint(method = "GET", path = "/route2", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route2", responseCode = 400)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 201)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 400)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 503)
+            specEndpoint(method = "POST", path = "/route3", responseCode = 210)
+            specEndpoint(method = "POST", path = "/route3", responseCode = 400)
+            specEndpoint(method = "POST", path = "/route3", responseCode = 503)
 
-        val coverageReport = OpenAPICoverageConsoleReport(rows, emptyList(), totalOperations = 3, missedOperations = 0, notImplementedOperations = 0)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+            testResult(path = "/route1", method = "GET", responseCode = 400, result = TestResult.Success)
+            testResult(path = "/route1", method = "GET", responseCode = 503, result = TestResult.Success)
+            testResult(path = "/route2", method = "GET", responseCode = 200, result = TestResult.Success, isWip = true)
+            testResult(path = "/route2", method = "GET", responseCode = 400, result = TestResult.Success, isWip = true)
+            testResult(path = "/route2", method = "POST", responseCode = 201, result = TestResult.Success)
+            testResult(path = "/route2", method = "POST", responseCode = 400, result = TestResult.Success)
+            testResult(path = "/route3", method = "POST", responseCode = 210, result = TestResult.Success)
+            testResult(path = "/route3", method = "POST", responseCode = 400, result = TestResult.Success)
+        }.generate()
 
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(82)
+        assertThat(report.totalCoveragePercentage).isEqualTo(82)
     }
 
     @Test
     fun `test does not include endpoints missing in spec when calculating coverage percentage`() {
-        val rows = listOf(
-            OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route1", 200, 1, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("POST", "/route2", 200, 1, 100, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("GET", "/route3", 200, 1, 0, CoverageStatus.MISSING_IN_SPEC),
-        )
+        val report = buildCoverage {
+            applicationApi(method = "GET", path = "/route3")
 
-        val coverageReport = OpenAPICoverageConsoleReport(rows, emptyList(), totalOperations = 3, missedOperations = 0, notImplementedOperations = 0)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            specEndpoint(method = "POST", path = "/route1", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route2", responseCode = 200)
+            specEndpoint(method = "POST", path = "/route2", responseCode = 200)
 
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(100)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+            testResult(path = "/route1", method = "POST", responseCode = 200, result = TestResult.Success)
+            testResult(path = "/route2", method = "GET", responseCode = 200, result = TestResult.Success)
+            testResult(path = "/route2", method = "POST", responseCode = 200, result = TestResult.Success)
+        }.generate()
+
+        assertThat(report.totalCoveragePercentage).isEqualTo(100)
     }
 
     @Test
     fun `test does not count not implemented endpoints as covered when calculating total percentage`() {
-        val rows = listOf(
-            OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.NOT_IMPLEMENTED),
-            OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 100, CoverageStatus.COVERED),
-        )
+        val report = buildCoverage {
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route2", responseCode = 200)
 
-        val coverageReport = OpenAPICoverageConsoleReport(
-            rows,
-            emptyList(),
-            totalOperations = 2,
-            missedOperations = 0,
-            notImplementedOperations = 1
-        )
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 404)
+            testResult(path = "/route2", method = "GET", responseCode = 200, result = TestResult.Success)
+        }.generate()
 
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(50)
+        assertThat(report.totalCoveragePercentage).isEqualTo(50)
     }
 
     @Test
     fun `test calculates zero total percentage when all exercised endpoints are not implemented`() {
-        val rows = listOf(
-            OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
-            OpenApiCoverageConsoleRow("POST", "/route1", 400, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false),
-        )
+        val report = buildCoverage {
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 404)
+        }.generate()
 
-        val coverageReport = OpenAPICoverageConsoleReport(
-            rows,
-            emptyList(),
-            totalOperations = 1,
-            missedOperations = 0,
-            notImplementedOperations = 1
-        )
-
-        assertThat(coverageReport.totalCoveragePercentage).isEqualTo(0)
+        assertThat(report.totalCoveragePercentage).isEqualTo(0)
     }
 }

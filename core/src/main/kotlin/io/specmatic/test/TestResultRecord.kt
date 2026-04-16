@@ -10,7 +10,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestOutput
-import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -84,9 +84,9 @@ data class TestResultRecord(
         )
     }
 
-    fun qualifiers(): List<CtrfTestQualifiers> {
+    fun qualifiers(): List<CtrfOperationQualifiers> {
         if (!this.isWip) return emptyList()
-        return listOf(CtrfTestQualifiers.WIP)
+        return listOf(CtrfOperationQualifiers.WIP)
     }
 
     fun matchesResponseIdentifiers(code: Int = actualResponseStatus, contentType: String? = actualResponseContentType): Boolean {
@@ -163,19 +163,6 @@ data class TestResultRecord(
 fun HttpResponse?.normalizedContentType(): String? {
     return this?.contentType()?.substringBefore(";")?.trim()?.takeIf { it.isNotBlank() }
 }
-
-fun CoverageStatus.isPresentInSpecForApiCoverage(): Boolean =
-    this != CoverageStatus.MISSING_IN_SPEC
-
-fun CoverageStatus.countsAsCoveredForApiCoverage(): Boolean =
-    this == CoverageStatus.COVERED || this == CoverageStatus.WIP
-
-fun List<TestResultRecord>.countsAsCoveredForApiCoverage(): Boolean =
-    when {
-        any { it.isWip } -> true
-        any { it.isExercised } -> first().result != TestResult.NotImplemented
-        else -> false
-    }
 
 private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
     if (requestTime != null && responseTime != null)

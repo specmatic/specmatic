@@ -1,7 +1,6 @@
 package io.specmatic.test.reports.coverage
 
-import io.specmatic.core.report.OpenApiCoverageReportOperation
-import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.utils.OpenApiCoverageBuilder
@@ -149,7 +148,7 @@ class OpenApiCoverageTest {
         report.verify {
             val wipView = single("POST", "/orders/{id}", 201)
             assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
-            assertThat(wipView.operation.qualifiers).contains(CtrfTestQualifiers.WIP)
+            assertThat(wipView.operation.qualifiers).contains(CtrfOperationQualifiers.WIP)
             assertThat(wipView.operation.eligibleForCoverage).isEqualTo(true)
             assertThat(wipView.operation.metrics?.attempts).isEqualTo(1)
             assertThat(wipView.operation.metrics?.matches).isEqualTo(0)

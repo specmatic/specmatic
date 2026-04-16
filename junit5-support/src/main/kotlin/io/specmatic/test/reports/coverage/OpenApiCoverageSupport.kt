@@ -1,13 +1,9 @@
 package io.specmatic.test.reports.coverage
 
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
-import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
-import kotlin.math.roundToInt
 
 internal fun Endpoint.toOpenApiOperation(): OpenAPIOperation {
     return OpenAPIOperation(

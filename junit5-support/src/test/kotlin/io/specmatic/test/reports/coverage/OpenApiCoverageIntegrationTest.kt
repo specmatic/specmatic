@@ -7,7 +7,7 @@ import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
@@ -149,7 +149,7 @@ class OpenApiCoverageIntegrationTest {
             assertThat(wipView.operation.eligibleForCoverage).isTrue
             assertThat(wipView.operation.metrics?.attempts).isEqualTo(1)
             assertThat(wipView.operation.metrics?.matches).isEqualTo(0)
-            assertThat(wipView.operation.qualifiers).contains(CtrfTestQualifiers.WIP)
+            assertThat(wipView.operation.qualifiers).contains(CtrfOperationQualifiers.WIP)
             assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
             assertThat(wipView.tests).hasSize(1).allSatisfy { test -> assertThat(test.result).isEqualTo(TestResult.Error) }
         }

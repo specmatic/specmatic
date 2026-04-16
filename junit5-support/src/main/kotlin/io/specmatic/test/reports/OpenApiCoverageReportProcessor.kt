@@ -33,11 +33,6 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReport: OpenApiC
         assertSuccessCriteria(reportConfiguration, openApiConsoleReport)
     }
 
-
-    private fun excludedEndpointsFromEnv() = System.getenv("SPECMATIC_EXCLUDED_ENDPOINTS")?.let { excludedEndpoints ->
-        excludedEndpoints.split(",").map { it.trim() }
-    } ?: emptyList()
-
     private fun saveAsJson(openApiCoverageJsonReport: SpecmaticCoverageReport) {
         println("Saving Coverage Report json to $JSON_REPORT_PATH ...")
         val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)

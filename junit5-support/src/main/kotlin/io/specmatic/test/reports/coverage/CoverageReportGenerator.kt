@@ -4,7 +4,7 @@ import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
@@ -13,7 +13,7 @@ data class OpenApiCoverageFacts(
     val matchCount: Int,
     val operation: OpenAPIOperation,
     val tests: List<TestResultRecord>,
-    val qualifiers: List<CtrfTestQualifiers>
+    val qualifiers: List<CtrfOperationQualifiers>
 )
 
 class CoverageReportGenerator {
