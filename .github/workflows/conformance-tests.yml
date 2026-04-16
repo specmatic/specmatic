@@ -57,36 +57,4 @@ jobs:
       - name: Count Expected Failures
         if: always()
         run: |
-          echo "### Conformance Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### Expected Failures" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Class | Test Method | Reason |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
-
-          EXPECTED_COUNT=0
-          for xml_file in conformance-tests/build/test-results/test/*.xml; do
-              full_classname=$(grep -m1 'classname=' "$xml_file" | sed 's/.*classname="\([^"]*\)".*/\1/')
-              test_class=$(echo "$full_classname" | sed 's/.*\.\([^.]*\)$/\1/')
-
-              # Parse "Expected failure:" / "Test:" pairs from system-out
-              # Use --no-group-separator to avoid "--" lines between matches corrupting paste output
-              grep -A1 --no-group-separator "Expected failure:" "$xml_file" 2>/dev/null | \
-              paste - - | \
-              sed 's/.*Expected failure: \(.*\).*Test: \(.*\)/\2|\1/' | \
-              while IFS='|' read -r test_method reason; do
-                  echo "| $test_class | $test_method | $reason |" >> $GITHUB_STEP_SUMMARY
-                  EXPECTED_COUNT=$((EXPECTED_COUNT + 1))
-              done
-          done
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          EXPECTED_COUNT=$(grep -r "Expected failure:" conformance-tests/build/test-results/test/*.xml 2>/dev/null | wc -l | tr -d ' ')
-          TOTAL_TESTS=$(grep -h 'tests="' conformance-tests/build/test-results/test/*.xml 2>/dev/null | sed 's/.*tests="\([0-9]*\)".*/\1/' | awk '{s+=$1} END {print s}')
-
-          echo "**Test Statistics**" >> $GITHUB_STEP_SUMMARY
-          echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-          echo "- Expected Failures: $EXPECTED_COUNT" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          bash scripts/generate_conformance_summary.sh conformance-tests/build/test-results/test --output "$GITHUB_STEP_SUMMARY"
