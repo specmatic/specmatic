@@ -1,0 +1,55 @@
+asyncapi: 3.0.0
+info:
+  version: "0.0.1"
+  title: "ping pong mania"
+
+channels:
+  ping:
+    address: ping
+    messages:
+      ping:
+        $ref: '#/components/messages/ping'
+  ping_v2:
+    address: ping
+    messages:
+      ping:
+        $ref: '#/components/messages/ping'
+  pong:
+    address: pong
+    messages:
+      pong:
+        $ref: "#/components/messages/pong"
+
+operations:
+  pingRequest:
+    description: receive a ping and send a pong
+    action: receive
+    channel:
+      $ref: '#/channels/ping_v2'
+    messages:
+      - $ref: '#/channels/ping_v2/messages/ping'
+    reply:
+      channel:
+        $ref: '#/channels/pong'
+      messages:
+        - $ref: '#/channels/pong/messages/pong'
+
+components:
+  messages:
+    ping:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          event:
+            type: string
+            const: ping
+
+    pong:
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          event:
+            type: string
+            const: pong
