@@ -38,7 +38,7 @@ class ExpectedFailureExtension : InvocationInterceptor {
             println()
             println("Expected failure: $failureReason")
             println("Test: ${extensionContext.displayName}")
-            println("Failure message: ${e.message}")
+//            println("Failure message: ${e.message}")
             println("Status: Test failed as expected (known issue)")
             println()
             return
