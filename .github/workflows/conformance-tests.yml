@@ -31,7 +31,7 @@ jobs:
             }
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
-          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true -PsucceedOnExpectedFailures=true -x vulnScanSBOMScan -x vulnScanJarScan --info"
+          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true -PsucceedOnExpectedFailures=true -x vulnScanSBOMScan -x vulnScanJarScan"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
 
       - name: Publish Test Report
