@@ -165,6 +165,42 @@ class ScenarioAsTestTest {
         assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
     }
 
+    @Test
+    fun `testResultRecord should mark response as in specification when another feature scenario matches it`() {
+        val scenario = expectationScenario(status = 200, contentType = "application/json")
+        val alternativeScenario = expectationScenario(status = 400, contentType = "application/xml")
+        val allScenarios = listOf(scenario, alternativeScenario)
+        val contractTest = scenarioAsTest(scenario, allScenarios)
+        val executionResult = contractTest.runTest(
+            fixedResponseExecutor(
+                status = 400,
+                body = "response",
+                headers = mapOf("Content-Type" to "application/xml")
+            )
+        )
+
+        val testResultRecord = contractTest.testResultRecord(executionResult)
+        assertThat(testResultRecord.result).isEqualTo(io.specmatic.reporter.model.TestResult.Failed)
+        assertThat(testResultRecord.isResponseInSpecification).isTrue()
+    }
+
+    @Test
+    fun `testResultRecord should mark response as outside specification when no feature scenario matches it`() {
+        val scenario = expectationScenario(status = 200, contentType = "application/json")
+        val contractTest = scenarioAsTest(scenario)
+        val executionResult = contractTest.runTest(
+            fixedResponseExecutor(
+                status = 500,
+                body = "response",
+                headers = mapOf("Content-Type" to "application/xml")
+            )
+        )
+
+        val testResultRecord = contractTest.testResultRecord(executionResult)
+        assertThat(testResultRecord.result).isEqualTo(io.specmatic.reporter.model.TestResult.Failed)
+        assertThat(testResultRecord.isResponseInSpecification).isFalse()
+    }
+
     private fun scenario(exampleRow: Row? = null): Scenario {
         return Scenario(
             ScenarioInfo(
@@ -195,8 +231,8 @@ class ScenarioAsTestTest {
         )
     }
 
-    private fun scenarioAsTest(scenario: Scenario): ScenarioAsTest {
-        val feature = Feature(name = "feature", scenarios = listOf(scenario), protocol = SpecmaticProtocol.HTTP)
+    private fun scenarioAsTest(scenario: Scenario, scenarios: List<Scenario> = listOf(scenario)): ScenarioAsTest {
+        val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP)
         return ScenarioAsTest(
             scenario = scenario,
             feature = feature,

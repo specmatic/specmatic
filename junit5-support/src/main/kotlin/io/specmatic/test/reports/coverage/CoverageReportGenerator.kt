@@ -43,7 +43,7 @@ class CoverageReportGenerator {
             tests = tests,
             operation = operation,
             matchCount = tests.count { it.matchesResponseIdentifiers() },
-            qualifiers = tests.flatMap { it.qualifiers() }.distinct()
+            qualifiers = tests.flatMap { it.operationQualifiers() }.distinct()
         )
     }
 

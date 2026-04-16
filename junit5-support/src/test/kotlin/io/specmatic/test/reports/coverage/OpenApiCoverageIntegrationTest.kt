@@ -8,6 +8,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
@@ -152,6 +153,39 @@ class OpenApiCoverageIntegrationTest {
             assertThat(wipView.operation.qualifiers).contains(CtrfOperationQualifiers.WIP)
             assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
             assertThat(wipView.tests).hasSize(1).allSatisfy { test -> assertThat(test.result).isEqualTo(TestResult.Error) }
+        }
+    }
+
+    @Test
+    fun `should report undeclared response qualifier for response outside specification`(@TempDir tempDir: File) {
+        val specYaml = """
+        openapi: 3.0.0
+        info:
+          title: Reporting undeclared response
+          version: 1.0.0
+        paths:
+          /orders:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent()
+
+        ContractTestScope.from(specYaml, tempDir).execute { server ->
+            server.on("/orders", "GET") {
+                respond(500)
+            }
+        }.verifyOpenApiCoverage {
+            assertThat(totalOperations).isEqualTo(1)
+            assertThat(operations).hasSize(1)
+
+            val orderView = single("GET", "/orders", 200)
+            assertThat(orderView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
+            assertThat(orderView.tests).hasSize(1).allSatisfy { test ->
+                assertThat(test.result).isEqualTo(TestResult.Failed)
+                assertThat(test.isResponseInSpecification).isFalse()
+                assertThat(test.extraFields().qualifiers).contains(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+            }
         }
     }
 

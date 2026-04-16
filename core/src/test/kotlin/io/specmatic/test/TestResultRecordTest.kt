@@ -3,6 +3,7 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -209,6 +210,24 @@ class TestResultRecordTest {
 
         val result = record.testMessage()
         assertTrue(result.contains("Something went wrong"))
+    }
+
+    @Test
+    fun `testQualifiers should include response undeclared when response is outside specification`() {
+        val record = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = false)
+        assertThat(record.testQualifiers()).containsExactly(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+        assertThat(record.extraFields().qualifiers).containsExactly(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+    }
+
+    @Test
+    fun `testQualifiers should be empty when response is declared or unknown`() {
+        val responseDeclared = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = true)
+        val responseUnknown = testResultRecord(result = TestResult.Failed)
+
+        assertThat(responseDeclared.testQualifiers()).isEmpty()
+        assertThat(responseDeclared.extraFields().qualifiers).isEmpty()
+        assertThat(responseUnknown.testQualifiers()).isEmpty()
+        assertThat(responseUnknown.extraFields().qualifiers).isEmpty()
     }
 
     private fun testResultRecord(

@@ -11,6 +11,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestOutput
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -56,7 +57,8 @@ data class TestResultRecord(
             responseContentType = responseContentType,
         )
     ),
-    val exampleId: String? = null
+    val exampleId: String? = null,
+    val isResponseInSpecification: Boolean? = null,
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -78,13 +80,19 @@ data class TestResultRecord(
         return CtrfTestMetadata(
             wip = isWip,
             outputs = outputs,
+            qualifiers = testQualifiers(),
             match = matchesResponseIdentifiers(),
             input = request?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L
         )
     }
 
-    fun qualifiers(): List<CtrfOperationQualifiers> {
+    fun testQualifiers(): List<CtrfTestQualifiers> {
+        if (isResponseInSpecification == null || isResponseInSpecification) return emptyList()
+        return listOf(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+    }
+
+    fun operationQualifiers(): List<CtrfOperationQualifiers> {
         if (!this.isWip) return emptyList()
         return listOf(CtrfOperationQualifiers.WIP)
     }

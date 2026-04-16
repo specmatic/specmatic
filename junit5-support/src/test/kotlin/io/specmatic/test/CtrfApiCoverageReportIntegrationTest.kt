@@ -205,6 +205,35 @@ class CtrfApiCoverageReportIntegrationTest {
     }
 
     @Test
+    fun `ctrf report should include undeclared response qualifier at test level`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val coverage = buildCoverage {
+            configFilePath(specFile.canonicalPath)
+            specEndpoint(method = "GET", path = "/pets/find", responseCode = 200, specification = specFile.canonicalPath)
+            testResult(
+                TestResultRecord(
+                    path = "/pets/find",
+                    method = "GET",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Failed,
+                    specification = specFile.canonicalPath,
+                    specType = SpecType.OPENAPI,
+                    actualResponseStatus = 500,
+                    isResponseInSpecification = false,
+                )
+            )
+        }
+
+        val reportNode = ctrfReportNode(coverage.generate())
+        val testQualifiers = reportNode["results"]["tests"].single()["extra"]["qualifiers"].map { it.asText() }
+        val operationQualifiers = reportNode["results"]["summary"]["extra"]["executionDetails"].single()["operations"].single()["qualifiers"].map { it.asText() }
+        assertThat(testQualifiers).contains("responseUndeclared")
+        assertThat(operationQualifiers).isEmpty()
+    }
+
+    @Test
     fun `operation based ctrf generation should include not covered and missing in spec rows`() {
         val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
         val endpoints = endpointsFrom(specFile)

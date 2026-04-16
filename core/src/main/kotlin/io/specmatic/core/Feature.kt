@@ -974,6 +974,12 @@ data class Feature(
         ) != null
     }
 
+    fun isResponsePossible(scenario: Scenario, response: HttpResponse, scenarios: List<Scenario> = this.scenarios): Boolean {
+        return scenarios.any {
+            it.method == scenario.method && it.path == scenario.path && it.matchesStatusAndContentType(response)
+        }
+    }
+
     // TODO: Should this filter include requestContentType to find matchingScenarios ?
     internal fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
         val targetPath = scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()

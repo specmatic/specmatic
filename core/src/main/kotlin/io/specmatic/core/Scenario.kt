@@ -185,6 +185,11 @@ data class Scenario(
         return result.isSuccess()
     }
 
+    fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
+        if (this.status !in setOf(DEFAULT_RESPONSE_CODE, httpResponse.status)) return false
+        return matchesContentType(httpResponse)
+    }
+
     fun matchesContentType(httpResponse: HttpResponse): Boolean {
         val result = this.httpResponsePattern.matchesContentType(httpResponse, resolver)
         return result.isSuccess()

@@ -83,7 +83,11 @@ data class ScenarioAsTest(
             isGherkin = scenario.isGherkinScenario,
             requestTime = startTime,
             responseTime = Instant.now(),
-            operations = setOf(openAPIOperationFrom(scenario, path))
+            operations = setOf(openAPIOperationFrom(scenario, path)),
+            isResponseInSpecification = response?.let {
+                if (result.isSuccess() || scenario.matchesStatusAndContentType(it)) return@let true
+                feature.isResponsePossible(scenario, it)
+            }
         )
     }
 
