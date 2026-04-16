@@ -184,7 +184,7 @@ class OpenApiCoverageIntegrationTest {
             assertThat(orderView.tests).hasSize(1).allSatisfy { test ->
                 assertThat(test.result).isEqualTo(TestResult.Failed)
                 assertThat(test.isResponseInSpecification).isFalse()
-                assertThat(test.extraFields().qualifiers).contains(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+                assertThat(test.extraFields().qualifiers).contains(CtrfTestQualifiers.UNDECLARED_RESPONSE)
             }
         }
     }

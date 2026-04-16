@@ -175,10 +175,15 @@ class TestResultRecordTest {
     }
 
     @Test
-    fun `returns WIP message when isWip is true`() {
-        val record = testResultRecord(isWip = true, result = TestResult.NotCovered)
+    fun `returns actual message when isWip is true`() {
+        val failure = io.specmatic.core.Result.Failure("WIP failure message")
+        val record = testResultRecord(
+            isWip = true,
+            result = TestResult.NotCovered
+        ).copy(scenarioResult = failure)
+
         val result = record.testMessage()
-        assertEquals("Work in progress test", result)
+        assertTrue(result.contains("WIP failure message"))
     }
 
     @Test
@@ -215,8 +220,8 @@ class TestResultRecordTest {
     @Test
     fun `testQualifiers should include response undeclared when response is outside specification`() {
         val record = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = false)
-        assertThat(record.testQualifiers()).containsExactly(CtrfTestQualifiers.RESPONSE_UNDECLARED)
-        assertThat(record.extraFields().qualifiers).containsExactly(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+        assertThat(record.testQualifiers()).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+        assertThat(record.extraFields().qualifiers).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
     }
 
     @Test

@@ -89,7 +89,7 @@ data class TestResultRecord(
 
     fun testQualifiers(): List<CtrfTestQualifiers> {
         if (isResponseInSpecification == null || isResponseInSpecification) return emptyList()
-        return listOf(CtrfTestQualifiers.RESPONSE_UNDECLARED)
+        return listOf(CtrfTestQualifiers.UNDECLARED_RESPONSE)
     }
 
     fun operationQualifiers(): List<CtrfOperationQualifiers> {
@@ -125,7 +125,6 @@ data class TestResultRecord(
     }
 
     override fun testMessage(): String {
-        if(isWip) return "Work in progress test"
         if(scenarioResult == null) return ""
         if(scenarioResult.isSuccess()) return ""
         return scenarioResult.reportString()

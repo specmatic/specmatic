@@ -229,7 +229,7 @@ class CtrfApiCoverageReportIntegrationTest {
         val reportNode = ctrfReportNode(coverage.generate())
         val testQualifiers = reportNode["results"]["tests"].single()["extra"]["qualifiers"].map { it.asText() }
         val operationQualifiers = reportNode["results"]["summary"]["extra"]["executionDetails"].single()["operations"].single()["qualifiers"].map { it.asText() }
-        assertThat(testQualifiers).contains("responseUndeclared")
+        assertThat(testQualifiers).contains("undeclaredResponse")
         assertThat(operationQualifiers).isEmpty()
     }
 
