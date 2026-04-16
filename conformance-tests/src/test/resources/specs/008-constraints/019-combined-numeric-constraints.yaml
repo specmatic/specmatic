@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-expect-failure-request-bodies: "invalid request/response body because integer-multipleof constraint not respected"
 x-specmatic-expect-failure-response-bodies: "invalid request/response body because integer-multipleof constraint not respected"
 info:
   title: "Constraint - combined numeric constraints (minimum + maximum + multipleOf)"
@@ -36,31 +37,23 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - label
-                - percent
-              properties:
-                label:
-                  type: string
-                percent:
-                  type: integer
-                  minimum: 5
-                  maximum: 50
-                  multipleOf: 5
-            examples:
-              VALID_DISCOUNT_1:
-                value:
-                  label: "Summer Sale"
-                  percent: 10
-              VALID_DISCOUNT_2:
-                value:
-                  label: "Flash Sale"
-                  percent: 25
-              VALID_DISCOUNT_3:
-                value:
-                  label: "Clearance"
-                  percent: 50
+              type: array
+              minItems: 100
+              maxItems: 100
+              items:
+                type: object
+                required:
+                  - label
+                  - percent
+                properties:
+                  label:
+                    type: string
+                  percent:
+                    type: integer
+                    minimum: 5
+                    maximum: 50
+                    multipleOf: 5
+
       responses:
         '201':
           description: Created

@@ -31,7 +31,7 @@ jobs:
             }
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
-          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true -x vulnScanSBOMScan -x vulnScanJarScan --info"
+          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true -PsucceedOnExpectedFailures=true -x vulnScanSBOMScan -x vulnScanJarScan --info"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
 
       - name: Publish Test Report
@@ -60,33 +60,33 @@ jobs:
           echo "### Conformance Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "### ⚠️ Expected Failures" >> $GITHUB_STEP_SUMMARY
+          echo "### Expected Failures" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Test Class | Test Method | Reason |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|-------------|--------|" >> $GITHUB_STEP_SUMMARY
 
+          EXPECTED_COUNT=0
           for xml_file in conformance-tests/build/test-results/test/*.xml; do
               full_classname=$(grep -m1 'classname=' "$xml_file" | sed 's/.*classname="\([^"]*\)".*/\1/')
               test_class=$(echo "$full_classname" | sed 's/.*\.\([^.]*\)$/\1/')
 
-              grep "DISPLAY_NAME.*\[EXPECTED FAILURE:" "$xml_file" 2>/dev/null | \
-              sed 's/DISPLAY_NAME://' | \
-              sed 's/ \[EXPECTED FAILURE: /|/' | \
-              sed 's/\]$//' | \
+              # Parse "Expected failure:" / "Test:" pairs from system-out
+              # Use --no-group-separator to avoid "--" lines between matches corrupting paste output
+              grep -A1 --no-group-separator "Expected failure:" "$xml_file" 2>/dev/null | \
+              paste - - | \
+              sed 's/.*Expected failure: \(.*\).*Test: \(.*\)/\2|\1/' | \
               while IFS='|' read -r test_method reason; do
                   echo "| $test_class | $test_method | $reason |" >> $GITHUB_STEP_SUMMARY
+                  EXPECTED_COUNT=$((EXPECTED_COUNT + 1))
               done
           done
 
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Count expected failures from test logs
-          EXPECTED_COUNT=$(grep -r "<<<EXPECTED_FAILURE>>>" conformance-tests/build/test-results/test/*.xml 2>/dev/null | wc -l || echo "0")
-
-          # Get total tests from JUnit XML
+          EXPECTED_COUNT=$(grep -r "Expected failure:" conformance-tests/build/test-results/test/*.xml 2>/dev/null | wc -l | tr -d ' ')
           TOTAL_TESTS=$(grep -h 'tests="' conformance-tests/build/test-results/test/*.xml 2>/dev/null | sed 's/.*tests="\([0-9]*\)".*/\1/' | awk '{s+=$1} END {print s}')
 
-          echo "📊 **Test Statistics**" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Statistics**" >> $GITHUB_STEP_SUMMARY
           echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
           echo "- Expected Failures: $EXPECTED_COUNT" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

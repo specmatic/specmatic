@@ -230,6 +230,11 @@ class OpenApiSpec(private val specFile: File) {
 
     private fun String.escapeJsonPointer(): String = replace("~", "~0").replace("/", "~1")
 
+    fun findExtensionByKey(key: String): String? {
+        val extension = openApi.extensions?.get(key) ?: return null
+        return extension.toString()
+    }
+
     companion object {
         private val openApi30SchemaRegistry =
             SchemaRegistry.withDialect(Dialects.getOpenApi30())
