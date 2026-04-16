@@ -848,6 +848,27 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
+    fun `should keep rows for same path contiguous when missing in spec operation is generated later`() {
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            setEndpointsAPIFlag(true)
+            specEndpoint(method = "GET", path = "/orders", responseCode = 200, responseType = "application/json")
+            specEndpoint(method = "GET", path = "/monitor/{id}", responseCode = 200, responseType = "application/json")
+            testResult(path = "/orders", method = "GET", responseCode = 200, result = TestResult.Success, responseType = "application/json", actualResponseCode = 200)
+            testResult(path = "/orders", method = "GET", responseCode = 400, result = TestResult.Failed, responseType = "application/json", actualResponseCode = 400)
+        }.generate().toConsoleReport()
+
+        val rows = report.coverageRows
+        val orderRowIndexes = rows.withIndex().filter { row -> row.value.path == "/orders" }
+        val monitorRowIndexes = rows.withIndex().filter { row -> row.value.path == "/monitor/{id}" }
+
+        assertThat(orderRowIndexes).isNotEmpty()
+        assertThat(monitorRowIndexes).isNotEmpty()
+        assertThat(orderRowIndexes.last().index).isLessThan(monitorRowIndexes.first().index)
+        assertThat(orderRowIndexes.last().value.remarks).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
+        assertThat(orderRowIndexes.last().index - orderRowIndexes.first().index + 1).isEqualTo(orderRowIndexes.size)
+    }
+
+    @Test
     fun `should not create synthetic wip missing in spec operations`() {
         val allEndpoints = mutableListOf(
             Endpoint(

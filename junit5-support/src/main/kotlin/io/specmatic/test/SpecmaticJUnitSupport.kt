@@ -203,7 +203,7 @@ open class SpecmaticJUnitSupport {
         val start = startTime?.toEpochMilli() ?: 0L
         val reportDirPath = specmaticConfig.getReportDirPath()
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-        val coverageReport = openApiCoverage.generate()
+        val coverageReport = openApiCoverage.generateWithoutHooks()
 
         consoleLog("Generating CTRF report using  coverageReportOperations...")
         ReportGenerator.generateReport(

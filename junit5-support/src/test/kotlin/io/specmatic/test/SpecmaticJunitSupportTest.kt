@@ -758,6 +758,21 @@ paths:
     }
 
     @Test
+    fun `report should calculate coverage once for coverage hooks`() {
+        val listener = CountingCoverageListener()
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(reportBaseDirectory = ".", coverageHooks = listOf(listener)))
+
+        try {
+            SpecmaticJUnitSupport().report()
+            assertThat(listener.onCoverageCalculatedCalls).isEqualTo(1)
+            assertThat(listener.onTestsCompleteCalls).isEqualTo(1)
+            assertThat(listener.onEndCalls).isEqualTo(1)
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
     fun `should load soapAction from scenarios into Endpoints if specification is WSDL`() {
         val specFile = File("src/test/resources/simple.wsdl")
         val specmaticJUnitSupport = SpecmaticJUnitSupport()
@@ -1109,6 +1124,32 @@ paths:
         override fun onTestsComplete() = Unit
         override fun onEnd() = Unit
         override fun onCoverageCalculated(coverage: Int) = Unit
+        override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
+        override fun onGovernance(result: Result) = Unit
+    }
+
+    private class CountingCoverageListener : TestReportListener {
+        var onCoverageCalculatedCalls: Int = 0
+        var onTestsCompleteCalls: Int = 0
+        var onEndCalls: Int = 0
+
+        override fun onCoverageCalculated(coverage: Int) {
+            onCoverageCalculatedCalls++
+        }
+
+        override fun onTestsComplete() {
+            onTestsCompleteCalls++
+        }
+
+        override fun onEnd() {
+            onEndCalls++
+        }
+
+        override fun onActuator(enabled: Boolean) = Unit
+        override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
+        override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
+        override fun onTestResult(result: io.specmatic.test.reports.TestExecutionResult) = Unit
+        override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
         override fun onGovernance(result: Result) = Unit
     }

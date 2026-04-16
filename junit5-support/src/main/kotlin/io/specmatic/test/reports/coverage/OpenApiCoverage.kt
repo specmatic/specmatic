@@ -76,7 +76,15 @@ class OpenApiCoverage(
         return applicationAPIs.toList()
     }
 
+    fun generateWithoutHooks(): OpenApiCoverageReport {
+        return generateInternal(emptyList())
+    }
+
     fun generate(): OpenApiCoverageReport {
+        return generateInternal(coverageHooks)
+    }
+
+    private fun generateInternal(coverageHooks: List<TestReportListener>): OpenApiCoverageReport {
         val context = coverageContext()
         val coverageOperations = coverageReportGenerator.generateReportOperations(context)
         return OpenApiCoverageReport(

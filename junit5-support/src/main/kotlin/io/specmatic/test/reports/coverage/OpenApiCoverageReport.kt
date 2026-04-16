@@ -72,7 +72,7 @@ data class OpenApiCoverageReport(
             pathCoveragePercentage
         }
 
-        return this.zipWithPrevious { previous, current ->
+        return reportsByPath.values.flatten().zipWithPrevious { previous, current ->
             val samePath = previous?.operation?.path == current.operation.path
             val sameMethod = samePath && previous.operation.method == current.operation.method
             val sameRequestContentType = sameMethod && previous.operation.contentType == current.operation.contentType
