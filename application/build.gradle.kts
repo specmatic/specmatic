@@ -39,7 +39,7 @@ dependencies {
     implementation(project(":specmatic-mcp"))
 
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.39")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.40")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
