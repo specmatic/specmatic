@@ -7,6 +7,7 @@ import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -133,6 +134,41 @@ class CoverageReportGeneratorTest {
         assertThat(reportOperation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
         assertThat(reportOperation.metrics?.attempts).isEqualTo(0)
         assertThat(reportOperation.eligibleForCoverage).isTrue()
+    }
+
+    @Test
+    fun `should set omittedStatus to NONE when operation is tested`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val testedRecord = testResultRecord(operation = endpoint.toOpenApiOperation(), actualResponseStatus = 200, actualResponseContentType = "application/json")
+        val context = CoverageContext(tests = listOf(testedRecord), allSpecEndpoints = listOf(endpoint))
+        val reportOperation = reportGenerator.generateReportOperations(context).single()
+        assertThat(reportOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+    }
+
+    @Test
+    fun `should set omittedStatus to EXCLUDED when not tested and excluded reason exists`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val context = CoverageContext(
+            tests = emptyList(),
+            allSpecEndpoints = listOf(endpoint),
+            decisions = mapOf(endpoint to listOf(skipDecision(Reasoning(mainReason = TestSkipReason.EXCLUDED))))
+        )
+
+        val reportOperation = reportGenerator.generateReportOperations(context).single()
+        assertThat(reportOperation.omittedStatus).isEqualTo(OmittedStatus.EXCLUDED)
+    }
+
+    @Test
+    fun `should set omittedStatus to SKIPPED when not tested and excluded reason does not exist`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val context = CoverageContext(
+            tests = emptyList(),
+            allSpecEndpoints = listOf(endpoint),
+            decisions = mapOf(endpoint to listOf(skipDecision(Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE))))
+        )
+
+        val reportOperation = reportGenerator.generateReportOperations(context).single()
+        assertThat(reportOperation.omittedStatus).isEqualTo(OmittedStatus.SKIPPED)
     }
 
     @ParameterizedTest(name = "{0}")

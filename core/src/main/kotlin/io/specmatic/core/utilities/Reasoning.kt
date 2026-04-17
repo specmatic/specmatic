@@ -5,6 +5,8 @@ import io.specmatic.core.RuleViolationReport
 import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
 
 data class Reasoning(val mainReason: RuleViolation? = null, val otherReasons: List<RuleViolation> = emptyList()) {
+    constructor(reasons: List<RuleViolation>) : this(reasons.firstOrNull(), reasons.drop(1))
+
     fun withMainReason(reason: RuleViolation): Reasoning = copy(mainReason = reason, otherReasons = listOfNotNull(mainReason).plus(otherReasons))
     fun toRuleViolationText(): String = toRuleViolationReport().toText().orEmpty()
 

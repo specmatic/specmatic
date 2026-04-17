@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
+import io.specmatic.core.RuleViolation
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.utilities.Decision
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
-import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -26,17 +26,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.io.File
 import io.specmatic.core.utilities.Reasoning
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 
 class CtrfApiCoverageReportIntegrationTest {
     @Test
     fun `ctrf report should include absolute coverage and actuator flag in top level extra`() {
         val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
-        val excludedFromRunReason = CtrfRuleSnapshot(
-            id = "excluded-from-run",
-            title = "Excluded from Run",
-            documentationUrl = "https://example.com/excluded-from-run",
-            summary = "Excluded from Run",
-        )
         val report = OpenApiCoverageReport(
             configFilePath = specFile.canonicalPath,
             actuatorEnabled = true,
@@ -52,7 +47,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     path = "/pets/search",
                     coverageStatus = CoverageStatus.NOT_TESTED,
                     eligibleForCoverage = false,
-                    reasons = listOf(excludedFromRunReason),
+                    reasons = listOf(TestSkipReason.EXCLUDED),
                     specification = specFile.canonicalPath,
                 ),
             ),
@@ -401,6 +396,28 @@ class CtrfApiCoverageReportIntegrationTest {
         assertThat(operationReasons.map { it["id"].asText() }).containsExactly(TestSkipReason.EXCLUDED.id, TestSkipReason.EXAMPLES_REQUIRED.id)
     }
 
+    @Test
+    fun `ctrf report should include omitted status for none excluded and skipped operations`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val reportNode = ctrfReportNode(
+            buildCoverage {
+                configFilePath(specFile.canonicalPath)
+                specEndpoint(method = "GET", path = "/pets/covered", responseCode = 200, specification = specFile.canonicalPath)
+                specEndpoint(method = "GET", path = "/pets/excluded", responseCode = 200, specification = specFile.canonicalPath)
+                specEndpoint(method = "GET", path = "/pets/skipped", responseCode = 200, specification = specFile.canonicalPath)
+                decisionSkip(path = "/pets/excluded", method = "GET", responseCode = 200, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED))
+                decisionSkip(path = "/pets/skipped", method = "GET", responseCode = 200, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE))
+                testResult(path = "/pets/covered", method = "GET", responseCode = 200, result = TestResult.Success, specification = specFile.canonicalPath)
+            }.generate()
+        )
+
+        val operations = reportNode["results"]["summary"]["extra"]["executionDetails"].single()["operations"].toList()
+        val omittedStatusByPath = operations.associate { it["path"].asText() to it["omittedStatus"].asText().uppercase() }
+        assertThat(omittedStatusByPath["/pets/covered"]).isEqualTo(OmittedStatus.NONE.name)
+        assertThat(omittedStatusByPath["/pets/excluded"]).isEqualTo(OmittedStatus.EXCLUDED.name)
+        assertThat(omittedStatusByPath["/pets/skipped"]).isEqualTo(OmittedStatus.SKIPPED.name)
+    }
+
     private fun findTextValue(node: JsonNode, fieldName: String): String? {
         if (node.has(fieldName)) {
             return node[fieldName].asText()
@@ -451,7 +468,7 @@ class CtrfApiCoverageReportIntegrationTest {
         coverageStatus: CoverageStatus,
         eligibleForCoverage: Boolean,
         specification: String,
-        reasons: List<CtrfRuleSnapshot> = emptyList(),
+        reasons: List<RuleViolation> = emptyList(),
     ): OpenApiCoverageReportOperation {
         val operation = OpenAPIOperation(
             path = path,
@@ -470,8 +487,8 @@ class CtrfApiCoverageReportIntegrationTest {
             tests = emptyList(),
             coverageStatus = coverageStatus,
             eligibleForCoverage = eligibleForCoverage,
-            excludedFromRun = reasons.any { it.title == "Excluded from Run" },
-            reasons = reasons,
+            omittedStatus = if (reasons.any { it == TestSkipReason.EXCLUDED }) OmittedStatus.EXCLUDED else OmittedStatus.NONE,
+            reasons = Reasoning(reasons).toCtrfSnapshots(),
         )
     }
 

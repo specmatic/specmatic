@@ -7,6 +7,7 @@ import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
@@ -427,23 +428,8 @@ class OpenApiCoverageReportInputTest {
 
         assertThat(report.coverageRows.filter { it.path == "/mixed" }).containsExactly(
             OpenApiCoverageConsoleRow("GET", "/mixed", 200, 1, 33, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow(
-                method = "GET",
-                path = "/mixed",
-                responseStatus = "400",
-                exercisedCount = 1,
-                result = "1f",
-                coveragePercentage = 33,
-                remarks = CoverageStatus.NOT_IMPLEMENTED,
-                eligibleForCoverage = true,
-                excludedFromRun = false,
-                showPath = false,
-                showMethod = false,
-                requestContentType = null,
-                showRequestContentType = false,
-                responseContentType = null,
-            ),
-            OpenApiCoverageConsoleRow("GET", "/mixed", 500, 0, 33, CoverageStatus.NOT_TESTED, showPath = false, showMethod = false, showRequestContentType = false),
+            OpenApiCoverageConsoleRow(method = "GET", path = "/mixed", responseStatus = "400", exercisedCount = 1, result = "1f", coveragePercentage = 33, remarks = CoverageStatus.NOT_IMPLEMENTED, eligibleForCoverage = true, showPath = false, showMethod = false, requestContentType = null, showRequestContentType = false, responseContentType = null),
+            OpenApiCoverageConsoleRow("GET", "/mixed", 500, 0, 33, CoverageStatus.NOT_TESTED, showPath = false, showMethod = false, showRequestContentType = false, omittedStatus = OmittedStatus.SKIPPED),
         )
         assertThat(report.coveragePercentage).isEqualTo(33)
     }
@@ -500,7 +486,6 @@ class OpenApiCoverageReportInputTest {
                 coveragePercentage = 0,
                 remarks = CoverageStatus.NOT_IMPLEMENTED,
                 eligibleForCoverage = true,
-                excludedFromRun = false,
                 showPath = true,
                 showMethod = true,
                 requestContentType = null,
@@ -516,7 +501,6 @@ class OpenApiCoverageReportInputTest {
                 coveragePercentage = 0,
                 remarks = CoverageStatus.NOT_IMPLEMENTED,
                 eligibleForCoverage = true,
-                excludedFromRun = false,
                 showPath = false,
                 showMethod = false,
                 requestContentType = null,
@@ -796,7 +780,6 @@ class OpenApiCoverageReportInputTest {
                 coveragePercentage = 0,
                 remarks = CoverageStatus.NOT_IMPLEMENTED,
                 eligibleForCoverage = true,
-                excludedFromRun = false,
                 showPath = true,
                 showMethod = true,
                 requestContentType = null,
@@ -812,7 +795,6 @@ class OpenApiCoverageReportInputTest {
                 coveragePercentage = 0,
                 remarks = CoverageStatus.NOT_IMPLEMENTED,
                 eligibleForCoverage = true,
-                excludedFromRun = false,
                 showPath = false,
                 showMethod = false,
                 requestContentType = null,
@@ -1131,7 +1113,6 @@ class OpenApiCoverageReportInputTest {
                 coveragePercentage = 0,
                 remarks = CoverageStatus.NOT_IMPLEMENTED,
                 eligibleForCoverage = true,
-                excludedFromRun = false,
                 showPath = true,
                 showMethod = true,
                 requestContentType = null,

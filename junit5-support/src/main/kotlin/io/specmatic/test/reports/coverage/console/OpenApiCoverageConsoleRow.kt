@@ -2,6 +2,7 @@ package io.specmatic.test.reports.coverage.console
 
 import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.TestResult
 
 data class OpenApiCoverageConsoleRow(
@@ -13,7 +14,7 @@ data class OpenApiCoverageConsoleRow(
     val coveragePercentage: Int = 0,
     val remarks: CoverageStatus,
     val eligibleForCoverage: Boolean,
-    val excludedFromRun: Boolean = false,
+    val omittedStatus: OmittedStatus = OmittedStatus.NONE,
     val showPath: Boolean = true,
     val showMethod: Boolean = true,
     val requestContentType: String? = null,
@@ -38,7 +39,7 @@ data class OpenApiCoverageConsoleRow(
         coveragePercentage = coveragePercentage,
         remarks = coverageReportOperation.coverageStatus,
         eligibleForCoverage = coverageReportOperation.eligibleForCoverage,
-        excludedFromRun = coverageReportOperation.excludedFromRun,
+        omittedStatus = coverageReportOperation.omittedStatus,
         showPath = showPath,
         showMethod = showMethod,
         showRequestContentType = showRequestContentType,
@@ -54,7 +55,7 @@ data class OpenApiCoverageConsoleRow(
         coveragePercentage: Int,
         remarks: CoverageStatus,
         eligibleForCoverage: Boolean = true,
-        excludedFromRun: Boolean = false,
+        omittedStatus: OmittedStatus = OmittedStatus.NONE,
         showPath: Boolean = true,
         showMethod: Boolean = true,
         requestContentType: String? = null,
@@ -69,7 +70,7 @@ data class OpenApiCoverageConsoleRow(
         coveragePercentage,
         remarks,
         eligibleForCoverage,
-        excludedFromRun,
+        omittedStatus,
         showPath,
         showMethod,
         requestContentType,
@@ -94,7 +95,7 @@ data class OpenApiCoverageConsoleRow(
 
     private val formattedRemark: String
         get() = when {
-            !eligibleForCoverage && excludedFromRun -> "${remarks}!"
+            !eligibleForCoverage && omittedStatus == OmittedStatus.EXCLUDED -> "${remarks}!"
             !eligibleForCoverage -> "${remarks}*"
             else -> remarks.toString()
         }
@@ -115,6 +116,8 @@ data class OpenApiCoverageConsoleRow(
             column.columnFormat.format(value)
         }
     }
+
+    internal fun formattedRemarkLength(): Int = formattedRemark.length
 
     companion object {
         private fun formatResult(passedCount: Int, failedCount: Int): String {

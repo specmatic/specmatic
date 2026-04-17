@@ -5,6 +5,7 @@ import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
@@ -99,10 +100,10 @@ data class OpenApiCoverageReport(
 
     private fun List<OpenApiCoverageReportOperation>.calculateAbsoluteCoverage(): Int {
         val denominatorOperations = this.filter { operation ->
-            operation.eligibleForCoverage || operation.excludedFromRun
+            operation.eligibleForCoverage || operation.omittedStatus == OmittedStatus.EXCLUDED
         }
-        if (denominatorOperations.isEmpty()) return 0
 
+        if (denominatorOperations.isEmpty()) return 0
         val coveredOperationCount = denominatorOperations.count { operation ->
             operation.eligibleForCoverage && operation.coverageStatus == CoverageStatus.COVERED
         }

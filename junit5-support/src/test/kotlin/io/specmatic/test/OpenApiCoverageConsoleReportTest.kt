@@ -1,9 +1,11 @@
 package io.specmatic.test
 
+import io.specmatic.core.RuleViolation
 import io.specmatic.core.report.OpenApiCoverageReportOperation
-import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
@@ -103,17 +105,7 @@ class OpenApiCoverageConsoleReportTest {
 
     @Test
     fun `should calculate absolute coverage including excluded from run operations in denominator`() {
-        val specConfig = CtrfSpecConfig(
-            protocol = "http",
-            specType = "openapi",
-            specification = "specs/openapi.yaml",
-        )
-        val excludedFromRunReason = CtrfRuleSnapshot(
-            id = "R1",
-            title = "Excluded from Run",
-            documentationUrl = "https://example.com/rules/excluded-from-run",
-            summary = "Excluded from Run",
-        )
+        val specConfig = CtrfSpecConfig(protocol = "http", specType = "openapi", specification = "specs/openapi.yaml")
         val report = OpenApiCoverageReport(
             configFilePath = "specmatic.yaml",
             coverageOperations = listOf(
@@ -131,7 +123,7 @@ class OpenApiCoverageConsoleReportTest {
                     responseCode = 201,
                     coverageStatus = CoverageStatus.NOT_TESTED,
                     eligibleForCoverage = false,
-                    reasons = listOf(excludedFromRunReason),
+                    reasons = listOf(TestSkipReason.EXCLUDED),
                     specConfig = specConfig,
                 ),
                 coverageOperation(
@@ -158,7 +150,7 @@ class OpenApiCoverageConsoleReportTest {
         coverageStatus: CoverageStatus,
         eligibleForCoverage: Boolean,
         specConfig: CtrfSpecConfig,
-        reasons: List<CtrfRuleSnapshot> = emptyList(),
+        reasons: List<RuleViolation> = emptyList(),
     ) = OpenApiCoverageReportOperation(
         operation = OpenAPIOperation(
             path = path,
@@ -170,7 +162,7 @@ class OpenApiCoverageConsoleReportTest {
         tests = emptyList(),
         coverageStatus = coverageStatus,
         eligibleForCoverage = eligibleForCoverage,
-        excludedFromRun = reasons.any { it.title == "Excluded from Run" },
-        reasons = reasons,
+        omittedStatus = if (reasons.any { it == TestSkipReason.EXCLUDED }) OmittedStatus.EXCLUDED else OmittedStatus.NONE,
+        reasons = Reasoning(reasons).toCtrfSnapshots(),
     )
 }

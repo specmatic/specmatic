@@ -5,6 +5,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -209,7 +210,7 @@ class CoverageReportTextRendererTest {
                     tests = emptyList(),
                     coverageStatus = CoverageStatus.NOT_TESTED,
                     eligibleForCoverage = false,
-                    excludedFromRun = true,
+                    omittedStatus = OmittedStatus.EXCLUDED,
                     reasons = listOf(excludedFromRunReason),
                 )
             )

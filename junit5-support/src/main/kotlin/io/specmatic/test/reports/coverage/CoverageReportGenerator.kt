@@ -7,6 +7,7 @@ import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestSkipReason
@@ -36,6 +37,7 @@ class CoverageReportGenerator {
                 metrics = facts.metrics,
                 qualifiers = facts.qualifiers,
                 coverageStatus = coverageStatus,
+                omittedStatus = omittedStatusFor(coverageStatus, skipReasons),
                 reasons = skipReasons.flatMap { it.toCtrfSnapshots() },
                 specConfig = specConfigFor(operation, coverageStatus, facts.tests, context),
                 eligibleForCoverage = isEligibleForCoverage(
@@ -45,6 +47,12 @@ class CoverageReportGenerator {
                 ),
             )
         }
+    }
+
+    private fun omittedStatusFor(coverageStatus: CoverageStatus, skipReasons: List<Reasoning>): OmittedStatus {
+        if (coverageStatus != CoverageStatus.NOT_TESTED) return OmittedStatus.NONE
+        if (skipReasons.any { it.hasReason(TestSkipReason.EXCLUDED) }) return OmittedStatus.EXCLUDED
+        return OmittedStatus.SKIPPED
     }
 
     private fun factsFor(

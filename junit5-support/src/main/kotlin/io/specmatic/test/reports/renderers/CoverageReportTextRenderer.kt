@@ -36,13 +36,7 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
         val maxReqContentTypeLength = report.coverageRows.maxOf { (it.requestContentType ?: "NA").length }
         val maxStatusLength = report.coverageRows.maxOf { it.responseStatus.length }
         val maxResContentTypeLength = report.coverageRows.maxOf { (it.responseContentType ?: "NA").length }
-        val maxRemarkLength = report.coverageRows.maxOf {
-            when {
-                !it.eligibleForCoverage && it.excludedFromRun -> "${it.remarks}!".length
-                !it.eligibleForCoverage -> "${it.remarks}*".length
-                else -> it.remarks.toString().length
-            }
-        }
+        val maxRemarkLength = report.coverageRows.maxOf { it.formattedRemarkLength() }
         val maxResultLength = maxOf("result".length, report.coverageRows.maxOf { it.result.length })
 
         return buildList {
