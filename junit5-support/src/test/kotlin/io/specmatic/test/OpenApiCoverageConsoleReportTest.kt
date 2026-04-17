@@ -170,6 +170,7 @@ class OpenApiCoverageConsoleReportTest {
         tests = emptyList(),
         coverageStatus = coverageStatus,
         eligibleForCoverage = eligibleForCoverage,
+        excludedFromRun = reasons.any { it.title == "Excluded from Run" },
         reasons = reasons,
     )
 }

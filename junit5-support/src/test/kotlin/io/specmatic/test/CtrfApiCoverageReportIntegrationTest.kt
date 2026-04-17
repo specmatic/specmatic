@@ -25,7 +25,7 @@ import java.io.File
 
 class CtrfApiCoverageReportIntegrationTest {
     @Test
-    fun `ctrf report should include absolute coverage in top level extra`() {
+    fun `ctrf report should include absolute coverage and actuator flag in top level extra`() {
         val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
         val excludedFromRunReason = CtrfRuleSnapshot(
             id = "excluded-from-run",
@@ -35,6 +35,8 @@ class CtrfApiCoverageReportIntegrationTest {
         )
         val report = OpenApiCoverageReport(
             configFilePath = specFile.canonicalPath,
+            actuatorEnabled = true,
+            deprecatedData = io.specmatic.test.reports.coverage.OpenApiCoverageDeprecatedData(endpointsApiSet = true),
             coverageOperations = listOf(
                 coverageOperation(
                     path = "/pets/find",
@@ -56,6 +58,7 @@ class CtrfApiCoverageReportIntegrationTest {
 
         assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
         assertThat(findTextValue(reportNode, "absoluteCoverage")).isEqualTo("50%")
+        assertThat(reportNode["results"]["extra"]["actuatorEnabled"].asBoolean()).isTrue()
     }
 
     @Test
@@ -357,6 +360,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     coverageReportOperations = report.coverageOperations,
                     extra = buildMap {
                         put("apiCoverage", "${report.totalCoveragePercentage}%")
+                        put("actuatorEnabled", report.actuatorEnabled)
                         put("absoluteCoverage", "${report.absoluteCoveragePercentage}%")
                     },
                 )
@@ -387,6 +391,7 @@ class CtrfApiCoverageReportIntegrationTest {
             tests = emptyList(),
             coverageStatus = coverageStatus,
             eligibleForCoverage = eligibleForCoverage,
+            excludedFromRun = reasons.any { it.title == "Excluded from Run" },
             reasons = reasons,
         )
     }

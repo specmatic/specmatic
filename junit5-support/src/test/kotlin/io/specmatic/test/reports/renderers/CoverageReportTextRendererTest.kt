@@ -209,6 +209,7 @@ class CoverageReportTextRendererTest {
                     tests = emptyList(),
                     coverageStatus = CoverageStatus.NOT_TESTED,
                     eligibleForCoverage = false,
+                    excludedFromRun = true,
                     reasons = listOf(excludedFromRunReason),
                 )
             )

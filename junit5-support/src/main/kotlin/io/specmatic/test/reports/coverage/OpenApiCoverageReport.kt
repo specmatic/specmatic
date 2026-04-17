@@ -26,6 +26,7 @@ data class OpenApiCoverageReport(
     val configFilePath: String,
     val testResultRecords: List<TestResultRecord> = emptyList(),
     val coverageOperations: List<OpenApiCoverageReportOperation> = emptyList(),
+    val actuatorEnabled: Boolean = false,
     val deprecatedData: OpenApiCoverageDeprecatedData = OpenApiCoverageDeprecatedData(),
     private val coverageHooks: List<TestReportListener> = emptyList(),
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),

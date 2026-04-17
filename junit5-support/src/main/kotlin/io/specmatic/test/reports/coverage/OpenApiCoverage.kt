@@ -91,6 +91,7 @@ class OpenApiCoverage(
             coverageHooks = coverageHooks,
             configFilePath = configFilePath,
             testResultRecords = context.tests,
+            actuatorEnabled = endpointsAPISet,
             deprecatedData = createDeprecateData(),
             coverageOperations = coverageOperations,
             httpInteractionsLog = httpInteractionsLog,
