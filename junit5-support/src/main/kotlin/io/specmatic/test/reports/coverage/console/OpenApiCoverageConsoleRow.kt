@@ -30,7 +30,7 @@ data class OpenApiCoverageConsoleRow(
         method = coverageReportOperation.operation.method,
         path = coverageReportOperation.operation.path,
         responseStatus = coverageReportOperation.operation.responseCode.toString(),
-        exercisedCount = coverageReportOperation.tests.size,
+        exercisedCount = coverageReportOperation.metrics?.attempts ?: coverageReportOperation.tests.size,
         result = formatResult(
             passedCount = coverageReportOperation.tests.count { it.result == TestResult.Success },
             failedCount = coverageReportOperation.tests.count { it.result == TestResult.Failed }

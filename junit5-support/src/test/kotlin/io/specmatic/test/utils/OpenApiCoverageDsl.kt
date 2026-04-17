@@ -10,6 +10,7 @@ import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.mapValue
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -25,6 +26,7 @@ import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.toOpenApiOperation
+import io.specmatic.test.reports.coverage.toOpenApiOperationOrNull
 import org.assertj.core.api.Assertions.assertThat
 
 class OpenApiCoverageBuilder {
@@ -36,7 +38,7 @@ class OpenApiCoverageBuilder {
     private val allSpecEndpoints = mutableListOf<Endpoint>()
     private val inScopeEndpoints = mutableListOf<Endpoint>()
     private val testRecords = mutableListOf<TestResultRecord>()
-    private val previousTestRecords = mutableListOf<TestResultRecord>()
+    private val previousCoverageMetrics = mutableMapOf<OpenAPIOperation, CtrfOperationMetrics>()
     private val decisions = mutableListOf<Decision<ContractTest, Scenario>>()
     private val listeners = mutableListOf<TestReportListener>()
 
@@ -180,7 +182,13 @@ class OpenApiCoverageBuilder {
     }
 
     fun previousTestResult(record: TestResultRecord) {
-        previousTestRecords += record.normalizedForDsl()
+        val normalized = record.normalizedForDsl()
+        val operation = normalized.toOpenApiOperationOrNull() ?: return
+        val existing = previousCoverageMetrics[operation] ?: CtrfOperationMetrics(matches = 0, attempts = 0)
+        previousCoverageMetrics[operation] = existing.copy(
+            attempts = existing.attempts + 1,
+            matches = existing.matches + if (normalized.matchesResponseIdentifiers) 1 else 0,
+        )
     }
 
     private fun build(): OpenApiCoverage {
@@ -188,7 +196,7 @@ class OpenApiCoverageBuilder {
             filterExpression = filterExpr,
             configFilePath = configFilePath,
             coverageHooks = listeners,
-            previousTestResultRecord = previousTestRecords
+            previousRunCoverageMetrics = previousCoverageMetrics
         )
         coverage.addEndpoints(allEndpoints = allSpecEndpoints, filteredEndpoints = inScopeEndpoints)
         testRecords.forEach(coverage::addTestReportRecords)

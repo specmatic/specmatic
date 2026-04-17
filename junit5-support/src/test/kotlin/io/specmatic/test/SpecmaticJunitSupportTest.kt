@@ -30,6 +30,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
@@ -940,17 +942,22 @@ paths:
 
     @Test
     fun `should merge previous test runs into the generated coverage report`() {
-        val previousRecord = TestResultRecord(
+        val previousOperation = OpenAPIOperation(
             path = "/previous",
             method = "POST",
-            responseStatus = 201,
-            request = null,
-            response = null,
-            result = TestResult.Success,
-            specType = SpecType.OPENAPI
+            protocol = SpecmaticProtocol.HTTP,
+            responseCode = 201,
+            contentType = null,
+            responseContentType = null,
+        )
+        val previousMetric = CtrfOperationMetrics(
+            attempts = 1,
+            matches = 1,
         )
 
-        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(previousTestRuns = listOf(previousRecord)))
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(previousRunCoverageMetrics = mapOf(previousOperation to previousMetric))
+        )
         try {
             val support = SpecmaticJUnitSupport()
             support.openApiCoverage.addEndpoints(
@@ -973,7 +980,7 @@ paths:
             support.openApiCoverage.addTestReportRecords(currentRecord)
             val report = support.openApiCoverage.generate().toConsoleReport()
 
-            assertThat(report.testResultRecords).contains(previousRecord, currentRecord)
+            assertThat(report.testResultRecords).containsExactly(currentRecord)
             assertThat(report.coverageRows).anyMatch { it.path == "/previous" }
             assertThat(report.coverageRows).anyMatch { it.path == "/current" }
         } finally {

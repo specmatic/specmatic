@@ -8,7 +8,8 @@ import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.orDefault
 import io.specmatic.core.utilities.Flags
-
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.reports.TestReportListener
@@ -40,7 +41,7 @@ data class ContractTestSettings(
     val coverageHooks: List<TestReportListener> = emptyList(),
     val strictMode: Boolean? = null,
     val lenientMode: Boolean? = null,
-    val previousTestRuns: List<TestResultRecord> = emptyList(),
+    val previousRunCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
     val timeoutInMilliSeconds: Long? = null,
     val otherArguments: DeprecatedArguments? = null,
 ) {
@@ -137,7 +138,7 @@ data class ContractTestSettings(
         generative = contractTestSettings?.generative,
         reportBaseDirectory = contractTestSettings?.reportBaseDirectory,
         coverageHooks = contractTestSettings?.coverageHooks.orEmpty(),
-        previousTestRuns = contractTestSettings?.previousTestRuns.orEmpty(),
+        previousRunCoverageMetrics = contractTestSettings?.previousRunCoverageMetrics.orEmpty(),
         configFile = contractTestSettings?.configFile ?: getConfigFilePath(),
         strictMode = contractTestSettings?.strictMode,
         lenientMode = contractTestSettings?.lenientMode,

@@ -6,6 +6,7 @@ import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.mapValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -21,7 +22,7 @@ class OpenApiCoverage(
     private val configFilePath: String,
     private val filterExpression: String = "",
     private val coverageHooks: List<TestReportListener> = emptyList(),
-    private val previousTestResultRecord: List<TestResultRecord> = emptyList(),
+    private val previousRunCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
     private val coverageReportGenerator: CoverageReportGenerator = CoverageReportGenerator(),
 ) {
@@ -126,7 +127,8 @@ class OpenApiCoverage(
             endpointsApiAvailable = endpointsAPISet,
             allSpecEndpoints = allSpecEndpoints.toList(),
             applicationEndpoints = filteredApplicationEndpoints(),
-            tests = filteredTestResultRecords().plus(previousTestResultRecord),
+            previousCoverageMetrics = previousRunCoverageMetrics,
+            tests = filteredTestResultRecords(),
         )
     }
 

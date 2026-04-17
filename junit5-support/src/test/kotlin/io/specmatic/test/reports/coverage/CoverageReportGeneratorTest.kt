@@ -5,6 +5,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
@@ -14,8 +15,15 @@ import io.specmatic.test.ContractTest
 import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.utils.OpenApiCoverageBuilder
+import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.Stream
 
 class CoverageReportGeneratorTest {
     private val reportGenerator = CoverageReportGenerator()
@@ -105,6 +113,82 @@ class CoverageReportGeneratorTest {
         assertThat(operation.eligibleForCoverage).isTrue()
     }
 
+    @Test
+    fun `should keep operation eligible for coverage when operation exists in previous metrics even if excluded reason exists`() {
+        val endpoint = endpoint("/orders", "GET", null, 200, "application/json")
+        val openApiOperation = endpoint.toOpenApiOperation()
+        val previousMetric = CtrfOperationMetrics(
+            attempts = 0,
+            matches = 0,
+        )
+
+        val context = CoverageContext(
+            tests = emptyList(),
+            allSpecEndpoints = listOf(endpoint),
+            decisions = mapOf(endpoint to listOf(skipDecision(Reasoning(mainReason = TestSkipReason.EXCLUDED)))),
+            previousCoverageMetrics = mapOf(openApiOperation to previousMetric),
+        )
+
+        val reportOperation = reportGenerator.generateReportOperations(context).single()
+        assertThat(reportOperation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+        assertThat(reportOperation.metrics?.attempts).isEqualTo(0)
+        assertThat(reportOperation.eligibleForCoverage).isTrue()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("eligibilityMutationCases")
+    fun `eligibility mutation matrix should remain stable`(case: EligibilityCase) {
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            if (case.inSpec) {
+                specEndpoint(method = "GET", path = "/orders", responseCode = 200, responseType = "application/json")
+            }
+
+            testResult(
+                method = "GET",
+                path = "/orders",
+                responseCode = 200,
+                responseType = "application/json",
+                result = TestResult.Success,
+                actualResponseCode = 200,
+                actualResponseType = "application/json",
+            )
+
+            case.reasoning?.let {
+                decisionSkip(
+                    path = "/orders",
+                    method = "GET",
+                    responseCode = 200,
+                    responseType = "application/json",
+                    reasoning = it,
+                )
+            }
+
+            if (case.inPrevious) {
+                previousTestResult(
+                    TestResultRecord(
+                        path = "/orders",
+                        method = "GET",
+                        responseStatus = 200,
+                        responseContentType = "application/json",
+                        request = null,
+                        response = HttpResponse(status = 200),
+                        result = TestResult.Success,
+                        specification = "specs/openapi.yaml",
+                        specType = SpecType.OPENAPI,
+                        protocol = SpecmaticProtocol.HTTP,
+                        actualResponseStatus = 200,
+                        actualResponseContentType = "application/json",
+                    )
+                )
+            }
+        }
+
+        coverage.generate().verify {
+            val operation = single(method = "GET", path = "/orders", responseCode = 200, responseType = "application/json")
+            assertThat(operation.operation.eligibleForCoverage).describedAs(case.name).isEqualTo(case.expectedEligible)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun skipDecision(reasoning: Reasoning): Decision<ContractTest, Scenario> {
         return Decision.Skip(context = Any(), reasoning = reasoning) as Decision<ContractTest, Scenario>
@@ -149,4 +233,32 @@ class CoverageReportGeneratorTest {
         operations = setOf(operation),
         specification = "specs/openapi.yaml",
     )
+
+    companion object {
+        data class EligibilityCase(
+            val name: String,
+            val inPrevious: Boolean,
+            val reasoning: Reasoning?,
+            val inSpec: Boolean,
+            val expectedEligible: Boolean,
+        )
+
+        @JvmStatic
+        fun eligibilityMutationCases(): Stream<Arguments> = Stream.of(
+            EligibilityCase("in spec + no reasoning + not previous", inPrevious = false, reasoning = null, inSpec = true, expectedEligible = true),
+            EligibilityCase("in spec + non-excluded reasoning + not previous", inPrevious = false, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE), inSpec = true, expectedEligible = true),
+            EligibilityCase("in spec + excluded main + not previous", inPrevious = false, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED), inSpec = true, expectedEligible = false),
+            EligibilityCase("in spec + excluded in other reasons + not previous", inPrevious = false, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE, otherReasons = listOf(TestSkipReason.EXCLUDED)), inSpec = true, expectedEligible = false),
+            EligibilityCase("in spec + mixed reasons contains excluded + not previous", inPrevious = false, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE, otherReasons = listOf(TestSkipReason.EXAMPLES_REQUIRED, TestSkipReason.EXCLUDED)), inSpec = true, expectedEligible = false),
+            EligibilityCase("in spec + excluded main + previous", inPrevious = true, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED), inSpec = true, expectedEligible = true),
+            EligibilityCase("in spec + excluded in other reasons + previous", inPrevious = true, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE, otherReasons = listOf(TestSkipReason.EXCLUDED)), inSpec = true, expectedEligible = true),
+            EligibilityCase("in spec + no reasoning + previous", inPrevious = true, reasoning = null, inSpec = true, expectedEligible = true),
+            EligibilityCase("missing in spec + no reasoning + not previous", inPrevious = false, reasoning = null, inSpec = false, expectedEligible = false),
+            EligibilityCase("missing in spec + excluded main + not previous", inPrevious = false, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED), inSpec = false, expectedEligible = false),
+            EligibilityCase("missing in spec + excluded in other reasons + not previous", inPrevious = false, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE, otherReasons = listOf(TestSkipReason.EXCLUDED)), inSpec = false, expectedEligible = false),
+            EligibilityCase("missing in spec + no reasoning + previous", inPrevious = true, reasoning = null, inSpec = false, expectedEligible = false),
+            EligibilityCase("missing in spec + excluded main + previous", inPrevious = true, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED), inSpec = false, expectedEligible = false),
+            EligibilityCase("missing in spec + excluded in other reasons + previous", inPrevious = true, reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE, otherReasons = listOf(TestSkipReason.EXCLUDED)), inSpec = false, expectedEligible = false),
+        ).map { Arguments.of(Named.of(it.name, it)) }
+    }
 }

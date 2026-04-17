@@ -93,7 +93,7 @@ open class SpecmaticJUnitSupport {
         configFilePath = getConfigFileWithAbsolutePath(),
         filterExpression = settings.getReportFilter().orEmpty(),
         coverageHooks = settings.coverageHooks,
-        previousTestResultRecord = settings.previousTestRuns,
+        previousRunCoverageMetrics = settings.previousRunCoverageMetrics,
         httpInteractionsLog = httpInteractionsLog
     )
 

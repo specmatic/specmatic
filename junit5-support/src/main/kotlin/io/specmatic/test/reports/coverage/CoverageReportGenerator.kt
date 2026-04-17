@@ -12,9 +12,9 @@ import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestSkipReason
 
 data class OpenApiCoverageFacts(
-    val matchCount: Int,
     val operation: OpenAPIOperation,
     val tests: List<TestResultRecord>,
+    val metrics: CtrfOperationMetrics,
     val qualifiers: List<CtrfOperationQualifiers>
 )
 
@@ -25,35 +25,73 @@ class CoverageReportGenerator {
         val allCoverageOperations = context.allCoverageOperations()
 
         return allCoverageOperations.map { operation ->
-            val facts = factsFor(operation, filteredTestResultRecords)
-            val coverageStatus = coverageStatusFor(operation, facts, specOperations)
             val skipReasons = context.getSkipDecisionsFor(operation)
+            val facts = factsFor(operation, filteredTestResultRecords, context)
+            val coverageStatus = coverageStatusFor(operation, facts, specOperations)
+            val operationInPreviousRunMetrics = context.hasPreviousRunMetricsFor(operation)
 
             CoverageReportOperation(
                 tests = facts.tests,
                 operation = operation,
+                metrics = facts.metrics,
                 qualifiers = facts.qualifiers,
                 coverageStatus = coverageStatus,
                 reasons = skipReasons.flatMap { it.toCtrfSnapshots() },
-                eligibleForCoverage = isEligibleForCoverage(coverageStatus, skipReasons),
-                metrics = CtrfOperationMetrics(matches = facts.matchCount, attempts = facts.tests.size),
                 specConfig = specConfigFor(operation, coverageStatus, facts.tests, context),
+                eligibleForCoverage = isEligibleForCoverage(
+                    reasons = skipReasons,
+                    coverageStatus = coverageStatus,
+                    operationInPreviousRunMetrics = operationInPreviousRunMetrics
+                ),
             )
         }
     }
 
-    private fun factsFor(operation: OpenAPIOperation, testResultRecords: List<TestResultRecord>): OpenApiCoverageFacts {
+    private fun factsFor(
+        operation: OpenAPIOperation,
+        testResultRecords: List<TestResultRecord>,
+        context: CoverageContext
+    ): OpenApiCoverageFacts {
+        val factsBasedOnTests = factsBasedOnTestsFor(operation, testResultRecords)
+        return accumulateWithPreviousRunMetrics(factsBasedOnTests, context.previousRunMetricsFor(operation))
+    }
+
+    private fun factsBasedOnTestsFor(
+        operation: OpenAPIOperation,
+        testResultRecords: List<TestResultRecord>
+    ): OpenApiCoverageFacts {
         val tests = testResultRecords.filter { it.operations.contains(operation) }
         return OpenApiCoverageFacts(
             tests = tests,
             operation = operation,
-            matchCount = tests.count { it.matchesResponseIdentifiers },
-            qualifiers = tests.flatMap { it.operationQualifiers() }.distinct()
+            qualifiers = tests.flatMap { it.operationQualifiers() }.distinct(),
+            metrics = CtrfOperationMetrics(
+                attempts = tests.size,
+                matches = tests.count { it.matchesResponseIdentifiers },
+            ),
         )
     }
 
-    private fun isEligibleForCoverage(coverageStatus: CoverageStatus, reasons: List<Reasoning>): Boolean {
+    private fun accumulateWithPreviousRunMetrics(
+        facts: OpenApiCoverageFacts,
+        previousRunMetrics: CtrfOperationMetrics?
+    ): OpenApiCoverageFacts {
+        if (previousRunMetrics == null) return facts
+        return facts.copy(
+            metrics = CtrfOperationMetrics(
+                attempts = facts.metrics.attempts + previousRunMetrics.attempts,
+                matches = facts.metrics.matches + previousRunMetrics.matches,
+            )
+        )
+    }
+
+    private fun isEligibleForCoverage(
+        coverageStatus: CoverageStatus,
+        reasons: List<Reasoning>,
+        operationInPreviousRunMetrics: Boolean
+    ): Boolean {
         if (coverageStatus == CoverageStatus.MISSING_IN_SPEC) return false
+        if (operationInPreviousRunMetrics) return true
         return reasons.none { reasoning -> reasoning.hasReason(TestSkipReason.EXCLUDED) }
     }
 
@@ -66,7 +104,11 @@ class CoverageReportGenerator {
             return CoverageStatus.MISSING_IN_SPEC
         }
 
-        return coverageStatusFor(operation = operation, attempts = facts.tests.size, matches = facts.matchCount)
+        return coverageStatusFor(
+            operation = operation,
+            matches = facts.metrics.matches,
+            attempts = facts.metrics.attempts,
+        )
     }
 
     private fun coverageStatusFor(

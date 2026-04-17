@@ -4,6 +4,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.API
 import io.specmatic.test.ContractTest
@@ -14,7 +15,8 @@ data class CoverageContext(
     val allSpecEndpoints: List<Endpoint>,
     val applicationEndpoints: List<API> = emptyList(),
     val endpointsApiAvailable: Boolean = false,
-    val decisions: Map<Endpoint, List<Decision<ContractTest, Scenario>>> = emptyMap()
+    val decisions: Map<Endpoint, List<Decision<ContractTest, Scenario>>> = emptyMap(),
+    val previousCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
 ) {
     private val skipDecisionsByOperation: Map<OpenAPIOperation, Sequence<Reasoning>> by lazy(LazyThreadSafetyMode.NONE) {
         decisions.entries.associate { (endpoint, endpointDecisions) ->
@@ -29,6 +31,14 @@ data class CoverageContext(
 
     fun specOperations(): Set<OpenAPIOperation> {
         return allSpecEndpoints.map { it.toOpenApiOperation() }.toSet()
+    }
+
+    fun previousRunMetricsFor(operation: OpenAPIOperation): CtrfOperationMetrics? {
+        return previousCoverageMetrics[operation]
+    }
+
+    fun hasPreviousRunMetricsFor(operation: OpenAPIOperation): Boolean {
+        return operation in previousCoverageMetrics
     }
 
     fun allCoverageOperations(): Set<OpenAPIOperation> {

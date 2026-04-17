@@ -71,6 +71,8 @@ class OpenApiCoverageReportInputTest {
 
         val input = OpenApiCoverageBuilder.buildCoverage {
             configFilePath("specmatic.yaml")
+            specEndpoint(method = "POST", path = "/previous", responseCode = 201)
+            specEndpoint(method = "GET", path = "/current", responseCode = 200)
             testResult(currentRecord.copy(specification = "specs/openapi.yaml"))
             previousTestResult(previousRecord.copy(specification = "specs/openapi.yaml"))
         }
