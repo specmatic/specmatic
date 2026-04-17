@@ -94,11 +94,18 @@ data class OpenApiCoverageConsoleRow(
         get() = responseContentType ?: "NA"
 
     private val formattedRemark: String
-        get() = when {
-            !eligibleForCoverage && omittedStatus == OmittedStatus.EXCLUDED -> "${remarks}!"
-            !eligibleForCoverage -> "${remarks}*"
-            else -> remarks.toString()
+        get() = "${remarks}${remarkMarkers()}"
+
+    private fun remarkMarkers(): String {
+        if (eligibleForCoverage) return ""
+
+        return buildString {
+            append("*")
+            if (omittedStatus == OmittedStatus.EXCLUDED) {
+                append("!")
+            }
         }
+    }
 
     override fun toRowString(tableColumns: List<ReportColumn>): String {
         return tableColumns.joinToString(separator = " | ", postfix = " |", prefix = "| ") { column ->

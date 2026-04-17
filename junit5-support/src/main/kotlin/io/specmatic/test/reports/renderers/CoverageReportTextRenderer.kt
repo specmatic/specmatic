@@ -61,7 +61,7 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
     private fun makeFooter(report: OpenAPICoverageConsoleReport): List<String> {
         return listOf(
             "* = Operation not eligible for coverage",
-            "! = Operation excluded from run by the filter expression",
+            "! = Operation excluded from the run due to a filter",
             "p = passed tests",
             "f = failed tests",
             "",

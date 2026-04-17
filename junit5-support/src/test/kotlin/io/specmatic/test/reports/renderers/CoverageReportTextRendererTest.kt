@@ -41,7 +41,7 @@ class CoverageReportTextRendererTest {
         assertThat(lines).anySatisfy { assertThat(it).contains("50% API Coverage reported from 2 operations eligible for coverage") }
         assertThat(lines).anySatisfy { assertThat(it).contains("50% Absolute Coverage (includes excluded operations that were not tested)") }
         assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
-        assertThat(lines).anySatisfy { assertThat(it).contains("! = Operation excluded from run by the filter expression") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("! = Operation excluded from the run due to a filter") }
     }
 
     @Test
@@ -78,7 +78,7 @@ class CoverageReportTextRendererTest {
         assertThat(lines).anySatisfy { assertThat(it).contains("100% API Coverage reported from 1 operations eligible for coverage") }
         assertThat(lines).anySatisfy { assertThat(it).contains("100% Absolute Coverage (includes excluded operations that were not tested)") }
         assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
-        assertThat(lines).anySatisfy { assertThat(it).contains("! = Operation excluded from run by the filter expression") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("! = Operation excluded from the run due to a filter") }
     }
 
     @Test
@@ -218,9 +218,9 @@ class CoverageReportTextRendererTest {
 
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
 
-        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested! |        |")
+        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested*! |        |")
         assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
-        assertThat(lines).anySatisfy { assertThat(it).contains("! = Operation excluded from run by the filter expression") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("! = Operation excluded from the run due to a filter") }
     }
 
     @Test
