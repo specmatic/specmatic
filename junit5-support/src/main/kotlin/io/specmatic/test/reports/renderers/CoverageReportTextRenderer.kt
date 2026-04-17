@@ -38,7 +38,7 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
         val maxResContentTypeLength = report.coverageRows.maxOf { (it.responseContentType ?: "NA").length }
         val maxRemarkLength = report.coverageRows.maxOf {
             when {
-                !it.eligibleForCoverage && it.excludedFromRun -> "${it.remarks}I".length
+                !it.eligibleForCoverage && it.excludedFromRun -> "${it.remarks}!".length
                 !it.eligibleForCoverage -> "${it.remarks}*".length
                 else -> it.remarks.toString().length
             }
@@ -67,7 +67,7 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
     private fun makeFooter(report: OpenAPICoverageConsoleReport): List<String> {
         return listOf(
             "* = Operation not eligible for coverage",
-            "I = Operation excluded from run by the filter expression",
+            "! = Operation excluded from run by the filter expression",
             "p = passed tests",
             "f = failed tests",
             "",

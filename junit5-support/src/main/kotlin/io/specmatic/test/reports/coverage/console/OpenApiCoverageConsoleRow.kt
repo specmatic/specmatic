@@ -94,7 +94,7 @@ data class OpenApiCoverageConsoleRow(
 
     private val formattedRemark: String
         get() = when {
-            !eligibleForCoverage && excludedFromRun -> "${remarks}I"
+            !eligibleForCoverage && excludedFromRun -> "${remarks}!"
             !eligibleForCoverage -> "${remarks}*"
             else -> remarks.toString()
         }
