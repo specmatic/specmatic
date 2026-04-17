@@ -1,15 +1,20 @@
 package io.specmatic.test.reports.coverage.console
 
 import io.specmatic.core.report.OpenApiCoverageReportOperation
+import io.specmatic.test.reports.coverage.isExcludedFromRun
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.TestResult
 
 data class OpenApiCoverageConsoleRow(
     val method: String,
     val path: String,
     val responseStatus: String,
-    val count: String,
+    val exercisedCount: Int,
+    val result: String,
     val coveragePercentage: Int = 0,
     val remarks: CoverageStatus,
+    val eligibleForCoverage: Boolean,
+    val excludedFromRun: Boolean = false,
     val showPath: Boolean = true,
     val showMethod: Boolean = true,
     val requestContentType: String? = null,
@@ -17,23 +22,29 @@ data class OpenApiCoverageConsoleRow(
     val responseContentType: String? = null,
 ): CoverageRow {
     constructor(
-        report: OpenApiCoverageReportOperation,
+        coverageReportOperation: OpenApiCoverageReportOperation,
         coveragePercentage: Int,
         showPath: Boolean,
         showMethod: Boolean,
         showRequestContentType: Boolean
     ) : this(
-        method = report.operation.method,
-        path = report.operation.path,
-        responseStatus = report.operation.responseCode.toString(),
-        count = report.tests.size.toString(),
+        method = coverageReportOperation.operation.method,
+        path = coverageReportOperation.operation.path,
+        responseStatus = coverageReportOperation.operation.responseCode.toString(),
+        exercisedCount = coverageReportOperation.tests.size,
+        result = formatResult(
+            passedCount = coverageReportOperation.tests.count { it.result == TestResult.Success },
+            failedCount = coverageReportOperation.tests.count { it.result == TestResult.Failed }
+        ),
         coveragePercentage = coveragePercentage,
-        remarks = report.coverageStatus,
+        remarks = coverageReportOperation.coverageStatus,
+        eligibleForCoverage = coverageReportOperation.eligibleForCoverage,
+        excludedFromRun = coverageReportOperation.isExcludedFromRun(),
         showPath = showPath,
         showMethod = showMethod,
         showRequestContentType = showRequestContentType,
-        requestContentType = report.operation.contentType,
-        responseContentType = report.operation.responseContentType
+        requestContentType = coverageReportOperation.operation.contentType,
+        responseContentType = coverageReportOperation.operation.responseContentType
     )
 
     constructor(
@@ -43,12 +54,29 @@ data class OpenApiCoverageConsoleRow(
         count: Int,
         coveragePercentage: Int,
         remarks: CoverageStatus,
+        eligibleForCoverage: Boolean = true,
+        excludedFromRun: Boolean = false,
         showPath: Boolean = true,
         showMethod: Boolean = true,
         requestContentType: String? = null,
         showRequestContentType: Boolean = true,
         responseContentType: String? = null,
-    ) : this(method, path, responseStatus.toString(), count.toString(), coveragePercentage, remarks, showPath, showMethod, requestContentType, showRequestContentType, responseContentType)
+    ) : this(
+        method,
+        path,
+        responseStatus.toString(),
+        count,
+        formatResult(passedCount = count, failedCount = 0),
+        coveragePercentage,
+        remarks,
+        eligibleForCoverage,
+        excludedFromRun,
+        showPath,
+        showMethod,
+        requestContentType,
+        showRequestContentType,
+        responseContentType
+    )
 
     private val formattedCoveragePercentage: String
         get() = if (showPath) "$coveragePercentage%" else ""
@@ -65,6 +93,13 @@ data class OpenApiCoverageConsoleRow(
     private val formattedResponseContentType: String
         get() = responseContentType ?: "NA"
 
+    private val formattedRemark: String
+        get() = when {
+            !eligibleForCoverage && excludedFromRun -> "${remarks}I"
+            !eligibleForCoverage -> "${remarks}*"
+            else -> remarks.toString()
+        }
+
     override fun toRowString(tableColumns: List<ReportColumn>): String {
         return tableColumns.joinToString(separator = " | ", postfix = " |", prefix = "| ") { column ->
             val value = when (column.name) {
@@ -74,12 +109,20 @@ data class OpenApiCoverageConsoleRow(
                 "requestContentType" -> formattedRequestContentType
                 "response" -> responseStatus
                 "responseContentType" -> formattedResponseContentType
-                "#exercised" -> count
-                "remark" -> remarks.toString()
+                "result" -> result
+                "remark", "remarks" -> formattedRemark
                 else -> throw Exception("Unknown column name: ${column.name}")
             }
             column.columnFormat.format(value)
         }
     }
-}
 
+    companion object {
+        private fun formatResult(passedCount: Int, failedCount: Int): String {
+            return buildList {
+                if (passedCount > 0) add("${passedCount}p")
+                if (failedCount > 0) add("${failedCount}f")
+            }.joinToString(" ")
+        }
+    }
+}

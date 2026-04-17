@@ -212,6 +212,7 @@ open class SpecmaticJUnitSupport {
             reportDir = File("$reportDirPath/test"),
             coverageReportOperations = coverageReport.coverageOperations,
             coverage = coverageReport.totalCoveragePercentage,
+            absoluteCoverage = coverageReport.absoluteCoveragePercentage,
             testResultRecords = coverageReport.testResultRecords,
             specConfigs = coverageReport.getSpecConfigs(),
         )

@@ -1,6 +1,12 @@
 package io.specmatic.test
 
+import io.specmatic.core.report.OpenApiCoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.utils.OpenApiCoverageBuilder.Companion.buildCoverage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -94,4 +100,76 @@ class OpenApiCoverageConsoleReportTest {
 
         assertThat(report.totalCoveragePercentage).isEqualTo(0)
     }
+
+    @Test
+    fun `should calculate absolute coverage including excluded from run operations in denominator`() {
+        val specConfig = CtrfSpecConfig(
+            protocol = "http",
+            specType = "openapi",
+            specification = "specs/openapi.yaml",
+        )
+        val excludedFromRunReason = CtrfRuleSnapshot(
+            id = "R1",
+            title = "Excluded from Run",
+            documentationUrl = "https://example.com/rules/excluded-from-run",
+            summary = "Excluded from Run",
+        )
+        val report = OpenApiCoverageReport(
+            configFilePath = "specmatic.yaml",
+            coverageOperations = listOf(
+                coverageOperation(
+                    path = "/orders",
+                    method = "GET",
+                    responseCode = 200,
+                    coverageStatus = CoverageStatus.COVERED,
+                    eligibleForCoverage = true,
+                    specConfig = specConfig,
+                ),
+                coverageOperation(
+                    path = "/orders",
+                    method = "POST",
+                    responseCode = 201,
+                    coverageStatus = CoverageStatus.NOT_TESTED,
+                    eligibleForCoverage = false,
+                    reasons = listOf(excludedFromRunReason),
+                    specConfig = specConfig,
+                ),
+                coverageOperation(
+                    path = "/orders",
+                    method = "DELETE",
+                    responseCode = 204,
+                    coverageStatus = CoverageStatus.MISSING_IN_SPEC,
+                    eligibleForCoverage = false,
+                    specConfig = specConfig,
+                ),
+            )
+        )
+
+        assertThat(report.totalCoveragePercentage).isEqualTo(100)
+        assertThat(report.toConsoleReport().operationsEligibleForCoverage).isEqualTo(1)
+        assertThat(report.absoluteCoveragePercentage).isEqualTo(50)
+        assertThat(report.toConsoleReport().absoluteCoveragePercentage).isEqualTo(50)
+    }
+
+    private fun coverageOperation(
+        path: String,
+        method: String,
+        responseCode: Int,
+        coverageStatus: CoverageStatus,
+        eligibleForCoverage: Boolean,
+        specConfig: CtrfSpecConfig,
+        reasons: List<CtrfRuleSnapshot> = emptyList(),
+    ) = OpenApiCoverageReportOperation(
+        operation = OpenAPIOperation(
+            path = path,
+            method = method,
+            responseCode = responseCode,
+            protocol = io.specmatic.license.core.SpecmaticProtocol.HTTP,
+        ),
+        specConfig = specConfig,
+        tests = emptyList(),
+        coverageStatus = coverageStatus,
+        eligibleForCoverage = eligibleForCoverage,
+        reasons = reasons,
+    )
 }

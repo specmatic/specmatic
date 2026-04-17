@@ -31,6 +31,7 @@ data class OpenApiCoverageReport(
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
 ) {
     val totalCoveragePercentage: Int = coverageOperations.calculateCoverage()
+    val absoluteCoveragePercentage: Int = coverageOperations.calculateAbsoluteCoverage()
 
     fun getSpecConfigs(): List<CtrfSpecConfig> {
         return coverageOperations.map { it.specConfig }.distinct()
@@ -57,8 +58,10 @@ data class OpenApiCoverageReport(
             coverageHooks = coverageHooks,
             testResultRecords = testResultRecords,
             totalOperations = coverageOperations.size,
+            operationsEligibleForCoverage = coverageOperations.count { it.eligibleForCoverage },
             coverageRows = coverageOperations.toConsoleRows(),
-            totalCoveragePercentage = coverageOperations.calculateCoverage(),
+            coveragePercentage = coverageOperations.calculateCoverage(),
+            absoluteCoveragePercentage = coverageOperations.calculateAbsoluteCoverage(),
             missedOperations = coverageOperations.count { it.coverageStatus == CoverageStatus.MISSING_IN_SPEC },
             notImplementedOperations = coverageOperations.count { it.coverageStatus == CoverageStatus.NOT_IMPLEMENTED },
         )
@@ -77,7 +80,7 @@ data class OpenApiCoverageReport(
             val sameMethod = samePath && previous.operation.method == current.operation.method
             val sameRequestContentType = sameMethod && previous.operation.contentType == current.operation.contentType
             OpenApiCoverageConsoleRow(
-                report = current,
+                coverageReportOperation = current,
                 showPath = !samePath,
                 showMethod = !sameMethod,
                 showRequestContentType = !sameRequestContentType,
@@ -91,5 +94,18 @@ data class OpenApiCoverageReport(
         if (coverageReportOperations.isEmpty()) return 0
         val coveredOperationCount = coverageReportOperations.count { it.coverageStatus == CoverageStatus.COVERED }
         return ((coveredOperationCount.toDouble() / coverageReportOperations.size) * 100).roundToInt()
+    }
+
+    private fun List<OpenApiCoverageReportOperation>.calculateAbsoluteCoverage(): Int {
+        val denominatorOperations = this.filter { operation ->
+            operation.eligibleForCoverage || operation.isExcludedFromRun()
+        }
+        if (denominatorOperations.isEmpty()) return 0
+
+        val coveredOperationCount = denominatorOperations.count { operation ->
+            operation.eligibleForCoverage && operation.coverageStatus == CoverageStatus.COVERED
+        }
+
+        return ((coveredOperationCount.toDouble() / denominatorOperations.size) * 100).roundToInt()
     }
 }

@@ -49,8 +49,8 @@ class TestResultRecordTest {
     }
 
     @Test
-    fun `should be considered covered when results Success, Error, Failed, and NotImplemented`() {
-        listOf(TestResult.Success, TestResult.Error, TestResult.Failed, TestResult.NotImplemented).forEach {
+    fun `should be considered covered when results Success, Failed, and NotImplemented`() {
+        listOf(TestResult.Success, TestResult.Failed, TestResult.NotImplemented).forEach {
             val record = TestResultRecord(
                 path = "/example/path",
                 method = "GET",
@@ -65,7 +65,7 @@ class TestResultRecordTest {
 
     @Test
     fun `should not be considered covered for other results`() {
-        TestResult.entries.filterNot { it in listOf(TestResult.Success, TestResult.Error, TestResult.Failed, TestResult.NotImplemented) }.forEach {
+        listOf(TestResult.MissingInSpec, TestResult.NotCovered).forEach {
             val record = TestResultRecord(
                 path = "/example/path",
                 method = "GET",
@@ -136,7 +136,7 @@ class TestResultRecordTest {
 
     @Test
     fun `getCoverageStatus should return COVERED for exercised test results`() {
-        listOf(TestResult.Success, TestResult.Error, TestResult.Failed).forEach { result ->
+        listOf(TestResult.Success, TestResult.Failed).forEach { result ->
             val coverageStatus = listOf(testResultRecord(result = result)).getCoverageStatus()
 
             assertEquals(CoverageStatus.COVERED, coverageStatus)

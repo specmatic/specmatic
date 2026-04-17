@@ -225,7 +225,7 @@ class OpenApiCoverageVerifier(val report: OpenApiCoverageReport) {
         responseType: String? = null,
     ) {
         val row = row(method = method, path = path, responseCode = responseCode, requestType = requestType, responseType = responseType)
-        assertThat(row.count).isEqualTo(count.toString())
+        assertThat(row.exercisedCount).isEqualTo(count)
         assertThat(row.coveragePercentage).isEqualTo(coveragePercentage)
         if (remarks != null) assertThat(row.remarks).isEqualTo(remarks)
     }

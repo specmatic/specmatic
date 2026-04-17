@@ -269,7 +269,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coverageRows).anyMatch {
             it.path == "/uncovered" && it.remarks == CoverageStatus.NOT_TESTED && it.coveragePercentage == 0
         }
-        assertThat(report.totalCoveragePercentage).isEqualTo(0)
+        assertThat(report.coveragePercentage).isEqualTo(0)
     }
 
     @Test
@@ -305,7 +305,7 @@ class OpenApiCoverageReportInputTest {
         }
 
         val report = input.generate().toConsoleReport()
-        assertThat(report.totalCoveragePercentage).isEqualTo(33)
+        assertThat(report.coveragePercentage).isEqualTo(33)
         assertThat(report.coverageRows).anyMatch { it.path == "/current" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/previous" && it.remarks.toString() == "not tested" && it.coveragePercentage == 0 }
         assertThat(report.coverageRows).anyMatch { it.path == "/uncovered" && it.remarks.toString() == "not tested" && it.coveragePercentage == 0 }
@@ -366,7 +366,7 @@ class OpenApiCoverageReportInputTest {
         }
 
         val report = input.generate().toConsoleReport()
-        assertThat(report.totalCoveragePercentage).isEqualTo(100)
+        assertThat(report.coveragePercentage).isEqualTo(100)
         assertThat(report.coverageRows).anyMatch { it.path == "/current" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/previous" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
         assertThat(report.coverageRows).anyMatch { it.path == "/not-possible" && it.remarks.toString() == "covered" && it.coveragePercentage == 100 }
@@ -419,7 +419,7 @@ class OpenApiCoverageReportInputTest {
             OpenApiCoverageConsoleRow("GET", "/mixed", 400, 1, 33, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false, showRequestContentType = false),
             OpenApiCoverageConsoleRow("GET", "/mixed", 500, 0, 33, CoverageStatus.NOT_TESTED, showPath = false, showMethod = false, showRequestContentType = false),
         )
-        assertThat(report.totalCoveragePercentage).isEqualTo(33)
+        assertThat(report.coveragePercentage).isEqualTo(33)
     }
 
     @Test
@@ -468,7 +468,7 @@ class OpenApiCoverageReportInputTest {
             OpenApiCoverageConsoleRow("GET", "/mixed", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
             OpenApiCoverageConsoleRow("GET", "/mixed", 400, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false, showRequestContentType = false),
         )
-        assertThat(report.totalCoveragePercentage).isEqualTo(0)
+        assertThat(report.coveragePercentage).isEqualTo(0)
     }
 
     @Test
@@ -504,7 +504,7 @@ class OpenApiCoverageReportInputTest {
         }
 
         val report = input.generate().toConsoleReport()
-        assertThat(report.totalCoveragePercentage).isEqualTo(33)
+        assertThat(report.coveragePercentage).isEqualTo(33)
         assertThat(report.coverageRows).anyMatch {
             it.path == "/resource" && it.method == "GET" && it.remarks.toString() == "covered" && it.coveragePercentage == 33
         }
@@ -560,7 +560,7 @@ class OpenApiCoverageReportInputTest {
         }
 
         val report = input.generate().toConsoleReport()
-        assertThat(report.totalCoveragePercentage).isEqualTo(67)
+        assertThat(report.coveragePercentage).isEqualTo(67)
         assertThat(report.coverageRows).anyMatch {
             it.path == "/resource" && it.method == "GET" && it.remarks.toString() == "covered" && it.coveragePercentage == 67
         }
@@ -606,7 +606,7 @@ class OpenApiCoverageReportInputTest {
 
         assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
         assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
-        assertThat(report.totalCoveragePercentage).isEqualTo(100)
+        assertThat(report.coveragePercentage).isEqualTo(100)
     }
 
     @Test
@@ -684,7 +684,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coverageRows).anyMatch { it.path == "/test" && it.remarks == CoverageStatus.NOT_IMPLEMENTED }
         assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
         assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
-        assertThat(report.totalCoveragePercentage).isEqualTo(0)
+        assertThat(report.coveragePercentage).isEqualTo(0)
     }
 
     @Test
@@ -731,7 +731,7 @@ class OpenApiCoverageReportInputTest {
             OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
             OpenApiCoverageConsoleRow("GET", "/pets/search", 404, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false, showRequestContentType = false),
         )
-        assertThat(report.totalCoveragePercentage).isEqualTo(0)
+        assertThat(report.coveragePercentage).isEqualTo(0)
     }
 
     @Test
@@ -904,7 +904,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.missedOperations).isEqualTo(0)
         assertThat(report.coverageRows).noneMatch { it.responseStatus == "405" }
         assertThat(exercisedRow.remarks).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
-        assertThat(exercisedRow.count).isEqualTo("1")
+        assertThat(exercisedRow.exercisedCount).isEqualTo(1)
     }
 
     @Test
@@ -994,7 +994,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(row.method).isEqualTo("GET")
         assertThat(row.responseStatus).isEqualTo("200")
         assertThat(row.remarks).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
-        assertThat(row.count).isEqualTo("1")
+        assertThat(row.exercisedCount).isEqualTo(1)
     }
 
     @Test
@@ -1173,7 +1173,7 @@ class OpenApiCoverageReportInputTest {
         val report = coverage.generate().toConsoleReport()
         assertThat(listener.pathCoverageCalls.toMap()).containsExactlyInAnyOrderEntriesOf(mapOf("/pets" to 50, "/orders" to 100, "/undocumented" to 0))
         assertThat(listener.totalCoverageCalls).containsExactly(67)
-        assertThat(report.totalCoveragePercentage).isEqualTo(67)
+        assertThat(report.coveragePercentage).isEqualTo(67)
         assertThat(report.missedOperations).isEqualTo(1)
 
         val processor = OpenApiCoverageReportProcessor(coverage.generate(), tempDir.absolutePath)

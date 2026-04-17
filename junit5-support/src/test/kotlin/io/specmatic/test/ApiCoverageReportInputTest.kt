@@ -152,10 +152,10 @@ class ApiCoverageReportInputTest {
             assertThat(missedOperations).isEqualTo(0)
             assertThat(notImplementedOperations).isEqualTo(0)
             assertThat(consoleReport.coverageRows).hasSize(5)
-            assertThat(consoleReport.totalCoveragePercentage).isEqualTo(0)
+            assertThat(consoleReport.coveragePercentage).isEqualTo(0)
             assertThat(consoleReport.coverageRows).allSatisfy {
                 assertThat(it.remarks).isEqualTo(CoverageStatus.NOT_TESTED)
-                assertThat(it.count).isEqualTo("0")
+                assertThat(it.exercisedCount).isEqualTo(0)
                 assertThat(it.coveragePercentage).isEqualTo(0)
             }
         }

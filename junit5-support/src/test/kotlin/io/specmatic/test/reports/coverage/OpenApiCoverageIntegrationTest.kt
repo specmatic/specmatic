@@ -152,7 +152,7 @@ class OpenApiCoverageIntegrationTest {
             assertThat(wipView.operation.metrics?.matches).isEqualTo(0)
             assertThat(wipView.operation.qualifiers).contains(CtrfOperationQualifiers.WIP)
             assertThat(wipView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_IMPLEMENTED)
-            assertThat(wipView.tests).hasSize(1).allSatisfy { test -> assertThat(test.result).isEqualTo(TestResult.Error) }
+            assertThat(wipView.tests).hasSize(1).allSatisfy { test -> assertThat(test.result).isEqualTo(TestResult.Failed) }
         }
     }
 

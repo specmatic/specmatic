@@ -5,10 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
+import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.Endpoint
@@ -20,6 +24,40 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 class CtrfApiCoverageReportIntegrationTest {
+    @Test
+    fun `ctrf report should include absolute coverage in top level extra`() {
+        val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val excludedFromRunReason = CtrfRuleSnapshot(
+            id = "excluded-from-run",
+            title = "Excluded from Run",
+            documentationUrl = "https://example.com/excluded-from-run",
+            summary = "Excluded from Run",
+        )
+        val report = OpenApiCoverageReport(
+            configFilePath = specFile.canonicalPath,
+            coverageOperations = listOf(
+                coverageOperation(
+                    path = "/pets/find",
+                    coverageStatus = CoverageStatus.COVERED,
+                    eligibleForCoverage = true,
+                    specification = specFile.canonicalPath,
+                ),
+                coverageOperation(
+                    path = "/pets/search",
+                    coverageStatus = CoverageStatus.NOT_TESTED,
+                    eligibleForCoverage = false,
+                    reasons = listOf(excludedFromRunReason),
+                    specification = specFile.canonicalPath,
+                ),
+            ),
+        )
+
+        val reportNode = ctrfReportNode(report)
+
+        assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
+        assertThat(findTextValue(reportNode, "absoluteCoverage")).isEqualTo("50%")
+    }
+
     @Test
     fun `ctrf html report should include swagger discovered endpoints missing in the contract`() {
         val actualSpec = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
@@ -317,10 +355,41 @@ class CtrfApiCoverageReportIntegrationTest {
                     specConfig = report.getSpecConfigs(),
                     testResultRecords = report.testResultRecords,
                     coverageReportOperations = report.coverageOperations,
-                    extra = mapOf("apiCoverage" to "${report.totalCoveragePercentage}%"),
+                    extra = buildMap {
+                        put("apiCoverage", "${report.totalCoveragePercentage}%")
+                        put("absoluteCoverage", "${report.absoluteCoveragePercentage}%")
+                    },
                 )
             )
         )
+
+    private fun coverageOperation(
+        path: String,
+        coverageStatus: CoverageStatus,
+        eligibleForCoverage: Boolean,
+        specification: String,
+        reasons: List<CtrfRuleSnapshot> = emptyList(),
+    ): OpenApiCoverageReportOperation {
+        val operation = OpenAPIOperation(
+            path = path,
+            method = "GET",
+            responseCode = 200,
+            protocol = SpecmaticProtocol.HTTP,
+        )
+        return OpenApiCoverageReportOperation(
+            operation = operation,
+            specConfig = CtrfSpecConfig(
+                protocol = SpecmaticProtocol.HTTP.name,
+                specType = SpecType.OPENAPI.value,
+                specification = specification,
+                sourceProvider = "filesystem",
+            ),
+            tests = emptyList(),
+            coverageStatus = coverageStatus,
+            eligibleForCoverage = eligibleForCoverage,
+            reasons = reasons,
+        )
+    }
 
     private fun endpointsFrom(specFile: File): List<Endpoint> {
         val feature = parseContractFileToFeature(specFile, sourceProvider = SourceProvider.filesystem.name)

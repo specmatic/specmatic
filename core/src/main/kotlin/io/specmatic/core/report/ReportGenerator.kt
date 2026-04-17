@@ -22,6 +22,7 @@ object ReportGenerator {
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
+        absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
@@ -30,6 +31,7 @@ object ReportGenerator {
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
+            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
             put("specmaticConfigPath", getConfigFilePath())
         }
 
@@ -56,6 +58,7 @@ object ReportGenerator {
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
+        absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
     ) {
@@ -63,6 +66,7 @@ object ReportGenerator {
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
+            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
             put("specmaticConfigPath", getConfigFilePath())
         }
 

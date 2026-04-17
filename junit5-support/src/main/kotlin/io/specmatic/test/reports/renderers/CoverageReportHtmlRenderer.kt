@@ -26,7 +26,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         val openApiSuccessCriteria = reportConfiguration.getSuccessCriteria()
 
         val reportData = HtmlReportData(
-            totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
+            totalCoveragePercentage = report.coveragePercentage, actuatorEnabled = actuatorEnabled,
             tableRows = makeTableRows(report),
             scenarioData = makeScenarioData(report, specmaticConfig), totalTestDuration = getTotalDuration()
         )
@@ -73,7 +73,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                                 secondGroupRowSpan = secondGroupRows.sumOf { rows -> rows.size },
                                 requestContentType = it.requestContentType.orEmpty(),
                                 response = it.responseStatus,
-                                exercised = it.count.toInt(),
+                                exercised = it.exercisedCount,
                                 result = it.remarks
                             )
                         }
@@ -173,7 +173,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
     }
 
     private fun reCreateCoverageRowsForLite(coverageRows: List<OpenApiCoverageConsoleRow>): List<OpenApiCoverageConsoleRow> {
-        val exercisedRows = coverageRows.filter { it.count.toInt() > 0 }
+        val exercisedRows = coverageRows.filter { it.exercisedCount > 0 }
         val updatedRows = mutableListOf<OpenApiCoverageConsoleRow>()
         getGroupedCoverageRows(exercisedRows).forEach { (_, methodGroup) ->
             val rowGroup = mutableListOf<OpenApiCoverageConsoleRow>()

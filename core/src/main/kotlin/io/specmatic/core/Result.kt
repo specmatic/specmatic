@@ -197,12 +197,7 @@ sealed class Result {
 
         override fun isPartialSuccess(): Boolean = false
         override fun isPartialFailure(): Boolean = isPartial
-        override fun testResult(): TestResult {
-            if(shouldBeIgnored())
-                return TestResult.Error
-
-            return TestResult.Failed
-        }
+        override fun testResult(): TestResult = TestResult.Failed
 
         override fun withFailureReason(failureReason: FailureReason): Failure {
             return copy(failureReason = failureReason)

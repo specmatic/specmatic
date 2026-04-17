@@ -49,12 +49,12 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReport: OpenApiC
         val successCriteria = reportConfiguration.getSuccessCriteria()
         if (successCriteria.getEnforceOrDefault()) {
             val coverageThresholdNotMetMessage =
-                "Total API coverage: ${report.totalCoveragePercentage}% is less than the specified minimum threshold of ${successCriteria.getMinThresholdPercentageOrDefault()}%."
+                "Total API coverage: ${report.coveragePercentage}% is less than the specified minimum threshold of ${successCriteria.getMinThresholdPercentageOrDefault()}%."
             val missedOperationsExceededMessage =
                 "Total missed operations: ${report.missedOperations} is greater than the maximum threshold of ${successCriteria.getMaxMissedEndpointsInSpecOrDefault()}."
 
             val minCoverageThresholdCriteriaMet =
-                report.totalCoveragePercentage >= successCriteria.getMinThresholdPercentageOrDefault()
+                report.coveragePercentage >= successCriteria.getMinThresholdPercentageOrDefault()
             val maxMissingOperationsExceededCriteriaMet =
                 report.missedOperations <= successCriteria.getMaxMissedEndpointsInSpecOrDefault()
             val coverageReportSuccessCriteriaMet = minCoverageThresholdCriteriaMet && maxMissingOperationsExceededCriteriaMet

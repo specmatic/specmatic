@@ -36,8 +36,14 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
         val maxReqContentTypeLength = report.coverageRows.maxOf { (it.requestContentType ?: "NA").length }
         val maxStatusLength = report.coverageRows.maxOf { it.responseStatus.length }
         val maxResContentTypeLength = report.coverageRows.maxOf { (it.responseContentType ?: "NA").length }
-        val maxRemarkLength = report.coverageRows.maxOf { it.remarks.toString().length }
-        val maxExercisedLength = "#exercised".length
+        val maxRemarkLength = report.coverageRows.maxOf {
+            when {
+                !it.eligibleForCoverage && it.excludedFromRun -> "${it.remarks}I".length
+                !it.eligibleForCoverage -> "${it.remarks}*".length
+                else -> it.remarks.toString().length
+            }
+        }
+        val maxResultLength = maxOf("result".length, report.coverageRows.maxOf { it.result.length })
 
         return buildList {
             add(ReportColumn("coverage", maxCoveragePercentageLength))
@@ -53,12 +59,20 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
                 add(ReportColumn("responseContentType", maxResContentTypeLength))
             }
 
-            add(ReportColumn("remark", maxRemarkLength))
-            add(ReportColumn("#exercised", maxExercisedLength))
+            add(ReportColumn("remarks", maxRemarkLength))
+            add(ReportColumn("result", maxResultLength))
         }
     }
 
-    private fun makeFooter(report: OpenAPICoverageConsoleReport): String {
-        return "${report.totalCoveragePercentage}% API Coverage reported from ${report.totalOperations} Operations"
+    private fun makeFooter(report: OpenAPICoverageConsoleReport): List<String> {
+        return listOf(
+            "* = Operation not eligible for coverage",
+            "I = Operation excluded from run by the filter expression",
+            "p = passed tests",
+            "f = failed tests",
+            "",
+            "${report.coveragePercentage}% API Coverage reported from ${report.operationsEligibleForCoverage} operations eligible for coverage",
+            "${report.absoluteCoveragePercentage}% Absolute Coverage (includes excluded operations that were not tested)"
+        )
     }
 }

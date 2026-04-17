@@ -2,8 +2,13 @@ package io.specmatic.test.reports.renderers
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.utils.OpenApiCoverageBuilder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -29,10 +34,13 @@ class CoverageReportTextRendererTest {
 
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
-        assertThat(lines).contains("| coverage | path    | method | requestContentType | response | responseContentType | remark     | #exercised |")
+        assertThat(lines).contains("| coverage | path    | method | requestContentType | response | responseContentType | remarks    | #exercised |")
         assertThat(lines).contains("| 50%      | /orders | POST   | application/json   | 200      | application/json    | covered    | 1          |")
         assertThat(lines).contains("|          |         |        | NA                 | 400      | application/json    | not tested | 0          |")
-        assertThat(lines).contains("| 50% API Coverage reported from 2 Operations                                                                 |")
+        assertThat(lines).anySatisfy { assertThat(it).contains("50% API Coverage reported from 2 operations eligible for coverage") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("50% Absolute Coverage (includes excluded operations that were not tested)") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("I = Operation excluded from run by the filter expression") }
     }
 
     @Test
@@ -64,9 +72,12 @@ class CoverageReportTextRendererTest {
 
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
-        assertThat(lines).contains("| coverage | port  | soapAction   | remark  | #exercised |")
+        assertThat(lines).contains("| coverage | port  | soapAction   | remarks | #exercised |")
         assertThat(lines).contains("| 100%     | /soap | urn:getOrder | covered | 1          |")
-        assertThat(lines).contains("| 100% API Coverage reported from 1 Operations           |")
+        assertThat(lines).anySatisfy { assertThat(it).contains("100% API Coverage reported from 1 operations eligible for coverage") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("100% Absolute Coverage (includes excluded operations that were not tested)") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("I = Operation excluded from run by the filter expression") }
     }
 
     @Test
@@ -168,5 +179,76 @@ class CoverageReportTextRendererTest {
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
         assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested | 0          |")
+        assertThat(lines).anySatisfy { assertThat(it).contains("0% Absolute Coverage (includes excluded operations that were not tested)") }
+    }
+
+    @Test
+    fun `renders excluded not tested operations with I marker`() {
+        val specConfig = CtrfSpecConfig(
+            protocol = "http",
+            specType = "openapi",
+            specification = "specs/openapi.yaml",
+        )
+        val excludedFromRunReason = CtrfRuleSnapshot(
+            id = "R1",
+            title = "Excluded from Run",
+            documentationUrl = "https://example.com/rules/excluded-from-run",
+            summary = "Excluded from Run",
+        )
+        val report = OpenApiCoverageReport(
+            configFilePath = "specmatic.yaml",
+            coverageOperations = listOf(
+                io.specmatic.core.report.OpenApiCoverageReportOperation(
+                    operation = OpenAPIOperation(
+                        path = "/orders",
+                        method = "GET",
+                        responseCode = 200,
+                        protocol = SpecmaticProtocol.HTTP,
+                    ),
+                    specConfig = specConfig,
+                    tests = emptyList(),
+                    coverageStatus = CoverageStatus.NOT_TESTED,
+                    eligibleForCoverage = false,
+                    reasons = listOf(excludedFromRunReason),
+                )
+            )
+        ).toConsoleReport()
+
+        val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
+
+        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not testedI | 0          |")
+        assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
+        assertThat(lines).anySatisfy { assertThat(it).contains("I = Operation excluded from run by the filter expression") }
+    }
+
+    @Test
+    fun `renders ineligible operations with star marker`() {
+        val specConfig = CtrfSpecConfig(
+            protocol = "http",
+            specType = "openapi",
+            specification = "specs/openapi.yaml",
+        )
+        val report = OpenApiCoverageReport(
+            configFilePath = "specmatic.yaml",
+            coverageOperations = listOf(
+                io.specmatic.core.report.OpenApiCoverageReportOperation(
+                    operation = OpenAPIOperation(
+                        path = "/orders",
+                        method = "GET",
+                        responseCode = 200,
+                        protocol = SpecmaticProtocol.HTTP,
+                    ),
+                    specConfig = specConfig,
+                    tests = emptyList(),
+                    coverageStatus = CoverageStatus.NOT_TESTED,
+                    eligibleForCoverage = false,
+                    reasons = emptyList(),
+                )
+            )
+        ).toConsoleReport()
+
+        val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
+
+        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested* | 0          |")
     }
 }
