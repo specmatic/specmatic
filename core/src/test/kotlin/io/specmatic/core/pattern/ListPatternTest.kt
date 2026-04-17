@@ -678,6 +678,137 @@ Feature: Recursive test
             val fixedValue = pattern.fixValue(partialValue, resolver)
             assertThat(fixedValue).isEqualTo(partialValue)
         }
+
+        @Test
+        fun `should fix an invalid json array value and while doing so make sure minItems constraint is enforced`() {
+            val minItems = 3
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                minItems = minItems
+            )
+
+            val invalidValue = JSONArrayValue(
+                list = listOf(NumberValue(1))
+            )
+
+            val fixedValue = pattern.fixValue(invalidValue, Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isGreaterThanOrEqualTo(minItems)
+        }
+
+        @Test
+        fun `should fix an invalid json array value and while doing so make sure maxItems constraint is enforced`() {
+            val maxItems = 2
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                maxItems = maxItems
+            )
+
+            val invalidValue = JSONArrayValue(
+                list = listOf(StringValue("a"), StringValue("b"), StringValue("c"))
+            )
+
+            val fixedValue = pattern.fixValue(invalidValue, Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isLessThanOrEqualTo(maxItems)
+        }
+
+        @Test
+        fun `should fix an invalid json array value and while doing so make sure minItems and maxItems constraint is enforced`() {
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                minItems = 3,
+                maxItems = 3
+            )
+
+            val invalidValue = JSONArrayValue(
+                list = listOf(NumberValue(1), NumberValue(2), NumberValue(3), NumberValue(4))
+            )
+
+            val fixedValue = pattern.fixValue(invalidValue, Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isEqualTo(3)
+        }
+
+        @Test
+        fun `should fix an invalid non json array value and while doing so make sure minItems constraint is enforced`() {
+            val minItems = 3
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                minItems = minItems,
+            )
+
+            val fixedValue = pattern.fixValue(StringValue(), Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isGreaterThanOrEqualTo(minItems)
+        }
+
+        @Test
+        fun `should fix an invalid non json array value and while doing so make sure maxItems constraint is enforced`() {
+            val maxItems = 0
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                maxItems = maxItems,
+            )
+
+            val fixedValue = pattern.fixValue(StringValue(), Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isLessThanOrEqualTo(maxItems)
+        }
+
+        @Test
+        fun `should fix an invalid non json array value and while doing so make sure minItems and maxItems constraint is enforced`() {
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                minItems = 3,
+                maxItems = 3
+            )
+
+            val fixedValue = pattern.fixValue(StringValue(), Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isEqualTo(3)
+        }
+
+        @Test
+        fun `should not fix an already valid value that satisfies the minItems, maxItems constraints`() {
+            val pattern = ListPattern(
+                pattern = StringPattern(),
+                minItems = 3,
+                maxItems = 3
+            )
+
+            val validValue = JSONArrayValue(
+                list = listOf(
+                    StringValue("a"),
+                    StringValue("b"),
+                    StringValue("c"),
+                )
+            )
+
+            val fixedValue = pattern.fixValue(validValue, Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue).isEqualTo(validValue)
+        }
+
+        @Test
+        fun `should return fixed array of size same as that of given invalid json array value when no minItems, maxItems constraints are set`() {
+            val pattern = ListPattern(pattern = StringPattern())
+
+            val invalidValue = JSONArrayValue(
+                list = listOf(NumberValue(1))
+            )
+
+            val fixedValue = pattern.fixValue(invalidValue, Resolver()) as JSONArrayValue
+
+            assertThat(fixedValue.list.all { it is StringValue }).isTrue
+            assertThat(fixedValue.list.size).isEqualTo(1)
+        }
     }
 
     @Nested

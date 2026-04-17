@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.value.*
+import kotlin.random.Random
 
 const val LIST_BREAD_CRUMB = "[]"
 
@@ -37,13 +38,27 @@ data class ListPattern(
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
         val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPath(this, this.pattern)
+
         if (value !is JSONArrayValue || (value.list.isEmpty() && resolver.allPatternsAreMandatory && !resolver.hasPartialKeyCheck())) {
-            return pattern.listOf(0.until(randomNumber(3)).mapIndexed { index, _ ->
+            val listSize = listSizeForGeneration()
+            return pattern.listOf(0.until(listSize).mapIndexed { index, _ ->
                 attempt(breadCrumb = "[$index (random)]") { pattern.fixValue(NullValue, updatedResolver) }
             }, resolver)
         }
 
-        return JSONArrayValue(value.list.map { pattern.fixValue(it, updatedResolver) })
+        val listSize = if (minItems == null && maxItems == null) value.list.size else listSizeForGeneration()
+
+        val fixedItems = value.list.map { pattern.fixValue(it, updatedResolver) }.take(listSize)
+        val noOfMissingItems = (listSize - fixedItems.size).coerceAtLeast(0)
+
+        if (noOfMissingItems == 0) return JSONArrayValue(fixedItems)
+
+        val missingItems = run {
+            val sampleValue = fixedItems.firstOrNull() ?: pattern.generate(updatedResolver)
+            List(noOfMissingItems) { sampleValue }
+        }
+
+        return JSONArrayValue(fixedItems + missingItems)
     }
 
     override fun eliminateOptionalKey(value: Value, resolver: Resolver): Value {
@@ -311,6 +326,15 @@ data class ListPattern(
                 else -> emptyList()
             }
         }.toSet()
+    }
+
+    fun listSizeForGeneration(): Int {
+        return when {
+            minItems != null && maxItems != null -> Random.nextInt(minItems, maxItems + 1)
+            minItems != null -> Random.nextInt(minItems, minItems + 3)
+            maxItems != null -> Random.nextInt(0, maxItems + 1)
+            else -> randomNumber(3)
+        }
     }
 
     private fun listPatternsWithNegativePatternsWithin(
