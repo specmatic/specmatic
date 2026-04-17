@@ -1,8 +1,10 @@
 package io.specmatic.stub.report
 
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
 
@@ -26,7 +28,12 @@ class MockUsageReportGenerator {
                 specConfig = specConfigFor(operation, coverageStatus, facts.attemptRecords, context),
                 coverageStatus = coverageStatus,
                 eligibleForCoverage = coverageStatus != CoverageStatus.MISSING_IN_SPEC,
+                omittedStatus = omittedStatusFor(coverageStatus),
                 tests = facts.tests,
+                metrics = CtrfOperationMetrics(
+                    attempts = facts.attemptRecords.size,
+                    matches = facts.matchRecords.size,
+                ),
             )
         }
     }
@@ -62,6 +69,13 @@ class MockUsageReportGenerator {
             else -> throw IllegalArgumentException(
                 "Cannot determine mock usage coverage status with attempts=$attempts and matches=$matches"
             )
+        }
+    }
+
+    private fun omittedStatusFor(coverageStatus: CoverageStatus): OmittedStatus {
+        return when (coverageStatus) {
+            CoverageStatus.NOT_USED -> OmittedStatus.SKIPPED
+            else -> OmittedStatus.NONE
         }
     }
 

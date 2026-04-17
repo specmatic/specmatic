@@ -3,6 +3,7 @@ package io.specmatic.stub.report
 import io.specmatic.core.HttpResponse
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -46,15 +47,30 @@ class MockUsageReportGeneratorTest {
         )
 
         val reportOperations = reportGenerator.generate(context)
+        val coveredOperation = reportOperations.single { it.operation.path == "/orders" && it.operation.method == "POST" }
+        val unusedOperation = reportOperations.single { it.operation.path == "/orders" && it.operation.method == "GET" }
+        val mismatchOperation = reportOperations.single { it.operation.path == "/orders" && it.operation.method == "PUT" }
+        val missingInSpecOperation = reportOperations.single { it.operation.path == "/unknown" }
 
-        assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "POST" }.coverageStatus)
-            .isEqualTo(CoverageStatus.COVERED)
-        assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "GET" }.coverageStatus)
-            .isEqualTo(CoverageStatus.NOT_USED)
-        assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "PUT" }.coverageStatus)
-            .isEqualTo(CoverageStatus.MISMATCH)
-        assertThat(reportOperations.single { it.operation.path == "/unknown" }.coverageStatus)
-            .isEqualTo(CoverageStatus.MISSING_IN_SPEC)
+        assertThat(coveredOperation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+        assertThat(coveredOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+        assertThat(coveredOperation.metrics?.attempts).isEqualTo(1)
+        assertThat(coveredOperation.metrics?.matches).isEqualTo(1)
+
+        assertThat(unusedOperation.coverageStatus).isEqualTo(CoverageStatus.NOT_USED)
+        assertThat(unusedOperation.omittedStatus).isEqualTo(OmittedStatus.SKIPPED)
+        assertThat(unusedOperation.metrics?.attempts).isEqualTo(0)
+        assertThat(unusedOperation.metrics?.matches).isEqualTo(0)
+
+        assertThat(mismatchOperation.coverageStatus).isEqualTo(CoverageStatus.MISMATCH)
+        assertThat(mismatchOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+        assertThat(mismatchOperation.metrics?.attempts).isEqualTo(1)
+        assertThat(mismatchOperation.metrics?.matches).isEqualTo(0)
+
+        assertThat(missingInSpecOperation.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
+        assertThat(missingInSpecOperation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+        assertThat(missingInSpecOperation.metrics?.attempts).isEqualTo(1)
+        assertThat(missingInSpecOperation.metrics?.matches).isEqualTo(0)
     }
 
     @Test
