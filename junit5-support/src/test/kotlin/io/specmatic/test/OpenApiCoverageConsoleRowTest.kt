@@ -15,8 +15,8 @@ class OpenApiCoverageConsoleRowTest {
             ReportColumn("requestContentType", 18),
             ReportColumn("response", 8),
             ReportColumn("responseContentType", 20),
-            ReportColumn("remark", 14),
-            ReportColumn("#exercised", 10),
+            ReportColumn("remarks", 14),
+            ReportColumn("result", 10),
         )
     }
 
@@ -24,21 +24,21 @@ class OpenApiCoverageConsoleRowTest {
     fun `test renders coverage percentage, path, method, response, count for top level row of covered endpoint`() {
         val coverageRowString = OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED).toRowString(reportColumns)
         println(coverageRowString)
-        assertThat(coverageRowString).isEqualTo("| 100%     | /route1 | GET    | NA                 | 200      | NA                   | covered        | 1          |")
+        assertThat(coverageRowString).isEqualTo("| 100%     | /route1 | GET    | NA                 | 200      | NA                   | covered        | 1p         |")
     }
 
     @Test
     fun `test renders path, method, response, count with coverage percentage blank for sub level row of covered endpoint`() {
         val coverageRowString = OpenApiCoverageConsoleRow("POST", "", 200, 1, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false).toRowString(reportColumns)
         println(coverageRowString)
-        assertThat(coverageRowString).isEqualTo("|          |         | POST   | NA                 | 200      | NA                   | missing in spec | 1          |")
+        assertThat(coverageRowString).isEqualTo("|          |         | POST   | NA                 | 200      | NA                   | missing in spec | 1p         |")
     }
 
     @Test
     fun `test renders coverage percentage, path, method, with response, count for top level row of missed endpoint`() {
         val coverageRowString = OpenApiCoverageConsoleRow("GET", "/route1", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC).toRowString(reportColumns)
         println(coverageRowString)
-        assertThat(coverageRowString).isEqualTo("| 0%       | /route1 | GET    | NA                 | 0        | NA                   | missing in spec | 0          |")
+        assertThat(coverageRowString).isEqualTo("| 0%       | /route1 | GET    | NA                 | 0        | NA                   | missing in spec |            |")
     }
 
 
@@ -46,21 +46,21 @@ class OpenApiCoverageConsoleRowTest {
     fun `test renders coverage percentage, path, method, with response, count for sub level row of missed endpoint`() {
         val coverageRowString = OpenApiCoverageConsoleRow("POST","/route1", 0, 1, 0, CoverageStatus.MISSING_IN_SPEC, showPath = false).toRowString(reportColumns)
         println(coverageRowString)
-        assertThat(coverageRowString).isEqualTo("|          |         | POST   | NA                 | 0        | NA                   | missing in spec | 1          |")
+        assertThat(coverageRowString).isEqualTo("|          |         | POST   | NA                 | 0        | NA                   | missing in spec | 1p         |")
     }
 
     @Test
     fun `test renders coverage percentage, path, method, with response, count for top level row of not implemented endpoint`() {
         val coverageRowString = OpenApiCoverageConsoleRow("GET", "/route1", 0, 0, 0, CoverageStatus.NOT_IMPLEMENTED).toRowString(reportColumns)
         println(coverageRowString)
-        assertThat(coverageRowString).isEqualTo("| 0%       | /route1 | GET    | NA                 | 0        | NA                   | not implemented | 0          |")
+        assertThat(coverageRowString).isEqualTo("| 0%       | /route1 | GET    | NA                 | 0        | NA                   | not implemented |            |")
     }
 
     @Test
     fun `test renders coverage percentage, path, method, with response, count for sub level row of not implemented endpoint`() {
         val coverageRowString = OpenApiCoverageConsoleRow("GET", "/route1", 200, 0, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false).toRowString(reportColumns)
         println(coverageRowString)
-        assertThat(coverageRowString).isEqualTo("|          |         | GET    | NA                 | 200      | NA                   | not implemented | 0          |")
+        assertThat(coverageRowString).isEqualTo("|          |         | GET    | NA                 | 200      | NA                   | not implemented |            |")
     }
 
     @Test
@@ -75,7 +75,7 @@ class OpenApiCoverageConsoleRowTest {
             requestContentType = "application/json",
             responseContentType = "application/problem+json"
         ).toRowString(reportColumns)
-        assertThat(coverageRowString).isEqualTo("| 100%     | /orders | POST   | application/json   | 201      | application/problem+json | covered        | 1          |")
+        assertThat(coverageRowString).isEqualTo("| 100%     | /orders | POST   | application/json   | 201      | application/problem+json | covered        | 1p         |")
     }
 
     @Test
@@ -93,7 +93,7 @@ class OpenApiCoverageConsoleRowTest {
             requestContentType = "application/json",
             responseContentType = "application/problem+json"
         ).toRowString(reportColumns)
-        assertThat(coverageRowString).isEqualTo("|          |         |        |                    | 400      | application/problem+json | covered        | 1          |")
+        assertThat(coverageRowString).isEqualTo("|          |         |        |                    | 400      | application/problem+json | covered        | 1p         |")
     }
 
     @Test
@@ -108,7 +108,7 @@ class OpenApiCoverageConsoleRowTest {
             requestContentType = null,
             responseContentType = "application/json"
         ).toRowString(reportColumns)
-        assertThat(coverageRowString).isEqualTo("| 100%     | /orders | GET    | NA                 | 200      | application/json     | covered        | 1          |")
+        assertThat(coverageRowString).isEqualTo("| 100%     | /orders | GET    | NA                 | 200      | application/json     | covered        | 1p         |")
     }
 
     @Test
@@ -123,6 +123,6 @@ class OpenApiCoverageConsoleRowTest {
             requestContentType = "application/json",
             responseContentType = null
         ).toRowString(reportColumns)
-        assertThat(coverageRowString).isEqualTo("| 100%     | /orders | GET    | application/json   | 200      | NA                   | covered        | 1          |")
+        assertThat(coverageRowString).isEqualTo("| 100%     | /orders | GET    | application/json   | 200      | NA                   | covered        | 1p         |")
     }
 }

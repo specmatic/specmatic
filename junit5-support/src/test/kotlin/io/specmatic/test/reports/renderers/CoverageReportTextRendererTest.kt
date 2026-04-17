@@ -34,9 +34,9 @@ class CoverageReportTextRendererTest {
 
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
-        assertThat(lines).contains("| coverage | path    | method | requestContentType | response | responseContentType | remarks    | #exercised |")
-        assertThat(lines).contains("| 50%      | /orders | POST   | application/json   | 200      | application/json    | covered    | 1          |")
-        assertThat(lines).contains("|          |         |        | NA                 | 400      | application/json    | not tested | 0          |")
+        assertThat(lines).contains("| coverage | path    | method | requestContentType | response | responseContentType | remarks    | result |")
+        assertThat(lines).contains("| 50%      | /orders | POST   | application/json   | 200      | application/json    | covered    | 1p     |")
+        assertThat(lines).contains("|          |         |        | NA                 | 400      | application/json    | not tested |        |")
         assertThat(lines).anySatisfy { assertThat(it).contains("50% API Coverage reported from 2 operations eligible for coverage") }
         assertThat(lines).anySatisfy { assertThat(it).contains("50% Absolute Coverage (includes excluded operations that were not tested)") }
         assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
@@ -72,8 +72,8 @@ class CoverageReportTextRendererTest {
 
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
-        assertThat(lines).contains("| coverage | port  | soapAction   | remarks | #exercised |")
-        assertThat(lines).contains("| 100%     | /soap | urn:getOrder | covered | 1          |")
+        assertThat(lines).contains("| coverage | port  | soapAction   | remarks | result |")
+        assertThat(lines).contains("| 100%     | /soap | urn:getOrder | covered | 1p     |")
         assertThat(lines).anySatisfy { assertThat(it).contains("100% API Coverage reported from 1 operations eligible for coverage") }
         assertThat(lines).anySatisfy { assertThat(it).contains("100% Absolute Coverage (includes excluded operations that were not tested)") }
         assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
@@ -110,8 +110,8 @@ class CoverageReportTextRendererTest {
 
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
-        assertThat(lines).contains("| 100%     | /orders | POST   | application/json   | 200      | application/json    | covered | 1          |")
-        assertThat(lines).contains("|          |         | PATCH  | application/json   | 200      | application/json    | covered | 1          |")
+        assertThat(lines).contains("| 100%     | /orders | POST   | application/json   | 200      | application/json    | covered | 1p     |")
+        assertThat(lines).contains("|          |         | PATCH  | application/json   | 200      | application/json    | covered | 1p     |")
     }
 
     @Test
@@ -178,7 +178,7 @@ class CoverageReportTextRendererTest {
         val coverage = OpenApiCoverageBuilder.buildCoverage { specEndpoint(path = "/orders", method = "GET", responseCode = 200) }
         val report = coverage.generate().toConsoleReport()
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
-        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested | 0          |")
+        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested |        |")
         assertThat(lines).anySatisfy { assertThat(it).contains("0% Absolute Coverage (includes excluded operations that were not tested)") }
     }
 
@@ -216,7 +216,7 @@ class CoverageReportTextRendererTest {
 
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
 
-        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not testedI | 0          |")
+        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not testedI |        |")
         assertThat(lines).anySatisfy { assertThat(it).contains("* = Operation not eligible for coverage") }
         assertThat(lines).anySatisfy { assertThat(it).contains("I = Operation excluded from run by the filter expression") }
     }
@@ -249,6 +249,6 @@ class CoverageReportTextRendererTest {
 
         val lines = CoverageReportTextRenderer().render(report, SpecmaticConfig()).trim().lines()
 
-        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested* | 0          |")
+        assertThat(lines).contains("| 0%       | /orders | GET    | NA                 | 200      | NA                  | not tested* |        |")
     }
 }

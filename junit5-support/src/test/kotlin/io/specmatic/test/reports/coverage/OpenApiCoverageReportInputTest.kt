@@ -416,7 +416,22 @@ class OpenApiCoverageReportInputTest {
 
         assertThat(report.coverageRows.filter { it.path == "/mixed" }).containsExactly(
             OpenApiCoverageConsoleRow("GET", "/mixed", 200, 1, 33, CoverageStatus.COVERED),
-            OpenApiCoverageConsoleRow("GET", "/mixed", 400, 1, 33, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false, showRequestContentType = false),
+            OpenApiCoverageConsoleRow(
+                method = "GET",
+                path = "/mixed",
+                responseStatus = "400",
+                exercisedCount = 1,
+                result = "1f",
+                coveragePercentage = 33,
+                remarks = CoverageStatus.NOT_IMPLEMENTED,
+                eligibleForCoverage = true,
+                excludedFromRun = false,
+                showPath = false,
+                showMethod = false,
+                requestContentType = null,
+                showRequestContentType = false,
+                responseContentType = null,
+            ),
             OpenApiCoverageConsoleRow("GET", "/mixed", 500, 0, 33, CoverageStatus.NOT_TESTED, showPath = false, showMethod = false, showRequestContentType = false),
         )
         assertThat(report.coveragePercentage).isEqualTo(33)
@@ -465,8 +480,38 @@ class OpenApiCoverageReportInputTest {
         val report = input.generate().toConsoleReport()
 
         assertThat(report.coverageRows.filter { it.path == "/mixed" }).containsExactly(
-            OpenApiCoverageConsoleRow("GET", "/mixed", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
-            OpenApiCoverageConsoleRow("GET", "/mixed", 400, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false, showRequestContentType = false),
+            OpenApiCoverageConsoleRow(
+                method = "GET",
+                path = "/mixed",
+                responseStatus = "200",
+                exercisedCount = 1,
+                result = "1f",
+                coveragePercentage = 0,
+                remarks = CoverageStatus.NOT_IMPLEMENTED,
+                eligibleForCoverage = true,
+                excludedFromRun = false,
+                showPath = true,
+                showMethod = true,
+                requestContentType = null,
+                showRequestContentType = true,
+                responseContentType = null,
+            ),
+            OpenApiCoverageConsoleRow(
+                method = "GET",
+                path = "/mixed",
+                responseStatus = "400",
+                exercisedCount = 1,
+                result = "1f",
+                coveragePercentage = 0,
+                remarks = CoverageStatus.NOT_IMPLEMENTED,
+                eligibleForCoverage = true,
+                excludedFromRun = false,
+                showPath = false,
+                showMethod = false,
+                requestContentType = null,
+                showRequestContentType = false,
+                responseContentType = null,
+            ),
         )
         assertThat(report.coveragePercentage).isEqualTo(0)
     }
@@ -728,8 +773,38 @@ class OpenApiCoverageReportInputTest {
         }.generate().toConsoleReport()
 
         assertThat(report.coverageRows.filter { it.path == "/pets/search" }).containsExactly(
-            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED),
-            OpenApiCoverageConsoleRow("GET", "/pets/search", 404, 1, 0, CoverageStatus.NOT_IMPLEMENTED, showPath = false, showMethod = false, showRequestContentType = false),
+            OpenApiCoverageConsoleRow(
+                method = "GET",
+                path = "/pets/search",
+                responseStatus = "200",
+                exercisedCount = 1,
+                result = "1f",
+                coveragePercentage = 0,
+                remarks = CoverageStatus.NOT_IMPLEMENTED,
+                eligibleForCoverage = true,
+                excludedFromRun = false,
+                showPath = true,
+                showMethod = true,
+                requestContentType = null,
+                showRequestContentType = true,
+                responseContentType = null,
+            ),
+            OpenApiCoverageConsoleRow(
+                method = "GET",
+                path = "/pets/search",
+                responseStatus = "404",
+                exercisedCount = 1,
+                result = "1f",
+                coveragePercentage = 0,
+                remarks = CoverageStatus.NOT_IMPLEMENTED,
+                eligibleForCoverage = true,
+                excludedFromRun = false,
+                showPath = false,
+                showMethod = false,
+                requestContentType = null,
+                showRequestContentType = false,
+                responseContentType = null,
+            ),
         )
         assertThat(report.coveragePercentage).isEqualTo(0)
     }
@@ -1033,7 +1108,22 @@ class OpenApiCoverageReportInputTest {
         val report = reportInput.generate().toConsoleReport()
 
         assertThat(report.coverageRows).containsExactly(
-            OpenApiCoverageConsoleRow("GET", "/pets/search", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+            OpenApiCoverageConsoleRow(
+                method = "GET",
+                path = "/pets/search",
+                responseStatus = "200",
+                exercisedCount = 1,
+                result = "1f",
+                coveragePercentage = 0,
+                remarks = CoverageStatus.NOT_IMPLEMENTED,
+                eligibleForCoverage = true,
+                excludedFromRun = false,
+                showPath = true,
+                showMethod = true,
+                requestContentType = null,
+                showRequestContentType = true,
+                responseContentType = null,
+            )
         )
         val resultRecord = report.testResultRecords.single()
         assertThat(resultRecord.path).isEqualTo("/pets/search")
