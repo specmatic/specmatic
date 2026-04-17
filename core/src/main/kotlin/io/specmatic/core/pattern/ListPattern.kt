@@ -10,27 +10,8 @@ data class ListPattern(
     override val pattern: Pattern,
     override val typeAlias: String? = null,
     override val example: List<String?>? = null,
-    override val extensions: Map<String, Any>  = emptyMap(),
-    val minItems: Int? = null,
-    val maxItems: Int? = null
+    override val extensions: Map<String, Any>  = emptyMap()
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
-    
-    init {
-        minItems?.let {
-            if (it < 0) {
-                throw ContractException("minItems must be >= 0, but got $it")
-            }
-        }
-        maxItems?.let {
-            if (it < 0) {
-                throw ContractException("maxItems must be >= 0, but got $it")
-            }
-        }
-        if (minItems != null && maxItems != null && minItems > maxItems) {
-            throw ContractException("maxItems ($maxItems) cannot be less than minItems ($minItems)")
-        }
-    }
-    
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
@@ -125,14 +106,6 @@ data class ListPattern(
                 else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
             }
 
-        if (minItems != null && sampleData.list.size < minItems) {
-            return Result.Failure("List is expected to contain at least $minItems items, but it contained ${sampleData.list.size} items", ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION)
-        }
-
-        if (maxItems != null && sampleData.list.size > maxItems) {
-            return Result.Failure("List is expected to contain at most $maxItems items, but it contained ${sampleData.list.size} items", ruleViolation = StandardRuleViolation.CONSTRAINT_VIOLATION)
-        }
-
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         val patternToCheck = this.typeAlias?.let { this } ?: this.pattern
         if (resolverWithEmptyType.allPatternsAreMandatory && !resolverWithEmptyType.hasSeenPattern(patternToCheck) && sampleData.list.isEmpty()) {
@@ -173,7 +146,7 @@ data class ListPattern(
                 try {
                     patterns.firstOrNull()?.value
                     patterns.map {
-                        it.ifValue { ListPattern(it, minItems = minItems, maxItems = maxItems) }
+                        it.ifValue { ListPattern(it) }
                     }
                 } catch(e: ContractException) {
                     if(e.isCycle)
@@ -189,7 +162,7 @@ data class ListPattern(
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
             resolverWithEmptyType.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                pattern.newBasedOn(cyclePreventedResolver).map { ListPattern(it, minItems = minItems, maxItems = maxItems) }
+                pattern.newBasedOn(cyclePreventedResolver).map { ListPattern(it) }
             }
         }
     }
@@ -200,8 +173,12 @@ data class ListPattern(
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> {
         return attempt(breadCrumb = LIST_BREAD_CRUMB) {
-            listPatternsWithNegativePatternsWithin(row, resolver, config) +
-                    sizeViolationPatterns()
+            pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
+                .map { negativePatternValue ->
+                    negativePatternValue.ifValue { pattern ->
+                        ListPattern(pattern) as Pattern
+                    }.breadCrumb(LIST_BREAD_CRUMB)
+                }
         }
     }
 
@@ -311,39 +288,6 @@ data class ListPattern(
                 else -> emptyList()
             }
         }.toSet()
-    }
-
-    private fun listPatternsWithNegativePatternsWithin(
-        row: Row,
-        resolver: Resolver,
-        config: NegativePatternConfiguration
-    ): Sequence<ReturnValue<Pattern>> =
-        pattern.negativeBasedOn(row.stepDownIntoList(), resolver, config)
-            .map { negativePatternValue ->
-                negativePatternValue.ifValue { pattern ->
-                    ListPattern(pattern, minItems = minItems, maxItems = maxItems) as Pattern
-                }.breadCrumb(LIST_BREAD_CRUMB)
-            }
-
-    private fun sizeViolationPatterns(): Sequence<ReturnValue<Pattern>> {
-        val minItemsViolationPattern: ReturnValue<Pattern>? = minItems
-            ?.takeIf { it > 0 }
-            ?.let {
-                HasValue(
-                    copy(minItems = it - 1, maxItems = it - 1),
-                    "is set to a value with items less than minItems '$it'"
-                )
-            }
-
-        val maxItemsViolationPattern: ReturnValue<Pattern>? = maxItems
-            ?.let {
-                HasValue(
-                    copy(minItems = it + 1, maxItems = it + 1),
-                    "is set to a value with items greater than maxItems '$it'"
-                )
-            }
-
-        return listOfNotNull(minItemsViolationPattern, maxItemsViolationPattern).asSequence()
     }
 }
 
