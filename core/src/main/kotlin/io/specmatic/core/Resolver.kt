@@ -7,7 +7,6 @@ import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.asserts.WILDCARD_INDEX
-import kotlin.random.Random
 
 val actualMatch: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = { resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value ->
     resolver.actualPatternMatch(factKey, pattern, sampleValue)
@@ -337,18 +336,12 @@ data class Resolver(
     fun generateList(pattern: ListPattern): Value {
         val patternFocused = updateLookupPath(pattern.typeAlias)
         val valueFromDict = patternFocused.dictionary.getValueFor(patternFocused.dictionaryLookupPath, pattern, this)
-        return valueFromDict ?: this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern)
+        return valueFromDict ?: this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern.pattern)
     }
 
-    private fun generateRandomList(listPattern: ListPattern): Value {
-        val size = when {
-            listPattern.minItems != null && listPattern.maxItems != null -> Random.nextInt(listPattern.minItems, listPattern.maxItems + 1)
-            listPattern.minItems != null -> Random.nextInt(listPattern.minItems, listPattern.minItems + 3)
-            listPattern.maxItems != null -> Random.nextInt(0, listPattern.maxItems + 1)
-            else -> randomNumber(3)
-        }
-        return listPattern.pattern.listOf(0.until(size).mapIndexed{ index, _ ->
-            attempt(breadCrumb = "[$index (random)]") { generate(listPattern.pattern) }
+    private fun generateRandomList(pattern: Pattern): Value {
+        return pattern.listOf(0.until(randomNumber(3)).mapIndexed{ index, _ ->
+            attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)
     }
 

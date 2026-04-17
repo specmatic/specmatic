@@ -31,7 +31,6 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
-import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.toViolationReportString
@@ -1843,63 +1842,5 @@ paths:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(results.testCount).isEqualTo(1)
-    }
-
-    @Test
-    fun `should respect minItems and maxItems constraints in stub generation and validation`() {
-        val spec = File("src/test/resources/openapi/array_constraints.yaml")
-        val feature = parseContractFileToFeature(spec)
-        val getScenario = feature.copy(scenarios = feature.scenarios.filter { it.method == "GET" })
-
-        val results = HttpStub(getScenario).use { stub ->
-            getScenario.executeTests(object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    val response = stub.client.execute(request)
-                    val body = response.body as JSONObjectValue
-                    val items = body.jsonObject["items"] as JSONArrayValue
-
-                    assertThat(items.list.size).isGreaterThanOrEqualTo(2)
-                    assertThat(items.list.size).isLessThanOrEqualTo(5)
-
-                    return response
-                }
-            })
-        }
-
-        assertThat(results.success()).withFailMessage(results.report()).isTrue()
-    }
-
-    @Test
-    fun `should validate minItems and maxItems constraints in request body`() {
-        val spec = File("src/test/resources/openapi/array_constraints.yaml")
-        val feature = parseContractFileToFeature(spec)
-
-        HttpStub(feature).use { stub ->
-            val invalidRequest = parsedJSONObject("""{"items": ["single"]}""")
-            val response = stub.client.execute(HttpRequest("POST", "/items", body = invalidRequest))
-
-            assertThat(response.status).isEqualTo(400)
-        }
-    }
-
-    @Test
-    fun `should generate POST request bodies with arrays within minItems and maxItems bounds`() {
-        val spec = File("src/test/resources/openapi/array_constraints.yaml")
-        val feature = parseContractFileToFeature(spec)
-        val scenario = feature.copy(scenarios = feature.scenarios.filter { it.method == "POST" })
-
-        val results = scenario.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                val body = request.body as JSONObjectValue
-                val items = body.jsonObject["items"] as JSONArrayValue
-
-                assertThat(items.list.size).isGreaterThanOrEqualTo(2)
-                assertThat(items.list.size).isLessThanOrEqualTo(5)
-
-                return HttpResponse(201, emptyMap(), StringValue(""))
-            }
-        })
-
-        assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 }

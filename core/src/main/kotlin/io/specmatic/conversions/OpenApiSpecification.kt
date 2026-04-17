@@ -2754,9 +2754,6 @@ class OpenApiSpecification(
                 ListPattern(
                     pattern = toSpecmaticPattern(itemsSchema, typeStack, collectorContext = collectorContext.at("items")),
                     example = toListExample(this.extractFirstExampleAsJsonNode()),
-                    minItems = this.minItems,
-                    maxItems = this.maxItems
-
                 )
             }
 
