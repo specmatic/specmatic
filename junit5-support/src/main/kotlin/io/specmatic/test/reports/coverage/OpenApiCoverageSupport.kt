@@ -5,7 +5,7 @@ import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
 
-internal fun Endpoint.toOpenApiOperation(): OpenAPIOperation {
+fun Endpoint.toOpenApiOperation(): OpenAPIOperation {
     return OpenAPIOperation(
         path = path,
         method = soapAction ?: method,

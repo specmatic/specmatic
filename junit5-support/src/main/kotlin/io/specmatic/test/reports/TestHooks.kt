@@ -31,7 +31,7 @@ interface TestReportListener {
     fun onExampleErrors(resultsBySpecFile: Map<String, Result>)
     fun onTestsComplete()
     fun onEnd()
-    fun onCoverageCalculated(coverage: Int)
+    fun onCoverageCalculated(coverage: Int, absoluteCoverage: Int)
     fun onPathCoverageCalculated(path: String, pathCoverage: Int)
     fun onGovernance(result: Result)
     fun onTestDecision(decision: Decision<ContractTest, Scenario>)

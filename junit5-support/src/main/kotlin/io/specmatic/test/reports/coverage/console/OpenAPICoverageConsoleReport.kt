@@ -17,6 +17,8 @@ data class OpenAPICoverageConsoleReport(
 ) {
     val isGherkinReport = testResultRecords.isNotEmpty() && testResultRecords.all { it.isGherkin }
     init {
-        coverageHooks.onEachListener { onCoverageCalculated(coveragePercentage) }
+        coverageHooks.onEachListener {
+            onCoverageCalculated(coveragePercentage, absoluteCoveragePercentage)
+        }
     }
 }
