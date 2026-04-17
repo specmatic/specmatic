@@ -47,7 +47,7 @@ class CoverageReportGenerator {
         return OpenApiCoverageFacts(
             tests = tests,
             operation = operation,
-            matchCount = tests.count { it.matchesResponseIdentifiers() },
+            matchCount = tests.count { it.matchesResponseIdentifiers },
             qualifiers = tests.flatMap { it.operationQualifiers() }.distinct()
         )
     }

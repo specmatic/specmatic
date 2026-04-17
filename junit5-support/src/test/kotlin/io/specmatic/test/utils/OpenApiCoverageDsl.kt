@@ -1,18 +1,29 @@
 package io.specmatic.test.utils
 
+import io.specmatic.core.HttpHeadersPattern
+import io.specmatic.core.HttpPathPattern
+import io.specmatic.core.HttpRequestPattern
+import io.specmatic.core.HttpResponsePattern
+import io.specmatic.core.Scenario
+import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.report.OpenApiCoverageReportOperation
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
+import io.specmatic.core.utilities.mapValue
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
+import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverage
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
+import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.toOpenApiOperation
 import org.assertj.core.api.Assertions.assertThat
 
@@ -26,6 +37,7 @@ class OpenApiCoverageBuilder {
     private val inScopeEndpoints = mutableListOf<Endpoint>()
     private val testRecords = mutableListOf<TestResultRecord>()
     private val previousTestRecords = mutableListOf<TestResultRecord>()
+    private val decisions = mutableListOf<Decision<ContractTest, Scenario>>()
     private val listeners = mutableListOf<TestReportListener>()
 
     fun configFilePath(path: String) {
@@ -96,6 +108,27 @@ class OpenApiCoverageBuilder {
         allSpecEndpoints += endpoint
     }
 
+    fun decisionSkip(
+        path: String,
+        method: String,
+        responseCode: Int,
+        requestType: String? = null,
+        responseType: String? = null,
+        reasoning: Reasoning,
+        protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
+        specType: SpecType = SpecType.OPENAPI,
+    ) {
+        val scenario = Scenario(
+            ScenarioInfo(
+                protocol = protocol,
+                specType = specType,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = method, headersPattern = HttpHeadersPattern(contentType = requestType)),
+                httpResponsePattern = HttpResponsePattern(status = responseCode, headersPattern = HttpHeadersPattern(contentType = responseType)),
+            )
+        )
+        decisions += Decision.Skip(scenario, reasoning)
+    }
+
     fun testResult(
         path: String,
         method: String,
@@ -159,6 +192,7 @@ class OpenApiCoverageBuilder {
         )
         coverage.addEndpoints(allEndpoints = allSpecEndpoints, filteredEndpoints = inScopeEndpoints)
         testRecords.forEach(coverage::addTestReportRecords)
+        decisions.forEach { decision -> coverage.onContractTestDecision(decision.mapValue { it to "" }) }
         if (applicationApis.isNotEmpty()) coverage.addAPIs(applicationApis)
         if (excludedPaths.isNotEmpty()) coverage.addExcludedAPIs(excludedPaths)
         coverage.setEndpointsAPIFlag(endpointsApiFlag)
@@ -204,7 +238,7 @@ class OpenApiCoverageVerifier(val report: OpenApiCoverageReport) {
         responseCode: Int,
         requestType: String? = null,
         responseType: String? = null,
-    ): io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow {
+    ): OpenApiCoverageConsoleRow {
         return consoleReport.coverageRows.single {
             it.method.equals(method, ignoreCase = true) &&
             it.path == path &&

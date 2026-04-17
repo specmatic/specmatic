@@ -61,6 +61,12 @@ data class TestResultRecord(
     val exampleId: String? = null,
     val isResponseInSpecification: Boolean? = null,
     val reasoning: Reasoning = Reasoning(),
+    val matchesResponseIdentifiers: Boolean = matchesResponseIdentifiers(
+        expectedCode = responseStatus,
+        actualCode = actualResponseStatus,
+        expectedType = responseContentType,
+        actualType = actualResponseContentType
+    ),
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -83,7 +89,7 @@ data class TestResultRecord(
             wip = isWip,
             outputs = outputs,
             qualifiers = testQualifiers(),
-            match = matchesResponseIdentifiers(),
+            match = matchesResponseIdentifiers,
             input = request?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L,
             reasons = reasoning.toCtrfSnapshots()
@@ -98,19 +104,6 @@ data class TestResultRecord(
     fun operationQualifiers(): List<CtrfOperationQualifiers> {
         if (!this.isWip) return emptyList()
         return listOf(CtrfOperationQualifiers.WIP)
-    }
-
-    fun matchesResponseIdentifiers(code: Int = actualResponseStatus, contentType: String? = actualResponseContentType): Boolean {
-        if (responseStatus !in setOf(DEFAULT_RESPONSE_CODE, code)) return false
-        return runCatching {
-            val expected = this.responseContentType?.let(ContentType::parse)
-            val actual = contentType?.let(ContentType::parse)
-            Pair(expected, actual)
-        }.mapCatching { (expected, actual) ->
-            if (expected == null && actual == null) return@mapCatching true
-            if (expected == null || actual == null) return@mapCatching false
-            actual.match(expected)
-        }.getOrDefault(false)
     }
 
     override fun tags(): List<String> {
@@ -151,6 +144,19 @@ data class TestResultRecord(
             val areAnyOfTheTestsWip = this.any { it.isWip }
             val areAnyOfTheTestsExercised = this.any { it.isExercised }
             return this.first().toCoverageStatus(areAnyOfTheTestsWip, areAnyOfTheTestsExercised)
+        }
+
+        private fun matchesResponseIdentifiers(expectedCode: Int, actualCode: Int, expectedType: String?, actualType: String?): Boolean {
+            if (expectedCode !in setOf(DEFAULT_RESPONSE_CODE, actualCode)) return false
+            return runCatching {
+                val expected = expectedType?.let(ContentType::parse)
+                val actual = actualType?.let(ContentType::parse)
+                Pair(expected, actual)
+            }.mapCatching { (expected, actual) ->
+                if (expected == null && actual == null) return@mapCatching true
+                if (expected == null || actual == null) return@mapCatching false
+                actual.match(expected)
+            }.getOrDefault(false)
         }
     }
 

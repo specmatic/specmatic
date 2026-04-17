@@ -6,7 +6,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.utilities.Decision
-import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
@@ -17,12 +16,10 @@ data class TestExecutionResult(
     val name: String,
     val result: Result,
     val scenario: Scenario,
-    val testResult: TestResult,
-    val wip: Boolean,
+    val testRecord: TestResultRecord,
     val request: List<HttpRequest>,
     val requestTime: Long,
     val response: List<HttpResponse?>,
-    val actualResponseStatus: Int,
     val responseTime: Long?
 )
 
@@ -56,15 +53,13 @@ internal fun List<TestReportListener>.onTestResult(testResultRecord: TestResultR
     val firstHttpLogMessage = httpLogMessages.first()
     val lastHttpLogMessage = httpLogMessages.last()
     val testExecutionResult = TestExecutionResult(
-        name = getTestName(testResultRecord, firstHttpLogMessage),
+        testRecord = testResultRecord,
         scenario = firstHttpLogMessage.scenario!!,
-        testResult = testResultRecord.result,
-        wip = testResultRecord.isWip,
+        name = getTestName(testResultRecord, firstHttpLogMessage),
         request = httpLogMessages.map(HttpLogMessage::request),
         requestTime = firstHttpLogMessage.requestTime.toEpochMillis(),
         response = httpLogMessages.map(HttpLogMessage::response),
         responseTime = lastHttpLogMessage.responseTime?.toEpochMillis(),
-        actualResponseStatus = testResultRecord.actualResponseStatus,
         result = testResultRecord.scenarioResult ?: Result.Failure("No details found for this test"),
     )
     onEachListener { onTestResult(testExecutionResult) }

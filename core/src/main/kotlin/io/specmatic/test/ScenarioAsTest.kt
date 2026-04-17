@@ -87,6 +87,7 @@ data class ScenarioAsTest(
             responseTime = Instant.now(),
             operations = setOf(openAPIOperationFrom(scenario, path)),
             reasoning = reasoning,
+            matchesResponseIdentifiers = response?.let(scenario::matchesStatusAndContentType) ?: false,
             isResponseInSpecification = response?.let {
                 if (result.isSuccess() || scenario.matchesStatusAndContentType(it)) return@let true
                 feature.isResponsePossible(scenario, it)

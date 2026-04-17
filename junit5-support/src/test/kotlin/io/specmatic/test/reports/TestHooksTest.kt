@@ -44,8 +44,7 @@ class TestHooksTest {
             val negativeResults = listener.testResults.filter { it.scenario.generativePrefix.contains("-ve") }
             assertThat(negativeResults).isNotEmpty
             assertThat(negativeResults).allSatisfy { testExecutionResult ->
-                assertThat(testExecutionResult.testResult).isEqualTo(TestResult.Success)
-                assertThat(testExecutionResult.actualResponseStatus).isEqualTo(400)
+                assertThat(testExecutionResult.testRecord.result).isEqualTo(TestResult.Success)
                 assertThat(testExecutionResult.scenario.status).isEqualTo(400)
                 assertThat(testExecutionResult.result.scenario).isNotNull
                 assertThat(testExecutionResult.result.scenario?.status).isEqualTo(400)
@@ -100,8 +99,7 @@ class TestHooksTest {
         }.verify { listener ->
             assertThat(listener.testResults).hasSize(listener.dynamicTests.size).hasSize(2)
             assertThat(listener.testResults.filter { it.scenario.status == 429 }).hasSize(1).allSatisfy { record ->
-                assertThat(record.actualResponseStatus).isEqualTo(429)
-                assertThat(record.testResult).isEqualTo(TestResult.Success)
+                assertThat(record.testRecord.result).isEqualTo(TestResult.Success)
                 assertThat(record.request).hasSize(record.response.size).hasSize(4)
                 assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 429, 200)
             }

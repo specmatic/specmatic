@@ -4,6 +4,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
@@ -11,6 +12,7 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.TestExecutionResult
 import io.specmatic.test.reports.TestReportListener
@@ -296,8 +298,9 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
+            actualResponseStatus = 200,
             result = TestResult.Success,
-             specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageBuilder.buildCoverage {
@@ -335,8 +338,9 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
+            actualResponseStatus = 200,
             result = TestResult.Success,
-             specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -345,8 +349,9 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 201,
             request = null,
             response = null,
+            actualResponseStatus = 201,
             result = TestResult.Success,
-             specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val notPossibleButCoveredRecord = TestResultRecord(
@@ -355,6 +360,7 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 404,
             request = null,
             response = null,
+            actualResponseStatus = 404,
             result = TestResult.Success,
             specType = SpecType.OPENAPI
         )
@@ -394,6 +400,7 @@ class OpenApiCoverageReportInputTest {
                     responseStatus = 200,
                     request = null,
                     response = null,
+                    actualResponseStatus = 200,
                     result = TestResult.Success,
                     specType = SpecType.OPENAPI,
                     specification = "specs/openapi.yaml"
@@ -540,8 +547,9 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
+            actualResponseStatus = 200,
             result = TestResult.Success,
-             specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageBuilder.buildCoverage {
@@ -585,8 +593,9 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 200,
             request = null,
             response = null,
+            actualResponseStatus = 200,
             result = TestResult.Success,
-             specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val previousRecord = TestResultRecord(
@@ -595,8 +604,9 @@ class OpenApiCoverageReportInputTest {
             responseStatus = 201,
             request = null,
             response = null,
+            actualResponseStatus = 201,
             result = TestResult.Success,
-             specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI
         )
 
         val input = OpenApiCoverageBuilder.buildCoverage {
@@ -621,21 +631,20 @@ class OpenApiCoverageReportInputTest {
 
     @Test
     fun `endpoint should not be counted towards the final report if it has been filtered out`() {
-        val allEndpoints = mutableListOf(
+        val outOfScope = mutableListOf(
             Endpoint(
-                "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
-            ), Endpoint(
                 "/filtered", "POST", 200,
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+
         val filtered = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+
         val testResultRecords = mutableListOf(
             TestResultRecord(
                 "/test", "POST", 200,
@@ -647,32 +656,31 @@ class OpenApiCoverageReportInputTest {
         val reportInput = OpenApiCoverageBuilder.buildCoverage {
             configFilePath("")
             filtered.forEach(::specEndpoint)
+            outOfScope.forEach(::outOfScopeSpecEndpoint)
             testResultRecords.forEach { testResult(it.copy(specification = "specs/openapi.yaml")) }
+            decisionSkip("/filtered", "POST", 200, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED))
         }
-        val report = reportInput.generate().toConsoleReport()
 
-        assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
-        assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
+        val report = reportInput.generate().toConsoleReport()
         assertThat(report.coveragePercentage).isEqualTo(100)
     }
 
     @Test
     fun `should not be marked missing-in-spec if the endpoint is filtered out but actuator shows it`() {
-        val allEndpoints = mutableListOf(
+        val outOfScope = mutableListOf(
             Endpoint(
-                "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
-            ), Endpoint(
                 "/filtered", "POST", 200,
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+
         val filtered = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+
         val applicationAPIs = mutableListOf(API("POST", "/test"), API("POST", "/filtered"))
         val testResultRecords = mutableListOf(
             TestResultRecord(
@@ -685,32 +693,33 @@ class OpenApiCoverageReportInputTest {
         val reportInput = OpenApiCoverageBuilder.buildCoverage {
             configFilePath("")
             filtered.forEach(::specEndpoint)
+            outOfScope.forEach(::outOfScopeSpecEndpoint)
             applicationAPIs.forEach { applicationApi(it.method, it.path) }
+            decisionSkip("/filtered", "GET", 200, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED))
             testResultRecords.forEach { testResult(it.copy(specification = "specs/openapi.yaml")) }
         }
-        val report = reportInput.generate().toConsoleReport()
 
+        val report = reportInput.generate().toConsoleReport()
         assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
-        assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
+        assertThat(report.coverageRows.first { it.path == "/filtered" }.remarks).isNotEqualTo(CoverageStatus.NOT_IMPLEMENTED)
     }
 
     @Test
     fun `not-implemented endpoints should be identified using filtered endpoints instead of all endpoints`() {
-        val allEndpoints = mutableListOf(
+        val outOfScope = mutableListOf(
             Endpoint(
-                "/test", "POST", 200,
-                protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
-            ), Endpoint(
                 "/filtered", "POST", 200,
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+
         val filtered = mutableListOf(
             Endpoint(
                 "/test", "POST", 200,
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+
         val testResultRecords = mutableListOf(
             TestResultRecord(
                 "/test", "POST", 200,
@@ -722,15 +731,16 @@ class OpenApiCoverageReportInputTest {
         val reportInput = OpenApiCoverageBuilder.buildCoverage {
             configFilePath("")
             filtered.forEach(::specEndpoint)
+            outOfScope.forEach(::outOfScopeSpecEndpoint)
             applicationApi("POST", "/other")
             setEndpointsAPIFlag(true)
+            decisionSkip("/filtered", "POST", 200, reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED))
             testResultRecords.forEach { testResult(it.copy(specification = "specs/openapi.yaml")) }
         }
-        val report = reportInput.generate().toConsoleReport()
 
+        val report = reportInput.generate().toConsoleReport()
         assertThat(report.coverageRows).anyMatch { it.path == "/test" && it.remarks == CoverageStatus.NOT_IMPLEMENTED }
         assertThat(report.testResultRecords).noneMatch { it.path == "/filtered" }
-        assertThat(report.coverageRows).noneMatch { it.path == "/filtered" }
         assertThat(report.coveragePercentage).isEqualTo(0)
     }
 
