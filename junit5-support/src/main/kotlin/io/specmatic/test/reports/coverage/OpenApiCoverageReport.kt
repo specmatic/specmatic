@@ -98,7 +98,7 @@ data class OpenApiCoverageReport(
 
     private fun List<OpenApiCoverageReportOperation>.calculateAbsoluteCoverage(): Int {
         val denominatorOperations = this.filter { operation ->
-            operation.eligibleForCoverage || operation.isExcludedFromRun()
+            operation.eligibleForCoverage || operation.excludedFromRun
         }
         if (denominatorOperations.isEmpty()) return 0
 

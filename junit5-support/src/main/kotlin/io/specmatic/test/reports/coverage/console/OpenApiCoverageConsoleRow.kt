@@ -1,7 +1,6 @@
 package io.specmatic.test.reports.coverage.console
 
 import io.specmatic.core.report.OpenApiCoverageReportOperation
-import io.specmatic.test.reports.coverage.isExcludedFromRun
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
 
@@ -39,7 +38,7 @@ data class OpenApiCoverageConsoleRow(
         coveragePercentage = coveragePercentage,
         remarks = coverageReportOperation.coverageStatus,
         eligibleForCoverage = coverageReportOperation.eligibleForCoverage,
-        excludedFromRun = coverageReportOperation.isExcludedFromRun(),
+        excludedFromRun = coverageReportOperation.excludedFromRun,
         showPath = showPath,
         showMethod = showMethod,
         showRequestContentType = showRequestContentType,
