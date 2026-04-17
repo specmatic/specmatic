@@ -1116,4 +1116,34 @@ Feature: Recursive test
             assertThat(it.maxItems).isEqualTo(5)
         }
     }
+
+    @Test
+    fun `newBasedOn should generate boundary list patterns for positive testing`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 5
+        )
+
+        val newPatterns = pattern.newBasedOn(Resolver()).filterIsInstance<ListPattern>().toList()
+
+        assertThat(newPatterns.size).isEqualTo(3)
+        assertThat(newPatterns.firstOrNull { it.minItems == 2 && it.maxItems == 2 }).isNotNull
+        assertThat(newPatterns.firstOrNull { it.minItems == 5 && it.maxItems == 5 }).isNotNull
+        assertThat(newPatterns.firstOrNull { it.minItems == 2 && it.maxItems == 5 }).isNotNull
+    }
+
+    @Test
+    fun `newBasedOn should generate single boundary list pattern when minItems equals maxItems`() {
+        val pattern = ListPattern(
+            pattern = StringPattern(),
+            minItems = 2,
+            maxItems = 2
+        )
+
+        val newPatterns = pattern.newBasedOn(Resolver()).filterIsInstance<ListPattern>().toList()
+
+        assertThat(newPatterns.size).isEqualTo(1)
+        assertThat(newPatterns.firstOrNull { it.minItems == 2 && it.maxItems == 2 }).isNotNull
+    }
 }
