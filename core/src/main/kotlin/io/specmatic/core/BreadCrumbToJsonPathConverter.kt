@@ -81,8 +81,8 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = e
                 TransformationStrategy.ExactReplacement(BreadCrumb.PATH.value, "path"),
 
                 // HEADERS variants
-                TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_HEADER.value, "header"),
-                TransformationStrategy.ExactReplacement(BreadCrumb.HEADER.value, "header"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_HEADER.value, "headers"),
+                TransformationStrategy.ExactReplacement(BreadCrumb.HEADER.value, "headers"),
 
                 // QUERY variants
                 TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_QUERY.value, "query"),

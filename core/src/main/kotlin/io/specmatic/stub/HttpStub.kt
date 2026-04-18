@@ -1615,7 +1615,7 @@ fun fakeHttpResponse(
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
                 NotStubbed(
                     HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
-                    combinedFailureResult.toResultIfAnyWithCauses(),
+                    combinedFailureResult.toResultIfAnyWithCausesOrFailure(),
                 )
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
@@ -1634,7 +1634,7 @@ fun fakeHttpResponse(
                         contractPath = nearestMatchingFeature?.path.orEmpty(),
                         feature = nearestMatchingFeature
                     ),
-                    stubResult = combinedFailureResult.toResultIfAnyWithCauses(),
+                    stubResult = combinedFailureResult.toResultIfAnyWithCausesOrFailure(),
                 )
             }
         }
@@ -1764,7 +1764,7 @@ private fun strictModeHttp400Response(
     }
 
     return NotStubbed(
-        stubResult = results.toResultIfAnyWithCauses(),
+        stubResult = results.toResultIfAnyWithCausesOrFailure(),
         response = HttpStubResponse(scenario = scenario, response = response),
     )
 }

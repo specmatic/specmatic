@@ -80,7 +80,21 @@ class BreadCrumbToJsonPathConverterTest {
     fun `should not rewrite header keys that contain REQUEST as a substring`() {
         val breadcrumbs = listOf("REQUEST", "HEADER", "X-Request-ID")
         val result = converter.toJsonPath(breadcrumbs)
-        assertThat(result).isEqualTo("/http-request/header/X-Request-ID")
+        assertThat(result).isEqualTo("/http-request/headers/X-Request-ID")
+    }
+
+    @Test
+    fun `should convert header node to headers for parameterized breadcrumbs`() {
+        val breadcrumbs = listOf("REQUEST", "PARAMETERS.HEADER", "X-Request-ID")
+        val result = converter.toJsonPath(breadcrumbs)
+        assertThat(result).isEqualTo("/http-request/headers/X-Request-ID")
+    }
+
+    @Test
+    fun `should convert header node to headers for response header breadcrumbs`() {
+        val breadcrumbs = listOf("RESPONSE", "HEADER", "X-Request-ID")
+        val result = converter.toJsonPath(breadcrumbs)
+        assertThat(result).isEqualTo("/http-response/headers/X-Request-ID")
     }
 
     companion object {
@@ -110,15 +124,15 @@ class BreadCrumbToJsonPathConverterTest {
                 // -- Header Parameters --
                 Arguments.of(
                     listOf("REQUEST", "HEADER", "Authorization"),
-                    "/http-request/header/Authorization"
+                    "/http-request/headers/Authorization"
                 ),
                 Arguments.of(
                     listOf("RESPONSE", "HEADER", "Content-Type"),
-                    "/http-response/header/Content-Type"
+                    "/http-response/headers/Content-Type"
                 ),
                 Arguments.of(
                     listOf("REQUEST", "PARAMETERS.HEADER", "X-Request-ID"),
-                    "/http-request/header/X-Request-ID"
+                    "/http-request/headers/X-Request-ID"
                 ),
 
                 // -- Path Parameters --
@@ -174,25 +188,25 @@ class BreadCrumbToJsonPathConverterTest {
                 ),
                 Arguments.of(
                     listOf("RESPONSE.HEADER.Content-Type"),
-                    "/http-response/header/Content-Type"
+                    "/http-response/headers/Content-Type"
                 ),
                 Arguments.of(
                     listOf("REQUEST.PARAMETERS.HEADER.X-Request-ID"),
-                    "/http-request/header/X-Request-ID"
+                    "/http-request/headers/X-Request-ID"
                 ),
 
                 // -- Regression: structural token must not rewrite inside header keys --
                 Arguments.of(
                     listOf("REQUEST", "HEADER", "X-Request-ID"),
-                    "/http-request/header/X-Request-ID"
+                    "/http-request/headers/X-Request-ID"
                 ),
                 Arguments.of(
                     listOf("REQUEST", "HEADER", "X-REQUEST-ID"),
-                    "/http-request/header/X-REQUEST-ID"
+                    "/http-request/headers/X-REQUEST-ID"
                 ),
                 Arguments.of(
                     listOf("REQUEST", "HEADER", "X-http-request-ID"), // already contains "http-request" text
-                    "/http-request/header/X-http-request-ID"
+                    "/http-request/headers/X-http-request-ID"
                 ),
 
                 // -- Extra edge cases around dot splitting and blanks --
