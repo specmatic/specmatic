@@ -1287,7 +1287,7 @@ class OpenApiCoverageReportInputTest {
             endpointApiCalls.add(endpointsNotExcluded to endpointsExcluded)
         }
 
-        override fun onCoverageCalculated(coverage: Int) {
+        override fun onCoverageCalculated(coverage: Int, absoluteCoverage: Int) {
             totalCoverageCalls.add(coverage)
         }
 

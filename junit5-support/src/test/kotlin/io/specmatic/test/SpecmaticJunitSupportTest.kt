@@ -1286,7 +1286,7 @@ paths:
         }
 
         var onCoverageCalculatedCalls: Int = 0
-        override fun onCoverageCalculated(coverage: Int) {
+        override fun onCoverageCalculated(coverage: Int, absoluteCoverage: Int) {
             onCoverageCalculatedCalls++
         }
 

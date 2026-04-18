@@ -114,7 +114,7 @@ class RecordingTestReportListener : TestReportListener {
     override fun onExampleErrors(resultsBySpecFile: Map<String, io.specmatic.core.Result>) = Unit
     override fun onTestsComplete() = Unit
     override fun onEnd() = Unit
-    override fun onCoverageCalculated(coverage: Int) = Unit
+    override fun onCoverageCalculated(coverage: Int, absoluteCoverage: Int) = Unit
     override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
     override fun onGovernance(result: io.specmatic.core.Result) = Unit
     override fun onTestDecision(decision: Decision<ContractTest, Scenario>) = Unit
