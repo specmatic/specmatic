@@ -1169,14 +1169,16 @@ class HttpStub(
             val mockUsage = OpenApiMockUsage(specmaticConfigInstance)
             mockUsage.addEndpoints(_allEndpoints)
             ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
+            val mockUsageReport = mockUsage.generate()
 
             ReportGenerator.generateReport(
-                testResultRecords = mockUsage.testResultRecords(),
-                coverageReportOperations = mockUsage.generate(),
+                testResultRecords = mockUsageReport.testResultRecords,
+                coverageReportOperations = mockUsageReport.coverageReportOperations,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
                 specConfigs = mockUsage.ctrfSpecConfigs(),
-                coverage = 0,
+                coverage = mockUsageReport.coverage,
+                absoluteCoverage = mockUsageReport.absoluteCoverage,
                 reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
             )
         }

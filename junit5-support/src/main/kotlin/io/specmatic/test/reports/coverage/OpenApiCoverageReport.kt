@@ -2,10 +2,11 @@ package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.Result
 import io.specmatic.core.log.HttpLogMessage
+import io.specmatic.core.report.calculateAbsoluteCoverage
+import io.specmatic.core.report.calculateCoverage
 import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
@@ -13,7 +14,6 @@ import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.onEachListener
-import kotlin.math.roundToInt
 
 data class OpenApiCoverageDeprecatedData(
     val endpointsApiSet: Boolean = false,
@@ -89,25 +89,5 @@ data class OpenApiCoverageReport(
                 coveragePercentage = coverageByPath.getOrDefault(current.operation.path, 0),
             )
         }
-    }
-
-    private fun List<OpenApiCoverageReportOperation>.calculateCoverage(): Int {
-        val coverageReportOperations = this.filter { it.eligibleForCoverage }
-        if (coverageReportOperations.isEmpty()) return 0
-        val coveredOperationCount = coverageReportOperations.count { it.coverageStatus == CoverageStatus.COVERED }
-        return ((coveredOperationCount.toDouble() / coverageReportOperations.size) * 100).roundToInt()
-    }
-
-    private fun List<OpenApiCoverageReportOperation>.calculateAbsoluteCoverage(): Int {
-        val denominatorOperations = this.filter { operation ->
-            operation.eligibleForCoverage || operation.omittedStatus == OmittedStatus.EXCLUDED
-        }
-
-        if (denominatorOperations.isEmpty()) return 0
-        val coveredOperationCount = denominatorOperations.count { operation ->
-            operation.eligibleForCoverage && operation.coverageStatus == CoverageStatus.COVERED
-        }
-
-        return ((coveredOperationCount.toDouble() / denominatorOperations.size) * 100).roundToInt()
     }
 }

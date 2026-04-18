@@ -1,13 +1,11 @@
 package io.specmatic.stub.report
 
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.report.calculateAbsoluteCoverage
+import io.specmatic.core.report.calculateCoverage
 import io.specmatic.core.report.ctrfSpecConfigsFrom
-import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
-import kotlin.math.roundToInt
 
 class OpenApiMockUsage(
     private val specmaticConfig: SpecmaticConfig,
@@ -31,25 +29,18 @@ class OpenApiMockUsage(
         )
     }
 
-    fun generate(): List<CoverageReportOperation<OpenAPIOperation, TestResultRecord>> {
-        return mockUsageReportGenerator.generate(mockUsageContext())
-    }
-
-    fun testResultRecords(): List<TestResultRecord> {
-        return mockUsageContext().tests
+    fun generate(): OpenApiMockUsageReport {
+        val context = mockUsageContext()
+        val coverageReportOperations = mockUsageReportGenerator.generate(context)
+        return OpenApiMockUsageReport(
+            coverageReportOperations = coverageReportOperations,
+            testResultRecords = context.tests,
+            coverage = coverageReportOperations.calculateCoverage(),
+            absoluteCoverage = coverageReportOperations.calculateAbsoluteCoverage(),
+        )
     }
 
     fun ctrfSpecConfigs(): List<CtrfSpecConfig> {
-        return ctrfSpecConfigsFrom(specmaticConfig, testResultRecords())
-    }
-
-    fun totalCoveragePercentage(): Int {
-        val coverageReportOperations = generate().filter { it.eligibleForCoverage }
-        if (coverageReportOperations.isEmpty()) {
-            return 0
-        }
-
-        val coveredOperationCount = coverageReportOperations.count { it.coverageStatus == CoverageStatus.COVERED }
-        return ((coveredOperationCount.toDouble() / coverageReportOperations.size) * 100).roundToInt()
+        return ctrfSpecConfigsFrom(specmaticConfig, mockUsageContext().tests)
     }
 }

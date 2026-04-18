@@ -49,12 +49,15 @@ class OpenApiMockUsageTest {
             )
         )
 
-        val reportOperations = mockUsage.generate()
+        val report = mockUsage.generate()
+        val reportOperations = report.coverageReportOperations
 
         assertThat(reportOperations).hasSize(4)
         assertThat(reportOperations.single { it.operation.path == "/orders" && it.operation.method == "POST" }.coverageStatus)
             .isEqualTo(CoverageStatus.COVERED)
-        assertThat(mockUsage.totalCoveragePercentage()).isEqualTo(33)
+        assertThat(report.testResultRecords).hasSize(3)
+        assertThat(report.coverage).isEqualTo(33)
+        assertThat(report.absoluteCoverage).isEqualTo(33)
     }
 
     private fun endpoint(
