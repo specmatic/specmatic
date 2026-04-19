@@ -1,6 +1,7 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.Scenario
+import io.specmatic.core.report.closestMatchingEndpointFor
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol

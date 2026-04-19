@@ -1,8 +1,8 @@
 package io.specmatic.stub.report
 
+import io.specmatic.core.report.specConfigFor
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
-import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -25,7 +25,12 @@ class MockUsageReportGenerator {
 
             CoverageReportOperation<OpenAPIOperation, TestResultRecord>(
                 operation = operation,
-                specConfig = specConfigFor(operation, coverageStatus, facts.attemptRecords, context),
+                specConfig = specConfigFor(
+                    operation = operation,
+                    coverageStatus = coverageStatus,
+                    attemptRecords = facts.attemptRecords,
+                    allSpecEndpoints = context.allSpecEndpoints,
+                ),
                 coverageStatus = coverageStatus,
                 eligibleForCoverage = coverageStatus != CoverageStatus.MISSING_IN_SPEC,
                 omittedStatus = omittedStatusFor(coverageStatus),
@@ -77,30 +82,5 @@ class MockUsageReportGenerator {
             CoverageStatus.NOT_USED -> OmittedStatus.SKIPPED
             else -> OmittedStatus.NONE
         }
-    }
-
-    private fun specConfigFor(
-        operation: OpenAPIOperation,
-        coverageStatus: CoverageStatus,
-        attemptRecords: List<TestResultRecord>,
-        context: MockUsageContext,
-    ): CtrfSpecConfig {
-        exactMatchingEndpoint(operation, context.allSpecEndpoints)?.let { return it.toCtrfSpecConfig() }
-        attemptRecords.firstNotNullOfOrNull { it.toCtrfSpecConfigOrNull() }?.let { return it }
-
-        if (coverageStatus == CoverageStatus.MISSING_IN_SPEC) {
-            closestMatchingEndpointFor(operation.path, operation.method, context.allSpecEndpoints)
-                ?.toCtrfSpecConfig()
-                ?.let { return it }
-        }
-
-        throw IllegalArgumentException("Cannot determine spec config for $operation")
-    }
-
-    private fun exactMatchingEndpoint(
-        operation: OpenAPIOperation,
-        endpoints: List<StubEndpoint>,
-    ): StubEndpoint? {
-        return endpoints.firstOrNull { endpoint -> endpoint.toOpenApiOperation() == operation }
     }
 }

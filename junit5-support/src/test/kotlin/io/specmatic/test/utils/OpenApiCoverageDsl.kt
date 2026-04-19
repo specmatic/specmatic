@@ -25,7 +25,6 @@ import io.specmatic.test.reports.coverage.OpenApiCoverage
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
-import io.specmatic.test.reports.coverage.toOpenApiOperation
 import io.specmatic.test.reports.coverage.toOpenApiOperationOrNull
 import org.assertj.core.api.Assertions.assertThat
 
