@@ -15,7 +15,6 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.utils.ContractTestScope
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
@@ -190,7 +189,6 @@ class OpenApiCoverageIntegrationTest {
     }
 
     @Test
-    @Disabled // TODO: Needs to be fixed in Core, PR Raised separately
     fun `should report wsdl soap coverage end to end with protocol and spec type`(@TempDir tempDir: File) {
         val wsdlSpecFile = File("src/test/resources/simple.wsdl")
         val addInventoryResponse = HttpResponse(
