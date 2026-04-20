@@ -16,7 +16,7 @@ class BadRequestOrDefaultTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat((result as Result.Failure).message)
-                .isEqualTo("No matching or fallback response found for status 400.")
+                .isEqualTo("No matching or default response found for status 400.")
         }
 
         @Test

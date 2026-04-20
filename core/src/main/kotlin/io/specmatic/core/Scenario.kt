@@ -154,6 +154,19 @@ data class Scenario(
         return badRequestOrDefault.updateScenarioWithResponse(httpResponse, this)
     }
 
+    fun withDetailsFrom(scenario: Scenario): Scenario {
+        return this.copy(
+            name = scenario.name,
+            bindings = scenario.bindings,
+            examples = scenario.examples,
+            patterns = scenario.patterns,
+            fixtures = scenario.fixtures,
+            ignoreFailure = scenario.ignoreFailure,
+            statusInDescription = scenario.statusInDescription,
+            httpResponsePattern = scenario.httpResponsePattern,
+        )
+    }
+
     fun getExamplesMatching(exampleType: ExampleType): List<NamedStub> {
         return examples.flatMap { example ->
             example.rows

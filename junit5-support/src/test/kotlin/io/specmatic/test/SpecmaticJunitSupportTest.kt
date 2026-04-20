@@ -588,8 +588,8 @@ paths:
                 }
 
                 assertThat(output).containsSubsequence(
-                    "Skipping Scenario: GET /beta -> 200 (responseContentType application/json)", "Excluded from Run",
-                    "This operation was skipped because it did not match the selected filters"
+                    "Skipping Scenario: GET /beta -> 200 (responseContentType application/json)", "Excluded by Filter",
+                    "This operation was skipped because it did not match the specified filter"
                 )
             } finally {
                 SpecmaticJUnitSupport.settingsStaging.remove()
