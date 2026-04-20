@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.ktor.util.*
 import io.specmatic.conversions.NoSecurityScheme
 import io.specmatic.conversions.OpenAPISecurityScheme
+import io.specmatic.conversions.OptionalBodyPattern
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
@@ -798,6 +799,10 @@ data class HttpRequestPattern(
         return isNon4xxResponseStatus
     }
 
+    private fun shouldGenerateNoBodyNegativeScenario(): Boolean {
+        return body !is OptionalBodyPattern && body !is NoBodyPattern && headersPattern.contentType?.lowercase() != "text/plain"
+    }
+
     fun newBasedOn(resolver: Resolver): Sequence<HttpRequestPattern> {
         return attempt(breadCrumb = "REQUEST") {
             val newHttpPathPatterns = httpPathPattern?.let { httpPathPattern ->
@@ -858,11 +863,17 @@ data class HttpRequestPattern(
 
             val newQueryParamsPatterns = httpQueryParamPattern.negativeBasedOn(row, resolver)
 
-            val newBodies: Sequence<ReturnValue<out Pattern>> = returnValue(breadCrumb = "BODY") returnNewBodies@ {
+            val newBodies: Sequence<ReturnValue<out Pattern>> = (returnValue(breadCrumb = "BODY") returnNewBodies@ {
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@returnNewBodies body.negativeBasedOn(row, resolver)
                 val parsedValue = body.parse(rawRequestBody, resolver)
                 body.matches(parsedValue, resolver).throwOnFailure()
                 this.body.negativeBasedOn(row.noteRequestBody(), resolver)
+            }).let { generatedBodyNegatives ->
+                if (shouldGenerateNoBodyNegativeScenario()) {
+                    sequenceOf(HasValue(NoBodyPattern, "has been omitted", "BODY")).plus(generatedBodyNegatives)
+                } else {
+                    generatedBodyNegatives
+                }
             }
 
             val newHeadersPattern = headersPattern.negativeBasedOn(row, resolver, BreadCrumb.PARAM_HEADER.value)

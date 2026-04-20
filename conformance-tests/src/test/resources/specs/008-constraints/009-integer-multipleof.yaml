@@ -1,4 +1,6 @@
 openapi: 3.0.3
+x-specmatic-expect-failure-request-bodies: "invalid request/response body because integer-multipleof constraint not respected"
+x-specmatic-expect-failure-response-bodies: "invalid request/response body because integer-multipleof constraint not respected"
 info:
   title: "Constraint - integer multipleOf"
   version: "1.0"
@@ -13,6 +15,8 @@ paths:
             application/json:
               schema:
                 type: array
+                minItems: 100
+                maxItems: 100
                 items:
                   type: object
                   required:
@@ -24,6 +28,8 @@ paths:
                     quantity:
                       type: integer
                       multipleOf: 6
+                      minimum: 0
+                      maximum: 1000
     post:
       operationId: createQuantity
       requestBody:
@@ -31,16 +37,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - product
-                - quantity
-              properties:
-                product:
-                  type: string
-                quantity:
-                  type: integer
-                  multipleOf: 6
+              type: array
+              minItems: 100
+              maxItems: 100
+              items:
+                type: object
+                required:
+                  - product
+                  - quantity
+                properties:
+                  product:
+                    type: string
+                  quantity:
+                    type: integer
+                    multipleOf: 6
       responses:
         '201':
           description: Created

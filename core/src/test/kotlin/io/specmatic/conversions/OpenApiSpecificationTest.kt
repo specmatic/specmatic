@@ -7461,7 +7461,7 @@ paths:
     }
 
     @Test
-    fun `requestBody is required by default`() {
+    fun `as per openapi spec requestBody should be optional by default when required is omitted`() {
         val feature = OpenApiSpecification.fromYAML(
             """
                 ---
@@ -7493,17 +7493,10 @@ paths:
         ).toFeature()
 
         feature.matchResult(
-            HttpRequest("POST", "/person", body = parsedJSONObject("""{"id": "abc123"}""")),
-            HttpResponse.OK
-        ).let { matchResult ->
-            assertThat(matchResult).withFailMessage(matchResult.reportString()).isInstanceOf(Result.Success::class.java)
-        }
-
-        feature.matchResult(
             HttpRequest("POST", "/person", body = NoBodyValue),
             HttpResponse.OK
         ).let { matchResult ->
-            assertThat(matchResult).withFailMessage(matchResult.reportString()).isInstanceOf(Result.Failure::class.java)
+            assertThat(matchResult).withFailMessage(matchResult.reportString()).isInstanceOf(Result.Success::class.java)
         }
     }
 
@@ -7601,6 +7594,227 @@ paths:
         ).let { matchResult ->
             assertThat(matchResult).withFailMessage(matchResult.reportString()).isInstanceOf(Result.Success::class.java)
         }
+    }
+
+    @Test
+    fun `requestBody marked optional should use OptionalBodyPattern`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      summary: "Get person by id"
+                      requestBody:
+                        required: false
+                        content:
+                          application/json:
+                            schema:
+                              required:
+                              - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: "Get person by id"
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                """.trimIndent(), ""
+        ).toFeature()
+
+        val scenario = feature.scenarios.single()
+
+        assertThat(scenario.httpRequestPattern.body).isInstanceOf(OptionalBodyPattern::class.java)
+    }
+
+    @Test
+    fun `requestBody is by default optional and should use OptionalBodyPattern`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      summary: "Get person by id"
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              required:
+                              - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: "Get person by id"
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                """.trimIndent(), ""
+        ).toFeature()
+
+        val scenario = feature.scenarios.single()
+
+        assertThat(scenario.httpRequestPattern.body).isInstanceOf(OptionalBodyPattern::class.java)
+    }
+
+    @Test
+    fun `requestBody marked optional should generate no-body positive scenarios and no no-body negative scenarios`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        required: false
+                        content:
+                          application/json:
+                            schema:
+                              required:
+                              - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: "Get person by id"
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                        400:
+                          description: "Bad request"
+            """.trimIndent(), ""
+        ).toFeature()
+
+        assertThat(generatedPositiveRequests(feature).map { it.body }).contains(NoBodyValue)
+        assertThat(generatedNegativeRequests(feature).map { it.body }).doesNotContain(NoBodyValue)
+    }
+
+    @Test
+    fun `requestBody omitted required should generate no-body positive scenarios and no no-body negative scenarios`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        content:
+                          application/json:
+                            schema:
+                              required:
+                              - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: "Get person by id"
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                        400:
+                          description: "Bad request"
+            """.trimIndent(), ""
+        ).toFeature()
+
+        assertThat(generatedPositiveRequests(feature).map { it.body }).contains(NoBodyValue)
+        assertThat(generatedNegativeRequests(feature).map { it.body }).doesNotContain(NoBodyValue)
+    }
+
+    @Test
+    fun `requestBody marked required should generate no-body negative scenarios and no no-body positive scenarios`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              required:
+                              - id
+                              properties:
+                                id:
+                                  type: string
+                      responses:
+                        200:
+                          description: "Get person by id"
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                        400:
+                          description: "Bad request"
+            """.trimIndent(), ""
+        ).toFeature()
+
+        assertThat(generatedPositiveRequests(feature).map { it.body }).doesNotContain(NoBodyValue)
+        assertThat(generatedNegativeRequests(feature).map { it.body }).contains(NoBodyValue)
+    }
+
+    @Test
+    fun `requestBody marked required with text plain should not generate no-body negative scenarios`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+                ---
+                openapi: "3.0.1"
+                info:
+                  title: "Person API"
+                  version: "1"
+                paths:
+                  /person:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          text/plain:
+                            schema:
+                              type: string
+                      responses:
+                        200:
+                          description: "Get person by id"
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                        400:
+                          description: "Bad request"
+            """.trimIndent(), ""
+        ).toFeature()
+
+        assertThat(generatedNegativeRequests(feature).map { it.body }).doesNotContain(NoBodyValue)
     }
 
     @Test
@@ -7796,6 +8010,7 @@ paths:
                     post:
                       summary: "Get person by id"
                       requestBody:
+                        required: true
                         content:
                           application/json:
                             schema:
@@ -7823,15 +8038,20 @@ paths:
 
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                val jsonRequestBody = request.body as JSONObjectValue
-                return when (val age = jsonRequestBody.jsonObject["age"]) {
-                    is NumberValue -> {
-                        val ageValue = BigDecimal(age.number.toString())
-                        actualAges.add(ageValue)
-                        if (minAge < ageValue && ageValue < maxAge)
-                            HttpResponse(204, EmptyString)
-                        else
-                            HttpResponse(400, EmptyString)
+                return when (val requestBody = request.body) {
+                    is JSONObjectValue -> {
+                        when (val age = requestBody.jsonObject["age"]) {
+                            is NumberValue -> {
+                                val ageValue = BigDecimal(age.number.toString())
+                                actualAges.add(ageValue)
+                                if (minAge < ageValue && ageValue < maxAge)
+                                    HttpResponse(204, EmptyString)
+                                else
+                                    HttpResponse(400, EmptyString)
+                            }
+
+                            else -> HttpResponse(400, EmptyString)
+                        }
                     }
 
                     else -> HttpResponse(400, EmptyString)
@@ -7850,7 +8070,7 @@ paths:
             maxOutsideBounds
         )
 
-        assertThat(results.results.size).isEqualTo(8)
+        assertThat(results.results.size).isEqualTo(9)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 
@@ -8337,6 +8557,7 @@ components:
                     post:
                       summary: "Get person by id"
                       requestBody:
+                        required: true
                         content:
                           application/json:
                             schema:
@@ -9666,6 +9887,7 @@ paths:
             post:
               summary: Create a sample object
               requestBody:
+                required: true
                 content:
                   application/json:
                     schema:
@@ -9739,6 +9961,7 @@ paths:
             post:
               summary: Create a sample object
               requestBody:
+                required: true
                 content:
                   application/json:
                     schema:
@@ -10385,6 +10608,7 @@ paths:
               /choice:
                 post:
                   requestBody:
+                    required: true
                     content:
                       application/json:
                         schema:
@@ -11229,11 +11453,11 @@ paths:
             invalid yaml content
             this is not valid yaml: [
         """.trimIndent()
-        
+
         val invalidOpenApiFile = tempDir.resolve(File("invalidOpenApi.yaml"))
         invalidOpenApiFile.createNewFile()
         invalidOpenApiFile.writeText(invalidOpenApiContent)
-        
+
         try {
             assertThatThrownBy {
                 OpenApiSpecification.checkSpecValidity(invalidOpenApiFile.canonicalPath)
@@ -11348,9 +11572,9 @@ paths:
     @Test
     fun `getImplicitOverlayContent should return empty string when OpenAPI file does not exist`(@TempDir tempDir: File) {
         val nonExistentOpenApiFile = tempDir.resolve("non_existent_api.yaml")
-        
+
         val result = OpenApiSpecification.getImplicitOverlayContent(nonExistentOpenApiFile.canonicalPath)
-        
+
         assertThat(result).isEmpty()
     }
 
@@ -11368,12 +11592,12 @@ paths:
                     '200':
                       description: Success
         """.trimIndent()
-        
+
         val openApiFile = tempDir.resolve("test_api.yaml")
         openApiFile.writeText(openApiContent)
-        
+
         val result = OpenApiSpecification.getImplicitOverlayContent(openApiFile.canonicalPath)
-        
+
         assertThat(result).isEmpty()
     }
 
@@ -11391,7 +11615,7 @@ paths:
                     '200':
                       description: Success
         """.trimIndent()
-        
+
         val overlayContent = """
             overlay: 1.0.0
             info:
@@ -11401,15 +11625,15 @@ paths:
               - target: $.info.description
                 update: "API with overlay applied"
         """.trimIndent()
-        
+
         val openApiFile = tempDir.resolve("test_api.yaml")
         openApiFile.writeText(openApiContent)
-        
+
         val overlayFile = tempDir.resolve("test_api_overlay.yaml")
         overlayFile.writeText(overlayContent)
-        
+
         val result = OpenApiSpecification.getImplicitOverlayContent(openApiFile.canonicalPath)
-        
+
         assertThat(result).isEqualTo(overlayContent)
     }
 
@@ -11474,7 +11698,7 @@ paths:
 
         assertThat(unreferenced.keys).containsExactlyInAnyOrder("(UnreferencedSchema)", "(AnotherUnreferenced)")
     }
-    
+
     @Test
     fun `HEAD method should be supported in OpenAPI specification parsing`() {
         val openApiContent = """
@@ -11499,18 +11723,18 @@ paths:
 
         val spec = OpenApiSpecification.fromYAML(openApiContent, "")
         val feature = spec.toFeature()
-        
+
         // Verify that HEAD scenarios are created
         val headScenarios = feature.scenarios.filter { it.httpRequestPattern.method == "HEAD" }
         assertThat(headScenarios).isNotEmpty
-        
+
         // Verify the HEAD scenario details
         val headScenario = headScenarios.first()
         assertThat(headScenario.httpRequestPattern.httpPathPattern?.toInternalPath()).isEqualTo("/status")
         assertThat(headScenario.httpResponsePattern.status).isIn(200, 404)
     }
 
-    @Test  
+    @Test
     fun `HEAD method with internal examples should be loaded successfully for stub mode`() {
         val openApiContent = """
             openapi: 3.0.0
@@ -12198,6 +12422,7 @@ paths:
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'fulfilled' from enum",
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains all the keys AND the key status is set to 'pending' from enum",
             "+ve  Scenario: POST /orders -> 200 with a request where REQUEST.BODY contains only the mandatory keys",
+            "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY has been omitted",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to null AND status is set to 'fulfilled' from enum",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to boolean AND status is set to 'pending' from enum",
             "-ve  Scenario: POST /orders -> 4xx with a request where REQUEST.BODY contains all the keys AND the key productId is mutated from number to string AND status is set to 'fulfilled' from enum",
@@ -12591,5 +12816,13 @@ paths:
                     inventory:
                       type: integer
         """.trimIndent()
+    }
+
+    private fun generatedPositiveRequests(feature: Feature): List<HttpRequest> {
+        return feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value.generateHttpRequest() }
+    }
+
+    private fun generatedNegativeRequests(feature: Feature): List<HttpRequest> {
+        return feature.negativeTestScenarios().toList().map { it.second.value.generateHttpRequest() }
     }
 }

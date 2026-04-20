@@ -1,4 +1,6 @@
 openapi: 3.1.0
+x-specmatic-expect-failure-loop: "Loop tests fail with: Expected \"circle\", actual was \"Circle\""
+x-specmatic-expect-failure-operations: "Loop tests fail with: Expected \"circle\", actual was \"Circle\""
 info:
   title: "OpenAPI 3.1 - discriminator with const type values"
   version: "1.0"

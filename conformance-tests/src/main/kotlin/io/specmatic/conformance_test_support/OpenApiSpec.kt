@@ -36,7 +36,9 @@ data class Operation(
 class OpenApiSpec(private val specFile: File) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    private val openApi = run {
+    // Synchronized to work around swagger-parser thread-safety issue:
+    // https://github.com/swagger-api/swagger-parser/issues/2295
+    private val openApi = synchronized(parserLock) {
         val options = ParseOptions().apply {
             isResolve = true
             isResolveFully = true
@@ -230,7 +232,15 @@ class OpenApiSpec(private val specFile: File) {
 
     private fun String.escapeJsonPointer(): String = replace("~", "~0").replace("/", "~1")
 
+    fun findExtensionByKey(key: String): String? {
+        val extensions = openApi.extensions ?: return null
+        if (!extensions.containsKey(key)) return null
+        return extensions[key]?.toString().orEmpty()
+    }
+
     companion object {
+        private val parserLock = Any()
+
         private val openApi30SchemaRegistry =
             SchemaRegistry.withDialect(Dialects.getOpenApi30())
 

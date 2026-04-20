@@ -9,14 +9,18 @@ import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.applyIf
+import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.stub.extractPort
 import java.io.File
 
-data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) {
+data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, private val web: Web?) {
     init {
-        if (git == null && fileSystem == null) throw IllegalStateException("Must specify either 'git' or 'filesystem'")
-        if (git != null && fileSystem != null) throw IllegalStateException("Specify only one of 'git' or 'filesystem'")
+        val configuredSources = listOfNotNull(git, fileSystem, web)
+        if (configuredSources.isEmpty()) throw IllegalStateException("Must specify exactly one of 'git', 'filesystem', or 'web'")
+        if (configuredSources.size > 1) throw IllegalStateException("Specify only one of 'git', 'filesystem', or 'web'")
+        if (web != null && web.url.isNullOrBlank()) throw ContractException("Missing required field 'url' in 'web' source in Specmatic configuration")
     }
 
     @Suppress("unused")
@@ -29,18 +33,29 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) 
     @JsonProperty("filesystem")
     fun getFileSystem(): FileSystem? = fileSystem
 
+    @Suppress("unused")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty("web")
+    fun getWeb(): Web? = web
+
     fun resolveSpecification(specification: File): File {
         if (git != null) return git.resolveSpecification(specification)
+        if (web != null) return web.resolveSpecification(specification)
         return fileSystem?.resolveSpecification(specification) ?: specification
     }
 
     fun toProviderType(): SourceProvider = when {
         git != null -> SourceProvider.git
+        web != null -> SourceProvider.web
         else -> SourceProvider.filesystem
     }
 
     fun toSpecificationSource(specFile: File, specPathInConfig: String, baseUrl: String?, resiliencyTestSuite: ResiliencyTestSuite?, examples: List<String>?): SpecificationSourceEntry {
-        val type = if (git != null) SourceProvider.git else SourceProvider.filesystem
+        val type = when {
+            git != null -> SourceProvider.git
+            web != null -> SourceProvider.web
+            else -> SourceProvider.filesystem
+        }
         return SpecificationSourceEntry(
             specFile = specFile,
             specPathInConfig = specPathInConfig,
@@ -50,6 +65,7 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) 
             branch = git?.branch,
             matchBranch = git?.matchBranch,
             baseUrl = baseUrl,
+            webSourceUrl = web?.url,
             port = baseUrl?.let(::extractPort),
             resiliencyTestSuite = resiliencyTestSuite,
             exampleDirs = examples,
@@ -82,11 +98,22 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?) 
         }
     }
 
+    data class Web(val url: String? = null) {
+        fun resolveSpecification(specification: File): File {
+            val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")
+            return ResolvedWebSource.localPathFor(
+                workingDirectory.resolve(DEFAULT_WORKING_DIRECTORY).resolve("web"),
+                url ?: throw ContractException("Missing required field 'url' in 'web' source in Specmatic configuration"),
+                specification.path
+            )
+        }
+    }
+
     companion object {
         @JvmStatic
         @JsonCreator
-        fun create(@JsonProperty("git") git: Git? = null, @JsonProperty("filesystem") filesystem: FileSystem? = null): SourceV3 {
-            return SourceV3(git, filesystem)
+        fun create(@JsonProperty("git") git: Git? = null, @JsonProperty("filesystem") filesystem: FileSystem? = null, @JsonProperty("web") web: Web? = null): SourceV3 {
+            return SourceV3(git, filesystem, web)
         }
     }
 }

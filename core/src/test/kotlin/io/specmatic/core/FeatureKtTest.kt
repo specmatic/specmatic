@@ -1143,12 +1143,16 @@ paths:
             Pair("(string)", "(boolean)"),
             Pair("(null)", "(string)"),
             Pair("(number)", "(string)"),
-            Pair("(boolean)", "(string)")
+            Pair("(boolean)", "(string)"),
+            Pair("(no-body)", "(no-body)")
         )
 
         val actualRequestTypes: List<Pair<String, String>> = tests.map {
-            val bodyType = it.httpRequestPattern.body as JSONObjectPattern
-            bodyType.pattern["data2"].toString() to bodyType.pattern["data1"].toString()
+            when (val bodyType = it.httpRequestPattern.body) {
+                is JSONObjectPattern -> bodyType.pattern["data2"].toString() to bodyType.pattern["data1"].toString()
+                is NoBodyPattern -> "(no-body)" to "(no-body)"
+                else -> error("Unexpected request body pattern ${bodyType::class.qualifiedName}")
+            }
         }
 
         actualRequestTypes.forEach { keyTypesInRequest ->
@@ -1222,7 +1226,7 @@ paths:
 
         val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk, orderPostBadRequest), protocol = SpecmaticProtocol.HTTP)
         val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
-        assertThat(results).hasSize(3)
+        assertThat(results).hasSize(4)
     }
 
     @Test
@@ -1237,6 +1241,6 @@ paths:
 
         val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk), protocol = SpecmaticProtocol.HTTP)
         val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
-        assertThat(results).hasSize(3)
+        assertThat(results).hasSize(4)
     }
 }

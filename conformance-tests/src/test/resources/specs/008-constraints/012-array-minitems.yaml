@@ -23,7 +23,7 @@ paths:
                       type: string
                     members:
                       type: array
-                      minItems: 1
+                      minItems: 10
                       items:
                         type: string
     post:
@@ -42,7 +42,7 @@ paths:
                   type: string
                 members:
                   type: array
-                  minItems: 1
+                  minItems: 10
                   items:
                     type: string
       responses:

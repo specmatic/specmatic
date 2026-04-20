@@ -52,6 +52,31 @@ class TestServiceConfigTest {
     }
 
     @Test
+    fun `getSpecificationSources should preserve web source url for v3 systemUnderTest`() {
+        val source = SourceV3.create(web = SourceV3.Web(url = "http://specmatic.io/specifications"))
+
+        val serviceConfig = CommonServiceConfig<TestRunOptions, TestSettings>(
+            definitions = listOf(
+                Definition(
+                    Definition.Value(
+                        source = RefOrValue.Value(source),
+                        specs = listOf(SpecificationDefinition.StringValue("spec1.yaml"))
+                    )
+                )
+            )
+        )
+
+        val sourceEntries = TestServiceConfig(service = RefOrValue.Value(serviceConfig))
+            .getSpecificationSources(resolver, testSettings = null)
+            .values
+            .flatten()
+
+        assertThat(sourceEntries).hasSize(1)
+        assertThat(sourceEntries.single().webSourceUrl).isEqualTo("http://specmatic.io/specifications")
+        assertThat(sourceEntries.single().specFile.path.replace('\\', '/')).endsWith("/.specmatic/web/specmatic.io/specifications/spec1.yaml")
+    }
+
+    @Test
     fun `getSpecificationSources should retain specs from multiple definitions with same source`(@TempDir tempDir: File) {
         val firstSpec = tempDir.resolve("first.txt").apply { writeText("not an openapi spec") }
         val secondSpec = tempDir.resolve("second.txt").apply { writeText("not an openapi spec") }

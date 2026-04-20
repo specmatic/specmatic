@@ -23,7 +23,7 @@ paths:
                       type: string
                     choices:
                       type: array
-                      maxItems: 5
+                      maxItems: 0
                       items:
                         type: string
     post:
@@ -42,7 +42,7 @@ paths:
                   type: string
                 choices:
                   type: array
-                  maxItems: 5
+                  maxItems: 0
                   items:
                     type: string
       responses:

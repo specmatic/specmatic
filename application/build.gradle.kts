@@ -32,14 +32,14 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
 
-    implementation("org.apache.ant:ant-junit:1.10.16")
+    implementation("org.apache.ant:ant-junit:1.10.17")
 
     implementation(project(":specmatic-core"))
     implementation(project(":junit5-support"))
     implementation(project(":specmatic-mcp"))
 
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.39")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.40")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
@@ -51,7 +51,7 @@ dependencies {
     testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.3")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.3")
-    testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.10")
+    testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.11")
 
 }
 

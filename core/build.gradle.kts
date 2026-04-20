@@ -40,7 +40,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.39")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.40")
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -53,7 +53,7 @@ dependencies {
     testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
-    implementation("org.thymeleaf:thymeleaf:3.1.3.RELEASE")
+    implementation("org.thymeleaf:thymeleaf:3.1.4.RELEASE")
     implementation("org.junit.platform:junit-platform-launcher:1.14.3")
 }
 

@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.NoBodyPattern
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Substitution
@@ -27,6 +28,11 @@ data class OptionalBodyPattern(override val pattern: AnyPattern, private val bod
         return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+        val newBasedOnNoBodyPattern = sequenceOf<ReturnValue<Pattern>>(HasValue(NoBodyPattern, "has been omitted"))
+        val newBasedOnBodyPattern = bodyPattern.newBasedOn(row, resolver)
+        return newBasedOnNoBodyPattern.plus(newBasedOnBodyPattern)
+    }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         val bodyPatternMatchResult = bodyPattern.matches(sampleData, resolver)
@@ -40,5 +46,10 @@ data class OptionalBodyPattern(override val pattern: AnyPattern, private val bod
             return nobodyPatternMatchResult
 
         return bodyPatternMatchResult
+    }
+
+    override fun fixValue(value: Value, resolver: Resolver): Value {
+        if (value is NoBodyValue) return NoBodyValue
+        return bodyPattern.fixValue(value, resolver)
     }
 }

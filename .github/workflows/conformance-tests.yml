@@ -2,12 +2,13 @@ name: Conformance Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - "main"
+      - "sahilm/conformance-tests**"
 
 jobs:
   conformance-tests:
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       pull-requests: write
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
@@ -31,7 +32,31 @@ jobs:
               ]
             }
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
-        continue-on-error: true
         with:
-          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true"
+          gradle-extra-args: "-p conformance-tests -PenableConformanceTests=true -PsucceedOnExpectedFailures=true -x vulnScanSBOMScan -x vulnScanJarScan"
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: 'conformance-tests/build/test-results/test/*.xml'
+          detailed_summary: true
+          include_passed: false
+          require_tests: false
+          check_name: "conformance-tests-results"
+          annotate_only: true
+          skip_annotations: true
+
+      - name: Upload HTML Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-test-report
+          path: conformance-tests/build/reports/tests/test/
+          retention-days: 7
+
+      - name: Count Expected Failures
+        if: always()
+        run: |
+          bash scripts/generate_conformance_summary.sh conformance-tests/build/test-results/test --output "$GITHUB_STEP_SUMMARY"

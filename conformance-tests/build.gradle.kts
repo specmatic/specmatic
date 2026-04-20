@@ -1,14 +1,13 @@
 plugins {
     kotlin("jvm")
 }
-
 dependencies {
     implementation("ch.qos.logback:logback-core:1.5.32")
     implementation("org.slf4j:slf4j-api:2.0.17")
     implementation("org.junit.platform:junit-platform-launcher:1.14.3")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.2")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.39")
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.40")
     implementation("com.networknt:json-schema-validator:2.0.1")
 
     runtimeOnly("ch.qos.logback:logback-classic:1.5.32")
@@ -23,6 +22,7 @@ dependencies {
 
 val enableConformanceTests: String? by project
 val specmaticVersionForConformanceTests: String? by project
+val succeedOnExpectedFailures: String? by project
 
 tasks.test {
     useJUnitPlatform()
@@ -31,6 +31,9 @@ tasks.test {
         dependsOn(":specmatic-executable:dockerBuild")
         if(specmaticVersionForConformanceTests != null) {
             systemProperty("specmaticVersionForConformanceTests", specmaticVersionForConformanceTests.toString())
+        }
+        if(succeedOnExpectedFailures?.toBoolean() == true) {
+            systemProperty("succeedOnExpectedFailures", "true")
         }
     } else {
         exclude("io/specmatic/conformance_tests/")
@@ -54,16 +57,12 @@ val generateConformanceTests by tasks.registering {
             .sorted()
             .toList()
 
-        val header = "package io.specmatic.conformance_tests\nimport org.junit.jupiter.api.DisplayName\n"
+        val header = """package io.specmatic.conformance_tests
+import org.junit.jupiter.api.DisplayName
+"""
 
         val classes = specFiles.joinToString("\n") { relativePath ->
-            val segments = relativePath.split("/")
-            val className = "S" + segments.joinToString("_") { segment ->
-                segment.removeSuffix(".yaml").removeSuffix(".yml")
-                    .split("-")
-                    .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
-            } + "Test"
-
+            val className = generateClassName(relativePath)
             val displayName = relativePath.substringBefore(".")
 
             """
@@ -78,6 +77,15 @@ val generateConformanceTests by tasks.registering {
     }
 }
 
+fun generateClassName(relativePath: String): String {
+    val segments = relativePath.split("/")
+    return "S" + segments.joinToString("_") { segment ->
+        segment.removeSuffix(".yaml").removeSuffix(".yml")
+            .split("-")
+            .joinToString("") { part -> part.replaceFirstChar { it.uppercase() } }
+    } + "Test"
+}
+
 kotlin {
     sourceSets {
         test {
@@ -89,4 +97,3 @@ kotlin {
 tasks.named("compileTestKotlin") {
     dependsOn(generateConformanceTests)
 }
-

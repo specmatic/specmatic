@@ -1727,6 +1727,7 @@ paths:
     post:
       summary: Add Pet
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -2503,6 +2504,7 @@ paths:
     post:
       summary: Add Pet
       requestBody:
+        required: true
         content:
           application/json:
             schema:

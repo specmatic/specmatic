@@ -153,22 +153,25 @@ class GenerativeTests {
         val fromExample = 1
         val positiveGenerated = 1
         val negativeGenerativeAll = 3 + 3
-        val negativeGenerativeNothing = 3
+        val negativeGenerativeNothing = 4
 
         var optionalKeyOccurrence = 0
 
-        val OPTIONAL_KEY = "description"
+        val optionalKey = "description"
 
         try {
             val results = try {
                 feature.enableGenerativeTesting().executeTests(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
-                        val jsonRequestBody = request.body as JSONObjectValue
+                        return when (val requestBody = request.body) {
+                            is JSONObjectValue -> {
+                                if(optionalKey in requestBody.jsonObject)
+                                    optionalKeyOccurrence += 1
 
-                        if(OPTIONAL_KEY in jsonRequestBody.jsonObject)
-                            optionalKeyOccurrence += 1
-
-                        return HttpResponse.OK
+                                HttpResponse.OK
+                            }
+                            else -> HttpResponse.ERROR_400
+                        }
                     }
 
                     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
@@ -192,6 +195,124 @@ class GenerativeTests {
 
             throw e
         }
+    }
+
+    @Test
+    fun `generative tests for optional request body with enum should include change summary for positive and negative tests`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: "3.0.1"
+        info:
+          title: "Order API"
+          version: "1"
+        paths:
+          /order:
+            post:
+              summary: Create order
+              requestBody:
+                required: false
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - new
+                            - processing
+              responses:
+                200:
+                  description: Order created
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            type: integer
+        """.trimIndent(), "").toFeature()
+
+        val positiveGenerativeChangeSummaries = mutableListOf<String?>()
+        val negativeGenerativeChangeSummaries = mutableListOf<String?>()
+        feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse.OK
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                when {
+                    scenario.testDescription().startsWith("+ve") -> positiveGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                    scenario.testDescription().startsWith("-ve") -> negativeGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                }
+            }
+        })
+
+        assertThat(positiveGenerativeChangeSummaries).isNotEmpty
+        assertThat(negativeGenerativeChangeSummaries).isNotEmpty
+        assertThat(positiveGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(negativeGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(positiveGenerativeChangeSummaries).contains("REQUEST.BODY has been omitted")
+    }
+
+    @Test
+    fun `generative tests for required request body with enum should include change summary for positive and negative tests`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: "3.0.1"
+        info:
+          title: "Order API"
+          version: "1"
+        paths:
+          /order:
+            post:
+              summary: Create order
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - new
+                            - processing
+              responses:
+                200:
+                  description: Order created
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - id
+                        properties:
+                          id:
+                            type: integer
+        """.trimIndent(), "").toFeature()
+
+        val positiveGenerativeChangeSummaries = mutableListOf<String?>()
+        val negativeGenerativeChangeSummaries = mutableListOf<String?>()
+        feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return HttpResponse.OK
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                when {
+                    scenario.testDescription().startsWith("+ve") -> positiveGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                    scenario.testDescription().startsWith("-ve") -> negativeGenerativeChangeSummaries.add(scenario.requestChangeSummary)
+                }
+            }
+        })
+
+        assertThat(positiveGenerativeChangeSummaries).isNotEmpty
+        assertThat(negativeGenerativeChangeSummaries).isNotEmpty
+        assertThat(negativeGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(positiveGenerativeChangeSummaries).allSatisfy { assertThat(it).isNotBlank() }
+        assertThat(negativeGenerativeChangeSummaries).contains("REQUEST.BODY has been omitted")
     }
 
     @Test
@@ -251,7 +372,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(7)
+            assertThat(results.results).hasSize(8)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -314,7 +435,7 @@ class GenerativeTests {
 
         try {
             val results = runGenerativeTests(feature)
-            assertThat(results.results).hasSize(7)
+            assertThat(results.results).hasSize(8)
         } catch (e: ContractException) {
             println(e.report())
             throw e
@@ -1028,7 +1149,7 @@ class GenerativeTests {
     @Test
     fun `generative positive-only tests with REQUEST-BODY example`() {
         val specification = OpenApiSpecification.fromYAML(
-            """
+            $$"""
             openapi: "3.0.1"
             info:
               title: "Person API"
@@ -1055,7 +1176,7 @@ class GenerativeTests {
                             address:
                               type: "array"
                               items:
-                                ${'$'}ref: "#/components/schemas/Address"
+                                $ref: "#/components/schemas/Address"
                   responses:
                     200:
                       description: "Get person by id"
@@ -1157,7 +1278,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(results.results).hasSize(11)
+        assertThat(results.results).hasSize(12)
     }
 
     private fun runGenerativeTests(
@@ -1187,10 +1308,10 @@ class GenerativeTests {
             every { getMaxTestRequestCombinations() } returns null
         }
         mockkObject(SpecmaticConfigV1V2Common.Companion)
-        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        every { SpecmaticConfigV1V2Common.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
-            """
+            $$"""
             openapi: 3.0.0
             info:
               version: 1.0.0
@@ -1205,7 +1326,7 @@ class GenerativeTests {
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Product'
+                          $ref: '#/components/schemas/Product'
                   responses:
                     '200':
                       description: Product created successfully
@@ -1238,11 +1359,17 @@ class GenerativeTests {
 
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                val body = request.body as JSONObjectValue
-
-                if (body.jsonObject["name"] !is StringValue) {
-                    testType.add("name mutated to " + body.jsonObject["name"]!!.displayableType())
-                    return HttpResponse.ERROR_400
+                when (val body = request.body) {
+                    is JSONObjectValue -> {
+                        if (body.jsonObject["name"] !is StringValue) {
+                            testType.add("name mutated to " + body.jsonObject["name"]!!.displayableType())
+                            return HttpResponse.ERROR_400
+                        }
+                    }
+                    else -> {
+                        testType.add("name omitted")
+                        return HttpResponse.ERROR_400
+                    }
                 }
 
                 testType.add("name not mutated")
@@ -1257,6 +1384,7 @@ class GenerativeTests {
 
         assertThat(testType).containsExactlyInAnyOrder(
             "name not mutated",
+            "name omitted",
             "name mutated to null",
             "name mutated to boolean",
             "name mutated to number"
@@ -1277,10 +1405,10 @@ class GenerativeTests {
         }
 
         mockkObject(SpecmaticConfigV1V2Common.Companion)
-        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
+        every { SpecmaticConfigV1V2Common.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
 
         val feature = OpenApiSpecification.fromYAML(
-            """
+            $$"""
             openapi: 3.0.0
             info:
               version: 1.0.0
@@ -1295,7 +1423,7 @@ class GenerativeTests {
                     content:
                       application/json:
                         schema:
-                          ${"$"}ref: '#/components/schemas/Product'
+                          $ref: '#/components/schemas/Product'
                         examples:
                           SUCCESS:
                             value:
@@ -1715,6 +1843,7 @@ class GenerativeTests {
                 post:
                   summary: Create person record
                   requestBody:
+                    required: true
                     content:
                       application/json:
                         examples:
@@ -1776,7 +1905,7 @@ class GenerativeTests {
             }
         })
 
-        assertThat(results.testCount).isEqualTo(8)
+        assertThat(results.testCount).isEqualTo(9)
         assertThat(testsSeen).doesNotContain("-ve" to "BAD_REQUEST")
         assertThat(testsSeen).doesNotContain("-ve" to "SERVER_ERROR")
     }
@@ -2322,6 +2451,7 @@ class GenerativeTests {
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys",
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys AND the key quantity is set to the largest possible value",
             "+ve  Scenario: POST /items -> 201 with the request from the example 'sampleItems' where REQUEST.BODY contains all the keys AND the key quantity is set to the smallest possible value '1'",
+            "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY has been omitted",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean AND quantity is set to the largest possible value",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key name is mutated from string to boolean AND quantity is set to the smallest possible value '1'",
