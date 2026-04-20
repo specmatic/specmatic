@@ -9,6 +9,7 @@ import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.xmlNode
 import io.specmatic.core.utilities.capitalizeFirstChar
+import io.specmatic.core.wsdl.SOAPVersion
 import io.specmatic.core.wsdl.parser.message.*
 import io.specmatic.core.wsdl.parser.operation.SOAPOperationTypeInfo
 import io.specmatic.core.wsdl.payload.EmptyHTTPBodyPayload
@@ -48,9 +49,10 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
     private fun operationsTypeInfo(url: String): List<SOAPOperationTypeInfo> {
         val portType = wsdl.getPortType()
+        val soapVersion = wsdl.getSOAPVersion()
 
         return wsdl.operations.map {
-            parseOperation(it, url, wsdl, portType)
+            parseOperation(it, url, wsdl, portType, soapVersion)
         }
     }
 
@@ -65,7 +67,13 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
     }
 
-    private fun parseOperation(bindingOperationNode: XMLNode, url: String, wsdl: WSDL, portType: XMLNode): SOAPOperationTypeInfo {
+    private fun parseOperation(
+        bindingOperationNode: XMLNode,
+        url: String,
+        wsdl: WSDL,
+        portType: XMLNode,
+        soapVersion: SOAPVersion
+    ): SOAPOperationTypeInfo {
         val operationName = bindingOperationNode.getAttributeValue("name")
 
         val soapAction = bindingOperationNode.getAttributeValueAtPath("operation", "soapAction")
@@ -133,13 +141,14 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                 }.toMap()
 
         return SOAPOperationTypeInfo(
-            path,
-            operationName,
-            soapAction,
-            responseTypeInfo.types.mapKeys { it.key.trim() },
-            requestTypeInfo.soapPayload,
-            RequestHeaders(requestHeaders),
-            responseTypeInfo.soapPayload
+            path = path,
+            operationName = operationName,
+            soapAction = soapAction,
+            soapVersion = soapVersion,
+            types = responseTypeInfo.types.mapKeys { it.key.trim() },
+            requestPayload = requestTypeInfo.soapPayload,
+            requestHeaders = RequestHeaders(requestHeaders),
+            responsePayload = responseTypeInfo.soapPayload
         )
     }
 

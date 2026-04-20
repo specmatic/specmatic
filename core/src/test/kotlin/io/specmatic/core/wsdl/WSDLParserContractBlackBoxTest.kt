@@ -1,8 +1,9 @@
 package io.specmatic.core.wsdl
 
+import io.ktor.http.ContentType
+import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.Result
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.stub.HttpStub
@@ -244,7 +245,7 @@ class WSDLParserContractBlackBoxTest {
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertHttpRequestMatches(request, fixture.scenarioStub.request)
-                    assertThat(request.headers["Content-Type"]).isNull()
+                    assertThat(request.headers["Content-Type"]).isEqualTo(ContentType.Text.Xml.toString())
                     return stub.client.execute(request)
                 }
             })
@@ -265,11 +266,46 @@ class WSDLParserContractBlackBoxTest {
             fixture.feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertHttpRequestMatches(request, fixture.scenarioStub.request)
-                    assertThat(request.headers["Content-Type"]).isNull()
+                    assertThat(request.headers["Content-Type"]).isEqualTo(ContentType.Text.Xml.toString())
                     return stub.client.execute(request)
                 }
             })
         }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `contract test for soap version_1_2 wsdl uses example request and content-type`() {
+        val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
+        val examplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
+        val fixture = loadWsdlExampleFixture(wsdlSpecPath, examplesPath)
+
+        val result = fixture.feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.body).isEqualTo(fixture.scenarioStub.request.body)
+                assertThat(request.headers[CONTENT_TYPE]).startsWith("application/soap+xml")
+                return fixture.scenarioStub.response
+            }
+        })
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `contract test for soap version_1_2 wsdl generated request uses content-type`() {
+        val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
+        val feature = parseContractFileToFeature(File(wsdlSpecPath))
+        val generatedResponse = feature.scenarios.single().generateHttpResponse(emptyMap())
+
+        val result = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.headers[CONTENT_TYPE]).startsWith("application/soap+xml")
+                return generatedResponse
+            }
+        })
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(1)

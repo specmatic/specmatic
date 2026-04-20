@@ -8,9 +8,9 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.*
+import io.specmatic.core.wsdl.SOAPVersion
 import io.specmatic.core.wsdl.parser.message.*
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 private fun namespaceToPrefixMap(wsdlNode: XMLNode): Map<String, String> {
@@ -376,6 +376,20 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
 
     fun getSchemaNamespacePrefix(namespace: String): String {
         return namespaceToPrefix[namespace] ?: throw ContractException("Tried to lookup a prefix for the namespace $namespace but could not find one")
+    }
+
+    fun getSOAPVersion(): SOAPVersion {
+        val paranoidDefaultSoapVersion = SOAPVersion.SOAP12
+
+        val wsdlBindingNode = getBinding()
+        val bindingNode = wsdlBindingNode.findChildrenByName("binding").firstOrNull() ?: return paranoidDefaultSoapVersion
+        val namespace = bindingNode.namespaces[bindingNode.namespacePrefix]
+
+        return when (namespace) {
+            "http://schemas.xmlsoap.org/wsdl/soap/" -> SOAPVersion.SOAP11
+            "http://schemas.xmlsoap.org/wsdl/soap12/" -> SOAPVersion.SOAP12
+            else -> paranoidDefaultSoapVersion
+        }
     }
 }
 

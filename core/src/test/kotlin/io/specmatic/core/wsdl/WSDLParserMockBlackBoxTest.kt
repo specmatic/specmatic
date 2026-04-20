@@ -1,5 +1,7 @@
 package io.specmatic.core.wsdl
 
+import io.ktor.http.ContentType
+import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.StringValue
@@ -19,7 +21,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-scalar",
-                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -42,7 +44,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-scalar",
-                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -51,7 +53,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-scalar",
-                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -70,7 +72,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-scalar",
-                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-scalar/scalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicescalar=\"http://choice-scalar\"><soapenv:Body><Choicescalar:ScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Choicescalar:ScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -88,7 +90,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-complex",
-                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -111,7 +113,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-complex",
-                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -120,7 +122,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-complex",
-                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -139,7 +141,7 @@ class WSDLParserMockBlackBoxTest {
                 HttpRequest(
                     method = "POST",
                     path = "/choice-complex",
-                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\""),
+                    headers = mapOf("SOAPAction" to "\"/choice-complex/complexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
                     body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Choicecomplex=\"http://choice-complex\"><soapenv:Body><Choicecomplex:ComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Choicecomplex:CustomerByPermId><PermId>CP-123</PermId></Choicecomplex:CustomerByPermId><Choicecomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Choicecomplex:CustomerByLogin></Choicecomplex:ComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
                 )
             )
@@ -174,7 +176,7 @@ class WSDLParserMockBlackBoxTest {
         val request = HttpRequest(
             method = "POST",
             path = "/choice-optional",
-            headers = mapOf("SOAPAction" to "\"/choice-optional/optionalChoice\""),
+            headers = mapOf("SOAPAction" to "\"/choice-optional/optionalChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Opt=\"http://choice-optional\"><soapenv:Body><Opt:OptionalChoiceRequest><Opt:SPName>PrimaryName</Opt:SPName></Opt:OptionalChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
@@ -194,7 +196,7 @@ class WSDLParserMockBlackBoxTest {
         val request = HttpRequest(
             method = "POST",
             path = "/choice-scalar-repeating",
-            headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating/repeatingScalarChoice\""),
+            headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating/repeatingScalarChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId></Repeatingscalar:RepeatingScalarChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
@@ -212,7 +214,7 @@ class WSDLParserMockBlackBoxTest {
         val request = HttpRequest(
             method = "POST",
             path = "/choice-complex-repeating",
-            headers = mapOf("SOAPAction" to "\"/choice-complex-repeating/repeatingComplexChoice\""),
+            headers = mapOf("SOAPAction" to "\"/choice-complex-repeating/repeatingComplexChoice\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingcomplex=\"http://choice-complex-repeating\"><soapenv:Body><Repeatingcomplex:RepeatingComplexChoiceRequest><PrimaryName>PrimaryName</PrimaryName><Repeatingcomplex:CustomerByPermId><PermId>CP-123</PermId></Repeatingcomplex:CustomerByPermId><Repeatingcomplex:CustomerByLogin><Domain>Retail</Domain><LoginId>login-123</LoginId></Repeatingcomplex:CustomerByLogin></Repeatingcomplex:RepeatingComplexChoiceRequest></soapenv:Body></soapenv:Envelope>")
         )
 
@@ -230,7 +232,7 @@ class WSDLParserMockBlackBoxTest {
         val request = HttpRequest(
             method = "POST",
             path = "/choice-scalar-repeating-unbounded",
-            headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating-unbounded/repeatingScalarChoiceUnbounded\""),
+            headers = mapOf("SOAPAction" to "\"/choice-scalar-repeating-unbounded/repeatingScalarChoiceUnbounded\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = StringValue("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:Repeatingscalar=\"http://choice-scalar-repeating-unbounded\"><soapenv:Body><Repeatingscalar:RepeatingScalarChoiceUnboundedRequest><PrimaryName>PrimaryName</PrimaryName><CustomerNumber>C-123</CustomerNumber><LoginId>login-123</LoginId><CustomerNumber>C-456</CustomerNumber></Repeatingscalar:RepeatingScalarChoiceUnboundedRequest></soapenv:Body></soapenv:Envelope>")
         )
 
@@ -275,12 +277,62 @@ class WSDLParserMockBlackBoxTest {
     }
 
     @Test
+    fun `mock for soap version_1_2 wsdl returns the example soap response with appropriate content-type header`() {
+        val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
+        val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
+        val fixture = loadWsdlExampleFixture(wsdlSpecPath, wsdlExamplesPath)
+        val response = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+            stub.client.execute(fixture.scenarioStub.request)
+        }
+
+        assertThat(fixture.scenarioStub.request.headers[CONTENT_TYPE]).startsWith("application/soap+xml")
+        assertThat(response.status).isEqualTo(fixture.scenarioStub.response.status)
+        assertThat(response.headers["Content-Type"]).isEqualTo("application/soap+xml")
+        assertThat(response.body).isEqualTo(fixture.scenarioStub.response.body)
+    }
+
+    @Test
+    fun `mock for soap version_1_2 wsdl generates response with appropriate content-type header`() {
+        val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
+        val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
+        val fixture = loadWsdlExampleFixture(wsdlSpecPath, wsdlExamplesPath)
+        val response = HttpStub(fixture.feature, emptyList()).use { stub ->
+            stub.client.execute(fixture.scenarioStub.request)
+        }
+
+        assertThat(response.status).isEqualTo(fixture.scenarioStub.response.status)
+        assertThat(response.headers["Content-Type"]).isEqualTo("application/soap+xml")
+    }
+
+    @Test
+    fun `mock for wsdl should rejects request with wrong content-type`() {
+        val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
+        val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
+        val fixture = loadWsdlExampleFixture(wsdlSpecPath, wsdlExamplesPath)
+        val invalidRequest = fixture.scenarioStub.request.copy(headers = fixture.scenarioStub.request.headers + (CONTENT_TYPE to ContentType.Text.Xml.toString()))
+        val response = HttpStub(fixture.feature, fixture.scenarioStubs).use { stub ->
+            stub.client.execute(invalidRequest)
+        }
+
+        assertThat(response.status).isEqualTo(400)
+    }
+
+    @Test
+    fun `mock for wsdl with empty http body should not enforce content-type to be present`() {
+        val wsdlSpecPath = "src/test/resources/wsdl/state_machine/no_input.wsdl"
+        val feature = parseContractFileToFeature(File(wsdlSpecPath))
+        val request = feature.scenarios.single().generateHttpRequest()
+        val response = HttpStub(feature).use { stub -> stub.client.execute(request) }
+        assertThat(response.status).isEqualTo(200)
+    }
+
+    @Test
     fun `mock for empty message part wsdl returns an empty soap response`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/empty_part.wsdl"))
         val request = HttpRequest(
             method = "POST",
             path = "/empty-part",
-            headers = mapOf("SOAPAction" to "\"/empty-part/ping\""),
+            headers = mapOf("SOAPAction" to "\"/empty-part/ping\"", CONTENT_TYPE to ContentType.Text.Xml.toString()),
             body = emptySoapMessage(),
         )
 
