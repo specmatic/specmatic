@@ -6,7 +6,7 @@ import org.junit.jupiter.api.extension.ReflectiveInvocationContext
 import org.opentest4j.AssertionFailedError
 import java.lang.reflect.Method
 
-class ExpectedFailureExtension : InvocationInterceptor {
+class ExpectedFailureExtension(private val findFailureReason: (String) -> String?) : InvocationInterceptor {
 
     override fun interceptTestMethod(
         invocation: InvocationInterceptor.Invocation<Void>,
@@ -24,8 +24,7 @@ class ExpectedFailureExtension : InvocationInterceptor {
             return
         }
 
-        val spec = (extensionContext.requiredTestInstance as AbstractConformanceTest).spec
-        val failureReason = spec.findExtensionByKey(annotation.tag)
+        val failureReason = findFailureReason(annotation.tag)
 
         if (failureReason == null) {
             invocation.proceed()

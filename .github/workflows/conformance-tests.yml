@@ -2,7 +2,9 @@ name: Conformance Tests
 
 on:
   push:
-    branches: [ "main", "disable-expected-failures-conformance" ]
+    branches:
+      - "main"
+      - "sahilm/conformance-tests**"
 
 jobs:
   conformance-tests:
