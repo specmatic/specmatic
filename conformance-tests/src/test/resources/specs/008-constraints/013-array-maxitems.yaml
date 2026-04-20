@@ -1,3 +1,5 @@
+x-specmatic-expect-failure-request-bodies: "invalid request/response body because array-minItems/array-maxItems constraint not respected"
+x-specmatic-expect-failure-response-bodies: "invalid request/response body because array-minItems/array-maxItems constraint not respected"
 openapi: 3.0.3
 info:
   title: "Constraint - array maxItems"
