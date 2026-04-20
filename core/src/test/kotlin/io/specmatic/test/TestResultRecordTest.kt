@@ -3,10 +3,12 @@ package io.specmatic.test
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.*
@@ -47,8 +49,8 @@ class TestResultRecordTest {
     }
 
     @Test
-    fun `should be considered covered when results Success, Error, Failed, and NotImplemented`() {
-        listOf(TestResult.Success, TestResult.Error, TestResult.Failed, TestResult.NotImplemented).forEach {
+    fun `should be considered covered when results Success, Failed, and NotImplemented`() {
+        listOf(TestResult.Success, TestResult.Failed, TestResult.NotImplemented).forEach {
             val record = TestResultRecord(
                 path = "/example/path",
                 method = "GET",
@@ -63,7 +65,7 @@ class TestResultRecordTest {
 
     @Test
     fun `should not be considered covered for other results`() {
-        TestResult.entries.filterNot { it in listOf(TestResult.Success, TestResult.Error, TestResult.Failed, TestResult.NotImplemented) }.forEach {
+        listOf(TestResult.MissingInSpec, TestResult.NotCovered).forEach {
             val record = TestResultRecord(
                 path = "/example/path",
                 method = "GET",
@@ -101,9 +103,7 @@ class TestResultRecordTest {
         )
 
         val meta = record.extraFields()
-
-        assertTrue(meta.valid)
-        assertFalse(meta.wip)
+        assertThat(meta.wip).isFalse()
         assertEquals(request.toLogString().trim(), meta.input.trim())
         assertNotNull(meta.outputs)
         assertEquals(1, meta.outputs!!.size)
@@ -128,9 +128,7 @@ class TestResultRecordTest {
         )
 
         val meta = record.extraFields()
-
-        assertTrue(meta.valid)
-        assertTrue(meta.wip)
+        assertThat(meta.wip).isTrue()
         assertEquals("", meta.input)
         assertNull(meta.outputs)
         assertEquals(0L, meta.inputTime)
@@ -138,7 +136,7 @@ class TestResultRecordTest {
 
     @Test
     fun `getCoverageStatus should return COVERED for exercised test results`() {
-        listOf(TestResult.Success, TestResult.Error, TestResult.Failed).forEach { result ->
+        listOf(TestResult.Success, TestResult.Failed).forEach { result ->
             val coverageStatus = listOf(testResultRecord(result = result)).getCoverageStatus()
 
             assertEquals(CoverageStatus.COVERED, coverageStatus)
@@ -177,10 +175,15 @@ class TestResultRecordTest {
     }
 
     @Test
-    fun `returns WIP message when isWip is true`() {
-        val record = testResultRecord(isWip = true, result = TestResult.NotCovered)
+    fun `returns actual message when isWip is true`() {
+        val failure = io.specmatic.core.Result.Failure("WIP failure message")
+        val record = testResultRecord(
+            isWip = true,
+            result = TestResult.NotCovered
+        ).copy(scenarioResult = failure)
+
         val result = record.testMessage()
-        assertEquals("Work in progress test", result)
+        assertTrue(result.contains("WIP failure message"))
     }
 
     @Test
@@ -212,6 +215,24 @@ class TestResultRecordTest {
 
         val result = record.testMessage()
         assertTrue(result.contains("Something went wrong"))
+    }
+
+    @Test
+    fun `testQualifiers should include response undeclared when response is outside specification`() {
+        val record = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = false)
+        assertThat(record.testQualifiers()).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+        assertThat(record.extraFields().qualifiers).containsExactly(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+    }
+
+    @Test
+    fun `testQualifiers should be empty when response is declared or unknown`() {
+        val responseDeclared = testResultRecord(result = TestResult.Failed).copy(isResponseInSpecification = true)
+        val responseUnknown = testResultRecord(result = TestResult.Failed)
+
+        assertThat(responseDeclared.testQualifiers()).isEmpty()
+        assertThat(responseDeclared.extraFields().qualifiers).isEmpty()
+        assertThat(responseUnknown.testQualifiers()).isEmpty()
+        assertThat(responseUnknown.extraFields().qualifiers).isEmpty()
     }
 
     private fun testResultRecord(

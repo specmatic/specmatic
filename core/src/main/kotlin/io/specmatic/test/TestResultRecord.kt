@@ -1,13 +1,18 @@
 package io.specmatic.test
 
+import io.ktor.http.ContentType
+import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfTestMetadata
 import io.specmatic.reporter.ctrf.model.CtrfTestOutput
+import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -21,6 +26,7 @@ data class TestResultRecord(
     val path: String,
     val method: String,
     val responseStatus: Int,
+    val responseContentType: String? = null,
     val request: HttpRequest?,
     val response: HttpResponse?,
     override val result: TestResult,
@@ -30,6 +36,7 @@ data class TestResultRecord(
     override val specification: String? = null,
     override val specType: SpecType,
     val actualResponseStatus: Int = 0,
+    val actualResponseContentType: String? = response.normalizedContentType(),
     val scenarioResult: Result? = null,
     override val isWip: Boolean = false,
     val requestContentType: String? = null,
@@ -40,16 +47,26 @@ data class TestResultRecord(
     override val duration: Long = durationFrom(requestTime, responseTime),
     override val rawStatus: String? = result.toString(),
     override val testType: String = CONTRACT_TEST_TEST_TYPE,
+    val protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
     override val operations: Set<APIOperation> = setOf(
         OpenAPIOperation(
             path = path,
-            method = method,
-            contentType = requestContentType,
+            protocol = protocol,
+            method = soapAction ?: method,
             responseCode = responseStatus,
-            protocol = SpecmaticProtocol.HTTP
+            contentType = requestContentType,
+            responseContentType = responseContentType,
         )
     ),
-    val exampleId: String? = null
+    val exampleId: String? = null,
+    val isResponseInSpecification: Boolean? = null,
+    val reasoning: Reasoning = Reasoning(),
+    val matchesResponseIdentifiers: Boolean = matchesResponseIdentifiers(
+        expectedCode = responseStatus,
+        actualCode = actualResponseStatus,
+        expectedType = responseContentType,
+        actualType = actualResponseContentType
+    ),
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -70,10 +87,23 @@ data class TestResultRecord(
 
         return CtrfTestMetadata(
             wip = isWip,
-            input = request?.toLogString().orEmpty(),
             outputs = outputs,
-            inputTime = requestTime?.toEpochMilli() ?: 0L
+            qualifiers = testQualifiers(),
+            match = matchesResponseIdentifiers,
+            input = request?.toLogString().orEmpty(),
+            inputTime = requestTime?.toEpochMilli() ?: 0L,
+            reasons = reasoning.toCtrfSnapshots()
         )
+    }
+
+    fun testQualifiers(): List<CtrfTestQualifiers> {
+        if (isResponseInSpecification == null || isResponseInSpecification) return emptyList()
+        return listOf(CtrfTestQualifiers.UNDECLARED_RESPONSE)
+    }
+
+    fun operationQualifiers(): List<CtrfOperationQualifiers> {
+        if (!this.isWip) return emptyList()
+        return listOf(CtrfOperationQualifiers.WIP)
     }
 
     override fun tags(): List<String> {
@@ -91,7 +121,6 @@ data class TestResultRecord(
     }
 
     override fun testMessage(): String {
-        if(isWip) return "Work in progress test"
         if(scenarioResult == null) return ""
         if(scenarioResult.isSuccess()) return ""
         return scenarioResult.reportString()
@@ -116,6 +145,19 @@ data class TestResultRecord(
             val areAnyOfTheTestsExercised = this.any { it.isExercised }
             return this.first().toCoverageStatus(areAnyOfTheTestsWip, areAnyOfTheTestsExercised)
         }
+
+        private fun matchesResponseIdentifiers(expectedCode: Int, actualCode: Int, expectedType: String?, actualType: String?): Boolean {
+            if (expectedCode !in setOf(DEFAULT_RESPONSE_CODE, actualCode)) return false
+            return runCatching {
+                val expected = expectedType?.let(ContentType::parse)
+                val actual = actualType?.let(ContentType::parse)
+                Pair(expected, actual)
+            }.mapCatching { (expected, actual) ->
+                if (expected == null && actual == null) return@mapCatching true
+                if (expected == null || actual == null) return@mapCatching false
+                actual.match(expected)
+            }.getOrDefault(false)
+        }
     }
 
     private fun toCoverageStatus(
@@ -132,20 +174,12 @@ data class TestResultRecord(
                 "Cannot determine coverage status for API operation ${this.testName()} with unknown test result: ${this.result}"
             )
         }
+
 }
 
-fun CoverageStatus.isPresentInSpecForApiCoverage(): Boolean =
-    this != CoverageStatus.MISSING_IN_SPEC
-
-fun CoverageStatus.countsAsCoveredForApiCoverage(): Boolean =
-    this == CoverageStatus.COVERED || this == CoverageStatus.WIP
-
-fun List<TestResultRecord>.countsAsCoveredForApiCoverage(): Boolean =
-    when {
-        any { it.isWip } -> true
-        any { it.isExercised } -> first().result != TestResult.NotImplemented
-        else -> false
-    }
+fun HttpResponse?.normalizedContentType(): String? {
+    return this?.contentType()?.substringBefore(";")?.trim()?.takeIf { it.isNotBlank() }
+}
 
 private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
     if (requestTime != null && responseTime != null)
@@ -155,9 +189,10 @@ private fun durationFrom(requestTime: Instant?, responseTime: Instant?) =
 fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
     return OpenAPIOperation(
         path = path,
-        method = scenario.method,
+        method = scenario.soapActionUnescaped ?: scenario.method,
         contentType = scenario.requestContentType,
         responseCode = scenario.status,
-        protocol = scenario.protocol
+        protocol = scenario.protocol,
+        responseContentType = scenario.responseContentType,
     )
 }

@@ -35,9 +35,7 @@ class FilterIntegrationTest {
             }
         }
 
-        val count = contractTestHarness.openApiCoverageReportInput.generate().testResultRecords.count {
-            it.result == TestResult.Success
-        }
+        val count = contractTestHarness.openApiCoverage.generate().testResultRecords.count { it.result == TestResult.Success }
         assertEquals(expectedSuccessfulTestCount, count)
     }
 
@@ -135,6 +133,7 @@ class FilterIntegrationTest {
         fun tearDown() {
             System.clearProperty("testBaseURL")
             System.clearProperty(Flags.CONFIG_FILE_PATH)
+            System.clearProperty("filter")
             httpStub.close()
         }
 

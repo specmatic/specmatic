@@ -12,6 +12,9 @@ paths:
           name: orderId
           schema:
             type: integer
+          examples:
+            INLINE_GET_ORDERS:
+              value: 5
       responses:
         '200':
           description: OK
@@ -24,6 +27,21 @@ paths:
                 properties:
                   id:
                     type: integer
+              examples:
+                INLINE_GET_ORDERS:
+                  value:
+                    id: 5
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
   /products:
     post:
       requestBody:

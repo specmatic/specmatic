@@ -15,6 +15,7 @@ import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.value.*
 import io.specmatic.osAgnosticPath
+import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.HttpClient
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
@@ -1398,6 +1399,53 @@ Examples:
         )
 
         assertThat(results.testCount).isEqualTo(4)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
+    fun `should allow 400 response with all possible content-types from the specification for generative tests`() {
+        val openApiFile = File("src/test/resources/openapi/get_bad_requests_or_default_multiple_4xx.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val bodiesToReturn = sequence {
+            while (true) {
+                yield(StringValue("BadRequest"))
+                yield(JSONObjectValue(mapOf("error" to StringValue("Bad Request"))))
+            }
+        }.iterator()
+
+        val results = feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val isNegativeTest = request.headers[SPECMATIC_RESPONSE_CODE_HEADER] == "400"
+                if (!isNegativeTest) return HttpResponse(status = 201)
+                return HttpResponse(status = 400, bodiesToReturn.next()).also { println(it.toLogString()) }
+            }}
+        )
+
+        assertThat(results.testCount).isEqualTo(5)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+    }
+
+    @Test
+    fun `should allow any 4xx status response with all possible content-types from the specification for generative tests when status includes default`() {
+        val openApiFile = File("src/test/resources/openapi/get_bad_requests_or_default_multiple_4xx.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val statusToReturn = generateSequence(401) { it.inc() }.iterator()
+        val bodiesToReturn = sequence {
+            while (true) {
+                yield(StringValue("BadRequest"))
+                yield(JSONObjectValue(mapOf("error" to StringValue("Bad Request"))))
+            }
+        }.iterator()
+
+        val results = feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val isNegativeTest = request.headers[SPECMATIC_RESPONSE_CODE_HEADER] == "400"
+                if (!isNegativeTest) return HttpResponse(status = 201)
+                return HttpResponse(status = statusToReturn.next(), bodiesToReturn.next()).also { println(it.toLogString()) }
+            }}
+        )
+
+        assertThat(results.testCount).isEqualTo(5)
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 }

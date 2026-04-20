@@ -156,6 +156,6 @@ class ScenarioSOAPActionTest {
         
         // Test that the test description includes SOAPAction
         val testDescription = scenario.testDescription()
-        assertThat(testDescription).isEqualTo(" Scenario: POST /soap/service SOAPAction http://example.com/soap/action -> 200")
+        assertThat(testDescription).isEqualTo("Scenario: POST /soap/service SOAPAction http://example.com/soap/action -> 200")
     }
 }

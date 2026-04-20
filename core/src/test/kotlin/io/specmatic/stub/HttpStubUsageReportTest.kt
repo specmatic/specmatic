@@ -99,10 +99,10 @@ paths:
 
         HttpStub(listOf(stubContract1, stubContract2)).use { stub ->
             assertThat(stub.allEndpoints).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-                StubEndpoint("/hello", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-                StubEndpoint("/data2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-                StubEndpoint("/hello2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+                StubEndpoint("/data", "GET", 200, responseContentType = "text/plain", specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/hello", "GET", 200, responseContentType = "text/plain", specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/data2", "GET", 200, responseContentType = "text/plain", specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/hello2", "GET", 200, responseContentType = "text/plain", specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
             ))
         }
     }
@@ -207,8 +207,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/hello"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-                StubEndpoint("/hello", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+                StubEndpoint("/data", "GET", 200, "text/plain", "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/hello", "GET", 200, "text/plain", "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
             ))
         }
     }
@@ -239,8 +239,8 @@ paths:
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-                StubEndpoint("/hello", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+                StubEndpoint("/data", "GET", 200, "text/plain", "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/hello", "GET", 200, "text/plain", "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
             ))
         }
     }
@@ -255,7 +255,7 @@ paths:
             stub.client.execute(HttpRequest("GET", "/unknown"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/data", "GET", 200, "text/plain", "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
             ))
         }
     }
@@ -283,7 +283,7 @@ paths:
             stub.client.execute(HttpRequest("GET", "/hello"))
 
             assertThat(stub.logs).isEqualTo(listOf(
-                StubEndpoint("/data", "GET", 200, "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                StubEndpoint("/data", "GET", 200, "text/plain", "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
             ))
         }
     }
@@ -303,7 +303,7 @@ paths:
             threads.forEach { it.join() }
 
             assertThat(stub.logs.count()).isEqualTo(10)
-            assertThat(stub.logs.all { it == StubEndpoint("/hello", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI) }).isTrue
+            assertThat(stub.logs.all { it == StubEndpoint("/hello", "GET", 200, responseContentType = "text/plain", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI) }).isTrue
         }
     }
 }

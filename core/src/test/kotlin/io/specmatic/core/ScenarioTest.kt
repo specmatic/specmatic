@@ -9,6 +9,8 @@ import io.specmatic.core.filters.HttpFilterContext
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -27,6 +29,9 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.function.Consumer
 import java.util.stream.Stream
+import io.specmatic.test.TestExecutionReason
+import io.specmatic.test.TestSkipReason
+import org.assertj.core.api.Assertions.assertThat
 
 class ScenarioTest {
 
@@ -1048,6 +1053,265 @@ class ScenarioTest {
             val paths = scenario.calculatePath(httpRequest)
 
             assertThat(paths).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class NewBasedOnWithDecisionTests {
+        @Test
+        fun `newBasedOnWithDecision should execute using matching suggestion and keep original context`() {
+            val original = exampleScenarioForNewBasedOnWithDecision(name = "original")
+            val suggested = exampleScenarioForNewBasedOnWithDecision(name = "original").copy(
+                examples = listOf(Examples(listOf("id"), listOf(Row(mapOf("id" to "456"))))),
+                references = emptyMap()
+            )
+
+            val decision = original.newBasedOnWithDecision(suggestions = listOf(suggested), strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.HAS_EXAMPLE),
+                    value = original.copy(examples = suggested.examples, references = suggested.references),
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should execute using self when no matching suggestion exists`() {
+            val original = exampleScenarioForNewBasedOnWithDecision(name = "original")
+            val unrelatedSuggestion = exampleScenarioForNewBasedOnWithDecision(name = "other")
+            val decision = original.newBasedOnWithDecision(
+                strictMode = false,
+                suggestions = listOf(unrelatedSuggestion),
+                resiliencyTestSuite = ResiliencyTestSuite.all
+            )
+
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.HAS_EXAMPLE),
+                    value = original.copy(examples = original.examples, references = original.references),
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should execute with no example reasoning when scenario has no examples`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 200)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    value = original,
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE)
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should skip bad request scenarios without examples when resiliency suite is not all`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.positiveOnly)
+            assertThat(decision).isEqualTo(
+                Decision.Skip(
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestSkipReason.GENERATIVE_DISABLED, otherReasons = listOf(TestSkipReason.EXAMPLES_REQUIRED))
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should return null for bad request scenarios without examples when resiliency suite is all`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
+            assertThat(decision).isEqualTo(null)
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should skip non 2xx and non 400 scenarios without examples with no examples reasoning`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 500)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
+            assertThat(decision).isEqualTo(
+                Decision.Skip(
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED)
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should execute bad request scenarios with examples`() {
+            val original = exampleScenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.positiveOnly)
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    value = original,
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.HAS_EXAMPLE)
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should execute gherkin scenarios without examples even when status is non 2xx`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 500, isGherkinScenario = true)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    value = original,
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.NO_EXAMPLE)
+                )
+            )
+        }
+
+        @Test
+        fun `newBasedOnWithDecision should skip 2xx scenarios without examples in strict mode`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 200)
+            val decision = original.newBasedOnWithDecision(strictMode = true, resiliencyTestSuite = ResiliencyTestSuite.all)
+            assertThat(decision).isEqualTo(
+                Decision.Skip(
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+                )
+            )
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should return examples required in strict mode for 400 response when resiliency is enabled`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = true, resiliencyTestSuite = ResiliencyTestSuite.all)
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+            assertThat(decision.reasoning.otherReasons).isEmpty()
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should return examples required in strict mode and resiliency disabled for 400 response`() {
+            val original = scenarioForNewBasedOnWithDecision(status = 400)
+            val decision = original.newBasedOnWithDecision(strictMode = true, resiliencyTestSuite = ResiliencyTestSuite.none)
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java); decision as Decision.Skip
+            assertThat(decision.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+            assertThat(decision.reasoning.otherReasons).containsExactlyInAnyOrder(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+        }
+
+        private fun scenarioForNewBasedOnWithDecision(name: String = "scenario-name", method: String = "GET", status: Int = 200, examples: List<Examples> = emptyList(), isGherkinScenario: Boolean = false): Scenario {
+            return Scenario(
+                name = name,
+                httpRequestPattern = HttpRequestPattern(method = method),
+                httpResponsePattern = HttpResponsePattern(status = status),
+                examples = examples,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI,
+                isGherkinScenario = isGherkinScenario
+            )
+        }
+
+        private fun exampleScenarioForNewBasedOnWithDecision(name: String = "scenario-name", status: Int = 200) = scenarioForNewBasedOnWithDecision(
+            name = name,
+            status = status,
+            examples = listOf(Examples(listOf("id"), listOf(Row(mapOf("id" to "123")))))
+        )
+    }
+
+    @Nested
+    inner class FullApiDescriptionTests {
+        @Test
+        fun `fullApiDescription should return base description when no content types are declared`() {
+            val scenario = scenarioForFullApiDescription()
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201")
+        }
+
+        @Test
+        fun `fullApiDescription should include request content type only`() {
+            val scenario = scenarioForFullApiDescription(requestContentType = "application/json")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (requestContentType application/json)")
+        }
+
+        @Test
+        fun `fullApiDescription should include response content type only`() {
+            val scenario = scenarioForFullApiDescription(responseContentType = "application/xml")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (responseContentType application/xml)")
+        }
+
+        @Test
+        fun `fullApiDescription should include request and response content types`() {
+            val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml")
+            assertThat(scenario.fullApiDescription).isEqualTo("POST /products -> 201 (requestContentType application/json, responseContentType application/xml)")
+        }
+
+        @Test
+        fun `fullApiDescription should prefer custom api description but include contentDescription`() {
+            val scenario = scenarioForFullApiDescription(requestContentType = "application/json", responseContentType = "application/xml", customAPIDescription = "Create product")
+            assertThat(scenario.fullApiDescription).startsWith("Create product").contains("requestContentType application/json").contains("responseContentType application/xml")
+        }
+
+        private fun scenarioForFullApiDescription(requestContentType: String? = null, responseContentType: String? = null, customAPIDescription: String? = null, ): Scenario {
+            return Scenario(
+                name = "content-types",
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                customAPIDescription = customAPIDescription,
+                httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("/products"), headersPattern = HttpHeadersPattern(contentType = requestContentType)),
+                httpResponsePattern = HttpResponsePattern(status = 201, headersPattern = HttpHeadersPattern(contentType = responseContentType)),
+            )
+        }
+    }
+
+    @Nested
+    inner class NegativeBasedOnWithDecisionTests {
+        @Test
+        fun `negativeBasedOnWithDecision should return null for non 2xx scenarios`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 400)
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = false)
+            assertThat(decision).isNull()
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should return null for 2xx scenarios without examples in strict mode`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = true)
+            assertThat(decision).isNull()
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should execute negative generation for 2xx scenarios`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 200, examples = listOf(Examples(listOf("id"), listOf(Row(mapOf("id" to "123"))))))
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = false)
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    value = original.negativeBasedOn(null),
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.NEGATIVE_GENERATION_ENABLED)
+                )
+            )
+        }
+
+        @Test
+        fun `negativeBasedOnWithDecision should execute negative generation even without examples when strict mode is false`() {
+            val original = scenarioForNegativeBasedOnWithDecision(status = 200)
+            val decision = original.negativeBasedOnWithDecision(badRequestOrDefault = null, strictMode = false)
+            assertThat(decision).isEqualTo(
+                Decision.Execute(
+                    value = original.negativeBasedOn(null),
+                    context = original,
+                    reasoning = Reasoning(mainReason = TestExecutionReason.NEGATIVE_GENERATION_ENABLED)
+                )
+            )
+        }
+
+        private fun scenarioForNegativeBasedOnWithDecision(name: String = "scenario-name", method: String = "GET", status: Int = 200, examples: List<Examples> = emptyList(), isGherkinScenario: Boolean = false): Scenario {
+            return Scenario(
+                name = name,
+                httpRequestPattern = HttpRequestPattern(method = method),
+                httpResponsePattern = HttpResponsePattern(status = status),
+                examples = examples,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI,
+                isGherkinScenario = isGherkinScenario
+            )
         }
     }
 

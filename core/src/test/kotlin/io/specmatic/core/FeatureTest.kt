@@ -4435,4 +4435,99 @@ paths:
             }
         }
     }
+
+    @Test
+    fun `scenarioAssociatedTo should choose scenario by response content type`() {
+        val requestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/products"))
+        val jsonScenario = Scenario(
+            name = "json response",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val xmlScenario = Scenario(
+            name = "xml response",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/xml")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val feature = Feature(scenarios = listOf(jsonScenario, xmlScenario), name = "content type lookup", protocol = SpecmaticProtocol.HTTP)
+        val matchingScenario = feature.scenarioAssociatedTo(method = "GET", path = "/products", responseStatusCode = 200, resContentType = "application/xml")
+        assertThat(matchingScenario).isEqualTo(xmlScenario)
+    }
+
+    @Test
+    fun `scenarioAssociatedTo should not match null response content type when response content type is provided`() {
+        val requestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/products"))
+        val noResponseContentTypeScenario = Scenario(
+            name = "no response content type",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val xmlScenario = Scenario(
+            name = "xml response",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/xml")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val feature = Feature(scenarios = listOf(noResponseContentTypeScenario, xmlScenario), name = "response content type lookup", protocol = SpecmaticProtocol.HTTP)
+        val matchingScenario = feature.scenarioAssociatedTo(method = "GET", path = "/products", responseStatusCode = 200, resContentType = "application/xml")
+        assertThat(matchingScenario).isEqualTo(xmlScenario)
+    }
+
+    @Test
+    fun `scenarioAssociatedTo should not match null request content type when request content type is provided`() {
+        val noRequestContentTypeScenario = Scenario(
+            name = "no request content type",
+            httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("/products")),
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val jsonRequestScenario = Scenario(
+            name = "json request content type",
+            httpRequestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                headersPattern = HttpHeadersPattern(contentType = "application/json")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val feature = Feature(scenarios = listOf(noRequestContentTypeScenario, jsonRequestScenario), name = "request content type lookup", protocol = SpecmaticProtocol.HTTP)
+        val matchingScenario = feature.scenarioAssociatedTo(method = "POST", path = "/products", responseStatusCode = 200, reqContentType = "application/json")
+        assertThat(matchingScenario).isEqualTo(jsonRequestScenario)
+    }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose scenario by response status and content type`() {
+        val requestPattern = HttpRequestPattern(method = "GET", httpPathPattern = buildHttpPathPattern("/products"))
+        val createdScenario = Scenario(
+            name = "created",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = HttpResponsePattern(status = 201, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val okScenario = Scenario(
+            name = "ok",
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/xml")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val feature = Feature(scenarios = listOf(createdScenario, okScenario), name = "identifier with response", protocol = SpecmaticProtocol.HTTP)
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "GET", path = "/products"),
+            httpResponse = HttpResponse(status = 200, headers = mapOf("Content-Type" to "application/xml"))
+        )
+
+        assertThat(matchedScenario).isEqualTo(okScenario)
+    }
 }

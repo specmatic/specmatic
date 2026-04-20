@@ -33,25 +33,40 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
         val maxCoveragePercentageLength = "coverage".length
         val maxPathLength = report.coverageRows.maxOf { it.path.length }
         val maxMethodLength = report.coverageRows.maxOf { it.method.length }
+        val maxReqContentTypeLength = report.coverageRows.maxOf { (it.requestContentType ?: "NA").length }
         val maxStatusLength = report.coverageRows.maxOf { it.responseStatus.length }
-        val maxExercisedLength = "#exercised".length
-        val maxRemarkLength = report.coverageRows.maxOf { it.remarks.toString().length }
+        val maxResContentTypeLength = report.coverageRows.maxOf { (it.responseContentType ?: "NA").length }
+        val maxRemarkLength = report.coverageRows.maxOf { it.formattedRemarkLength() }
+        val maxResultLength = maxOf("result".length, report.coverageRows.maxOf { it.result.length })
 
         return buildList {
             add(ReportColumn("coverage", maxCoveragePercentageLength))
-            add(ReportColumn("path", maxPathLength))
+
             if (report.isGherkinReport) {
+                add(ReportColumn("port", maxPathLength))
                 add(ReportColumn("soapAction", maxMethodLength))
             } else {
+                add(ReportColumn("path", maxPathLength))
                 add(ReportColumn("method", maxMethodLength))
+                add(ReportColumn("requestContentType", maxReqContentTypeLength))
                 add(ReportColumn("response", maxStatusLength))
+                add(ReportColumn("responseContentType", maxResContentTypeLength))
             }
-            add(ReportColumn("#exercised", maxExercisedLength))
-            add(ReportColumn("result", maxRemarkLength))
+
+            add(ReportColumn("remarks", maxRemarkLength))
+            add(ReportColumn("result", maxResultLength))
         }
     }
 
-    private fun makeFooter(report: OpenAPICoverageConsoleReport): String {
-        return "${report.totalCoveragePercentage}% API Coverage reported from ${report.totalOperations} Operations"
+    private fun makeFooter(report: OpenAPICoverageConsoleReport): List<String> {
+        return listOf(
+            "* = Operation not eligible for coverage",
+            "! = Operation excluded from the run due to a filter",
+            "p = passed tests",
+            "f = failed tests",
+            "",
+            "${report.coveragePercentage}% API Coverage reported from ${report.operationsEligibleForCoverage} operations eligible for coverage",
+            "${report.absoluteCoveragePercentage}% Absolute Coverage (includes excluded operations that were not tested)"
+        )
     }
 }

@@ -4,8 +4,9 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.filters.ScenarioMetadataFilter
-import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsing
+import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsingDecisions
 import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
@@ -24,10 +25,9 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
 import io.specmatic.stub.isSupportedAPISpecification
-import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
 import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
-import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
+import io.specmatic.test.reports.coverage.OpenApiCoverage
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
@@ -83,18 +83,19 @@ open class SpecmaticJUnitSupport {
         const val PROTOCOL = "protocol"
         const val TEST_BASE_URL = "testBaseURL"
         const val FILTER = "filter"
+        const val LOG_SEPARATOR = "--------------------"
+        const val LOG_INDENT = "  "
 
         val partialSuccesses: ConcurrentLinkedDeque<Result.Success> = ConcurrentLinkedDeque()
     }
 
-    internal val openApiCoverageReportInput: OpenApiCoverageReportInput =
-        OpenApiCoverageReportInput(
-            configFilePath = getConfigFileWithAbsolutePath(),
-            filterExpression = settings.getReportFilter().orEmpty(),
-            coverageHooks = settings.coverageHooks,
-            httpInteractionsLog = httpInteractionsLog,
-            previousTestResultRecord = settings.previousTestRuns,
-        )
+    internal val openApiCoverage: OpenApiCoverage = OpenApiCoverage(
+        configFilePath = getConfigFileWithAbsolutePath(),
+        filterExpression = settings.getReportFilter().orEmpty(),
+        coverageHooks = settings.coverageHooks,
+        previousRunCoverageMetrics = settings.previousRunCoverageMetrics,
+        httpInteractionsLog = httpInteractionsLog
+    )
 
     private val threads: Vector<String> = Vector<String>()
 
@@ -144,8 +145,8 @@ open class SpecmaticJUnitSupport {
             API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
         }
 
-        openApiCoverageReportInput.addAPIs(apis.distinct())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
+        openApiCoverage.addAPIs(apis.distinct())
+        openApiCoverage.setEndpointsAPIFlag(true)
 
         return ActuatorSetupResult.Success
     }
@@ -168,7 +169,7 @@ open class SpecmaticJUnitSupport {
         }
 
         logger.debug(response.toLogString())
-        openApiCoverageReportInput.setEndpointsAPIFlag(true)
+        openApiCoverage.setEndpointsAPIFlag(true)
         val endpointData = response.body as JSONObjectValue
         val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
             val mappings: JSONArrayValue =
@@ -193,44 +194,47 @@ open class SpecmaticJUnitSupport {
                 }
             }
         }
-        openApiCoverageReportInput.addAPIs(apis)
 
+        openApiCoverage.addAPIs(apis)
         return ActuatorSetupResult.Success
     }
 
     private fun getConfigFileWithAbsolutePath() = File(settings.configFile.orEmpty()).canonicalPath
 
     fun generateCtrfReport() {
-        val report = openApiCoverageReportInput.generateCoverageReport(emptyList())
         val start = startTime?.toEpochMilli() ?: 0L
-        val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
-
-        val specConfigs = openApiCoverageReportInput.ctrfSpecConfigs()
-
         val reportDirPath = specmaticConfig.getReportDirPath()
+        val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
+        val coverageReport = openApiCoverage.generateWithoutHooks()
+
+        consoleLog("Generating CTRF report using  coverageReportOperations...")
         ReportGenerator.generateReport(
-            testResultRecords = report.testResultRecords,
-            startTime = start,
             endTime = end,
-            specConfigs = specConfigs,
-            coverage = report.totalCoveragePercentage,
-            reportDir = File("$reportDirPath/test")
-        ) { ctrfTestResultRecords ->
-            ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
-        }
+            startTime = start,
+            reportDir = File("$reportDirPath/test"),
+            coverageReportOperations = coverageReport.coverageOperations,
+            coverage = coverageReport.totalCoveragePercentage,
+            actuatorEnabled = coverageReport.actuatorEnabled,
+            absoluteCoverage = coverageReport.absoluteCoveragePercentage,
+            testResultRecords = coverageReport.testResultRecords,
+            specConfigs = coverageReport.getSpecConfigs(),
+        )
     }
 
     @AfterAll
     fun report() {
         settings.coverageHooks.forEach { it.onTestsComplete() }
-        val reportProcessors = listOf(OpenApiCoverageReportProcessor(openApiCoverageReportInput, settings.reportBaseDirectory ?: "."))
         val reportConfiguration = getReportConfiguration()
-        val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
+        val excludedOpenAPIEndpoints = reportConfiguration.excludedOpenAPIEndpoints() + excludedEndpointsFromEnv()
+        openApiCoverage.addExcludedAPIs(excludedOpenAPIEndpoints)
+        val report = openApiCoverage.generate()
 
         try {
+            val reportProcessors = listOf(OpenApiCoverageReportProcessor(report, settings.reportBaseDirectory ?: "."))
+            val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
             reportProcessors.forEach { it.process(config) }
         } finally {
-            openApiCoverageReportInput.onProcessingComplete()
+            report.onProcessingComplete()
             this.generateCtrfReport()
             threads.distinct().let {
                 if (it.size > 1) {
@@ -240,6 +244,10 @@ open class SpecmaticJUnitSupport {
             }
         }
     }
+
+    private fun excludedEndpointsFromEnv() = System.getenv("SPECMATIC_EXCLUDED_ENDPOINTS")?.let { excludedEndpoints ->
+        excludedEndpoints.split(",").map { it.trim() }
+    } ?: emptyList()
 
     private fun getEnvConfig(envName: String?): JSONObjectValue {
         if (envName.isNullOrBlank())
@@ -260,10 +268,10 @@ open class SpecmaticJUnitSupport {
         }).asStream()
     }
 
-    private fun noTestsFoundError(reason: String): Stream<DynamicTest> {
+    private fun noTestsFoundError(reason: String): Sequence<DynamicTest> {
         return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure("No tests found to run. $reason")).isSuccess()
-        }).asStream()
+        })
     }
 
     @TestFactory
@@ -319,8 +327,8 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.allEndpoints }
                     val filteredEndpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosByContractPath.associate { (contractPath, loaded) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
-                        loaded.scenarios.map { test -> Pair(test, defaultBaseURL) }
+                    val testsWithUrls = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
+                        loaded.scenarios.mapSequence { Pair(it, defaultBaseURL) }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL), exampleValidationResults)
@@ -373,8 +381,8 @@ open class SpecmaticJUnitSupport {
                     val endpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.allEndpoints }
                     val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
                     val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls: Sequence<Pair<ContractTest, String>> = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
-                        loaded.scenarios.map { test -> Pair(test, resolvedBaseURL) }
+                    val testsWithUrls = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
+                        loaded.scenarios.mapSequence { Pair(it, resolvedBaseURL) }
                     }
 
                     TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
@@ -387,43 +395,25 @@ open class SpecmaticJUnitSupport {
         }
 
         settings.coverageHooks.forEach { it.onExampleErrors(testBuildResult.exampleValidationResults) }
-
-        openApiCoverageReportInput.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
+        openApiCoverage.addEndpoints(testBuildResult.allEndpoints, testBuildResult.filteredEndpoints)
         val testScenariosWithUrls = try {
-            val filteredPairsBasedOnName = selectTestsToRun(
-                testBuildResult.scenarios,
-                filterName,
-                filterNotName
-            ) { it.first.testDescription() }
+            val filteredPairsBasedOnName = selectTestsToRunWithDecision(
+                testScenarios = testBuildResult.scenarios,
+                filterName = filterName,
+                filterNotName = filterNotName,
+                getTestDescription = { it.first.testDescription() },
+                getSkipContext = { it.first.scenario }
+            )
 
-            filteredPairsBasedOnName.filter { pair ->
-                testFilter.isSatisfiedBy(pair.first.toScenarioMetadata())
+            filteredPairsBasedOnName.map { decision ->
+                if (decision !is Decision.Execute) return@map decision
+                if (testFilter.isSatisfiedBy(decision.value.first.toScenarioMetadata())) return@map decision
+                Decision.Skip(decision.value.first.scenario, Reasoning(TestSkipReason.EXCLUDED))
             }
         } catch (e: ContractException) {
             return loadExceptionAsTestError(e)
         } catch (e: Throwable) {
             return loadExceptionAsTestError(e)
-        }
-
-        // Check if no tests remain after filtering
-        if (!testScenariosWithUrls.iterator().hasNext()) {
-            val filterDetails = buildString {
-                if (!filterName.isNullOrBlank()) append("name filter: '$filterName'")
-                if (!filterNotName.isNullOrBlank()) {
-                    if (isNotEmpty()) append(", ")
-                    append("exclude filter: '$filterNotName'")
-                }
-                if (testFilter.expression != null) {
-                    if (isNotEmpty()) append(", ")
-                    append("expression filter: \"${specmaticConfig.getTestFilter()}\"")
-                }
-            }
-            val reason = if (filterDetails.isNotEmpty()) {
-                "Applied filters ($filterDetails) matched no test scenarios."
-            } else {
-                "No test scenarios found."
-            }
-            return noTestsFoundError(reason)
         }
 
         val actuatorBaseURL = settings.baseUrlFromArgOrSysProp()
@@ -443,13 +433,18 @@ open class SpecmaticJUnitSupport {
         }
     }
 
-    private fun firstNScenarios(testScenarios: Sequence<Pair<ContractTest, String>>): Sequence<Pair<ContractTest, String>> {
+    private fun firstNScenarios(testScenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>): Sequence<Decision<Pair<ContractTest, String>, Scenario>> {
+        var taken = 0
         val maxTestCount = specmaticConfig.getMaxTestCount() ?: return testScenarios
-        return testScenarios.take(maxTestCount)
+        return testScenarios.map { decision ->
+            if (decision !is Decision.Execute) return@map decision
+            if (taken++ < maxTestCount) return@map decision
+            Decision.Skip(decision.value.first.scenario, Reasoning(TestSkipReason.MAX_TEST_COUNT_EXCEEDED))
+        }
     }
 
     private fun dynamicTestStream(
-        testScenarios: Sequence<Pair<ContractTest, String>>,
+        testScenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>,
         actuatorBaseURL: String,
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest>
@@ -458,19 +453,31 @@ open class SpecmaticJUnitSupport {
 
         try {
             if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
-                openApiCoverageReportInput.setEndpointsAPIFlag(false)
+                openApiCoverage.setEndpointsAPIFlag(false)
                 logger.boundary()
                 logger.log("Endpoints API and SwaggerUI URL were not exposed by the application, so cannot calculate actual coverage")
             }
         } catch (exception: Throwable) {
-            openApiCoverageReportInput.setEndpointsAPIFlag(false)
+            openApiCoverage.setEndpointsAPIFlag(false)
             logger.debug(exception, "Failed to query actuator with error")
         }
 
         logger.newLine()
 
         startTime = Instant.now()
-        return testScenarios.map { (contractTest, baseURL) ->
+        return testScenarios.mapNotNull { contractTestDecision ->
+            openApiCoverage.onContractTestDecision(contractTestDecision)
+            if (contractTestDecision !is Decision.Execute) {
+                logger.boundary()
+                logger.log(LOG_SEPARATOR)
+                logger.log(buildString {
+                    this.appendLine("Skipping ${contractTestDecision.context.fullApiTestDescription()}")
+                    this.appendLine(contractTestDecision.reasoning.toRuleViolationText())
+                }.prependIndent(LOG_INDENT))
+                return@mapNotNull null
+            }
+
+            val (contractTest, baseURL) = contractTestDecision.value
             DynamicTest.dynamicTest(contractTest.testDescription()) {
                 suiteAbortMessage.get()?.let { message ->
                     throw TestAbortedException(message)
@@ -534,12 +541,34 @@ open class SpecmaticJUnitSupport {
                 } finally {
                     if (testResult != null) {
                         contractTest.testResultRecord(testResult)?.let { testResultRecord ->
-                            openApiCoverageReportInput.addTestReportRecords(testResultRecord)
+                            openApiCoverage.addTestReportRecords(testResultRecord)
                         }
                     }
                 }
             }
-        }.asStream()
+        }.ifEmpty { noTestsFoundError(noTestsFoundErrorMessage()) }.asStream()
+    }
+
+    private fun noTestsFoundErrorMessage(): String {
+        val filterDetails = buildString {
+            if (!settings.filterName.isNullOrBlank()) append("name filter: '${settings.filterName}'")
+            if (!settings.filterNotName.isNullOrBlank()) {
+                if (isNotEmpty()) append(", ")
+                append("exclude filter: '${settings.filterNotName}'")
+            }
+            if (testFilter.expression != null) {
+                if (isNotEmpty()) append(", ")
+                append("expression filter: \"${specmaticConfig.getTestFilter()}\"")
+            }
+        }
+
+        val reason = if (filterDetails.isNotEmpty()) {
+            "Applied filters ($filterDetails) matched no test scenarios."
+        } else {
+            "No test scenarios found."
+        }
+
+        return reason
     }
 
     private fun connectivityFailureMessage(baseURL: String, reason: String): String {
@@ -670,15 +699,14 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
                 scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.responseContentType,
                 scenario.protocol,
                 scenario.specType
             )
         }
 
         val featureWithExternalizedExamples = feature.loadExternalisedExamples()
-
-        val filteredScenariosBasedOnName = selectTestsToRun(
+        val filteredScenarioDecisionsBasedOnName = selectTestsToRun(
             featureWithExternalizedExamples.scenarios.asSequence(),
             filterName,
             filterNotName
@@ -686,12 +714,15 @@ open class SpecmaticJUnitSupport {
             it.testDescription()
         }
 
-        val filteredScenarios = filterUsing(
-            filteredScenariosBasedOnName,
-            filter
+        val filteredScenarioDecisions = filterUsingDecisions(
+            items = filteredScenarioDecisionsBasedOnName,
+            scenarioMetadataFilter = filter,
+            getSkipContext = { it }
         )
 
-        val filteredEndpoints = filteredScenarios.map { scenario ->
+        val filteredEndpoints = filteredScenarioDecisions.mapNotNull { decision ->
+            if (decision !is Decision.Execute) return@mapNotNull null
+            val scenario = decision.value
             Endpoint(
                 convertPathParameterStyle(scenario.path),
                 scenario.method,
@@ -702,25 +733,26 @@ open class SpecmaticJUnitSupport {
                 scenario.sourceRepositoryBranch,
                 scenario.specification,
                 scenario.requestContentType,
-                scenario.httpResponsePattern.headersPattern.contentType,
+                scenario.responseContentType,
                 scenario.protocol,
                 scenario.specType
             )
         }.toList()
 
-        val filteredFeature = featureWithExternalizedExamples.copy(scenarios = filteredScenarios.toList())
-        val (validExampleFeature, result) = filteredFeature.validateAndFilterExamples()
+        val (validatedScenarioDecisions, result) = featureWithExternalizedExamples.validateAndFilterExamples(filteredScenarioDecisions)
         if (specmaticConfig.getTestLenientMode() == false) result.throwOnFailure()
 
+        val validatedScenarios = validatedScenarioDecisions.mapNotNull { (it as? Decision.Execute)?.value }
+        val validExampleFeature = featureWithExternalizedExamples.copy(scenarios = validatedScenarios.toList())
         validExampleFeature.validateExamplesOrException()
-        val tests: Sequence<ContractTest> = validExampleFeature.also {
+        val tests = validExampleFeature.also {
             if (it.scenarios.isEmpty()) {
                 logger.log("All scenarios were filtered out.")
             } else if (it.scenarios.size < feature.scenarios.size) {
                 logger.debug("Selected scenarios:")
                 it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
             }
-        }.generateContractTests(suggestions, originalScenarios = feature.scenarios)
+        }.generateContractTestsWithDecision(suggestions, feature.scenarios, validatedScenarioDecisions)
 
         return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
     }
@@ -789,14 +821,14 @@ open class SpecmaticJUnitSupport {
 }
 
 data class LoadedTestScenarios(
-    val scenarios: Sequence<ContractTest>,
+    val scenarios: Sequence<Decision<ContractTest, Scenario>>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
     val exampleValidationResult: Result = Result.Success()
 )
 
 private data class TestData(
-    val scenarios: Sequence<Pair<ContractTest, String>>,
+    val scenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
     val baseUrls: Set<String>,
@@ -825,21 +857,34 @@ fun <T> selectTestsToRun(
     filterName: String? = null,
     filterNotName: String? = null,
     getTestDescription: (T) -> String
-): Sequence<T> {
+): Sequence<Decision<T, T>> {
+    val decisionSequence = testScenarios.map { Decision.execute(it) }
+    return selectTestsToRunWithDecision(decisionSequence, filterName, filterNotName, getTestDescription, getSkipContext = { it })
+}
+
+fun <T, U> selectTestsToRunWithDecision(
+    testScenarios: Sequence<Decision<T, U>>,
+    filterName: String? = null,
+    filterNotName: String? = null,
+    getTestDescription: (T) -> String,
+    getSkipContext: (T) -> U
+): Sequence<Decision<T, U>> {
     val filteredByName = if (!filterName.isNullOrBlank()) {
         val filterNames = filterName.split(",").map { it.trim() }
-
-        testScenarios.filter { test ->
-            filterNames.any { getTestDescription(test).contains(it) }
+        testScenarios.map { test ->
+            if (test !is Decision.Execute) return@map test
+            if (filterNames.any { getTestDescription(test.value).contains(it) }) return@map test
+            Decision.Skip(getSkipContext(test.value), Reasoning(TestSkipReason.EXCLUDED))
         }
     } else
         testScenarios
 
-    val filteredByNotName: Sequence<T> = if (!filterNotName.isNullOrBlank()) {
+    val filteredByNotName = if (!filterNotName.isNullOrBlank()) {
         val filterNotNames = filterNotName.split(",").map { it.trim() }
-
-        filteredByName.filterNot { test ->
-            filterNotNames.any { getTestDescription(test).contains(it) }
+        filteredByName.map { test ->
+            if (test !is Decision.Execute) return@map test
+            if (!filterNotNames.any { getTestDescription(test.value).contains(it) }) return@map test
+            Decision.Skip(getSkipContext(test.value), Reasoning(TestSkipReason.EXCLUDED))
         }
     } else
         filteredByName

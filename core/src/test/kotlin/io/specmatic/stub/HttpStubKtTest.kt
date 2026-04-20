@@ -17,6 +17,7 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
+import io.specmatic.core.SPECMATIC_EMPTY_HEADER
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.parseGherkinStringToFeature
@@ -53,6 +54,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.fail
 import java.io.File
+import java.nio.file.Files
 import java.security.KeyStore
 import java.util.*
 import java.util.function.Consumer
@@ -542,7 +544,9 @@ Feature: Test
             .strictModeReport(request)
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
-        val response = (result as NotStubbed).response
+        val notStubbedResult = result as NotStubbed
+        assertThat(notStubbedResult.stubResult).isInstanceOf(Result.Failure::class.java)
+        val response = notStubbedResult.response
         assertThat(response.response.status).isEqualTo(400)
         val responseBody = response.response.body as JSONObjectValue
         assertThat(responseBody.jsonObject.getValue("message").toStringLiteral()).isEqualTo(strictModeReport)
@@ -606,7 +610,9 @@ Feature: Test
             .strictModeReport(request)
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
-        assertResponseFailure((result as NotStubbed).response, """
+        val notStubbedResult = result as NotStubbed
+        assertThat(notStubbedResult.stubResult).isInstanceOf(Result.Failure::class.java)
+        assertResponseFailure(notStubbedResult.response, """
         STRICT MODE ON
 
         $strictModeReport
@@ -662,7 +668,9 @@ Feature: Test
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
-        val response = (result as NotStubbed).response.response
+        val notStubbedResult = result as NotStubbed
+        assertThat(notStubbedResult.stubResult).isInstanceOf(Result.Failure::class.java)
+        val response = notStubbedResult.response.response
         assertThat(response.status).isEqualTo(400)
         assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
         val responseBody = response.body as JSONObjectValue
@@ -853,6 +861,69 @@ Feature: Test
             Specification expected type string but request contained value 10 of type number
             """.trimIndent()
         assertThat(messageValue.toStringLiteral()).isEqualToIgnoringWhitespace(expectedMessageValue)
+    }
+
+    @Test
+    fun `fake response should set failure stubResult when combined failures are non empty in non generative mode`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.3
+        info:
+          title: Non generative mismatch
+          version: 1.0.0
+        paths:
+          /hello:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - data
+                      properties:
+                        data:
+                          type: string
+              responses:
+                '200':
+                  description: OK
+                '400':
+                  description: Bad request
+        """.trimIndent(), "contracts/non-generative-mismatch.yaml").toFeature()
+
+        val request = HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}"""))
+        val result = fakeHttpResponse(
+            listOf(feature),
+            request,
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val notStubbedResult = result as NotStubbed
+        assertThat(notStubbedResult.stubResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((notStubbedResult.stubResult as Result.Failure).reportString()).contains("REQUEST.BODY.data")
+        assertThat(notStubbedResult.response.response.status).isEqualTo(400)
+    }
+
+    @Test
+    fun `fake response should set failure stubResult when combined failures are empty`() {
+        val featureWithoutScenarios = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.3
+        info:
+          title: No operations
+          version: 1.0.0
+        paths: {}
+        """.trimIndent(), "contracts/no-operations.yaml").toFeature()
+
+        val request = HttpRequest(method = "GET", path = "/hello")
+        val result = fakeHttpResponse(listOf(featureWithoutScenarios), request, SpecmaticConfig())
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val notStubbedResult = result as NotStubbed
+        assertThat(notStubbedResult.stubResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(notStubbedResult.response.response.status).isEqualTo(400)
+        assertThat(notStubbedResult.response.response.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
+        assertThat(notStubbedResult.response.response.headers).containsEntry(SPECMATIC_EMPTY_HEADER, "true")
     }
 
     @Test
@@ -1625,6 +1696,102 @@ paths:
 
             assertThat(responseString).contains("Specification expected")
             assertThat(responseString).contains("request contained")
+        }
+    }
+
+    @Test
+    fun `stub request mismatch should return custom error mismatch for payload level mismatch from spec file`() {
+        val tempDir = Files.createTempDirectory("specmatic-stub-request-mismatch").toFile()
+        val openApiSpec = tempDir.resolve("api.yaml")
+        openApiSpec.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data:
+                post:
+                  summary: hello world
+                  description: test
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: array
+                          items:
+                            type: number
+                  responses:
+                    '200':
+                      description: Says hello
+                      content:
+                        text/plain:
+                          schema:
+                            type: number
+            """.trimIndent()
+        )
+
+        try {
+            val contract = parseContractFileToFeature(openApiSpec)
+
+            HttpStub(contract, emptyList()).use {
+                val response = it.client.execute(HttpRequest("POST", "/data", body = StringValue("""hello world""".trimIndent())))
+
+                val responseString = response.toLogString()
+                println(responseString)
+
+                assertThat(responseString).contains("Specification expected")
+                assertThat(responseString).contains("request contained")
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `matched no-body get request should not record incidental content type from request header`() {
+        val tempDir = Files.createTempDirectory("specmatic-stub-get-products").toFile()
+        val openApiSpec = tempDir.resolve("api.yaml")
+        openApiSpec.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Products API
+              version: 1.0.0
+            paths:
+              /products:
+                get:
+                  responses:
+                    '200':
+                      description: Products
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: object
+            """.trimIndent()
+        )
+
+        try {
+            val contract = parseContractFileToFeature(openApiSpec)
+
+            HttpStub(contract, emptyList()).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "GET",
+                        path = "/products",
+                        headers = mapOf("Content-Type" to "application/json"),
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(200)
+                val testResultRecord = stub.ctrfTestResultRecords().single()
+                assertThat(testResultRecord.requestContentType).isNull()
+            }
+        } finally {
+            tempDir.deleteRecursively()
         }
     }
 

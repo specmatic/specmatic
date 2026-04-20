@@ -2,6 +2,7 @@ package io.specmatic.test.utils
 
 import io.ktor.http.*
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.getCaseInsensitive
 import java.time.Instant
 import kotlin.math.pow
 
@@ -26,7 +27,7 @@ sealed interface DelayStrategy<T> {
         }
 
         private fun extractRetryAfter(response: HttpResponse?): Long? {
-            val retryAfter = response?.headers?.get(HttpHeaders.RetryAfter) ?: return null
+            val retryAfter = response?.headers?.getCaseInsensitive(HttpHeaders.RetryAfter)?.value ?: return null
             retryAfter.toLongOrNull()?.let { seconds -> return seconds * 1000 }
             return runCatching {
                 val target = Instant.parse(retryAfter)

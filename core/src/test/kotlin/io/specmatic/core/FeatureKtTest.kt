@@ -1243,4 +1243,69 @@ paths:
         val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
         assertThat(results).hasSize(4)
     }
+
+    @Test
+    fun `getBadRequestsOrDefault should include all 4xx responses for same path and method`() {
+        val feature = parseContractFileToFeature("src/test/resources/openapi/get_bad_requests_or_default_multiple_4xx.yaml")
+        val successScenario = feature.scenarios.first { it.httpResponsePattern.status == 201 }
+
+        val badRequestOrDefault = feature.getBadRequestsOrDefault(successScenario, feature.scenarios)!!
+        assertThat(badRequestOrDefault.badRequestResponses).hasSize(1)
+
+        val badRequestResponses = badRequestOrDefault.badRequestResponses.getValue(400)
+        assertThat(badRequestResponses).hasSize(2)
+        assertThat(badRequestResponses.map { it.httpResponsePattern.headersPattern.contentType }).containsExactlyInAnyOrder("application/json", "text/plain")
+
+        val defaultResponses = badRequestOrDefault.defaultResponses
+        assertThat(defaultResponses).hasSize(2)
+        assertThat(defaultResponses.map { it.httpResponsePattern.headersPattern.contentType }).containsExactlyInAnyOrder("application/json", "text/plain")
+    }
+
+    @Test
+    fun `isResponsePossible should return true when another scenario with same method path matches response`() {
+        val primaryScenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            )
+        )
+
+        val alternateResponseScenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = 400, headersPattern = HttpHeadersPattern(contentType = "application/xml")),
+            )
+        )
+
+        val feature = Feature(scenarios = listOf(primaryScenario, alternateResponseScenario), name = "test feature", protocol = SpecmaticProtocol.HTTP)
+        assertThat(feature.isResponsePossible(primaryScenario, HttpResponse(status = 400, headers = mapOf("Content-Type" to "application/xml")))).isTrue()
+    }
+
+    @Test
+    fun `isResponsePossible should return false when matching response exists only on another path`() {
+        val primaryScenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/orders"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            )
+        )
+
+        val otherPathScenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/users"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(status = 400, headersPattern = HttpHeadersPattern(contentType = "application/xml")),
+            )
+        )
+
+        val feature = Feature(scenarios = listOf(primaryScenario, otherPathScenario), name = "test feature", protocol = SpecmaticProtocol.HTTP)
+        assertThat(feature.isResponsePossible(primaryScenario, HttpResponse(status = 400, headers = mapOf("Content-Type" to "application/xml")))).isFalse()
+    }
 }

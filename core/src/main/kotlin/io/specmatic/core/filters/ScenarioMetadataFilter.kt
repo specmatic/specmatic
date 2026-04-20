@@ -1,6 +1,9 @@
 package io.specmatic.core.filters
 
 import com.ezylang.evalex.Expression
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
+import io.specmatic.test.TestSkipReason
 
 data class ScenarioMetadataFilter(
     val expression: Expression? = null
@@ -34,6 +37,18 @@ data class ScenarioMetadataFilter(
         ): Sequence<T> {
             return items.filter { item ->
                 scenarioMetadataFilter.isSatisfiedBy(item.toScenarioMetadata())
+            }
+        }
+
+        fun <T : HasScenarioMetadata, U> filterUsingDecisions(
+            items: Sequence<Decision<T, U>>,
+            scenarioMetadataFilter: ScenarioMetadataFilter,
+            getSkipContext: (T) -> U
+        ): Sequence<Decision<T, U>> {
+            return items.map { item ->
+                if (item !is Decision.Execute) return@map item
+                if (scenarioMetadataFilter.isSatisfiedBy(item.value.toScenarioMetadata())) return@map item
+                Decision.Skip(getSkipContext(item.value), Reasoning(TestSkipReason.EXCLUDED))
             }
         }
     }

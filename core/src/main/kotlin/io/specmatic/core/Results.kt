@@ -27,6 +27,11 @@ data class Results(val results: List<Result> = emptyList()) {
         return results.find { it is Result.Success } ?: Result.fromResults(results)
     }
 
+    fun toResultIfAnyWithCausesOrFailure(): Result {
+        if (results.isEmpty()) return Result.Failure()
+        return toResultIfAnyWithCauses()
+    }
+
     val failureCount
         get(): Int = results.count { it is Result.Failure }
 

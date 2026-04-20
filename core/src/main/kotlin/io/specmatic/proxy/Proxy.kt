@@ -270,7 +270,7 @@ class Proxy(
                                     if (isRecordingEnabled) stubs.add(
                                         NamedStub(
                                             name,
-                                            uniqueNameForApiOperation(recordedRequest, baseURL, recordedResponse.status, defaultExamplesBaseDir),
+                                            uniqueNameForApiOperation(recordedRequest, recordedResponse, baseURL, defaultExamplesBaseDir),
                                             exampleTransformer.applyTo(
                                                 scenarioStub = ScenarioStub(
                                                 recordedRequest.dropIrrelevantHeaders(),

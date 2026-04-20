@@ -6,6 +6,7 @@ import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.matchers.MatcherEngine
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
@@ -16,6 +17,7 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -29,7 +31,7 @@ private const val BEFORE_FIXTURE_DISCRIMINATOR_KEY = "before"
 private const val AFTER_FIXTURE_DISCRIMINATOR_KEY = "after"
 
 data class ScenarioAsTest(
-    val scenario: Scenario,
+    override val scenario: Scenario,
     private val feature: Feature,
     private val flagsBased: FlagsBased,
     private val sourceProvider: String? = null,
@@ -43,6 +45,7 @@ data class ScenarioAsTest(
     private val originalScenario: Scenario,
     private val workflow: Workflow = Workflow(),
     private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
+    val reasoning: Reasoning = Reasoning()
 ) : ContractTest {
     companion object {
         private var id: Value? = null
@@ -56,7 +59,7 @@ data class ScenarioAsTest(
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
-        val resultStatus = result.testResult()
+        val scenario = result.scenario as? Scenario ?: updateBasedOnResponseIfNegativeGeneration(scenario, response)
         val path = convertPathParameterStyle(scenario.path)
 
         return TestResultRecord(
@@ -64,23 +67,31 @@ data class ScenarioAsTest(
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
+            responseContentType = scenario.responseContentType,
+            isWip = scenario.ignoreFailure,
             request = request,
             response = response,
-            result = resultStatus,
+            result = result.testResult(),
             sourceProvider = sourceProvider,
             repository = sourceRepository,
             branch = sourceRepositoryBranch,
             specification = specification,
             specType = specType,
+            protocol = protocol,
             actualResponseStatus = response?.status ?: 0,
+            actualResponseContentType = response.normalizedContentType(),
             scenarioResult = result,
-            soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
+            soapAction = scenario.soapActionUnescaped,
             isGherkin = scenario.isGherkinScenario,
             requestTime = startTime,
             responseTime = Instant.now(),
-            operations = setOf(
-                openAPIOperationFrom(scenario, path)
-            )
+            operations = setOf(openAPIOperationFrom(scenario, path)),
+            reasoning = reasoning,
+            matchesResponseIdentifiers = response?.let(scenario::matchesStatusAndContentType) ?: false,
+            isResponseInSpecification = response?.let {
+                if (result.isSuccess() || scenario.matchesStatusAndContentType(it)) return@let true
+                feature.isResponsePossible(scenario, it)
+            }
         )
     }
 
@@ -112,7 +123,10 @@ data class ScenarioAsTest(
 
         val executionResult = executeTestAndReturnResultAndResponse(scenario, newExecutor, flagsBased)
         endTime = Instant.now()
-        return executionResult.copy(result = executionResult.result.updateScenario(scenario))
+
+        val updatedTestScenario = updateBasedOnResponseIfNegativeGeneration(scenario, executionResult.response)
+        newExecutor.postExecuteScenario(updatedTestScenario)
+        return executionResult.copy(result = executionResult.result.updateScenario(updatedTestScenario))
     }
 
     override fun plusValidator(validator: ResponseValidator): ScenarioAsTest {
@@ -245,6 +259,7 @@ data class ScenarioAsTest(
     }
 
     private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): Result {
+        if (scenario.isNegative) return Result.Success()
         val row = scenario.exampleRow ?: return Result.Success()
         val scenarioStub = row.scenarioStub ?: return Result.Success()
         val id = scenarioStub.id.orEmpty()
@@ -252,6 +267,7 @@ data class ScenarioAsTest(
             BEFORE_FIXTURE_DISCRIMINATOR_KEY -> scenarioStub.beforeFixtures
             else -> scenarioStub.afterFixtures
         }
+
         return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
             .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: Result.Success()
     }

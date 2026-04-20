@@ -7,18 +7,20 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.SpecmaticProtocol
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 
 class ScenarioTestGenerationException(
-    var scenario: Scenario,
+    override var scenario: Scenario,
     val e: Throwable,
     val message: String,
     val breadCrumb: String?,
     override val protocol: SpecmaticProtocol?,
-    override val specType: SpecType
+    override val specType: SpecType,
+    val reasoning: Reasoning = Reasoning()
 ) : ContractTest {
     init {
         val exampleRow = scenario.examples.flatMap { it.rows }.firstOrNull { it.name == message }
@@ -34,12 +36,16 @@ class ScenarioTestGenerationException(
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
         val (result, request, response) = executionResult
+        val scenario = result.scenario as? Scenario ?: updateBasedOnResponseIfNegativeGeneration(scenario, response)
         val path = convertPathParameterStyle(scenario.path)
+
         return TestResultRecord(
             path = path,
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             responseStatus = scenario.status,
+            responseContentType = scenario.responseContentType,
+            isWip = scenario.ignoreFailure,
             request = request,
             response = response,
             result = result.testResult(),
@@ -48,13 +54,13 @@ class ScenarioTestGenerationException(
             branch = scenario.sourceRepositoryBranch,
             specification = scenario.specification,
             specType = scenario.specType,
+            protocol = scenario.protocol,
             actualResponseStatus = 0,
             scenarioResult = result,
-            soapAction = scenario.httpRequestPattern.getSOAPAction().takeIf { scenario.isGherkinScenario },
+            soapAction = scenario.soapActionUnescaped,
             isGherkin = scenario.isGherkinScenario,
-            operations = setOf(
-                openAPIOperationFrom(scenario, path)
-            )
+            operations = setOf(openAPIOperationFrom(scenario, path)),
+            reasoning = reasoning
         )
     }
 
@@ -79,10 +85,11 @@ class ScenarioTestGenerationException(
 
     fun error(): ContractTestExecutionResult {
         val result: Result = when(e) {
-            is ContractException -> Result.Failure(errorMessage, e.failure(), breadCrumb = breadCrumb ?: "").updateScenario(scenario)
-            else -> Result.Failure(errorMessage + " - " + exceptionCauseMessage(e), breadCrumb = breadCrumb ?: "").updateScenario(scenario)
+            is ContractException -> Result.Failure(errorMessage, e.failure(), breadCrumb = breadCrumb ?: "")
+            else -> Result.Failure(errorMessage + " - " + exceptionCauseMessage(e), breadCrumb = breadCrumb ?: "")
         }
 
-        return ContractTestExecutionResult(result = result)
+        val updatedTestScenario = updateBasedOnResponseIfNegativeGeneration(scenario, null)
+        return ContractTestExecutionResult(result = result.updateScenario(updatedTestScenario))
     }
 }

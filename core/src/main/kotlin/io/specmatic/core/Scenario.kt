@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
@@ -8,6 +9,8 @@ import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.core.filters.ExpressionContextPopulator
 import io.specmatic.core.filters.ScenarioFilterVariablePopulator
 import io.specmatic.core.pattern.*
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.nullOrExceptionString
@@ -21,6 +24,8 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.ExampleProcessor
+import io.specmatic.test.TestExecutionReason
+import io.specmatic.test.TestSkipReason
 
 interface ScenarioDetailsForResult {
     val status: Int
@@ -38,6 +43,7 @@ interface ScenarioDetailsForResult {
 const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIELDS"
 const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM_KEY"
 
+enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
 data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
@@ -68,7 +74,8 @@ data class Scenario(
     val attributeSelectionPattern: AttributeSelectionPatternDetails = AttributeSelectionPatternDetails.default,
     val exampleRow: Row? = null,
     val operationMetadata: OperationMetadata? = null,
-    val requestChangeSummary: String? = null
+    val requestChangeSummary: String? = null,
+    val generatedFrom: GeneratedScenarioOrigin? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -123,7 +130,7 @@ data class Scenario(
 
     override val status: Int
         get() {
-            return if(isNegative) 400 else httpResponsePattern.status
+            return if (isNegative && !isA4xxScenario()) 400 else httpResponsePattern.status
         }
 
     val requestContentType: String?
@@ -141,6 +148,24 @@ data class Scenario(
             val pattern = httpRequestPattern.headersPattern.getSOAPActionPattern() ?: return null
             return pattern.generate(resolver).toStringLiteral().removeSurrounding("\"").removePrefix("/")
         }
+
+    fun updateBasedOnResponseIfNegativeGeneration(httpResponse: HttpResponse): Scenario {
+        if (!this.isNegative || badRequestOrDefault == null) return this
+        return badRequestOrDefault.updateScenarioWithResponse(httpResponse, this)
+    }
+
+    fun withDetailsFrom(scenario: Scenario): Scenario {
+        return this.copy(
+            name = scenario.name,
+            bindings = scenario.bindings,
+            examples = scenario.examples,
+            patterns = scenario.patterns,
+            fixtures = scenario.fixtures,
+            ignoreFailure = scenario.ignoreFailure,
+            statusInDescription = scenario.statusInDescription,
+            httpResponsePattern = scenario.httpResponsePattern,
+        )
+    }
 
     fun getExamplesMatching(exampleType: ExampleType): List<NamedStub> {
         return examples.flatMap { example ->
@@ -177,6 +202,16 @@ data class Scenario(
 
     fun matchesPathStructureAndMethod(httpRequest: HttpRequest): Boolean {
         val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
+        return result.isSuccess()
+    }
+
+    fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
+        if (this.status !in setOf(DEFAULT_RESPONSE_CODE, httpResponse.status)) return false
+        return matchesContentType(httpResponse)
+    }
+
+    fun matchesContentType(httpResponse: HttpResponse): Boolean {
+        val result = this.httpResponsePattern.matchesContentType(httpResponse, resolver)
         return result.isSuccess()
     }
 
@@ -309,6 +344,14 @@ data class Scenario(
         }
     }
 
+    fun generateHeaders(flagsBased: FlagsBased = DefaultStrategies): Map<String, String> {
+        return scenarioBreadCrumb(this) {
+            httpRequestPattern.headersPattern.generate(
+                flagsBased.update(resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative))
+            )
+        }
+    }
+
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
             httpRequestPattern.generate(
@@ -408,16 +451,13 @@ data class Scenario(
     }
 
     fun matches(httpResponse: HttpResponse, resolver: Resolver): Result {
-
         if (this.isNegative) {
             return if (is4xxResponse(httpResponse)) {
-                if(badRequestOrDefault != null && badRequestOrDefault.supports(httpResponse.status))
-                    badRequestOrDefault.matches(httpResponse, resolver).updateScenario(this)
-                else
-                    Result.Failure("Received ${httpResponse.status}, but the specification does not contain a 4xx response, hence unable to verify this response", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
-            }
-            else
+                badRequestOrDefault?.matches(httpResponse, resolver)?.updateScenario(this)
+                    ?: Result.Failure("Received ${httpResponse.status}, but the specification does not contain a 4xx or default response, hence unable to verify this response", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
+            } else {
                 Result.Failure("Expected 4xx status, but received ${httpResponse.status}", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
+            }
         }
 
         return try {
@@ -461,7 +501,8 @@ data class Scenario(
                     else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
-                newRequestPatterns.map { newHttpRequestPattern ->
+                newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
+                    val generatedFrom = if (index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -472,6 +513,7 @@ data class Scenario(
                                     ignoreFailure = ignoreFailure,
                                     exampleName = row.name,
                                     exampleRow = row,
+                                    generatedFrom = generatedFrom,
                                     generativePrefix = generativePrefix,
                                 ), (newHttpRequestPattern as HasValue<HttpRequestPattern>).valueDetails
                             )
@@ -740,16 +782,39 @@ data class Scenario(
             }
         }
 
-    val defaultAPIDescription: String
-        get() {
-            if(customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
-            val soapActionInfo = httpRequestPattern.getSOAPAction()
-            return if (soapActionInfo != null) {
-                "$method $path SOAPAction $soapActionInfo ${disambiguate()}-> $statusInDescription"
-            } else {
-                "$method $path ${disambiguate()}-> $statusInDescription"
-            }
+    private fun baseApiDescription(): String {
+        val soapActionInfo = httpRequestPattern.getSOAPAction()
+        return if (soapActionInfo != null) {
+            "$method $path SOAPAction $soapActionInfo ${disambiguate()}-> $statusInDescription"
+        } else {
+            "$method $path ${disambiguate()}-> $statusInDescription"
         }
+    }
+
+    private fun contentTypeDescription(): String? {
+        val contentTypes = listOfNotNull(requestContentType?.let { "requestContentType $it" }, responseContentType?.let { "responseContentType $it" })
+        if (contentTypes.isEmpty()) return null
+        return contentTypes.joinToString(prefix = "(", separator = ", ", postfix = ")")
+    }
+
+    val defaultAPIDescription: String get() {
+        if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
+        return baseApiDescription()
+    }
+
+    val fullApiDescription: String get() {
+        val baseDescription = customAPIDescription ?: baseApiDescription()
+        return buildList {
+            add(baseDescription)
+            contentTypeDescription()?.takeIf(String::isNotBlank)?.let(::add)
+            disambiguate().takeIf(String::isNotBlank)?.let(::add)
+        }.joinToString(separator = " ")
+    }
+
+    fun fullApiTestDescription(): String {
+        val apiDescription = this.fullApiDescription
+        return testDescription(generativePrefix, apiDescription, exampleName, requestChangeSummary)
+    }
 
     override fun testDescription(): String {
         val apiDescription = customAPIDescription ?: this.defaultAPIDescription
@@ -765,6 +830,44 @@ data class Scenario(
 
     fun newBasedOn(suggestions: List<Scenario>) =
         this.newBasedOn(suggestions.find { it.name == this.name } ?: this)
+
+    fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
+        val hasExamples = hasExamples()
+        val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
+        val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
+
+        if (badRequestHasNoExample && negativeGenerationEnabled) {
+            if (!strictMode) return null
+            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
+            return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
+        }
+
+        if (badRequestHasNoExample) {
+            val otherReasons = listOf(TestSkipReason.noExamples2xxAnd400(strictMode))
+            val reason = Reasoning(mainReason = TestSkipReason.GENERATIVE_DISABLED, otherReasons = otherReasons)
+            return Decision.Skip(context = this, reasoning = reason)
+        }
+
+        if (!isGherkinScenario && !isA2xxScenario() && !hasExamples) {
+            val ruleViolation = TestSkipReason.noExamplesNon2xxAndNon400()
+            return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
+        }
+
+        if (strictMode && !hasExamples) {
+            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
+            return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
+        }
+
+        val reason = Reasoning(TestExecutionReason.executed(hasExamples))
+        return Decision.Execute(value = newBasedOn(suggestions), context = this, reasoning = reason)
+    }
+
+    fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
+        if (!this.isA2xxScenario()) return null
+        if (strictMode && !hasExamples()) return null
+        val reason = Reasoning(TestExecutionReason.executedNegativeGen())
+        return Decision.Execute(value = negativeBasedOn(badRequestOrDefault), context = this, reasoning = reason)
+    }
 
     fun newBasedOnAttributeSelectionFields(queryParams: QueryParameters?): Scenario {
         val fieldsToBeMadeMandatory = fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams)
@@ -789,6 +892,8 @@ data class Scenario(
     fun isA4xxScenario(): Boolean = this.httpResponsePattern.status in 400..499
 
     fun hasExampleRows(): Boolean = examples.any { it.rows.isNotEmpty() }
+
+    fun hasExamples(): Boolean = examples.isNotEmpty() && hasExampleRows()
 
     fun calculatePath(httpRequest: HttpRequest): Set<String> {
         val bodyPattern = resolvedHop(this.httpRequestPattern.body, this.resolver)
@@ -990,7 +1095,7 @@ fun testDescription(
             "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"
 
         else -> "$generativePrefix Scenario: $apiDescription"
-    }
+    }.trim()
 }
 
 fun newExpectedServerStateBasedOn(

@@ -91,7 +91,7 @@ internal class ProxyTest {
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
         assertThat(fakeFileWriter.receivedPaths.toList()).containsExactlyInAnyOrder(
             "proxy_generated.yaml",
-            "POST_200_text_plain_1.json",
+            "POST_text_plain_200_text_plain_1.json",
         )
     }
 
@@ -120,7 +120,7 @@ internal class ProxyTest {
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
         assertThat(fakeFileWriter.receivedPaths.toList()).containsExactlyInAnyOrder(
             "proxy_generated.yaml",
-            "multiply_POST_200_text_plain_1.json",
+            "multiply_POST_text_plain_200_text_plain_1.json",
         )
     }
 
@@ -171,7 +171,7 @@ internal class ProxyTest {
             )
         }.doesNotThrowAnyException()
         assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
-        assertThat(fakeFileWriter.receivedPaths).containsExactlyInAnyOrder("proxy_generated.yaml", "POST_200_text_plain_1.json")
+        assertThat(fakeFileWriter.receivedPaths).containsExactlyInAnyOrder("proxy_generated.yaml", "POST_text_plain_200_text_plain_1.json")
     }
 
     @Test
@@ -484,7 +484,7 @@ internal class ProxyTest {
                 assertThatCode { parsedJSON(fakeFileWriter.receivedStub ?: "") }.doesNotThrowAnyException()
                 assertThat(fakeFileWriter.receivedPaths.toList()).contains(
                     "proxy_generated.yaml",
-                    "multiply_POST_200_text_plain_1.json",
+                    "multiply_POST_text_plain_200_text_plain_1.json",
                 )
             }
         }

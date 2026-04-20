@@ -30,6 +30,7 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
                                 || breadCrumb.contains(METHOD_BREAD_CRUMB)
                                 || breadCrumb.contains(BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).with(CONTENT_TYPE))
                                 || breadCrumb.contains("STATUS")
+                                || breadCrumb.contains(BreadCrumb.RESPONSE.plus(BreadCrumb.HEADER).with(CONTENT_TYPE))
                     } || matchResult.hasReason(FailureReason.URLPathParamMismatchButSameStructure)
                     if (isFailureRelatedToScenario) { example to example.breadCrumbIfPartial(matchResult) } else null
                 }

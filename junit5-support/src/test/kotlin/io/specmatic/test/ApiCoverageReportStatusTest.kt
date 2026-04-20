@@ -1,266 +1,156 @@
 package io.specmatic.test
 
-import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
-import io.specmatic.test.reports.coverage.Endpoint
-import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
-import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
+import io.specmatic.test.utils.OpenApiCoverageBuilder
+import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class ApiCoverageReportStatusTest {
-
     companion object {
-        const val CONFIG_FILE_PATH = "./specmatic.json"
+        private const val CONFIG_FILE_PATH = "./specmatic.json"
     }
 
     @Test
     fun `identifies endpoint as 'covered' when contract test passes and route+method is present in actuator`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        )
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            configFilePath(CONFIG_FILE_PATH)
+            applicationApi(method = "GET", path = "/route1")
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+        }.generate()
 
-        val applicationAPIs = mutableListOf(
-            API("GET", "/route1")
-        )
-
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI),
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(1)
+            assertRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
+        }
     }
 
     @Test
     fun `identifies endpoint as 'covered' when contract test passes and route+method is not present in actuator`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-        )
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            applicationApisUnavailable()
+            configFilePath(CONFIG_FILE_PATH)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+        }.generate()
 
-        val applicationAPIs = mutableListOf<API>()
-
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI),
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(1)
+            assertRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
+        }
     }
 
     @Test
-    fun `identifies endpoint as 'covered' when contract test fails and route+method is present in actuator`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-        )
+    fun `identifies endpoint as 'not implemented' when contract test fails and route+method is present in actuator`() {
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            configFilePath(CONFIG_FILE_PATH)
+            applicationApi(method = "GET", path = "/route1")
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 400)
+        }.generate()
 
-        val applicationAPIs = mutableListOf(
-            API("GET", "/route1")
-        )
-
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, specType = SpecType.OPENAPI)
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(1)
+            assertRow("GET", "/route1", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        }
     }
 
     @Test
-    fun `identifies endpoint as 'covered' when contract test fails and actuator is not available`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        )
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 400, specType = SpecType.OPENAPI),
-        )
+    fun `identifies endpoint as 'not implemented' when contract test fails and actuator is not available`() {
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            applicationApisUnavailable()
+            configFilePath(CONFIG_FILE_PATH)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 400)
+        }.generate()
 
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            configFilePath = CONFIG_FILE_PATH,
-            testResultRecords = contractTestResults,
-            applicationAPIs = mutableListOf(),
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = false
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(1)
+            assertRow("GET", "/route1", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        }
     }
 
     @Test
     fun `identifies endpoint as 'not implemented' when contract test fails, and route+method is not present in actuator`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            Endpoint("/route2", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        )
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            configFilePath(CONFIG_FILE_PATH)
+            applicationApi(method = "GET", path = "/route1")
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route2", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+            testResult(path = "/route2", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 404)
+        }.generate()
 
-        val applicationAPIs = mutableListOf(
-            API("GET", "/route1")
-        )
-
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, actualResponseStatus = 200, specType = SpecType.OPENAPI),
-            TestResultRecord("/route2", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI),
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route2", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(2)
+            assertRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
+            assertRow("GET", "/route2", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        }
     }
 
     @Test
-    fun `does not identify endpoint as not implemented when endpoints api is enabled but discovered endpoint list is empty`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        )
+    fun `identifies endpoint as not implemented when endpoints api is enabled but discovered endpoint list is empty`() {
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            setEndpointsAPIFlag(true)
+            configFilePath(CONFIG_FILE_PATH)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 404)
+        }.generate()
 
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 404, specType = SpecType.OPENAPI)
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            mutableListOf(),
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route1", 404, 0, 50, CoverageStatus.MISSING_IN_SPEC, showPath = false, showMethod = false),
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(1)
+            assertRow("GET", "/route1", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        }
     }
 
     @Test
-    fun `does not identify endpoint as not implemented when endpoints api is enabled but discovered endpoint list is empty and connection is refused`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        )
+    fun `identifies endpoint as not implemented when endpoints api is enabled but discovered endpoint list is empty and connection is refused`() {
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            setEndpointsAPIFlag(true)
+            configFilePath(CONFIG_FILE_PATH)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Failed, actualResponseCode = 0)
+        }.generate()
 
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Failed, actualResponseStatus = 0, specType = SpecType.OPENAPI)
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            mutableListOf(),
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(1)
+            assertRow("GET", "/route1", 200, 1, 0, CoverageStatus.NOT_IMPLEMENTED)
+        }
     }
 
     @Test
     fun `identifies endpoint as 'missing in spec' when route+method is present in actuator but not present in the spec`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        )
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            configFilePath(CONFIG_FILE_PATH)
+            applicationApi(method = "GET", path = "/route1")
+            applicationApi(method = "GET", path = "/route2")
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+        }.generate()
 
-        val applicationAPIs = mutableListOf(
-            API("GET", "/route1"),
-            API("GET", "/route2")
-        )
-
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI)
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
-            allEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route2", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC)
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(2)
+            assertRow("GET", "/route1", 200, 1, 100, CoverageStatus.COVERED)
+            assertRow("GET", "/route2", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC)
+        }
     }
 
     @Test
-    fun `identifies endpoint as 'Not Covered' when contract test is not generated for an endpoint present in the spec`() {
-        val endpointsInSpec = mutableListOf(
-            Endpoint("/route1", "GET", 200, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            Endpoint("/route1", "GET", 400, protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-        )
+    fun `identifies endpoint as 'Not Tested' when contract test is not generated for an endpoint present in the spec`() {
+        val report = OpenApiCoverageBuilder.buildCoverage {
+            configFilePath(CONFIG_FILE_PATH)
+            applicationApi(method = "GET", path = "/route1")
+            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
+            specEndpoint(method = "GET", path = "/route1", responseCode = 400)
+            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
+        }.generate()
 
-        val applicationAPIs = mutableListOf(
-            API("GET", "/route1")
-        )
-
-        val contractTestResults = mutableListOf(
-            TestResultRecord("/route1", "GET", 200, request = null, response = null, result = TestResult.Success, specType = SpecType.OPENAPI)
-        )
-
-        val apiCoverageReport = OpenApiCoverageReportInput(
-            CONFIG_FILE_PATH,
-            contractTestResults,
-            applicationAPIs,
-            allEndpoints = endpointsInSpec,
-            filteredEndpoints = endpointsInSpec,
-            endpointsAPISet = true
-        ).generate()
-        assertThat(apiCoverageReport.coverageRows).isEqualTo(
-            listOf(
-                OpenApiCoverageConsoleRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED),
-                OpenApiCoverageConsoleRow("GET", "/route1", 400, 0, 50, CoverageStatus.NOT_COVERED, showPath = false, showMethod = false)
-            )
-        )
+        report.verify {
+            assertThat(consoleReport.coverageRows).hasSize(2)
+            assertRow("GET", "/route1", 200, 1, 50, CoverageStatus.COVERED)
+            assertRow("GET", "/route1", 400, 0, 50, CoverageStatus.NOT_TESTED)
+        }
     }
 }

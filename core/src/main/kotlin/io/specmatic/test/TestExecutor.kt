@@ -13,4 +13,7 @@ interface TestExecutor {
 
     fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
     }
+
+    fun postExecuteScenario(scenario: Scenario) {
+    }
 }

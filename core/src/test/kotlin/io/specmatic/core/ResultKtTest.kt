@@ -71,6 +71,12 @@ internal class ResultKtTest {
         assertThat(result.contractPath).isNull()
     }
 
+    @Test
+    fun `empty results should be treated as failure in toResultIfAnyWithCausesOrFailure`() {
+        val result = Results().toResultIfAnyWithCausesOrFailure()
+        assertThat(result).isInstanceOf(Failure::class.java)
+    }
+
     private fun assertMetadata(result: Result, scenario: ScenarioDetailsForResult?, contractPath: String?) {
         assertThat(result.scenario).isEqualTo(scenario)
         assertThat(result.contractPath).isEqualTo(contractPath)

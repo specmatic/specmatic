@@ -8,6 +8,18 @@ class ConsoleReport(
     private val footerText: String,
     private val tableTitleText: String = "SPECMATIC API COVERAGE SUMMARY"
 ) {
+    constructor(
+        coverageRows: List<CoverageRow>,
+        reportColumns: List<ReportColumn>,
+        footerText: List<String>,
+        tableTitleText: String = "SPECMATIC API COVERAGE SUMMARY"
+    ) : this(
+        coverageRows = coverageRows,
+        reportColumns = reportColumns,
+        footerText = footerText.joinToString(System.lineSeparator()),
+        tableTitleText = tableTitleText
+    )
+
     fun generate(): String {
         return listOf(
             getTableHeader(),
@@ -57,9 +69,14 @@ class ConsoleReport(
 
     private fun getTableFooter(): String {
         val headerTitleSize = getTableColumnHeader().length - 4
-        val footerRow = "| ${"%-${headerTitleSize}s".format(footerText)} |"
+        val footerRows = footerText.lines().map { line ->
+            "| ${"%-${headerTitleSize}s".format(line)} |"
+        }
         val titleSeparator = getTitleSeparator(headerTitleSize)
-        return listOf(titleSeparator, footerRow, titleSeparator).joinToString(System.lineSeparator())
+        return listOf(titleSeparator)
+            .plus(footerRows)
+            .plus(titleSeparator)
+            .joinToString(System.lineSeparator())
     }
 }
 

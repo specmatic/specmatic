@@ -19,22 +19,23 @@ class StubUsageReportTest {
     @Test
     fun `test generates stub usage report based on stub request logs`() {
         val allEndpoints = mutableListOf(
-            StubEndpoint("/route1", "GET", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route1", "POST", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route2", "GET", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route2", "POST", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            stubEndpoint("/route1", "GET", 200, "in/specmatic/examples/store/route1.yaml"),
+            stubEndpoint("/route1", "POST", 200, "in/specmatic/examples/store/route1.yaml"),
+            stubEndpoint("/route2", "GET", 200, "in/specmatic/examples/store/route2.yaml"),
+            stubEndpoint("/route2", "POST", 200, "in/specmatic/examples/store/route2.yaml"),
         )
 
         val stubLogs = mutableListOf(
-            StubEndpoint("/route1", "GET", 200,"","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route1", "GET", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route1", "POST", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route1", "POST", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route1.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route2", "GET", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
-            StubEndpoint("/route2", "GET", 200, "","git", "https://github.com/specmatic/specmatic-order-contracts.git", "main", "in/specmatic/examples/store/route2.yaml", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+            stubEndpoint("/route1", "GET", 200, "in/specmatic/examples/store/route1.yaml"),
+            stubEndpoint("/route1", "GET", 200, "in/specmatic/examples/store/route1.yaml"),
+            stubEndpoint("/route1", "POST", 200, "in/specmatic/examples/store/route1.yaml"),
+            stubEndpoint("/route1", "POST", 200, "in/specmatic/examples/store/route1.yaml"),
+            stubEndpoint("/route2", "GET", 200, "in/specmatic/examples/store/route2.yaml"),
+            stubEndpoint("/route2", "GET", 200, "in/specmatic/examples/store/route2.yaml"),
         )
 
         val stubUsageJsonReport = StubUsageReport(CONFIG_FILE_PATH, allEndpoints, stubLogs).generate()
+
         Assertions.assertThat(stubUsageJsonReport).isEqualTo(
             SpecmaticStubUsageReport()
                 .withSpecmaticConfigPath(CONFIG_FILE_PATH)
@@ -84,6 +85,20 @@ class StubUsageReportTest {
                             )
                     )
                 )
+        )
+    }
+
+    private fun stubEndpoint(path: String, method: String, responseCode: Int, specification: String): StubEndpoint {
+        return StubEndpoint(
+            path = path,
+            method = method,
+            responseCode = responseCode,
+            sourceProvider = "git",
+            sourceRepository = "https://github.com/specmatic/specmatic-order-contracts.git",
+            sourceRepositoryBranch = "main",
+            specification = specification,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
         )
     }
 }

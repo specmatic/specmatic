@@ -4,13 +4,17 @@ import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
+import io.specmatic.reporter.ctrf.model.CoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
+import io.specmatic.test.TestResultRecord
 import java.io.File
 
+typealias OpenApiCoverageReportOperation = CoverageReportOperation<OpenAPIOperation, TestResultRecord>
 object ReportGenerator {
     fun generateReport(
         testResultRecords: List<CtrfTestResultRecord>,
@@ -18,6 +22,8 @@ object ReportGenerator {
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
+        actuatorEnabled: Boolean? = null,
+        absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
         getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
@@ -26,6 +32,8 @@ object ReportGenerator {
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
+            actuatorEnabled?.let { put("actuatorEnabled", it) }
+            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
             put("specmaticConfigPath", getConfigFilePath())
         }
 
@@ -38,6 +46,46 @@ object ReportGenerator {
             extra = extra,
             specConfig = specConfigs,
             getCoverageStatus = getCoverageStatus,
+            toolName = toolName
+        )
+
+        ReportProvider.generateCtrfReport(report, reportDir)
+        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+    }
+
+    fun generateReport(
+        testResultRecords: List<CtrfTestResultRecord>,
+        coverageReportOperations: List<OpenApiCoverageReportOperation>,
+        startTime: Long,
+        endTime: Long,
+        specConfigs: List<CtrfSpecConfig>,
+        coverage: Int? = null,
+        actuatorEnabled: Boolean? = null,
+        absoluteCoverage: Int? = null,
+        reportDir: File,
+        toolName: String = "Specmatic ${VersionInfo.describe()}",
+    ) {
+        if(isCtrfSpecConfigsValid(specConfigs).not()) return
+
+        val extra = buildMap<String, Any> {
+            coverage?.let { put("apiCoverage", "$coverage%") }
+            actuatorEnabled?.let { put("actuatorEnabled", it) }
+            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
+            put("specmaticConfigPath", getConfigFilePath())
+        }
+
+        consoleLog(
+            "Generating report for ${testResultRecords.size} tests and ${coverageReportOperations.size} coverage operations..."
+        )
+
+        consoleLog("Using new report generation method that accepts coverage report operations.")
+        val report = CtrfReportGenerator.generate(
+            testResultRecords = testResultRecords,
+            coverageReportOperations = coverageReportOperations,
+            startTime = startTime,
+            endTime = endTime,
+            extra = extra,
+            specConfig = specConfigs,
             toolName = toolName
         )
 

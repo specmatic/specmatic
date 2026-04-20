@@ -56,7 +56,6 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
-import io.specmatic.core.report.ctrfSpecConfigsFrom
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
@@ -85,15 +84,15 @@ import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
 import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
+import io.specmatic.stub.report.OpenApiMockUsage
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
-import io.specmatic.test.TestResultRecord.Companion.getCoverageStatus
+import io.specmatic.test.normalizedContentType
 import io.specmatic.test.internalHeadersToKtorHeaders
 import io.netty.handler.ssl.ClientAuth
 import io.netty.handler.ssl.ApplicationProtocolConfig
@@ -530,25 +529,41 @@ class HttpStub(
     ) {
         val path = convertPathParameterStyle(httpLogMessage.scenario?.path ?: httpRequest.path.orEmpty())
         val method = httpLogMessage.scenario?.method ?: httpRequest.method.orEmpty()
-        val requestContentType = httpLogMessage.scenario?.requestContentType
-            ?: httpRequest.headers["Content-Type"]
+        val requestContentType =  when ( val scenario = httpLogMessage.scenario) {
+            null -> httpRequest.contentType()
+            else -> scenario.requestContentType
+        }
+
         val responseStatus = httpLogMessage.scenario?.status ?: 0
         val protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP
         val ctrfTestResultRecord = TestResultRecord(
             path = path,
             method = method,
             responseStatus = responseStatus,
+            responseContentType = httpLogMessage.scenario?.httpResponsePattern?.headersPattern?.contentType,
             request = httpRequest,
             response = httpResponse,
             result = httpLogMessage.toResult(),
+            sourceProvider = httpStubResponse.feature?.sourceProvider,
+            repository = httpStubResponse.feature?.sourceRepository,
+            branch = httpStubResponse.feature?.sourceRepositoryBranch,
             scenarioResult = (httpLogMessage.result ?: Result.Success()).updateScenario(httpLogMessage.scenario),
             specType = httpLogMessage.scenario?.specType ?: SpecType.OPENAPI,
+            protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP,
             requestContentType = requestContentType,
             specification = httpStubResponse.scenario?.specification,
             testType = STUB_TEST_TYPE,
             actualResponseStatus = httpResponse.status,
+            actualResponseContentType = httpResponse.normalizedContentType(),
             operations = setOf(
-                OpenAPIOperation(path, method, requestContentType, responseStatus, protocol)
+                OpenAPIOperation(
+                    path = path,
+                    method = method,
+                    contentType = requestContentType,
+                    responseCode = responseStatus,
+                    protocol = protocol,
+                    responseContentType = httpLogMessage.scenario?.httpResponsePattern?.headersPattern?.contentType,
+                )
             ),
             exampleId = httpStubResponse.mock?.scenarioStub?.id
         )
@@ -1151,47 +1166,20 @@ class HttpStub(
     private fun generateReports() {
         generateStubUsageReport()
         synchronized(ctrfTestResultRecords) {
-            ctrfTestResultRecords.addAll(notCoveredTestResultRecords())
+            val mockUsage = OpenApiMockUsage(specmaticConfigInstance)
+            mockUsage.addEndpoints(_allEndpoints)
+            ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
+            val mockUsageReport = mockUsage.generate()
+
             ReportGenerator.generateReport(
-                testResultRecords = ctrfTestResultRecords,
+                testResultRecords = mockUsageReport.testResultRecords,
+                coverageReportOperations = mockUsageReport.coverageReportOperations,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = ctrfSpecConfigsFrom(specmaticConfigInstance, ctrfTestResultRecords),
-                coverage = 0,
+                specConfigs = mockUsage.ctrfSpecConfigs(),
+                coverage = mockUsageReport.coverage,
+                absoluteCoverage = mockUsageReport.absoluteCoverage,
                 reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
-            )
-            { ctrfTestResultRecords ->
-                ctrfTestResultRecords.filterIsInstance<TestResultRecord>().getCoverageStatus()
-            }
-        }
-    }
-
-    private fun notCoveredTestResultRecords(): List<TestResultRecord> {
-        return _allEndpoints.toSet().filter { endpoint ->
-            ctrfTestResultRecords.none { testResultRecord ->
-                endpoint.isEqualTo(testResultRecord)
-            }
-        }.map { endpoint ->
-            val path = convertPathParameterStyle(endpoint.path.orEmpty())
-            TestResultRecord(
-                path = path,
-                method = endpoint.method.orEmpty(),
-                responseStatus = endpoint.responseCode,
-                request = null,
-                response = null,
-                result = TestResult.NotCovered,
-                specification = endpoint.specification.orEmpty(),
-                testType = STUB_TEST_TYPE,
-                specType = endpoint.specType,
-                operations = setOf(
-                    OpenAPIOperation(
-                        path = path,
-                        method = endpoint.method.orEmpty(),
-                        contentType = endpoint.requestContentType,
-                        responseCode = endpoint.responseCode,
-                        protocol = endpoint.protocol
-                    )
-                )
             )
         }
     }
@@ -1219,21 +1207,25 @@ class HttpStub(
     }
 
     private fun extractAllEndpoints(): List<StubEndpoint> {
-        return features.flatMap { it.scenarios }.map { scenario ->
-            StubEndpoint(
-                scenario.path,
-                scenario.method,
-                scenario.status,
-                scenario.requestContentType,
-                scenario.sourceProvider,
-                scenario.sourceRepository,
-                scenario.sourceRepositoryBranch,
-                scenario.specification,
-                scenario.protocol,
-                scenario.specType
-            )
+        return features.flatMap { feature ->
+            feature.scenarios.map { scenario ->
+                StubEndpoint(
+                    scenario.path,
+                    scenario.method,
+                    scenario.status,
+                    scenario.requestContentType,
+                    scenario.httpResponsePattern.headersPattern.contentType,
+                    scenario.sourceProvider,
+                    scenario.sourceRepository,
+                    scenario.sourceRepositoryBranch,
+                    scenario.specification ?: feature.path,
+                    scenario.protocol,
+                    scenario.specType
+                )
+            }
         }
     }
+
 
     private fun generateStubUsageReport() {
         specmaticConfigPath?.let {
@@ -1625,7 +1617,7 @@ fun fakeHttpResponse(
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
                 NotStubbed(
                     HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
-                    combinedFailureResult.toResultIfAnyWithCauses(),
+                    combinedFailureResult.toResultIfAnyWithCausesOrFailure(),
                 )
             } else {
                 val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
@@ -1644,7 +1636,7 @@ fun fakeHttpResponse(
                         contractPath = nearestMatchingFeature?.path.orEmpty(),
                         feature = nearestMatchingFeature
                     ),
-                    stubResult = combinedFailureResult.toResultIfAnyWithCauses(),
+                    stubResult = combinedFailureResult.toResultIfAnyWithCausesOrFailure(),
                 )
             }
         }
@@ -1774,7 +1766,7 @@ private fun strictModeHttp400Response(
     }
 
     return NotStubbed(
-        stubResult = results.toResultIfAnyWithCauses(),
+        stubResult = results.toResultIfAnyWithCausesOrFailure(),
         response = HttpStubResponse(scenario = scenario, response = response),
     )
 }

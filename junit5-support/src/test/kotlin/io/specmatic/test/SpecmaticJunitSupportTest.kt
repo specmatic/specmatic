@@ -3,6 +3,8 @@ package io.specmatic.test
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
+import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.Scenario
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfig
@@ -25,8 +27,11 @@ import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
@@ -49,6 +54,8 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
+import io.specmatic.core.pattern.parsedJsonValue
+import io.specmatic.test.utils.MockHttpServer
 import java.io.File
 import java.io.PrintStream
 import java.net.ServerSocket
@@ -359,8 +366,8 @@ class SpecmaticJunitSupportTest {
             }
         })
 
-        assertThat(contractTestHarness.openApiCoverageReportInput.endpointsAPISet).isTrue()
-        assertThat(contractTestHarness.openApiCoverageReportInput.getApplicationAPIs()).isEqualTo(listOf(
+        assertThat(contractTestHarness.openApiCoverage.isEndpointsApiSet()).isTrue()
+        assertThat(contractTestHarness.openApiCoverage.getApplicationAPIs()).isEqualTo(listOf(
             API("POST", "/orders"),
             API("POST", "/products"),
             API("GET", "/findAvailableProducts/{date_time}")
@@ -475,14 +482,10 @@ paths:
                 filter = ScenarioMetadataFilter.from("")
             )
 
+            // Verify the test name contains the correct endpoint and size
             val testsWithStrictModeList = testsWithStrictMode.toList()
-            val testCountWithStrictMode = testsWithStrictModeList.size
-
-            // Only GET /users/{id} should generate tests (has external example)
-            assertThat(testCountWithStrictMode).isEqualTo(1)
-
-            // Verify the test name contains the correct endpoint
-            val testDescriptionsWithStrictMode = testsWithStrictModeList.map { it.testDescription() }
+            val testDescriptionsWithStrictMode = testsWithStrictModeList.executedTestDescriptions()
+            assertThat(testDescriptionsWithStrictMode.size).isEqualTo(1)
             assertThat(testDescriptionsWithStrictMode).allMatch {
                 it.contains("GET /users/(id:number) -> 200")
             }
@@ -515,14 +518,10 @@ paths:
                 filter = ScenarioMetadataFilter.from("")
             )
 
+            // Verify test names include both endpoints and size
             val testsWithoutStrictModeList = testsWithoutStrictMode.toList()
-            val testCountWithoutStrictMode = testsWithoutStrictModeList.size
-
-            // Both endpoints should generate tests when strictMode is false
-            assertThat(testCountWithoutStrictMode).isGreaterThan(1)
-
-            // Verify test names include both endpoints
-            val testDescriptionsWithoutStrictMode = testsWithoutStrictModeList.map { it.testDescription() }
+            val testDescriptionsWithoutStrictMode = testsWithoutStrictModeList.executedTestDescriptions()
+            assertThat(testDescriptionsWithoutStrictMode.size).isGreaterThan(1)
             assertThat(testDescriptionsWithoutStrictMode).anyMatch {
                 it.contains("GET /users/(id:number) -> 200")
             }
@@ -545,7 +544,7 @@ paths:
             filter = ScenarioMetadataFilter.from("!(PATH='/products' && METHOD='POST' && STATUS='201')")
         )
 
-        assertThat(testData.scenarios.map { it.testDescription() }.toList()).doesNotContain(" Scenario: POST /products -> 201 with the request from the example 'SUCCESS'")
+        assertThat(testData.scenarios.executedTestDescriptions()).doesNotContain(" Scenario: POST /products -> 201 with the request from the example 'SUCCESS'")
         assertThat(testData.allEndpoints).contains(
             Endpoint(
                 path = "/products",
@@ -566,6 +565,93 @@ paths:
                 protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
             )
         )
+    }
+
+    @Test
+    fun `contractTest should mark scenarios as EXCLUDED when filter excludes them`() {
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(
+                    ContractTestSettings(
+                        testBaseURL = server.baseUrl,
+                        contractPaths = specFile.canonicalPath,
+                        configFile = "",
+                        generative = false,
+                        filter = "PATH='/alpha'",
+                    )
+                )
+
+                val output = captureStdout {
+                    val tests = SpecmaticJUnitSupport().contractTest().toList()
+                    assertThat(tests).hasSize(1)
+                }
+
+                assertThat(output).containsSubsequence(
+                    "Skipping Scenario: GET /beta -> 200 (responseContentType application/json)", "Excluded by Filter",
+                    "This operation was skipped because it did not match the specified filter"
+                )
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `contractTest should use expression filter in no tests found message and mark scenarios as EXCLUDED`() {
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(
+                    ContractTestSettings(
+                        testBaseURL = server.baseUrl,
+                        contractPaths = specFile.canonicalPath,
+                        configFile = "",
+                        generative = false,
+                        filter = "METHOD='PATCH'"
+                    )
+                )
+
+                val tests = SpecmaticJUnitSupport().contractTest().toList()
+                val error = assertThrows<AssertionError> { tests.single().executable.execute() }
+                assertThat(error.message).contains("No tests found to run.")
+                assertThat(error.message).contains("expression filter: \"METHOD='PATCH'\"")
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
+    }
+
+    @Test
+    fun `contractTest should skip scenarios beyond maxTestCount`(@TempDir tempDir: File) {
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        val configFile = writeSpecmaticConfig(tempDir, baseUrl = null, maxTestCount = 1)
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(
+                    ContractTestSettings(
+                        testBaseURL = server.baseUrl,
+                        contractPaths = specFile.canonicalPath,
+                        configFile = configFile.canonicalPath,
+                        generative = false,
+                        filter = ""
+                    )
+                )
+
+                val output = captureStdout {
+                    val tests = SpecmaticJUnitSupport().contractTest()
+                    assertDoesNotThrow { tests.forEach { it.executable.execute() } }
+                }
+
+                assertThat(output).containsSubsequence(
+                    "Skipping Scenario: GET /beta -> 200 (responseContentType application/json) with the request from the example 'ok'",
+                    "Maximum Test Count Exceeded",
+                    "This operation was skipped because it exceeded the maximum test count"
+                )
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
     }
 
     @Test
@@ -597,7 +683,7 @@ paths:
             )
         }
 
-        assertThat(loaded.scenarios.map { it.testDescription() }.toList()).allMatch { it.contains("GET /order_action_figure") }
+        assertThat(loaded.scenarios.executedTestDescriptions()).allMatch { it.contains("GET /order_action_figure") }
     }
 
     @Test
@@ -617,9 +703,40 @@ paths:
             )
         }
 
-        assertThat(loaded.scenarios.map { it.testDescription() }.toList())
-            .hasSize(1)
-            .allMatch { it.contains("GET /orders -> 200") }
+        assertThat(loaded.scenarios.executedTestDescriptions())
+            .anyMatch { it.contains("GET /orders -> 200") }
+    }
+
+    @Test
+    fun `loadTestScenarios should generate 4xx negative scenarios from externalized 2xx examples`() {
+        val specFile = File("src/test/resources/openapi/filter_by_tags_externalized_examples.yaml")
+        val strictModeConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = true, lenientMode = null)
+        val loaded = assertDoesNotThrow {
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = specFile.canonicalPath,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = strictModeConfig,
+                generative = ResiliencyTestSuite.all,
+                filter = ScenarioMetadataFilter.from("")
+            )
+        }
+
+        val executedTestDescriptions = loaded.scenarios.executedTestDescriptions()
+        assertThat(executedTestDescriptions).anyMatch {
+            it.contains("-ve") &&
+                it.contains("GET /orders -> 4xx") &&
+                it.contains("with the request from the example 'INLINE_GET_ORDERS'")
+        }
+
+        assertThat(executedTestDescriptions).anyMatch {
+            it.contains("-ve") &&
+                it.contains("GET /orders -> 4xx") &&
+                it.contains("with the request from the example 'Get Orders'")
+        }
     }
 
     @Test
@@ -637,7 +754,7 @@ paths:
             filter = ScenarioMetadataFilter.from("")
         )
 
-        val testDescriptions = loaded.scenarios.map { it.testDescription() }.toList()
+        val testDescriptions = loaded.scenarios.executedTestDescriptions()
         assertThat(loaded.exampleValidationResult).isInstanceOf(Result.Failure::class.java)
         assertThat(loaded.exampleValidationResult.reportString()).contains("invalid_test_GET_200.json").contains("Error loading example")
         assertThat(testDescriptions).anyMatch { it.contains("POST /test -> 201") }
@@ -693,6 +810,21 @@ paths:
             assertThat(result.reportString()).contains("invalid_test_GET_200.json").contains("Error loading example")
         } finally {
             SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `contractTest should send test decisions to coverage hooks via OpenApiCoverageReportInput`() {
+        val listener = RecordingExampleErrorsListener()
+        val specFile = File("src/test/resources/openapi/alpha_beta_spec.yaml")
+        createAlphaBetaServer().use { server ->
+            try {
+                SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = server.baseUrl, contractPaths = specFile.canonicalPath, coverageHooks = listOf(listener)))
+                SpecmaticJUnitSupport().contractTest().toList()
+                assertThat(listener.decisions).isNotEmpty.allSatisfy { assertThat(it).isInstanceOf(Decision.Execute::class.java) }
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
         }
     }
 
@@ -758,6 +890,21 @@ paths:
     }
 
     @Test
+    fun `report should calculate coverage once for coverage hooks`() {
+        val listener = RecordingExampleErrorsListener()
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(reportBaseDirectory = ".", coverageHooks = listOf(listener)))
+
+        try {
+            SpecmaticJUnitSupport().report()
+            assertThat(listener.onCoverageCalculatedCalls).isEqualTo(1)
+            assertThat(listener.onTestsCompleteCalls).isEqualTo(1)
+            assertThat(listener.onEndCalls).isEqualTo(1)
+        } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
     fun `should load soapAction from scenarios into Endpoints if specification is WSDL`() {
         val specFile = File("src/test/resources/simple.wsdl")
         val specmaticJUnitSupport = SpecmaticJUnitSupport()
@@ -795,19 +942,31 @@ paths:
 
     @Test
     fun `should merge previous test runs into the generated coverage report`() {
-        val previousRecord = TestResultRecord(
+        val previousOperation = OpenAPIOperation(
             path = "/previous",
             method = "POST",
-            responseStatus = 201,
-            request = null,
-            response = null,
-            result = TestResult.Success,
-            specType = SpecType.OPENAPI
+            protocol = SpecmaticProtocol.HTTP,
+            responseCode = 201,
+            contentType = null,
+            responseContentType = null,
+        )
+        val previousMetric = CtrfOperationMetrics(
+            attempts = 1,
+            matches = 1,
         )
 
-        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(previousTestRuns = listOf(previousRecord)))
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(previousRunCoverageMetrics = mapOf(previousOperation to previousMetric))
+        )
         try {
             val support = SpecmaticJUnitSupport()
+            support.openApiCoverage.addEndpoints(
+                allEndpoints = listOf(
+                    Endpoint(path = "/previous", method = "POST", responseStatus = 201, specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI),
+                    Endpoint(path = "/current", method = "GET", responseStatus = 200, specification = "", protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
+                )
+            )
+
             val currentRecord = TestResultRecord(
                 path = "/current",
                 method = "GET",
@@ -818,10 +977,10 @@ paths:
                 specType = SpecType.OPENAPI
             )
 
-            support.openApiCoverageReportInput.addTestReportRecords(currentRecord)
-            val report = support.openApiCoverageReportInput.generate()
+            support.openApiCoverage.addTestReportRecords(currentRecord)
+            val report = support.openApiCoverage.generate().toConsoleReport()
 
-            assertThat(report.testResultRecords).contains(previousRecord, currentRecord)
+            assertThat(report.testResultRecords).containsExactly(currentRecord)
             assertThat(report.coverageRows).anyMatch { it.path == "/previous" }
             assertThat(report.coverageRows).anyMatch { it.path == "/current" }
         } finally {
@@ -1071,7 +1230,7 @@ paths:
             .isEqualTo(0)
     }
 
-    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null): File {
+    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, maxTestCount: Int? = null): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
             version = SpecmaticConfigVersion.VERSION_3,
@@ -1080,7 +1239,7 @@ paths:
                     CommonServiceConfig(
                         definitions = emptyList(),
                         runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl))),
-                        settings = RefOrValue.Value(TestSettings())
+                        settings = RefOrValue.Value(TestSettings(maxTestCount = maxTestCount))
                     )
                 )
             )
@@ -1089,19 +1248,62 @@ paths:
         return configFile
     }
 
+    private fun createAlphaBetaServer(): MockHttpServer {
+        val server = MockHttpServer()
+        server.on("/alpha", "GET") {
+            respond(HttpResponse(status = 200, body = parsedJsonValue("""{"value":"alpha"}""")))
+        }
+
+        server.on("/beta", "GET") {
+            respond(HttpResponse(status = 200, body = parsedJsonValue("""{"value":"beta"}""")))
+        }
+
+        return server
+    }
+
+    private fun captureStdout(block: () -> Unit): String {
+        val originalOut = System.out
+        val outputStream = java.io.ByteArrayOutputStream()
+        System.setOut(PrintStream(outputStream))
+        return try {
+            block()
+            outputStream.toString()
+        } finally {
+            System.out.flush()
+            System.setOut(originalOut)
+        }
+    }
+
     private class RecordingExampleErrorsListener : TestReportListener {
         val exampleErrorsCalls = mutableListOf<Map<String, Result>>()
         override fun onExampleErrors(resultsBySpecFile: Map<String, Result>) {
             exampleErrorsCalls.add(resultsBySpecFile)
         }
 
+        val decisions = mutableListOf<Decision<ContractTest, Scenario>>()
+        override fun onTestDecision(decision: Decision<ContractTest, Scenario>) {
+            decisions.add(decision)
+        }
+
+        var onCoverageCalculatedCalls: Int = 0
+        override fun onCoverageCalculated(coverage: Int, absoluteCoverage: Int) {
+            onCoverageCalculatedCalls++
+        }
+
+        var onTestsCompleteCalls: Int = 0
+        override fun onTestsComplete() {
+            onTestsCompleteCalls++
+        }
+
+        var onEndCalls: Int = 0
+        override fun onEnd() {
+            onEndCalls++
+        }
+
         override fun onActuator(enabled: Boolean) = Unit
         override fun onActuatorApis(apisNotExcluded: List<API>, apisExcluded: List<API>) = Unit
         override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
         override fun onTestResult(result: io.specmatic.test.reports.TestExecutionResult) = Unit
-        override fun onTestsComplete() = Unit
-        override fun onEnd() = Unit
-        override fun onCoverageCalculated(coverage: Int) = Unit
         override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
         override fun onGovernance(result: Result) = Unit
     }
@@ -1111,4 +1313,18 @@ paths:
         SpecmaticJUnitSupport.settingsStaging.remove()
         System.getProperties().keys.minus(initialPropertyKeys).forEach { println("Clearing $it"); System.clearProperty(it.toString()) }
     }
+}
+
+private fun Iterable<Decision<ContractTest, *>>.executedTestDescriptions(): List<String> {
+    return this.mapNotNull { decision ->
+        if (decision is Decision.Execute) decision.value.testDescription()
+        else null
+    }
+}
+
+private fun Sequence<Decision<ContractTest, *>>.executedTestDescriptions(): List<String> {
+    return this.mapNotNull { decision ->
+        if (decision is Decision.Execute) decision.value.testDescription()
+        else null
+    }.toList()
 }

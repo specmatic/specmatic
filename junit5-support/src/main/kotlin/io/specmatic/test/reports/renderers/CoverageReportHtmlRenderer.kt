@@ -7,15 +7,18 @@ import io.specmatic.core.log.logger
 import io.specmatic.junit5.support.VersionInfo
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord
-import io.specmatic.test.reports.coverage.OpenApiCoverageReportInput
+import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.html.*
 
+// GroupedBy Path -> soapAction ?: method -> RequestContentType -> ResponseStatusCode
 typealias GroupedScenarioData = Map<String, Map<String, Map<String, Map<String, List<ScenarioData>>>>>
+typealias GroupedTestResultRecords = Map<String, Map<String, Map<String?, Map<String, List<TestResultRecord>>>>>
+typealias GroupedCoverageRows = Map<String, Map<String, Map<String?, Map<String, List<OpenApiCoverageConsoleRow>>>>>
 
-class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApiCoverageReportInput, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
-    val actuatorEnabled = openApiCoverageReportInput.endpointsAPISet
+class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApiCoverageReport, val baseDir: String) : ReportRenderer<OpenAPICoverageConsoleReport> {
+    val actuatorEnabled = openApiCoverageReportInput.deprecatedData.endpointsApiSet
 
     override fun render(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): String {
         logger.log("Generating HTML report...")
@@ -23,7 +26,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         val openApiSuccessCriteria = reportConfiguration.getSuccessCriteria()
 
         val reportData = HtmlReportData(
-            totalCoveragePercentage = report.totalCoveragePercentage, actuatorEnabled = actuatorEnabled,
+            totalCoveragePercentage = report.coveragePercentage, actuatorEnabled = actuatorEnabled,
             tableRows = makeTableRows(report),
             scenarioData = makeScenarioData(report, specmaticConfig), totalTestDuration = getTotalDuration()
         )
@@ -38,6 +41,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         HtmlReport(htmlReportInformation, baseDir).generate()
         return "Successfully generated HTML report in ./build/reports/specmatic/html"
     }
+
     private fun createTableConfig(report: OpenAPICoverageConsoleReport): HtmlTableConfig {
         return HtmlTableConfig(
             firstGroupName = "Path",
@@ -48,13 +52,12 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
             thirdGroupColSpan = 1
         )
     }
-    private fun makeTableRows(
-        report: OpenAPICoverageConsoleReport
-    ): List<TableRow> {
-        val updatedCoverageRows =  reCreateCoverageRowsForLite(report, report.coverageRows)
 
-        return report.getGroupedCoverageRows(updatedCoverageRows).flatMap { (_, methodGroup) ->
-            val firstGroupRows = methodGroup.values.flatMap { it.values.flatMap { it.values } }
+    private fun makeTableRows(report: OpenAPICoverageConsoleReport): List<TableRow> {
+        val updatedCoverageRows =  reCreateCoverageRowsForLite(report.coverageRows)
+
+        return getGroupedCoverageRows(updatedCoverageRows).flatMap { (_, methodGroup) ->
+            val firstGroupRows = methodGroup.values.flatMap { methodGroup -> methodGroup.values.flatMap { it.values } }
             methodGroup.flatMap { (_, contentGroup) ->
                 val secondGroupRows = contentGroup.values.flatMap { it.values }
                 contentGroup.flatMap { (_, statusGroup) ->
@@ -70,7 +73,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
                                 secondGroupRowSpan = secondGroupRows.sumOf { rows -> rows.size },
                                 requestContentType = it.requestContentType.orEmpty(),
                                 response = it.responseStatus,
-                                exercised = it.count.toInt(),
+                                exercised = it.exercisedCount,
                                 result = it.remarks
                             )
                         }
@@ -90,7 +93,7 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
     private fun makeScenarioData(report: OpenAPICoverageConsoleReport, specmaticConfig: SpecmaticConfig): GroupedScenarioData {
         val testData: MutableMap<String, MutableMap<String, MutableMap<String, MutableMap<String, MutableList<ScenarioData>>>>> = mutableMapOf()
 
-        for ((path, methodGroup) in report.getGroupedTestResultRecords(report.testResultRecords)) {
+        for ((path, methodGroup) in getGroupedTestResultRecords(report.testResultRecords)) {
             for ((method, contentGroup) in methodGroup) {
                 val methodMap = testData.getOrPut(path) { mutableMapOf() }
                 for ((contentType, statusGroup) in contentGroup) {
@@ -169,13 +172,11 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         return testResult.scenarioResult?.reportString() ?: ""
     }
 
-    private fun reCreateCoverageRowsForLite(report: OpenAPICoverageConsoleReport, coverageRows: List<OpenApiCoverageConsoleRow>): List<OpenApiCoverageConsoleRow> {
-        val exercisedRows = coverageRows.filter { it.count.toInt() > 0 }
+    private fun reCreateCoverageRowsForLite(coverageRows: List<OpenApiCoverageConsoleRow>): List<OpenApiCoverageConsoleRow> {
+        val exercisedRows = coverageRows.filter { it.exercisedCount > 0 }
         val updatedRows = mutableListOf<OpenApiCoverageConsoleRow>()
-
-        report.getGroupedCoverageRows(exercisedRows).forEach { (_, methodGroup) ->
+        getGroupedCoverageRows(exercisedRows).forEach { (_, methodGroup) ->
             val rowGroup = mutableListOf<OpenApiCoverageConsoleRow>()
-
             methodGroup.forEach { (method, contentGroup) ->
                 contentGroup.forEach { (_, statusGroup) ->
                     statusGroup.forEach { (_, coverageRows) ->
@@ -195,5 +196,25 @@ class CoverageReportHtmlRenderer(private val openApiCoverageReportInput: OpenApi
         }
 
         return updatedRows
+    }
+
+    private fun getGroupedTestResultRecords(testResultRecords: List<TestResultRecord>): GroupedTestResultRecords {
+        return testResultRecords.groupBy { it.path }.mapValues { (_, pathMap) ->
+            pathMap.groupBy { it.soapAction ?: it.method }.mapValues { (_, methodMap) ->
+                methodMap.groupBy { it.requestContentType }.mapValues { (_, contentTypeMap) ->
+                    contentTypeMap.groupBy { it.responseStatus.toString() }
+                }
+            }
+        }
+    }
+
+    private fun getGroupedCoverageRows(coverageRows: List<OpenApiCoverageConsoleRow>): GroupedCoverageRows {
+        return coverageRows.groupBy { it.path }.mapValues { (_, pathMap) ->
+            pathMap.groupBy { it.method }.mapValues { (_, methodMap) ->
+                methodMap.groupBy { it.requestContentType }.mapValues { (_, contentTypeMap) ->
+                    contentTypeMap.groupBy { it.responseStatus }
+                }
+            }
+        }
     }
 }
