@@ -31,6 +31,12 @@ class ExpectedFailureExtension(private val findFailureReason: (String) -> String
             return
         }
 
+        if (failureReason.isBlank()) {
+            throw AssertionFailedError(
+                "Spec declares `${annotation.tag}` but has no failure reason. Add a reason to the spec file, e.g. `${annotation.tag}: \"short explanation\"`."
+            )
+        }
+
         try {
             invocation.proceed()
         } catch (e: Throwable) {

@@ -233,8 +233,9 @@ class OpenApiSpec(private val specFile: File) {
     private fun String.escapeJsonPointer(): String = replace("~", "~0").replace("/", "~1")
 
     fun findExtensionByKey(key: String): String? {
-        val extension = openApi.extensions?.get(key) ?: return null
-        return extension.toString()
+        val extensions = openApi.extensions ?: return null
+        if (!extensions.containsKey(key)) return null
+        return extensions[key]?.toString().orEmpty()
     }
 
     companion object {
