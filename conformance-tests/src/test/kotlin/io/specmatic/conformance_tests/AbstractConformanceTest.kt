@@ -7,12 +7,11 @@ import io.specmatic.conformance_test_support.OpenApiSpec
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
-import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.File
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(OrderAnnotation::class)
-@ExtendWith(ExpectedFailureExtension::class)
 abstract class AbstractConformanceTest(
     private val openAPISpecFile: String,
     private val workDir: File = File("build/resources/test"),
@@ -23,9 +22,11 @@ abstract class AbstractConformanceTest(
     private lateinit var allLogs: String
     private lateinit var httpExchanges: List<HttpExchange>
 
-    internal val spec: OpenApiSpec =
+    private val spec: OpenApiSpec =
         OpenApiSpec(File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"))
 
+    @RegisterExtension
+    val expectedFailureExtension = ExpectedFailureExtension { tag -> spec.findExtensionByKey(tag) }
 
     @BeforeAll
     fun setup() {
