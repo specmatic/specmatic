@@ -22,7 +22,7 @@ abstract class AbstractConformanceTest(
     private lateinit var allLogs: String
     private lateinit var httpExchanges: List<HttpExchange>
 
-    internal val spec: OpenApiSpec =
+    private val spec: OpenApiSpec =
         OpenApiSpec(File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"))
 
     @RegisterExtension
