@@ -54,9 +54,24 @@ jobs:
         with:
           name: conformance-test-report
           path: conformance-tests/build/reports/tests/test/
-          retention-days: 7
 
-      - name: Count Expected Failures
+      - name: Upload XML Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-test-results-xml
+          path: conformance-tests/build/test-results/test/*.xml
+
+      - name: Upload Expected Failure JSONL file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-expected-failures-jsonl
+          path: conformance-tests/build/conformance-expected-failures.jsonl
+          if-no-files-found: ignore
+
+      - name: Generate summary of expected failures
         if: always()
         run: |
-          bash scripts/generate_conformance_summary.sh conformance-tests/build/test-results/test --output "$GITHUB_STEP_SUMMARY"
+          ./gradlew -p conformance-tests generateSummaryOfExpectedFailures \
+            --args="--output-file $GITHUB_STEP_SUMMARY"
