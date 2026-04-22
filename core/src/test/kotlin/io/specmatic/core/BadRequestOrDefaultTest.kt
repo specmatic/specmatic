@@ -8,6 +8,52 @@ import org.junit.jupiter.api.Test
 
 class BadRequestOrDefaultTest {
     @Nested
+    inner class SupportsStatus {
+        @Test
+        fun `should return true when bad request status exists`() {
+            val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(400 to listOf(scenario(status = 400, contentType = "application/json"))))
+            assertThat(badRequestOrDefault.supportsStatus("400")).isTrue()
+        }
+
+        @Test
+        fun `should return false for non numeric status when default response exists`() {
+            val badRequestOrDefault = BadRequestOrDefault(defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json")))
+            assertThat(badRequestOrDefault.supportsStatus("invalid")).isFalse()
+        }
+
+        @Test
+        fun `should return false when status absent and no default response exists`() {
+            val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(401 to listOf(scenario(status = 401, contentType = "application/json"))))
+            assertThat(badRequestOrDefault.supportsStatus("400")).isFalse()
+        }
+    }
+
+    @Nested
+    inner class SupportsResponseContentType {
+        @Test
+        fun `should return true when bad request response content type exists`() {
+            val badRequestOrDefault = BadRequestOrDefault(badRequestResponses = mapOf(400 to listOf(scenario(status = 400, contentType = "application/json"))))
+            assertThat(badRequestOrDefault.supportsResponseContentType("application/json")).isTrue()
+        }
+
+        @Test
+        fun `should return true when default response content type exists`() {
+            val badRequestOrDefault = BadRequestOrDefault(defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/problem+json")))
+            assertThat(badRequestOrDefault.supportsResponseContentType("application/problem+json")).isTrue()
+        }
+
+        @Test
+        fun `should return false when response content type absent across bad request and default responses`() {
+            val badRequestOrDefault = BadRequestOrDefault(
+                badRequestResponses = mapOf(400 to listOf(scenario(status = 400, contentType = "application/xml"))),
+                defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "text/plain"))
+            )
+
+            assertThat(badRequestOrDefault.supportsResponseContentType("application/json")).isFalse()
+        }
+    }
+
+    @Nested
     inner class Matches {
         @Test
         fun `should fail when no matching or fallback response exists`() {

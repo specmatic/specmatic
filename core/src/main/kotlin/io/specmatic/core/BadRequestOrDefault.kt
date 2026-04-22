@@ -16,6 +16,18 @@ class BadRequestOrDefault(val badRequestResponses: Map<Int, List<Scenario>> = em
         return scenario.withDetailsFrom(matchingScenario)
     }
 
+    fun supportsStatus(status: String): Boolean {
+        val statusInt = status.toIntOrNull() ?: return false
+        return badRequestResponses.containsKey(statusInt) || defaultResponses.isNotEmpty()
+    }
+
+    fun supportsResponseContentType(contentType: String): Boolean {
+        return badRequestResponses.values.asSequence().flatten().plus(defaultResponses).any { scenario ->
+            val responseToMatch = HttpResponse(status = scenario.status, headers = mapOf(CONTENT_TYPE to contentType))
+            scenario.matchesContentType(responseToMatch)
+        }
+    }
+
     private fun findBestMatchingScenario(httpResponse: HttpResponse): BestEffortMatch? {
         val sameStatus = badRequestResponses[httpResponse.status].orEmpty()
         val otherStatuses = badRequestResponses.filterKeys { it != httpResponse.status }.values.flatten()

@@ -19,6 +19,10 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     STATUS("STATUS", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
+            if (scenario.isNegative && scenario.badRequestOrDefault != null) {
+                return scenario.badRequestOrDefault.supportsStatus(value)
+            }
+
             return scenario.status == value.toIntOrNull()
         }
     },
@@ -84,6 +88,10 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     RESPONSE_CONTENT_TYPE("RESPONSE.CONTENT-TYPE", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
             if (value.isBlank()) return false
+            if (scenario.isNegative && scenario.badRequestOrDefault != null) {
+                return scenario.badRequestOrDefault.supportsResponseContentType(value)
+            }
+
             val contentType = scenario.httpResponsePattern.headersPattern.contentType ?: return false
             return try {
                 ContentType.parse(contentType).match(value)

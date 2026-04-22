@@ -5,11 +5,8 @@ import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.HttpResponse
+import io.specmatic.core.BadRequestOrDefault
 import io.specmatic.core.HttpHeadersPattern
-import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.mock.ScenarioStub
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
@@ -332,6 +329,26 @@ class HTTPFilterKeysTest {
         assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(scenario, "RESPONSE.CONTENT-TYPE", "application/json")).isFalse()
     }
 
+    @Test
+    fun `STATUS includes should match negative scenario using bad request fallback statuses`() {
+        val scenario = negativeScenarioWithBadRequestOrDefault(
+            scenarioStatus = 202,
+            badRequestStatuses = mapOf(400 to listOf(scenarioWithStatusAndResponseContentType(status = 400, responseContentType = "application/json")))
+        )
+
+        assertThat(HTTPFilterKeys.STATUS.includes(scenario, "STATUS", "400")).isTrue()
+    }
+
+    @Test
+    fun `RESPONSE_CONTENT_TYPE includes should match negative scenario using bad request fallback content type`() {
+        val scenario = negativeScenarioWithBadRequestOrDefault(
+            scenarioStatus = 202,
+            badRequestStatuses = mapOf(400 to listOf(scenarioWithStatusAndResponseContentType(status = 400, responseContentType = "application/json")))
+        )
+
+        assertThat(HTTPFilterKeys.RESPONSE_CONTENT_TYPE.includes(scenario, "RESPONSE.CONTENT-TYPE", "application/json")).isTrue()
+    }
+
     @ParameterizedTest(name = "blank response filter value should not match scenario response content type: \"{0}\"")
     @CsvSource(
         "'',false",
@@ -396,6 +413,25 @@ class HTTPFilterKeysTest {
                     httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern.from("/orders"), headersPattern = HttpHeadersPattern(contentType = requestContentType)),
                     httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = responseContentType)),
                 )
+            )
+        }
+
+        private fun scenarioWithStatusAndResponseContentType(status: Int, responseContentType: String?): Scenario {
+            return Scenario(
+                ScenarioInfo(
+                    specType = SpecType.OPENAPI,
+                    scenarioName = "POST /orders",
+                    protocol = SpecmaticProtocol.HTTP,
+                    httpRequestPattern = HttpRequestPattern(method = "POST", httpPathPattern = HttpPathPattern.from("/orders")),
+                    httpResponsePattern = HttpResponsePattern(status = status, headersPattern = HttpHeadersPattern(contentType = responseContentType)),
+                )
+            )
+        }
+
+        private fun negativeScenarioWithBadRequestOrDefault(scenarioStatus: Int, scenarioResponseContentType: String? = null, badRequestStatuses: Map<Int, List<Scenario>>): Scenario {
+            return scenarioWithStatusAndResponseContentType(status = scenarioStatus, responseContentType = scenarioResponseContentType).copy(
+                isNegative = true,
+                badRequestOrDefault = BadRequestOrDefault(badRequestResponses = badRequestStatuses)
             )
         }
     }
