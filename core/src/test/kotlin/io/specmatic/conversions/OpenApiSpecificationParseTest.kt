@@ -16,8 +16,6 @@ import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.CleanupMode
-import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -432,83 +430,10 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `should load discriminator mappings that point to external schema files with nested refs`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
-        tempDir.resolve("openapi.yaml").writeText(
-            $$"""
-            openapi: 3.0.3
-            info:
-              title: Discriminator external ref repro
-              version: 1.0.0
-            paths:
-              /animals:
-                post:
-                  requestBody:
-                    required: true
-                    content:
-                      application/json:
-                        schema:
-                          $ref: ./components/requestBodies/Payload.yaml
-                  responses:
-                    '200':
-                      description: OK
-            """.trimIndent()
-        )
+    fun `should guard against the swagger-parser regression for discriminator mappings to external schema files with nested refs`() {
+        val specFile = File("src/test/resources/openapi/discriminator_external_file_refs/openapi.yaml")
 
-        tempDir.resolve("components/requestBodies").mkdirs()
-        tempDir.resolve("components/requestBodies/Payload.yaml").writeText(
-            $$"""
-            type: object
-            required:
-              - animals
-            properties:
-              animals:
-                type: array
-                items:
-                  oneOf:
-                    - $ref: ../schemas/policy/Cat.yaml
-                    - $ref: ../schemas/policy/Dog.yaml
-                  discriminator:
-                    propertyName: type
-                    mapping:
-                      CAT: ../schemas/policy/Cat.yaml
-                      DOG: ../schemas/policy/Dog.yaml
-            """.trimIndent()
-        )
-
-        tempDir.resolve("components/schemas/policy").mkdirs()
-        tempDir.resolve("components/schemas/policy/Cat.yaml").writeText(
-            $$"""
-            type: object
-            required:
-              - type
-              - name
-            properties:
-              type:
-                type: string
-              name:
-                $ref: ./AnimalName.yaml
-            """.trimIndent()
-        )
-        tempDir.resolve("components/schemas/policy/Dog.yaml").writeText(
-            $$"""
-            type: object
-            required:
-              - type
-              - name
-            properties:
-              type:
-                type: string
-              name:
-                $ref: ./AnimalName.yaml
-            """.trimIndent()
-        )
-        tempDir.resolve("components/schemas/policy/AnimalName.yaml").writeText(
-            """
-            type: string
-            """.trimIndent()
-        )
-
-        val feature = OpenApiSpecification.fromFile(tempDir.resolve("openapi.yaml").canonicalPath).toFeature()
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
         assertThat(feature.scenarios).hasSize(1)
     }
