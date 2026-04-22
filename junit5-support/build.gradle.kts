@@ -21,7 +21,7 @@ dependencies {
     implementation("org.junit.jupiter:junit-jupiter-api:5.14.3")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.3")
 
-    implementation("org.thymeleaf:thymeleaf:3.1.4.RELEASE")
+    implementation("org.thymeleaf:thymeleaf:3.1.5.RELEASE")
 
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
