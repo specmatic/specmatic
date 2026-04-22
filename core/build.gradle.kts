@@ -10,6 +10,7 @@ dependencies {
 
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
+        exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
     implementation("joda-time:joda-time:2.14.1")
     implementation("net.minidev:json-smart:2.6.0")
@@ -40,7 +41,7 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.40")
+    implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
 
     implementation("dk.brics:automaton:1.12-4")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
