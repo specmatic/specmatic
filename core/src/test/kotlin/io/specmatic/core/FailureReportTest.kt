@@ -5,6 +5,56 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 internal class FailureReportTest {
+
+    private class FakeScenario(override val status: Int) : ScenarioDetailsForResult {
+        override val ignoreFailure: Boolean = false
+        override val name: String = "fake scenario"
+        override val method: String = "GET"
+        override val path: String = "/fake"
+
+        override fun testDescription(): String = name
+    }
+
+    @Test
+    fun `should skip status if status == 0 (not provided or uninitialized)`() {
+        val matchFailureDetailList = listOf(
+            MatchFailureDetails(errorMessages = listOf("error message")),
+        )
+        val failureReport = FailureReport(
+            contractPath = null,
+            scenarioMessage = null,
+            scenario = FakeScenario(status = 0),
+            matchFailureDetailList = matchFailureDetailList
+        )
+        assertThat(failureReport.toText()).isEqualToIgnoringWhitespace(
+            """
+             In scenario "fake scenario"
+             API: GET /fake
+             error message
+        """.trimIndent()
+        )
+    }
+
+    @Test
+    fun `should add status if status != 0`() {
+        val matchFailureDetailList = listOf(
+            MatchFailureDetails(errorMessages = listOf("error message")),
+        )
+        val failureReport = FailureReport(
+            contractPath = null,
+            scenarioMessage = null,
+            scenario = FakeScenario(status = 200),
+            matchFailureDetailList = matchFailureDetailList
+        )
+        assertThat(failureReport.toText()).isEqualToIgnoringWhitespace(
+            """
+             In scenario "fake scenario"
+             API: GET /fake -> 200
+             error message
+        """.trimIndent()
+        )
+    }
+
     @Test
     fun `breadcrumbs should be flush left and descriptions indented`() {
         val personIdDetails = MatchFailureDetails(listOf("person", "id"), listOf("error"))
