@@ -7,7 +7,7 @@ import io.specmatic.core.value.Value
 import io.specmatic.reporter.model.TestResult
 
 sealed class Result {
-    abstract val scenario: ScenarioDetailsForResult?
+    abstract val scenario: ScenarioDescription?
     abstract val contractPath: String?
 
     companion object {
@@ -41,7 +41,7 @@ sealed class Result {
     }
 
     abstract fun isAnyFluffy(acceptableFluffLevel: Int): Boolean
-    abstract fun updateScenario(scenario: ScenarioDetailsForResult?): Result
+    abstract fun updateScenario(scenario: ScenarioDescription?): Result
     abstract fun updatePath(path: String?): Result
 
     abstract fun isSuccess(): Boolean
@@ -119,7 +119,7 @@ sealed class Result {
         val failureReason: FailureReason? = null,
         val isPartial: Boolean = false,
         val ruleViolationReport: RuleViolationReport? = null,
-        override val scenario: ScenarioDetailsForResult? = null,
+        override val scenario: ScenarioDescription? = null,
         override val contractPath: String? = null
     ) : Result() {
         constructor(
@@ -129,7 +129,7 @@ sealed class Result {
             failureReason: FailureReason? = null,
             isPartial: Boolean? = false,
             ruleViolation: RuleViolation? = null,
-            scenario: ScenarioDetailsForResult? = null,
+            scenario: ScenarioDescription? = null,
             contractPath: String? = null
         ) : this (
             causes = listOf(element = FailureCause(message, cause)),
@@ -187,7 +187,7 @@ sealed class Result {
             return this.copy(contractPath = path)
         }
 
-        override fun updateScenario(scenario: ScenarioDetailsForResult?): Failure {
+        override fun updateScenario(scenario: ScenarioDescription?): Failure {
             return this.copy(scenario = scenario)
         }
 
@@ -333,7 +333,7 @@ sealed class Result {
     data class Success(
         val variables: Map<String, String> = emptyMap(),
         val partialSuccessMessage: String? = null,
-        override val scenario: ScenarioDetailsForResult? = null,
+        override val scenario: ScenarioDescription? = null,
         override val contractPath: String? = null
     ) : Result() {
         override fun isAnyFluffy(acceptableFluffLevel: Int): Boolean {
@@ -347,7 +347,7 @@ sealed class Result {
             return this.copy(contractPath = path)
         }
 
-        override fun updateScenario(scenario: ScenarioDetailsForResult?): Success {
+        override fun updateScenario(scenario: ScenarioDescription?): Success {
             return this.copy(scenario = scenario)
         }
 

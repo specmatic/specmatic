@@ -1,6 +1,6 @@
 package io.specmatic.core
 
-data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
+data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDescription?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
     fun errorMessage(): String {
         if (matchFailureDetailList.size != 1) return toText()
         return matchFailureDetailsErrorMessage(matchFailureDetailList.first()).joinToString("\n\n")
@@ -87,13 +87,7 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         return "Error from contract $contractPath\n\n"
     }
 
-    private fun scenarioDetails(scenario: ScenarioDetailsForResult?): String? {
-        return scenario?.let {
-            val scenarioLine = """${scenarioMessage ?: "In scenario"} "${scenario.name}""""
-            val urlLine = "API: ${scenario.method} ${scenario.path}" +
-                    if (scenario.status != 0) " -> ${scenario.status}" else ""
-
-            "$scenarioLine${System.lineSeparator()}$urlLine"
-        }
+    private fun scenarioDetails(scenario: ScenarioDescription?): String? {
+        return scenario?.apiOperationTitle(scenarioMessage)
     }
 }

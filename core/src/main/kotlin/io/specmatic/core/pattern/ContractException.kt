@@ -5,7 +5,7 @@ import io.specmatic.core.MismatchMessages
 import io.specmatic.core.Result
 import io.specmatic.core.RuleViolation
 import io.specmatic.core.RuleViolationReport
-import io.specmatic.core.ScenarioDetailsForResult
+import io.specmatic.core.ScenarioDescription
 import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.StringValue
@@ -19,7 +19,7 @@ data class ContractException(
     val errorMessage: String = "",
     val breadCrumb: String = "",
     val exceptionCause: Throwable? = null,
-    val scenario: ScenarioDetailsForResult? = null,
+    val scenario: ScenarioDescription? = null,
     val isCycle: Boolean = isCycle(exceptionCause),
     val ruleViolationReport: RuleViolationReport? = null,
 ) : Exception(errorMessage, exceptionCause) {
@@ -66,7 +66,7 @@ fun <ReturnType> attempt(f: ()->ReturnType): ReturnType {
     }
 }
 
-inline fun <ReturnType> scenarioBreadCrumb(scenario: ScenarioDetailsForResult, f: ()->ReturnType): ReturnType {
+inline fun <ReturnType> scenarioBreadCrumb(scenario: ScenarioDescription, f: ()->ReturnType): ReturnType {
     try {
         return f()
     } catch(e: ContractException) {

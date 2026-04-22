@@ -27,17 +27,21 @@ import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
 
-interface ScenarioDetailsForResult {
-    val status: Int
+interface ScenarioDescription {
     val ignoreFailure: Boolean
+
+    fun testDescription(): String
+    fun apiOperationTitle(customTitlePrefix: String?): String
+}
+
+interface ScenarioDetailsForResult: ScenarioDescription {
+    val status: Int
     val name: String
     val method: String
     val path: String
 
     val operation: Operation
         get() = Operation(method = method, path = path, responseCode = status)
-
-    fun testDescription(): String
 }
 
 const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIELDS"
@@ -819,6 +823,12 @@ data class Scenario(
     override fun testDescription(): String {
         val apiDescription = customAPIDescription ?: this.defaultAPIDescription
         return testDescription(generativePrefix, apiDescription, exampleName, requestChangeSummary)
+    }
+
+    override fun apiOperationTitle(customTitlePrefix: String?): String {
+        val scenarioLine = """${customTitlePrefix ?: "In scenario"} "$name""""
+        val urlLine = "API: $method $path -> $status"
+        return "$scenarioLine${System.lineSeparator()}$urlLine"
     }
 
     fun newBasedOn(scenario: Scenario): Scenario {
