@@ -608,6 +608,8 @@ private val COMMON_HTTP_EXCLUDED_HEADERS: Set<String> =
         .toSet()
         .minus(HttpHeaders.ContentType.lowercase())
 
+val COMMON_HTTP_REQUEST_EXCLUDED_HEADERS = COMMON_HTTP_EXCLUDED_HEADERS
+
 val HTTP_REQUEST_TRANSPORT_HEADERS: Set<String> =
     listOf(
         HttpHeaders.Authorization,

@@ -1056,7 +1056,7 @@ data class Feature(
         return if (!specmaticConfig.isResiliencyTestingEnabled() || specmaticConfig.isOnlyPositiveTestingEnabled())
             positiveTestScenarios
         else
-            positiveTestScenarios + negativeTestScenariosWithDecision(scenarios, originalScenarios)
+            positiveTestScenarios + negativeTestScenariosWithDecision(scenarios, originalScenarios,fn)
     }
 
     private fun positiveTestScenariosWithDecision(
@@ -1097,7 +1097,7 @@ data class Feature(
         }
     }
 
-    fun negativeTestScenariosWithDecision(scenarios: Sequence<Decision<Scenario, Scenario>>, originalScenarios: List<Scenario>): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
+    fun negativeTestScenariosWithDecision(scenarios: Sequence<Decision<Scenario, Scenario>>, originalScenarios: List<Scenario>,fn: (Scenario, Row) -> Scenario = { s, _ -> s }): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
         return scenarios.mapNotNull { scenarioDecision ->
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
             val badRequestOrDefault = getBadRequestsOrDefault(scenario)
@@ -1107,7 +1107,7 @@ data class Feature(
 
             scenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
         }.flatMapSequence { scenario, _, reasoning ->
-            scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
+            scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs,fn).filterNot { negativeTestScenarioR ->
                 negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
                     val sampleRequest = negativeTestScenario.generateHttpRequest()
                     scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()

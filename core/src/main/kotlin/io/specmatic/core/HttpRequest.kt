@@ -256,7 +256,7 @@ data class HttpRequest(
     fun buildKTORRequest(httpRequestBuilder: HttpRequestBuilder) {
         httpRequestBuilder.method = HttpMethod.parse(method as String)
 
-        val listOfExcludedHeaders: List<String> = listOfExcludedHeaders()
+        val listOfExcludedHeaders: List<String> = COMMON_HTTP_REQUEST_EXCLUDED_HEADERS.toList()
         headers.map { Triple(it.key.trim(), it.key.trim().lowercase(), it.value.trim()) }
             .filter { (_, loweredKey, _) -> loweredKey !in listOfExcludedHeaders }
             .forEach { (key, _, value) ->

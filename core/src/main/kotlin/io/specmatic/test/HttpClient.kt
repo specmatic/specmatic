@@ -214,9 +214,9 @@ private fun ktorHttpRequestToHttpRequestForLogging(
             is EmptyContent -> Triple(EmptyString, emptyMap(), emptyList())
             else -> throw ContractException("Unknown type of body content sent in the request")
         }
-
-    val requestHeaders: Map<String, String> = request.headers.toMap().mapValues { it.value[0] }.plus(
-        CONTENT_TYPE to (request.content.contentType?.toString() ?: "NOT SENT")
+    val ktorRequestHeaders = request.headers.toMap().mapValues { it.value[0] }
+    val requestHeaders: Map<String, String> = ktorRequestHeaders.plus(
+            CONTENT_TYPE to (request.content.contentType?.toString() ?: ktorRequestHeaders[CONTENT_TYPE] ?: "NOT SENT")
     )
 
     return HttpRequest(
