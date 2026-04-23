@@ -374,9 +374,26 @@ data class Feature(
     }
 
     private fun getMatchingAndSortedScenarios(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
-        val statusFilteredScenarios = filterByExpectedResponseStatus(httpRequest.expectedResponseCode(), scenarios)
+        val expectedResponseCode = httpRequest.expectedResponseCode()
+        val statusFilteredScenarios = filterByExpectedResponseStatus(expectedResponseCode, scenarios)
         val pathAndMethodMatchedScenarios = statusFilteredScenarios.filter { scenario -> scenario.matchesPathStructureAndMethod(httpRequest) }
-        return applyAcceptHeaderSort(httpRequest, pathAndMethodMatchedScenarios)
+
+        if (expectedResponseCode != null) {
+            return applyAcceptHeaderSelection(httpRequest, pathAndMethodMatchedScenarios)
+        }
+
+        val acceptHeader = httpRequest.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
+        if (acceptHeader.isBlank()) {
+            return pathAndMethodMatchedScenarios
+        }
+
+        val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return pathAndMethodMatchedScenarios
+        if (isWildcardOnlyAcceptHeader(acceptMediaTypes)) {
+            return pathAndMethodMatchedScenarios
+        }
+
+        val bestStatusClassScenarios = filterByBestStatusClass(pathAndMethodMatchedScenarios)
+        return applyAcceptHeaderSelection(httpRequest, bestStatusClassScenarios)
     }
 
     private fun filterByExpectedResponseStatus(expectedResponseCode: Int?, scenarios: List<Scenario>): List<Scenario> {
@@ -390,7 +407,7 @@ data class Feature(
         unexpectedKeyCheck: UnexpectedKeyCheck
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
         try {
-            val acceptHeaderSortedScenarios = applyAcceptHeaderSort(httpRequest, scenarios)
+            val acceptHeaderSortedScenarios = getMatchingAndSortedScenarios(httpRequest, scenarios)
             val resultList = matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck, acceptHeaderSortedScenarios)
             val matchingScenarios = matchingScenarios(resultList)
 
@@ -440,7 +457,7 @@ data class Feature(
         })
     }
 
-    private fun applyAcceptHeaderSort(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
+    private fun applyAcceptHeaderSelection(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
         val acceptHeader = httpRequest.headers.getCaseInsensitive(ACCEPT)?.value?.trim().orEmpty()
         if (acceptHeader.isBlank()) return scenarios
         if (!isAcceptHeaderParseable(acceptHeader)) {
@@ -449,18 +466,41 @@ data class Feature(
         }
 
         val acceptMediaTypes = acceptMediaTypesFor(acceptHeader) ?: return scenarios
-        val ranked = scenarios.map { scenario ->
-            RankedScenarioResult(
-                scenario = scenario,
-                acceptMatchRank = acceptMatchRank(
-                    acceptMediaTypes = acceptMediaTypes,
-                    responseContentType = resolveResponseContentTypeForAccept(scenario),
-                    unknownContentTypeRank = acceptMediaTypes.size
-                )
-            )
+        if (isWildcardOnlyAcceptHeader(acceptMediaTypes)) {
+            return scenarios
         }
 
-        return ranked.sortedWith(compareBy { it.acceptMatchRank }).map { it.scenario }
+        val (matchingScenarios, remainingScenarios) = scenarios.partition { scenario ->
+            acceptMatchesScenario(acceptMediaTypes, scenario)
+        }
+
+        return if (matchingScenarios.isEmpty()) scenarios else matchingScenarios + remainingScenarios
+    }
+
+    private fun filterByBestStatusClass(scenarios: List<Scenario>): List<Scenario> {
+        val bestRank = scenarios.minOfOrNull { statusClassRank(it.status) } ?: return scenarios
+        return scenarios.filter { statusClassRank(it.status) == bestRank }
+    }
+
+    private fun statusClassRank(status: Int): Int {
+        return when (status / 100) {
+            2 -> 0
+            3 -> 1
+            4 -> 2
+            5 -> 3
+            else -> 4
+        }
+    }
+
+    private fun isWildcardOnlyAcceptHeader(acceptMediaTypes: List<String>): Boolean {
+        return acceptMediaTypes.all { it.contains("*") }
+    }
+
+    private fun acceptMatchesScenario(acceptMediaTypes: List<String>, scenario: Scenario): Boolean {
+        val responseContentType = resolveResponseContentTypeForAccept(scenario) ?: return false
+        return acceptMediaTypes.any { acceptMediaType ->
+            isResponseContentTypeAccepted(acceptMediaType, responseContentType)
+        }
     }
 
     private fun resolveResponseContentTypeForAccept(scenario: Scenario): String? {
@@ -528,7 +568,7 @@ data class Feature(
         httpRequest: HttpRequest,
         scenarios: List<Scenario>
     ): Sequence<Pair<Scenario, Result>> {
-        val scenarioSequence = scenarios.asSequence()
+        val scenarioSequence = getMatchingAndSortedScenarios(httpRequest, scenarios).asSequence()
 
         val localCopyOfServerState = serverState
         return scenarioSequence.zip(scenarioSequence.map {
@@ -743,23 +783,8 @@ data class Feature(
         }
     }
 
-    private data class RankedScenarioResult(
-        val scenario: Scenario,
-        val acceptMatchRank: Int
-    )
-
     private fun acceptMediaTypesFor(acceptHeader: String): List<String>? {
         return acceptMediaTypesByPriority(acceptHeader).takeIf { it.isNotEmpty() }
-    }
-
-    private fun acceptMatchRank(acceptMediaTypes: List<String>, responseContentType: String?, unknownContentTypeRank: Int): Int {
-        val normalisedContentType = normaliseMediaType(responseContentType)
-        if (normalisedContentType.isNullOrBlank()) return unknownContentTypeRank
-        val rank = acceptMediaTypes.indexOfFirst { acceptMediaType ->
-            isResponseContentTypeAccepted(acceptMediaType, normalisedContentType)
-        }
-
-        return rank.takeIf { it >= 0 } ?: unknownContentTypeRank
     }
 
     fun matchingHttpPathPatternFor(path: String): HttpPathPattern? {

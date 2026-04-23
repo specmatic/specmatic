@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
+        exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
 
     implementation("net.minidev:json-smart:2.6.0")

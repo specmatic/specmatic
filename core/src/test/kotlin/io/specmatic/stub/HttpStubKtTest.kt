@@ -956,7 +956,42 @@ Feature: Test
     }
 
     @Test
-    fun `fake response should prefer lower status code among accept-compatible responses`() {
+    fun `fake response should use first matching scenario when request has no Accept header and no forced response code`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: No negotiation without Accept
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '400':
+                      description: JSON Bad Request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '200':
+                      description: JSON OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(method = "GET", path = "/hello")
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        val response = assertFoundStubbedResponse(result)
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.contentType()).startsWith("application/json")
+    }
+
+    @Test
+    fun `fake response should use the first 2xx response matching Accept`() {
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.3
@@ -997,7 +1032,46 @@ Feature: Test
 
         assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
         val response = (result as FoundStubbedResponse).response.response
-        assertThat(response.status).isEqualTo(201)
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.contentType()).startsWith("text/plain")
+    }
+
+    @Test
+    fun `fake response should prefer 2xx over 4xx when Accept is present`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Prefer success class
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '400':
+                      description: JSON Bad Request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '200':
+                      description: JSON OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json")
+        )
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        val response = assertFoundStubbedResponse(result)
+        assertThat(response.status).isEqualTo(200)
         assertThat(response.contentType()).startsWith("application/json")
     }
 
@@ -1032,25 +1106,56 @@ Feature: Test
     }
 
     @Test
-    fun `fake response should preserve scenario order among equal accept-rank responses`() {
+    fun `fake response should prefer 204 over 400 when Accept is wildcard`() {
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.3
             info:
-              title: Accept tie-break by status
+              title: Wildcard should not promote 400
               version: 1.0.0
             paths:
               /hello:
                 get:
                   responses:
+                    '204':
+                      description: No Content
                     '400':
                       description: JSON Bad Request
                       content:
                         application/json:
                           schema:
                             type: object
-                    '201':
-                      description: JSON Created
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "*/*")
+        )
+
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        val response = assertFoundStubbedResponse(result)
+        assertThat(response.status).isEqualTo(204)
+    }
+
+    @Test
+    fun `fake response should prefer 204 over 400 when Accept is specific but only 400 has a media type`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Specific Accept should not promote 400
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '204':
+                      description: No Content
+                    '400':
+                      description: JSON Bad Request
                       content:
                         application/json:
                           schema:
@@ -1065,20 +1170,117 @@ Feature: Test
         )
 
         val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
-        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
 
-        val response = (result as FoundStubbedResponse).response.response
-        assertThat(response.status).isEqualTo(400)
-        assertThat(response.contentType()).startsWith("application/json")
+        val response = assertFoundStubbedResponse(result)
+        assertThat(response.status).isEqualTo(204)
     }
 
     @Test
-    fun `fake response should keep original scenario order when Accept header is malformed`() {
+    fun `fake response should negotiate within the winning 2xx class`() {
         val feature = OpenApiSpecification.fromYAML(
             """
             openapi: 3.0.3
             info:
-              title: Malformed Accept should skip sorting
+              title: Negotiate within success class
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: JSON OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '201':
+                      description: Plain text Created
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                    '400':
+                      description: JSON Bad Request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "text/plain")
+        )
+
+        val result = fakeHttpResponse(listOf(feature), request, SpecmaticConfig())
+
+        val response = assertFoundStubbedResponse(result)
+        assertThat(response.status).isEqualTo(201)
+        assertThat(response.contentType()).startsWith("text/plain")
+    }
+
+    @Test
+    fun `fake response should negotiate within a forced response code before falling back to first response with that status`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Forced response code negotiation
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                        text/plain:
+                          schema:
+                            type: string
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val plainTextPreferredRequest = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf(
+                "Accept" to "text/plain",
+                SPECMATIC_RESPONSE_CODE_HEADER to "200"
+            )
+        )
+
+        val plainTextPreferredResult = fakeHttpResponse(listOf(feature), plainTextPreferredRequest, SpecmaticConfig())
+        val plainTextPreferredResponse = assertFoundStubbedResponse(plainTextPreferredResult)
+        assertThat(plainTextPreferredResponse.status).isEqualTo(200)
+        assertThat(plainTextPreferredResponse.contentType()).startsWith("text/plain")
+
+        val fallbackRequest = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf(
+                "Accept" to "image/png",
+                SPECMATIC_RESPONSE_CODE_HEADER to "200"
+            )
+        )
+
+        val fallbackResult = fakeHttpResponse(listOf(feature), fallbackRequest, SpecmaticConfig())
+        val fallbackResponse = assertFoundStubbedResponse(fallbackResult)
+        assertThat(fallbackResponse.status).isEqualTo(200)
+        assertThat(fallbackResponse.contentType()).startsWith("application/json")
+    }
+
+    @Test
+    fun `fake response should use first matching scenario when Accept header is malformed`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Malformed Accept should skip negotiation
               version: 1.0.0
             paths:
               /hello:
@@ -1110,6 +1312,11 @@ Feature: Test
         val response = (result as FoundStubbedResponse).response.response
         assertThat(response.status).isEqualTo(400)
         assertThat(response.contentType()).startsWith("text/plain")
+    }
+
+    private fun assertFoundStubbedResponse(result: StubbedResponseResult): HttpResponse {
+        assertThat(result).isInstanceOf(FoundStubbedResponse::class.java)
+        return (result as FoundStubbedResponse).response.response
     }
 
     private fun assertResponseFailure(stubResponse: HttpStubResponse, errorMessage: String) {

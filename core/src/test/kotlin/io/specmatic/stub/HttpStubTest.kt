@@ -133,6 +133,113 @@ internal class HttpStubTest {
     }
 
     @Test
+    fun `createStub should return 204 instead of later 400 when request Accept header is wildcard`() {
+        val tempDir = Files.createTempDirectory("specmatic-create-stub-accept-negotiation").toFile()
+        val openApiSpec = tempDir.resolve("api.yaml")
+        val specmaticConfig = tempDir.resolve("specmatic.yaml")
+        val port = ServerSocket(0).use { it.localPort }
+
+        openApiSpec.writeText(
+            """
+            openapi: 3.0.3
+            info:
+              title: Terms conditions
+              version: 1.0.0
+            paths:
+              /v1/clients/{id}/terms-conditions:
+                post:
+                  parameters:
+                    - in: path
+                      name: id
+                      required: true
+                      schema:
+                        type: string
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - clientId
+                            - termsCode
+                            - businessContext
+                            - version
+                            - status
+                          properties:
+                            clientId:
+                              type: string
+                            termsCode:
+                              type: string
+                            businessContext:
+                              type: string
+                            version:
+                              type: string
+                            status:
+                              type: string
+                  responses:
+                    '204':
+                      description: No Content
+                    '400':
+                      description: Bad Request
+                      content:
+                        application/problem+json:
+                          schema:
+                            type: object
+                            required:
+                              - title
+                              - status
+                            properties:
+                              title:
+                                type: string
+                              status:
+                                type: integer
+            """.trimIndent()
+        )
+
+        specmaticConfig.writeText(
+            """
+            version: 2
+            contracts:
+              - consumes:
+                  - ${openApiSpec.canonicalPath}
+            """.trimIndent()
+        )
+
+        try {
+            createStub(
+                host = "localhost",
+                port = port,
+                timeoutMillis = STUB_SHUTDOWN_TIMEOUT,
+                givenConfigFileName = specmaticConfig.canonicalPath
+            ).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/v1/clients/COE:CLIENTCODE/terms-conditions",
+                        headers = mapOf("Accept" to "*/*", "Content-Type" to "application/json"),
+                        body = parsedJSONObject(
+                            """
+                            {
+                              "clientId": "COE:CLIENTCODE",
+                              "businessContext": "CLAIM_UPDATE_PAYOUT_METHOD",
+                              "termsCode": "PRU-TC-2024",
+                              "version": "v1.0.3",
+                              "status": "ACCEPTED"
+                            }
+                            """.trimIndent()
+                        )
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(204)
+            }
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `should log summary and not full swagger specification payload in logs and console`() {
         LogTail.clear()
         val tempDir = Files.createTempDirectory("specmatic-swagger-spec-log").toFile()

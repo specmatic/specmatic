@@ -4198,7 +4198,7 @@ paths:
         }
 
         @Test
-        fun `stubResponseMap should not filter matches by Specmatic response code header`() {
+        fun `stubResponseMap should filter matches by Specmatic response code header`() {
             val feature = OpenApiSpecification.fromYAML(
                 """
                 openapi: 3.0.3
@@ -4228,8 +4228,7 @@ paths:
                 unexpectedKeyCheck = ValidateUnexpectedKeys
             )
 
-            assertThat(responseMap.keys).containsExactlyInAnyOrder(200, 400)
-            assertThat(responseMap[200]?.first?.scenario?.status).isEqualTo(200)
+            assertThat(responseMap.keys).containsExactly(400)
             assertThat(responseMap[400]?.first?.scenario?.status).isEqualTo(400)
         }
     }
