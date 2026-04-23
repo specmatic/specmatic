@@ -429,6 +429,15 @@ class OpenApiSpecificationParseTest {
         case.check(queryParameters.additionalProperties)
     }
 
+    @Test
+    fun `should guard against the swagger-parser regression for discriminator mappings to external schema files with nested refs`() {
+        val specFile = File("src/test/resources/openapi/discriminator_external_file_refs/openapi.yaml")
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+
+        assertThat(feature.scenarios).hasSize(1)
+    }
+
     companion object {
         data class AdditionalPropsCase(val name: String, val version: OpenApiVersion, val additionalProperties: Any?, val check: (Any?) -> Unit) {
             override fun toString(): String = name

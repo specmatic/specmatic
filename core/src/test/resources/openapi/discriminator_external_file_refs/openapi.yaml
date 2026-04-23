@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Discriminator external ref repro
+  version: 1.0.0
+paths:
+  /animals:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./components/requestBodies/Payload.yaml
+      responses:
+        '200':
+          description: OK

@@ -1,0 +1,9 @@
+type: object
+required:
+  - type
+  - name
+properties:
+  type:
+    type: string
+  name:
+    $ref: ./AnimalName.yaml

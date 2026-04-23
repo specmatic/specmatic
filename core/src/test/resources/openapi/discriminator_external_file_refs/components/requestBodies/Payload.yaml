@@ -1,0 +1,15 @@
+type: object
+required:
+  - animals
+properties:
+  animals:
+    type: array
+    items:
+      oneOf:
+        - $ref: ../schemas/policy/Cat.yaml
+        - $ref: ../schemas/policy/Dog.yaml
+      discriminator:
+        propertyName: type
+        mapping:
+          CAT: ../schemas/policy/Cat.yaml
+          DOG: ../schemas/policy/Dog.yaml

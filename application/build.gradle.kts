@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
+        exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
 
     implementation("joda-time:joda-time:2.14.1")
@@ -39,7 +40,7 @@ dependencies {
     implementation(project(":specmatic-mcp"))
 
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.40")
+    implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
