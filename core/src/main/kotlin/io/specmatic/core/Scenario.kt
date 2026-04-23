@@ -38,6 +38,9 @@ interface ScenarioDetailsForResult {
         get() = Operation(method = method, path = path, responseCode = status)
 
     fun testDescription(): String
+
+    fun reportHeaderLines(): List<String> =
+        listOf("API: $method $path" + if (status != 0) " -> $status" else "")
 }
 
 const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIELDS"

@@ -90,10 +90,9 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     private fun scenarioDetails(scenario: ScenarioDetailsForResult?): String? {
         return scenario?.let {
             val scenarioLine = """${scenarioMessage ?: "In scenario"} "${scenario.name}""""
-            val urlLine = "API: ${scenario.method} ${scenario.path}" +
-                    if (scenario.status != 0) " -> ${scenario.status}" else ""
+            val headerLines = scenario.reportHeaderLines().joinToString(System.lineSeparator())
 
-            "$scenarioLine${System.lineSeparator()}$urlLine"
+            "$scenarioLine${System.lineSeparator()}$headerLines"
         }
     }
 }
