@@ -478,26 +478,8 @@ data class Feature(
     }
 
     private fun filterByBestStatusClass(scenarios: List<Scenario>): List<Scenario> {
-        val bestScenarios = mutableListOf<Scenario>()
-        var bestRank: Int? = null
-
-        for (scenario in scenarios) {
-            val currentRank = statusClassRank(scenario.status)
-
-            when {
-                bestRank == null || currentRank < bestRank -> {
-                    bestRank = currentRank
-                    bestScenarios.clear()
-                    bestScenarios.add(scenario)
-                }
-
-                currentRank == bestRank -> {
-                    bestScenarios.add(scenario)
-                }
-            }
-        }
-
-        return if (bestScenarios.isEmpty()) scenarios else bestScenarios
+        val bestRank = scenarios.minOfOrNull { statusClassRank(it.status) } ?: return scenarios
+        return scenarios.filter { statusClassRank(it.status) == bestRank }
     }
 
     private fun statusClassRank(status: Int): Int {
