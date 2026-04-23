@@ -38,6 +38,10 @@ interface ScenarioDetailsForResult {
         get() = Operation(method = method, path = path, responseCode = status)
 
     fun testDescription(): String
+
+    fun operationDescription(): String
+
+    fun failureReportSubHeading(): String
 }
 
 const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIELDS"
@@ -820,6 +824,10 @@ data class Scenario(
         val apiDescription = customAPIDescription ?: this.defaultAPIDescription
         return testDescription(generativePrefix, apiDescription, exampleName, requestChangeSummary)
     }
+
+    override fun operationDescription(): String = customAPIDescription ?: baseApiDescription()
+
+    override fun failureReportSubHeading(): String = "API: ${operationDescription()}"
 
     fun newBasedOn(scenario: Scenario): Scenario {
         return this.copy(

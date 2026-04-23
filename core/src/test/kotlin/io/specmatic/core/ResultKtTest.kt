@@ -14,6 +14,9 @@ internal class ResultKtTest {
         override val method: String = "GET"
         override val path: String = "/route"
         override fun testDescription(): String = "scenario description"
+        override fun operationDescription(): String = "operation 1"
+
+        override fun failureReportSubHeading(): String = "API: ${operationDescription()}"
     }
 
     @Test

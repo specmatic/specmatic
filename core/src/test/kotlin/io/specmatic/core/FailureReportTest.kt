@@ -13,10 +13,13 @@ internal class FailureReportTest {
         override val path: String = "/fake"
 
         override fun testDescription(): String = name
+
+        override fun operationDescription() = "operation 1"
+        override fun failureReportSubHeading() = "API: ${operationDescription()}"
     }
 
     @Test
-    fun `should skip status if status == 0 (not provided or uninitialized)`() {
+    fun `should include the failure report sub heading in the output`() {
         val matchFailureDetailList = listOf(
             MatchFailureDetails(errorMessages = listOf("error message")),
         )
@@ -26,31 +29,12 @@ internal class FailureReportTest {
             scenario = FakeScenario(status = 0),
             matchFailureDetailList = matchFailureDetailList
         )
-        assertThat(failureReport.toText()).isEqualToIgnoringWhitespace(
+        assertThat(failureReport.toText()).isEqualTo(
             """
              In scenario "fake scenario"
-             API: GET /fake
-             error message
-        """.trimIndent()
-        )
-    }
-
-    @Test
-    fun `should add status if status != 0`() {
-        val matchFailureDetailList = listOf(
-            MatchFailureDetails(errorMessages = listOf("error message")),
-        )
-        val failureReport = FailureReport(
-            contractPath = null,
-            scenarioMessage = null,
-            scenario = FakeScenario(status = 200),
-            matchFailureDetailList = matchFailureDetailList
-        )
-        assertThat(failureReport.toText()).isEqualToIgnoringWhitespace(
-            """
-             In scenario "fake scenario"
-             API: GET /fake -> 200
-             error message
+             API: operation 1
+             
+                   error message
         """.trimIndent()
         )
     }

@@ -144,4 +144,7 @@ private class FakeScenario : ScenarioDetailsForResult {
     override val path: String = "/partial-success"
 
     override fun testDescription(): String = name
+
+    override fun operationDescription() = "operation 1"
+    override fun failureReportSubHeading() = "API: ${operationDescription()}"
 }
