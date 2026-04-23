@@ -271,6 +271,11 @@ sealed class Result {
             return copy(ruleViolationReport = ruleViolationReport.withViolation(ruleViolation))
         }
 
+        fun withoutRuleViolation(): Failure {
+            val causesWithoutFailure = this.causes.map { it.copy(cause = it.cause?.withoutRuleViolation()) }
+            return this.copy(causes = causesWithoutFailure, ruleViolationReport = null)
+        }
+
         override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {
             return toFailureReport().toIssues(breadCrumbToJsonPathConverter)
         }
