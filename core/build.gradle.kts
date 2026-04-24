@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.3.20"
+    kotlin("plugin.serialization") version "2.3.21"
 }
 
 dependencies {
@@ -31,7 +31,7 @@ dependencies {
     implementation("io.github.zenwave360:json-schema-ref-parser-jvm:0.8.10")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.21.2")
