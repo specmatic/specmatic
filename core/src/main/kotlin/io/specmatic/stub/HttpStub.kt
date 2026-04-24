@@ -41,7 +41,6 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
-import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.listOfExcludedHeaders
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
@@ -105,6 +104,7 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory
 import io.netty.handler.codec.http2.Http2SecurityUtil
 import io.specmatic.core.utilities.FileAssociation
+import io.specmatic.stub.StubMatchingContext.Companion.toStubMatchingContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -1507,14 +1507,12 @@ fun getHttpResponse(
             )
         }
 
-        val matchingFeature = features.firstOrNull { it.identifierMatchingScenario(httpRequest) != null }
-        val effectiveStrictMode = specmaticConfig.getStubStrictMode(matchingFeature?.path?.let(::File)) ?: strictMode
-        if (effectiveStrictMode) {
-            val generativeMode = specmaticConfig.getStubGenerative(matchingFeature?.path?.let(::File))
-            return strictModeHttp400Response(features, httpRequest, matchResults, generativeMode)
+        val matchingContext = features.toStubMatchingContext(httpRequest, specmaticConfig)
+        if (matchingContext.isStrictModePossible() || strictMode) {
+            return strictModeHttp400Response(matchingContext.toStrictModeContextOrDefault(), httpRequest, matchResults)
         }
 
-        return fakeHttpResponse(features, httpRequest, specmaticConfig)
+        return fakeHttpResponse(features, matchingContext, httpRequest)
     } finally {
         features.forEach { feature -> feature.clearServerState() }
     }
@@ -1596,7 +1594,11 @@ fun fakeHttpResponse(
     httpRequest: HttpRequest,
     specmaticConfig: SpecmaticConfig = SpecmaticConfig()
 ): StubbedResponseResult {
+    val configContext = features.toStubMatchingContext(httpRequest, specmaticConfig)
+    return fakeHttpResponse(features, configContext, httpRequest)
+}
 
+private fun fakeHttpResponse(features: List<Feature>, matchingContext: StubMatchingContext.Default, httpRequest: HttpRequest): StubbedResponseResult {
     if (features.isEmpty())
         return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")), Result.Failure("No valid API specifications loaded"))
 
@@ -1605,42 +1607,11 @@ fun fakeHttpResponse(
         null -> {
             val failureResponses = responses.filter { it.successResponse == null }
             val combinedFailureResult = Results(failureResponses.flatMap { it.results.results })
-            val firstScenarioWith400Response = failureResponses.asSequence().flatMap { response ->
-                response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
-                    it.failureReason == null && it.scenario?.let { scenario -> scenario.status == 400 || scenario.status == 422 } == true
-                }.map { failure -> response.feature to failure.scenario!! }
-            }.firstOrNull()
-
-            if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative(File(firstScenarioWith400Response.first.path))) {
-                val feature = firstScenarioWith400Response.first
-                val scenario = firstScenarioWith400Response.second as Scenario
-                val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
-                NotStubbed(
-                    HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
-                    combinedFailureResult.toResultIfAnyWithCausesOrFailure(),
-                )
-            } else {
-                val httpFailureResponse = combinedFailureResult.generateErrorHttpResponse(httpRequest)
-
-                val (nearestMatchingFeature, nearestMatchingScenario) =
-                    features.firstNotNullOfOrNull { feature ->
-                        feature.identifierMatchingScenario(httpRequest)?.let { scenario ->
-                            feature to scenario
-                        }
-                    } ?: Pair (null, null)
-
-                NotStubbed(
-                    response = HttpStubResponse(
-                        response = httpFailureResponse,
-                        scenario = nearestMatchingScenario,
-                        contractPath = nearestMatchingFeature?.path.orEmpty(),
-                        feature = nearestMatchingFeature
-                    ),
-                    stubResult = combinedFailureResult.toResultIfAnyWithCausesOrFailure(),
-                )
+            when (val generativeContext = matchingContext.toGenerativeContextOrNull()) {
+                null -> fakeHttpDefaultResponse(matchingContext, httpRequest, combinedFailureResult)
+                else -> fakeHttpGenerativeResponse(generativeContext, combinedFailureResult)
             }
         }
-
         else -> FoundStubbedResponse(
             HttpStubResponse(
                 generateHttpResponseFrom(fakeResponse, httpRequest),
@@ -1650,6 +1621,21 @@ fun fakeHttpResponse(
             )
         )
     }
+}
+
+private fun fakeHttpGenerativeResponse(matchingContext: StubMatchingContext.Generative, result: Results): NotStubbed {
+    return NotStubbed(
+        stubResult = result.toResultIfAnyWithCausesOrFailure(),
+        response = matchingContext.toStubResponse { it.responseWithStubError(result.report()) },
+    )
+}
+
+private fun fakeHttpDefaultResponse(matchingContext: StubMatchingContext.Default, httpRequest: HttpRequest, result: Results): NotStubbed {
+    val httpFailureResponse = result.generateErrorHttpResponse(httpRequest)
+    return NotStubbed(
+        stubResult = result.toResultIfAnyWithCausesOrFailure(),
+        response = matchingContext.toStubResponse(httpFailureResponse),
+    )
 }
 
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
@@ -1750,40 +1736,33 @@ fun dumpIntoFirstAvailableStringField(jsonArrayValue: JSONArrayValue, stringValu
     return jsonArrayValue.copy(list = newList)
 }
 
-private fun strictModeHttp400Response(
-    features: List<Feature>,
-    httpRequest: HttpRequest,
-    matchResults: List<Pair<Result, HttpStubData>>,
-    generative: Boolean
-): NotStubbed {
+private fun strictModeHttp400Response(matchingContext: StubMatchingContext.Default, httpRequest: HttpRequest, matchResults: List<Pair<Result, HttpStubData>>): NotStubbed {
     val results = Results(matchResults.map { it.first }).withoutFluff().withoutViolationReport()
-    val strictModeReport = results.strictModeReport(httpRequest)
-    val scenario = features.firstNotNullOfOrNull { it.identifierMatchingScenario(httpRequest) }
-    val response = if (generative) {
-        generativeStrictModeResponse(httpRequest, features, strictModeReport) ?: strictModeFallbackResponse(strictModeReport)
-    } else {
-        strictModeFallbackResponse(strictModeReport)
+    return when (val generativeContext = matchingContext.toGenerativeContextOrNull()) {
+        null -> strictModeDefaultResponse(matchingContext, httpRequest, results)
+        else -> strictModeGenerativeResponse(generativeContext, httpRequest, results)
     }
+}
 
+private fun strictModeGenerativeResponse(matchingContext: StubMatchingContext.Generative, httpRequest: HttpRequest, results: Results): NotStubbed {
+    val strictModeReport = results.strictModeReport(httpRequest)
     return NotStubbed(
         stubResult = results.toResultIfAnyWithCausesOrFailure(),
-        response = HttpStubResponse(scenario = scenario, response = response),
+        response = matchingContext.toStubResponse { it.responseWithStubError(strictModeReport) },
     )
 }
 
-private fun generativeStrictModeResponse(httpRequest: HttpRequest, features: List<Feature>, strictModeReport: String): HttpResponse? {
-    return features.firstNotNullOfOrNull { feature ->
-        feature.identifierMatchingScenario(httpRequest, furtherPredicate = { it.status in invalidRequestStatuses })
-    }?.responseWithStubError(strictModeReport)
-}
-
-private fun strictModeFallbackResponse(strictModeReport: String): HttpResponse {
+private fun strictModeDefaultResponse(matchingContext: StubMatchingContext.Default, httpRequest: HttpRequest, results: Results): NotStubbed {
+    val strictModeReport = results.strictModeReport(httpRequest)
     val defaultHeaders = mapOf("Content-Type" to "text/plain", SPECMATIC_RESULT_HEADER to "failure")
-    val headers = if (strictModeReport.isEmpty()) defaultHeaders + (SPECMATIC_EMPTY_HEADER to "true") else defaultHeaders
-    return HttpResponse(
+    val response = HttpResponse(
         status = 400,
-        headers = headers,
+        headers = if (strictModeReport.isEmpty()) defaultHeaders + (SPECMATIC_EMPTY_HEADER to "true") else defaultHeaders,
         body = StringValue("STRICT MODE ON${System.lineSeparator()}${System.lineSeparator()}$strictModeReport")
+    )
+    return NotStubbed(
+        stubResult = results.toResultIfAnyWithCausesOrFailure(),
+        response = matchingContext.toStubResponse(response),
     )
 }
 
