@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 internal class FailureReportTest {
@@ -16,6 +17,57 @@ internal class FailureReportTest {
 
         override fun operationDescription() = "operation 1"
         override fun failureReportSubHeading() = "API: ${operationDescription()}"
+    }
+
+    @Nested
+    inner class GroupingKeyTest {
+        @Test
+        fun `should return contract path and scenario name when both are present`() {
+            val report = FailureReport(
+                contractPath = "contract-path",
+                scenarioMessage = null,
+                scenario = FakeScenario(status = 0),
+                matchFailureDetailList = emptyList()
+            )
+
+            assertThat(report.groupingKey()).isEqualTo("contract-path operation 1")
+        }
+
+        @Test
+        fun `should return contract path when scenario is absent`() {
+            val report = FailureReport(
+                contractPath = "contract-path",
+                scenarioMessage = null,
+                scenario = null,
+                matchFailureDetailList = emptyList()
+            )
+
+            assertThat(report.groupingKey()).isEqualTo("contract-path")
+        }
+
+        @Test
+        fun `should return scenario name when contract path is absent`() {
+            val report = FailureReport(
+                contractPath = null,
+                scenarioMessage = null,
+                scenario = FakeScenario(status = 0),
+                matchFailureDetailList = emptyList()
+            )
+
+            assertThat(report.groupingKey()).isEqualTo("operation 1")
+        }
+
+        @Test
+        fun `should return empty string when both contract path and scenario are absent`() {
+            val report = FailureReport(
+                contractPath = null,
+                scenarioMessage = null,
+                scenario = null,
+                matchFailureDetailList = emptyList()
+            )
+
+            assertThat(report.groupingKey()).isEmpty()
+        }
     }
 
     @Test
@@ -147,5 +199,40 @@ internal class FailureReportTest {
         >> person.name
         error
         """.trimIndent())
+    }
+
+    @Test
+    fun `distinctByMatchFailureDetails should remove duplicate match failure details`() {
+        val duplicateDetail = MatchFailureDetails(listOf("person", "id"), listOf("error"))
+        val uniqueDetail = MatchFailureDetails(listOf("person", "name"), listOf("another error"))
+        val report = FailureReport(null, null, null, listOf(duplicateDetail, duplicateDetail, uniqueDetail))
+
+        assertThat(report.distinctByMatchFailureDetails().toText().trimmedLinesString()).isEqualTo("""
+            >> person.id
+
+               error
+
+            >> person.name
+
+               another error
+        """.trimIndent().trimmedLinesString())
+    }
+
+    @Test
+    fun `mergeMatchFailureDetailsFrom should append match failure details from the other report`() {
+        val firstDetail = MatchFailureDetails(listOf("person", "id"), listOf("first error"))
+        val secondDetail = MatchFailureDetails(listOf("person", "name"), listOf("second error"))
+        val report = FailureReport(null, null, null, listOf(firstDetail))
+        val otherReport = FailureReport(null, null, null, listOf(secondDetail))
+
+        assertThat(report.mergeMatchFailureDetailsFrom(otherReport).toText().trimmedLinesString()).isEqualTo("""
+            >> person.id
+
+               first error
+
+            >> person.name
+
+               second error
+        """.trimIndent().trimmedLinesString())
     }
 }

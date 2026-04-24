@@ -69,12 +69,22 @@ data class Results(val results: List<Result> = emptyList()) {
     }
 
     fun distinctReport(defaultMessage: String = PATH_NOT_RECOGNIZED_ERROR): String {
-        val filteredResults = withoutFluff().results.filterIsInstance<Result.Failure>()
+        val failureReports = withoutFluff().results.filterIsInstance<Result.Failure>().map(Result.Failure::toFailureReport)
 
-        return when {
-            filteredResults.isNotEmpty() -> listToDistinctReport(filteredResults)
-            else -> if(successCount > 0 && failureCount == 0) "" else defaultMessage.trim()
+        if(failureReports.isEmpty()) {
+            return when {
+                successCount > 0 && failureCount == 0 -> ""
+                else -> defaultMessage.trim()
+            }
         }
+
+        return failureReports.groupBy { it.groupingKey() }.map { (_, groupedReports) ->
+            val mergedFailureReport = groupedReports.reduce { report, otherReport ->
+                report.mergeMatchFailureDetailsFrom(otherReport)
+            }
+
+            mergedFailureReport.distinctByMatchFailureDetails().toText()
+        }.joinToString("${System.lineSeparator()}${System.lineSeparator()}")
     }
 
     fun plus(other: Results): Results = Results(results.plus(other.results))
@@ -132,10 +142,6 @@ data class Results(val results: List<Result> = emptyList()) {
             }
         })
     }
-
-    fun toResultPartialFailures(): List<Result> {
-        return results.filter { it.isPartialFailure() }
-    }
 }
 
 private fun listToReport(results: List<Result>): String {
@@ -143,10 +149,4 @@ private fun listToReport(results: List<Result>): String {
         .joinToString("${System.lineSeparator()}${System.lineSeparator()}") {
             it.toFailureReport().toText()
         }
-}
-
-private fun listToDistinctReport(results: List<Result>): String {
-    return results.filterIsInstance<Result.Failure>().map {
-        it.toFailureReport().toText()
-    }.distinct().joinToString("${System.lineSeparator()}${System.lineSeparator()}")
 }
