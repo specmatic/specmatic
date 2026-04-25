@@ -38,6 +38,7 @@ import io.specmatic.core.Results
 import io.specmatic.core.SPECMATIC_EMPTY_HEADER
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.Scenario
+import io.specmatic.core.ScenarioDetailsForResult
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
@@ -1605,15 +1606,12 @@ fun fakeHttpResponse(
         null -> {
             val failureResponses = responses.filter { it.successResponse == null }
             val combinedFailureResult = Results(failureResponses.flatMap { it.results.results })
-            val firstScenarioWith400Response = failureResponses.asSequence().flatMap { response ->
-                response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
-                    it.failureReason == null && it.scenario?.let { scenario -> scenario.status == 400 || scenario.status == 422 } == true
-                }.map { failure -> response.feature to failure.scenario!! }
-            }.firstOrNull()
+            val invalidRequestScenario = firstFailureScenarioWithInvalidRequestStatus(failureResponses)
+                ?: firstInvalidRequestScenarioMatchingIdentifier(features, httpRequest)
 
-            if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative(File(firstScenarioWith400Response.first.path))) {
-                val feature = firstScenarioWith400Response.first
-                val scenario = firstScenarioWith400Response.second as Scenario
+            if (invalidRequestScenario != null && specmaticConfig.getStubGenerative(File(invalidRequestScenario.first.path))) {
+                val feature = invalidRequestScenario.first
+                val scenario = invalidRequestScenario.second as Scenario
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
                 NotStubbed(
                     HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
@@ -1649,6 +1647,25 @@ fun fakeHttpResponse(
                 scenario = fakeResponse.successResponse?.scenario
             )
         )
+    }
+}
+
+private fun firstFailureScenarioWithInvalidRequestStatus(failureResponses: List<ResponseDetails>): Pair<Feature, ScenarioDetailsForResult>? {
+    return failureResponses.asSequence().flatMap { response ->
+        response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
+            it.failureReason == null && it.scenario?.let { scenario -> scenario.status in invalidRequestStatuses } == true
+        }.map { failure -> response.feature to failure.scenario!! }
+    }.firstOrNull()
+}
+
+private fun firstInvalidRequestScenarioMatchingIdentifier(
+    features: List<Feature>,
+    httpRequest: HttpRequest
+): Pair<Feature, ScenarioDetailsForResult>? {
+    return features.firstNotNullOfOrNull { feature ->
+        feature.identifierMatchingScenario(httpRequest, furtherPredicate = { it.status in invalidRequestStatuses })?.let {
+            feature to it
+        }
     }
 }
 

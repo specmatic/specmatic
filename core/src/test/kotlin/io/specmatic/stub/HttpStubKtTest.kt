@@ -864,6 +864,74 @@ Feature: Test
     }
 
     @Test
+    fun `generative error response should still use invalid request response when Accept selects success response class`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Generative error payload with Accept
+              version: 1.0.0
+            paths:
+              /hello:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - data
+                          properties:
+                            data:
+                              type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), "contracts/generative-error-payload-with-accept.yaml"
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "POST",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json"),
+            body = parsedJSONObject("""{"data": 10}""")
+        )
+        val result = fakeHttpResponse(
+            listOf(feature),
+            request,
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val stubbedResponse = (result as NotStubbed).response
+        val response = stubbedResponse.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(stubbedResponse.contractPath).isEqualTo(feature.path)
+        assertThat(stubbedResponse.feature).isEqualTo(feature)
+        assertThat(stubbedResponse.scenario).isNotNull
+        assertThat(stubbedResponse.scenario?.status).isEqualTo(400)
+        assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
+        val responseBody = response.body as JSONObjectValue
+        assertThat(responseBody.jsonObject.getValue("message")).isInstanceOf(StringValue::class.java)
+    }
+
+    @Test
     fun `fake response should set failure stubResult when combined failures are non empty in non generative mode`() {
         val feature = OpenApiSpecification.fromYAML("""
         openapi: 3.0.3
