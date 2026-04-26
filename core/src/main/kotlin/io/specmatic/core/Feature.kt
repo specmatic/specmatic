@@ -393,7 +393,11 @@ data class Feature(
         }
 
         val bestStatusClassScenarios = filterByBestStatusClass(pathAndMethodMatchedScenarios)
-        return applyAcceptHeaderSelection(httpRequest, bestStatusClassScenarios)
+        val invalidRequestScenarios = pathAndMethodMatchedScenarios.filter {
+            it.status in invalidRequestStatuses && it !in bestStatusClassScenarios
+        }
+
+        return applyAcceptHeaderSelection(httpRequest, bestStatusClassScenarios) + invalidRequestScenarios
     }
 
     private fun filterByExpectedResponseStatus(expectedResponseCode: Int?, scenarios: List<Scenario>): List<Scenario> {
