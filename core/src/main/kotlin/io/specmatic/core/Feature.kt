@@ -392,12 +392,7 @@ data class Feature(
             return pathAndMethodMatchedScenarios
         }
 
-        val bestStatusClassScenarios = filterByBestStatusClass(pathAndMethodMatchedScenarios)
-        val invalidRequestScenarios = pathAndMethodMatchedScenarios.filter {
-            it.status in invalidRequestStatuses && it !in bestStatusClassScenarios
-        }
-
-        return applyAcceptHeaderSelection(httpRequest, bestStatusClassScenarios) + invalidRequestScenarios
+        return orderByStatusClassThenAccept(httpRequest, pathAndMethodMatchedScenarios)
     }
 
     private fun filterByExpectedResponseStatus(expectedResponseCode: Int?, scenarios: List<Scenario>): List<Scenario> {
@@ -481,9 +476,14 @@ data class Feature(
         return if (matchingScenarios.isEmpty()) scenarios else matchingScenarios + remainingScenarios
     }
 
-    private fun filterByBestStatusClass(scenarios: List<Scenario>): List<Scenario> {
-        val bestRank = scenarios.minOfOrNull { statusClassRank(it.status) } ?: return scenarios
-        return scenarios.filter { statusClassRank(it.status) == bestRank }
+    private fun orderByStatusClassThenAccept(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
+        return scenarios
+            .groupBy { statusClassRank(it.status) }
+            .toSortedMap()
+            .values
+            .flatMap { sameStatusClassScenarios ->
+                applyAcceptHeaderSelection(httpRequest, sameStatusClassScenarios)
+            }
     }
 
     private fun statusClassRank(status: Int): Int {

@@ -1144,6 +1144,55 @@ Feature: Test
     }
 
     @Test
+    fun `matchingStub should still match non 2xx expectation when Accept is present`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Match expectation after status preference
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  parameters:
+                    - in: header
+                      name: Accept
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: JSON OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '404':
+                      description: JSON Not Found
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json")
+        )
+        val response = HttpResponse(
+            status = 404,
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSONObject("{}")
+        )
+
+        val stub = feature.matchingStub(request, response)
+
+        assertThat(stub.responsePattern.status).isEqualTo(404)
+    }
+
+    @Test
     fun `fake response should honor wildcard accept semantics while selecting response content type`() {
         val feature = OpenApiSpecification.fromYAML(
             """
