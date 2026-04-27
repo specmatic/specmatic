@@ -1608,8 +1608,7 @@ fun fakeHttpResponse(
             val invalidRequestScenario = firstFailureScenarioWithInvalidRequestStatus(failureResponses)
 
             if (invalidRequestScenario != null && specmaticConfig.getStubGenerative(File(invalidRequestScenario.first.path))) {
-                val feature = invalidRequestScenario.first
-                val scenario = invalidRequestScenario.second
+                val (feature, scenario) = invalidRequestScenario
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
                 NotStubbed(
                     HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
@@ -1649,11 +1648,13 @@ fun fakeHttpResponse(
 }
 
 private fun firstFailureScenarioWithInvalidRequestStatus(failureResponses: List<ResponseDetails>): Pair<Feature, Scenario>? {
-    return failureResponses.asSequence().flatMap { response ->
-        response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
-            it.failureReason == null && it.scenario?.let { scenario -> scenario.status in invalidRequestStatuses } == true
-        }.map { failure -> response.feature to (failure.scenario as Scenario) }
-    }.firstOrNull()
+    return failureResponses.firstNotNullOfOrNull { response ->
+        response.results.results.asSequence().filterIsInstance<Result.Failure>().firstNotNullOfOrNull { failure ->
+            val scenario = failure.scenario as? Scenario ?: return@firstNotNullOfOrNull null
+            if (failure.failureReason != null || scenario.status !in invalidRequestStatuses) return@firstNotNullOfOrNull null
+            response.feature to scenario
+        }
+    }
 }
 
 fun responseDetailsFrom(features: List<Feature>, httpRequest: HttpRequest): List<ResponseDetails> {
