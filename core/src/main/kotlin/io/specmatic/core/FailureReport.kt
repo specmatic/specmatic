@@ -1,6 +1,18 @@
 package io.specmatic.core
 
 data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
+
+    fun groupingKey(): String {
+        if(contractPath != null && scenario != null) return "$contractPath ${scenario.operationDescription()}"
+        if(contractPath != null) return contractPath
+        if(scenario != null) return scenario.operationDescription()
+        return ""
+    }
+
+    fun distinctByMatchFailureDetails(): FailureReport = copy(matchFailureDetailList = matchFailureDetailList.distinct())
+
+    fun mergeMatchFailureDetailsFrom(other: FailureReport): FailureReport = copy(matchFailureDetailList = matchFailureDetailList + other.matchFailureDetailList)
+
     fun errorMessage(): String {
         if (matchFailureDetailList.size != 1) return toText()
         return matchFailureDetailsErrorMessage(matchFailureDetailList.first()).joinToString("\n\n")

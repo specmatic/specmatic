@@ -373,7 +373,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
         if (backwardCompatibilityResult.success().not()) {
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
-            logger.log(backwardCompatibilityResult.withoutViolationReport().report().prependIndent(TWO_INDENTS))
+            logger.log(backwardCompatibilityResult.withoutViolationReport().distinctReport().prependIndent(TWO_INDENTS))
 
             val verdict = failedVerdictMessage(processedSpec, hook, effectiveStrictMode, effectiveBaseBranch)
 

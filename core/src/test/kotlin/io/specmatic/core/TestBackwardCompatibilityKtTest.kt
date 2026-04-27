@@ -1446,6 +1446,211 @@ paths:
     }
 
     @Test
+    fun `distinctReport should merge errors for a scenario block when openapi request incompatibilities overlap to avoid duplicate logs`() {
+        val oldContract = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /ping:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: string
+      responses:
+        '200':
+          description: ok
+""".trimIndent(), ""
+        ).toFeature()
+
+        val newContract = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /ping:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - timestamp
+              properties:
+                event:
+                  type: number
+                timestamp:
+                  type: string
+      responses:
+        '200':
+          description: ok
+""".trimIndent(), ""
+        ).toFeature()
+
+        val result: Results = testBackwardCompatibility(oldContract, newContract)
+
+        assertThat(result.distinctReport()).isEqualTo("""
+            In scenario "POST /ping. Response: ok"
+            API: POST /ping -> 200
+            
+              >> REQUEST.BODY.timestamp
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "timestamp" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.event
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+        """.trimIndent())
+    }
+
+    @Test
+    fun `distinctReport should not merge errors from different scenario blocks with the same path and method when openapi request incompatibilities overlap`() {
+        val oldContract = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /ping:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: string
+      responses:
+        '200':
+          description: ok
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+""".trimIndent(), ""
+        ).toFeature()
+
+        val newContract = OpenApiSpecification.fromYAML(
+            """
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+paths:
+  /ping:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - timestamp
+              properties:
+                event:
+                  type: number
+                timestamp:
+                  type: string
+      responses:
+        '200':
+          description: common
+        '400':
+          description: common
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - code
+                properties:
+                  message:
+                    type: number
+                  code:
+                    type: string
+""".trimIndent(), ""
+        ).toFeature()
+
+        val result: Results = testBackwardCompatibility(oldContract, newContract)
+
+        assertThat(result.distinctReport()).isEqualToIgnoringWhitespace("""
+            In scenario "POST /ping. Response: common"
+            API: POST /ping -> 200
+            
+              >> REQUEST.BODY.timestamp
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "timestamp" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.event
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+            
+            In scenario "POST /ping. Response: common"
+            API: POST /ping -> 400
+            
+              >> REQUEST.BODY.timestamp
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "timestamp" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.event
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+            
+              >> RESPONSE.BODY.message
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+        """.trimIndent())
+    }
+
+    @Test
     fun `backward compatibility errors in request and response are returned together`() {
         val oldContract = OpenApiSpecification.fromYAML(
             """
