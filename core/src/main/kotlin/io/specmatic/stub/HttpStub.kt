@@ -125,6 +125,7 @@ import java.time.Instant
 import java.util.*
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
+import kotlin.math.max
 import kotlin.text.toCharArray
 
 const val SPECMATIC_RESPONSE_CODE_HEADER = "Specmatic-Response-Code"
@@ -148,6 +149,7 @@ class HttpStub(
     val workingDirectory: WorkingDirectory? = null,
     specmaticConfigSource: SpecmaticConfigSource = SpecmaticConfigSource.None,
     private val timeoutMillis: Long = 0,
+    private val forceTimeoutMillis: Long = 0,
     private val specToStubBaseUrlMap: Map<String, String?> = features.associate {
         it.path to endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
     },
@@ -1159,8 +1161,8 @@ class HttpStub(
     override fun close() {
         val protocols = features.map { it.protocol }.distinct()
         if (SpecmaticProtocol.HTTP in protocols) generateReports()
-        logger.debug("Stopping the server with grace period of $timeoutMillis")
-        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = timeoutMillis)
+        logger.debug("Stopping the server with grace period of $timeoutMillis and force timeout of $forceTimeoutMillis")
+        server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = max(timeoutMillis, forceTimeoutMillis))
     }
 
     private fun generateReports() {
@@ -1462,7 +1464,7 @@ suspend fun respondToKtorHttpResponse(
 
     val delayInMs = delayInMilliSeconds ?: specmaticConfig?.getStubDelayInMilliseconds(specificationPath?.let(::File))
     if (delayInMs != null) {
-        delay(delayInMs)
+        withContext(Dispatchers.IO) { delay(delayInMs) }
     }
 
     val contentType = httpResponse.contentType() ?: httpResponse.body.httpContentType
