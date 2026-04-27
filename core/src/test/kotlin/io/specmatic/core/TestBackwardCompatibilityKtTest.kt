@@ -1582,9 +1582,9 @@ paths:
                   type: string
       responses:
         '200':
-          description: ok
+          description: common
         '400':
-          description: bad request
+          description: common
           content:
             application/json:
               schema:
@@ -1602,7 +1602,7 @@ paths:
         val result: Results = testBackwardCompatibility(oldContract, newContract)
 
         assertThat(result.distinctReport()).isEqualToIgnoringWhitespace("""
-            In scenario "POST /ping. Response: ok"
+            In scenario "POST /ping. Response: common"
             API: POST /ping -> 200
             
               >> REQUEST.BODY.timestamp
@@ -1621,7 +1621,7 @@ paths:
               
                   This is type number in the new specification, but type string in the old specification
             
-            In scenario "POST /ping. Response: bad request"
+            In scenario "POST /ping. Response: common"
             API: POST /ping -> 400
             
               >> REQUEST.BODY.timestamp
