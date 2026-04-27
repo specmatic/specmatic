@@ -53,11 +53,15 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.fail
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.nio.file.Files
 import java.security.KeyStore
 import java.util.*
 import java.util.function.Consumer
+import java.util.stream.Stream
 
 internal class HttpStubKtTest {
 
@@ -778,6 +782,62 @@ Feature: Test
         assertThat(response.body.toStringLiteral()).contains("No matching REST stub")
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("strictGenerativeCases")
+    fun `strict and generative behavior should be stable regardless of headers`(testName: String, strictMode: Boolean, generative: Boolean, request: HttpRequest, assertion: Consumer<HttpResponse>) {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.3
+        info:
+          title: Strict and generative matrix
+          version: 1.0.0
+        paths:
+          /hello:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - number
+                      properties:
+                        number:
+                          type: number
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+                '400':
+                  description: Bad request
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - message
+                        properties:
+                          message:
+                            type: string
+        """.trimIndent(), "./openapi.yaml").toFeature()
+
+        val result = getHttpResponse(
+            httpRequest = request,
+            strictMode = strictMode,
+            features = listOf(feature),
+            httpExpectations = HttpExpectations(mutableListOf()),
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = generative))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val response = (result as NotStubbed).response.response
+        assertThat(response.status).isEqualTo(400)
+        assertion.accept(response)
+    }
+
     @Test
     fun `generative error response should honor response schema constraints when error report does not match`() {
         val feature = OpenApiSpecification.fromYAML(
@@ -861,6 +921,74 @@ Feature: Test
             Specification expected type string but request contained value 10 of type number
             """.trimIndent()
         assertThat(messageValue.toStringLiteral()).isEqualToIgnoringWhitespace(expectedMessageValue)
+    }
+
+    @Test
+    fun `generative error response should still use invalid request response when Accept selects success response class`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Generative error payload with Accept
+              version: 1.0.0
+            paths:
+              /hello:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - data
+                          properties:
+                            data:
+                              type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - message
+                            properties:
+                              message:
+                                type: string
+            """.trimIndent(), "contracts/generative-error-payload-with-accept.yaml"
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "POST",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json"),
+            body = parsedJSONObject("""{"data": 10}""")
+        )
+        val result = fakeHttpResponse(
+            listOf(feature),
+            request,
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        )
+
+        assertThat(result).isInstanceOf(NotStubbed::class.java)
+        val stubbedResponse = (result as NotStubbed).response
+        val response = stubbedResponse.response
+        assertThat(response.status).isEqualTo(400)
+        assertThat(stubbedResponse.contractPath).isEqualTo(feature.path)
+        assertThat(stubbedResponse.feature).isEqualTo(feature)
+        assertThat(stubbedResponse.scenario).isNotNull
+        assertThat(stubbedResponse.scenario?.status).isEqualTo(400)
+        assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
+        val responseBody = response.body as JSONObjectValue
+        assertThat(responseBody.jsonObject.getValue("message")).isInstanceOf(StringValue::class.java)
     }
 
     @Test
@@ -1073,6 +1201,55 @@ Feature: Test
         val response = assertFoundStubbedResponse(result)
         assertThat(response.status).isEqualTo(200)
         assertThat(response.contentType()).startsWith("application/json")
+    }
+
+    @Test
+    fun `matchingStub should still match non 2xx expectation when Accept is present`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Match expectation after status preference
+              version: 1.0.0
+            paths:
+              /hello:
+                get:
+                  parameters:
+                    - in: header
+                      name: Accept
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: JSON OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                    '404':
+                      description: JSON Not Found
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(), ""
+        ).toFeature()
+
+        val request = HttpRequest(
+            method = "GET",
+            path = "/hello",
+            headers = mapOf("Accept" to "application/json")
+        )
+        val response = HttpResponse(
+            status = 404,
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSONObject("{}")
+        )
+
+        val stub = feature.matchingStub(request, response)
+
+        assertThat(stub.responsePattern.status).isEqualTo(404)
     }
 
     @Test
@@ -2216,5 +2393,61 @@ paths:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(results.testCount).isEqualTo(1)
+    }
+
+    companion object {
+        private val withAccept: (HttpRequest) -> HttpRequest = { it.addHeaderIfMissing("Accept", "text/plain") }
+        private val withResponseCode: (HttpRequest) -> HttpRequest = { it.addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, "200") }
+        private val baseRequest = HttpRequest(method = "POST", path = "/hello", headers = emptyMap(), body = parsedJSON("""{"number":"not-a-number"}"""))
+
+        @JvmStatic
+        fun strictGenerativeCases(): Stream<Arguments> {
+            return listOf(
+                // strict ON, generative ON
+                Arguments.of("strict ON, generative ON, base request", true, true, baseRequest, generativeAssertion()),
+                Arguments.of("strict ON, generative ON, accept header", true, true, withAccept(baseRequest), generativeAssertion()),
+                Arguments.of("strict ON, generative ON, response code header", true, true, withResponseCode(baseRequest), generativeAssertion()),
+                Arguments.of("strict ON, generative ON, both headers", true, true, withAccept(withResponseCode(baseRequest)), generativeAssertion()),
+
+                // strict ON, generative OFF
+                Arguments.of("strict ON, generative OFF, base request", true, false, baseRequest, strictModeAssertion()),
+                Arguments.of("strict ON, generative OFF, accept header", true, false, withAccept(baseRequest), strictModeAssertion()),
+                Arguments.of("strict ON, generative OFF, response code header", true, false, withResponseCode(baseRequest), strictModeAssertion()),
+                Arguments.of("strict ON, generative OFF, both headers", true, false, withAccept(withResponseCode(baseRequest)), strictModeAssertion()),
+
+                // strict OFF, generative ON
+                Arguments.of("strict OFF, generative ON, base request", false, true, baseRequest, generativeAssertion()),
+                Arguments.of("strict OFF, generative ON, accept header", false, true, withAccept(baseRequest), generativeAssertion()),
+                Arguments.of("strict OFF, generative ON, response code header", false, true, withResponseCode(baseRequest), generativeAssertion()),
+                Arguments.of("strict OFF, generative ON, both headers", false, true, withAccept(withResponseCode(baseRequest)), generativeAssertion()),
+
+                // strict OFF, generative OFF
+                Arguments.of("strict OFF, generative OFF, base request", false, false, baseRequest, defaultAssertion()),
+                Arguments.of("strict OFF, generative OFF, accept header", false, false, withAccept(baseRequest), defaultAssertion()),
+                Arguments.of("strict OFF, generative OFF, response code header", false, false, withResponseCode(baseRequest), defaultAssertion()),
+                Arguments.of("strict OFF, generative OFF, both headers", false, false, withAccept(withResponseCode(baseRequest)), defaultAssertion()),
+            ).stream()
+        }
+
+        private fun generativeAssertion() = Consumer<HttpResponse> { response ->
+            assertThat(response.body).isInstanceOf(JSONObjectValue::class.java)
+            val message = (response.body as JSONObjectValue).jsonObject["message"]?.toStringLiteral().orEmpty()
+            assertThat(message).isNotBlank()
+            assertThat(message).doesNotContain("STRICT MODE ON")
+        }
+
+        private fun strictModeAssertion() = Consumer<HttpResponse> { response ->
+            assertThat(response.body).isInstanceOf(StringValue::class.java)
+            val text = response.body.toStringLiteral()
+            assertThat(text).isNotBlank()
+            assertThat(text).contains("STRICT MODE ON")
+        }
+
+        private fun defaultAssertion() = Consumer<HttpResponse> { response ->
+            assertThat(response.body).isInstanceOf(StringValue::class.java)
+            val text = response.body.toStringLiteral()
+            assertThat(text).isNotBlank()
+            assertThat(text).doesNotContain("STRICT MODE ON")
+        }
     }
 }

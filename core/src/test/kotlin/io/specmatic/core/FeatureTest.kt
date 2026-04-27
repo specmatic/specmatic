@@ -4170,6 +4170,44 @@ paths:
         }
 
         @Test
+        fun `stubResponseMap should return all matching status codes when Accept is specific`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.3
+                info:
+                  title: Stub response map
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: OK
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                        '400':
+                          description: Bad request
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                """.trimIndent(),
+                ""
+            ).toFeature()
+
+            val responseMap = feature.stubResponseMap(
+                httpRequest = HttpRequest(method = "GET", path = "/orders", headers = mapOf("Accept" to "application/json")),
+                unexpectedKeyCheck = ValidateUnexpectedKeys
+            )
+
+            assertThat(responseMap.keys).containsExactlyInAnyOrder(200, 400)
+            assertThat(responseMap[200]?.first?.scenario?.status).isEqualTo(200)
+            assertThat(responseMap[400]?.first?.scenario?.status).isEqualTo(400)
+        }
+
+        @Test
         fun `stubResponseMap should return fallback 400 entry when no scenario matches`() {
             val feature = OpenApiSpecification.fromYAML(
                 """
@@ -4198,7 +4236,7 @@ paths:
         }
 
         @Test
-        fun `stubResponseMap should filter matches by Specmatic response code header`() {
+        fun `stubResponseMap should sort and prefer matches by Specmatic response code header`() {
             val feature = OpenApiSpecification.fromYAML(
                 """
                 openapi: 3.0.3
@@ -4228,7 +4266,7 @@ paths:
                 unexpectedKeyCheck = ValidateUnexpectedKeys
             )
 
-            assertThat(responseMap.keys).containsExactly(400)
+            assertThat(responseMap.keys).containsExactly(400, 200)
             assertThat(responseMap[400]?.first?.scenario?.status).isEqualTo(400)
         }
     }

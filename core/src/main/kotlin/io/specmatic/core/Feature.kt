@@ -375,8 +375,8 @@ data class Feature(
 
     private fun getMatchingAndSortedScenarios(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
         val expectedResponseCode = httpRequest.expectedResponseCode()
-        val statusFilteredScenarios = filterByExpectedResponseStatus(expectedResponseCode, scenarios)
-        val pathAndMethodMatchedScenarios = statusFilteredScenarios.filter { scenario -> scenario.matchesPathStructureAndMethod(httpRequest) }
+        val statusSortedScenarios = sortByExpectedResponseStatus(expectedResponseCode, scenarios)
+        val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario -> scenario.matchesPathStructureAndMethod(httpRequest) }
 
         if (expectedResponseCode != null) {
             return applyAcceptHeaderSelection(httpRequest, pathAndMethodMatchedScenarios)
@@ -392,13 +392,12 @@ data class Feature(
             return pathAndMethodMatchedScenarios
         }
 
-        val bestStatusClassScenarios = filterByBestStatusClass(pathAndMethodMatchedScenarios)
-        return applyAcceptHeaderSelection(httpRequest, bestStatusClassScenarios)
+        return orderByStatusClassThenAccept(httpRequest, pathAndMethodMatchedScenarios)
     }
 
-    private fun filterByExpectedResponseStatus(expectedResponseCode: Int?, scenarios: List<Scenario>): List<Scenario> {
+    private fun sortByExpectedResponseStatus(expectedResponseCode: Int?, scenarios: List<Scenario>): List<Scenario> {
         if (expectedResponseCode == null) return scenarios
-        return scenarios.filter { it.status == expectedResponseCode }
+        return scenarios.sortedBy { it.status != expectedResponseCode }
     }
 
     fun stubResponseMap(
@@ -477,9 +476,14 @@ data class Feature(
         return if (matchingScenarios.isEmpty()) scenarios else matchingScenarios + remainingScenarios
     }
 
-    private fun filterByBestStatusClass(scenarios: List<Scenario>): List<Scenario> {
-        val bestRank = scenarios.minOfOrNull { statusClassRank(it.status) } ?: return scenarios
-        return scenarios.filter { statusClassRank(it.status) == bestRank }
+    private fun orderByStatusClassThenAccept(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
+        return scenarios
+            .groupBy { statusClassRank(it.status) }
+            .toSortedMap()
+            .values
+            .flatMap { sameStatusClassScenarios ->
+                applyAcceptHeaderSelection(httpRequest, sameStatusClassScenarios)
+            }
     }
 
     private fun statusClassRank(status: Int): Int {

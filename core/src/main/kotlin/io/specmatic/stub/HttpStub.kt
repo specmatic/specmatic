@@ -1605,15 +1605,10 @@ fun fakeHttpResponse(
         null -> {
             val failureResponses = responses.filter { it.successResponse == null }
             val combinedFailureResult = Results(failureResponses.flatMap { it.results.results })
-            val firstScenarioWith400Response = failureResponses.asSequence().flatMap { response ->
-                response.results.results.asSequence().filterIsInstance<Result.Failure>().filter {
-                    it.failureReason == null && it.scenario?.let { scenario -> scenario.status == 400 || scenario.status == 422 } == true
-                }.map { failure -> response.feature to failure.scenario!! }
-            }.firstOrNull()
+            val invalidRequestScenario = firstFailureScenarioWithInvalidRequestStatus(failureResponses)
 
-            if (firstScenarioWith400Response != null && specmaticConfig.getStubGenerative(File(firstScenarioWith400Response.first.path))) {
-                val feature = firstScenarioWith400Response.first
-                val scenario = firstScenarioWith400Response.second as Scenario
+            if (invalidRequestScenario != null && specmaticConfig.getStubGenerative(File(invalidRequestScenario.first.path))) {
+                val (feature, scenario) = invalidRequestScenario
                 val errorResponse = scenario.responseWithStubError(combinedFailureResult.report())
                 NotStubbed(
                     HttpStubResponse(errorResponse, contractPath = feature.path, scenario = scenario, feature = feature),
@@ -1649,6 +1644,16 @@ fun fakeHttpResponse(
                 scenario = fakeResponse.successResponse?.scenario
             )
         )
+    }
+}
+
+private fun firstFailureScenarioWithInvalidRequestStatus(failureResponses: List<ResponseDetails>): Pair<Feature, Scenario>? {
+    return failureResponses.firstNotNullOfOrNull { response ->
+        response.results.results.asSequence().filterIsInstance<Result.Failure>().firstNotNullOfOrNull { failure ->
+            val scenario = failure.scenario as? Scenario ?: return@firstNotNullOfOrNull null
+            if (failure.failureReason != null || scenario.status !in invalidRequestStatuses) return@firstNotNullOfOrNull null
+            response.feature to scenario
+        }
     }
 }
 
