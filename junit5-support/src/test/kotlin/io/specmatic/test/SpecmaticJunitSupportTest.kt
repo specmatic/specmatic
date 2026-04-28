@@ -4,7 +4,6 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.ResiliencyTestSuite
-import io.specmatic.core.Scenario
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.TestConfig
@@ -1280,8 +1279,8 @@ paths:
             exampleErrorsCalls.add(resultsBySpecFile)
         }
 
-        val decisions = mutableListOf<Decision<ContractTest, Scenario>>()
-        override fun onTestDecision(decision: Decision<ContractTest, Scenario>) {
+        val decisions = mutableListOf<Decision<*, OpenAPIOperation>>()
+        override fun onTestDecision(decision: Decision<*, OpenAPIOperation>) {
             decisions.add(decision)
         }
 

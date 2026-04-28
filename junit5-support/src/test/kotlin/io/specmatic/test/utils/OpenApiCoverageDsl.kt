@@ -1,5 +1,7 @@
 package io.specmatic.test.utils
 
+import io.specmatic.core.DefaultStrategies
+import io.specmatic.core.Feature
 import io.specmatic.core.HttpHeadersPattern
 import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequestPattern
@@ -18,6 +20,7 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
 import io.specmatic.test.ContractTest
+import io.specmatic.test.ScenarioAsTest
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
@@ -107,6 +110,30 @@ class OpenApiCoverageBuilder {
 
     fun outOfScopeSpecEndpoint(endpoint: Endpoint) {
         allSpecEndpoints += endpoint
+    }
+
+    fun decisionExecute(
+        path: String,
+        method: String,
+        responseCode: Int,
+        requestType: String? = null,
+        responseType: String? = null,
+        reasoning: Reasoning,
+        protocol: SpecmaticProtocol = SpecmaticProtocol.HTTP,
+        specType: SpecType = SpecType.OPENAPI,
+    ) {
+        val scenario = Scenario(
+            ScenarioInfo(
+                protocol = protocol,
+                specType = specType,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = method, headersPattern = HttpHeadersPattern(contentType = requestType)),
+                httpResponsePattern = HttpResponsePattern(status = responseCode, headersPattern = HttpHeadersPattern(contentType = responseType)),
+            )
+        )
+
+        val feature = Feature(name = "test", scenarios = listOf(scenario), protocol = protocol)
+        val contractTest = ScenarioAsTest(feature = feature, scenario = scenario, protocol = protocol, specType = specType, flagsBased = DefaultStrategies, originalScenario = scenario)
+        decisions += Decision.Execute(contractTest, scenario, reasoning)
     }
 
     fun decisionSkip(
