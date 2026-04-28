@@ -8,6 +8,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.2")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
+    implementation("info.picocli:picocli:4.7.7")
     implementation("com.networknt:json-schema-validator:2.0.1")
 
     runtimeOnly("ch.qos.logback:logback-classic:1.5.32")
@@ -24,6 +25,8 @@ val enableConformanceTests: String? by project
 val specmaticVersionForConformanceTests: String? by project
 val succeedOnExpectedFailures: String? by project
 
+val expectedFailuresJsonlFile = layout.buildDirectory.file("conformance-expected-failures.jsonl")
+
 tasks.test {
     useJUnitPlatform()
 
@@ -34,6 +37,10 @@ tasks.test {
         }
         if(succeedOnExpectedFailures?.toBoolean() == true) {
             systemProperty("succeedOnExpectedFailures", "true")
+        }
+        val recordsFile = expectedFailuresJsonlFile.get().asFile
+        doFirst {
+            recordsFile.delete()
         }
     } else {
         exclude("io/specmatic/conformance_tests/")
@@ -96,4 +103,12 @@ kotlin {
 
 tasks.named("compileTestKotlin") {
     dependsOn(generateConformanceTests)
+}
+
+tasks.register<JavaExec>("generateSummaryOfExpectedFailures") {
+    group = "verification"
+    description = "Generate markdown summary of expected conformance test failures"
+    mainClass.set("io.specmatic.conformance_test_support.GenerateSummaryOfExpectedFailuresCommandKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    systemProperty("expectedFailuresJsonlFile", expectedFailuresJsonlFile.get().asFile.absolutePath)
 }
