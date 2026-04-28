@@ -35,7 +35,7 @@ enum class TestSkipReason(override val id: String, override val title: String, o
     );
 
     companion object {
-        fun noExamplesNon2xxAndNon400(): TestSkipReason = EXAMPLES_REQUIRED
-        fun noExamples2xxAnd400(strictMode: Boolean): TestSkipReason = if (strictMode) EXAMPLES_REQUIRED_STRICT_MODE else EXAMPLES_REQUIRED
+        fun noExamplesNon2xxAndNon4xx(): TestSkipReason = EXAMPLES_REQUIRED
+        fun noExamples2xxAnd4xx(strictMode: Boolean): TestSkipReason = if (strictMode) EXAMPLES_REQUIRED_STRICT_MODE else EXAMPLES_REQUIRED
     }
 }
