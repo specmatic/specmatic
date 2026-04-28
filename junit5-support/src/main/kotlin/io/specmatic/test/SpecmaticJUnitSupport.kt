@@ -466,8 +466,8 @@ open class SpecmaticJUnitSupport {
 
         startTime = Instant.now()
         return testScenarios.mapNotNull { contractTestDecision ->
-            openApiCoverage.onContractTestDecision(contractTestDecision)
             if (contractTestDecision !is Decision.Execute) {
+                openApiCoverage.onContractTestDecision(contractTestDecision)
                 logger.boundary()
                 logger.log(LOG_SEPARATOR)
                 logger.log(buildString {
@@ -541,6 +541,7 @@ open class SpecmaticJUnitSupport {
                 } finally {
                     if (testResult != null) {
                         contractTest.testResultRecord(testResult)?.let { testResultRecord ->
+                            openApiCoverage.onContractTestDecision(contractTestDecision.flatMapCtx { testResultRecord.scenarioResult?.scenario as? Scenario ?: it })
                             openApiCoverage.addTestReportRecords(testResultRecord)
                         }
                     }

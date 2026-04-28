@@ -4,6 +4,7 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.parsedJsonValue
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
 import io.specmatic.license.core.SpecmaticProtocol
@@ -12,6 +13,7 @@ import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.utils.ContractTestScope
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -250,6 +252,84 @@ class OpenApiCoverageIntegrationTest {
                 assertThat(test.result).isEqualTo(TestResult.Success)
                 assertThat(test.protocol).isEqualTo(SpecmaticProtocol.SOAP)
                 assertThat(test.specType).isEqualTo(SpecType.WSDL)
+            }
+        }
+    }
+
+    @Test
+    fun `should only include operation level reasons for operation that have been truly skipped for -ve generation scenarios`(@TempDir tempDir: File) {
+        val specYaml = """
+        openapi: 3.0.0
+        info:
+          title: Reporting generative
+          version: 1.0.0
+        paths:
+          /orders:
+            get:
+              parameters:
+                - in: header
+                  name: X-Header
+                  required: true
+                  schema:
+                    type: integer
+              responses:
+                '200':
+                  description: OK
+                '400':
+                  description: Bad request
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                '422':
+                  description: Unprocessable request
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+        """.trimIndent()
+
+        ContractTestScope.from(specYaml, tempDir).execute(SpecmaticConfig().enableResiliencyTests()) { server ->
+            server.on("/orders", "GET") {
+                header("X-Header", "(number)")
+                respond(200)
+                otherwise(HttpResponse(status = 422, body = parsedJsonValue("""{"message": "application/json"}""")))
+            }
+        }.verifyOpenApiCoverage {
+            assertThat(totalOperations).isEqualTo(5)
+            assertThat(operations).hasSize(5)
+
+            val badReqAppJson = single("GET", "/orders", 400, responseType = "application/json")
+            assertThat(badReqAppJson.operation.reasons).isEqualTo(Reasoning(TestSkipReason.EXAMPLES_REQUIRED).toCtrfSnapshots())
+            assertThat(badReqAppJson.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+            assertThat(badReqAppJson.tests).isEmpty()
+
+            val badReqPlainText = single("GET", "/orders", 400, responseType = "text/plain")
+            assertThat(badReqPlainText.operation.reasons).isEqualTo(Reasoning(TestSkipReason.EXAMPLES_REQUIRED).toCtrfSnapshots())
+            assertThat(badReqPlainText.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+            assertThat(badReqAppJson.tests).isEmpty()
+
+            val unprocessablePlainText = single("GET", "/orders", 422, responseType = "text/plain")
+            assertThat(unprocessablePlainText.operation.reasons).isEqualTo(Reasoning(TestSkipReason.EXAMPLES_REQUIRED).toCtrfSnapshots())
+            assertThat(unprocessablePlainText.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+
+            val unprocessableAppJson = single("GET", "/orders", 422, responseType = "application/json")
+            assertThat(unprocessableAppJson.operation.reasons).isEmpty()
+            assertThat(unprocessableAppJson.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+            assertThat(unprocessableAppJson.tests).hasSize(3).allSatisfy { test ->
+                assertThat(test.result).isEqualTo(TestResult.Success)
             }
         }
     }

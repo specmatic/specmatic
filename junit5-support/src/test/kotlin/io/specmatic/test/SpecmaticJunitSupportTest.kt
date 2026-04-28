@@ -819,7 +819,7 @@ paths:
         createAlphaBetaServer().use { server ->
             try {
                 SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(testBaseURL = server.baseUrl, contractPaths = specFile.canonicalPath, coverageHooks = listOf(listener)))
-                SpecmaticJUnitSupport().contractTest().toList()
+                SpecmaticJUnitSupport().contractTest().toList().forEach { it.executable.execute() }
                 assertThat(listener.decisions).isNotEmpty.allSatisfy { assertThat(it).isInstanceOf(Decision.Execute::class.java) }
             } finally {
                 SpecmaticJUnitSupport.settingsStaging.remove()
