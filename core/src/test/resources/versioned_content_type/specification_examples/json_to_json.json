@@ -1,0 +1,24 @@
+{
+    "http-request": {
+        "path": "/widgets",
+        "method": "POST",
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "id": 1,
+            "message": "RequestContentType: application/json"
+        }
+    },
+    "http-response": {
+        "status": 201,
+        "body": {
+            "id": 1,
+            "message": "ResponseContentType: application/json"
+        },
+        "status-text": "Created",
+        "headers": {
+            "Content-Type": "application/json"
+        }
+    }
+}

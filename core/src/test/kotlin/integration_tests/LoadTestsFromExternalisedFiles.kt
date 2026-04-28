@@ -1737,4 +1737,78 @@ class LoadTestsFromExternalisedFiles {
             }
         }
     }
+
+    @Nested
+    inner class ParameterizedHeaders {
+        @Test
+        fun `externalized tests should load examples with extra content type parameters`() {
+            val specificationFilePath = "src/test/resources/openapi/spec_with_simple_request_body.yaml"
+            val feature = OpenApiSpecification.fromFile(specificationFilePath).toFeature().loadExternalisedExamples()
+
+            val row = feature.scenarios.single().examples.single().rows.single()
+            assertThat(row.requestExample?.headers?.get("Content-Type"))
+                .isEqualTo("application/json; charset=utf-8")
+            assertThat(row.responseExample?.headers?.get("Content-Type"))
+                .isEqualTo("application/json; charset=utf-8")
+            assertThat(row.requestExample?.body)
+                .isEqualTo(parsedJSONObject("""{"productId": 10, "status": "fulfilled", "quantity": 100}"""))
+            assertThat(row.responseExample?.body)
+                .isEqualTo(parsedJSONObject("""{"id": 1}"""))
+        }
+
+        @Test
+        fun `externalized tests should load examples without content type parameters`() {
+            val specificationFilePath = "src/test/resources/openapi/simple_products_spec.yaml"
+            val feature = OpenApiSpecification.fromFile(specificationFilePath).toFeature().loadExternalisedExamples()
+
+            val exampleRows = feature.scenarios.single().examples.single().rows
+            assertThat(exampleRows).hasSize(2)
+
+            val noContentTypeRow = exampleRows.single { it.name == "no_content_type" }
+            assertThat(noContentTypeRow.requestExample?.contentType()).isNull()
+            assertThat(noContentTypeRow.responseExample?.contentType()).isNull()
+            assertThat(noContentTypeRow.requestExample?.body).isSameAs(EmptyString)
+            assertThat(noContentTypeRow.responseExample?.body).isEqualTo(StringValue("Another Sample Product"))
+        }
+
+        @Test
+        @Disabled // TODO: Test expected to fail
+        fun `externalized tests should load matching examples for versioned content types`() {
+            val specFile = File("src/test/resources/versioned_content_type/specification.yaml")
+            val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+            assertThat(feature.scenarios).hasSize(4)
+            val scenariosByContentTypes = feature.scenarios.associateBy {
+                it.requestContentType to it.responseContentType
+            }
+
+            val expectedContentTypes = listOf(
+                "application/json",
+                "application/vnd.widget.json",
+                "application/json; version=2026-12-31",
+                "application/vnd.widget.json; version=2026-12-31",
+            )
+
+            assertThat(expectedContentTypes).allSatisfy { contentType ->
+                val scenario = scenariosByContentTypes.getValue(contentType to contentType)
+                val rows = scenario.examples.flatMap { it.rows }
+                assertThat(rows)
+                    .withFailMessage("Expected only $contentType example to be loaded, found ${rows.joinToString(separator = " AND ", transform = { it.requestExample?.contentType().orEmpty() })}")
+                    .hasSize(1)
+
+                val row = rows.singleOrNull() ?: return@allSatisfy
+                assertThat(row.requestExample?.headers?.get("Content-Type"))
+                    .isEqualTo(contentType)
+
+                assertThat(row.responseExample?.headers?.get("Content-Type"))
+                    .isEqualTo(contentType)
+
+                assertThat(row.requestExample?.body?.toStringLiteral())
+                    .isEqualTo("""{"id": 1, "message": "RequestContentType: $contentType"}""")
+
+                assertThat(row.responseExample?.body?.toStringLiteral())
+                    .isEqualTo("""{"id": 1, "message": "ResponseContentType: $contentType"}""")
+            }
+        }
+    }
 }
