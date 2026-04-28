@@ -1339,6 +1339,8 @@ class OpenApiSpecification(
 
         val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
         val contentContext = collectorContext.at("content")
+        val allMediaTypes = response.content.keys.toSet()
+        val baseHeadersPattern = HttpHeadersPattern(headersMap.mapValues { it.value.first }, preferEscapedSoapAction = preferEscapedSoapAction)
         return response.content.map { (contentType, mediaType) ->
             logger.debug("Processing response with content type $contentType")
             val mediaTypeContext = contentContext.at(contentType)
@@ -1349,12 +1351,9 @@ class OpenApiSpecification(
                 contentType
             }
 
+            val otherHttpHeadersPattern = allMediaTypes.minus(contentType).map { baseHeadersPattern.copy(contentType = it) }
             val responsePattern = HttpResponsePattern(
-                headersPattern = HttpHeadersPattern(
-                    headersMap.mapValues { it.value.first },
-                    contentType = contentType,
-                    preferEscapedSoapAction = preferEscapedSoapAction
-                ),
+                headersPattern = baseHeadersPattern.copy(contentType = contentType, otherHttpHeadersPattern = otherHttpHeadersPattern),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
@@ -1499,9 +1498,11 @@ class OpenApiSpecification(
         }
 
         val contentContext = requestBodyContext.at("content")
+        val allMediaTypes = requestBody.content.keys.toSet()
         return requestBody.content.map { (contentType, mediaType) ->
             logger.debug("Processing request payload with media type $contentType")
             val mediaTypeContext = contentContext.at(contentType)
+            val otherHttpHeadersPattern = allMediaTypes.minus(contentType).map { headersPattern.copy(contentType = it) }
             when (contentType.lowercase()) {
                 "multipart/form-data" -> {
                     val partSchemas = resolveSchemaIfRef(mediaType.schema, collectorContext = mediaTypeContext)
@@ -1532,7 +1533,10 @@ class OpenApiSpecification(
                     Pair(
                         requestPattern.copy(
                             multiPartFormDataPattern = parts,
-                            headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                            headersPattern = headersPattern.copy(
+                                contentType = contentType,
+                                otherHttpHeadersPattern = otherHttpHeadersPattern
+                            )
                         ), emptyMap()
                     )
                 }
@@ -1540,14 +1544,20 @@ class OpenApiSpecification(
                 "application/x-www-form-urlencoded" -> Pair(
                     requestPattern.copy(
                         formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
-                        headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                        headersPattern = headersPattern.copy(
+                            contentType = contentType,
+                            otherHttpHeadersPattern = otherHttpHeadersPattern
+                        )
                     ), emptyMap()
                 )
 
                 "application/xml" -> Pair(
                     requestPattern.copy(
                         body = toXMLPattern(mediaType, collectorContext = mediaTypeContext),
-                        headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                        headersPattern = headersPattern.copy(
+                            contentType = contentType,
+                            otherHttpHeadersPattern = otherHttpHeadersPattern
+                        )
                     ), emptyMap()
                 )
 
@@ -1582,7 +1592,10 @@ class OpenApiSpecification(
                     Pair(
                         requestPattern.copy(
                             body = body,
-                            headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                            headersPattern = headersPattern.copy(
+                                contentType = contentType,
+                                otherHttpHeadersPattern = otherHttpHeadersPattern
+                            )
                         ), allExamples
                     )
                 }
@@ -1676,13 +1689,6 @@ class OpenApiSpecification(
             }
         }
     }
-
-    private fun headersPatternWithContentType(
-        requestPattern: HttpRequestPattern,
-        contentType: String
-    ) = requestPattern.headersPattern.copy(
-        contentType = contentType
-    )
 
     private inline fun <reified T : Parameter> namedExampleParams(parameters: List<Parameter>): Map<String, Map<String, String>> {
         if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
