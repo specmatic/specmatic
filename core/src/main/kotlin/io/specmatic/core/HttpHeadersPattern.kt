@@ -14,7 +14,8 @@ data class HttpHeadersPattern(
     val pattern: Map<String, Pattern> = emptyMap(),
     val ancestorHeaders: Map<String, Pattern>? = null,
     val contentType: String? = null,
-    val preferEscapedSoapAction: Boolean = false
+    val preferEscapedSoapAction: Boolean = false,
+    val otherHttpHeadersPattern: Collection<HttpHeadersPattern> = emptyList(),
 ) {
     init {
         val uniqueHeaders = pattern.keys.map { it.lowercase() }.distinct()
@@ -93,7 +94,6 @@ data class HttpHeadersPattern(
 
         return MatchSuccess(parameters)
     }
-
 
     private fun matchEach(parameters: Pair<Map<String, String>, Resolver>): MatchingResult<Pair<Map<String, String>, Resolver>> {
         val (headers, resolver) = parameters

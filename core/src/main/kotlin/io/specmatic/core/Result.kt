@@ -407,6 +407,7 @@ enum class FailureReason(val fluffLevel: Int, val objectMatchOccurred: Boolean) 
     URLPathMisMatch(2, false),
     URLPathParamMismatchButSameStructure(1, false),
     URLPathParamMatchButConflict(2, false),
+    ContentTypeMatchButConflict(2, false),
     SOAPActionMismatch(2, false),
     DiscriminatorMismatch(0, true),
     FailedButDiscriminatorMatched(0, true),
