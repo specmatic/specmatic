@@ -73,6 +73,38 @@ class ExampleFromFileTest {
     }
 
     @Test
+    fun `should preserve content type parameters in request and response`() {
+        val jsonContent = """{
+        "name": "content-type-params",
+        "http-request": {
+            "method": "POST",
+            "path": "/api/users",
+            "headers": {
+                "Content-Type": "application/json; charset=utf-8"
+            }
+        },
+        "http-response": {
+            "status": 200,
+            "headers": {
+                "Content-Type": "application/problem+json; charset=utf-8"
+            },
+            "body": "ok"
+        }
+        }""".trimIndent()
+
+        val file = createTempFile(jsonContent)
+        val example = ExampleFromFile.fromFile(file)
+
+        assertThat(example).isInstanceOf(HasValue::class.java)
+        val exampleFromFile = (example as HasValue).value
+
+        assertThat(exampleFromFile.requestContentType).isEqualTo("application/json; charset=utf-8")
+        assertThat(exampleFromFile.responseContentType).isEqualTo("application/problem+json; charset=utf-8")
+        assertThat(exampleFromFile.request.headers).containsEntry("Content-Type", "application/json; charset=utf-8")
+        assertThat(exampleFromFile.response.headers).containsEntry("Content-Type", "application/problem+json; charset=utf-8")
+    }
+
+    @Test
     fun `should handle partial example`() {
         val jsonContent = """
             {

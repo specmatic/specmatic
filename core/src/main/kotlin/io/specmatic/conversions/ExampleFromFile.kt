@@ -75,12 +75,12 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     val requestPath: String? = request.path?.let(::URI)?.path
     val requestMethod: String? = request.method
     val queryParams: Map<String, String> = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
-    val requestContentType: String? = request.headers.getCaseInsensitive(CONTENT_TYPE)?.split(";")?.firstOrNull()
+    val requestContentType: String? = request.headers.getCaseInsensitive(CONTENT_TYPE)
     val requestBody: Value? = request.body.takeUnless { it === EmptyString }
 
     val response: HttpResponse = scenarioStub.responseElsePartialResponse()
     val responseStatus: Int? = response.status.takeUnless { it == 0 }
-    val responseContentType: String? = response.headers.getCaseInsensitive(CONTENT_TYPE)?.split(";")?.firstOrNull()
+    val responseContentType: String? = response.headers.getCaseInsensitive(CONTENT_TYPE)
     val responseBody: Value? = response.body.takeUnless { it === EmptyString }
 
     fun isPartial(): Boolean = scenarioStub.isPartial()
