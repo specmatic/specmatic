@@ -25,7 +25,7 @@ dependencies {
     implementation("io.ktor:ktor-network-tls-jvm:2.3.13")
     implementation("io.ktor:ktor-network-tls-certificates-jvm:2.3.13")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.3")
 
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
     implementation("org.junit.platform:junit-platform-reporting:1.14.4")
