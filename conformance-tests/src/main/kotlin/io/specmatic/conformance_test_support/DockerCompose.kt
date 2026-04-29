@@ -43,6 +43,8 @@ class DockerCompose(
     }
 
     private fun run(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): CommandResult {
+        val commandString = command.command().joinToString(" ")
+
         val process = command.start()
 
         val stdoutFuture = CompletableFuture.supplyAsync {
@@ -53,13 +55,16 @@ class DockerCompose(
             process.errorReader(Charsets.UTF_8).readText()
         }
 
-        val finished = process.waitFor(timeout, timeUnit)
-        if (!finished) {
-            process.destroyForcibly()
+        val exited = process.waitFor(timeout, timeUnit)
+        if (!exited) {
+            val destroyed = process.destroyForcibly().waitFor(timeout, timeUnit)
+            if (!destroyed) {
+                error("unable to destroy command: $commandString")
+            }
         }
 
         return CommandResult(
-            command = command.command().joinToString(" "),
+            command = commandString,
             exitCode = process.exitValue(),
             output = stdoutFuture.get(),
             errorOutput = stderrFuture.get()
