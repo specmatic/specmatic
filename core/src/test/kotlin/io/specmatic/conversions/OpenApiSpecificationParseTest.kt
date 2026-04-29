@@ -470,39 +470,13 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `should load other media types into headers pattern when parsing specification with overrides`() {
+    fun `should not load other media types into headers pattern when parsing specification when operation differs`() {
         val specFile = File("src/test/resources/versioned_overridden_content_type/specification.yaml")
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
-        assertThat(feature.scenarios).isNotEmpty
-        feature.scenarios.forEach { scenario ->
-            assertThat(scenario.httpRequestPattern.headersPattern.otherHttpHeadersPattern).allSatisfy { otherHeadersPattern ->
-                assertThat(otherHeadersPattern).isInstanceOf(HttpHeadersPattern::class.java)
-                assertThat(otherHeadersPattern.pattern.getCaseInsensitive(CONTENT_TYPE)).isNotNull
-                assertThat(otherHeadersPattern.contentType).isNotBlank
-            }
-
-            assertThat(scenario.httpRequestPattern.headersPattern.otherHttpHeadersPattern)
-                .extracting<String?> { it.contentType }
-                .doesNotContain(scenario.requestContentType)
-
-            assertThat(scenario.httpRequestPattern.headersPattern.otherHttpHeadersPattern)
-                .extracting<Pattern?> { it.pattern.getCaseInsensitive(CONTENT_TYPE)?.value }
-                .contains(scenario.httpRequestPattern.headersPattern.pattern.getCaseInsensitive(CONTENT_TYPE)?.value)
-
-            assertThat(scenario.httpResponsePattern.headersPattern.otherHttpHeadersPattern).allSatisfy { otherHeadersPattern ->
-                assertThat(otherHeadersPattern).isInstanceOf(HttpHeadersPattern::class.java)
-                assertThat(otherHeadersPattern.pattern.getCaseInsensitive(CONTENT_TYPE)).isNotNull
-                assertThat(otherHeadersPattern.contentType).isNotBlank
-            }
-
-            assertThat(scenario.httpResponsePattern.headersPattern.otherHttpHeadersPattern)
-                .extracting<String?> { it.contentType }
-                .doesNotContain(scenario.responseContentType)
-
-            assertThat(scenario.httpResponsePattern.headersPattern.otherHttpHeadersPattern)
-                .extracting<Pattern?> { it.pattern.getCaseInsensitive(CONTENT_TYPE)?.value }
-                .doesNotContain(scenario.httpResponsePattern.headersPattern.pattern.getCaseInsensitive(CONTENT_TYPE)?.value)
+        assertThat(feature.scenarios).isNotEmpty.allSatisfy { scenario ->
+            assertThat(scenario.httpRequestPattern.headersPattern.otherHttpHeadersPattern).isEmpty()
+            assertThat(scenario.httpResponsePattern.headersPattern.otherHttpHeadersPattern).isEmpty()
         }
     }
 

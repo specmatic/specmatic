@@ -1,6 +1,6 @@
 {
     "http-request": {
-        "path": "/widgets",
+        "path": "/widgets/versioned-vendor-json",
         "method": "POST",
         "headers": {
             "Content-Type": "application/vnd.widget.json; version=2026-12-31"
@@ -11,12 +11,12 @@
         }
     },
     "http-response": {
-        "status": 201,
+        "status": 204,
         "body": {
             "id": 1,
             "message": "ResponseContentType: application/vnd.widget.json; version=2026-12-31"
         },
-        "status-text": "Created",
+        "status-text": "No Content",
         "headers": {
             "Content-Type": "application/vnd.widget.json; version=2026-12-31"
         }

@@ -1772,8 +1772,7 @@ class LoadTestsFromExternalisedFiles {
         }
 
         @Test
-        @Disabled // TODO: Test expected to fail
-        fun `externalized tests should load matching examples for versioned content types`() {
+        fun `externalized tests should load matching examples for content types with attributes`() {
             val specFile = File("src/test/resources/versioned_content_type/specification.yaml")
             val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
 
@@ -1803,11 +1802,41 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(row.responseExample?.headers?.get("Content-Type"))
                     .isEqualTo(contentType)
 
-                assertThat(row.requestExample?.body?.toStringLiteral())
-                    .isEqualTo("""{"id": 1, "message": "RequestContentType: $contentType"}""")
+                assertThat(row.requestExample?.body)
+                    .isEqualTo(parsedJSONObject("""{"id": 1, "message": "RequestContentType: $contentType"}"""))
 
-                assertThat(row.responseExample?.body?.toStringLiteral())
-                    .isEqualTo("""{"id": 1, "message": "ResponseContentType: $contentType"}""")
+                assertThat(row.responseExample?.body)
+                    .isEqualTo(parsedJSONObject("""{"id": 1, "message": "ResponseContentType: $contentType"}"""))
+            }
+        }
+
+        @Test
+        fun `externalized tests should load matching examples for overridden content types`() {
+            val specFile = File("src/test/resources/versioned_overridden_content_type/specification.yaml")
+            val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+            assertThat(feature.scenarios).hasSize(4)
+            val expectedExamples = listOf(
+                "/widgets/json" to "application/json",
+                "/widgets/vendor-json" to "application/vnd.widget.json",
+                "/widgets/versioned-json" to "application/json; version=2026-12-31",
+                "/widgets/versioned-vendor-json" to "application/vnd.widget.json; version=2026-12-31",
+            )
+
+            assertThat(feature.scenarios).allSatisfy { scenario ->
+                val rows = scenario.examples.flatMap { example -> example.rows }
+                assertThat(rows).hasSize(1)
+
+                val row = rows.single()
+                val (expectedPath, contentType) = expectedExamples.single { (path, contentType) ->
+                    row.requestExample?.path == path && row.requestExample.contentType() == contentType
+                }
+
+                assertThat(row.requestExample?.path).isEqualTo(expectedPath)
+                assertThat(row.requestExample?.headers?.get("Content-Type")).isEqualTo(contentType)
+                assertThat(row.responseExample?.headers?.get("Content-Type")).isEqualTo(contentType)
+                assertThat(row.requestExample?.body).isEqualTo(parsedJSONObject("""{"id": 1, "message": "RequestContentType: $contentType"}"""))
+                assertThat(row.responseExample?.body).isEqualTo(parsedJSONObject("""{"id": 1, "message": "ResponseContentType: $contentType"}"""))
             }
         }
     }

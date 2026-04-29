@@ -1,6 +1,6 @@
 {
     "http-request": {
-        "path": "/widgets",
+        "path": "/widgets/vendor-json",
         "method": "POST",
         "headers": {
             "Content-Type": "application/vnd.widget.json"
@@ -11,12 +11,12 @@
         }
     },
     "http-response": {
-        "status": 201,
+        "status": 203,
         "body": {
             "id": 1,
             "message": "ResponseContentType: application/vnd.widget.json"
         },
-        "status-text": "Created",
+        "status-text": "Non-Authoritative Information",
         "headers": {
             "Content-Type": "application/vnd.widget.json"
         }
