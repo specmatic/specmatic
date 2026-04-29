@@ -2169,7 +2169,7 @@ components:
         val result = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
-                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json"))
+                return HttpResponse(200, body = parsedJSONObject("{}"), headers = mapOf(CONTENT_TYPE to "application/json; charset=utf-8"))
             }
         })
 
