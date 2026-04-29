@@ -102,6 +102,9 @@ enum class HTTPFilterKeys(val key: String, val isPrefix: Boolean) {
     },
     EXAMPLE_NAME("EXAMPLE-NAME", false) {
         override fun includes(scenario: Scenario, key: String, value: String): Boolean {
+            if (scenario.exampleName != null) {
+                return scenario.exampleName == value
+            }
             return scenario.examples.any { example ->
                 example.rows.any { eachRow -> eachRow.name == value }
             }
