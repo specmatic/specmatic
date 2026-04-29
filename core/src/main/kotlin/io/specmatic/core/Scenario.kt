@@ -1,6 +1,5 @@
 package io.specmatic.core
 
-import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
@@ -842,27 +841,27 @@ data class Scenario(
     fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
         val hasExamples = hasExamples()
         val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
-        val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
+        val noExamples4xxResponse = !isGherkinScenario && status in 400..499 && !hasExamples
 
-        if (badRequestHasNoExample && negativeGenerationEnabled) {
+        if (noExamples4xxResponse && negativeGenerationEnabled) {
             if (!strictMode) return null
-            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
+            val ruleViolation = TestSkipReason.noExamples2xxAnd4xx(true)
             return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
         }
 
-        if (badRequestHasNoExample) {
-            val otherReasons = listOf(TestSkipReason.noExamples2xxAnd400(strictMode))
+        if (noExamples4xxResponse) {
+            val otherReasons = listOf(TestSkipReason.noExamples2xxAnd4xx(strictMode))
             val reason = Reasoning(mainReason = TestSkipReason.GENERATIVE_DISABLED, otherReasons = otherReasons)
             return Decision.Skip(context = this, reasoning = reason)
         }
 
         if (!isGherkinScenario && !isA2xxScenario() && !hasExamples) {
-            val ruleViolation = TestSkipReason.noExamplesNon2xxAndNon400()
+            val ruleViolation = TestSkipReason.noExamplesNon2xxAndNon4xx()
             return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
         }
 
         if (strictMode && !hasExamples) {
-            val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)
+            val ruleViolation = TestSkipReason.noExamples2xxAnd4xx(true)
             return Decision.Skip(context = this, reasoning = Reasoning(mainReason = ruleViolation))
         }
 

@@ -1,8 +1,15 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.core.utilities.Reasoning
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.TestExecutionReason
+import io.specmatic.test.TestSkipReason
+import io.specmatic.test.reports.TestExecutionResult
+import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.utils.OpenApiCoverageBuilder
 import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
@@ -186,6 +193,103 @@ class OpenApiCoverageTest {
             assertThat(missingInSpecView.apiOperation.responseContentType).isNull()
             assertThat(missingInSpecView.operation.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
         }
+    }
+
+    @Test
+    fun `should keep default skip reasoning in report when generative 4xx scenario has no decision`() {
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            specEndpoint(method = "POST", path = "/orders", responseCode = 400, responseType = "application/json")
+        }
+
+        val report = coverage.generate()
+        report.verify {
+            val badRequestView = single("POST", "/orders", 400)
+            assertThat(badRequestView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+            assertThat(badRequestView.operation.eligibleForCoverage).isTrue()
+            assertThat(badRequestView.operation.reasons.map { it.id }).containsExactly(TestSkipReason.EXAMPLES_REQUIRED.id)
+            assertThat(badRequestView.tests).isEmpty()
+        }
+    }
+
+    @Test
+    fun `should prefer explicit decision over default skip decision during report generation`() {
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            specEndpoint(method = "POST", path = "/orders", responseCode = 400, responseType = "application/json")
+            decisionSkip(
+                path = "/orders",
+                method = "POST",
+                responseCode = 400,
+                responseType = "application/json",
+                reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+            )
+        }
+
+        val report = coverage.generate()
+        report.verify {
+            val badRequestView = single("POST", "/orders", 400)
+            assertThat(badRequestView.operation.reasons.map { it.id }).containsExactly(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE.id)
+            assertThat(badRequestView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+        }
+    }
+
+    @Test
+    fun `should prefer explicit decision over default skip decision during report generation with path parameters`() {
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            specEndpoint(method = "POST", path = "/orders/{id}", responseCode = 400, responseType = "application/json")
+            decisionSkip(
+                path = "/orders/(id:number)",
+                method = "POST",
+                responseCode = 400,
+                responseType = "application/json",
+                reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE)
+            )
+        }
+
+        val report = coverage.generate()
+        report.verify {
+            val badRequestView = single("POST", "/orders/{id}", 400)
+            assertThat(badRequestView.operation.reasons.map { it.id }).containsExactly(TestSkipReason.EXAMPLES_REQUIRED_STRICT_MODE.id)
+            assertThat(badRequestView.operation.coverageStatus).isEqualTo(CoverageStatus.NOT_TESTED)
+        }
+    }
+
+    @Test
+    fun `should not add default skip decision when explicit execution reasoning exists`() {
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            specEndpoint(method = "POST", path = "/orders", responseCode = 400, responseType = "application/json")
+            testResult(path = "/orders", method = "POST", responseCode = 400, responseType = "application/json", result = TestResult.Success)
+            decisionExecute(
+                path = "/orders",
+                method = "POST",
+                responseCode = 400,
+                responseType = "application/json",
+                reasoning = Reasoning(mainReason = TestExecutionReason.HAS_EXAMPLE)
+            )
+        }
+
+        val report = coverage.generate()
+        report.verify {
+            val badRequestView = single("POST", "/orders", 400)
+            assertThat(badRequestView.operation.reasons).isEmpty()
+            assertThat(badRequestView.operation.omittedStatus).isEqualTo(OmittedStatus.NONE)
+            assertThat(badRequestView.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+        }
+    }
+
+    @Test
+    fun `should call onTestDecision for default decision only during generate`() {
+        val listener = RecordingTestDecisionListener()
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            addListener(listener)
+            specEndpoint(method = "POST", path = "/orders", responseCode = 400, responseType = "application/json")
+        }
+
+        coverage.generateWithoutHooks()
+        assertThat(listener.decisions).isEmpty()
+
+        coverage.generate()
+        assertThat(listener.decisions).hasSize(1)
+        assertThat(listener.decisions.single().reasoning.mainReason).isEqualTo(TestSkipReason.EXAMPLES_REQUIRED)
     }
 
     @Test
@@ -380,4 +484,22 @@ class OpenApiCoverageTest {
             assertThat(single(method = "GET", path = "/orders", responseCode = 200).apiOperation.path).isEqualTo("/orders")
         }
     }
+}
+
+private class RecordingTestDecisionListener : TestReportListener {
+    val decisions = mutableListOf<io.specmatic.core.utilities.Decision<*, OpenAPIOperation>>()
+    override fun onTestDecision(decision: io.specmatic.core.utilities.Decision<*, OpenAPIOperation>) {
+        decisions += decision
+    }
+
+    override fun onActuator(enabled: Boolean) = Unit
+    override fun onActuatorApis(apisNotExcluded: List<io.specmatic.test.API>, apisExcluded: List<io.specmatic.test.API>) = Unit
+    override fun onEndpointApis(endpointsNotExcluded: List<Endpoint>, endpointsExcluded: List<Endpoint>) = Unit
+    override fun onTestResult(result: TestExecutionResult) = Unit
+    override fun onExampleErrors(resultsBySpecFile: Map<String, io.specmatic.core.Result>) = Unit
+    override fun onTestsComplete() = Unit
+    override fun onEnd() = Unit
+    override fun onCoverageCalculated(coverage: Int, absoluteCoverage: Int) = Unit
+    override fun onPathCoverageCalculated(path: String, pathCoverage: Int) = Unit
+    override fun onGovernance(result: io.specmatic.core.Result) = Unit
 }

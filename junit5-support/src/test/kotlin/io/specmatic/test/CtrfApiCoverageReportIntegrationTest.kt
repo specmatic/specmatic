@@ -370,7 +370,7 @@ class CtrfApiCoverageReportIntegrationTest {
                 decisions = mapOf(
                     endpoint to listOf(
                         Decision.Skip(
-                            context = parseContractFileToFeature(specFile, sourceProvider = SourceProvider.filesystem.name).scenarios.first(),
+                            context = OpenAPIOperation(path = endpoint.path, method = endpoint.method, contentType = endpoint.requestContentType, responseCode = endpoint.responseStatus, protocol = endpoint.protocol, responseContentType = endpoint.responseContentType),
                             reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED, otherReasons = listOf(TestSkipReason.EXAMPLES_REQUIRED))
                         )
                     )

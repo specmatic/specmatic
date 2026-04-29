@@ -4,7 +4,8 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.filters.ExpressionStandardizer
 import io.specmatic.core.filters.TestRecordFilter
 import io.specmatic.core.utilities.Decision
-import io.specmatic.core.utilities.mapValue
+import io.specmatic.core.utilities.Reasoning
+import io.specmatic.core.utilities.flatMapCtx
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -14,6 +15,7 @@ import io.specmatic.test.API
 import io.specmatic.test.ContractTest
 import io.specmatic.test.HttpInteractionsLog
 import io.specmatic.test.TestResultRecord
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.onEachListener
 import io.specmatic.test.reports.onTestResult
@@ -25,13 +27,15 @@ class OpenApiCoverage(
     private val previousRunCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
     private val httpInteractionsLog: HttpInteractionsLog = HttpInteractionsLog(),
     private val coverageReportGenerator: CoverageReportGenerator = CoverageReportGenerator(),
+    private val defaultSkipReasoning: Reasoning = Reasoning(mainReason = TestSkipReason.EXAMPLES_REQUIRED)
 ) {
     private val testResultRecords: MutableList<TestResultRecord> = mutableListOf()
     private val applicationAPIs: MutableList<API> = mutableListOf()
     private val excludedAPIs: MutableList<String> = mutableListOf()
     private val allSpecEndpoints: MutableList<Endpoint> = mutableListOf()
     private val specEndpointsInScope: MutableList<Endpoint> = mutableListOf()
-    private val contractTestDecisions: MutableMap<Endpoint, List<Decision<ContractTest, Scenario>>> = mutableMapOf()
+    private val contractTestDecisions: MutableMap<Endpoint, List<Decision<*, OpenAPIOperation>>> = mutableMapOf()
+    private val defaultContractTestDecisions: MutableMap<Endpoint, Decision.Skip<OpenAPIOperation>> = mutableMapOf()
     private var endpointsAPISet: Boolean = false
 
     fun addTestReportRecords(testResultRecord: TestResultRecord) {
@@ -61,6 +65,7 @@ class OpenApiCoverage(
     }
 
     fun addEndpoints(allEndpoints: List<Endpoint> = emptyList(), filteredEndpoints: List<Endpoint> = emptyList()) {
+        seedDefaultSkipDecisions(allEndpoints)
         this.allSpecEndpoints.addAll(allEndpoints)
         this.specEndpointsInScope.addAll(filteredEndpoints)
         val excludedEndpoints = allEndpoints.toSet().minus(filteredEndpoints.toSet()).toList()
@@ -76,7 +81,7 @@ class OpenApiCoverage(
 
     fun onContractTestDecision(contractTestDecision: Decision<Pair<ContractTest, String>, Scenario>) {
         val key = Endpoint(contractTestDecision.context)
-        val decision = contractTestDecision.mapValue { it.first }
+        val decision = contractTestDecision.flatMapCtx { scenario -> scenario.toOpenApiOperation() }
         coverageHooks.onEachListener { onTestDecision(decision) }
         contractTestDecisions[key] = contractTestDecisions.getOrDefault(key, emptyList()).plus(decision)
     }
@@ -94,6 +99,7 @@ class OpenApiCoverage(
     }
 
     fun generate(): OpenApiCoverageReport {
+        notifyDefaultDecisionsToHooks()
         return generateInternal(coverageHooks)
     }
 
@@ -123,13 +129,32 @@ class OpenApiCoverage(
 
     private fun coverageContext(): CoverageContext {
         return CoverageContext(
-            decisions = contractTestDecisions,
+            decisions = getMergedDecisions(),
             endpointsApiAvailable = endpointsAPISet,
             allSpecEndpoints = allSpecEndpoints.toList(),
             applicationEndpoints = filteredApplicationEndpoints(),
             previousCoverageMetrics = previousRunCoverageMetrics,
             tests = filteredTestResultRecords(),
         )
+    }
+
+    private fun getMergedDecisions(): Map<Endpoint, List<Decision<*, OpenAPIOperation>>> {
+        return buildMap {
+            putAll(defaultContractTestDecisions.mapValues { (_, decision) -> listOf(decision) })
+            putAll(contractTestDecisions)
+        }
+    }
+
+    private fun notifyDefaultDecisionsToHooks() {
+        defaultContractTestDecisions.filterKeys { it !in contractTestDecisions }.values.forEach { defaultDecision ->
+            coverageHooks.onEachListener { onTestDecision(defaultDecision) }
+        }
+    }
+
+    private fun seedDefaultSkipDecisions(endpoints: List<Endpoint>) {
+        defaultContractTestDecisions.putAll(from = endpoints.associateWith {
+            Decision.Skip(context = it.toOpenApiOperation(), reasoning = defaultSkipReasoning)
+        })
     }
 
     private fun filteredTestResultRecords(): List<TestResultRecord> {
@@ -162,5 +187,9 @@ class OpenApiCoverage(
         )
 
         return projectedFilterExpression.with("context", TestRecordFilter(missingInSpecRecord)).evaluate().booleanValue
+    }
+
+    private fun Scenario.toOpenApiOperation(): OpenAPIOperation {
+        return Endpoint(this).toOpenApiOperation()
     }
 }
