@@ -9,7 +9,6 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.value.*
 import io.specmatic.test.TestExecutor
 import io.specmatic.toViolationReportString
-import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
@@ -18,8 +17,10 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import java.util.function.Consumer
 import kotlin.collections.HashMap
+import java.util.stream.Stream
 
 internal class HttpHeadersPatternTest {
     @Test
@@ -898,6 +899,71 @@ internal class HttpHeadersPatternTest {
     }
 
     @Nested
+    inner class ContentTypeMatchingTests {
+        @ParameterizedTest(name = "{0} vs {1}")
+        @CsvSource(
+            "application/json, application/json",
+            "Application/JSON, application/json",
+            "application/json; charset=utf-8, application/json",
+            "application/json; charset=utf-8; version=2026-12-31, application/json; charset=utf-8",
+        )
+        fun `should match content type by base type and parameters`(actualContentType: String, expectedContentType: String) {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = expectedContentType)
+            val actualHeaders = mapOf("Content-Type" to actualContentType)
+            val result = httpHeaders.matches(actualHeaders, Resolver())
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+
+        @ParameterizedTest(name = "{0} vs {1}")
+        @CsvSource(
+            "application/xml, application/json",
+            "application/json, application/json; version=2026-12-31",
+            "application/json; charset=utf-8, application/json; charset=utf-16",
+        )
+        fun `should not match content type where base type or parameters differ`(actualContentType: String, expectedContentType: String) {
+            val httpHeaders = HttpHeadersPattern(emptyMap(), contentType = expectedContentType)
+            val actualHeaders = mapOf("Content-Type" to actualContentType)
+            val result = httpHeaders.matches(actualHeaders, Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+        }
+
+        @Test
+        fun `specific media type should outrank wildcard media type`() {
+            val specific = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val wildcard = HttpHeadersPattern(emptyMap(), contentType = "application/*", otherHttpHeadersPattern = listOf(specific))
+
+            val result = wildcard.matches(mapOf("Content-Type" to "application/json"), Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat((result as Result.Failure).hasReason(FailureReason.ContentTypeMatchButConflict)).isTrue
+        }
+
+        @Test
+        fun `specific media type should outrank any wildcard media type`() {
+            val specific = HttpHeadersPattern(emptyMap(), contentType = "application/json")
+            val wildcard = HttpHeadersPattern(emptyMap(), contentType = "*/*", otherHttpHeadersPattern = listOf(specific))
+
+            val result = wildcard.matches(mapOf("Content-Type" to "application/json"), Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat((result as Result.Failure).hasReason(FailureReason.ContentTypeMatchButConflict)).isTrue
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.HttpHeadersPatternTest#conflictingContentTypeCases")
+        fun `should not match content type when more specific versioned pattern exists`(case: ContentTypeCase) {
+            val result = case.toPattern().matches(mapOf("Content-Type" to case.actualContentType), Resolver())
+            assertThat(result).isInstanceOf(Result.Failure::class.java); result as Result.Failure
+            assertThat(result.hasReason(FailureReason.ContentTypeMatchButConflict)).isTrue
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.HttpHeadersPatternTest#nonConflictingContentTypeCases")
+        fun `should match content type when more specific versioned pattern does not exists`(case: ContentTypeCase) {
+            val result = case.toPattern().matches(mapOf("Content-Type" to case.actualContentType), Resolver())
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+    }
+
+    @Nested
     inner class FillInTheBlanksTests {
         @Test
         fun `should generate values for missing mandatory keys and pattern tokens`() {
@@ -1050,5 +1116,93 @@ internal class HttpHeadersPatternTest {
             val value = assertDoesNotThrow { httpHeaders.fillInTheBlanks(headers, Resolver()).value }
             assertThat(value).isEqualTo(headers)
         }
+    }
+
+    companion object {
+        data class ContentTypePatternSpec(val contentType: String, val contentTypeOverride: Pattern? = null) {
+            fun toPattern(): HttpHeadersPattern {
+                val pattern = contentTypeOverride?.let { mapOf(CONTENT_TYPE to it) }.orEmpty()
+                return HttpHeadersPattern(pattern = pattern, contentType = contentType, )
+            }
+        }
+
+        data class ContentTypeCase(val name: String, val actualContentType: String, val thisSpec: ContentTypePatternSpec, val otherSpecs: List<ContentTypePatternSpec>) {
+            override fun toString() = name
+            fun toPattern(): HttpHeadersPattern = thisSpec.toPattern().copy(otherHttpHeadersPattern = otherSpecs.map { it.toPattern() })
+        }
+
+        @JvmStatic
+        fun conflictingContentTypeCases(): Stream<ContentTypeCase> = Stream.of(
+            ContentTypeCase(
+                name = "base media type should conflict with matching versioned override",
+                actualContentType = "application/json; version=2026-12-31",
+                thisSpec = ContentTypePatternSpec("application/json"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/json; version=2026-12-31"))
+            ),
+            ContentTypeCase(
+                name = "base media type should conflict with exact content-type override",
+                actualContentType = "text/plain; version=2026-12-31",
+                thisSpec = ContentTypePatternSpec("text/plain"),
+                otherSpecs = listOf(ContentTypePatternSpec("text/plain", ExactValuePattern(StringValue("text/plain; version=2026-12-31"))))
+            ),
+            ContentTypeCase(
+                name = "base media type should conflict with exact override on parameterized content-type",
+                actualContentType = "application/xml; charset=utf-8; version=2026-12-31",
+                thisSpec = ContentTypePatternSpec("application/xml; charset=utf-8"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/xml; charset=utf-8", ExactValuePattern(StringValue("application/xml; charset=utf-8; version=2026-12-31"))))
+            ),
+            ContentTypeCase(
+                name = "base media type should conflict with regex string override",
+                actualContentType = "application/json; version=2026-12-31",
+                thisSpec = ContentTypePatternSpec("application/json"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/json", StringPattern(example = "application/json; version=2026-12-31", regex = "application/json; version=\\d{4}-\\d{2}-\\d{2}")))
+            ),
+            ContentTypeCase(
+                name = "base media type should conflict with enum override",
+                actualContentType = "text/csv; version=2026-12-31",
+                thisSpec = ContentTypePatternSpec("text/csv"),
+                otherSpecs = listOf(ContentTypePatternSpec("text/csv", EnumPattern(listOf(StringValue("text/csv; version=2026-12-31"), StringValue("text/csv; version=2030-12-31")))))
+            ),
+            ContentTypeCase(
+                name = "base media type should conflict with subschema override",
+                actualContentType = "application/xml; version=2026-12-31",
+                thisSpec = ContentTypePatternSpec("application/xml"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/xml", AnyOfPattern(listOf(ExactValuePattern(StringValue("application/json")), ExactValuePattern(StringValue("application/xml; version=2026-12-31"))))))
+            )
+        )
+
+        @JvmStatic
+        fun nonConflictingContentTypeCases(): Stream<ContentTypeCase> = Stream.of(
+            ContentTypeCase(
+                name = "base media type should not conflict when versioned override fails",
+                actualContentType = "application/json; version=2030-12-31",
+                thisSpec = ContentTypePatternSpec("application/json"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/json; version=2026-12-31"))
+            ),
+            ContentTypeCase(
+                name = "base media type should not conflict with exact override when actual version differs",
+                actualContentType = "text/plain; version=2030-12-31",
+                thisSpec = ContentTypePatternSpec("text/plain"),
+                otherSpecs = listOf(ContentTypePatternSpec("text/plain", ExactValuePattern(StringValue("text/plain; version=2026-12-31"))))
+            ),
+            ContentTypeCase(
+                name = "base media type should not conflict with regex override when actual version differs",
+                actualContentType = "application/json; version=2030-12-31",
+                thisSpec = ContentTypePatternSpec("application/json"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/json", StringPattern(example = "application/json; version=2026-12-31", regex = "application/json; version=2026-12-31")))
+            ),
+            ContentTypeCase(
+                name = "base media type should not conflict with enum override when actual value is outside enum",
+                actualContentType = "text/csv; version=2030-12-31",
+                thisSpec = ContentTypePatternSpec("text/csv"),
+                otherSpecs = listOf(ContentTypePatternSpec("text/csv", EnumPattern(listOf(StringValue("text/csv; version=2026-12-31"), StringValue("text/csv; version=2027-12-31")))))
+            ),
+            ContentTypeCase(
+                name = "base media type should not conflict with subschema override when no branch matches",
+                actualContentType = "application/xml; version=2030-12-31",
+                thisSpec = ContentTypePatternSpec("application/xml"),
+                otherSpecs = listOf(ContentTypePatternSpec("application/xml", AnyOfPattern(listOf(ExactValuePattern(StringValue("application/json")), ExactValuePattern(StringValue("application/xml; version=2026-12-31"))))))
+            )
+        )
     }
 }
