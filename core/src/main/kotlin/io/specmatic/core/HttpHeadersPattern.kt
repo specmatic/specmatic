@@ -56,43 +56,64 @@ data class HttpHeadersPattern(
 
     fun matchContentType(parameters: Pair<Map<String, String>, Resolver>):  MatchingResult<Pair<Map<String, String>, Resolver>> {
         val (headers, resolver) = parameters
+        val contentTypeFromRequest = headers.getCaseInsensitive(CONTENT_TYPE)?.value
+        val contentTypeMatchingSource = contentTypeMatchingSource(contentTypeFromRequest, resolver)
 
-        val contentTypeHeaderValueFromRequest = headers.entries.find { it.key.lowercase() == "content-type" }?.value
-        val contentTypePattern = pattern.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
+        val contentTypeMatchResult = matchContentTypeAgainstSource(contentTypeFromRequest, contentTypeMatchingSource, resolver)
+        if (contentTypeMatchResult is Result.Failure) return MatchFailure(contentTypeMatchResult)
 
-        val isContentTypeNotAsPerPattern = isContentTypeAsPerPattern(contentTypePattern, resolver).not()
-
-        if (contentTypePattern != null && isContentTypeNotAsPerPattern) {
-            val contentTypeMatchResult = contentTypePattern.matches(
-                parsedValue(contentTypeHeaderValueFromRequest),
-                resolver
-            )
-
-            if (contentTypeMatchResult is Result.Failure) {
-                val matchFailure: Result.Failure =
-                    contentTypeMatchResult
-                        .withFailureReason(FailureReason.ContentTypeMismatch)
-                        .breadCrumb(CONTENT_TYPE)
-
-                return MatchFailure(matchFailure)
-            }
-        } else if (contentType != null && contentTypeHeaderValueFromRequest != null) {
-            val parsedContentType = simplifiedContentType(contentType.lowercase())
-            val parsedContentTypeHeaderValue = simplifiedContentType(contentTypeHeaderValueFromRequest.lowercase())
-
-            if (parsedContentType != parsedContentTypeHeaderValue) {
-                return MatchFailure(
-                    Result.Failure(
-                        resolver.mismatchMessages.mismatchMessage(contentType, contentTypeHeaderValueFromRequest),
-                        breadCrumb = CONTENT_TYPE,
-                        failureReason = FailureReason.ContentTypeMismatch,
-                        ruleViolation = StandardRuleViolation.VALUE_MISMATCH
-                    )
+        val conflictingPattern = conflictingContentTypePattern(contentTypeFromRequest, contentTypeMatchingSource, resolver)
+        if (conflictingPattern != null) {
+            return MatchFailure(
+                Result.Failure(
+                    breadCrumb = CONTENT_TYPE,
+                    failureReason = FailureReason.ContentTypeMatchButConflict,
+                    message = "Content type $contentTypeFromRequest matches a more specific pattern: ${conflictingPattern.first}",
                 )
-            }
+            )
         }
 
         return MatchSuccess(parameters)
+    }
+
+    private fun matchContentTypeAgainstSource(contentTypeFromRequest: String?, contentTypeMatchingSource: ContentTypeMatchingSource?, resolver: Resolver): Result {
+        return when (contentTypeMatchingSource) {
+            is ContentTypeMatchingSource.Pattern -> matchContentTypePattern(contentTypeFromRequest, contentTypeMatchingSource.pattern, resolver)
+            is ContentTypeMatchingSource.MediaType -> matchContentTypeMediaType(contentTypeFromRequest, contentTypeMatchingSource.contentType, resolver)
+            null -> Result.Success()
+        }
+    }
+
+    private fun matchContentTypePattern(contentTypeFromRequest: String?, contentTypePattern: Pattern, resolver: Resolver): Result {
+        val contentTypeMatchResult = contentTypePattern.matches(parsedValue(contentTypeFromRequest), resolver)
+        return contentTypeMatchResult.withFailureReason(FailureReason.ContentTypeMismatch).breadCrumb(CONTENT_TYPE)
+    }
+
+    private fun matchContentTypeMediaType(contentTypeFromRequest: String?, expectedContentTypeText: String, resolver: Resolver): Result {
+        if (contentTypeFromRequest == null) return Result.Success()
+        val actualContentType = runCatching { ContentType.parse(contentTypeFromRequest) }.getOrNull()
+        val expectedContentType = runCatching { ContentType.parse(expectedContentTypeText) }.getOrNull()
+        if (actualContentType != null && expectedContentType != null && actualContentType.match(expectedContentType)) {
+            return Result.Success()
+        }
+
+        return Result.Failure(
+            breadCrumb = CONTENT_TYPE,
+            failureReason = FailureReason.ContentTypeMismatch,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH,
+            message = resolver.mismatchMessages.mismatchMessage(expectedContentTypeText, contentTypeFromRequest),
+        )
+    }
+
+    private fun conflictingContentTypePattern(contentTypeFromRequest: String?, contentTypeMatchingSource: ContentTypeMatchingSource?, resolver: Resolver): Pair<HttpHeadersPattern, Int>? {
+        val actualContentType = contentTypeFromRequest?.let(::StringValue) ?: return null
+        val currentSpecificity = calculateSpecificity(actualContentType, contentTypeMatchingSource, resolver)
+        return otherHttpHeadersPattern.firstNotNullOfOrNull { otherPattern ->
+            val otherContentTypeMatchingSource = otherPattern.contentTypeMatchingSource(contentTypeFromRequest, resolver)
+            if (otherPattern.matchContentTypeAgainstSource(contentTypeFromRequest, otherContentTypeMatchingSource, resolver) is Result.Failure) return@firstNotNullOfOrNull null
+            val otherSpecificity = otherPattern.calculateSpecificity(actualContentType, otherContentTypeMatchingSource, resolver)
+            otherSpecificity.takeIf { it > currentSpecificity }?.let { otherPattern to it }
+        }
     }
 
     private fun matchEach(parameters: Pair<Map<String, String>, Resolver>): MatchingResult<Pair<Map<String, String>, Resolver>> {
@@ -169,16 +190,6 @@ data class HttpHeadersPattern(
             MatchFailure(Result.Failure.fromFailures(failures))
         else
             MatchSuccess(parameters)
-    }
-
-    private fun simplifiedContentType(contentType: String): String {
-        return try {
-            ContentType.parse(contentType).let {
-                "${it.contentType}/${it.contentSubtype}"
-            }
-        } catch (e: Throwable) {
-            contentType
-        }
     }
 
     private fun highlightIfSOAPActionMismatch(missingKey: String): FailureReason? =
@@ -471,9 +482,9 @@ data class HttpHeadersPattern(
         )
 
         return runCatching {
-            val specContentType = simplifiedContentType(contentTypeFromSpec.lowercase())
-            val valueContentType = simplifiedContentType(contentTypeEntry.value.toUnformattedString().lowercase())
-            if (specContentType.equals(valueContentType, ignoreCase = true)) return headers
+            val specContentType = ContentType.parse(contentTypeFromSpec)
+            val valueContentType = ContentType.parse(contentTypeEntry.value.toUnformattedString())
+            if (valueContentType.match(specContentType)) return headers
             headers.plus(contentTypeEntry.key to StringValue(contentTypeFromSpec))
         }.getOrElse { e ->
             logger.debug(e, "Failed to fix $CONTENT_TYPE for entry \"${contentTypeEntry.key}\" with value ${contentTypeEntry.value}")
@@ -564,8 +575,59 @@ data class HttpHeadersPattern(
         return false
     }
 
+    private fun calculateSpecificity(actualContentType: Value, source: ContentTypeMatchingSource?, resolver: Resolver): Int {
+        return when (source) {
+            is ContentTypeMatchingSource.Pattern -> {
+                val resolvedPattern = resolveContentTypePattern(source.pattern, actualContentType, resolver) ?: source.pattern
+                val generatedContentType = runCatching { resolvedPattern.generate(resolver) }.getOrDefault(actualContentType)
+                contentTypeSpecificity(generatedContentType.toUnformattedString())
+            }
+            is ContentTypeMatchingSource.MediaType -> contentTypeSpecificity(source.contentType)
+            null -> 0
+        }
+    }
+
+    private fun contentTypeSpecificity(contentType: String): Int {
+        val wildcardSpecificity = runCatching { ContentType.parse(contentType) }.getOrNull().let { parsedContentType ->
+            when {
+                parsedContentType?.contentType == "*" && parsedContentType.contentSubtype == "*" -> -2
+                parsedContentType?.contentType == "*" || parsedContentType?.contentSubtype == "*" -> -1
+                else -> 0
+            }
+        }
+
+        val parametersSpecificity = runCatching { ContentType.parse(contentType).parameters.size }.getOrElse {
+            contentType.split(';').drop(1).count(String::isNotBlank)
+        }
+
+        return parametersSpecificity.plus(wildcardSpecificity)
+    }
+
+    private fun contentTypeMatchingSource(contentTypeFromRequest: String?, resolver: Resolver): ContentTypeMatchingSource? {
+        val contentTypePattern = pattern.getCaseInsensitiveCheckOptional(CONTENT_TYPE)?.value
+        val isContentTypeNotAsPerPattern = isContentTypeAsPerPattern(contentTypePattern, resolver).not()
+        return when {
+            contentTypePattern != null && isContentTypeNotAsPerPattern -> ContentTypeMatchingSource.Pattern(contentTypePattern)
+            contentType != null && contentTypeFromRequest != null -> ContentTypeMatchingSource.MediaType(contentType)
+            else -> null
+        }
+    }
+
+    private fun resolveContentTypePattern(contentTypePattern: Pattern, contentType: Value, resolver: Resolver): Pattern? {
+        if (contentTypePattern is EnumPattern) return resolveContentTypePattern(contentTypePattern.pattern, contentType, resolver)
+        if (contentTypePattern !is SubSchemaCompositePattern) return contentTypePattern
+        return contentTypePattern.pattern.firstNotNullOfOrNull { nestedPattern ->
+            val resolvedPattern = resolveContentTypePattern(nestedPattern, contentType, resolver) ?: return@firstNotNullOfOrNull null
+            resolvedPattern.takeIf { it.matches(contentType, resolver).isSuccess() }
+        }
+    }
+
     companion object {
         private const val HEADER_KEY_ID_IN_TEST_DETAILS = "header"
+        private sealed interface ContentTypeMatchingSource {
+            data class Pattern(val pattern: io.specmatic.core.pattern.Pattern) : ContentTypeMatchingSource
+            data class MediaType(val contentType: String) : ContentTypeMatchingSource
+        }
     }
 }
 
@@ -587,17 +649,13 @@ fun Map<String, String>.withoutTransportHeaders(
     }
 
 fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
-
-fun Map<String, Pattern>.containsCaseInsensitiveCheckOptional(key: String): Boolean {
+fun <T> Map<String, T>.getCaseInsensitiveCheckOptional(key: String): Map.Entry<String, T>? {
     val mandatoryEntry = this.getCaseInsensitive(withoutOptionality(key))
-    if (mandatoryEntry != null) return true
-
-    val optionalEntry = this.getCaseInsensitive(withOptionality(key))
-    if (optionalEntry != null) return true
-
-    return false
+    if (mandatoryEntry != null) return mandatoryEntry
+    return getCaseInsensitive(withOptionality(key))
 }
 
+fun Map<String, Pattern>.containsCaseInsensitiveCheckOptional(key: String): Boolean = this.getCaseInsensitiveCheckOptional(key) != null
 fun Map<String, Pattern>.addIfNotExistCaseInsensitiveCheckOptional(key: String, value: Pattern): Map<String, Pattern> {
     if (this.containsCaseInsensitiveCheckOptional(key)) return this
     return this.plus(key to value)

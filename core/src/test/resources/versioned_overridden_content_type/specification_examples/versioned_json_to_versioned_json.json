@@ -1,6 +1,6 @@
 {
     "http-request": {
-        "path": "/widgets",
+        "path": "/widgets/versioned-json",
         "method": "POST",
         "headers": {
             "Content-Type": "application/json; version=2026-12-31"
@@ -11,12 +11,12 @@
         }
     },
     "http-response": {
-        "status": 201,
+        "status": 202,
         "body": {
             "id": 1,
             "message": "ResponseContentType: application/json; version=2026-12-31"
         },
-        "status-text": "Created",
+        "status-text": "Accepted",
         "headers": {
             "Content-Type": "application/json; version=2026-12-31"
         }
