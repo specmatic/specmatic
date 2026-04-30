@@ -145,7 +145,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             apiFile.copyTo(tempDir.resolve("contract.yaml"))
 
             val (stdOut, exitCode) = captureStandardOutput {
-                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
             }
 
             assertThat(exitCode).isEqualTo(0)
@@ -171,7 +171,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             apiFile.copyTo(tempDir.resolve("contract.yaml"))
 
             val (stdOut, exitCode) = captureStandardOutput {
-                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
             }
 
             assertThat(exitCode).isEqualTo(0)
@@ -198,7 +198,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             File("src/test/resources/specifications/spec_with_external_reference/").copyRecursively(tempDir)
 
             val (stdOut, exitCode) = captureStandardOutput {
-                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
             }
 
             assertThat(exitCode).isEqualTo(0)
@@ -250,8 +250,8 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
                 BackwardCompatibilityCheckCommandV2().apply {
-                    repoDir = tempDir.canonicalPath
-                    targetPath = "${tempDir.canonicalPath}/other-api.yaml"
+                    options.repoDir = tempDir.canonicalPath
+                    options.targetPath = "${tempDir.canonicalPath}/other-api.yaml"
                 }.call()
             }
 
@@ -411,7 +411,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             exampleFile.writeText(exampleFile.readText().replace("john", "jane"))
 
             val (stdOut, exitCode) = captureStandardOutput {
-                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
             }
 
             assertThat(exitCode).isEqualTo(0)
@@ -438,7 +438,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             exampleFile.writeText("""{"id":2}""")
 
             val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
-                BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
             }
 
             assertThat(exitCode).isEqualTo(1)
@@ -477,7 +477,7 @@ class BackwardCompatibilityCheckCommandV2Test {
         gitApiFile.writeText(gitApiFile.readText().replace("endpoint", "modified endpoint"))
 
         val (stdOut, exitCode) = captureStandardOutput {
-            BackwardCompatibilityCheckCommandV2().apply { repoDir = tempDir.canonicalPath }.call()
+            BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
         }
 
         assertThat(exitCode).isEqualTo(0)
