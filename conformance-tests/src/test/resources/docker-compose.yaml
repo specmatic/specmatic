@@ -17,6 +17,7 @@ services:
 
   mitm:
     image: mitmproxy/mitmproxy:${MITM_PROXY_VERSION:?error}
+    stop_signal: SIGKILL
     depends_on:
       mock:
         condition: service_healthy
