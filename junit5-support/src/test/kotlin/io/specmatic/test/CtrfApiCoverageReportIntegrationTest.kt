@@ -6,7 +6,6 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.RuleViolation
 import io.specmatic.core.SourceProvider
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.utilities.Decision
 import io.specmatic.license.core.SpecmaticProtocol
@@ -20,6 +19,7 @@ import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.CoverageContext
 import io.specmatic.test.reports.coverage.CoverageReportGenerator
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
+import io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation
 import io.specmatic.test.utils.OpenApiCoverageBuilder.Companion.buildCoverage
 import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat

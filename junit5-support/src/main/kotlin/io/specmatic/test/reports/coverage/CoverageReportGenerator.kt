@@ -1,6 +1,5 @@
 package io.specmatic.test.reports.coverage
 
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.report.specConfigFor
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
