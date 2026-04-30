@@ -78,7 +78,7 @@ class OpenApiSpec(private val specFile: File) {
             // Every spec MUST have at least 1 response
             val statusCodes = swaggerOperation.responses!!.keys.map { it.toInt() }
 
-            when (swaggerOperation.requestBody) {
+            when (val requestBody = swaggerOperation.requestBody) {
                 null -> {
                     statusCodes.map { statusCode ->
                         Operation(swaggerMethod.name.uppercase(), path, null, statusCode)
@@ -87,13 +87,22 @@ class OpenApiSpec(private val specFile: File) {
 
                 else -> {
                     // If a spec has a requestBody it MUST have at least 1 request content section
-                    val requestContentTypes = swaggerOperation.requestBody!!.content!!.keys
+                    val requestContentTypes = requestBody.content!!.keys
 
-                    requestContentTypes.flatMap { contentType ->
+                    val withContentTypes = requestContentTypes.flatMap { contentType ->
                         statusCodes.map { statusCode ->
                             Operation(swaggerMethod.name.uppercase(), path, contentType, statusCode)
                         }
                     }
+
+                    // requestBody.required defaults to false per the OpenAPI spec, so an
+                    // optional body means a request with no body is also valid.
+                    val noBodyOperations = if (requestBody.required == true) emptyList()
+                    else statusCodes.map { statusCode ->
+                        Operation(swaggerMethod.name.uppercase(), path, null, statusCode)
+                    }
+
+                    withContentTypes + noBodyOperations
                 }
             }
         }

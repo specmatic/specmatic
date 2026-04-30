@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: "Request body defaults to being optional"
+  version: "1.0"
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    bio:
+                      type: string
+                    age:
+                      type: integer
+    post:
+      operationId: createUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                bio:
+                  type: string
+                age:
+                  type: integer
+      responses:
+        '201':
+          description: Created
