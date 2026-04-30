@@ -4,6 +4,7 @@ services:
       - SPECMATIC_TELEMETRY_EXTRA_LABELS=${SPECMATIC_TELEMETRY_EXTRA_LABELS:?error}
     image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
     command: mock /service.yaml --port 9000
+    stop_signal: SIGKILL
     expose:
       - "9000"
     volumes:
