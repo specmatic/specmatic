@@ -308,9 +308,13 @@ paths:
             Arguments.of("STATUS", "200", true, simpleSpecWithOneGetUrl.scenarios[0]),
             Arguments.of("STATUS", "201", false, simpleSpecWithOneGetUrl.scenarios[0]),
 
-            // example name
+            // example name (exampleName is null, matches against examples list)
             Arguments.of("EXAMPLE-NAME", "QUERY_SUCCESS", true, simpleSpecWithOneGetUrl.scenarios[0]),
             Arguments.of("EXAMPLE-NAME", "NON_EXISTENT_EXAMPLE", false, simpleSpecWithOneGetUrl.scenarios[0]),
+
+            // example name (exampleName is set, matches directly against exampleName)
+            Arguments.of("EXAMPLE-NAME", "GET_PRODUCTS", true, simpleSpecWithOneGetUrl.scenarios[0].copy(exampleName = "GET_PRODUCTS")),
+            Arguments.of("EXAMPLE-NAME", "NON_EXISTENT_EXAMPLE", false, simpleSpecWithOneGetUrl.scenarios[0].copy(exampleName = "GET_PRODUCTS")),
 
             // response content type for get requests
             Arguments.of("RESPONSE.CONTENT-TYPE", "application/*", true, simpleSpecWithOneGetUrl.scenarios[0]),

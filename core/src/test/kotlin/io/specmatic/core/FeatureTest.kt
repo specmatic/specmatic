@@ -3901,6 +3901,56 @@ paths:
         assertThat(filtered.externalExamples).isEmpty()
     }
 
+    @Test
+    fun `EXAMPLE-NAME filter on generated tests should only include the matching example`() {
+        val feature = OpenApiSpecification.fromYAML("""
+openapi: 3.0.0
+info:
+  title: Test
+  version: '1.0'
+paths:
+  /items:
+    get:
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+          examples:
+            example_1:
+              value: gadget
+            example_2:
+              value: book
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+              examples:
+                example_1:
+                  value:
+                    name: Phone
+                example_2:
+                  value:
+                    name: Novel
+        """.trimIndent(), "").toFeature()
+
+        val generatedScenarios = feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+        assertThat(generatedScenarios).hasSize(2)
+        assertThat(generatedScenarios.map { it.exampleName }).containsExactlyInAnyOrder("example_1", "example_2")
+
+        val filter = ScenarioMetadataFilter.from("EXAMPLE-NAME='example_1'")
+        val filtered = ScenarioMetadataFilter.filterUsing(generatedScenarios.asSequence(), filter).toList()
+
+        assertThat(filtered).hasSize(1)
+        assertThat(filtered.single().exampleName).isEqualTo("example_1")
+    }
+
     companion object {
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
