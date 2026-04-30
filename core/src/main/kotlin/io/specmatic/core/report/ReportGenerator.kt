@@ -54,7 +54,6 @@ object ReportGenerator {
     }
 
     fun generateReport(
-        testResultRecords: List<CtrfTestResultRecord>,
         coverageReportOperations: List<OpenApiCoverageReportOperation>,
         startTime: Long,
         endTime: Long,
@@ -66,6 +65,10 @@ object ReportGenerator {
         toolName: String = "Specmatic ${VersionInfo.describe()}",
     ) {
         if(isCtrfSpecConfigsValid(specConfigs).not()) return
+
+        val testResultRecords = coverageReportOperations
+            .flatMap { it.tests }
+            .distinctBy { it.id }
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
@@ -80,7 +83,6 @@ object ReportGenerator {
 
         consoleLog("Using new report generation method that accepts coverage report operations.")
         val report = CtrfReportGenerator.generate(
-            testResultRecords = testResultRecords,
             coverageReportOperations = coverageReportOperations,
             startTime = startTime,
             endTime = endTime,

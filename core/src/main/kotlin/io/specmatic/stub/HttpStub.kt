@@ -535,6 +535,10 @@ class HttpStub(
             null -> httpRequest.contentType()
             else -> scenario.requestContentType
         }
+        val responseContentType =  when ( val scenario = httpLogMessage.scenario) {
+            null -> httpResponse.contentType()
+            else -> scenario.responseContentType
+        }
 
         val responseStatus = httpLogMessage.scenario?.status ?: 0
         val protocol = httpLogMessage.scenario?.protocol ?: SpecmaticProtocol.HTTP
@@ -542,7 +546,7 @@ class HttpStub(
             path = path,
             method = method,
             responseStatus = responseStatus,
-            responseContentType = httpLogMessage.scenario?.httpResponsePattern?.headersPattern?.contentType,
+            responseContentType = responseContentType,
             request = httpRequest,
             response = httpResponse,
             result = httpLogMessage.toResult(),
@@ -564,7 +568,7 @@ class HttpStub(
                     contentType = requestContentType,
                     responseCode = responseStatus,
                     protocol = protocol,
-                    responseContentType = httpLogMessage.scenario?.httpResponsePattern?.headersPattern?.contentType,
+                    responseContentType = responseContentType,
                 )
             ),
             exampleId = httpStubResponse.mock?.scenarioStub?.id
@@ -1174,7 +1178,6 @@ class HttpStub(
             val mockUsageReport = mockUsage.generate()
 
             ReportGenerator.generateReport(
-                testResultRecords = mockUsageReport.testResultRecords,
                 coverageReportOperations = mockUsageReport.coverageReportOperations,
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
