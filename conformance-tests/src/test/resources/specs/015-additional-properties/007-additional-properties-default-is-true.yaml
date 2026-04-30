@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: "additionalProperties defaults to true for type: object"
+  version: "1.0"
+x-specmatic-expect-failure-loop: "Specmatic treats unspecified additionalProperties as false when the schema declares properties; per OpenAPI 3.0 the default is true. See OpenApiSpecification.kt:additionalPropertiesFrom"
+x-specmatic-expect-failure-operations: "loop fails before any traffic is sent, so no operations are exercised"
+paths:
+  /configs:
+    get:
+      operationId: listConfigs
+      responses:
+        '200':
+          description: Config list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+    post:
+      operationId: createConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+            examples:
+              # The schema does not declare additionalProperties, so per the OpenAPI default
+              # (additionalProperties: true) the "extra" property below is allowed. The mock
+              # MUST accept this request — if it rejects it as "unknown property", Specmatic
+              # is treating the unspecified default as false instead of true.
+              withExtraProperty:
+                summary: Body with a property not declared in the schema
+                value:
+                  name: alpha
+                  extra: bar
+      responses:
+        '201':
+          description: Created
