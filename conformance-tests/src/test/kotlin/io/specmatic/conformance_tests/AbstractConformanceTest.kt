@@ -50,7 +50,7 @@ abstract class AbstractConformanceTest(
 
     @AfterAll
     fun tearDown() {
-        dockerCompose.mustStop()
+        dockerCompose.stopInTheBackground()
     }
 
     @Test

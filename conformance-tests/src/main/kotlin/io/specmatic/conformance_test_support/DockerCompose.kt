@@ -42,6 +42,10 @@ class DockerCompose(
         mustRun(buildCommand("down", "--volumes", "--timeout", "10"), 120, TimeUnit.SECONDS)
     }
 
+    fun stopInTheBackground() {
+        buildCommand("down", "--volumes", "--timeout", "0").start()
+    }
+
     private fun run(command: ProcessBuilder, timeout: Long, timeUnit: TimeUnit): CommandResult {
         val commandString = command.command().joinToString(" ")
 
