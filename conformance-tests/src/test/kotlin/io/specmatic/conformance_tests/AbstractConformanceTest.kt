@@ -87,6 +87,29 @@ abstract class AbstractConformanceTest(
     }
 
     @Test
+    @Order(3)
+    @ExpectFailureTag("x-specmatic-expect-failure-query-parameters")
+    fun `should send valid query parameters`() {
+        val errors = httpExchanges
+            // requests in the test that produce 4xx, 5xx may contain invalid query parameters by design
+            .filter(HttpExchange::isSuccessful)
+            // Only validate query parameters for operations defined in the spec.
+            .filterNot { it.toOperation(spec) == null }
+            .flatMap {
+                spec.validateQueryParameters(
+                    url = it.url,
+                    operation = it.toOperation(spec)!!
+                )
+            }
+
+        assertThat(errors)
+            .withFailMessage {
+                "errors=$errors\n\nurls=${httpExchanges.joinToString("\n") { it.url }}\n\n$allLogs"
+            }
+            .isEmpty()
+    }
+
+    @Test
     @Order(4)
     @ExpectFailureTag("x-specmatic-expect-failure-request-bodies")
     fun `should send valid request bodies`() {

@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: ""
+  version: "1.0"
+x-specmatic-expect-failure-query-parameters: "object query parameters are not yet supported by Specmatic"
+paths:
+  /my-day-details:
+    get:
+      operationId: getmydayDetails
+      parameters:
+        - name: params
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/params'
+        - name: mydayId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/params'
+components:
+  schemas:
+    params:
+      type: object
+      properties:
+        status:
+          type: integer
