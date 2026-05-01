@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "Headers with default required (omitted)"
+  version: "1.0"
+# Per OpenAPI 3.0.3, the 'required' property on a header parameter (in: header)
+# and on a response Header Object defaults to false when omitted. Both should
+# therefore behave as optional headers.
+paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: List items, exercising headers with omitted 'required'
+      parameters:
+        - name: X-Trace-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Items list
+          headers:
+            X-Trace-Id:
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
