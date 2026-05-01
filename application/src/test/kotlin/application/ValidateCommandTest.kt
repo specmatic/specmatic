@@ -2,6 +2,7 @@ package application
 
 import application.validate.ConfigBackedSpecificationLoader
 import application.validate.ExampleValidationResult
+import application.validate.OpenApiValidator
 import application.validate.SpecValidationResult
 import application.validate.ValidateCommand
 import application.validate.Validator
@@ -257,7 +258,45 @@ class ValidateCommandTest {
         }
 
         assertThat(exitCode).isZero()
-        assertThat(output).contains("No specifications found to validate.")
+        assertThat(output).contains("No Tracking specifications found to validate.")
+    }
+
+    @Test
+    fun `when no specs found validate command should mention validator name`(@TempDir tempDir: File) {
+        writeSpecmaticYaml(tempDir, "version: 3")
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            CommandLine(
+                ValidateCommand(validator = OpenApiValidator(), specmaticConfig = loadedConfig(tempDir), currentDirectoryProvider = { tempDir.canonicalFile })
+            ).execute()
+        }
+
+        assertThat(exitCode).isZero()
+        assertThat(output).contains("No OpenAPI specifications found to validate.")
+    }
+
+    @Test
+    fun `validate command parses debug spec file and directory options`(@TempDir tempDir: File) {
+        val specFile = writeOpenApiFile(tempDir.resolve("specs/pets.yaml"))
+        val directorySpec = writeOpenApiFile(tempDir.resolve("contracts/orders.yaml"))
+        writeSpecmaticYaml(tempDir, "version: 3")
+
+        val specValidator = TrackingValidator()
+        val specCommand = ValidateCommand(validator = specValidator, specmaticConfig = loadedConfig(tempDir), currentDirectoryProvider = { tempDir.canonicalFile })
+        val specExitCode = CommandLine(specCommand).execute("--debug", "--spec-file", specFile.canonicalPath)
+
+        val directoryValidator = TrackingValidator()
+        val directoryCommand = ValidateCommand(validator = directoryValidator, specmaticConfig = loadedConfig(tempDir), currentDirectoryProvider = { tempDir.canonicalFile })
+        val directoryExitCode = CommandLine(directoryCommand).execute("--debug", "--directory", tempDir.resolve("contracts").canonicalPath)
+
+        assertThat(specExitCode).isZero()
+        assertThat(specCommand.validateOptions.debug).isTrue()
+        assertThat(specCommand.validateOptions.file?.canonicalPath).isEqualTo(specFile.canonicalPath)
+        assertThat(specValidator.validatedSpecifications).containsExactly(specFile.canonicalPath)
+
+        assertThat(directoryExitCode).isZero()
+        assertThat(directoryCommand.validateOptions.debug).isTrue()
+        assertThat(directoryCommand.validateOptions.directory?.canonicalPath).isEqualTo(tempDir.resolve("contracts").canonicalPath)
+        assertThat(directoryValidator.validatedSpecifications).containsExactly(directorySpec.canonicalPath)
     }
 
     @Test
@@ -326,7 +365,7 @@ class ValidateCommandTest {
         )
     }
 
-    private fun loadedConfig(baseDir: File): io.specmatic.core.SpecmaticConfig {
+    private fun loadedConfig(baseDir: File): SpecmaticConfig {
         val configFile = baseDir.resolve("specmatic.yaml")
         System.setProperty(CONFIG_FILE_PATH, configFile.canonicalPath)
         return io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault(configFile.canonicalPath)
@@ -353,6 +392,7 @@ class ValidateCommandTest {
     private class TrackingValidator(
         private val invalidSpecifications: Set<String> = emptySet()
     ) : Validator<String> {
+        override val name: String = "Tracking"
         val validatedSpecifications = mutableListOf<String>()
 
         override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<String> {

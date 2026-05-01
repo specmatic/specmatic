@@ -142,7 +142,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     )
     var useCurrentBranchForCentralRepo: Boolean? = null
 
-    @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false, hidden = true)
+    @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
     var lenientMode: Boolean? = null
 
     private var contractSources: List<ContractPathData> = emptyList()

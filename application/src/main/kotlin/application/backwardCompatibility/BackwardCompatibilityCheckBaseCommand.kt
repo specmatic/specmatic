@@ -10,7 +10,6 @@ import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
-import io.specmatic.core.utilities.SystemExit
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
@@ -27,12 +26,7 @@ import kotlin.collections.ArrayDeque
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
-abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
-    protected val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
-    protected val backwardCompConfig = specmaticConfig.getBackwardCompatibilityConfig()
-    private val newLine = System.lineSeparator()
-    private var areLocalChangesStashed = false
-
+class BackwardCompatibilityCheckOptions {
     @Option(
         names = ["--base-branch"],
         description = ["Base branch to compare the changes against", "Default value is the local origin HEAD of the current branch"],
@@ -66,12 +60,22 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
         ]
     )
     var strictMode: Boolean? = null
+}
 
-    protected val effectiveRepoDir: String by lazy { repoDir ?: backwardCompConfig?.repoDirectory ?: "." }
+abstract class BackwardCompatibilityCheckBaseCommand(
+    @field:picocli.CommandLine.Mixin
+    val options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()
+): Callable<Int> {
+    protected val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
+    protected val backwardCompConfig = specmaticConfig.getBackwardCompatibilityConfig()
+    private val newLine = System.lineSeparator()
+    private var areLocalChangesStashed = false
+
+    protected val effectiveRepoDir: String by lazy { options.repoDir ?: backwardCompConfig?.repoDirectory ?: "." }
     protected val gitCommand: GitCommand by lazy { SystemGit(workingDirectory = Paths.get(effectiveRepoDir).absolutePathString()) }
-    protected val effectiveBaseBranch: String by lazy { baseBranch ?: backwardCompConfig?.baseBranch ?: gitCommand.currentRemoteBranch() }
-    protected val effectiveTargetPath: String by lazy { targetPath ?: backwardCompConfig?.targetPath.orEmpty() }
-    protected val effectiveStrictMode: Boolean by lazy { strictMode ?: backwardCompConfig?.strictMode ?: false }
+    protected val effectiveBaseBranch: String by lazy { options.baseBranch ?: backwardCompConfig?.baseBranch ?: gitCommand.currentRemoteBranch() }
+    protected val effectiveTargetPath: String by lazy { options.targetPath ?: backwardCompConfig?.targetPath.orEmpty() }
+    protected val effectiveStrictMode: Boolean by lazy { options.strictMode ?: backwardCompConfig?.strictMode ?: false }
 
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results
     abstract fun File.isValidFileFormat(): Boolean
@@ -87,7 +91,7 @@ abstract class BackwardCompatibilityCheckBaseCommand : Callable<Int> {
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
 
     final override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debugLog))
+        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
         addShutdownHook()
 
         val filteredSpecs = getChangedSpecs()

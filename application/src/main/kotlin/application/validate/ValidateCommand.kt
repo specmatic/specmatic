@@ -1,6 +1,5 @@
 package application.validate
 
-import io.specmatic.core.CONTRACT_EXTENSIONS
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
@@ -15,36 +14,39 @@ import picocli.CommandLine.Command
 import java.io.File
 import java.util.concurrent.Callable
 
+class ValidateCommandOptions {
+    @CommandLine.Option(names = ["--debug"], description = ["Enable debug logs"])
+    var debug: Boolean? = null
+
+    @CommandLine.Option(names = ["--dir", "--directory"], description = ["Directory to validate"])
+    var directory: File? = null
+
+    @CommandLine.Option(names = ["--spec-file"], description = ["Specification to validate, along with respective examples"])
+    var file: File? = null
+}
+
 @Command(name = "validate", hidden = true, mixinStandardHelpOptions = true, description = ["Lint & Validate specification and external examples"])
 class ValidateCommand(
     private val validator: Validator<out Any?> = OpenApiValidator(),
     specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker(),
     specmaticConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
     configBackedSpecificationLoader: ConfigBackedSpecificationLoader? = null,
-    private val currentDirectoryProvider: () -> File = { File(".").canonicalFile }
+    private val currentDirectoryProvider: () -> File = { File(".").canonicalFile },
+    @field:CommandLine.Mixin val validateOptions: ValidateCommandOptions = ValidateCommandOptions()
 ) : Callable<Int> {
-    @CommandLine.Option(names = ["--debug"], description = ["Enable debug logs"])
-    var debug: Boolean? = null
-
-    @CommandLine.Option(names = ["--dir"], description = ["Directory to validate"])
-    var directory: File? = null
-
-    @CommandLine.Option(names = ["--spec-file"], description = ["Specification to validate, along with respective examples"])
-    var file: File? = null
-
     private val recursiveSpecificationAndExampleClassifier =
         RecursiveSpecificationAndExampleClassifier(specmaticConfig, specCompatibilityChecker, setOf(".specmatic"))
     private val effectiveConfigBackedSpecificationLoader =
         configBackedSpecificationLoader ?: ConfigBackedSpecificationLoader(specmaticConfig, recursiveSpecificationAndExampleClassifier)
 
     override fun call(): Int {
-        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = debug))
+        configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = validateOptions.debug))
         validateArguments()
 
         val data = loadSpecificationData()
 
         if (data.isEmpty()) {
-            println("No specifications found to validate.")
+            println("No ${validator.name} specifications found to validate.")
             return 0
         }
 
@@ -54,16 +56,16 @@ class ValidateCommand(
     }
 
     private fun loadSpecificationData(): List<SpecificationWithExamples> {
-        if (file != null) {
-            val specification = resolvePath(file ?: return emptyList())
+        if (validateOptions.file != null) {
+            val specification = resolvePath(validateOptions.file ?: return emptyList())
             val normalizedSpecification = specification.canonicalFile
             val entryDirectory = normalizedSpecification.parentFile ?: currentDirectoryProvider()
             val loadedData = recursiveSpecificationAndExampleClassifier.load(normalizedSpecification, entryDirectory) ?: return emptyList()
             return listOf(loadedData)
         }
 
-        if (directory != null) {
-            val resolvedDirectory = resolvePath(directory ?: return emptyList())
+        if (validateOptions.directory != null) {
+            val resolvedDirectory = resolvePath(validateOptions.directory ?: return emptyList())
             return recursiveSpecificationAndExampleClassifier.loadAll(resolvedDirectory)
         }
 
@@ -76,15 +78,15 @@ class ValidateCommand(
     }
 
     private fun validateArguments() {
-        if (file != null) {
-            val specification = resolvePath(file ?: return)
+        if (validateOptions.file != null) {
+            val specification = resolvePath(validateOptions.file ?: return)
             if (!specification.isFile)  throw ContractException("Specification is not a file ${specification.path}")
             if (!specification.exists()) throw ContractException("Specification ${specification.path} does not exist")
             if (!specification.canRead())  throw ContractException("Specification ${specification.path} cannot be read")
         }
 
-        if (directory != null) {
-            val directory = resolvePath(directory ?: return)
+        if (validateOptions.directory != null) {
+            val directory = resolvePath(validateOptions.directory ?: return)
             if (!directory.isDirectory)  throw ContractException("${directory.path} is not a directory")
             if (!directory.exists()) throw ContractException("Directory ${directory.path} does not exist")
         }
