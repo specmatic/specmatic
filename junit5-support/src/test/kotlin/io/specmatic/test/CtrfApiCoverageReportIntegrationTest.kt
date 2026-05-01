@@ -298,10 +298,8 @@ class CtrfApiCoverageReportIntegrationTest {
         }
 
         val coverageReportOperations = coverage.generate().coverageOperations
-        val attemptedTestRecords = coverageReportOperations.flatMap { it.tests }.distinct()
         val specConfigs = coverageReportOperations.map { it.specConfig }.distinct()
         val ctrfReport = CtrfReportGenerator.generate(
-            testResultRecords = attemptedTestRecords,
             coverageReportOperations = coverageReportOperations,
             specConfig = specConfigs,
             startTime = 0L,
@@ -385,7 +383,6 @@ class CtrfApiCoverageReportIntegrationTest {
                     startTime = 0L,
                     toolName = "Specmatic test",
                     specConfig = reportOperations.map { it.specConfig }.distinct(),
-                    testResultRecords = emptyList(),
                     coverageReportOperations = reportOperations,
                     extra = emptyMap(),
                 )
@@ -452,7 +449,6 @@ class CtrfApiCoverageReportIntegrationTest {
                     startTime = 0L,
                     toolName = "Specmatic test",
                     specConfig = report.getSpecConfigs(),
-                    testResultRecords = report.testResultRecords,
                     coverageReportOperations = report.coverageOperations,
                     extra = buildMap {
                         put("apiCoverage", "${report.totalCoveragePercentage}%")

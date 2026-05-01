@@ -633,9 +633,14 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/test", "POST", 200,
-                request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
-                 specType = SpecType.OPENAPI
+                path = "/test",
+                method = "POST",
+                responseStatus = 200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 200,
+                specType = SpecType.OPENAPI
             ),
         )
 
@@ -670,9 +675,14 @@ class OpenApiCoverageReportInputTest {
         val applicationAPIs = mutableListOf(API("POST", "/test"), API("POST", "/filtered"))
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/test", "POST", 200,
-                request = null, response = null, result = TestResult.Failed, actualResponseStatus = 200,
-                 specType = SpecType.OPENAPI
+                path = "/test",
+                method = "POST",
+                responseStatus = 200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 200,
+                specType = SpecType.OPENAPI
             ),
         )
 
@@ -708,9 +718,14 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/test", "POST", 200,
-                request = null, response = null, result = TestResult.Failed, actualResponseStatus = 0,
-                 specType = SpecType.OPENAPI
+                path = "/test",
+                method = "POST",
+                responseStatus = 200,
+                request = null,
+                response = null,
+                result = TestResult.Failed,
+                actualResponseStatus = 0,
+                specType = SpecType.OPENAPI
             )
         )
 
@@ -816,24 +831,24 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/current",
-                "GET",
-                200,
+                path = "/current",
+                method = "GET",
+                responseStatus = 200,
                 request = null,
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 200,
-                 specType = SpecType.OPENAPI
+                specType = SpecType.OPENAPI
             ),
             TestResultRecord(
-                "/current",
-                "GET",
-                400,
+                path = "/current",
+                method = "GET",
+                responseStatus = 400,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
                 actualResponseStatus = 400,
-                 specType = SpecType.OPENAPI
+                specType = SpecType.OPENAPI
             ),
         )
 
@@ -873,24 +888,24 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/current",
-                "GET",
-                200,
+                path = "/current",
+                method = "GET",
+                responseStatus = 200,
                 request = null,
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 200,
-                 specType = SpecType.OPENAPI
+                specType = SpecType.OPENAPI
             ),
             TestResultRecord(
-                "/current",
-                "GET",
-                400,
+                path = "/current",
+                method = "GET",
+                responseStatus = 400,
                 request = null,
                 response = null,
                 result = TestResult.Success,
                 actualResponseStatus = 400,
-                 specType = SpecType.OPENAPI
+                specType = SpecType.OPENAPI
             ),
         )
 
@@ -950,9 +965,9 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/orders",
-                "GET",
-                200,
+                path = "/orders",
+                method = "GET",
+                responseStatus = 200,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
@@ -993,9 +1008,9 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/pets/search",
-                "GET",
-                200,
+                path = "/pets/search",
+                method = "GET",
+                responseStatus = 200,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
@@ -1036,9 +1051,9 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/pets/search",
-                "GET",
-                200,
+                path = "/pets/search",
+                method = "GET",
+                responseStatus = 200,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
@@ -1083,9 +1098,9 @@ class OpenApiCoverageReportInputTest {
 
         val testResultRecords = mutableListOf(
             TestResultRecord(
-                "/pets/search",
-                "GET",
-                200,
+                path = "/pets/search",
+                method = "GET",
+                responseStatus = 200,
                 request = null,
                 response = null,
                 result = TestResult.Failed,
