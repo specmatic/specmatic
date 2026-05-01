@@ -13,6 +13,7 @@ import io.specmatic.core.utilities.xmlToString
 import io.specmatic.license.core.cli.Category
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.DeprecatedArguments
+import io.specmatic.test.SpecmaticContractTestImpl
 import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.listeners.ContractExecutionListener
 import org.junit.platform.engine.discovery.DiscoverySelectors.selectClass
@@ -148,7 +149,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         setTestThreadLocalSettings()
 
         val request: LauncherDiscoveryRequest = LauncherDiscoveryRequestBuilder.request()
-                .selectors(selectClass(SpecmaticJUnitSupport::class.java))
+                .selectors(selectClass(SpecmaticContractTestImpl::class.java))
                 .build()
 
         junitLauncher.discover(request)
