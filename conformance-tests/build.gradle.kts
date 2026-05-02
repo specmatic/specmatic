@@ -9,7 +9,7 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.3")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("info.picocli:picocli:4.7.7")
-    implementation("com.networknt:json-schema-validator:2.0.1")
+    implementation("com.networknt:json-schema-validator:3.0.2")
 
     runtimeOnly("ch.qos.logback:logback-classic:1.5.32")
 
