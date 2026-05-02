@@ -15,7 +15,7 @@ dependencies {
     implementation("joda-time:joda-time:2.14.1")
     implementation("net.minidev:json-smart:2.6.0")
 
-    implementation("com.ezylang:EvalEx:3.6.0")
+    implementation("com.ezylang:EvalEx:3.6.1")
     implementation("org.apache.commons:commons-lang3:3.20.0")
     implementation("io.cucumber:gherkin:33.0.0")
     implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
