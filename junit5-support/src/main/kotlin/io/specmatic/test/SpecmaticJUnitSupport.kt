@@ -66,6 +66,7 @@ data class API(
 open class SpecmaticJUnitSupport {
     private var startTime: Instant? = null
     private var settings = ContractTestSettings(settingsStaging)
+    private val runContext = TestRunContext(skipExcludedCountTracker = SkipExcludedCountTracker()).also(TestRunContextHolder::set)
 
     private val specmaticConfig: SpecmaticConfig = settings.getSpecmaticConfig()
     private val keyDataRegistry: KeyDataRegistry = specmaticConfig.getTestHttpsConfiguration().toTestKeyDataRegistry()
@@ -465,6 +466,7 @@ open class SpecmaticJUnitSupport {
 
         startTime = Instant.now()
         return testScenarios.mapNotNull { contractTestDecision ->
+            runContext.skipExcludedCountTracker.record(contractTestDecision)
             openApiCoverage.onContractTestDecision(contractTestDecision)
             if (contractTestDecision !is Decision.Execute) {
                 logger.boundary()

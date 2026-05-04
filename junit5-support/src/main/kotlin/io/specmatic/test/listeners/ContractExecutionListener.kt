@@ -1,7 +1,9 @@
 package io.specmatic.test.listeners
 
 import io.specmatic.core.log.logger
+import io.specmatic.test.SkipExcludedCounts
 import io.specmatic.test.SpecmaticJUnitSupport
+import io.specmatic.test.TestRunContextHolder
 import org.junit.platform.engine.TestDescriptor
 import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.engine.TestExecutionResult.Status
@@ -46,6 +48,7 @@ class ContractExecutionListener : TestExecutionListener {
     }
 
     internal fun exitCode(): Int = if (testSuiteFailed.get() || couldNotStart.get() || failure.get() > 0) 1 else 0
+
     internal fun reset() {
         success.set(0)
         failure.set(0)
@@ -54,6 +57,11 @@ class ContractExecutionListener : TestExecutionListener {
         testSuiteFailed.set(false)
         failedLog.clear()
         exceptionsThrown.clear()
+    }
+
+    internal fun getNotTestedCountsAndClear(): SkipExcludedCounts {
+        val notTestedCounts = TestRunContextHolder.get()?.skipExcludedCountTracker ?: return SkipExcludedCounts()
+        return notTestedCounts.snapshot().also { TestRunContextHolder.clear() }
     }
 
     override fun testPlanExecutionStarted(testPlan: TestPlan?) {
@@ -143,12 +151,15 @@ class ContractExecutionListener : TestExecutionListener {
             println()
         }
 
+        val notTestedCounts = getNotTestedCountsAndClear()
         printer.printFinalSummary(
             TestSummary(
                 success = success.get(),
-                partialSuccesses = SpecmaticJUnitSupport.partialSuccesses.size,
+                failure = failure.get(),
                 aborted = aborted.get(),
-                failure = failure.get()
+                skipped = notTestedCounts.skipped,
+                excluded = notTestedCounts.excluded,
+                partialSuccess = SpecmaticJUnitSupport.partialSuccesses.size,
             )
         )
     }

@@ -6,17 +6,18 @@ import org.junit.platform.launcher.TestIdentifier
 
 class ColorPrinter: ContractExecutionPrinter {
     override fun printFinalSummary(testSummary: TestSummary) {
-        val (_, partialSuccesses, aborted) = testSummary
-
-        val color = when {
-            aborted > 0 -> Ansi.ansi().fgBrightRed()
-            partialSuccesses > 0 -> Ansi.ansi().fgYellow()
-            else -> Ansi.ansi().fgGreen()
-        }
-
+        val color = summaryColor(testSummary)
         println(color.a(testSummary.message).reset())
         println()
         println("Executed at ${currentDateAndTime()}")
+    }
+
+    internal fun summaryColor(testSummary: TestSummary): Ansi {
+        return when {
+            testSummary.aborted > 0 -> Ansi.ansi().fgBrightRed()
+            testSummary.partialSuccess > 0 -> Ansi.ansi().fgYellow()
+            else -> Ansi.ansi().fgGreen()
+        }
     }
 
     override fun printTestSummary(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
