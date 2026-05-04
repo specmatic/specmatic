@@ -17,12 +17,15 @@ fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
         val (fullApiDescription, scenarios) = entry
         logger.boundary()
         logger.log("[Compatibility Check] Executing ${scenarios.size} scenarios for $fullApiDescription")
-        scenarios.withIndex().fold(acc) { results, indexedScenario ->
+        val operationResults = scenarios.withIndex().fold(Results()) { results, indexedScenario ->
             val current = indexedScenario.index + 1
             val scenarioResults: List<Result> = testBackwardCompatibility(indexedScenario.value, newer)
             if (exceedsStandardSize && (current % 100 == 0 || current == scenarios.size)) logger.log("[Compatibility Check] Completed $current/${scenarios.size}")
             results.copy(results = results.results.plus(scenarioResults))
         }
+
+        logger.log("[Compatibility Check] Verdict: ${if (operationResults.success()) "PASS" else "FAIL"}")
+        acc.plus(operationResults)
     }
 
     println()
