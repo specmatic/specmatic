@@ -3141,6 +3141,75 @@ paths:
     }
 
     @Test
+    fun `should log pass verdict after completing all scenarios for an API`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent(), "sample.yaml").toFeature()
+
+        val groupedFeature = feature.copy(scenarios = listOf(feature.scenarios.first(), feature.scenarios.first().copy()))
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(groupedFeature, groupedFeature)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
+    }
+
+    @Test
+    fun `should log fail verdict after completing all scenarios for an API`() {
+        val olderContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.1.9
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent().openAPIToContract()
+
+        val newerContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent().openAPIToContract()
+
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(olderContract, newerContract)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: FAIL")
+    }
+
+    @Test
     fun `should fail when request is changed from no-body to some body`() {
         val olderContract: Feature =
             """
