@@ -7,8 +7,19 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    val (results, _) = older
+    val olderScenarios = older
         .generateBackwardCompatibilityTestScenarios()
+
+    val patchScenarios = olderScenarios
+        .groupBy { it.testDescription() }
+        .mapValues { (_, scenarios) -> scenarios.size }
+        .entries
+        .sortedByDescending { it.value }
+
+    logger.debug("[Compatibility Check] ${patchScenarios.count()}")
+
+    val (results, _) = olderScenarios
+        .asSequence()
         .filter { !it.ignoreFailure }
         .fold(Results() to emptySet<String>()) { (results, olderScenariosTested), olderScenario ->
             val olderScenarioDescription = olderScenario.testDescription()
