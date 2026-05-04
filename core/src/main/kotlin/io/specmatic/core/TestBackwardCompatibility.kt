@@ -7,20 +7,25 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    val (results, _) = older
-        .generateBackwardCompatibilityTestScenarios()
+    val compatibilityScenarios = older.generateBackwardCompatibilityTestScenarios()
+    val exceedsStandardSize = compatibilityScenarios.size >= 1000
+    val operationToScenarios = compatibilityScenarios
         .filter { !it.ignoreFailure }
-        .fold(Results() to emptySet<String>()) { (results, olderScenariosTested), olderScenario ->
-            val olderScenarioDescription = olderScenario.testDescription()
-            if (olderScenarioDescription !in olderScenariosTested) {
-                logger.debug("[Compatibility Check] ${olderScenarioDescription.trim()}")
-                logger.boundary()
-            }
+        .groupBy { it.fullApiDescription }
 
-            val scenarioResults: List<Result> = testBackwardCompatibility(olderScenario, newer)
-            results.copy(results = results.results.plus(scenarioResults)) to olderScenariosTested.plus(olderScenarioDescription)
+    val results = operationToScenarios.entries.fold(Results()) { acc, entry ->
+        val (fullApiDescription, scenarios) = entry
+        logger.boundary()
+        logger.log("[Compatibility Check] Executing ${scenarios.size} scenarios for $fullApiDescription")
+        scenarios.withIndex().fold(acc) { results, indexedScenario ->
+            val current = indexedScenario.index + 1
+            val scenarioResults: List<Result> = testBackwardCompatibility(indexedScenario.value, newer)
+            if (exceedsStandardSize && (current % 100 == 0 || current == scenarios.size)) logger.log("[Compatibility Check] Completed $current/${scenarios.size}")
+            results.copy(results = results.results.plus(scenarioResults))
         }
+    }
 
+    println()
     return results.distinct()
 }
 
