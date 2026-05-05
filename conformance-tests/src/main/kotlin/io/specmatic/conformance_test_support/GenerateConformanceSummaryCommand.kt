@@ -112,20 +112,12 @@ private fun renderMarkdown(records: List<ConformanceTestRecord>): String = build
     appendLine("- Unexpected Passes: $unexpectedPasses")
     appendLine()
 
-    appendLine("| Status | Display Name | Test Class | Test Method | Spec Reference | Notes |")
-    appendLine("|--------|--------------|------------|-------------|----------------|-------|")
+    appendLine("| Display Name | Status | Test Method | Spec Reference |")
+    appendLine("|--------------|--------|-------------|----------------|")
     for (record in records) {
-        val simpleClass = record.testClass.substringAfterLast('.')
-        val notes = when (record.status) {
-            ConformanceTestStatus.EXPECTED_FAILURE,
-            ConformanceTestStatus.UNEXPECTED_PASS -> record.reason.orEmpty()
-            ConformanceTestStatus.UNEXPECTED_FAILURE -> record.failureMessage.orEmpty()
-            ConformanceTestStatus.PASSED -> ""
-        }
         appendLine(
-            "| ${record.status.name} | ${escapeCell(record.displayName)} | ${escapeCell(simpleClass)} | " +
-                "${escapeCell(record.testMethod)} | ${escapeCell(record.specRef.orEmpty())} | " +
-                "${escapeCell(notes)} |"
+            "| ${escapeCell(record.displayName)} | ${record.status.name} | " +
+                "${escapeCell(record.testMethod)} | ${escapeCell(record.specRef.orEmpty())} |"
         )
     }
     appendLine()
@@ -137,27 +129,19 @@ private fun csvFileFor(testResultsFile: File): File =
 private fun renderCsv(records: List<ConformanceTestRecord>): String = buildString {
     appendCsvRow(
         listOf(
-            "status",
-            "tag",
             "displayName",
-            "testClass",
+            "status",
             "testMethod",
             "specRef",
-            "reason",
-            "failureMessage",
         )
     )
     records.forEach { record ->
         appendCsvRow(
             listOf(
-                record.status.name,
-                record.tag.orEmpty(),
                 record.displayName,
-                record.testClass,
+                record.status.name,
                 record.testMethod,
                 record.specRef.orEmpty(),
-                record.reason.orEmpty(),
-                record.failureMessage.orEmpty(),
             )
         )
     }

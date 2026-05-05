@@ -20,6 +20,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
         val annotation = extensionContext.requiredTestMethod.getAnnotation(ExpectFailureTag::class.java)
         val tag = annotation?.tag
         val failureReason = tag?.let { findExtension(it) }
+        val expectedFailureTag = tag.takeIf { failureReason != null }
         val specRef = findExtension(SPEC_REF_KEY)?.takeIf { it.isNotBlank() }
         val displayName = extensionContext.parent.map { it.displayName }.orElse("")
         val testClass = extensionContext.requiredTestClass.name
@@ -43,7 +44,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                 logRecord(
                     ConformanceTestRecord(
                         status = ConformanceTestStatus.EXPECTED_FAILURE,
-                        tag = tag,
+                        tag = expectedFailureTag,
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,
@@ -59,7 +60,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                 logRecord(
                     ConformanceTestRecord(
                         status = ConformanceTestStatus.UNEXPECTED_FAILURE,
-                        tag = tag,
+                        tag = expectedFailureTag,
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,
@@ -73,7 +74,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                 logRecord(
                     ConformanceTestRecord(
                         status = ConformanceTestStatus.UNEXPECTED_PASS,
-                        tag = tag,
+                        tag = expectedFailureTag,
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,
@@ -91,7 +92,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                 logRecord(
                     ConformanceTestRecord(
                         status = ConformanceTestStatus.PASSED,
-                        tag = tag,
+                        tag = expectedFailureTag,
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,

@@ -12,12 +12,12 @@ class GenerateConformanceSummaryCommandTest {
     private val objectMapper = ObjectMapper().registerKotlinModule()
 
     @Test
-    fun `sorts markdown and csv rows by display name`(@TempDir tempDir: Path) {
+    fun `writes sorted markdown and csv rows with report columns`(@TempDir tempDir: Path) {
         val testResultsFile = tempDir.resolve("conformance-test-results.jsonl").toFile()
         val records = listOf(
             ConformanceTestRecord(
                 status = ConformanceTestStatus.PASSED,
-                tag = null,
+                tag = "x-specmatic-expect-failure-loop",
                 displayName = "002-beta",
                 testClass = "io.specmatic.conformance_tests.S002BetaTest",
                 testMethod = "passes()",
@@ -45,12 +45,28 @@ class GenerateConformanceSummaryCommandTest {
 
         assertThat(exitCode).isEqualTo(0)
 
-        val markdownRows = markdownFile.readLines().filter { it.startsWith("| ") && !it.startsWith("| Status") && !it.startsWith("|---") }
-        assertThat(markdownRows.map { it.split(" | ")[1] })
+        val markdownLines = markdownFile.readLines()
+        assertThat(markdownLines).contains("| Display Name | Status | Test Method | Spec Reference |")
+        assertThat(markdownLines).doesNotContain("| Status | Display Name | Test Class | Test Method | Spec Reference | Notes |")
+        val markdownRows = markdownLines.filter {
+            it.startsWith("| ") && !it.startsWith("| Display Name") && !it.startsWith("|---")
+        }
+        assertThat(markdownRows.map { it.markdownCell(1) })
             .containsExactly("001-alpha", "002-beta")
+        assertThat(markdownRows.map { it.markdownCell(2) })
+            .containsExactly("EXPECTED_FAILURE", "PASSED")
+        assertThat(markdownFile.readText()).doesNotContain("x-specmatic-expect-failure")
 
-        val csvRows = testResultsFile.resolveSibling("conformance-test-results.csv").readLines().drop(1)
-        assertThat(csvRows.map { it.split("\",\"")[2] })
+        val csvLines = testResultsFile.resolveSibling("conformance-test-results.csv").readLines()
+        assertThat(csvLines.first()).isEqualTo("\"displayName\",\"status\",\"testMethod\",\"specRef\"")
+        val csvRows = csvLines.drop(1)
+        assertThat(csvRows.map { it.split("\",\"")[0].removePrefix("\"") })
             .containsExactly("001-alpha", "002-beta")
+        assertThat(csvRows.map { it.split("\",\"")[1] })
+            .containsExactly("EXPECTED_FAILURE", "PASSED")
+        assertThat(csvLines.joinToString("\n")).doesNotContain("x-specmatic-expect-failure")
     }
+
+    private fun String.markdownCell(index: Int): String =
+        split("|")[index].trim()
 }
