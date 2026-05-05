@@ -9,7 +9,7 @@ import org.opentest4j.AssertionFailedError
 import org.slf4j.LoggerFactory
 import java.lang.reflect.Method
 
-class ExpectedFailureExtension(private val findFailureReason: (String) -> String?) : InvocationInterceptor {
+class ExpectedFailureExtension(private val findExtension: (String) -> String?) : InvocationInterceptor {
     override fun interceptTestMethod(
         invocation: InvocationInterceptor.Invocation<Void>,
         invocationContext: ReflectiveInvocationContext<Method>,
@@ -26,7 +26,7 @@ class ExpectedFailureExtension(private val findFailureReason: (String) -> String
             return
         }
 
-        val failureReason = findFailureReason(annotation.tag)
+        val failureReason = findExtension(annotation.tag)
 
         if (failureReason == null) {
             invocation.proceed()
@@ -39,6 +39,8 @@ class ExpectedFailureExtension(private val findFailureReason: (String) -> String
             )
         }
 
+        val specRef = findExtension(SPEC_REF_KEY)?.takeIf { it.isNotBlank() }
+
         try {
             invocation.proceed()
         } catch (_: Throwable) {
@@ -48,6 +50,7 @@ class ExpectedFailureExtension(private val findFailureReason: (String) -> String
                 testClass = extensionContext.requiredTestClass.name,
                 testMethod = extensionContext.displayName,
                 reason = failureReason,
+                specRef = specRef,
             )
             expectedFailuresLogger.info(jsonMapper.writeValueAsString(record))
             return
@@ -59,6 +62,7 @@ class ExpectedFailureExtension(private val findFailureReason: (String) -> String
     }
 
     companion object {
+        private const val SPEC_REF_KEY = "x-specmatic-spec-ref"
         private val jsonMapper = ObjectMapper()
         private val expectedFailuresLogger = LoggerFactory.getLogger("conformance.expected-failures")
     }

@@ -4,6 +4,7 @@ info:
   version: "1.0"
 x-specmatic-expect-failure-loop: "Specmatic treats unspecified additionalProperties as false when the schema declares properties; per OpenAPI 3.0 the default is true. See OpenApiSpecification.kt:additionalPropertiesFrom"
 x-specmatic-expect-failure-operations: "loop fails before any traffic is sent, so no operations are exercised"
+x-specmatic-spec-ref: "additionalProperties defaults to true when omitted. See OAS 3.0.3 § Schema Object: https://spec.openapis.org/oas/v3.0.3.html#schema-object"
 paths:
   /configs:
     get:

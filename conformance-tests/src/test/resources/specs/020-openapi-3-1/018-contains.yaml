@@ -1,6 +1,7 @@
 openapi: 3.1.0
 x-specmatic-expect-failure-request-bodies: "invalid request/response error=[/members: must contain at least 1 element(s) that passes these validations: {\"type\":\"object\",\"required\":[\"role\"],\"properties\":{\"role\":{\"const\":\"lead\"}}}]"
 x-specmatic-expect-failure-response-bodies: "invalid request/response error=[/members: must contain at least 1 element(s) that passes these validations: {\"type\":\"object\",\"required\":[\"role\"],\"properties\":{\"role\":{\"const\":\"lead\"}}}]"
+x-specmatic-spec-ref: "JSON Schema contains / minContains / maxContains: https://json-schema.org/draft/2020-12/json-schema-core#name-contains"
 
 info:
   title: "OpenAPI 3.1 - contains and minContains"
