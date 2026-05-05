@@ -57,7 +57,7 @@ class GenerateConformanceSummaryCommand : Callable<Int> {
     override fun call(): Int {
         val testResultsFile = File(testResultsJsonlFile)
         val records = readRecords(testResultsFile)
-            .sortedWith(compareBy({ it.status.ordinal }, { it.displayName }, { it.testClass }, { it.testMethod }))
+            .sortedWith(compareBy({ it.displayName }, { it.testClass }, { it.testMethod }, { it.status.ordinal }))
 
         writeCsv(records, csvFileFor(testResultsFile))
         val markdown = renderMarkdown(records)
