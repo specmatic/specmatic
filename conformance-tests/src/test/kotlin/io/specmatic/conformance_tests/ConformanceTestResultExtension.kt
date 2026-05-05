@@ -22,7 +22,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
         val failureReason = tag?.let { findExtension(it) }
         val expectedFailureTag = tag.takeIf { failureReason != null }
         val specRef = findExtension(SPEC_REF_KEY)?.takeIf { it.isNotBlank() }
-        val displayName = extensionContext.parent.map { it.displayName }.orElse("")
+        val displayName = extensionContext.parent.map { it.displayName }.orElse("")!!
         val testClass = extensionContext.requiredTestClass.name
         val testMethod = extensionContext.displayName
 
@@ -56,11 +56,11 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                     throw invocationError
                 }
             }
+
             invocationError != null -> {
                 logRecord(
                     ConformanceTestRecord(
                         status = ConformanceTestStatus.UNEXPECTED_FAILURE,
-                        tag = expectedFailureTag,
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,
@@ -70,6 +70,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                 )
                 throw invocationError
             }
+
             failureReason != null -> {
                 logRecord(
                     ConformanceTestRecord(
@@ -82,17 +83,15 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                         specRef = specRef,
                     )
                 )
-                if (succeedOnExpectedFailures) {
-                    throw AssertionFailedError(
-                        "Test passed unexpectedly! The bug appears to be fixed. Remove `$tag` from the spec file."
-                    )
-                }
+                throw AssertionFailedError(
+                    "Test passed unexpectedly! The bug appears to be fixed. Remove `$tag` from the spec file."
+                )
             }
+
             else -> {
                 logRecord(
                     ConformanceTestRecord(
                         status = ConformanceTestStatus.PASSED,
-                        tag = expectedFailureTag,
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,

@@ -24,7 +24,7 @@ enum class ConformanceTestStatus {
 
 data class ConformanceTestRecord(
     val status: ConformanceTestStatus,
-    val tag: String?,
+    val tag: String? = null,
     val displayName: String,
     val testClass: String,
     val testMethod: String,
