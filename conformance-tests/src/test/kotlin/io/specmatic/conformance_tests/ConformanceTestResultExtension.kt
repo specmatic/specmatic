@@ -48,7 +48,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,
-                        reason = failureReason,
+                        failureReason = failureReason,
                         specRef = specRef,
                     )
                 )
@@ -65,7 +65,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                         testClass = testClass,
                         testMethod = testMethod,
                         specRef = specRef,
-                        failureMessage = invocationError.message,
+                        testFailureMessage = invocationError.message,
                     )
                 )
                 throw invocationError
@@ -79,7 +79,7 @@ class ConformanceTestResultExtension(private val findExtension: (String) -> Stri
                         displayName = displayName,
                         testClass = testClass,
                         testMethod = testMethod,
-                        reason = failureReason,
+                        failureReason = failureReason,
                         specRef = specRef,
                     )
                 )

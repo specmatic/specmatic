@@ -1,5 +1,6 @@
 package io.specmatic.conformance_test_support
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -28,9 +29,11 @@ data class ConformanceTestRecord(
     val displayName: String,
     val testClass: String,
     val testMethod: String,
-    val reason: String? = null,
+    @param:JsonAlias("reason")
+    val failureReason: String? = null,
     val specRef: String? = null,
-    val failureMessage: String? = null,
+    @param:JsonAlias("failureMessage")
+    val testFailureMessage: String? = null,
 )
 
 @Command(
@@ -112,12 +115,13 @@ private fun renderMarkdown(records: List<ConformanceTestRecord>): String = build
     appendLine("- Unexpected Passes: $unexpectedPasses")
     appendLine()
 
-    appendLine("| Display Name | Status | Test Method | Spec Reference |")
-    appendLine("|--------------|--------|-------------|----------------|")
+    appendLine("| Display Name | Status | Test Method | Spec Reference | Failure Reason |")
+    appendLine("|--------------|--------|-------------|----------------|----------------|")
     for (record in records) {
         appendLine(
             "| ${escapeCell(record.displayName)} | ${record.status.name} | " +
-                "${escapeCell(record.testMethod)} | ${escapeCell(record.specRef.orEmpty())} |"
+                "${escapeCell(record.testMethod)} | ${escapeCell(record.specRef.orEmpty())} | " +
+                "${escapeCell(record.failureReason.orEmpty())} |"
         )
     }
     appendLine()
@@ -133,6 +137,7 @@ private fun renderCsv(records: List<ConformanceTestRecord>): String = buildStrin
             "status",
             "testMethod",
             "specRef",
+            "failureReason",
         )
     )
     records.forEach { record ->
@@ -142,6 +147,7 @@ private fun renderCsv(records: List<ConformanceTestRecord>): String = buildStrin
                 record.status.name,
                 record.testMethod,
                 record.specRef.orEmpty(),
+                record.failureReason.orEmpty(),
             )
         )
     }

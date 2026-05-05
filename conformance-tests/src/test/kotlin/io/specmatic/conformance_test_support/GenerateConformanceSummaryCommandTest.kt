@@ -29,7 +29,7 @@ class GenerateConformanceSummaryCommandTest {
                 displayName = "001-alpha",
                 testClass = "io.specmatic.conformance_tests.S001AlphaTest",
                 testMethod = "fails as expected()",
-                reason = "known gap",
+                failureReason = "known gap",
                 specRef = "Alpha spec",
             ),
         )
@@ -46,7 +46,7 @@ class GenerateConformanceSummaryCommandTest {
         assertThat(exitCode).isEqualTo(0)
 
         val markdownLines = markdownFile.readLines()
-        assertThat(markdownLines).contains("| Display Name | Status | Test Method | Spec Reference |")
+        assertThat(markdownLines).contains("| Display Name | Status | Test Method | Spec Reference | Failure Reason |")
         assertThat(markdownLines).doesNotContain("| Status | Display Name | Test Class | Test Method | Spec Reference | Notes |")
         val markdownRows = markdownLines.filter {
             it.startsWith("| ") && !it.startsWith("| Display Name") && !it.startsWith("|---")
@@ -55,15 +55,19 @@ class GenerateConformanceSummaryCommandTest {
             .containsExactly("001-alpha", "002-beta")
         assertThat(markdownRows.map { it.markdownCell(2) })
             .containsExactly("EXPECTED_FAILURE", "PASSED")
+        assertThat(markdownRows.map { it.markdownCell(5) })
+            .containsExactly("known gap", "")
         assertThat(markdownFile.readText()).doesNotContain("x-specmatic-expect-failure")
 
         val csvLines = testResultsFile.resolveSibling("conformance-test-results.csv").readLines()
-        assertThat(csvLines.first()).isEqualTo("\"displayName\",\"status\",\"testMethod\",\"specRef\"")
+        assertThat(csvLines.first()).isEqualTo("\"displayName\",\"status\",\"testMethod\",\"specRef\",\"failureReason\"")
         val csvRows = csvLines.drop(1)
         assertThat(csvRows.map { it.split("\",\"")[0].removePrefix("\"") })
             .containsExactly("001-alpha", "002-beta")
         assertThat(csvRows.map { it.split("\",\"")[1] })
             .containsExactly("EXPECTED_FAILURE", "PASSED")
+        assertThat(csvRows.map { it.split("\",\"")[4].removeSuffix("\"") })
+            .containsExactly("known gap", "")
         assertThat(csvLines.joinToString("\n")).doesNotContain("x-specmatic-expect-failure")
     }
 
