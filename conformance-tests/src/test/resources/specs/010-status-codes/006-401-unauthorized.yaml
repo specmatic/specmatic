@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 401 Unauthorized (RFC 9110 §15.5.2): https://www.rfc-editor.org/rfc/rfc9110#name-401-unauthorized'
 info:
   title: "Status code - 401 Unauthorized"
   version: "1.0"

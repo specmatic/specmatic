@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema — `additionalProperties: false`: https://json-schema.org/draft/2020-12/json-schema-core#name-additionalproperties'
 info:
   title: "additionalProperties false"
   version: "1.0"

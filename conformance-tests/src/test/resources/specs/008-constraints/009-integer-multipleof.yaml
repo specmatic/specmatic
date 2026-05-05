@@ -1,7 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "invalid request/response body because integer-multipleof constraint not respected"
 x-specmatic-expect-failure-response-bodies: "invalid request/response body because integer-multipleof constraint not respected"
-x-specmatic-spec-ref: "Schema \"multipleOf\" numeric constraint. See OAS 3.0.3 § Schema Object: https://spec.openapis.org/oas/v3.0.3.html#schema-object"
+x-specmatic-spec-ref: 'Schema "multipleOf" numeric constraint. See OAS 3.0.3 § Schema Object: https://spec.openapis.org/oas/v3.0.3.html#schema-object'
 info:
   title: "Constraint - integer multipleOf"
   version: "1.0"

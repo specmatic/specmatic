@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 422 Unprocessable Content (RFC 9110 §15.5.21): https://www.rfc-editor.org/rfc/rfc9110#name-422-unprocessable-content'
 info:
   title: "Status code - 422 Unprocessable Entity"
   version: "1.0"

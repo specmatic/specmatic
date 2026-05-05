@@ -5,8 +5,8 @@
         </encoder>
     </appender>
 
-    <appender name="EXPECTED_FAILURES" class="ch.qos.logback.core.FileAppender">
-        <file>${expectedFailuresJsonlFile:-build/conformance-expected-failures.jsonl}</file>
+    <appender name="TEST_RESULTS" class="ch.qos.logback.core.FileAppender">
+        <file>${conformanceTestResultsJsonlFile:-build/conformance-test-results.jsonl}</file>
         <append>true</append>
         <encoder>
             <pattern>%msg%n</pattern>
@@ -16,8 +16,8 @@
 
     <logger name="conformance_tests" level="debug"/>
     <logger name="com.networknt.schema.keyword.UnknownKeywordFactory" level="error"/>
-    <logger name="conformance.expected-failures" level="info" additivity="false">
-        <appender-ref ref="EXPECTED_FAILURES"/>
+    <logger name="conformance.test-results" level="info" additivity="false">
+        <appender-ref ref="TEST_RESULTS"/>
     </logger>
 
     <root level="info">

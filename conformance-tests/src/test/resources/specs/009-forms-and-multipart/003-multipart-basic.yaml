@@ -1,6 +1,6 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "Limitation of conformance test harness. Cannot validate multipart bodies."
-x-specmatic-spec-ref: "multipart/form-data with simple field properties. See OAS 3.0.3 § Special Considerations for multipart Content: https://spec.openapis.org/oas/v3.0.3.html#special-considerations-for-multipart-content"
+x-specmatic-spec-ref: 'multipart/form-data with simple field properties. See OAS 3.0.3 § Special Considerations for multipart Content: https://spec.openapis.org/oas/v3.0.3.html#special-considerations-for-multipart-content'
 info:
   title: "Multipart form data - basic fields"
   version: "1.0"

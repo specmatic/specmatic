@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Reference Object — `$ref` used inside a nested object schema: https://spec.openapis.org/oas/v3.0.3.html#reference-object'
 info:
   title: "$ref to nested object within schema"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Path Templating — path parameter with both literal prefix and suffix: https://spec.openapis.org/oas/v3.0.3.html#path-templating'
 info:
   title: "Path parameter - prefix and suffix around parameter"
   version: "1.0"

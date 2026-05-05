@@ -1,6 +1,6 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "Limitation of conformance test harness. Cannot validate application/octet-stream bodies."
-x-specmatic-spec-ref: "Raw binary request body (non-multipart). See OAS 3.0.3 § Considerations for File Uploads: https://spec.openapis.org/oas/v3.0.3.html#considerations-for-file-uploads"
+x-specmatic-spec-ref: 'Raw binary request body (non-multipart). See OAS 3.0.3 § Considerations for File Uploads: https://spec.openapis.org/oas/v3.0.3.html#considerations-for-file-uploads'
 info:
   title: "Raw binary request body (octet-stream)"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — header parameters default to `required: false`: https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Headers with default required (omitted)"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema "uri-reference" format (RFC 3986) — duplicate scenario coverage: https://json-schema.org/draft/2020-12/json-schema-validation#name-resource-identifiers'
 info:
   title: "Format - uri-reference"
   version: "1.0"

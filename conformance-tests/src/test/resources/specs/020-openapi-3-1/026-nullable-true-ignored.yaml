@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'OAS 3.1 — `nullable` is removed; ignored if present (use `type` array instead): https://spec.openapis.org/oas/v3.1.1.html#schema-object'
 info:
   title: "OpenAPI 3.1 - nullable keyword should be ignored"
   version: "1.0"

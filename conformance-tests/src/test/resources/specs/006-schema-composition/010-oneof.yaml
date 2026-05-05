@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema / OAS 3.0.3 Schema Object — `oneOf` composition: https://spec.openapis.org/oas/v3.0.3.html#schema-object'
 info:
   title: "Schema composition - oneOf"
   version: "1.0"

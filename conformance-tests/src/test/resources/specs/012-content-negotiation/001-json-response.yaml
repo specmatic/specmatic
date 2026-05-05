@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Media Type Object — application/json response (RFC 8259): https://spec.openapis.org/oas/v3.0.3.html#media-type-object'
 info:
   title: "Content negotiation - JSON only"
   version: "1.0"

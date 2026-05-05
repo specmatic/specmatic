@@ -1,7 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-loop: "loop test failed because tests sent invalid requests that were rejected by the mock"
 x-specmatic-expect-failure-operations: "loop test failed because tests sent invalid requests that were rejected by the mock"
-x-specmatic-spec-ref: "Per-part content type via Encoding Object. See OAS 3.0.3 § Encoding Object: https://spec.openapis.org/oas/v3.0.3.html#encoding-object"
+x-specmatic-spec-ref: 'Per-part content type via Encoding Object. See OAS 3.0.3 § Encoding Object: https://spec.openapis.org/oas/v3.0.3.html#encoding-object'
 info:
   title: "Multipart with JSON-encoded part"
   version: "1.0"

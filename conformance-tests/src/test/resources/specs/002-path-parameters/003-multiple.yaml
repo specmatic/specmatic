@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Path Templating — multiple path parameters in one path: https://spec.openapis.org/oas/v3.0.3.html#path-templating'
 info:
   title: "Multiple path parameters"
   version: "1.0"

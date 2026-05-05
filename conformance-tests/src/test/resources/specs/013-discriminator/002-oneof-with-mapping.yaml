@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Discriminator Object — `oneOf` with explicit `mapping`: https://spec.openapis.org/oas/v3.0.3.html#discriminator-object'
 info:
   title: "Discriminator with oneOf and mapping"
   version: "1.0"

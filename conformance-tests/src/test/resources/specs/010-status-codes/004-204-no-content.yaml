@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 204 No Content (RFC 9110 §15.3.5): https://www.rfc-editor.org/rfc/rfc9110#name-204-no-content'
 info:
   title: "Status code - 204 No Content"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'Conventional page-number pagination expressed via OAS 3.0.3 Parameter Objects: https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Pagination - page number and size"
   version: "1.0"

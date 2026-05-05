@@ -1,7 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "invalid RFC 3339 time"
 x-specmatic-expect-failure-response-bodies: "invalid RFC 3339 time"
-x-specmatic-spec-ref: "JSON Schema \"time\" format (RFC 3339 partial-time): https://json-schema.org/draft/2020-12/json-schema-validation#name-dates-times-and-duration"
+x-specmatic-spec-ref: 'JSON Schema "time" format (RFC 3339 partial-time): https://json-schema.org/draft/2020-12/json-schema-validation#name-dates-times-and-duration'
 info:
   title: "Format - time (JSON Schema)"
   version: "1.0"
