@@ -11,6 +11,7 @@ class RegExSpec(
     regex: String?,
 ) {
     private val originalRegex = regex
+    private val javaRegex = originalRegex?.replaceRegexLowerBounds()?.let { Regex(it, RegexOption.DOT_MATCHES_ALL) }
     private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
 
     init {
@@ -19,9 +20,9 @@ class RegExSpec(
 
     private fun validateRegex() {
         runCatching {
-            if (regexGenerator == null || originalRegex == null) return
+            if (regexGenerator == null || javaRegex == null) return
             val random = regexGenerator.random()
-            if (!Regex(originalRegex.replaceRegexLowerBounds(), RegexOption.DOT_MATCHES_ALL).matches(random)) {
+            if (!javaRegex.matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
         }.getOrElse { e ->
@@ -75,9 +76,7 @@ class RegExSpec(
         return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
-    fun match(sampleData: StringValue) = originalRegex?.let {
-        Regex(originalRegex.replaceRegexLowerBounds()).matches(sampleData.toStringLiteral())
-    } ?: true
+    fun match(sampleData: StringValue) = javaRegex?.matches(sampleData.toStringLiteral()) ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
         return regexGenerator?.let {

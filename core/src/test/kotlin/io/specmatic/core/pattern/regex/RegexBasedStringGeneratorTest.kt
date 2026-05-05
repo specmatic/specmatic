@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern.regex
 
+import dk.brics.automaton.Automaton
 import io.specmatic.conversions.REASONABLE_STRING_LENGTH
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -32,5 +33,11 @@ internal class RegexBasedStringGeneratorTest {
         val message = generator.warningMessage(0, 10).toString()
 
         assertThat(message).isEqualTo("WARNING: Could not generate a string based on $regex with maxLength 10")
+    }
+
+    @Test
+    fun `automaton allow mutate should always be disabled`() {
+        RegexBasedStringGenerator("[a-z]+")
+        assertThat(Automaton.setAllowMutate(false)).isFalse()
     }
 }
