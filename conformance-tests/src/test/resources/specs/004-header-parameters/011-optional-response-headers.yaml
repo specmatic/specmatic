@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Header Object — optional response headers (`required: false`): https://spec.openapis.org/oas/v3.0.3.html#header-object'
 info:
   title: "Response headers - optional"
   version: "1.0"

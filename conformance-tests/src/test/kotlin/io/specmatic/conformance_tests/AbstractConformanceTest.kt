@@ -26,7 +26,7 @@ abstract class AbstractConformanceTest(
         OpenApiSpec(File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"))
 
     @RegisterExtension
-    val expectedFailureExtension = ExpectedFailureExtension { tag -> spec.findExtensionByKey(tag) }
+    val conformanceTestResultExtension = ConformanceTestResultExtension { tag -> spec.findExtensionByKey(tag) }
 
     @BeforeAll
     fun setup() {

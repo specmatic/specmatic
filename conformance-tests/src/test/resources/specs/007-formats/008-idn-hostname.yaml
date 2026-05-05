@@ -1,7 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "invalid RFC 5890 internationalized hostname"
 x-specmatic-expect-failure-response-bodies: "invalid RFC 5890 internationalized hostname"
-x-specmatic-spec-ref: "JSON Schema \"idn-hostname\" format (RFC 5890 IDN): https://json-schema.org/draft/2020-12/json-schema-validation#name-hostnames"
+x-specmatic-spec-ref: 'JSON Schema "idn-hostname" format (RFC 5890 IDN): https://json-schema.org/draft/2020-12/json-schema-validation#name-hostnames'
 info:
   title: "Format - idn-hostname (JSON Schema)"
   version: "1.0"

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 x-specmatic-expect-failure-loop: "Loop tests fail with: Expected \"circle\", actual was \"Circle\""
 x-specmatic-expect-failure-operations: "Loop tests fail with: Expected \"circle\", actual was \"Circle\""
-x-specmatic-spec-ref: "Discriminator with const-typed branches. See OAS 3.1 § Discriminator Object: https://spec.openapis.org/oas/v3.1.0.html#discriminator-object"
+x-specmatic-spec-ref: 'Discriminator with const-typed branches. See OAS 3.1 § Discriminator Object: https://spec.openapis.org/oas/v3.1.0.html#discriminator-object'
 info:
   title: "OpenAPI 3.1 - discriminator with const type values"
   version: "1.0"

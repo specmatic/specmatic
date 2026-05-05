@@ -1,7 +1,7 @@
 openapi: 3.1.0
 x-specmatic-expect-failure-request-bodies: "invalid request/responses that don't respect prefixItems type"
 x-specmatic-expect-failure-response-bodies: "invalid request/responses that don't respect prefixItems type"
-x-specmatic-spec-ref: "JSON Schema prefixItems for tuple validation: https://json-schema.org/draft/2020-12/json-schema-core#name-prefixitems"
+x-specmatic-spec-ref: 'JSON Schema prefixItems for tuple validation: https://json-schema.org/draft/2020-12/json-schema-core#name-prefixitems'
 info:
   title: "OpenAPI 3.1 - prefixItems tuple validation"
   version: "1.0"

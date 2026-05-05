@@ -1,7 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-loop: "Mock fails to load with error: Could not determine name for an xml node"
 x-specmatic-expect-failure-operations: "Mock fails to load with error: Could not determine name for an xml node"
-x-specmatic-spec-ref: "Multiple media types per request. See OAS 3.0.3 § Media Type Object: https://spec.openapis.org/oas/v3.0.3.html#media-type-object"
+x-specmatic-spec-ref: 'Multiple media types per request. See OAS 3.0.3 § Media Type Object: https://spec.openapis.org/oas/v3.0.3.html#media-type-object'
 info:
   title: "Content negotiation - multiple request content types"
   version: "1.0"

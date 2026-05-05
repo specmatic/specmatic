@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Security Scheme Object — http basic (RFC 7617): https://spec.openapis.org/oas/v3.0.3.html#security-scheme-object'
 info:
   title: "Security scheme - HTTP basic auth"
   version: "1.0"

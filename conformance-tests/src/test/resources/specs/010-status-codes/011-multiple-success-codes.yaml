@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Responses Object — multiple 2xx response codes: https://spec.openapis.org/oas/v3.0.3.html#responses-object'
 info:
   title: "Multiple success status codes on one endpoint"
   version: "1.0"

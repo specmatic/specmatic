@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — `default` on a query parameter schema: https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Default value - query parameter"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 409 Conflict (RFC 9110 §15.5.10): https://www.rfc-editor.org/rfc/rfc9110#name-409-conflict'
 info:
   title: "Status code - 409 Conflict"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema validation — `exclusiveMinimum` / `exclusiveMaximum`: https://json-schema.org/draft/2020-12/json-schema-validation#name-exclusiveminimum'
 info:
   title: "Constraint - integer exclusiveMinimum and exclusiveMaximum"
   version: "1.0"

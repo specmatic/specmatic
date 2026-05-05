@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Path Templating — nested resources with parent/child path parameters: https://spec.openapis.org/oas/v3.0.3.html#path-templating'
 info:
   title: "Nested resource path"
   version: "1.0"

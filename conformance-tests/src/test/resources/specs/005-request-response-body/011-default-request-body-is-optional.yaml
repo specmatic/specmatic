@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Request Body Object — `required` defaults to `false`: https://spec.openapis.org/oas/v3.0.3.html#request-body-object'
 info:
   title: "Request body defaults to being optional"
   version: "1.0"

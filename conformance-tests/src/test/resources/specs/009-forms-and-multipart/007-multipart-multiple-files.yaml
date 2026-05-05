@@ -1,7 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-loop: "loop test failed because tests sent invalid requests that were rejected by the mock"
 x-specmatic-expect-failure-operations: "loop test failed because tests sent invalid requests that were rejected by the mock"
-x-specmatic-spec-ref: "File upload via type:string format:binary in multipart/form-data. See OAS 3.0.3 § Considerations for File Uploads: https://spec.openapis.org/oas/v3.0.3.html#considerations-for-file-uploads"
+x-specmatic-spec-ref: 'File upload via type:string format:binary in multipart/form-data. See OAS 3.0.3 § Considerations for File Uploads: https://spec.openapis.org/oas/v3.0.3.html#considerations-for-file-uploads'
 info:
   title: "Multipart multiple file upload via array"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema validation — `multipleOf` with decimal divisor: https://json-schema.org/draft/2020-12/json-schema-validation#name-multipleof'
 info:
   title: "Number multipleOf with decimal value"
   version: "1.0"

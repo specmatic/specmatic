@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'Non-standard "commonmark" format hint (no validation): https://spec.openapis.org/oas/v3.0.3.html#data-types'
 info:
   title: "Format - commonmark (OpenAPI)"
   version: "1.0"

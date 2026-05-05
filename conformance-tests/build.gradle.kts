@@ -25,7 +25,7 @@ val enableConformanceTests: String? by project
 val specmaticVersionForConformanceTests: String? by project
 val succeedOnExpectedFailures: String? by project
 
-val expectedFailuresJsonlFile = layout.buildDirectory.file("conformance-expected-failures.jsonl")
+val conformanceTestResultsJsonlFile = layout.buildDirectory.file("conformance-test-results.jsonl")
 
 tasks.test {
     useJUnitPlatform()
@@ -38,7 +38,8 @@ tasks.test {
         if(succeedOnExpectedFailures?.toBoolean() == true) {
             systemProperty("succeedOnExpectedFailures", "true")
         }
-        val recordsFile = expectedFailuresJsonlFile.get().asFile
+        val recordsFile = conformanceTestResultsJsonlFile.get().asFile
+        systemProperty("conformanceTestResultsJsonlFile", recordsFile.absolutePath)
         doFirst {
             recordsFile.delete()
         }
@@ -105,10 +106,10 @@ tasks.named("compileTestKotlin") {
     dependsOn(generateConformanceTests)
 }
 
-tasks.register<JavaExec>("generateSummaryOfExpectedFailures") {
+tasks.register<JavaExec>("generateConformanceSummary") {
     group = "verification"
-    description = "Generate markdown summary of expected conformance test failures"
-    mainClass.set("io.specmatic.conformance_test_support.GenerateSummaryOfExpectedFailuresCommandKt")
+    description = "Generate markdown summary of conformance test results"
+    mainClass.set("io.specmatic.conformance_test_support.GenerateConformanceSummaryCommandKt")
     classpath = sourceSets["main"].runtimeClasspath
-    systemProperty("expectedFailuresJsonlFile", expectedFailuresJsonlFile.get().asFile.absolutePath)
+    systemProperty("conformanceTestResultsJsonlFile", conformanceTestResultsJsonlFile.get().asFile.absolutePath)
 }

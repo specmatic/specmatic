@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'JSON Schema 2020-12 — `exclusiveMinimum`/`exclusiveMaximum` as numbers: https://json-schema.org/draft/2020-12/json-schema-validation#name-exclusiveminimum'
 info:
   title: "OpenAPI 3.1 - exclusiveMinimum/exclusiveMaximum as numbers"
   version: "1.0"

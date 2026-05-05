@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema validation — `pattern` (ECMA 262 regex): https://json-schema.org/draft/2020-12/json-schema-validation#name-pattern'
 info:
   title: "Constraint - string pattern (regex)"
   version: "1.0"

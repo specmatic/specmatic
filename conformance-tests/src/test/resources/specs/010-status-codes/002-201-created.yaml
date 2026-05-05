@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 201 Created (RFC 9110 §15.3.2): https://www.rfc-editor.org/rfc/rfc9110#name-201-created'
 info:
   title: "Status code - 201 Created"
   version: "1.0"

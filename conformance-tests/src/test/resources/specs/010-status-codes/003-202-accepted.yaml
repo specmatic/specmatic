@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 202 Accepted (RFC 9110 §15.3.3): https://www.rfc-editor.org/rfc/rfc9110#name-202-accepted'
 info:
   title: "Status code - 202 Accepted"
   version: "1.0"

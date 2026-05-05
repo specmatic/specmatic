@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'HTTP status 400 Bad Request (RFC 9110 §15.5.1): https://www.rfc-editor.org/rfc/rfc9110#name-400-bad-request'
 info:
   title: "Status code - 400 Bad Request"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'JSON Schema 2020-12 — `type: "null"` as a standalone type: https://json-schema.org/draft/2020-12/json-schema-core#name-type'
 info:
   title: "OpenAPI 3.1 - standalone null type"
   version: "1.0"

@@ -1,6 +1,6 @@
 openapi: 3.1.0
 x-specmatic-expect-failure-request-bodies: "invalid request bodies: error=[: required property 'cardNumber' not found, : required property 'bankAccount' not found]"
-x-specmatic-spec-ref: "JSON Schema if/then/else conditional subschemas (3.1 aligns with JSON Schema 2020-12). See OAS 3.1 § Schema Object: https://spec.openapis.org/oas/v3.1.0.html#schema-object"
+x-specmatic-spec-ref: 'JSON Schema if/then/else conditional subschemas (3.1 aligns with JSON Schema 2020-12). See OAS 3.1 § Schema Object: https://spec.openapis.org/oas/v3.1.0.html#schema-object'
 info:
   title: "OpenAPI 3.1 - if/then/else conditional schema"
   version: "1.0"

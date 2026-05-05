@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'OAS 3.1 Encoding Object — urlencoded form using JSON Schema `type` array: https://spec.openapis.org/oas/v3.1.1.html#encoding-object'
 info:
   title: "OpenAPI 3.1 - URL-encoded form with type arrays"
   version: "1.0"

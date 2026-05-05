@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.x integer format extension — `int8` (8-bit signed): https://spec.openapis.org/oas/v3.0.3.html#data-types'
 info:
   title: "Format - int8 (OpenAPI)"
   version: "1.0"

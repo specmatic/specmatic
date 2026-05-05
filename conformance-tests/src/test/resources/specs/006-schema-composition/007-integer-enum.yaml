@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema `enum` keyword — integer values: https://json-schema.org/draft/2020-12/json-schema-validation#name-enum'
 info:
   title: "Schema composition - integer enum"
   version: "1.0"

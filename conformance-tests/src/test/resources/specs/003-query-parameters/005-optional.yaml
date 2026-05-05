@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — optional query parameter (`required: false`): https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Query parameter - optional"
   version: "1.0"
