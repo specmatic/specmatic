@@ -1,5 +1,6 @@
 package io.specmatic.core.utilities
 
+import io.specmatic.core.Result
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -44,5 +45,51 @@ class EarlyResultTest {
         val value = result.getOrElse { failures -> "fallback:${failures.joinToString(",")}" }
 
         assertThat(value).isEqualTo("fallback:one,two")
+    }
+
+    @Test
+    fun `firstSuccessOrFailures should return first success and stop evaluating items`() {
+        val evaluated = mutableListOf<Int>()
+        val result = listOf(1, 2, 3).firstSuccessOrFailures(
+            evaluate = { item ->
+                evaluated.add(item)
+                item * 10
+            },
+            isSuccess = { value -> value == 20 },
+            toFailure = { value -> "failure:$value" }
+        )
+
+        assertThat(result).isEqualTo(EarlyResult.FirstSuccess(20))
+        assertThat(evaluated).containsExactly(1, 2)
+    }
+
+    @Test
+    fun `firstSuccessOrFailures should collect failures when no item succeeds`() {
+        val result = listOf(1, 2, 3).firstSuccessOrFailures(
+            evaluate = { item -> item * 10 },
+            isSuccess = { false },
+            toFailure = { value -> "failure:$value" }
+        )
+
+        assertThat(result).isEqualTo(EarlyResult.Failures(listOf("failure:10", "failure:20", "failure:30")))
+    }
+
+    @Test
+    fun `result overload should return first non failure item`() {
+        val result = listOf("a", "b", "c").firstSuccessOrFailures { item ->
+            if (item == "b") Result.Success() else Result.Failure("bad:$item")
+        }
+
+        assertThat(result).isEqualTo(EarlyResult.FirstSuccess("b"))
+    }
+
+    @Test
+    fun `result overload should collect failures when all items fail`() {
+        val result = listOf("a", "b").firstSuccessOrFailures { item -> Result.Failure("bad:$item") }
+        assertThat(result).isEqualTo(
+            EarlyResult.Failures(
+                listOf(Result.Failure("bad:a"), Result.Failure("bad:b"))
+            )
+        )
     }
 }

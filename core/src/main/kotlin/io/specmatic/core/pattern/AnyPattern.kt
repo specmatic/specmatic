@@ -6,6 +6,8 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.utilities.EarlyResult
+import io.specmatic.core.utilities.firstSuccessOrFailures
 import io.specmatic.core.value.*
 import io.specmatic.test.asserts.toFailure
 
@@ -206,19 +208,22 @@ data class AnyPattern(
             return discriminator.matches(sampleData, pattern, key, resolver)
         }
 
-        val matchResults: List<AnyPatternMatch> =
-            pattern.map {
-                AnyPatternMatch(it, resolver.matchesPattern(key, it, sampleData ?: EmptyString))
-            }
+        val earlyResult  = pattern.firstSuccessOrFailures(
+            evaluate = { pattern ->
+                val result = resolver.matchesPattern(key, pattern, sampleData ?: EmptyString)
+                AnyPatternMatch(pattern, result)
+            },
+            isSuccess = { it.result.isSuccess() },
+            toFailure = { it },
+        )
 
-        val matchResult = matchResults.find { it.result is Result.Success }
-
-        if(matchResult != null)
-            return matchResult.result
+        val matchResults = when (earlyResult) {
+            is EarlyResult.FirstSuccess -> return earlyResult.value.result
+            is EarlyResult.Failures -> earlyResult.failures
+        }
 
         val failures = matchResults.map { it.result }.filterIsInstance<Failure>()
-
-        if(failures.any { it.reasonIs { it.objectMatchOccurred } }) {
+        if (failures.any { it.reasonIs { it.objectMatchOccurred } }) {
             val failureMatchResults = matchResults.filter {
                 it.result is Failure && it.result.reasonIs { it.objectMatchOccurred }
             }

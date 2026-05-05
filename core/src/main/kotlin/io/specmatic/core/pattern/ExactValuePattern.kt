@@ -5,6 +5,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.utilities.firstSuccessOrFailures
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.Value
@@ -29,8 +30,10 @@ data class ExactValuePattern(override val pattern: Value, override val typeAlias
     }
 
     override fun fitsWithin(otherPatterns: List<Pattern>, thisResolver: Resolver, otherResolver: Resolver, typeStack: TypeStack): Result {
-        val results = otherPatterns.map { it.matches(pattern, otherResolver) }
-        return results.find { it is Result.Success } ?: results.firstOrNull() ?: Result.Failure("No matching patterns.")
+        return otherPatterns.firstSuccessOrFailures { it.matches(pattern, otherResolver) }.fold(
+            onSuccess = { Result.Success() },
+            onFailure = { failures -> failures.firstOrNull() ?: Result.Failure("No matching patterns.") }
+        )
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {

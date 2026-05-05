@@ -15,3 +15,27 @@ sealed interface EarlyResult<out Value, out Failure> {
 fun <Value, Failure> EarlyResult<Value, Failure>.getOrElse(orElse: (List<Failure>) -> Value): Value {
     return this.fold(onSuccess = { value -> value }, onFailure = { failure -> orElse(failure) })
 }
+
+inline fun <Item, Value, Failure> Iterable<Item>.firstSuccessOrFailures(evaluate: (Item) -> Value, isSuccess: (Value) -> Boolean, toFailure: (Value) -> Failure): EarlyResult<Value, Failure> {
+    val failures = mutableListOf<Failure>()
+
+    for (item in this) {
+        val value = evaluate(item)
+        if (isSuccess(value)) return EarlyResult.FirstSuccess(value)
+        toFailure(value).let(failures::add)
+    }
+
+    return EarlyResult.Failures(failures)
+}
+
+inline fun <Item> Iterable<Item>.firstSuccessOrFailures(evaluate: (Item) -> io.specmatic.core.Result): EarlyResult<Item, io.specmatic.core.Result.Failure> {
+    val failures = mutableListOf<io.specmatic.core.Result.Failure>()
+
+    for (item in this) {
+        val result = evaluate(item)
+        if (result !is io.specmatic.core.Result.Failure) return EarlyResult.FirstSuccess(item)
+        failures.add(result)
+    }
+
+    return EarlyResult.Failures(failures)
+}
