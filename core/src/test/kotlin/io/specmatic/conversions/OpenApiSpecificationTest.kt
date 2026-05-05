@@ -6141,11 +6141,8 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
         val match: List<Pair<Scenario, Result>> = feature.compatibilityLookup(
-            HttpRequest(
-                "POST",
-                "/users",
-                body = parsedJSONObject("""{"id": "xyz789"}""")
-            )
+            baseScenario = feature.scenarios.first(),
+            httpRequest = HttpRequest("POST", "/users", body = parsedJSONObject("""{"id": "xyz789"}"""))
         )
 
         val result = match.single().second
