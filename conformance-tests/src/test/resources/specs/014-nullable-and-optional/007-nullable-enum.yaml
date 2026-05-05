@@ -1,6 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-loop: "tests fail with error: Enum values must contain null if the enum is marked nullable, adding null value"
 x-specmatic-expect-failure-operations: "tests fail with error: Enum values must contain null if the enum is marked nullable, adding null value"
+x-specmatic-spec-ref: "nullable:true with enum must include null. See OAS 3.0.3 § Schema Object (nullable): https://spec.openapis.org/oas/v3.0.3.html#schema-object"
 info:
   title: "Nullable enum property"
   version: "1.0"

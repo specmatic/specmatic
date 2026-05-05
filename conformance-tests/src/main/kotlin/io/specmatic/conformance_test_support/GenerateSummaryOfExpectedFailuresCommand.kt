@@ -23,6 +23,7 @@ data class ExpectedFailureRecord(
     val testClass: String,
     val testMethod: String,
     val reason: String,
+    val specRef: String? = null,
 )
 
 @Command(
@@ -98,13 +99,14 @@ fun main(args: Array<String>) {
 private fun renderMarkdown(records: List<ExpectedFailureRecord>, totalTests: Int): String = buildString {
     appendLine("### Expected Failures")
     appendLine()
-    appendLine("| Display Name | Test Class | Test Method | Reason |")
-    appendLine("|--------------|------------|-------------|--------|")
+    appendLine("| Display Name | Test Class | Test Method | Reason | Spec Reference |")
+    appendLine("|--------------|------------|-------------|--------|----------------|")
     for (record in records) {
         val simpleClass = record.testClass.substringAfterLast('.')
         appendLine(
             "| ${escapeCell(record.displayName)} | ${escapeCell(simpleClass)} | " +
-                "${escapeCell(record.testMethod)} | ${escapeCell(record.reason)} |"
+                "${escapeCell(record.testMethod)} | ${escapeCell(record.reason)} | " +
+                "${escapeCell(record.specRef.orEmpty())} |"
         )
     }
     appendLine()

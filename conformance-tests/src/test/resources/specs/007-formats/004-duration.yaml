@@ -1,6 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "invalid ISO 8601 duration"
 x-specmatic-expect-failure-response-bodies: "invalid ISO 8601 duration"
+x-specmatic-spec-ref: "JSON Schema \"duration\" format (RFC 3339 Appendix A): https://json-schema.org/draft/2020-12/json-schema-validation#name-dates-times-and-duration"
 info:
   title: "Format - duration (JSON Schema)"
   version: "1.0"

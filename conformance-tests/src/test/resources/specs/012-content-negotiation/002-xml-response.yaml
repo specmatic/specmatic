@@ -1,6 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-loop: "Mock fails to load with error: Could not determine name for an xml node"
 x-specmatic-expect-failure-operations: "Mock fails to load with error: Could not determine name for an xml node"
+x-specmatic-spec-ref: "XML response serialization. See OAS 3.0.3 § XML Object: https://spec.openapis.org/oas/v3.0.3.html#xml-object"
 info:
   title: "Content negotiation - XML response"
   version: "1.0"

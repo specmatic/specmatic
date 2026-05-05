@@ -1,6 +1,7 @@
 openapi: 3.0.3
 x-specmatic-expect-failure-request-bodies: "invalid RFC 4291 IP address"
 x-specmatic-expect-failure-response-bodies: "invalid RFC 4291 IP address"
+x-specmatic-spec-ref: "JSON Schema \"ipv6\" format (RFC 4291): https://json-schema.org/draft/2020-12/json-schema-validation#name-ip-addresses"
 info:
   title: "Format - ipv6 (JSON Schema)"
   version: "1.0"
