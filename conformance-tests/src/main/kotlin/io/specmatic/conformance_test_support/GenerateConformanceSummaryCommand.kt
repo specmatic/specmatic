@@ -55,9 +55,11 @@ class GenerateConformanceSummaryCommand : Callable<Int> {
     var outputFile: String? = null
 
     override fun call(): Int {
-        val records = readRecords(File(testResultsJsonlFile))
+        val testResultsFile = File(testResultsJsonlFile)
+        val records = readRecords(testResultsFile)
             .sortedWith(compareBy({ it.status.ordinal }, { it.displayName }, { it.testClass }, { it.testMethod }))
 
+        writeCsv(records, csvFileFor(testResultsFile))
         val markdown = renderMarkdown(records)
 
         if (outputFile != null) {
@@ -80,6 +82,11 @@ class GenerateConformanceSummaryCommand : Callable<Int> {
                 if (trimmed.isEmpty()) null else jsonMapper.readValue<ConformanceTestRecord>(trimmed)
             }.toList()
         }
+    }
+
+    private fun writeCsv(records: List<ConformanceTestRecord>, file: File) {
+        file.parentFile?.mkdirs()
+        file.writeText(renderCsv(records))
     }
 }
 
@@ -123,6 +130,45 @@ private fun renderMarkdown(records: List<ConformanceTestRecord>): String = build
     }
     appendLine()
 }
+
+private fun csvFileFor(testResultsFile: File): File =
+    testResultsFile.resolveSibling("${testResultsFile.nameWithoutExtension}.csv")
+
+private fun renderCsv(records: List<ConformanceTestRecord>): String = buildString {
+    appendCsvRow(
+        listOf(
+            "status",
+            "tag",
+            "displayName",
+            "testClass",
+            "testMethod",
+            "specRef",
+            "reason",
+            "failureMessage",
+        )
+    )
+    records.forEach { record ->
+        appendCsvRow(
+            listOf(
+                record.status.name,
+                record.tag.orEmpty(),
+                record.displayName,
+                record.testClass,
+                record.testMethod,
+                record.specRef.orEmpty(),
+                record.reason.orEmpty(),
+                record.failureMessage.orEmpty(),
+            )
+        )
+    }
+}
+
+private fun StringBuilder.appendCsvRow(values: List<String>) {
+    appendLine(values.joinToString(",") { it.toCsvCell() })
+}
+
+private fun String.toCsvCell(): String =
+    "\"${replace("\"", "\"\"")}\""
 
 private fun escapeCell(value: String): String =
     value.replace("\\", "\\\\")

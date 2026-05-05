@@ -75,3 +75,11 @@ jobs:
         run: |
           ./gradlew -p conformance-tests generateConformanceSummary \
             --args="--output-file $GITHUB_STEP_SUMMARY"
+
+      - name: Upload Conformance Test Results CSV file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-test-results-csv
+          path: conformance-tests/build/conformance-test-results.csv
+          if-no-files-found: ignore

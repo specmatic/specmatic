@@ -42,6 +42,7 @@ tasks.test {
         systemProperty("conformanceTestResultsJsonlFile", recordsFile.absolutePath)
         doFirst {
             recordsFile.delete()
+            recordsFile.resolveSibling("${recordsFile.nameWithoutExtension}.csv").delete()
         }
     } else {
         exclude("io/specmatic/conformance_tests/")
