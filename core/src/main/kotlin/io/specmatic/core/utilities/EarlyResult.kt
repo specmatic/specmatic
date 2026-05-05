@@ -15,3 +15,15 @@ sealed interface EarlyResult<out Value, out Failure> {
 fun <Value, Failure> EarlyResult<Value, Failure>.getOrElse(orElse: (List<Failure>) -> Value): Value {
     return this.fold(onSuccess = { value -> value }, onFailure = { failure -> orElse(failure) })
 }
+
+inline fun <Item, Value, Failure> Iterable<Item>.firstSuccessOrFailures(evaluate: (Item) -> Value, isSuccess: (Value) -> Boolean, toFailure: (Value) -> Failure): EarlyResult<Value, Failure> {
+    val failures = mutableListOf<Failure>()
+
+    for (item in this) {
+        val value = evaluate(item)
+        if (isSuccess(value)) return EarlyResult.FirstSuccess(value)
+        toFailure(value).let(failures::add)
+    }
+
+    return EarlyResult.Failures(failures)
+}
