@@ -519,12 +519,18 @@ data class Feature(
     }
 
     fun compatibilityLookup(
+        baseScenario: Scenario,
         httpRequest: HttpRequest,
-        mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches
+        mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches,
     ): List<Pair<Scenario, Result>> {
-        try {
-            val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
+        val baseMatchingScenarios = this.scenarios.filter { scenario ->
+            val matchesRequestIdentifiers = scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, scenario.resolver)
+            if (!matchesRequestIdentifiers.isSuccess()) return@filter false
+            return@filter scenario.status == baseScenario.status
+        }
 
+        try {
+            val resultList = lookupAllScenarios(httpRequest, baseMatchingScenarios, mismatchMessages, IgnoreUnexpectedKeys)
             val successes = lookupAllSuccessfulScenarios(resultList)
             if (successes.isNotEmpty())
                 return successes
