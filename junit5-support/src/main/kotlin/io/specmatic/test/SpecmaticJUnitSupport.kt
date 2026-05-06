@@ -216,7 +216,6 @@ open class SpecmaticJUnitSupport {
             coverage = coverageReport.totalCoveragePercentage,
             actuatorEnabled = coverageReport.actuatorEnabled,
             absoluteCoverage = coverageReport.absoluteCoveragePercentage,
-            testResultRecords = coverageReport.testResultRecords,
             specConfigs = coverageReport.getSpecConfigs(),
         )
     }

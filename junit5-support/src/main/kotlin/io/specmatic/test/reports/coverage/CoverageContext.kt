@@ -45,7 +45,8 @@ data class CoverageContext(
     fun allCoverageOperations(): Set<OpenAPIOperation> {
         val specOperations = specOperations()
         val operationsDerivedFromTests = tests
-            .mapNotNull { it.toOpenApiOperationOrNull() }
+            .flatMap { it.operations }
+            .filterIsInstance<OpenAPIOperation>()
             .toSet()
         val missingInSpecOperations = missingInSpecOperations(specOperations)
 

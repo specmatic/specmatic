@@ -199,7 +199,7 @@ class CoverageReportTextRendererTest {
         val report = OpenApiCoverageReport(
             configFilePath = "specmatic.yaml",
             coverageOperations = listOf(
-                io.specmatic.core.report.OpenApiCoverageReportOperation(
+                io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation(
                     operation = OpenAPIOperation(
                         path = "/orders",
                         method = "GET",
@@ -233,7 +233,7 @@ class CoverageReportTextRendererTest {
         val report = OpenApiCoverageReport(
             configFilePath = "specmatic.yaml",
             coverageOperations = listOf(
-                io.specmatic.core.report.OpenApiCoverageReportOperation(
+                io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation(
                     operation = OpenAPIOperation(
                         path = "/orders",
                         method = "GET",

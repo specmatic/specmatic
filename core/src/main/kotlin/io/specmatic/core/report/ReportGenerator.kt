@@ -4,17 +4,13 @@ import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
-import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
-import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
-import io.specmatic.test.TestResultRecord
 import java.io.File
-
-typealias OpenApiCoverageReportOperation = CoverageReportOperation<OpenAPIOperation, TestResultRecord>
 object ReportGenerator {
     fun generateReport(
         testResultRecords: List<CtrfTestResultRecord>,
@@ -54,8 +50,7 @@ object ReportGenerator {
     }
 
     fun generateReport(
-        testResultRecords: List<CtrfTestResultRecord>,
-        coverageReportOperations: List<OpenApiCoverageReportOperation>,
+        coverageReportOperations: List<BaseCoverageReportOperation>,
         startTime: Long,
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
@@ -66,6 +61,10 @@ object ReportGenerator {
         toolName: String = "Specmatic ${VersionInfo.describe()}",
     ) {
         if(isCtrfSpecConfigsValid(specConfigs).not()) return
+
+        val testResultRecords = coverageReportOperations
+            .flatMap { it.tests }
+            .distinctBy { it.id }
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
@@ -80,7 +79,6 @@ object ReportGenerator {
 
         consoleLog("Using new report generation method that accepts coverage report operations.")
         val report = CtrfReportGenerator.generate(
-            testResultRecords = testResultRecords,
             coverageReportOperations = coverageReportOperations,
             startTime = startTime,
             endTime = endTime,

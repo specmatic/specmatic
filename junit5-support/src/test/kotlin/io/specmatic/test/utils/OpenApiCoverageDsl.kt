@@ -6,7 +6,6 @@ import io.specmatic.core.HttpRequestPattern
 import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.mapValue
@@ -23,6 +22,7 @@ import io.specmatic.test.reports.TestReportListener
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverage
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
+import io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.toOpenApiOperationOrNull

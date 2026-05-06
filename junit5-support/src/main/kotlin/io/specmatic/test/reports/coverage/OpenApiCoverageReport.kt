@@ -4,7 +4,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.report.calculateAbsoluteCoverage
 import io.specmatic.core.report.calculateCoverage
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.test.API

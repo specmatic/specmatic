@@ -12,6 +12,6 @@ data class MockUsageContext(
     }
 
     fun allCoverageOperations(): Set<OpenAPIOperation> {
-        return specOperations() + tests.map { it.toMockUsageOperation() }.toSet()
+        return specOperations() + tests.flatMap { it.operations }.filterIsInstance<OpenAPIOperation>().toSet()
     }
 }

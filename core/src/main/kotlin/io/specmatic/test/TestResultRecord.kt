@@ -21,8 +21,10 @@ import io.specmatic.reporter.model.TestResult
 import io.specmatic.reporter.model.SpecType
 import java.time.Duration
 import java.time.Instant
+import java.util.UUID
 
 data class TestResultRecord(
+    override val id: UUID = UUID.randomUUID(),
     val path: String,
     val method: String,
     val responseStatus: Int,

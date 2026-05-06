@@ -6,7 +6,6 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.RuleViolation
 import io.specmatic.core.SourceProvider
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.utilities.Decision
 import io.specmatic.license.core.SpecmaticProtocol
@@ -20,6 +19,7 @@ import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.CoverageContext
 import io.specmatic.test.reports.coverage.CoverageReportGenerator
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
+import io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation
 import io.specmatic.test.utils.OpenApiCoverageBuilder.Companion.buildCoverage
 import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
@@ -298,10 +298,8 @@ class CtrfApiCoverageReportIntegrationTest {
         }
 
         val coverageReportOperations = coverage.generate().coverageOperations
-        val attemptedTestRecords = coverageReportOperations.flatMap { it.tests }.distinct()
         val specConfigs = coverageReportOperations.map { it.specConfig }.distinct()
         val ctrfReport = CtrfReportGenerator.generate(
-            testResultRecords = attemptedTestRecords,
             coverageReportOperations = coverageReportOperations,
             specConfig = specConfigs,
             startTime = 0L,
@@ -385,7 +383,6 @@ class CtrfApiCoverageReportIntegrationTest {
                     startTime = 0L,
                     toolName = "Specmatic test",
                     specConfig = reportOperations.map { it.specConfig }.distinct(),
-                    testResultRecords = emptyList(),
                     coverageReportOperations = reportOperations,
                     extra = emptyMap(),
                 )
@@ -452,7 +449,6 @@ class CtrfApiCoverageReportIntegrationTest {
                     startTime = 0L,
                     toolName = "Specmatic test",
                     specConfig = report.getSpecConfigs(),
-                    testResultRecords = report.testResultRecords,
                     coverageReportOperations = report.coverageOperations,
                     extra = buildMap {
                         put("apiCoverage", "${report.totalCoveragePercentage}%")

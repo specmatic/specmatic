@@ -1,7 +1,6 @@
 package io.specmatic.test
 
 import io.specmatic.core.RuleViolation
-import io.specmatic.core.report.OpenApiCoverageReportOperation
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -9,6 +8,7 @@ import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
+import io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation
 import io.specmatic.test.utils.OpenApiCoverageBuilder.Companion.buildCoverage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

@@ -1,6 +1,6 @@
 package io.specmatic.test.reports.coverage.console
 
-import io.specmatic.core.report.OpenApiCoverageReportOperation
+import io.specmatic.test.reports.coverage.OpenApiCoverageReportOperation
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.TestResult
