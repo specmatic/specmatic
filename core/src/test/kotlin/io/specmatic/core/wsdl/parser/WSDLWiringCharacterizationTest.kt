@@ -412,6 +412,41 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `simple content extension wiring supports primitive base types`() {
+        val namespace = "http://example.com/simple-content-primitive"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentPrimitive"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="NumberType">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="xsd:integer"/>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="Number" type="tns:NumberType"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-primitive.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Number"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("NumberType", emptyMap(), emptySet())
+
+        assertThat((typeInfo.types.getValue("NumberType") as XMLPattern).toPrettyString())
+            .contains("<SPECMATIC_TYPE>(number)</SPECMATIC_TYPE>")
+    }
+
+    @Test
     fun `imported schema wiring still resolves downstream children from imported xsd files`() {
         val wsdl = loadWsdl("src/test/resources/wsdl/imported_types.wsdl")
 

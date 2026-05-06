@@ -14,8 +14,16 @@ class SimpleTypeExtension(private var simpleTypeNode: XMLNode, var wsdl: WSDL) :
     ): List<WSDLTypeInfo> {
         val extension = simpleTypeNode.findFirstChildByName("extension", "Node ${simpleTypeNode.realName} does not have a child node named extension")
 
-        val simpleType = wsdl.findSimpleType(extension, "base") ?: throw ContractException("Type with name in base of node ${extension.name} could not be found")
-        val simpleTypeInfo = createSimpleTypeInfo(simpleType, wsdl, existingTypes = existingTypes)
+        val simpleTypeInfo = if (isPrimitiveType(extension.baseAsTypeNode())) {
+            WSDLTypeInfo(nodes = listOf(elementTypeValue(extension.baseAsTypeNode())), types = existingTypes)
+        } else {
+            val simpleType = wsdl.findSimpleType(extension, "base") ?: throw ContractException("Type with name in base of node ${extension.name} could not be found")
+            createSimpleTypeInfo(simpleType, wsdl, existingTypes = existingTypes)
+        }
+
         return wsdlTypeInfos.map { it.plus(simpleTypeInfo) }
     }
 }
+
+private fun XMLNode.baseAsTypeNode(): XMLNode =
+    copy(attributes = attributes.plus("type" to attributes.getValue("base")))
