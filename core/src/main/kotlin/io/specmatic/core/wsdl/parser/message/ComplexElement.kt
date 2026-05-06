@@ -19,9 +19,17 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
         if(specmaticTypeName in typeStack)
             return WSDLTypeInfo(types = existingTypes)
 
-        val childTypeInfos = try {
-            val complexType = wsdl.getComplexTypeNode(element)
+        val complexType = try {
+            wsdl.getComplexTypeNode(element)
+        } catch(e: ContractException) {
+            logger.debug(e, "Error getting type for WSDL type \"$wsdlTypeReference\", ${element.oneLineDescription}")
+            throw e
+        }
 
+        val attributes = complexType.getAttributes()
+        val attributePatterns = attributePatternMap(attributes)
+
+        val childTypeInfos = try {
             complexType.generateChildren(
                 specmaticTypeName,
                 existingTypes,
@@ -42,8 +50,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             accumulated.plus(childTypeInfo.types)
         }
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
-            1 -> XMLPattern(childTypeInfos.single().xmlTypeData)
-            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData) }, extensions = emptyMap())
+            1 -> XMLPattern(childTypeInfos.single().xmlTypeData.copy(attributes = attributePatterns))
+            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData.copy(attributes = attributePatterns)) }, extensions = emptyMap())
         }
         val types = childTypes.plus(specmaticTypeName to resolvedPattern)
 
@@ -71,7 +79,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
     }
 
     private fun eliminateAnnotationsAndAttributes(childNodes: List<XMLNode>) =
-        childNodes.filterNot { it.name == "annotation" || it.name == "attribute" }
+        childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" }
 
     override fun getSOAPPayload(
         soapMessageType: SOAPMessageType,
@@ -96,9 +104,7 @@ data class ComplexType(val complexType: XMLNode, val wsdl: WSDL) {
     }
 
     fun getAttributes(): List<AttributeElement> {
-        return complexType.childNodes.filterIsInstance<XMLNode>().filter {
-            it.name == "attribute"
-        }.map { AttributeElement(it) }
+        return attributesFrom(complexType, wsdl)
     }
 }
 
@@ -117,7 +123,7 @@ internal fun generateChildren(
 }
 
 private fun eliminateAnnotationsAndAttributes(childNodes: List<XMLNode>) =
-    childNodes.filterNot { it.name == "annotation" || it.name == "attribute" }
+    childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" }
 
 fun complexTypeChildNode(child: XMLNode, wsdl: WSDL, parentTypeName: String): ComplexTypeChild {
     return when (child.name) {
