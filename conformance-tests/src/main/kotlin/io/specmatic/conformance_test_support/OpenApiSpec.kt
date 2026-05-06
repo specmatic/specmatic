@@ -144,6 +144,56 @@ class OpenApiSpec(private val specFile: File) {
         return queryParams.flatMap { validateQueryParameter(it, queryPairs) }
     }
 
+    fun validateRequestHeaders(headers: Map<String, String>, operation: Operation): List<String> {
+        val swaggerOp = swaggerOperation(operation) ?: return emptyList()
+        val headerParams = swaggerOp.parameters.orEmpty().filter { it.`in` == "header" }
+        if (headerParams.isEmpty()) return emptyList()
+
+        return headerParams.flatMap {
+            validateHeaderValue(it.name, it.schema, it.required == true, "header", headers)
+        }
+    }
+
+    fun validateResponseHeaders(headers: Map<String, String>, operation: Operation): List<String> {
+        val swaggerOp = swaggerOperation(operation) ?: return emptyList()
+        val responseHeaders = swaggerOp.responses?.get(operation.statusCode.toString())?.headers.orEmpty()
+        if (responseHeaders.isEmpty()) return emptyList()
+
+        return responseHeaders.flatMap { (name, header) ->
+            validateHeaderValue(name, header.schema, header.required == true, "response header", headers)
+        }
+    }
+
+    private fun validateHeaderValue(
+        name: String,
+        schema: io.swagger.v3.oas.models.media.Schema<*>?,
+        required: Boolean,
+        kind: String,
+        headers: Map<String, String>
+    ): List<String> {
+        val value = headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+
+        if (value == null) {
+            return if (required) listOf("/$name: required $kind is missing") else emptyList()
+        }
+
+        if (schema == null) return emptyList()
+
+        val schemaType = schema.type ?: schema.types?.firstOrNull { it != "null" }
+        val schemaAllowsNull = schema.nullable == true || schema.types?.contains("null") == true
+
+        val node = try {
+            if (value.isEmpty() && schemaAllowsNull) jsonMapper.nullNode()
+            else parseFormValue(value, schemaType)
+        } catch (e: Exception) {
+            return listOf("/$name: cannot parse '$value' as $schemaType: ${e.message}")
+        }
+
+        val schemaNode: JsonNode = swaggerJsonMapper.valueToTree(schema)
+        val validatorSchema = schemaRegistry.getSchema(parameterSchemaLocation, schemaNode)
+        return validatorSchema.validate(node).map { "/$name${it.instanceLocation}: ${it.message}" }
+    }
+
     private fun validateQueryParameter(
         parameter: Parameter,
         queryPairs: Map<String, List<String>>

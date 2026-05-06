@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 integer format — `int32` (signed 32-bit): https://spec.openapis.org/oas/v3.0.3.html#data-types'
 info:
   title: "Format - int32 (OpenAPI)"
   version: "1.0"

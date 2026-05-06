@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Operation Object — POST method semantics (RFC 9110 §9.3.3): https://spec.openapis.org/oas/v3.0.3.html#operation-object'
 info:
   title: "POST with request body"
   version: "1.0"

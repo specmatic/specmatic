@@ -19,6 +19,8 @@ sealed interface ExampleValidationResult {
 }
 
 interface Validator<Feature> {
+    val name: String
+
     fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature>
     fun validateInlineExamples(specification: File, feature: Feature, specmaticConfig: SpecmaticConfig): Map<String, ExampleValidationResult>
     fun validateExample(feature: Feature, file: File, specmaticConfig: SpecmaticConfig): ExampleValidationResult

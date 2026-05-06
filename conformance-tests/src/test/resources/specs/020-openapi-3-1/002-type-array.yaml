@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'OAS 3.1 / JSON Schema 2020-12 — `type` as an array of types: https://json-schema.org/draft/2020-12/json-schema-core#name-type'
 info:
   title: "OpenAPI 3.1 - type as array (union types)"
   version: "1.0"

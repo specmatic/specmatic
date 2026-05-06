@@ -62,16 +62,24 @@ jobs:
           name: conformance-test-results-xml
           path: conformance-tests/build/test-results/test/*.xml
 
-      - name: Upload Expected Failure JSONL file
+      - name: Upload Conformance Test Results JSONL file
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: conformance-expected-failures-jsonl
-          path: conformance-tests/build/conformance-expected-failures.jsonl
+          name: conformance-test-results-jsonl
+          path: conformance-tests/build/conformance-test-results.jsonl
           if-no-files-found: ignore
 
-      - name: Generate summary of expected failures
+      - name: Generate conformance test summary
         if: always()
         run: |
-          ./gradlew -p conformance-tests generateSummaryOfExpectedFailures \
+          ./gradlew -p conformance-tests generateConformanceSummary \
             --args="--output-file $GITHUB_STEP_SUMMARY"
+
+      - name: Upload Conformance Test Results CSV file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-test-results-csv
+          path: conformance-tests/build/conformance-test-results.csv
+          if-no-files-found: ignore

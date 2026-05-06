@@ -2,6 +2,7 @@ openapi: 3.0.3
 x-specmatic-expect-failure-loop: "loop test failed. Tests didn't send binary content."
 x-specmatic-expect-failure-operations: "loop test failed. Tests didn't send binary content."
 x-specmatic-expect-failure-response-bodies: "loop test failed. Tests didn't send binary content."
+x-specmatic-spec-ref: 'OpenAPI 3.0.3 built-in "binary" format on type:string for octet streams. See OAS 3.0.3 § Data Types: https://spec.openapis.org/oas/v3.0.3.html#data-types'
 info:
   title: "Format - binary (OpenAPI)"
   version: "1.0"

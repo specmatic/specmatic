@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema "uri-template" format (RFC 6570): https://json-schema.org/draft/2020-12/json-schema-validation#name-uri-template'
 info:
   title: "Format - uri-template (JSON Schema)"
   version: "1.0"

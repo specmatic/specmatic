@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'JSON Schema 2020-12 — `const` keyword: https://json-schema.org/draft/2020-12/json-schema-validation#name-const'
 info:
   title: "OpenAPI 3.1 - const keyword"
   version: "1.0"

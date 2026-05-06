@@ -13,6 +13,8 @@ import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class OpenApiValidator: Validator<Feature> {
+    override val name: String = "OpenAPI"
+
     override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature> {
         if (specification.extension in OPENAPI_FILE_EXTENSIONS) {
             val (feature, result) = OpenApiSpecification.fromFile(specification.canonicalPath, specmaticConfig).toFeatureLenient()

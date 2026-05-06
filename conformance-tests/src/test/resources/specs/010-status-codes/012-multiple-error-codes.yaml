@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Responses Object — multiple 4xx/5xx response codes: https://spec.openapis.org/oas/v3.0.3.html#responses-object'
 info:
   title: "Multiple error status codes on one endpoint"
   version: "1.0"

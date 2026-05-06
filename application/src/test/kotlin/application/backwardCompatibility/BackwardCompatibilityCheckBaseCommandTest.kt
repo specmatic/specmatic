@@ -7,6 +7,7 @@ import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import picocli.CommandLine
 import java.io.File
 
 class BackwardCompatibilityCheckBaseCommandTest {
@@ -42,10 +43,10 @@ class BackwardCompatibilityCheckBaseCommandTest {
 
         val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
             TestBackwardCompatibilityCommand().apply {
-                baseBranch = "feature/foo"
-                targetPath = "apis"
-                repoDir = tempDir.resolve("CLI").also { it.mkdirs() }.canonicalPath
-                strictMode = true
+                options.baseBranch = "feature/foo"
+                options.targetPath = "apis"
+                options.repoDir = tempDir.resolve("CLI").also { it.mkdirs() }.canonicalPath
+                options.strictMode = true
             }
         }
 
@@ -92,12 +93,34 @@ class BackwardCompatibilityCheckBaseCommandTest {
         """.trimIndent())
 
         val cmd = Flags.using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            TestBackwardCompatibilityCommand().apply { targetPath = "from-cli" }
+            TestBackwardCompatibilityCommand().apply { options.targetPath = "from-cli" }
         }
 
         assertThat(cmd.repoDir()).isEqualTo(repoDirFromConfig.canonicalPath.toString())
         assertThat(cmd.baseBranch()).isEqualTo("origin/main")
         assertThat(cmd.targetPath()).isEqualTo("from-cli")
+        assertThat(cmd.strictMode()).isTrue()
+    }
+
+    @Test
+    fun `parses backward compatibility options from cli`(@TempDir tempDir: File) {
+        val cmd = TestBackwardCompatibilityCommand()
+        CommandLine(cmd).parseArgs(
+            "--debug",
+            "--strict",
+            "--base-branch", "feature/foo",
+            "--target-path", "contracts",
+            "--repo-dir", tempDir.canonicalPath
+        )
+
+        assertThat(cmd.options.debugLog).isTrue()
+        assertThat(cmd.options.strictMode).isTrue()
+        assertThat(cmd.options.baseBranch).isEqualTo("feature/foo")
+        assertThat(cmd.options.targetPath).isEqualTo("contracts")
+        assertThat(cmd.options.repoDir).isEqualTo(tempDir.canonicalPath)
+        assertThat(cmd.repoDir()).isEqualTo(tempDir.canonicalPath)
+        assertThat(cmd.baseBranch()).isEqualTo("feature/foo")
+        assertThat(cmd.targetPath()).isEqualTo("contracts")
         assertThat(cmd.strictMode()).isTrue()
     }
 

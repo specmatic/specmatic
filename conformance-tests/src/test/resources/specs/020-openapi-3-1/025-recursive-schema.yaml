@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'JSON Schema 2020-12 — recursive schema via `$ref`: https://json-schema.org/draft/2020-12/json-schema-core#name-recursive-references-with'
 info:
   title: "OpenAPI 3.1 - recursive schema"
   version: "1.0"

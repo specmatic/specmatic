@@ -3056,10 +3056,157 @@ paths:
                 testBackwardCompatibility(feature, feature)
             }
 
-            assertThat(stdout).contains("[Compatibility Check] Scenario: POST /products -> 201")
+            assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products -> 201")
         } finally {
             logger = oldLogger
         }
+    }
+
+    @Test
+    fun `should not log grouped scenario count for each API with progress when count is less than thousand`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent(), "sample.yaml").toFeature()
+
+        val groupedFeature = feature.copy(scenarios = listOf(feature.scenarios.first(), feature.scenarios.first().copy()))
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(groupedFeature, groupedFeature)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/2")
+    }
+
+    @Test
+    fun `should log completion only every hundred scenarios when batch is large`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent(), "sample.yaml").toFeature()
+
+        val groupedFeature = feature.copy(scenarios = List(1001) { feature.scenarios.first().copy() })
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(groupedFeature, groupedFeature)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 1001 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Completed 100/1001")
+        assertThat(stdout).contains("[Compatibility Check] Completed 1000/1001")
+        assertThat(stdout).contains("[Compatibility Check] Completed 1001/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 99/1001")
+    }
+
+    @Test
+    fun `should log grouped scenario count for each API with progress when total count is grater than thousand`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+                '400':
+                  description: Bad Request
+        """.trimIndent(), "sample.yaml").toFeature()
+
+        val groupedFeature = feature.copy(scenarios = List(1000) { feature.scenarios.first().copy() }.plus(feature.scenarios.last()))
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(groupedFeature, groupedFeature)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 400")
+        assertThat(stdout).contains("[Compatibility Check] Completed 1/1")
+    }
+
+    @Test
+    fun `should log pass verdict after completing all scenarios for an API`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent(), "sample.yaml").toFeature()
+
+        val groupedFeature = feature.copy(scenarios = listOf(feature.scenarios.first(), feature.scenarios.first().copy()))
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(groupedFeature, groupedFeature)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
+    }
+
+    @Test
+    fun `should log fail verdict after completing all scenarios for an API`() {
+        val olderContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.1.9
+        paths:
+          /products:
+            get:
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent().openAPIToContract()
+
+        val newerContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '200':
+                  description: OK
+        """.trimIndent().openAPIToContract()
+
+        val (stdout, _) = captureStandardOutput {
+            testBackwardCompatibility(olderContract, newerContract)
+        }
+
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: FAIL")
     }
 
     @Test

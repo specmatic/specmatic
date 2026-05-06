@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — header, path, and query parameters together: https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Header, path, and query parameters combined"
   version: "1.0"

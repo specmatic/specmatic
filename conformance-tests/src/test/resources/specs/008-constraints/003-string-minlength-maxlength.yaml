@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema validation — `minLength` + `maxLength` together: https://json-schema.org/draft/2020-12/json-schema-validation#name-minlength'
 info:
   title: "Constraint - string minLength and maxLength"
   version: "1.0"

@@ -3,6 +3,7 @@ info:
   title: ""
   version: "1.0"
 x-specmatic-expect-failure-query-parameters: "object query parameters are not yet supported by Specmatic"
+x-specmatic-spec-ref: 'Object query parameter serialization (form/deepObject styles). See OAS 3.0.3 § Style Values: https://spec.openapis.org/oas/v3.0.3.html#style-values'
 paths:
   /my-day-details:
     get:

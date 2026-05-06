@@ -1,4 +1,5 @@
 openapi: 3.1.0
+x-specmatic-spec-ref: 'OAS 3.1 Discriminator Object combined with JSON Schema `type` array: https://spec.openapis.org/oas/v3.1.1.html#discriminator-object'
 info:
   title: "OpenAPI 3.1 - discriminator with nullable type array"
   version: "1.0"

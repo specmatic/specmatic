@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — header parameter, string (RFC 9110 §5): https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Header parameter - string type"
   version: "1.0"

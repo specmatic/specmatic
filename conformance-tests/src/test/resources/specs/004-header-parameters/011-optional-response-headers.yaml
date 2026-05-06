@@ -1,0 +1,36 @@
+openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Header Object — optional response headers (`required: false`): https://spec.openapis.org/oas/v3.0.3.html#header-object'
+info:
+  title: "Response headers - optional"
+  version: "1.0"
+paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: List items with optional response headers
+      responses:
+        '200':
+          description: Items list
+          headers:
+            X-Cache-Status:
+              required: false
+              schema:
+                type: string
+            X-Total-Count:
+              required: false
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - name
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string

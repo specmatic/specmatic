@@ -26,7 +26,7 @@ abstract class AbstractConformanceTest(
         OpenApiSpec(File("${workDir.absolutePath}/${specsDirName}/$openAPISpecFile"))
 
     @RegisterExtension
-    val expectedFailureExtension = ExpectedFailureExtension { tag -> spec.findExtensionByKey(tag) }
+    val conformanceTestResultExtension = ConformanceTestResultExtension { tag -> spec.findExtensionByKey(tag) }
 
     @BeforeAll
     fun setup() {
@@ -157,6 +157,50 @@ abstract class AbstractConformanceTest(
         assertThat(errors)
             .withFailMessage {
                 "errors=$errors\n\nresponses=${httpExchanges.joinToString("\n") { it.responseBody }}\n\n$allLogs"
+            }
+            .isEmpty()
+    }
+
+    @Test
+    @Order(6)
+    @ExpectFailureTag("x-specmatic-expect-failure-request-headers")
+    fun `should send valid request headers`() {
+        val errors = httpExchanges
+            // requests in the test that produce 4xx, 5xx may contain invalid headers by design
+            .filter(HttpExchange::isSuccessful)
+            // Only validate headers for operations defined in the spec.
+            .filterNot { it.toOperation(spec) == null }
+            .flatMap {
+                spec.validateRequestHeaders(
+                    headers = it.requestHeaders,
+                    operation = it.toOperation(spec)!!
+                )
+            }
+
+        assertThat(errors)
+            .withFailMessage {
+                "errors=$errors\n\nrequestHeaders=${httpExchanges.joinToString("\n") { it.requestHeaders.toString() }}\n\n$allLogs"
+            }
+            .isEmpty()
+    }
+
+    @Test
+    @Order(7)
+    @ExpectFailureTag("x-specmatic-expect-failure-response-headers")
+    fun `should return valid response headers`() {
+        val errors = httpExchanges
+            // Only validate responses for operations defined in the spec.
+            .filterNot { it.toOperation(spec) == null }
+            .flatMap {
+                spec.validateResponseHeaders(
+                    headers = it.responseHeaders,
+                    operation = it.toOperation(spec)!!
+                )
+            }
+
+        assertThat(errors)
+            .withFailMessage {
+                "errors=$errors\n\nresponseHeaders=${httpExchanges.joinToString("\n") { it.responseHeaders.toString() }}\n\n$allLogs"
             }
             .isEmpty()
     }

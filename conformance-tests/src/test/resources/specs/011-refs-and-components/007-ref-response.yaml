@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Components Object — `$ref` to a response definition: https://spec.openapis.org/oas/v3.0.3.html#components-object'
 info:
   title: "$ref to component response"
   version: "1.0"

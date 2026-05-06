@@ -22,7 +22,7 @@ import kotlin.io.path.pathString
     description = ["Checks backward compatibility of OpenAPI specifications"]
 )
 @Category("Specmatic core")
-class BackwardCompatibilityCheckCommandV2 : BackwardCompatibilityCheckBaseCommand() {
+class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
         return testBackwardCompatibility(oldFeature as Feature, newFeature as Feature)

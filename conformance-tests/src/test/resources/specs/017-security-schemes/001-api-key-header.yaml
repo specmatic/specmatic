@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Security Scheme Object — apiKey in header: https://spec.openapis.org/oas/v3.0.3.html#security-scheme-object'
 info:
   title: "Security scheme - API key in header"
   version: "1.0"

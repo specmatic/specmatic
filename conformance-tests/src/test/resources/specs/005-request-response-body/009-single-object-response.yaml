@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Response Object — single JSON object response body: https://spec.openapis.org/oas/v3.0.3.html#response-object'
 info:
   title: "Request/Response body - single object response"
   version: "1.0"

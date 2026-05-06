@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'Conventional pagination combined with a sort parameter (OAS 3.0.3 Parameter Object): https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Pagination with sorting parameters"
   version: "1.0"

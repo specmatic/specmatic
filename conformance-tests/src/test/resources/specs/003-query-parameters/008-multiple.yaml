@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — multiple query parameters on one operation: https://spec.openapis.org/oas/v3.0.3.html#parameter-object'
 info:
   title: "Multiple query parameters"
   version: "1.0"

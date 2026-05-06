@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema — `default` keyword on an integer property: https://json-schema.org/draft/2020-12/json-schema-validation#name-default'
 info:
   title: "Default value - integer property"
   version: "1.0"

@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema "regex" format (ECMA 262 regular expressions): https://json-schema.org/draft/2020-12/json-schema-validation#name-regex'
 info:
   title: "Format - regex (JSON Schema)"
   version: "1.0"

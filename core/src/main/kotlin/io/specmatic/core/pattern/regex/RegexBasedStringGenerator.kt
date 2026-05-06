@@ -7,35 +7,26 @@ import io.specmatic.core.log.logger
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
 
-class RegexBasedStringGenerator(
-    val regex: String,
-) {
-    val isInfinite: Boolean
-        get() {
-            return !isFinite
-        }
-    val isFinite: Boolean
-        get() {
-            return RegExp(regex).toAutomaton().isFinite
-        }
-
+class RegexBasedStringGenerator(val regex: String) {
     init {
         check(!regex.startsWith("/") && !regex.endsWith("/")) {
             "Invalid regex $regex. OpenAPI follows ECMA-262 regular expressions, which do not support / / delimiters like those used in many programming languages"
         }
     }
 
+    private val automaton = RegExp(regex, 0).toAutomaton()
+    val isInfinite: Boolean = !automaton.isFinite
+    val isFinite: Boolean = automaton.isFinite
+
     fun random(
         minLength: Int? = 1,
         maxLength: Int? = REASONABLE_STRING_LENGTH,
     ): String {
-        val state = RegExp(regex, 0).toAutomaton().initialState
-        val executionStack =
-            ExecutionStack(Stage(StringBuilder(), state))
+        val executionStack = ExecutionStack(Stage(StringBuilder(), automaton.initialState))
         return generate(executionStack, minLength ?: 1, maxLength ?: REASONABLE_STRING_LENGTH)
     }
 
-    fun generateShortest(): String = RegExp(regex).toAutomaton().getShortestExample(true)
+    fun generateShortest(): String = automaton.getShortestExample(true)
 
     /**
      * Recursively computes the longest accepted string (using at most [remaining] transitions)
@@ -45,7 +36,7 @@ class RegexBasedStringGenerator(
      */
     fun generateLongest(
         remaining: Int,
-        state: State = RegExp(regex).toAutomaton().initialState,
+        state: State = automaton.initialState,
         memo: MutableMap<Pair<State, Int>, String?> = mutableMapOf(),
     ): String? {
         val key = state to remaining

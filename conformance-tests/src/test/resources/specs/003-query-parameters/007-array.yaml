@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'OAS 3.0.3 Parameter Object — array query parameter (form/explode style): https://spec.openapis.org/oas/v3.0.3.html#style-values'
 info:
   title: "Query parameter - array of strings"
   version: "1.0"

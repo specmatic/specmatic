@@ -1,4 +1,5 @@
 openapi: 3.0.3
+x-specmatic-spec-ref: 'JSON Schema "email" format (RFC 5321): https://json-schema.org/draft/2020-12/json-schema-validation#name-email-addresses'
 info:
   title: "Format - email (JSON Schema)"
   version: "1.0"
