@@ -26,8 +26,15 @@ data class SOAPOperationTypeInfo(val operationName: String, val soapVersion: SOA
         types: Map<String, Pattern>,
         requestPayload: SOAPPayload,
         requestHeaders: RequestHeaders,
-        responsePayload: SOAPPayload
-    ) : this(operationName, soapVersion = soapVersion, SOAPRequest(path, operationName, soapAction, requestHeaders, requestPayload), SOAPResponse(responsePayload), SOAPTypes(types))
+        responsePayload: SOAPPayload,
+        responseHeaders: RequestHeaders = RequestHeaders()
+    ) : this(
+        operationName,
+        soapVersion = soapVersion,
+        request = SOAPRequest(path, operationName, soapAction, requestHeaders, requestPayload),
+        response = SOAPResponse(responsePayload, responseHeaders),
+        types = SOAPTypes(types)
+    )
 
     fun expandedVariants(): List<SOAPOperationTypeInfo> {
         return types.expandedVariants().map { expandedTypes ->
@@ -70,7 +77,7 @@ data class SOAPOperationTypeInfo(val operationName: String, val soapVersion: SOA
                 headersPattern = HttpHeadersPattern(
                     contentType = soapVersion.header(response.responsePayload),
                 ),
-                body = response.responsePayload.toPattern(RequestHeaders()),
+                body = response.responsePayload.toPattern(response.responseHeaders),
             ),
             patterns = types.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) },
             isGherkinScenario = false,
