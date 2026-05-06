@@ -12,6 +12,8 @@ import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class ListPatternTest {
     @Test
@@ -181,6 +183,25 @@ Feature: Recursive test
     fun `should use the inline example for generation of values`() {
         val value = ListPattern(NumberPattern(), example = listOf("1", "2", "3")).generate(Resolver(defaultExampleResolver = UseDefaultExample))
         assertThat(value).isEqualTo(JSONArrayValue(listOf(NumberValue(1), NumberValue(2), NumberValue(3))))
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should determine max list size from resolver maxRandomArraySize`() {
+        val pattern = ListPattern(NumberPattern())
+        repeat(10) {
+            val value = pattern.generate(Resolver(maxRandomArraySize = 1)) as JSONArrayValue
+            assertThat(value.list).hasSize(1)
+        }
+    }
+
+    @ParameterizedTest
+    @Tag(GENERATION)
+    @ValueSource(ints = [-1, 0])
+    fun `should always generate at least one list item even when maxRandomArraySize is lower`(maxSize: Int) {
+        val pattern = ListPattern(NumberPattern())
+        val value = pattern.generate(Resolver(maxRandomArraySize = maxSize)) as JSONArrayValue
+        assertThat(value.list).hasSizeGreaterThanOrEqualTo(1)
     }
 
     @Nested
