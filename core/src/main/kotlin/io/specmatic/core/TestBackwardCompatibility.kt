@@ -6,6 +6,9 @@ import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 
+private const val BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE = 1
+private val backwardCompatibilityStrategies = DefaultStrategies.copy(maxRandomArraySize = BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE)
+
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
     val compatibilityScenarios = older.generateBackwardCompatibilityTestScenarios()
     val exceedsStandardSize = compatibilityScenarios.size >= 1000
@@ -41,7 +44,7 @@ fun testBackwardCompatibility(
     newFeature.setServerState(oldScenario.expectedFacts)
 
     return try {
-        val request = oldScenario.generateHttpRequest()
+        val request = oldScenario.generateHttpRequest(backwardCompatibilityStrategies)
 
         val wholeMatchResults: List<Pair<Result, Result>> =
             newFeature.compatibilityLookup(oldScenario, request).map { (scenario, result) ->

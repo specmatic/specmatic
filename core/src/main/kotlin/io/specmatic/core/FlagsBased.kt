@@ -13,7 +13,8 @@ data class FlagsBased(
     val negativePrefix: String,
     val allPatternsAreMandatory: Boolean,
     val useFuzzyMatching: Boolean,
-    val maxTestRequestCombinations: Int
+    val maxTestRequestCombinations: Int,
+    val maxRandomArraySize: Int = 3,
 ) {
     fun update(resolver: Resolver): Resolver {
         val findKeyErrorCheck = resolver.findKeyErrorCheck
@@ -25,7 +26,8 @@ data class FlagsBased(
             generation = generation,
             findKeyErrorCheck = findKeyErrorCheck,
             allPatternsAreMandatory = allPatternsAreMandatory,
-            maxTestRequestCombinations = maxTestRequestCombinations
+            maxTestRequestCombinations = maxTestRequestCombinations,
+            maxRandomArraySize = maxRandomArraySize,
         )
     }
 
