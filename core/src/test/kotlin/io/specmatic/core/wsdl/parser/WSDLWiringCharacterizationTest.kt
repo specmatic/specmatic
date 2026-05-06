@@ -521,6 +521,53 @@ class WSDLWiringCharacterizationTest {
         assertXmlAttribute(personPattern, "value", "(string)")
     }
 
+    @Test
+    fun `inline simpleType attribute resolves restriction base`() {
+        val personPattern = personPatternForAttribute(
+            """
+            <xsd:attribute name="name" use="required">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:enumeration value="FS-XML"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:attribute>
+            """.trimIndent()
+        )
+
+        assertXmlAttribute(personPattern, "name", "(string)")
+    }
+
+    @Test
+    fun `referenced simpleType attribute resolves restriction base`() {
+        val personPattern = personPatternForAttribute(
+            """<xsd:attribute name="name" type="tns:name" use="required"/>""",
+            """
+            <xsd:simpleType name="name">
+                <xsd:restriction base="xsd:string">
+                    <xsd:enumeration value="FS-XML"/>
+                </xsd:restriction>
+            </xsd:simpleType>
+            """.trimIndent()
+        )
+
+        assertXmlAttribute(personPattern, "name", "(string)")
+    }
+
+    @Test
+    fun `referenced numeric simpleType attribute resolves restriction base`() {
+        val personPattern = personPatternForAttribute(
+            """<xsd:attribute name="count" type="tns:PositiveCount" use="required"/>""",
+            """
+            <xsd:simpleType name="PositiveCount">
+                <xsd:restriction base="xsd:positiveInteger"/>
+            </xsd:simpleType>
+            """.trimIndent()
+        )
+
+        assertXmlAttribute(personPattern, "count", "(number) minimum 1)")
+    }
+
     @ParameterizedTest
     @ValueSource(
         strings = [
@@ -563,7 +610,7 @@ class WSDLWiringCharacterizationTest {
         return WSDL(toXMLNode(wsdlFile.readText()), wsdlFile.canonicalPath)
     }
 
-    private fun personPatternForAttribute(attribute: String): XMLPattern {
+    private fun personPatternForAttribute(attribute: String, simpleTypeDeclarations: String = ""): XMLPattern {
         val namespace = "http://example.com/attribute-types"
         val wsdl = WSDL(
             toXMLNode(
@@ -583,6 +630,7 @@ class WSDLWiringCharacterizationTest {
                             </xsd:complexType>
 
                             <xsd:element name="Person" type="tns:PersonType"/>
+                            $simpleTypeDeclarations
                         </xsd:schema>
                     </types>
                 </definitions>
