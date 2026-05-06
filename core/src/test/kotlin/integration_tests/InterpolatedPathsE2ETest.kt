@@ -227,19 +227,37 @@ class InterpolatedPathsE2ETest {
         assertThat(compatibility.report()).isEqualToNormalizingWhitespace(
             """
 In scenario "Inline and external examples endpoint. Response: Inline success"
-API: GET /example/(id1:string),(id2:string)/status -> 200
+API: GET /example/(id1:string),(id2:number)/status -> 200
 
-      This API exists in the old contract but not in the new contract
+  >> REQUEST.PARAMETERS.PATH.id2
+  
+      R1001: Type mismatch
+      Documentation: https://docs.specmatic.io/rules#r1001
+      Summary: The value type does not match the expected type defined in the specification
+  
+      This is type number in the new specification, but type string in the old specification
 
 In scenario "Inline and external examples endpoint. Response: External success"
-API: GET /example/(id1:string),(id2:string)/status -> 202
+API: GET /example/(id1:string),(id2:number)/status -> 202
 
-      This API exists in the old contract but not in the new contract
+  >> REQUEST.PARAMETERS.PATH.id2
+  
+      R1001: Type mismatch
+      Documentation: https://docs.specmatic.io/rules#r1001
+      Summary: The value type does not match the expected type defined in the specification
+  
+      This is type number in the new specification, but type string in the old specification
 
 In scenario "Inline and external examples endpoint. Response: Inline not found"
-API: GET /example/(id1:string),(id2:string)/status -> 404
+API: GET /example/(id1:string),(id2:number)/status -> 404
 
-      This API exists in the old contract but not in the new contract
+  >> REQUEST.PARAMETERS.PATH.id2
+  
+      R1001: Type mismatch
+      Documentation: https://docs.specmatic.io/rules#r1001
+      Summary: The value type does not match the expected type defined in the specification
+  
+      This is type number in the new specification, but type string in the old specification
             """.trimIndent()
         )
     }

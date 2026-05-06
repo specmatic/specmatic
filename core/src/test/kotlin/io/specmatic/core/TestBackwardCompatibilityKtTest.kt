@@ -31,8 +31,7 @@ Then status 200"""
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-        assertEquals(0, result.successCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -68,8 +67,7 @@ Then status 200
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-        assertEquals(1, result.successCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -107,8 +105,7 @@ And response-body (Value)
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-        assertEquals(0, result.successCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -144,7 +141,7 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -180,7 +177,7 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -216,7 +213,7 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -252,8 +249,7 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(2, result.successCount)
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -293,8 +289,7 @@ Feature: Old contract
 
         println(result.report())
 
-        assertEquals(2, result.successCount)
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -334,8 +329,7 @@ Feature: Old contract
 
         println(result.report())
 
-        assertEquals(1, result.successCount)
-        assertEquals(2, result.failureCount)
+        assertThat(result.success()).withFailMessage(result.report()).isFalse
     }
 
     @Test
@@ -375,8 +369,7 @@ Feature: Old contract
 
         println(result.report())
 
-        assertEquals(3, result.successCount)
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -414,7 +407,7 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -456,7 +449,7 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertThat(result.success()).isFalse
     }
 
     @Test
@@ -494,8 +487,7 @@ Then status 200
 
         println(result.report())
 
-        assertEquals(2, result.successCount)
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -532,8 +524,7 @@ Then status 200
 
         println(results.report())
 
-        assertEquals(0, results.successCount)
-        assertEquals(1, results.failureCount)
+        assertThat(results.success()).isFalse
     }
 
     @Test
@@ -554,8 +545,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -576,8 +566,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(2, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -598,8 +587,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(2, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -622,8 +610,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(2, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -644,8 +631,7 @@ And response-body (number?)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -668,8 +654,7 @@ And response-body (Number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -706,8 +691,7 @@ And response-body
 
         println(results.report())
 
-        assertEquals(0, results.successCount)
-        assertEquals(1, results.failureCount)
+        assertThat(results.success()).isFalse
     }
 
     @Test
@@ -729,8 +713,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -752,8 +735,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -775,8 +757,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).isTrue
     }
 
     @Test
@@ -833,8 +814,7 @@ And response-body (number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).isTrue
     }
 
     @Test
@@ -858,8 +838,7 @@ And response-body (number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).isTrue
     }
 
     @Test
@@ -894,8 +873,7 @@ And response-body (number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(0, results.successCount)
-        assertEquals(1, results.failureCount)
+        assertThat(results.success()).isFalse
     }
 
     @Test
@@ -926,8 +904,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isZero()
-        assertThat(results.failureCount).isZero()
+        assertThat(results.success()).isTrue
         assertThat(results.hasFailures()).isFalse()
     }
 
@@ -957,8 +934,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isOne()
-        assertThat(results.failureCount).isZero()
+        assertThat(results.success()).isTrue
         assertThat(results.success()).isTrue()
     }
 
@@ -988,8 +964,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isOne()
-        assertThat(results.failureCount).isOne()
+        assertThat(results.success()).isFalse
         assertThat(results.success()).isFalse()
     }
 
@@ -1021,8 +996,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isZero()
-        assertThat(results.failureCount).isOne()
+        assertThat(results.success()).isFalse
         assertThat(results.success()).isFalse()
     }
 
@@ -1763,8 +1737,7 @@ paths:
 
         val result: Results = testBackwardCompatibility(contract, contract)
 
-        assertThat(result.successCount).isNotZero()
-        assertThat(result.failureCount).isZero()
+        assertThat(result.success()).isTrue
     }
 
     @Nested
@@ -3056,7 +3029,8 @@ paths:
                 testBackwardCompatibility(feature, feature)
             }
 
-            assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products -> 201")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products against 1 operations")
+        assertThat(stdout).contains("- POST /products -> 201")
         } finally {
             logger = oldLogger
         }
@@ -3082,7 +3056,8 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/2")
     }
 
@@ -3106,12 +3081,13 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1001 scenarios for GET /products -> 200")
-        assertThat(stdout).contains("[Compatibility Check] Completed 100/1001")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1000/1001")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1001/1001")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 100/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1000/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1001/1001")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/1001")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 99/1001")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
     @Test
@@ -3136,8 +3112,9 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 400")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1/1")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
+        assertThat(stdout).contains("- GET /products -> 400")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
     @Test
@@ -3160,7 +3137,8 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
@@ -3205,7 +3183,8 @@ paths:
             testBackwardCompatibility(olderContract, newerContract)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).contains("[Compatibility Check] Verdict: FAIL")
     }
 
@@ -3328,7 +3307,7 @@ paths:
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -3394,7 +3373,7 @@ paths:
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -3519,6 +3498,388 @@ paths:
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
         assertThat(result.success()).withFailMessage(result.report()).isFalse
+    }
+
+    @Test
+    fun `backward breaking multi request and response content-type scenario`() {
+        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_V1.yaml")
+        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_V2.yaml")
+        val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
+        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+
+        assertThat(result.report()).isEqualTo("""
+        In scenario "Missing endpoint. Response: A simple string response"
+        API: GET /missing -> 200
+        
+              This API exists in the old contract but not in the new contract
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        """.trimIndent())
+    }
+
+    @Test
+    fun `backward breaking multi request and response content-type scenario content-type overridden`() {
+        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_V1.yaml")
+        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_V2.yaml")
+        val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
+        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+
+        assertThat(result.report()).isEqualTo("""
+        In scenario "Missing endpoint. Response: A simple string response"
+        API: GET /missing -> 200
+        
+              This API exists in the old contract but not in the new contract
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        """.trimIndent())
     }
 }
 
