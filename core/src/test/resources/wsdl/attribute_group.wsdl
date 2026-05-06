@@ -1,0 +1,71 @@
+<definitions name="AttributeGroupRoutes"
+             targetNamespace="http://example.com/attribute-group"
+             xmlns:tns="http://example.com/attribute-group"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/attribute-group" elementFormDefault="qualified">
+            <xsd:attributeGroup name="AuditAttrs">
+                <xsd:attribute name="createdBy" type="xsd:string"/>
+            </xsd:attributeGroup>
+
+            <xsd:attributeGroup name="CommonAttrs">
+                <xsd:attributeGroup ref="tns:AuditAttrs"/>
+                <xsd:attribute name="traceId" type="xsd:string" use="required"/>
+                <xsd:attribute name="requestNumber" type="xsd:int"/>
+            </xsd:attributeGroup>
+
+            <xsd:complexType name="PersonType">
+                <xsd:sequence>
+                    <xsd:element name="Name" type="xsd:string"/>
+                </xsd:sequence>
+                <xsd:attributeGroup ref="tns:CommonAttrs"/>
+            </xsd:complexType>
+
+            <xsd:element name="Person" type="tns:PersonType"/>
+
+            <xsd:complexType name="AccountType">
+                <xsd:sequence>
+                    <xsd:element name="Owner">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="Name" type="xsd:string"/>
+                            </xsd:sequence>
+                            <xsd:attributeGroup ref="tns:CommonAttrs"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:sequence>
+            </xsd:complexType>
+
+            <xsd:element name="Account" type="tns:AccountType"/>
+
+            <xsd:attributeGroup name="DuplicateAttrs">
+                <xsd:attribute name="traceId" type="xsd:string"/>
+                <xsd:attributeGroup ref="tns:CommonAttrs"/>
+            </xsd:attributeGroup>
+
+            <xsd:complexType name="DuplicatePersonType">
+                <xsd:sequence>
+                    <xsd:element name="Name" type="xsd:string"/>
+                </xsd:sequence>
+                <xsd:attributeGroup ref="tns:DuplicateAttrs"/>
+            </xsd:complexType>
+
+            <xsd:element name="DuplicatePerson" type="tns:DuplicatePersonType"/>
+
+            <xsd:attributeGroup name="RecursiveAttrs">
+                <xsd:attribute name="safe" type="xsd:string"/>
+                <xsd:attributeGroup ref="tns:RecursiveAttrs"/>
+            </xsd:attributeGroup>
+
+            <xsd:complexType name="RecursivePersonType">
+                <xsd:sequence>
+                    <xsd:element name="Name" type="xsd:string"/>
+                </xsd:sequence>
+                <xsd:attributeGroup ref="tns:RecursiveAttrs"/>
+            </xsd:complexType>
+
+            <xsd:element name="RecursivePerson" type="tns:RecursivePersonType"/>
+        </xsd:schema>
+    </types>
+</definitions>

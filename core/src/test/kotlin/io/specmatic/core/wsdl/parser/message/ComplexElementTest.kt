@@ -35,6 +35,9 @@ internal class ComplexElementTest {
             complexType2.generateChildren(any(), any(), any())
         } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
         every {
+            complexType2.getAttributes()
+        } returns emptyList()
+        every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2
 
@@ -73,6 +76,9 @@ internal class ComplexElementTest {
         every {
             complexType2.generateChildren(any(), any(), any())
         } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
+        every {
+            complexType2.getAttributes()
+        } returns emptyList()
         every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2
