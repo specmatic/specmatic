@@ -4,11 +4,7 @@ import io.specmatic.core.pattern.AnyValuePattern
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.ExactValuePattern
-import io.specmatic.core.pattern.NumberPattern
-import io.specmatic.core.pattern.StringPattern
-import io.specmatic.core.value.NumberValue
-import io.specmatic.core.value.StringValue
+import io.specmatic.test.asserts.WILDCARD_INDEX
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -27,6 +23,18 @@ internal class ResolverKtTest {
         assertThat(resolver.dictionaryLookupPath).isEqualTo(expectedLookupPath)
     }
 
+    @ParameterizedTest
+    @MethodSource("lookupPathSegmentsProvider")
+    fun `should parse lookup path segments same as old split logic`(path: String) {
+        val segments = Resolver().lookupPathSegments(path)
+        assertThat(segments).isEqualTo(
+            path
+                .replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|")
+                .split(".", "|")
+                .filter(String::isNotEmpty)
+        )
+    }
+
     companion object {
         @JvmStatic
         fun typeAliasToLookupKeyProvider(): Stream<Arguments> {
@@ -40,6 +48,57 @@ internal class ResolverKtTest {
                 Arguments.of("", "[*]", "[*]"),
                 Arguments.of("Schema", "key", "Schema.key"),
                 Arguments.of("Schema", "[*]", "Schema[*]"),
+            )
+        }
+
+        @JvmStatic
+        fun lookupPathSegmentsProvider(): Stream<Arguments> {
+            return Stream.of(
+                // Empty
+                Arguments.of("", listOf<String>()),
+                Arguments.of(".", listOf<String>()),
+                Arguments.of("..", listOf<String>()),
+                Arguments.of("...", listOf<String>()),
+
+                // Single tokens
+                Arguments.of("[*]", listOf("[*]")),
+                Arguments.of("schema", listOf("schema")),
+
+                // Simple dot splits
+                Arguments.of("schema.field", listOf("schema", "field")),
+                Arguments.of(".field", listOf("field")),
+                Arguments.of("schema.", listOf("schema")),
+                Arguments.of("schema..field", listOf("schema", "field")),
+                Arguments.of("a...b", listOf("a", "b")),
+
+                // Wildcard only / edges
+                Arguments.of("[*].field", listOf("[*]", "field")),
+                Arguments.of("field.[*]", listOf("field", "[*]")),
+                Arguments.of("[*].[*]", listOf("[*]", "[*]")),
+                Arguments.of("[*].[*].[*]", listOf("[*]", "[*]", "[*]")),
+
+                // Wildcard with segments
+                Arguments.of("schema[*]", listOf("schema", "[*]")),
+                Arguments.of("schema[*].field", listOf("schema", "[*]", "field")),
+                Arguments.of("schema.field[*].name", listOf("schema", "field", "[*]", "name")),
+
+                // Multiple wildcards
+                Arguments.of("schema[*][*]", listOf("schema", "[*]", "[*]")),
+                Arguments.of("schema[*][*][*]", listOf("schema", "[*]", "[*]", "[*]")),
+                Arguments.of("[*][*]", listOf("[*]", "[*]")),
+                Arguments.of("a[*][*][*].b", listOf("a", "[*]", "[*]", "[*]", "b")),
+
+                // Mixed sequences
+                Arguments.of("a[*].b[*].c", listOf("a", "[*]", "b", "[*]", "c")),
+
+                // Wildcards inside segment (no dot separation)
+                Arguments.of("a[*]b", listOf("a", "[*]", "b")),
+                Arguments.of("a[*]b[*]c", listOf("a", "[*]", "b", "[*]", "c")),
+                Arguments.of("[*]a[*]b", listOf("[*]", "a", "[*]", "b")),
+                Arguments.of("a[*]b[*]c[*]d", listOf("a", "[*]", "b", "[*]", "c", "[*]", "d")),
+
+                // Mixed edge + dots
+                Arguments.of("a..[*]..b", listOf("a", "[*]", "b")),
             )
         }
     }
