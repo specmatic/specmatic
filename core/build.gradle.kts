@@ -54,7 +54,7 @@ dependencies {
     testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
-    implementation("org.thymeleaf:thymeleaf:3.1.4.RELEASE")
+    implementation("org.thymeleaf:thymeleaf:3.1.5.RELEASE")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
 }
 
