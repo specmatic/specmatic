@@ -282,10 +282,10 @@ data class HttpRequestPattern(
         val result = try {
             // TODO: Review Body String Logic
             val bodyValue =
-                if (isPatternToken(httpRequest.bodyString))
-                    StringValue(httpRequest.bodyString)
-                else if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
+                if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
                     httpRequest.body
+                } else if (isPatternToken(httpRequest.bodyString)) {
+                    StringValue(httpRequest.bodyString)
                 } else {
                     body.parse(httpRequest.bodyString, resolver)
                 }

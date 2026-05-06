@@ -1,5 +1,6 @@
 package io.specmatic.core.utilities
 
+import io.specmatic.core.Result
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -71,5 +72,24 @@ class EarlyResultTest {
         )
 
         assertThat(result).isEqualTo(EarlyResult.Failures(listOf("failure:10", "failure:20", "failure:30")))
+    }
+
+    @Test
+    fun `result overload should return first non failure item`() {
+        val result = listOf("a", "b", "c").firstSuccessOrFailures { item ->
+            if (item == "b") Result.Success() else Result.Failure("bad:$item")
+        }
+
+        assertThat(result).isEqualTo(EarlyResult.FirstSuccess("b"))
+    }
+
+    @Test
+    fun `result overload should collect failures when all items fail`() {
+        val result = listOf("a", "b").firstSuccessOrFailures { item -> Result.Failure("bad:$item") }
+        assertThat(result).isEqualTo(
+            EarlyResult.Failures(
+                listOf(Result.Failure("bad:a"), Result.Failure("bad:b"))
+            )
+        )
     }
 }
