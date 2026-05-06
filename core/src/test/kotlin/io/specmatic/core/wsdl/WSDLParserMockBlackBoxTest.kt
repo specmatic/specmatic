@@ -1,17 +1,98 @@
 package io.specmatic.core.wsdl
 
 import io.ktor.http.ContentType
+import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.Source
+import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.io.File
+import java.net.ServerSocket
 
 class WSDLParserMockBlackBoxTest {
+    @Test
+    fun `mock for wsdl without soap address serves root endpoint when configured baseUrl ends with slash`() {
+        val wsdlContent = """
+            <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                              xmlns:qr="http://specmatic.io/SOAPService/"
+                              targetNamespace="http://specmatic.io/SOAPService/">
+                <wsdl:types>
+                    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://specmatic.io/SOAPService/">
+                        <xsd:element name="SimpleRequest" type="xsd:string"/>
+                        <xsd:element name="SimpleResponse" type="xsd:string"/>
+                    </xsd:schema>
+                </wsdl:types>
+
+                <wsdl:message name="simpleInputMessage">
+                    <wsdl:part name="simpleInputPart" element="qr:SimpleRequest"/>
+                </wsdl:message>
+                <wsdl:message name="simpleOutputMessage">
+                    <wsdl:part name="simpleOutputPart" element="qr:SimpleResponse"/>
+                </wsdl:message>
+
+                <wsdl:portType name="simplePortType">
+                    <wsdl:operation name="SimpleOperation">
+                        <wsdl:input name="simpleInput" message="qr:simpleInputMessage"/>
+                        <wsdl:output name="simpleOutput" message="qr:simpleOutputMessage"/>
+                    </wsdl:operation>
+                </wsdl:portType>
+
+                <wsdl:binding name="simpleBinding" type="qr:simplePortType">
+                    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+                    <wsdl:operation name="SimpleOperation">
+                        <soap:operation soapAction="http://specmatic.io/SOAPService/SimpleOperation"/>
+                        <wsdl:input name="simpleInput">
+                            <soap:body use="literal"/>
+                        </wsdl:input>
+                        <wsdl:output name="simpleOutput">
+                            <soap:body use="literal"/>
+                        </wsdl:output>
+                    </wsdl:operation>
+                </wsdl:binding>
+
+                <wsdl:service name="simpleService">
+                    <wsdl:port name="simplePort" binding="qr:simpleBinding"/>
+                </wsdl:service>
+            </wsdl:definitions>
+        """
+        val feature = wsdlContentToFeature(wsdlContent, "root.wsdl")
+        val port = ServerSocket(0).use { it.localPort }
+        val baseUrl = "http://localhost:$port/"
+        val specmaticConfig = SpecmaticConfigV1V2Common(
+            sources = listOf(
+                Source(
+                    stub = listOf(
+                        SpecExecutionConfig.ObjectValue.FullUrl(
+                            baseUrl = baseUrl,
+                            specs = listOf(feature.path),
+                        )
+                    )
+                )
+            )
+        )
+
+        val response = HttpStub(
+            features = listOf(feature),
+            host = "localhost",
+            port = port,
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig),
+            specToStubBaseUrlMap = mapOf(feature.path to baseUrl)
+        ).use { stub ->
+            stub.client.execute(feature.scenarios.single().generateHttpRequest())
+        }
+
+        assertThat(response.status).isEqualTo(200)
+    }
+
     @Test
     fun `mock for scalar choice wsdl without examples returns generated response values`() {
         val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/scalar_choice.wsdl"))

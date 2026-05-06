@@ -14,6 +14,79 @@ import java.util.stream.Stream
 
 class WSDLConversionTests {
     @Test
+    fun `missing soap address in service port behaves like a host only soap address`() {
+        fun wsdlContent(portContent: String) = """
+            <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                              xmlns:qr="http://specmatic.io/SOAPService/"
+                              targetNamespace="http://specmatic.io/SOAPService/">
+                <wsdl:types>
+                    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://specmatic.io/SOAPService/">
+                        <xsd:element name="SimpleRequest" type="xsd:string"/>
+                        <xsd:element name="SimpleResponse" type="xsd:string"/>
+                    </xsd:schema>
+                </wsdl:types>
+
+                <wsdl:message name="simpleInputMessage">
+                    <wsdl:part name="simpleInputPart" element="qr:SimpleRequest"/>
+                </wsdl:message>
+                <wsdl:message name="simpleOutputMessage">
+                    <wsdl:part name="simpleOutputPart" element="qr:SimpleResponse"/>
+                </wsdl:message>
+
+                <wsdl:portType name="simplePortType">
+                    <wsdl:operation name="SimpleOperation">
+                        <wsdl:input name="simpleInput" message="qr:simpleInputMessage"/>
+                        <wsdl:output name="simpleOutput" message="qr:simpleOutputMessage"/>
+                    </wsdl:operation>
+                </wsdl:portType>
+
+                <wsdl:binding name="simpleBinding" type="qr:simplePortType">
+                    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+                    <wsdl:operation name="SimpleOperation">
+                        <soap:operation soapAction="http://specmatic.io/SOAPService/SimpleOperation"/>
+                        <wsdl:input name="simpleInput">
+                            <soap:body use="literal"/>
+                        </wsdl:input>
+                        <wsdl:output name="simpleOutput">
+                            <soap:body use="literal"/>
+                        </wsdl:output>
+                    </wsdl:operation>
+                </wsdl:binding>
+
+                <wsdl:service name="simpleService">
+                    $portContent
+                </wsdl:service>
+            </wsdl:definitions>
+        """
+
+        fun generatedRequestPath(wsdlContent: String): String? {
+            return WSDL(toXMLNode(wsdlContent), "/path/to/wsdl.xml")
+                .toFeature("/path/to/wsdl.xml")
+                .scenarios
+                .single()
+                .generateHttpRequest()
+                .path
+        }
+
+        val missingAddressPath = generatedRequestPath(
+            wsdlContent("""<wsdl:port name="simplePort" binding="qr:simpleBinding"/>""")
+        )
+        val hostOnlyAddressPath = generatedRequestPath(
+            wsdlContent(
+                """
+                <wsdl:port name="simplePort" binding="qr:simpleBinding">
+                    <soap:address location="http://localhost:9010"/>
+                </wsdl:port>
+                """.trimIndent()
+            )
+        )
+
+        assertThat(missingAddressPath).isEqualTo(hostOnlyAddressPath)
+        assertThat(missingAddressPath).isEqualTo("")
+    }
+
+    @Test
     fun `simple types in request body`() {
         val wsdlContent = """
             <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
