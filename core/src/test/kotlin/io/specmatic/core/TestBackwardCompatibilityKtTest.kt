@@ -3031,7 +3031,7 @@ paths:
     }
 
     @Test
-    fun `should show a message when testing each API`() {
+    fun `should log request family header with matching operations`() {
         val oldLogger = logger
         try {
 
@@ -3056,14 +3056,15 @@ paths:
                 testBackwardCompatibility(feature, feature)
             }
 
-            assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products -> 201")
+            assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products against 1 operations")
+            assertThat(stdout).contains("- POST /products -> 201")
         } finally {
             logger = oldLogger
         }
     }
 
     @Test
-    fun `should not log grouped scenario count for each API with progress when count is less than thousand`() {
+    fun `should show operations count in header when request family has multiple matching operations`() {
         val feature = OpenApiSpecification.fromYAML("""
         openapi: 3.0.0
         info:
@@ -3082,12 +3083,13 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/2")
     }
 
     @Test
-    fun `should log completion only every hundred scenarios when batch is large`() {
+    fun `should not log progress when operations are many but generated mutation count is below threshold`() {
         val feature = OpenApiSpecification.fromYAML("""
         openapi: 3.0.0
         info:
@@ -3106,16 +3108,17 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1001 scenarios for GET /products -> 200")
-        assertThat(stdout).contains("[Compatibility Check] Completed 100/1001")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1000/1001")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1001/1001")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 100/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1000/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1001/1001")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/1001")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 99/1001")
     }
 
     @Test
-    fun `should log grouped scenario count for each API with progress when total count is grater than thousand`() {
+    fun `should list matching operations in header block even when operation count is large`() {
         val feature = OpenApiSpecification.fromYAML("""
         openapi: 3.0.0
         info:
@@ -3136,12 +3139,14 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 400")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1/1")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
+        assertThat(stdout).contains("- GET /products -> 400")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/1")
     }
 
     @Test
-    fun `should log pass verdict after completing all scenarios for an API`() {
+    fun `should log pass verdict after completing a request family`() {
         val feature = OpenApiSpecification.fromYAML("""
         openapi: 3.0.0
         info:
@@ -3160,12 +3165,13 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
     @Test
-    fun `should log fail verdict after completing all scenarios for an API`() {
+    fun `should log fail verdict after completing a request family`() {
         val olderContract: Feature = """
         openapi: 3.0.0
         info:
@@ -3205,7 +3211,8 @@ paths:
             testBackwardCompatibility(olderContract, newerContract)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).contains("[Compatibility Check] Verdict: FAIL")
     }
 
@@ -3518,6 +3525,56 @@ paths:
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
+        assertThat(result.success()).withFailMessage(result.report()).isFalse
+    }
+
+    @Test
+    fun `backward compatibility should check all request content type groups in same path and method`() {
+        val oldSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+          text/plain:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: OK
+""".trimIndent()
+
+        val newSpec = """
+openapi: 3.1.0
+info:
+  title: Repro API
+  version: '1.0'
+paths:
+  /products:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+""".trimIndent()
+
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+
+        val result: Results = testBackwardCompatibility(olderContract, newerContract)
         assertThat(result.success()).withFailMessage(result.report()).isFalse
     }
 }

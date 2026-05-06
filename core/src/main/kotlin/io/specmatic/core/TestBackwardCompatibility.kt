@@ -2,88 +2,206 @@ package io.specmatic.core
 
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
-
-private const val BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE = 1
-private val backwardCompatibilityStrategies = DefaultStrategies.copy(maxRandomArraySize = BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE)
+import java.util.IdentityHashMap
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    val compatibilityScenarios = older.generateBackwardCompatibilityTestScenarios()
-    val exceedsStandardSize = compatibilityScenarios.size >= 1000
-    val operationToScenarios = compatibilityScenarios
-        .filter { !it.ignoreFailure }
-        .groupBy { it.fullApiDescription }
-
-    val results = operationToScenarios.entries.fold(Results()) { acc, entry ->
-        val (fullApiDescription, scenarios) = entry
-        logger.boundary()
-        logger.log("[Compatibility Check] Executing ${scenarios.size} scenarios for $fullApiDescription")
-        val operationResults = scenarios.withIndex().fold(Results()) { results, indexedScenario ->
-            val current = indexedScenario.index + 1
-            val scenarioResults: List<Result> = testBackwardCompatibility(indexedScenario.value, newer)
-            if (exceedsStandardSize && (current % 100 == 0 || current == scenarios.size)) logger.log("[Compatibility Check] Completed $current/${scenarios.size}")
-            results.copy(results = results.results.plus(scenarioResults))
-        }
-
-        logger.log("[Compatibility Check] Verdict: ${if (operationResults.success()) "PASS" else "FAIL"}")
-        acc.plus(operationResults)
-    }
-
-    println()
-    return results.distinct()
+    return BackwardCompatibilityChecker(older, newer).run()
 }
 
-fun testBackwardCompatibility(
-    oldScenario: Scenario,
-    newIncomingFeature: Feature
-): List<Result> {
-    val newFeature = newIncomingFeature.copy()
-
-    newFeature.setServerState(oldScenario.expectedFacts)
-
-    return try {
-        val request = oldScenario.generateHttpRequest(backwardCompatibilityStrategies)
-
-        val wholeMatchResults: List<Pair<Result, Result>> =
-            newFeature.compatibilityLookup(oldScenario, request).map { (scenario, result) ->
-                Pair(scenario, result.updateScenario(scenario))
-            }.filterNot { (_, result) ->
-                result is Result.Failure && result.isFluffy()
-            }.mapNotNull { (newerScenario, requestResult) ->
-                val newerResponsePattern = newerScenario.httpResponsePattern
-                val responseResult = oldScenario.httpResponsePattern.encompasses(
-                    newerResponsePattern,
-                    oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                    newerScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                )
-
-                if (responseResult.isFluffy())
-                    null
-                else
-                    Pair(requestResult, responseResult.updateScenario(newerScenario))
-            }
-
-        if(wholeMatchResults.isEmpty())
-            listOf(Result.Failure("""This API exists in the old contract but not in the new contract""").updateScenario(oldScenario))
-        else if (wholeMatchResults.any { it.first is Result.Success && it.second is Result.Success })
-            listOf(Result.Success())
-        else {
-            wholeMatchResults.map {
-                it.toList()
-            }.flatten().filterIsInstance<Result.Failure>()
+private class BackwardCompatibilityChecker(private val older: Feature, private val newer: Feature) {
+    fun run(): Results {
+        val requestFamilyExecutions = older.requestFamilies().map { requestFamily ->
+            RequestFamilyExecution(
+                requestFamily = requestFamily,
+                generatedRequestCases = generatedRequestCases(requestFamily)
+            )
         }
-    } catch(emptyContract: EmptyContract) {
-        val atThisFilePath = if(newFeature.path.isNotEmpty()) " at ${newFeature.path}" else ""
-        listOf(Result.Failure("The contract$atThisFilePath had no operations"))
+
+        val results = requestFamilyExecutions.fold(Results()) { acc, requestFamilyExecution ->
+            acc.plus(runRequestFamily(requestFamilyExecution))
+        }
+
+        println()
+        return results.distinct()
     }
-    catch (contractException: ContractException) {
-        listOf(contractException.failure())
-    } catch (stackOverFlowException: StackOverflowError) {
-        listOf(Result.Failure("Exception: Stack overflow error, most likely caused by a recursive definition. Please report this with a sample contract as a bug!"))
-    } catch (throwable: Throwable) {
-        listOf(Result.Failure("Exception: ${throwable.localizedMessage}"))
+
+    private fun runRequestFamily(requestFamilyExecution: RequestFamilyExecution): Results {
+        logger.boundary()
+        logger.log(initialLogMessage(requestFamilyExecution))
+
+        val responseComparisonCache = IdentityHashMap<Scenario, IdentityHashMap<Scenario, Result>>()
+        val results = requestFamilyExecution.generatedRequestCases.withIndex().fold(Results()) { acc, (mutationIndex, generatedRequestCase) ->
+            val mutationEvaluation = evaluateMutation(generatedRequestCase)
+            val scenarioResults = evaluateMutationAgainstRequestFamily(
+                mutationEvaluation = mutationEvaluation,
+                responseComparisonCache = responseComparisonCache,
+                oldScenarios = requestFamilyExecution.requestFamily.scenariosByRequestContentType.values.flatten(),
+            )
+
+            logProgress(mutationIndex + 1, requestFamilyExecution.generatedRequestCases.size)
+            acc.plus(Results(scenarioResults))
+        }
+
+        logger.log("[Compatibility Check] Verdict: ${if (results.success()) "PASS" else "FAIL"}")
+        return results
+    }
+
+    private fun initialLogMessage(requestFamilyExecution: RequestFamilyExecution): String {
+        val totalMutations = requestFamilyExecution.generatedRequestCases.size
+        val candidatesCount = requestFamilyExecution.requestFamily.scenariosByRequestContentType.values.flatten().size
+        return "[Compatibility Check] Executing $totalMutations scenarios for ${requestFamilyExecution.requestFamily.description(candidatesCount)}"
+    }
+
+    private fun logProgress(current: Int, total: Int) {
+        if (total >= 1000 && (current % 100 == 0 || current == total)) {
+            logger.log("[Compatibility Check] Completed $current/$total")
+        }
+    }
+
+    private fun Feature.requestFamilies(): List<RequestFamily> {
+        return scenarios
+            .filter { !it.ignoreFailure }
+            .groupBy { scenario -> scenario.path to scenario.method }
+            .values.map { groupedScenarios ->
+                RequestFamily(
+                    representativeScenario = groupedScenarios.first(),
+                    scenariosByRequestContentType = groupedScenarios.groupBy { it.requestContentType.orEmpty() }
+                )
+            }
+    }
+
+    private fun generatedRequestCases(requestFamily: RequestFamily): List<Scenario> {
+        return requestFamily.scenariosByRequestContentType.values.flatMap { scenariosForContentType ->
+            scenariosForContentType.first().copy(examples = emptyList()).generateBackwardCompatibilityScenarios()
+        }
+    }
+
+    private fun evaluateMutation(generatedScenario: Scenario): MutationEvaluation {
+        return try {
+            val request = generatedScenario.generateHttpRequest(backwardCompatibilityStrategies)
+            val requestMatches = requestMatches(request, generatedScenario.expectedFacts)
+            MutationEvaluation.RequestMatched(candidates = requestMatches)
+        } catch (contractException: ContractException) {
+            MutationEvaluation.GenerationFailure(listOf(contractException.failure()))
+        } catch (_: StackOverflowError) {
+            MutationEvaluation.GenerationFailure(listOf(Result.Failure(stackOverflowMessage())))
+        } catch (_: EmptyContract) {
+            val atThisFilePath = if (newer.path.isNotEmpty()) " at ${newer.path}" else ""
+            MutationEvaluation.GenerationFailure(listOf(Result.Failure("The contract$atThisFilePath had no operations")))
+        } catch (throwable: Throwable) {
+            MutationEvaluation.GenerationFailure(listOf(Result.Failure("Exception: ${throwable.localizedMessage}")))
+        }
+    }
+
+    private fun requestMatches(request: HttpRequest, expectedFacts: Map<String, Value>): List<Pair<Scenario, Result>> {
+        if (newer.scenarios.isEmpty()) throw EmptyContract()
+        val identifierMatches = newer.scenarios.filter { candidate ->
+            candidate.httpRequestPattern.matchesPathStructureMethodAndContentType(request, candidate.resolver).isSuccess()
+        }
+
+        val resultList = identifierMatches.map { candidate ->
+            candidate to candidate.matches(
+                httpRequest = request,
+                serverState = expectedFacts,
+                mismatchMessages = NewAndOldSpecificationRequestMismatches,
+                unexpectedKeyCheck = IgnoreUnexpectedKeys
+            )
+        }
+
+        val successfulResults = resultList.filter { (_, result) -> result is Result.Success }
+        if (successfulResults.isNotEmpty()) return successfulResults
+
+        return resultList.filter { (_, result) ->
+            when (result) {
+                is Result.Success -> true
+                is Result.Failure -> !result.isFluffy()
+            }
+        }
+    }
+
+    private fun evaluateMutationAgainstRequestFamily(
+        mutationEvaluation: MutationEvaluation,
+        oldScenarios: List<Scenario>,
+        responseComparisonCache: IdentityHashMap<Scenario, IdentityHashMap<Scenario, Result>>
+    ): List<Result> {
+        return when (mutationEvaluation) {
+            is MutationEvaluation.GenerationFailure -> mutationEvaluation.results
+            is MutationEvaluation.RequestMatched -> oldScenarios.flatMap { oldScenario ->
+                evaluateMatchedScenario(oldScenario, mutationEvaluation.candidates, responseComparisonCache)
+            }
+        }
+    }
+
+    private fun evaluateMatchedScenario(
+        oldScenario: Scenario,
+        candidates: List<Pair<Scenario, Result>>,
+        responseComparisonCache: IdentityHashMap<Scenario, IdentityHashMap<Scenario, Result>>
+    ): List<Result> {
+        val wholeMatchResults = candidates.mapNotNull { (newerScenario, requestResult) ->
+            val responseResult = responseComparison(oldScenario, newerScenario, responseComparisonCache)
+            responseResult.takeUnless(Result::isFluffy)?.let {
+                requestResult.updateScenario(newerScenario) to it.updateScenario(newerScenario)
+            }
+        }
+
+        return when {
+            wholeMatchResults.isEmpty() ->
+                listOf(Result.Failure("This API exists in the old contract but not in the new contract").updateScenario(oldScenario))
+            wholeMatchResults.any { it.first is Result.Success && it.second is Result.Success } ->
+                listOf(Result.Success())
+            else ->
+                wholeMatchResults.flatMap { it.toList() }.filterIsInstance<Result.Failure>()
+        }
+    }
+
+    private fun responseComparison(
+        oldScenario: Scenario,
+        newerScenario: Scenario,
+        responseComparisonCache: IdentityHashMap<Scenario, IdentityHashMap<Scenario, Result>>
+    ): Result {
+        val resultsByNewScenario = responseComparisonCache.getOrPut(oldScenario) { IdentityHashMap() }
+        return resultsByNewScenario.getOrPut(newerScenario) {
+            oldScenario.httpResponsePattern.encompasses(
+                other = newerScenario.httpResponsePattern,
+                olderResolver = oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
+                newerResolver = newerScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
+            )
+        }
+    }
+
+    private fun stackOverflowMessage(): String {
+        return "Exception: Stack overflow error, most likely caused by a recursive definition. Please report this with a sample contract as a bug!"
+    }
+
+    companion object {
+        private const val BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE = 1
+        private val backwardCompatibilityStrategies = DefaultStrategies.copy(maxRandomArraySize = BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE)
+
+        private data class RequestFamilyExecution(val requestFamily: RequestFamily, val generatedRequestCases: List<Scenario>)
+        private data class RequestFamily(val representativeScenario: Scenario, val scenariosByRequestContentType: Map<String, List<Scenario>>) {
+            fun description(candidateCount: Int): String {
+                val scenarios = scenariosByRequestContentType.values.flatten()
+                val header = buildString {
+                    append("${representativeScenario.method} ${representativeScenario.path}")
+                    append(" against $candidateCount operations")
+                }
+
+                val scenarioLines = scenarios.joinToString(separator = "\n") { scenario ->
+                    "  - ${scenario.fullApiDescription}"
+                }
+
+                return "$header\n$scenarioLines"
+            }
+        }
+
+        private sealed interface MutationEvaluation {
+            data class GenerationFailure(val results: List<Result>) : MutationEvaluation
+            data class RequestMatched(val candidates: List<Pair<Scenario, Result>>) : MutationEvaluation
+        }
     }
 }
 
