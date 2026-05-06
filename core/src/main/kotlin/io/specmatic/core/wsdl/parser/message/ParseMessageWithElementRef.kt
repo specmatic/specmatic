@@ -39,7 +39,18 @@ fun isPrimitiveType(node: XMLNode): Boolean {
 
 val primitiveStringTypes = listOf(
     "string",
+    "normalizedString",
     "token",
+    "language",
+    "Name",
+    "NCName",
+    "ID",
+    "IDREF",
+    "IDREFS",
+    "ENTITY",
+    "ENTITIES",
+    "NMTOKEN",
+    "NMTOKENS",
     "duration",
     "time",
     "date",

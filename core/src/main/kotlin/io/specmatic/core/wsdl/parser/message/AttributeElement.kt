@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.XML_ATTR_OPTIONAL_SUFFIX
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.localName
@@ -13,13 +14,29 @@ import io.specmatic.core.wsdl.parser.WSDL
 class AttributeElement(xmlNode: XMLNode) {
     val name: String = fromNameAttribute(xmlNode)
         ?: throw ContractException("'name' not defined for attribute: ${xmlNode.oneLineDescription}")
-    val type: Value = elementTypeValue(xmlNode)
+    val type: Value = attributeTypeValue(xmlNode)
     private val mandatory: Boolean = isMandatory(xmlNode) ?: false
     val nameWithOptionality: String = when (mandatory) {
         true -> name
         else -> "${name}${XML_ATTR_OPTIONAL_SUFFIX}"
     }
 }
+
+private fun attributeTypeValue(attribute: XMLNode): Value {
+    val typeName = fromTypeAttribute(attribute)
+    val inlineSimpleType = inlineSimpleType(attribute)
+
+    return when {
+        typeName == "anySimpleType" -> StringValue("(string)")
+        typeName != null -> elementTypeValue(attribute)
+        fromRestriction(attribute) != null -> elementTypeValue(attribute)
+        inlineSimpleType != null -> elementTypeValue(inlineSimpleType)
+        else -> StringValue("(string)")
+    }
+}
+
+private fun inlineSimpleType(attribute: XMLNode): XMLNode? =
+    attribute.childNodes.filterIsInstance<XMLNode>().firstOrNull { it.name == "simpleType" }
 
 fun isMandatory(element: XMLNode): Boolean? {
     return element.attributes["use"]?.let {

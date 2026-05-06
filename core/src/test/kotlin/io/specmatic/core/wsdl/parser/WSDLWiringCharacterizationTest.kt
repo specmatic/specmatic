@@ -18,6 +18,9 @@ import io.specmatic.core.wsdl.payload.RequestHeaders
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 
 class WSDLWiringCharacterizationTest {
@@ -496,9 +499,101 @@ class WSDLWiringCharacterizationTest {
         assertXmlAttribute(recursivePersonPattern, "safe.opt", "(string)")
     }
 
+    @Test
+    fun `required untyped attribute defaults to string and ignores schema id metadata`() {
+        val personPattern = personPatternForAttribute("""<xsd:attribute id="ID" name="id" use="required"/>""")
+
+        assertXmlAttribute(personPattern, "id", "(string)")
+        assertThat(personPattern.pattern.attributes).doesNotContainKey("ID")
+    }
+
+    @Test
+    fun `optional untyped attribute defaults to optional string`() {
+        val personPattern = personPatternForAttribute("""<xsd:attribute name="id"/>""")
+
+        assertXmlAttribute(personPattern, "id.opt", "(string)")
+    }
+
+    @Test
+    fun `explicit anySimpleType attribute maps to string`() {
+        val personPattern = personPatternForAttribute("""<xsd:attribute name="value" type="xsd:anySimpleType" use="required"/>""")
+
+        assertXmlAttribute(personPattern, "value", "(string)")
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "normalizedString",
+            "language",
+            "Name",
+            "NCName",
+            "ID",
+            "IDREF",
+            "IDREFS",
+            "ENTITY",
+            "ENTITIES",
+            "NMTOKEN",
+            "NMTOKENS"
+        ]
+    )
+    fun `xsd string derived attributes parse as strings`(xsdType: String) {
+        val personPattern = personPatternForAttribute("""<xsd:attribute name="value" type="xsd:$xsdType" use="required"/>""")
+
+        assertXmlAttribute(personPattern, "value", "(string)")
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+            "xsd:string|(string)",
+            "xsd:int|(number)",
+            "xsd:boolean|(boolean)"
+        ],
+        delimiter = '|'
+    )
+    fun `typed primitive attributes keep existing pattern mapping`(xsdType: String, expectedPattern: String) {
+        val personPattern = personPatternForAttribute("""<xsd:attribute name="value" type="$xsdType" use="required"/>""")
+
+        assertXmlAttribute(personPattern, "value", expectedPattern)
+    }
+
     private fun loadWsdl(path: String): WSDL {
         val wsdlFile = File(path)
         return WSDL(toXMLNode(wsdlFile.readText()), wsdlFile.canonicalPath)
+    }
+
+    private fun personPatternForAttribute(attribute: String): XMLPattern {
+        val namespace = "http://example.com/attribute-types"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="AttributeTypes"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="PersonType">
+                                <xsd:sequence>
+                                    <xsd:element name="Name" type="xsd:string"/>
+                                </xsd:sequence>
+                                $attribute
+                            </xsd:complexType>
+
+                            <xsd:element name="Person" type="tns:PersonType"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/attribute-types.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Person"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("PersonType", emptyMap(), emptySet())
+        return typeInfo.types.getValue("PersonType") as XMLPattern
     }
 
     private fun soapBody(
