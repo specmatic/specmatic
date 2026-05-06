@@ -240,10 +240,14 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         val endpoint = rootDefinition.getXMLNodeOrNull("service.endpoint")
 
         return when {
-            port != null -> Pair(port.getAttributeValueAtPath("address", "location"), SOAP11Parser(this))
-            endpoint != null -> Pair(endpoint.getAttributeValueAtPath("address", "location"), SOAP20Parser())
+            port != null -> Pair(port.addressLocationOrEmpty(), SOAP11Parser(this))
+            endpoint != null -> Pair(endpoint.addressLocationOrEmpty(), SOAP20Parser())
             else -> throw ContractException("Could not find the service endpoint")
         }
+    }
+
+    private fun XMLNode.addressLocationOrEmpty(): String {
+        return getXMLNodeOrNull("address")?.attributes?.get("location")?.toStringLiteral()?.takeIf { it.isNotBlank() }.orEmpty()
     }
 
     private fun findComplexType(
