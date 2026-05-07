@@ -33,11 +33,11 @@ private fun attributeTypeValue(attribute: XMLNode, wsdl: WSDL): Value {
 
     return when {
         typeName == "anySimpleType" -> StringValue("(string)")
-        inlineSimpleType != null -> elementTypeValue(inlineSimpleType)
-        fromRestriction(attribute) != null -> elementTypeValue(attribute)
+        inlineSimpleType != null -> simpleTypeValue(inlineSimpleType, wsdl)
+        fromRestriction(attribute) != null -> simpleTypeValue(attribute, wsdl)
         typeName == null -> StringValue("(string)")
         isPrimitiveType(attribute) -> elementTypeValue(attribute)
-        else -> wsdl.findSimpleType(attribute, "type")?.let(::elementTypeValue) ?: elementTypeValue(attribute)
+        else -> wsdl.findSimpleType(attribute, "type")?.let { simpleTypeValue(it, wsdl) } ?: elementTypeValue(attribute)
     }
 }
 

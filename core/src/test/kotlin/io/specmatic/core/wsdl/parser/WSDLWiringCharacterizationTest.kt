@@ -497,6 +497,68 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `simple content extension with named base resolves simple type chains`() {
+        val namespace = "http://example.com/simple-content-extension-chain"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentExtensionChain"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:simpleType name="CodeText">
+                                <xsd:restriction base="xsd:token">
+                                    <xsd:minLength value="2"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+
+                            <xsd:simpleType name="CodeAlias">
+                                <xsd:restriction base="tns:CodeText">
+                                    <xsd:maxLength value="8"/>
+                                    <xsd:pattern value="[A-Z]+"/>
+                                </xsd:restriction>
+                            </xsd:simpleType>
+
+                            <xsd:attributeGroup name="CodeAttributes">
+                                <xsd:attribute name="code" type="xsd:string"/>
+                            </xsd:attributeGroup>
+
+                            <xsd:complexType name="CodeType">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:CodeAlias">
+                                        <xsd:attributeGroup ref="tns:CodeAttributes"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="Code" type="tns:CodeType"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-extension-chain.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Code"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("CodeType", emptyMap(), emptySet())
+        val codePattern = concreteRoot(typeInfo.types.getValue("CodeType") as XMLPattern, "Code", "tns:Code", namespace)
+        val sample = toXMLNode("""<tns:Code xmlns:tns="$namespace" code="ABC">ABC</tns:Code>""")
+
+        assertThat(codePattern.toPrettyString())
+            .contains("minLength 2")
+            .contains("maxLength 8")
+            .contains("regex [A-Z]+")
+            .doesNotContain("CodeAlias")
+            .doesNotContain("CodeText")
+        assertThat(codePattern.matches(sample, Resolver()))
+            .isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `simple content extension wiring supports primitive base types`() {
         val namespace = "http://example.com/simple-content-primitive"
         val wsdl = WSDL(
@@ -709,6 +771,28 @@ class WSDLWiringCharacterizationTest {
         )
 
         assertXmlAttribute(personPattern, "name", "(string)")
+    }
+
+    @Test
+    fun `referenced simpleType attribute resolves chained restriction base`() {
+        val personPattern = personPatternForAttribute(
+            """<xsd:attribute name="name" type="tns:DisplayName" use="required"/>""",
+            """
+            <xsd:simpleType name="NameText">
+                <xsd:restriction base="xsd:token">
+                    <xsd:minLength value="2"/>
+                </xsd:restriction>
+            </xsd:simpleType>
+
+            <xsd:simpleType name="DisplayName">
+                <xsd:restriction base="tns:NameText">
+                    <xsd:maxLength value="10"/>
+                </xsd:restriction>
+            </xsd:simpleType>
+            """.trimIndent()
+        )
+
+        assertXmlAttribute(personPattern, "name", "(string) minLength 2 maxLength 10)")
     }
 
     @Test
