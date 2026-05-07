@@ -54,7 +54,7 @@ data class Resolver(
     val lookupPathsSeenSoFar: Set<String> = setOf(),
     val cycleMarker: String = "",
     val maxTestRequestCombinations: Int = Int.MAX_VALUE,
-    val maxRandomArraySize: Int = 3,
+    val randomArraySize: Int? = null,
 ) {
     constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
     constructor() : this(emptyMap(), false)
@@ -341,7 +341,7 @@ data class Resolver(
     }
 
     private fun generateRandomList(pattern: Pattern): Value {
-        val maxLimit = if (maxRandomArraySize <= 1) 1 else randomNumber(maxRandomArraySize)
+        val maxLimit = randomArraySize ?: randomNumber(3)
         return pattern.listOf(0.until(maxLimit).mapIndexed { index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)

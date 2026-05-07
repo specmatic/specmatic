@@ -12,7 +12,7 @@ class RegExSpec(
 ) {
     private val originalRegex = regex
     private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
-    private val regexToMatchUsing: Regex? = originalRegex?.let { Regex(it.replaceRegexLowerBounds(), RegexOption.DOT_MATCHES_ALL) }
+    private val regexForRuntimeMatch: Regex? = originalRegex?.let { Regex(it.replaceRegexLowerBounds()) }
 
     init {
         validateRegex()
@@ -20,9 +20,9 @@ class RegExSpec(
 
     private fun validateRegex() {
         runCatching {
-            if (regexGenerator == null || regexToMatchUsing == null) return
+            if (regexGenerator == null || originalRegex == null) return
             val random = regexGenerator.random()
-            if (!regexToMatchUsing.matches(random)) {
+            if (!Regex(originalRegex.replaceRegexLowerBounds(), RegexOption.DOT_MATCHES_ALL).matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
         }.getOrElse { e ->
@@ -76,7 +76,7 @@ class RegExSpec(
         return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
-    fun match(sampleData: StringValue) = regexToMatchUsing?.matches(sampleData.toStringLiteral()) ?: true
+    fun match(sampleData: StringValue) = regexForRuntimeMatch?.matches(sampleData.toStringLiteral()) ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
         return regexGenerator?.let {

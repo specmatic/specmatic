@@ -175,9 +175,9 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     companion object {
         private const val PROGRESSION_LOG_INCREMENT = 100
         private const val PROGRESSION_LOG_THRESHOLD = 1000
-        private const val BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE = 1
+        private const val BACKWARD_COMPATIBILITY_RANDOM_ARRAY_SIZE = 1
         private const val STACK_OVERFLOW_MESSAGE = "Exception: Stack overflow error, most likely caused by a recursive definition. Please report this with a sample contract as a bug!"
-        private val backwardCompatibilityStrategies = DefaultStrategies.copy(maxRandomArraySize = BACKWARD_COMPATIBILITY_MAX_RANDOM_ARRAY_SIZE)
+        private val backwardCompatibilityStrategies = DefaultStrategies.copy(randomArraySize = BACKWARD_COMPATIBILITY_RANDOM_ARRAY_SIZE)
     }
 }
 
