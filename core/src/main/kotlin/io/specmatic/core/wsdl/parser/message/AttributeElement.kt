@@ -94,7 +94,7 @@ private fun expandAttributesFromComplexType(
     wsdl: WSDL,
     visitedTypeReferences: Set<TypeReferenceKey>
 ): List<AttributeElement> {
-    val inheritedAttributes = complexContentExtensions(complexType).flatMap { extension ->
+    val complexContentInheritedAttributes = complexContentExtensions(complexType).flatMap { extension ->
         val baseTypeKey = extension.baseTypeKey()
         when {
             baseTypeKey in visitedTypeReferences -> emptyList()
@@ -104,8 +104,19 @@ private fun expandAttributesFromComplexType(
             }
         }
     }
+    val simpleContentInheritedAttributes = simpleContentExtensions(complexType).flatMap { extension ->
+        val baseTypeKey = extension.baseTypeKey()
+        when {
+            baseTypeKey in visitedTypeReferences -> emptyList()
+            baseTypeKey.isPrimitiveTypeReference() -> emptyList()
+            else -> wsdl.findComplexTypeOrNull(extension, "base")?.let { baseComplexType ->
+                expandAttributesFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
+            } ?: emptyList()
+        }
+    }
 
-    return inheritedAttributes
+    return complexContentInheritedAttributes
+        .plus(simpleContentInheritedAttributes)
         .plus(expandAttributes(complexType, wsdl, emptySet()))
         .plus(extensionNodes(complexType).flatMap { expandAttributes(it, wsdl, emptySet()) })
 }
@@ -129,7 +140,7 @@ private fun expandAttributeWildcardsFromComplexType(
     wsdl: WSDL,
     visitedTypeReferences: Set<TypeReferenceKey>
 ): List<XMLAttributeWildcard> {
-    val inheritedWildcards = complexContentExtensions(complexType).flatMap { extension ->
+    val complexContentInheritedWildcards = complexContentExtensions(complexType).flatMap { extension ->
         val baseTypeKey = extension.baseTypeKey()
         when {
             baseTypeKey in visitedTypeReferences -> emptyList()
@@ -139,8 +150,19 @@ private fun expandAttributeWildcardsFromComplexType(
             }
         }
     }
+    val simpleContentInheritedWildcards = simpleContentExtensions(complexType).flatMap { extension ->
+        val baseTypeKey = extension.baseTypeKey()
+        when {
+            baseTypeKey in visitedTypeReferences -> emptyList()
+            baseTypeKey.isPrimitiveTypeReference() -> emptyList()
+            else -> wsdl.findComplexTypeOrNull(extension, "base")?.let { baseComplexType ->
+                expandAttributeWildcardsFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
+            } ?: emptyList()
+        }
+    }
 
-    return inheritedWildcards
+    return complexContentInheritedWildcards
+        .plus(simpleContentInheritedWildcards)
         .plus(expandAttributeWildcards(complexType, wsdl, emptySet()))
         .plus(extensionNodes(complexType).flatMap { expandAttributeWildcards(it, wsdl, emptySet()) })
 }
@@ -171,11 +193,20 @@ private fun complexContentExtensions(complexType: XMLNode): List<XMLNode> {
         .mapNotNull { it.findFirstChildByName("extension") }
 }
 
+private fun simpleContentExtensions(complexType: XMLNode): List<XMLNode> {
+    return complexType.childNodes.filterIsInstance<XMLNode>()
+        .filter { it.name == "simpleContent" }
+        .mapNotNull { it.findFirstChildByName("extension") }
+}
+
 private fun XMLNode.baseTypeKey(): TypeReferenceKey {
     val baseType = fullyQualifiedNameFromAttribute("base")
     val namespace = baseType.namespace.ifBlank { schemaTargetNamespace(this).orEmpty() }
     return TypeReferenceKey(namespace, baseType.localName)
 }
+
+private fun TypeReferenceKey.isPrimitiveTypeReference(): Boolean =
+    namespace == primitiveNamespace || (namespace.isBlank() && localName in primitiveTypes)
 
 private fun expandAttributeGroup(
     attributeGroupReference: XMLNode,

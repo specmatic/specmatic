@@ -559,6 +559,194 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `simple content extension inherits scalar value and attributes from complex simple content base`() {
+        val namespace = "http://example.com/simple-content-complex-base"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentComplexBase"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:attributeGroup name="DateAttributes">
+                                <xsd:attribute name="timezone" type="xsd:string"/>
+                            </xsd:attributeGroup>
+
+                            <xsd:complexType name="DateTime">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="xsd:dateTime">
+                                        <xsd:attributeGroup ref="tns:DateAttributes"/>
+                                        <xsd:anyAttribute namespace="##any" processContents="skip"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="LabelledDateTime">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:DateTime"/>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="LabelledDateTime" type="tns:LabelledDateTime"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-complex-base.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "LabelledDateTime"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("LabelledDateTime", emptyMap(), emptySet())
+        val pattern = concreteRoot(typeInfo.types.getValue("LabelledDateTime") as XMLPattern, "LabelledDateTime", "tns:LabelledDateTime", namespace)
+
+        assertThat(pattern.toPrettyString()).contains("(datetime)")
+        assertXmlAttribute(pattern, "timezone.opt", "(string)")
+        assertThat(pattern.pattern.attributeWildcards).hasSize(1)
+    }
+
+    @Test
+    fun `simple content extension inherits attributes through complex simple content chains`() {
+        val namespace = "http://example.com/simple-content-complex-chain"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentComplexChain"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="BaseText">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="xsd:string">
+                                        <xsd:attribute name="baseId" type="xsd:string"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="MiddleText">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:BaseText">
+                                        <xsd:attribute name="middleId" type="xsd:string"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="FinalText">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:MiddleText">
+                                        <xsd:attribute name="finalId" type="xsd:string"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="Final" type="tns:FinalText"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-complex-chain.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Final"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("FinalText", emptyMap(), emptySet())
+        val pattern = concreteRoot(typeInfo.types.getValue("FinalText") as XMLPattern, "Final", "tns:Final", namespace)
+
+        assertThat(pattern.toPrettyString()).contains("(string)")
+        assertXmlAttribute(pattern, "baseId.opt", "(string)")
+        assertXmlAttribute(pattern, "middleId.opt", "(string)")
+        assertXmlAttribute(pattern, "finalId.opt", "(string)")
+    }
+
+    @Test
+    fun `recursive complex simple content extension fails clearly`() {
+        val namespace = "http://example.com/simple-content-complex-recursive"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentComplexRecursive"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="A">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:B"/>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="B">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:A"/>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="A" type="tns:A"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-complex-recursive.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "A"))
+
+        assertThatThrownBy {
+            soapElement.deriveSpecmaticTypes("A", emptyMap(), emptySet())
+        }.hasMessageContaining("Recursive simple type/simple content base reference")
+    }
+
+    @Test
+    fun `complex base without simple content extension fails clearly when used as simple content base`() {
+        val namespace = "http://example.com/simple-content-complex-invalid-base"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentComplexInvalidBase"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="BaseObject">
+                                <xsd:sequence>
+                                    <xsd:element name="Name" type="xsd:string"/>
+                                </xsd:sequence>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="Scalar">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="tns:BaseObject"/>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="Scalar" type="tns:Scalar"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-complex-invalid-base.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Scalar"))
+
+        assertThatThrownBy {
+            soapElement.deriveSpecmaticTypes("Scalar", emptyMap(), emptySet())
+        }.hasMessageContaining("Complex type tns:BaseObject used as simpleContent base does not contain simpleContent/extension")
+    }
+
+    @Test
     fun `simple content extension wiring supports primitive base types`() {
         val namespace = "http://example.com/simple-content-primitive"
         val wsdl = WSDL(

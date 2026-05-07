@@ -199,15 +199,34 @@ private fun resolveSimpleType(element: XMLNode, wsdl: WSDL, visited: Set<SimpleT
     val resolvedBase = when {
         base.isKnownPrimitiveType() -> ResolvedSimpleType(base.localName, base.primitiveFamily())
         base.isUnsupportedPrimitiveType() -> unsupportedPrimitiveType(base)
-        reference.key in visited -> throw ContractException("Recursive simpleType base reference ${base.qName} found")
+        reference.key in visited -> throw ContractException("Recursive simple type/simple content base reference ${base.qName} found")
         else -> {
             val simpleType = wsdl.findSimpleType(reference.node, reference.attributeName)
-                ?: throw ContractException("Type with name ${base.qName} in ${reference.attributeName} of node ${reference.node.name} could not be found")
-            resolveSimpleType(simpleType, wsdl, visited.plus(reference.key))
+
+            when {
+                simpleType != null -> resolveSimpleType(simpleType, wsdl, visited.plus(reference.key))
+                else -> resolveComplexSimpleContentBase(reference, base, wsdl, visited.plus(reference.key))
+            }
         }
     }
 
     return resolvedBase.withRestrictions(restrictionFacets(element))
+}
+
+private fun resolveComplexSimpleContentBase(
+    reference: SimpleTypeReference,
+    base: FullyQualifiedName,
+    wsdl: WSDL,
+    visited: Set<SimpleTypeReferenceKey>
+): ResolvedSimpleType {
+    val complexType = wsdl.findComplexTypeOrNull(reference.node, reference.attributeName)
+        ?: throw ContractException("Type with name ${base.qName} in ${reference.attributeName} of node ${reference.node.name} could not be found")
+
+    val extension = complexType.findFirstChildByName("simpleContent")
+        ?.findFirstChildByName("extension")
+        ?: throw ContractException("Complex type ${base.qName} used as simpleContent base does not contain simpleContent/extension")
+
+    return resolveSimpleType(extension.baseAsTypeNode(), wsdl, visited)
 }
 
 private fun simpleTypeReference(element: XMLNode): SimpleTypeReference? {
@@ -231,6 +250,9 @@ private fun XMLNode.simpleTypeQualifiedNameFromAttribute(attributeName: String):
         }
     }
 }
+
+private fun XMLNode.baseAsTypeNode(): XMLNode =
+    copy(attributes = attributes.plus("type" to attributes.getValue("base")))
 
 private fun unsupportedPrimitiveType(base: FullyQualifiedName): ResolvedSimpleType {
     logger.debug("Unsupported XML Schema primitive type ${base.qName}; treating it as string")

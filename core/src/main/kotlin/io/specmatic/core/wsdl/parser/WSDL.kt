@@ -255,8 +255,17 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         attributeName: String
     ): XMLNode {
         val fullTypeName = element.attributes.getValue(attributeName).toStringLiteral()
+        return findComplexTypeOrNull(element, attributeName)
+            ?: throw ContractException("Couldn't find a node named complexType with attribute name=\"${fullTypeName.localName()}\"")
+    }
+
+    fun findComplexTypeOrNull(
+        element: XMLNode,
+        attributeName: String
+    ): XMLNode? {
+        val fullTypeName = element.attributes.getValue(attributeName).toStringLiteral()
         val schema = findSchema(namespace(fullTypeName, element), element.schema)
-        return schema.findByNodeNameAndAttribute("complexType", "name", fullTypeName.localName())
+        return schema.findByNodeNameAndAttributeOrNull("complexType", "name", fullTypeName.localName())
     }
 
     fun findSimpleType(
