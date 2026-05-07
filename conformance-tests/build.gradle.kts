@@ -4,7 +4,7 @@ plugins {
 dependencies {
     implementation("ch.qos.logback:logback-core:1.5.32")
     implementation("org.slf4j:slf4j-api:2.0.17")
-    implementation("org.junit.platform:junit-platform-launcher:1.14.4")
+    implementation("org.junit.platform:junit-platform-launcher:6.0.3")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.3")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.3")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
@@ -13,11 +13,11 @@ dependencies {
 
     runtimeOnly("ch.qos.logback:logback-classic:1.5.32")
 
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
 
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.0.3")
     testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
