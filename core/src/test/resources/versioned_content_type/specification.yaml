@@ -1,0 +1,51 @@
+openapi: "3.0.0"
+info:
+  title: "Widgets API"
+  version: "1.0.0"
+paths:
+  /widgets:
+    post:
+      summary: "Create Widget"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+          application/json; version=2026-12-31:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+          application/vnd.widget.json:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+          application/vnd.widget.json; version=2026-12-31:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+      responses:
+        "201":
+          description: "Widget created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+            application/json; version=2026-12-31:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+            application/vnd.widget.json:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+            application/vnd.widget.json; version=2026-12-31:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+components:
+  schemas:
+    SimpleSchema:
+      type: object
+      required:
+        - id
+        - message
+      properties:
+        id:
+          type: integer
+        message:
+          type: string

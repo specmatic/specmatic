@@ -986,17 +986,13 @@ data class Scenario(
 
 
     private fun matchesResponseContentType(operationId: OpenApiSpecification.OperationIdentifier): Boolean {
-        val exampleResponseContentType = operationId.responseContentType ?: return true
-        val patternResponseContentType = httpResponsePattern.headersPattern.contentType ?: return true
-
-        return exampleResponseContentType == patternResponseContentType
+        val headers = operationId.responseContentType?.let { mapOf(CONTENT_TYPE to it) }.orEmpty()
+        return httpResponsePattern.headersPattern.matchContentType(headers to resolver).toResult { it }.isSuccess()
     }
 
     private fun matchesRequestContentType(operationId: OpenApiSpecification.OperationIdentifier): Boolean {
-        val exampleRequestContentType = operationId.requestContentType ?: return true
-        val patternRequestContentType = httpRequestPattern.headersPattern.contentType ?: return true
-
-        return exampleRequestContentType == patternRequestContentType
+        val headers = operationId.requestContentType?.let { mapOf(CONTENT_TYPE to it) }.orEmpty()
+        return httpRequestPattern.headersPattern.matchContentType(headers to resolver).toResult { it }.isSuccess()
     }
 
     fun resolveSubstitutions(
