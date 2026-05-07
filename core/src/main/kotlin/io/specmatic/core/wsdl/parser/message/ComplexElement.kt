@@ -134,7 +134,7 @@ fun complexTypeChildNode(child: XMLNode, wsdl: WSDL, parentTypeName: String): Co
         "sequence", "all" -> CollectionOfChildrenInComplexType(child, wsdl, parentTypeName)
         "choice" -> ChoiceOfChildrenInComplexType(child, wsdl, parentTypeName)
         "complexContent" -> ComplexTypeExtension(child, wsdl, parentTypeName)
-        "simpleContent" -> SimpleTypeExtension(child, wsdl)
+        "simpleContent" -> SimpleContentDerivation(child, wsdl)
         else -> throw ContractException("Couldn't recognize child node $child")
     }
 }

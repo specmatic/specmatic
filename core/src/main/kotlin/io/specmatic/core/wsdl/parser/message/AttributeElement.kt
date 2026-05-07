@@ -118,7 +118,7 @@ private fun expandAttributesFromComplexType(
     return complexContentInheritedAttributes
         .plus(simpleContentInheritedAttributes)
         .plus(expandAttributes(complexType, wsdl, emptySet()))
-        .plus(extensionNodes(complexType).flatMap { expandAttributes(it, wsdl, emptySet()) })
+        .plus(derivationNodes(complexType).flatMap { expandAttributes(it, wsdl, emptySet()) })
 }
 
 private fun expandAttributeWildcards(
@@ -164,7 +164,7 @@ private fun expandAttributeWildcardsFromComplexType(
     return complexContentInheritedWildcards
         .plus(simpleContentInheritedWildcards)
         .plus(expandAttributeWildcards(complexType, wsdl, emptySet()))
-        .plus(extensionNodes(complexType).flatMap { expandAttributeWildcards(it, wsdl, emptySet()) })
+        .plus(derivationNodes(complexType).flatMap { expandAttributeWildcards(it, wsdl, emptySet()) })
 }
 
 private fun attributeWildcard(anyAttribute: XMLNode): XMLAttributeWildcard {
@@ -181,10 +181,17 @@ private fun initialVisitedTypeReferences(complexType: XMLNode): Set<TypeReferenc
     return setOf(TypeReferenceKey(schemaTargetNamespace(complexType).orEmpty(), name))
 }
 
-private fun extensionNodes(complexType: XMLNode): List<XMLNode> {
+private fun derivationNodes(complexType: XMLNode): List<XMLNode> {
     return complexType.childNodes.filterIsInstance<XMLNode>()
-        .filter { it.name == "complexContent" || it.name == "simpleContent" }
-        .mapNotNull { it.findFirstChildByName("extension") }
+        .flatMap { childNode ->
+            when (childNode.name) {
+                "complexContent" -> listOfNotNull(childNode.findFirstChildByName("extension"))
+                "simpleContent" -> listOfNotNull(
+                    childNode.findFirstChildByName("extension") ?: childNode.findFirstChildByName("restriction")
+                )
+                else -> emptyList()
+            }
+        }
 }
 
 private fun complexContentExtensions(complexType: XMLNode): List<XMLNode> {

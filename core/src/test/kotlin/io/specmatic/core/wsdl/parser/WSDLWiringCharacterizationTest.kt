@@ -665,6 +665,115 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `simple content restriction over complex simple content base resolves base scalar value`() {
+        val namespace = "http://example.com/simple-content-complex-restriction-boolean"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentComplexRestrictionBoolean"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:attributeGroup name="BaseAttributes">
+                                <xsd:attribute name="baseLabel" type="xsd:string"/>
+                            </xsd:attributeGroup>
+
+                            <xsd:complexType name="BooleanFull">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="xsd:boolean">
+                                        <xsd:attributeGroup ref="tns:BaseAttributes"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="Boolean">
+                                <xsd:simpleContent>
+                                    <xsd:restriction base="tns:BooleanFull">
+                                        <xsd:pattern value="true|false"/>
+                                        <xsd:attribute name="source" type="xsd:string"/>
+                                    </xsd:restriction>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="Boolean" type="tns:Boolean"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-complex-restriction-boolean.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Boolean"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("Boolean", emptyMap(), emptySet())
+        val pattern = concreteRoot(typeInfo.types.getValue("Boolean") as XMLPattern, "Boolean", "tns:Boolean", namespace)
+        val sample = toXMLNode("""<tns:Boolean xmlns:tns="$namespace" source="request">true</tns:Boolean>""")
+
+        assertThat(pattern.toPrettyString()).contains("(boolean)")
+        assertXmlAttribute(pattern, "source.opt", "(string)")
+        assertThat(pattern.pattern.attributes.keys).doesNotContain("baseLabel.opt")
+        assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `simple content restriction over string complex simple content base keeps local facets and attributes`() {
+        val namespace = "http://example.com/simple-content-complex-restriction-string"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentComplexRestrictionString"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="TextFull">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="xsd:string">
+                                        <xsd:attribute name="baseLabel" type="xsd:string"/>
+                                    </xsd:extension>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:complexType name="Code">
+                                <xsd:simpleContent>
+                                    <xsd:restriction base="tns:TextFull">
+                                        <xsd:minLength value="2"/>
+                                        <xsd:maxLength value="8"/>
+                                        <xsd:pattern value="[A-Z]+"/>
+                                        <xsd:attribute name="code" type="xsd:string"/>
+                                    </xsd:restriction>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="Code" type="tns:Code"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-complex-restriction-string.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Code"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("Code", emptyMap(), emptySet())
+        val pattern = concreteRoot(typeInfo.types.getValue("Code") as XMLPattern, "Code", "tns:Code", namespace)
+        val sample = toXMLNode("""<tns:Code xmlns:tns="$namespace" code="A1">ABC</tns:Code>""")
+
+        assertThat(pattern.toPrettyString())
+            .contains("minLength 2")
+            .contains("maxLength 8")
+            .contains("regex [A-Z]+")
+        assertXmlAttribute(pattern, "code.opt", "(string)")
+        assertThat(pattern.pattern.attributes.keys).doesNotContain("baseLabel.opt")
+        assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `recursive complex simple content extension fails clearly`() {
         val namespace = "http://example.com/simple-content-complex-recursive"
         val wsdl = WSDL(
@@ -743,7 +852,7 @@ class WSDLWiringCharacterizationTest {
 
         assertThatThrownBy {
             soapElement.deriveSpecmaticTypes("Scalar", emptyMap(), emptySet())
-        }.hasMessageContaining("Complex type tns:BaseObject used as simpleContent base does not contain simpleContent/extension")
+        }.hasMessageContaining("Complex type tns:BaseObject used as simpleContent base does not contain simpleContent/extension or simpleContent/restriction")
     }
 
     @Test

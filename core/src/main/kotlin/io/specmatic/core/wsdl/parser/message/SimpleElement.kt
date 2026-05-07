@@ -222,11 +222,22 @@ private fun resolveComplexSimpleContentBase(
     val complexType = wsdl.findComplexTypeOrNull(reference.node, reference.attributeName)
         ?: throw ContractException("Type with name ${base.qName} in ${reference.attributeName} of node ${reference.node.name} could not be found")
 
-    val extension = complexType.findFirstChildByName("simpleContent")
-        ?.findFirstChildByName("extension")
-        ?: throw ContractException("Complex type ${base.qName} used as simpleContent base does not contain simpleContent/extension")
+    val derivation = complexType.findSimpleContentDerivation(base)
 
-    return resolveSimpleType(extension.baseAsTypeNode(), wsdl, visited)
+    return when (derivation.name) {
+        "extension" -> resolveSimpleType(derivation.baseAsTypeNode(), wsdl, visited)
+        "restriction" -> resolveSimpleType(derivation, wsdl, visited)
+        else -> throw ContractException("Couldn't recognize simpleContent derivation node $derivation")
+    }
+}
+
+private fun XMLNode.findSimpleContentDerivation(base: FullyQualifiedName): XMLNode {
+    val simpleContent = findFirstChildByName("simpleContent")
+        ?: throw ContractException("Complex type ${base.qName} used as simpleContent base does not contain simpleContent/extension or simpleContent/restriction")
+
+    return simpleContent.findFirstChildByName("extension")
+        ?: simpleContent.findFirstChildByName("restriction")
+        ?: throw ContractException("Complex type ${base.qName} used as simpleContent base does not contain simpleContent/extension or simpleContent/restriction")
 }
 
 private fun simpleTypeReference(element: XMLNode): SimpleTypeReference? {
