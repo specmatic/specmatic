@@ -6,14 +6,13 @@ import io.specmatic.core.log.logger
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 internal class TestBackwardCompatibilityKtTest {
     private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
         assertThat(results.success()).withFailMessage(results.report()).isFalse
-        assertThat(results.report()).isEqualTo(expectedReport.trimIndent())
+        assertThat(results.report()).isEqualToNormalizingNewlines(expectedReport.trimIndent())
     }
 
     @Test
@@ -37,7 +36,7 @@ Then status 200"""
         println(result.report())
 
         assertThat(result.success()).withFailMessage(result.report()).isFalse
-        assertThat(result.report()).isEqualTo("""
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "api call"
         API: GET / -> 200
         
@@ -79,7 +78,7 @@ Then status 200
         println(result.report())
 
         assertThat(result.success()).withFailMessage(result.report()).isFalse
-        assertThat(result.report()).isEqualTo("""
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "api call"
         API: POST /value -> 200
         
@@ -3819,12 +3818,12 @@ paths:
 
     @Test
     fun `backward breaking multi request and response content-type scenario`() {
-        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_V1.yaml")
-        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_V2.yaml")
+        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
+        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
         val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
         val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
 
-        assertThat(result.report()).isEqualTo("""
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
         API: GET /missing -> 200
         
@@ -4010,12 +4009,12 @@ paths:
 
     @Test
     fun `backward breaking multi request and response content-type scenario content-type overridden`() {
-        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_V1.yaml")
-        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_V2.yaml")
+        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
+        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
         val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
         val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
 
-        assertThat(result.report()).isEqualTo("""
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
         API: GET /missing -> 200
         
