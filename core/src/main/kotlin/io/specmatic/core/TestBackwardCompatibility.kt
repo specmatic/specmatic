@@ -1,87 +1,12 @@
 package io.specmatic.core
 
-import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    val compatibilityScenarios = older.generateBackwardCompatibilityTestScenarios()
-    val exceedsStandardSize = compatibilityScenarios.size >= 1000
-    val operationToScenarios = compatibilityScenarios
-        .filter { !it.ignoreFailure }
-        .groupBy { it.fullApiDescription }
-
-    val results = operationToScenarios.entries.fold(Results()) { acc, entry ->
-        val (fullApiDescription, scenarios) = entry
-        logger.boundary()
-        logger.log("[Compatibility Check] Executing ${scenarios.size} scenarios for $fullApiDescription")
-        val operationResults = scenarios.withIndex().fold(Results()) { results, indexedScenario ->
-            val current = indexedScenario.index + 1
-            val scenarioResults: List<Result> = testBackwardCompatibility(indexedScenario.value, newer)
-            if (exceedsStandardSize && (current % 100 == 0 || current == scenarios.size)) logger.log("[Compatibility Check] Completed $current/${scenarios.size}")
-            results.copy(results = results.results.plus(scenarioResults))
-        }
-
-        logger.log("[Compatibility Check] Verdict: ${if (operationResults.success()) "PASS" else "FAIL"}")
-        acc.plus(operationResults)
-    }
-
-    println()
-    return results.distinct()
-}
-
-fun testBackwardCompatibility(
-    oldScenario: Scenario,
-    newIncomingFeature: Feature
-): List<Result> {
-    val newFeature = newIncomingFeature.copy()
-
-    newFeature.setServerState(oldScenario.expectedFacts)
-
-    return try {
-        val request = oldScenario.generateHttpRequest()
-
-        val wholeMatchResults: List<Pair<Result, Result>> =
-            newFeature.compatibilityLookup(request).map { (scenario, result) ->
-                Pair(scenario, result.updateScenario(scenario))
-            }.filterNot { (_, result) ->
-                result is Result.Failure && result.isFluffy()
-            }.mapNotNull { (newerScenario, requestResult) ->
-                val newerResponsePattern = newerScenario.httpResponsePattern
-                val responseResult = oldScenario.httpResponsePattern.encompasses(
-                    newerResponsePattern,
-                    oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                    newerScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                )
-
-                if (responseResult.isFluffy())
-                    null
-                else
-                    Pair(requestResult, responseResult.updateScenario(newerScenario))
-            }
-
-        if(wholeMatchResults.isEmpty())
-            listOf(Result.Failure("""This API exists in the old contract but not in the new contract""").updateScenario(oldScenario))
-        else if (wholeMatchResults.any { it.first is Result.Success && it.second is Result.Success })
-            listOf(Result.Success())
-        else {
-            wholeMatchResults.map {
-                it.toList()
-            }.flatten().filterIsInstance<Result.Failure>()
-        }
-    } catch(emptyContract: EmptyContract) {
-        val atThisFilePath = if(newFeature.path.isNotEmpty()) " at ${newFeature.path}" else ""
-        listOf(Result.Failure("The contract$atThisFilePath had no operations"))
-    }
-    catch (contractException: ContractException) {
-        listOf(contractException.failure())
-    } catch (stackOverFlowException: StackOverflowError) {
-        listOf(Result.Failure("Exception: Stack overflow error, most likely caused by a recursive definition. Please report this with a sample contract as a bug!"))
-    } catch (throwable: Throwable) {
-        listOf(Result.Failure("Exception: ${throwable.localizedMessage}"))
-    }
+    val operationToResult = OpenApiBackwardCompatibilityChecker(older, newer).run()
+    return operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
 }
 
 object NewAndOldSpecificationRequestMismatches: MismatchMessages {

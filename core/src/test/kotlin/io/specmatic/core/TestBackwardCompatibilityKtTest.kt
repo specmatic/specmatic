@@ -6,11 +6,15 @@ import io.specmatic.core.log.logger
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 internal class TestBackwardCompatibilityKtTest {
+    private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
+        assertThat(results.success()).withFailMessage(results.report()).isFalse
+        assertThat(results.report()).isEqualToNormalizingNewlines(expectedReport.trimIndent())
+    }
+
     @Test
     fun `when a contract is run as test against another contract fake, it should fail if the two contracts are incompatible`() {
         val oldContract = """Feature: Contract
@@ -31,8 +35,13 @@ Then status 200"""
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-        assertEquals(0, result.successCount)
+        assertThat(result.success()).withFailMessage(result.report()).isFalse
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
+        In scenario "api call"
+        API: GET / -> 200
+        
+              This API exists in the old contract but not in the new contract
+        """.trimIndent())
     }
 
     @Test
@@ -68,8 +77,19 @@ Then status 200
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-        assertEquals(1, result.successCount)
+        assertThat(result.success()).withFailMessage(result.report()).isFalse
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
+        In scenario "api call"
+        API: POST /value -> 200
+        
+          >> REQUEST.BODY.optional
+          
+              R2001: Missing required property
+              Documentation: https://docs.specmatic.io/rules#r2001
+              Summary: A required property defined in the specification is missing
+          
+              New specification expects property "optional" in the request but it is missing from the old specification
+        """.trimIndent())
     }
 
     @Test
@@ -107,8 +127,21 @@ And response-body (Value)
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-        assertEquals(0, result.successCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "api call"
+            API: POST /value -> 200
+            
+              >> RESPONSE.BODY.mandatory
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "mandatory" but it is missing in the new specification
+            """
+        )
     }
 
     @Test
@@ -144,43 +177,21 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
-    }
-
-    @Test
-    fun `contract backward compatibility should not break when there is optional key compatibility one level down`() {
-        val gherkin1 = """
-Feature: Old contract
-  Scenario: Test Scenario
-    Given type RequestBody
-    | address | (Address) |
-    And type Address
-    | street? | (string) |
-    When POST /
-    And request-body (RequestBody)
-    Then status 200
-    """.trim()
-
-        val gherkin2 = """
-Feature: New contract
-  Scenario: Test Scenario
-    Given type RequestBody
-    | address | (Address) |
-    And type Address
-    | street? | (string) |
-    When POST /
-    And request-body (RequestBody)
-    Then status 200
-    """.trim()
-
-        val olderContract = parseGherkinStringToFeature(gherkin1)
-        val newerContract = parseGherkinStringToFeature(gherkin2)
-
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
-
-        println(result.report())
-
-        assertEquals(0, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.address.street
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+            """
+        )
     }
 
     @Test
@@ -216,7 +227,21 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.address.street
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "street" in the request but it is missing from the old specification
+            """
+        )
     }
 
     @Test
@@ -252,8 +277,21 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(2, result.successCount)
-        assertEquals(1, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.address.street
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "street" in the request but it is missing from the old specification
+            """
+        )
     }
 
     @Test
@@ -293,8 +331,21 @@ Feature: Old contract
 
         println(result.report())
 
-        assertEquals(2, result.successCount)
-        assertEquals(1, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.person.address.street
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "street" in the request but it is missing from the old specification
+            """
+        )
     }
 
     @Test
@@ -334,8 +385,32 @@ Feature: Old contract
 
         println(result.report())
 
-        assertEquals(1, result.successCount)
-        assertEquals(2, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.person.address.street
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+            
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.person.address.street
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "street" in the request but it is missing from the old specification
+            """
+        )
     }
 
     @Test
@@ -375,8 +450,21 @@ Feature: Old contract
 
         println(result.report())
 
-        assertEquals(3, result.successCount)
-        assertEquals(1, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> REQUEST.BODY.person.address.street
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type string in the new specification, but type null in the old specification
+            """
+        )
     }
 
     @Test
@@ -414,7 +502,21 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> RESPONSE.BODY.address.street
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "street" but it is missing in the new specification
+            """
+        )
     }
 
     @Test
@@ -456,7 +558,21 @@ Feature: New contract
 
         println(result.report())
 
-        assertEquals(1, result.failureCount)
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "Test Scenario"
+            API: POST / -> 200
+            
+              >> RESPONSE.BODY.person.address.street
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "street" but it is missing in the new specification
+            """
+        )
     }
 
     @Test
@@ -494,8 +610,7 @@ Then status 200
 
         println(result.report())
 
-        assertEquals(2, result.successCount)
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -532,8 +647,17 @@ Then status 200
 
         println(results.report())
 
-        assertEquals(0, results.successCount)
-        assertEquals(1, results.failureCount)
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "api call"
+            API: POST /value/(id:number) -> 200
+            
+              >> FACTS
+              
+                  Facts mismatch
+            """
+        )
     }
 
     @Test
@@ -554,8 +678,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -576,8 +699,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(2, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -598,8 +720,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(2, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -622,8 +743,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(2, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -644,8 +764,7 @@ And response-body (number?)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -668,46 +787,7 @@ And response-body (Number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
-    }
-
-    @Test
-    fun `contract with a required key should not match a contract with the same key made optional`() {
-        val olderBehaviour = parseGherkinStringToFeature(
-            """
-Feature: Contract API
-
-Scenario: api call
-When POST /number
-And request-body (number)
-Then status 200
-And response-body
-| number      | (number) |
-| description | (string) |
-""".trim()
-        )
-
-        val newerBehaviour = parseGherkinStringToFeature(
-            """
-Feature: Contract API
-
-Scenario: api call
-When POST /number
-And request-body (number)
-Then status 200
-And response-body
-| number       | (number) |
-| description? | (string) |
-""".trim()
-        )
-
-        val results: Results = testBackwardCompatibility(olderBehaviour, newerBehaviour)
-
-        println(results.report())
-
-        assertEquals(0, results.successCount)
-        assertEquals(1, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -729,8 +809,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -752,8 +831,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test
@@ -775,8 +853,7 @@ And response-body
         val results: Results = testBackwardCompatibility(behaviour, behaviour)
 
         println(results.report())
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).isTrue
     }
 
     @Test
@@ -812,7 +889,21 @@ And response-body
         val results: Results = testBackwardCompatibility(older, newer)
 
         println(results.report())
-        assertThat(results.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "api call"
+            API: POST /number -> 200
+            
+              >> REQUEST.MULTIPART-FORMDATA.number.content
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  Type (number)) does not exist
+            """
+        )
     }
 
     @Test
@@ -833,8 +924,7 @@ And response-body (number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).isTrue
     }
 
     @Test
@@ -858,8 +948,7 @@ And response-body (number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(1, results.successCount)
-        assertEquals(0, results.failureCount)
+        assertThat(results.success()).isTrue
     }
 
     @Test
@@ -894,8 +983,21 @@ And response-body (number)
         if (results.failureCount > 0)
             println(results.report())
 
-        assertEquals(0, results.successCount)
-        assertEquals(1, results.failureCount)
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "api call"
+            API: POST /number -> 200
+            
+              >> REQUEST.BODY.number
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type string in the new specification, but type number in the old specification
+            """
+        )
     }
 
     @Test
@@ -926,8 +1028,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isZero()
-        assertThat(results.failureCount).isZero()
+        assertThat(results.success()).isTrue
         assertThat(results.hasFailures()).isFalse()
     }
 
@@ -957,8 +1058,7 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isOne()
-        assertThat(results.failureCount).isZero()
+        assertThat(results.success()).isTrue
         assertThat(results.success()).isTrue()
     }
 
@@ -988,9 +1088,17 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isOne()
-        assertThat(results.failureCount).isOne()
-        assertThat(results.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "api call"
+            API: POST /data -> 200
+            
+              >> REQUEST.BODY.customer.name
+              
+                  Didn't get enough values
+            """
+        )
     }
 
     @Test
@@ -1021,9 +1129,17 @@ Then status 200
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.successCount).isZero()
-        assertThat(results.failureCount).isOne()
-        assertThat(results.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "api call"
+            API: POST /data -> 200
+            
+              >> RESPONSE.BODY.customer.name
+              
+                  This node must occur whereas the other is optional.
+            """
+        )
     }
 
     @Test
@@ -1368,8 +1484,21 @@ paths:
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
 
-        assertThat(result.report()).contains("new specification response")
-        assertThat(result.report()).contains("old specification")
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> RESPONSE.BODY
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+            """
+        )
     }
 
     @Test
@@ -1720,8 +1849,39 @@ paths:
         val reportText: String = result.report()
         println(reportText)
 
-        assertThat(reportText).contains("REQUEST.BODY.data2")
-        assertThat(reportText).contains("RESPONSE.BODY")
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> REQUEST.BODY.data2
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "data2" in the request but it is missing from the old specification
+            
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> REQUEST.BODY
+              
+                  This is json object in the new specification, but an empty string or no body value in the old specification
+            
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> RESPONSE.BODY
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+            """
+        )
     }
 
     @Test
@@ -1763,8 +1923,7 @@ paths:
 
         val result: Results = testBackwardCompatibility(contract, contract)
 
-        assertThat(result.successCount).isNotZero()
-        assertThat(result.failureCount).isZero()
+        assertThat(result.success()).isTrue
     }
 
     @Nested
@@ -2230,7 +2389,21 @@ paths:
         ).toFeature()
 
         val result = testBackwardCompatibility(oldContract, newContract)
-        assertThat(result.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> REQUEST.BODY.data
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type null in the old specification
+            """
+        )
     }
 
     @Test
@@ -2372,7 +2545,29 @@ paths:
         ).toFeature()
 
         val result = testBackwardCompatibility(oldContract, newContract)
-        assertThat(result.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            result,
+            """
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> REQUEST.BODY.data
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type null in the old specification
+              
+              >> REQUEST.BODY.data
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type string in the new specification, but type null in the old specification
+            """
+        )
     }
 
     @Test
@@ -2454,7 +2649,21 @@ paths:
         ).toFeature()
 
         val results = testBackwardCompatibility(oldContract, newContract)
-        assertThat(results.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+            
+              >> REQUEST.BODY
+              
+                  R1002: Value mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1002
+                  Summary: The value does not match the expected value defined in the specification
+              
+                  This is no body in the new specification, but string in the old specification
+            """
+        )
     }
 
     @Test
@@ -2572,15 +2781,21 @@ paths:
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
-        assertThat(results.success()).isFalse
-//        assertThat(results.report()).isEqualTo("""
-//            In scenario "get products. Response: OK"
-//            API: GET /products -> 200
-//
-//              >> REQUEST.QUERY-PARAMS.brand_ids
-//
-//                 This is number in the new contract, string in the old contract
-//        """.trimIndent())
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "get products. Response: OK"
+            API: GET /products -> 200
+            
+              >> REQUEST.PARAMETERS.QUERY.brand_ids
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+            """
+        )
     }
 
     @Test
@@ -2706,7 +2921,20 @@ paths:
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
-        assertThat(results.success()).isFalse
+        assertThat(results.report())
+            .containsIgnoringWhitespaces("""
+            In scenario "get products. Response: OK"
+            API: GET /products -> 200
+            """.trimIndent())
+            .containsIgnoringWhitespaces("""
+             >> REQUEST.PARAMETERS.QUERY.brand_ids
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+            """.trimIndent())
     }
 
     @Test
@@ -2770,7 +2998,7 @@ paths:
     }
 
     @Test
-    fun `should pass when array number query parameter is changed to scalar number`() {
+    fun `should fail when array number query parameter is changed to scalar number`() {
         val olderContract: Feature =
             """
         openapi: 3.0.0
@@ -2826,7 +3054,17 @@ paths:
             """.trimIndent().openAPIToContract()
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
-        assertThat(results.success()).isFalse
+        assertThat(results.report())
+            .containsIgnoringWhitespaces("""
+            In scenario "get products. Response: OK"
+            API: GET /products -> 200
+            """.trimIndent())
+            .containsIgnoringWhitespaces("""
+             >> REQUEST.PARAMETERS.QUERY.brand_ids
+             R1001: Type mismatch
+             Documentation: https://docs.specmatic.io/rules#r1001
+             Summary: The value type does not match the expected type defined in the specification
+            """.trimIndent())
     }
 
     @Test
@@ -2898,7 +3136,17 @@ paths:
         """.trimIndent().openAPIToContract()
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
-        assertThat(results.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+              >> RESPONSE.BODY
+              
+                  Expected no body, but found json object
+            """
+        )
     }
 
     @Test
@@ -2971,7 +3219,17 @@ paths:
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
-        assertThat(results.success()).isFalse
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+              >> RESPONSE.BODY
+              
+                  Expected json type, got no-body
+            """
+        )
     }
 
     @Test
@@ -3027,7 +3285,15 @@ paths:
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
-        assertThat(results.success()).isFalse()
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+                  This API exists in the old contract but not in the new contract
+            """
+        )
     }
 
     @Test
@@ -3056,7 +3322,8 @@ paths:
                 testBackwardCompatibility(feature, feature)
             }
 
-            assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products -> 201")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products against 1 operations")
+        assertThat(stdout).contains("- POST /products -> 201")
         } finally {
             logger = oldLogger
         }
@@ -3082,7 +3349,8 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/2")
     }
 
@@ -3106,12 +3374,13 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1001 scenarios for GET /products -> 200")
-        assertThat(stdout).contains("[Compatibility Check] Completed 100/1001")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1000/1001")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1001/1001")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 100/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1000/1001")
+        assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1001/1001")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 1/1001")
         assertThat(stdout).doesNotContain("[Compatibility Check] Completed 99/1001")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
     @Test
@@ -3136,8 +3405,9 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 400")
-        assertThat(stdout).contains("[Compatibility Check] Completed 1/1")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
+        assertThat(stdout).contains("- GET /products -> 400")
+        assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
     @Test
@@ -3160,7 +3430,8 @@ paths:
             testBackwardCompatibility(groupedFeature, groupedFeature)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 2 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).contains("[Compatibility Check] Verdict: PASS")
     }
 
@@ -3205,7 +3476,8 @@ paths:
             testBackwardCompatibility(olderContract, newerContract)
         }
 
-        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products -> 200")
+        assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1 operations")
+        assertThat(stdout).contains("- GET /products -> 200")
         assertThat(stdout).contains("[Compatibility Check] Verdict: FAIL")
     }
 
@@ -3261,8 +3533,17 @@ paths:
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
-        assertThat(results.success()).isFalse()
-        assertThat(results.report()).contains("an empty string or no body value")
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+              >> REQUEST.BODY
+              
+                  This is json object in the new specification, but an empty string or no body value in the old specification
+            """
+        )
     }
 
     @Test
@@ -3328,7 +3609,7 @@ paths:
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -3394,7 +3675,7 @@ paths:
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
-        assertEquals(0, result.failureCount)
+        assertThat(result.success()).isTrue
     }
 
     @Test
@@ -3519,6 +3800,402 @@ paths:
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
         assertThat(result.success()).withFailMessage(result.report()).isFalse
+        assertThat(result.report())
+            .containsIgnoringWhitespaces("""
+            In scenario "POST /products/validate. Response: Validation successful"
+            API: POST /products/validate -> 200
+            """.trimIndent())
+            .containsIgnoringWhitespaces("""
+             >> REQUEST.BODY.data[0]
+  
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type boolean in the new specification, but type string in the old specification
+            """.trimIndent())
+    }
+
+    @Test
+    fun `backward breaking multi request and response content-type scenario`() {
+        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
+        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
+        val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
+        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
+        In scenario "Missing endpoint. Response: A simple string response"
+        API: GET /missing -> 200
+        
+              This API exists in the old contract but not in the new contract
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        """.trimIndent())
+    }
+
+    @Test
+    fun `backward breaking multi request and response content-type scenario content-type overridden`() {
+        val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
+        val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
+        val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
+        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+
+        assertThat(result.report()).isEqualToNormalizingNewlines("""
+        In scenario "Missing endpoint. Response: A simple string response"
+        API: GET /missing -> 200
+        
+              This API exists in the old contract but not in the new contract
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> REQUEST.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 201
+        
+          >> RESPONSE.BODY.field2
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        """.trimIndent())
     }
 }
 
