@@ -705,6 +705,10 @@ data class Scenario(
         }
     }
 
+    fun withoutExamples(): Scenario {
+        return this.copy(examples = emptyList())
+    }
+
     fun generateBackwardCompatibilityScenarios(
         variables: Map<String, String> = emptyMap(),
         testBaseURLs: Map<String, String> = emptyMap()

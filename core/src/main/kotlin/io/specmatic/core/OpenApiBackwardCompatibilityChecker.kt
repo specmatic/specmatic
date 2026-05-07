@@ -34,22 +34,22 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 
     private fun validateRequestCompatibility(requestFamily: RequestFamily): List<ResultWithScenario> {
-        val uniqueRequestScenarios = requestFamily.getUniqueRequestScenarios()
-        val positiveMutations = generatePositiveMutations(uniqueRequestScenarios)
-        val totalPositiveMutations = positiveMutations.size
+        val scenarioPerReqIdentifier = requestFamily.oneScenarioPerReqIdentifiers()
+        val positiveVariations = generatePositiveVariations(scenarioPerReqIdentifier)
+        val totalPositiveVariations = positiveVariations.size
 
         logger.boundary()
-        logger.log(initialLogMessage(requestFamily, totalPositiveMutations))
-        return positiveMutations.withIndex().flatMap { (index, mutations) ->
-            evaluateMutation(mutations).also {
-                logProgress(index.inc(), totalPositiveMutations)
+        logger.log(initialLogMessage(requestFamily, totalPositiveVariations))
+        return positiveVariations.withIndex().flatMap { (index, variation) ->
+            evaluateVariation(variation).also {
+                logProgress(index.inc(), totalPositiveVariations)
             }
         }
     }
 
-    private fun generatePositiveMutations(scenarios: List<Scenario>): List<Scenario> {
+    private fun generatePositiveVariations(scenarios: List<Scenario>): List<Scenario> {
         return scenarios.flatMap { scenario ->
-            scenario.copy(examples = emptyList()).generateBackwardCompatibilityScenarios()
+            scenario.withoutExamples().generateBackwardCompatibilityScenarios()
         }
     }
 
@@ -63,65 +63,65 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         }
     }
 
-    private fun evaluateMutation(generatedScenario: Scenario): List<ResultWithScenario> {
+    private fun evaluateVariation(variationFromOldScenario: Scenario): List<ResultWithScenario> {
         return try {
-            val request = generatedScenario.generateHttpRequest()
-            requestMatches(request, generatedScenario)
+            val request = variationFromOldScenario.generateHttpRequest()
+            requestMatches(request, variationFromOldScenario)
         } catch (contractException: ContractException) {
             val result = contractException.failure()
-            listOf(ResultWithScenario(result, generatedScenario))
+            listOf(ResultWithScenario(result, variationFromOldScenario))
         } catch (_: StackOverflowError) {
             val result = Result.Failure(STACK_OVERFLOW_MESSAGE)
-            listOf(ResultWithScenario(result, generatedScenario))
+            listOf(ResultWithScenario(result, variationFromOldScenario))
         } catch (_: EmptyContract) {
             val newFilePath = if (newFeature.path.isNotEmpty()) " at ${newFeature.path}" else ""
             val result = Result.Failure("The contract$newFilePath had no operations")
-            listOf(ResultWithScenario(result, generatedScenario))
+            listOf(ResultWithScenario(result, variationFromOldScenario))
         } catch (throwable: Throwable) {
             val result = Result.Failure("Exception: ${throwable.localizedMessage}")
-            listOf(ResultWithScenario(result, generatedScenario))
+            listOf(ResultWithScenario(result, variationFromOldScenario))
         }
     }
 
-    private fun requestMatches(request: HttpRequest, scenario: Scenario): List<ResultWithScenario> {
+    private fun requestMatches(request: HttpRequest, variationFromOldScenario: Scenario): List<ResultWithScenario> {
         if (newFeature.scenarios.isEmpty()) throw EmptyContract()
 
-        val candidates = newScenariosByMethodAndReqContentType.findExactOrFirst(scenario.method, scenario.requestContentType)
+        val candidates = newScenariosByMethodAndReqContentType.findExactOrByFirst(variationFromOldScenario.method, variationFromOldScenario.requestContentType)
         val identifierMatches = candidates.filter { candidate -> candidate.matchesPathStructureAndMethod(request) }
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
-            return listOf(ResultWithScenario(result.updateScenario(scenario), scenario))
+            return listOf(ResultWithScenario(result.updateScenario(variationFromOldScenario), variationFromOldScenario))
         }
 
+        // This is a performance optimization: If Path + Method + RequestContentType has many scenarios,
+        // then the request schemas will be the same across so we only evaluate the first time
         val matchResult = identifierMatches.first().matches(
             httpRequest = request,
-            serverState = scenario.expectedFacts,
             unexpectedKeyCheck = IgnoreUnexpectedKeys,
+            serverState = variationFromOldScenario.expectedFacts,
             mismatchMessages = NewAndOldSpecificationRequestMismatches,
         )
 
-        val resultList = identifierMatches.map { candidate ->
-            ResultWithScenario(matchResult.updateScenario(candidate), candidate)
+        // This is a performance optimization: As there can be multiple scenarios with responseCode and contentTypes,
+        // we can associate first result with remaining avoiding re-valuation as they will share the same request schema as per OAS
+        return identifierMatches.map { newScenario ->
+            ResultWithScenario(matchResult.updateScenario(newScenario), newScenario)
         }
-
-        val successfulResults = resultList.filter { (result, _) -> result is Result.Success }
-        if (successfulResults.isNotEmpty()) return successfulResults
-        return resultList
     }
 
     private fun validateResponseCompatibility(requestFamily: RequestFamily, requestResults: List<ResultWithScenario>): List<ResultWithScenario> {
-        val oldScenarios = requestFamily.getUniqueResponseScenarios()
+        val oldScenarios = requestFamily.oneScenarioPerResIdentifiers()
         val newScenarios = dedupeNewScenariosByIdentity(requestResults)
         val newScenariosByStatusAndResContentType = newScenarios.groupBy { it.status to it.responseContentType }
 
         return oldScenarios.flatMap { oldScenario ->
-            val matchingScenarios = newScenariosByStatusAndResContentType.findExactOrFirst(oldScenario.status, oldScenario.responseContentType)
-            if (matchingScenarios.isEmpty()) {
+            val identifierMatches = newScenariosByStatusAndResContentType.findExactOrByFirst(oldScenario.status, oldScenario.responseContentType)
+            if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
                 return@flatMap listOf(ResultWithScenario(result.updateScenario(oldScenario), oldScenario))
             }
 
-            matchingScenarios.map { newScenario -> checkResponseEncompasses(oldScenario, newScenario) }
+            identifierMatches.map { newScenario -> checkResponseEncompasses(oldScenario, newScenario) }
         }
     }
 
@@ -162,11 +162,11 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         logger.log("[Compatibility Check] Verdict: ${if (failures.isNotEmpty()) "FAIL" else "PASS"}")
     }
 
-    private fun <First, Second, Item> Map<Pair<First, Second>, List<Item>>.findExactOrFirst(first: First, second: Second): List<Item> {
+    private fun <First, Second, Item> Map<Pair<First, Second>, List<Item>>.findExactOrByFirst(first: First, second: Second): List<Item> {
         val exact = this[first to second]
         if (!exact.isNullOrEmpty()) return exact
         return buildList {
-            for ((key, value) in this@findExactOrFirst) {
+            for ((key, value) in this@findExactOrByFirst) {
                 if (key.first == first) addAll(value)
             }
         }
@@ -185,11 +185,11 @@ private data class RequestFamily(val scenarios: List<Scenario>) {
     private val groupedByRequestIdentifiers = scenarios.groupBy { Triple(it.path, it.method, it.requestContentType) }
     private val groupedByResponseIdentifiers = scenarios.groupBy { Pair(it.status, it.responseContentType) }
 
-    fun getUniqueRequestScenarios(): List<Scenario> {
+    fun oneScenarioPerReqIdentifiers(): List<Scenario> {
         return groupedByRequestIdentifiers.values.mapNotNull { scenarios -> scenarios.firstOrNull() }
     }
 
-    fun getUniqueResponseScenarios(): List<Scenario> {
+    fun oneScenarioPerResIdentifiers(): List<Scenario> {
         return groupedByResponseIdentifiers.values.mapNotNull { scenarios -> scenarios.firstOrNull() }
     }
 
