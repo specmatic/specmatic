@@ -66,8 +66,9 @@ fun createSimpleTypeInfo(
             existingTypes = existingTypes
         )
     } else {
+        val namespaceUri = resolvedElement.fullyQualifiedName(wsdl).namespace
         createSimpleType(typeSourceNode, wsdl, resolvedElement).let { (nodes, prefix) ->
-            toTypeInfo(nodes = nodes, existingTypes = existingTypes, prefix = prefix)
+            toTypeInfo(nodes = nodes, existingTypes = existingTypes, prefix = prefix, namespaceUri = namespaceUri)
         }
     }
 }
@@ -86,7 +87,7 @@ private fun createConstrainedStringTypeInfo(
         specmaticAttributes,
         listOf(constrainedStringValue(stringRestrictions))
     )
-    return toTypeInfo(nodes = listOf(constrainedNode), existingTypes = existingTypes, prefix = prefix)
+    return toTypeInfo(nodes = listOf(constrainedNode), existingTypes = existingTypes, prefix = prefix, namespaceUri = fqname.namespace)
 }
 
 fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = null): Pair<List<XMLValue>, String?> {
@@ -101,11 +102,15 @@ fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = nul
     return Pair(listOf(XMLNode(fqname.qName, specmaticAttributes, listOf(value))), prefix)
 }
 
-private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, Pattern>, prefix: String?): WSDLTypeInfo {
+private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, Pattern>, prefix: String?, namespaceUri: String? = null): WSDLTypeInfo {
+    val members = nodes.map {
+        XMLPattern(it as XMLNode).plusNamespaceUri(namespaceUri)
+    }
+
     return if (prefix != null) {
-        WSDLTypeInfo(nodes = nodes, members = nodes.map { XMLPattern(it as XMLNode) }, types = existingTypes, namespacePrefixes = setOf(prefix))
+        WSDLTypeInfo(nodes = nodes, members = members, types = existingTypes, namespacePrefixes = setOf(prefix))
     } else {
-        WSDLTypeInfo(nodes = nodes, members = nodes.map { XMLPattern(it as XMLNode) }, types = existingTypes)
+        WSDLTypeInfo(nodes = nodes, members = members, types = existingTypes)
     }
 }
 

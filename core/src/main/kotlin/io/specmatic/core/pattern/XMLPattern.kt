@@ -18,7 +18,7 @@ const val SOAP_FAULT = "fault"
 fun toTypeData(node: XMLNode, isSOAP: Boolean? = null): XMLTypeData {
     val attributes = attributeTypeMap(node)
     val isSOAP = isSOAP ?: (attributes["xmlns"] == ExactValuePattern(StringValue("http://schemas.xmlsoap.org/wsdl/")))
-    return XMLTypeData(node.name, node.realName, attributes, nodeTypes(node, isSOAP), isSOAP)
+    return XMLTypeData(node.name, node.realName, attributes, nodeTypes(node, isSOAP), isSOAP, node.elementNamespaceUriOrNull())
 }
 
 private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
@@ -45,6 +45,10 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
 
     fun toPrettyString(): String {
         return pattern.toGherkinishNode().toPrettyStringValue()
+    }
+
+    fun plusNamespaceUri(namespaceUri: String?): XMLPattern {
+        return copy(pattern = pattern.copy(namespaceUri = namespaceUri?.takeIf { it.isNotBlank() }))
     }
 
     override fun matches(sampleData: List<Value>, resolver: Resolver): ConsumeResult<Value, Value> {
@@ -265,14 +269,29 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             dropSOAP11Info(sampleData, attributesWithoutXmlns)
         }
 
+        val sampleAttributesForKeyCheck = sampleAttributesWithoutXmlns.filterNot { (key, _) ->
+            isAllowedByAttributeWildcard(key, sampleData, patternAttributesWithoutXmlns)
+        }
+
         val missingKey = resolver.findKeyError(
                 ignoreXMLNamespaces(patternAttributesWithoutXmlns),
-                ignoreXMLNamespaces(sampleAttributesWithoutXmlns)
+                ignoreXMLNamespaces(sampleAttributesForKeyCheck)
         )
         if (missingKey != null)
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
 
         return matchAttributes(patternAttributesWithoutXmlns, sampleAttributesWithoutXmlns, resolver)
+    }
+
+    private fun isAllowedByAttributeWildcard(
+        attributeName: String,
+        sampleData: XMLNode,
+        declaredAttributes: Map<String, Pattern>
+    ): Boolean {
+        val declaredAttributeNames = declaredAttributes.keys.map(::withoutOptionality).toSet()
+
+        return withoutOptionality(attributeName) !in declaredAttributeNames &&
+            pattern.attributeWildcards.any { it.allows(attributeName, sampleData) }
     }
 
     private fun dropSOAP11Info(
@@ -371,6 +390,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                     when {
                         pattern is ListPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
                         pattern is XMLChoiceGroupPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
+                        pattern is XMLWildcardPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
                         pattern is XMLPattern && pattern.occurMultipleTimes() ->
                             0.until(randomNumber(RANDOM_NUMBER_CEILING))
                                 .map { pattern.generate(cyclePreventedResolver) }
@@ -557,6 +577,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                         name = this.pattern.name,
                         realName = this.pattern.realName,
                         attributes = attributes,
+                        namespaceUri = this.pattern.namespaceUri,
                     ),
                 )
             }
@@ -595,12 +616,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                     typeStack
             )
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
-                mapEncompassesMap(
-                        pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") },
-                        otherResolvedPattern.pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") },
-                        thisResolver,
-                        otherResolver
-                )
+                attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
                 thisOccurrenceEncompassesTheOther(this, otherResolvedPattern)
             }.ifSuccess {
@@ -638,6 +654,41 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             }
             else -> patternMismatchResult(this, otherResolvedPattern, thisResolver.mismatchMessages)
         }.breadCrumb(this.pattern.name)
+    }
+
+    private fun attributesEncompass(
+        otherResolvedPattern: XMLPattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack,
+    ): Result {
+        val thisAttributes = pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") }
+        val otherAttributes = otherResolvedPattern.pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") }
+
+        val declaredAttributeResult = mapEncompassesMap(
+            thisAttributes,
+            otherAttributes,
+            thisResolver,
+            otherResolver,
+            typeStack
+        )
+
+        val thisAttributeNames = thisAttributes.keys.map(::withoutOptionality).toSet()
+        val extraAttributeFailures = otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
+            when {
+                pattern.attributeWildcards.any { it.namespaceConstraint.allows(null) } -> null
+                else -> Failure("XML attribute compatibility failed: attribute \"$attributeName\" is present in the other pattern, but this pattern does not declare it and has no anyAttribute wildcard that allows it.")
+            }
+        }
+
+        val wildcardFailures = otherResolvedPattern.pattern.attributeWildcards.mapNotNull { otherWildcard ->
+            when {
+                pattern.attributeWildcards.any { it.encompasses(otherWildcard) } -> null
+                else -> Failure("XML attribute compatibility failed: wildcard ${otherWildcard.namespaceConstraint.description} is present in the other pattern, but this pattern has no compatible anyAttribute wildcard.")
+            }
+        }
+
+        return Result.fromResults(listOf(declaredAttributeResult) + extraAttributeFailures + wildcardFailures)
     }
 
     private fun provisionalFailure(results: List<ConsumeResult<Pattern, Pattern>>): Failure? {

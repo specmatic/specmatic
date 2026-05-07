@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.XMLNode
+import io.specmatic.core.value.namespacePrefix
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
@@ -28,6 +29,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         val attributes = complexType.getAttributes()
         val attributePatterns = attributePatternMap(attributes)
+        val attributeWildcards = complexType.getAttributeWildcards()
 
         val childTypeInfos = try {
             complexType.generateChildren(
@@ -42,16 +44,17 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         val qualification = namespaceQualification ?: wsdl.getQualification(element, wsdlTypeReference)
 
-        val inPlaceNode = toXMLNode("<${qualification.nodeName} $TYPE_ATTRIBUTE_NAME=\"${specmaticTypeName.trim()}\"/>").let {
-            it.copy(attributes = it.attributes.plus(deriveSpecmaticAttributes(element)))
-        }
+        val inPlaceNode = toXMLNode(
+            "<${qualification.nodeName} $TYPE_ATTRIBUTE_NAME=\"${specmaticTypeName.trim()}\"/>",
+            namespaceMapFor(qualification.nodeName, wsdl)
+        ).plusAttributes(deriveSpecmaticAttributes(element))
 
         val childTypes = childTypeInfos.fold(existingTypes) { accumulated, childTypeInfo ->
             accumulated.plus(childTypeInfo.types)
         }
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
-            1 -> XMLPattern(childTypeInfos.single().xmlTypeData.copy(attributes = attributePatterns))
-            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData.copy(attributes = attributePatterns)) }, extensions = emptyMap())
+            1 -> XMLPattern(childTypeInfos.single().xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards))
+            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards)) }, extensions = emptyMap())
         }
         val types = childTypes.plus(specmaticTypeName to resolvedPattern)
 
@@ -78,9 +81,6 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
         }
     }
 
-    private fun eliminateAnnotationsAndAttributes(childNodes: List<XMLNode>) =
-        childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" }
-
     override fun getSOAPPayload(
         soapMessageType: SOAPMessageType,
         nodeNameForSOAPBody: String,
@@ -106,6 +106,8 @@ data class ComplexType(val complexType: XMLNode, val wsdl: WSDL) {
     fun getAttributes(): List<AttributeElement> {
         return attributesFrom(complexType, wsdl)
     }
+
+    fun getAttributeWildcards() = attributeWildcardsFrom(complexType, wsdl)
 }
 
 internal fun generateChildren(
@@ -123,17 +125,24 @@ internal fun generateChildren(
 }
 
 private fun eliminateAnnotationsAndAttributes(childNodes: List<XMLNode>) =
-    childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" }
+    childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" || it.name == "anyAttribute" }
 
 fun complexTypeChildNode(child: XMLNode, wsdl: WSDL, parentTypeName: String): ComplexTypeChild {
     return when (child.name) {
         "element" -> ElementInComplexType(child, wsdl, parentTypeName)
+        "any" -> AnyElementInComplexType(child)
         "sequence", "all" -> CollectionOfChildrenInComplexType(child, wsdl, parentTypeName)
         "choice" -> ChoiceOfChildrenInComplexType(child, wsdl, parentTypeName)
         "complexContent" -> ComplexTypeExtension(child, wsdl, parentTypeName)
         "simpleContent" -> SimpleTypeExtension(child, wsdl)
         else -> throw ContractException("Couldn't recognize child node $child")
     }
+}
+
+private fun namespaceMapFor(nodeName: String, wsdl: WSDL): Map<String, String> {
+    val prefix = nodeName.namespacePrefix().takeIf { it.isNotBlank() } ?: return emptyMap()
+    val namespace = wsdl.prefixToNamespace[prefix] ?: return emptyMap()
+    return mapOf(prefix to namespace)
 }
 
 internal fun combineVariants(current: List<WSDLTypeInfo>, additions: List<WSDLTypeInfo>): List<WSDLTypeInfo> {

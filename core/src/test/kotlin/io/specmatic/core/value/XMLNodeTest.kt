@@ -34,6 +34,36 @@ internal class XMLNodeTest {
     }
 
     @Test
+    fun `parses the default namespace declared in a node`() {
+        val node = toXMLNode("<data xmlns=\"http://default\">data</data>")
+
+        assertThat(node.namespaces).isEqualTo(mapOf("" to "http://default"))
+        assertThat(node.elementNamespaceUri()).isEqualTo("http://default")
+    }
+
+    @Test
+    fun `resolves inherited default namespace for child elements`() {
+        val node = toXMLNode("<data xmlns=\"http://default\"><child/></data>")
+        val child = node.findFirstChildByName("child")!!
+
+        assertThat(child.elementNamespaceUri()).isEqualTo("http://default")
+    }
+
+    @Test
+    fun `unqualified elements without default namespace have no namespace uri`() {
+        val node = toXMLNode("<data/>")
+
+        assertThat(node.elementNamespaceUri()).isNull()
+    }
+
+    @Test
+    fun `default namespace does not apply to unqualified attributes`() {
+        val node = toXMLNode("<data xmlns=\"http://default\" code=\"ABC\"/>")
+
+        assertThat(node.attributeNamespaceUri("code")).isNull()
+    }
+
+    @Test
     fun `looks up a child node by name`() {
         val personDetailsXmlNode = toXMLNode("<data><person/></data>")
 

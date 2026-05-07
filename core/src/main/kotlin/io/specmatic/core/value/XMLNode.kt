@@ -12,6 +12,10 @@ import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.wsdl.parser.WSDL
 
+private const val DEFAULT_NAMESPACE_PREFIX = ""
+private const val XML_NAMESPACE_PREFIX = "xml"
+private const val XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace"
+
 fun toXMLNode(document: Document, parentNamespaces: Map<String, String> = emptyMap()): XMLNode = nonTextXMLNode(document.documentElement, parentNamespaces)
 
 fun toXMLNode(node: Node, parentNamespaces: Map<String, String> = emptyMap()): XMLValue {
@@ -60,7 +64,13 @@ fun String.namespacePrefix(): String {
 }
 
 fun getNamespaces(attributes: Map<String, StringValue>): Map<String, String> =
-    attributes.filterKeys { it.startsWith("xmlns:") }.mapKeys { it.key.removePrefix("xmlns:") }.mapValues { it.value.toString() }
+    attributes.mapNotNull { (key, value) ->
+        when {
+            key == "xmlns" -> DEFAULT_NAMESPACE_PREFIX to value.toStringLiteral()
+            key.startsWith("xmlns:") -> key.removePrefix("xmlns:") to value.toStringLiteral()
+            else -> null
+        }
+    }.toMap()
 
 data class FullyQualifiedName(val prefix: String, val namespace: String, val localName: String) {
     val qName: String
@@ -130,19 +140,45 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
         return XMLNode(realName, attributes.mapValues { StringValue(it.value) }, emptyList(), namespaces)
     }
 
+    fun plusAttributes(newAttributes: Map<String, StringValue>): XMLNode {
+        return copy(
+            attributes = attributes.plus(newAttributes),
+            namespaces = namespaces.plus(getNamespaces(newAttributes))
+        )
+    }
+
     val qname: String
         get() {
-            val namespaceQualifier = when {
-                namespacePrefix.isNotBlank() -> "{${resolvedNamespace()}}"
-                attributes.containsKey("xmlns") -> "{${attributes["xmlns"]}}"
-                else -> ""
-            }
+            val namespaceQualifier = elementNamespaceUri()?.let { "{$it}" } ?: ""
 
             return "$namespaceQualifier$name"
         }
 
-    private fun resolvedNamespace(): String = namespaces[namespacePrefix]
-        ?: throw ContractException("Namespace prefix $namespacePrefix cannot be resolved")
+    fun elementNamespaceUri(): String? {
+        return when {
+            namespacePrefix.isNotBlank() -> namespaces[namespacePrefix]
+                ?: throw ContractException("Namespace prefix $namespacePrefix cannot be resolved")
+            else -> namespaces[DEFAULT_NAMESPACE_PREFIX]
+        }
+    }
+
+    fun elementNamespaceUriOrNull(): String? {
+        return when {
+            namespacePrefix.isNotBlank() -> namespaces[namespacePrefix]
+            else -> namespaces[DEFAULT_NAMESPACE_PREFIX]
+        }
+    }
+
+    fun attributeNamespaceUri(attributeName: String): String? {
+        val prefix = attributeName.namespacePrefix()
+
+        return when {
+            prefix.isBlank() -> null
+            prefix == XML_NAMESPACE_PREFIX -> XML_NAMESPACE_URI
+            else -> namespaces[prefix]
+                ?: throw ContractException("Namespace prefix $prefix cannot be resolved")
+        }
+    }
 
     override val httpContentType: String = "text/xml"
 

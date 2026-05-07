@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.XMLWildcardPattern
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
@@ -640,10 +641,141 @@ class WSDLWiringCharacterizationTest {
         assertXmlAttribute(personPattern, "value", expectedPattern)
     }
 
+    @Test
+    fun `xs any child wiring preserves optional unbounded foreign namespace wildcard`() {
+        val namespace = "http://example.com/wildcard"
+        val wsdl = WSDL(toXMLNode(wildcardWsdl(namespace)), "/path/to/wildcard.wsdl")
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Header"))
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("HeaderType", emptyMap(), emptySet())
+        val headerPattern = concreteRoot(typeInfo.types.getValue("HeaderType") as XMLPattern, "Header", "tns:Header", namespace)
+
+        val wildcard = headerPattern.pattern.nodes.filterIsInstance<XMLWildcardPattern>().single()
+        val sample = toXMLNode(
+            """
+            <tns:Header xmlns:tns="$namespace" xmlns:ext="urn:extension">
+                <tns:Known>value</tns:Known>
+                <ext:Extension>
+                    <ext:Nested/>
+                </ext:Extension>
+            </tns:Header>
+            """.trimIndent()
+        )
+
+        assertThat(wildcard.minOccurs).isEqualTo(0)
+        assertThat(wildcard.maxOccurs).isNull()
+        assertThat(headerPattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `xs any with other namespace rejects target namespace extension element`() {
+        val namespace = "http://example.com/wildcard"
+        val wsdl = WSDL(toXMLNode(wildcardWsdl(namespace)), "/path/to/wildcard.wsdl")
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Header"))
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("HeaderType", emptyMap(), emptySet())
+        val headerPattern = concreteRoot(typeInfo.types.getValue("HeaderType") as XMLPattern, "Header", "tns:Header", namespace)
+        val sample = toXMLNode(
+            """
+            <tns:Header xmlns:tns="$namespace">
+                <tns:Known>value</tns:Known>
+                <tns:Extension/>
+            </tns:Header>
+            """.trimIndent()
+        )
+
+        assertThat(headerPattern.matches(sample, Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `xs any without namespace attribute defaults to any namespace`() {
+        val namespace = "http://example.com/wildcard"
+        val wsdl = WSDL(toXMLNode(wildcardWsdl(namespace, anyNamespaceAttribute = "")), "/path/to/wildcard.wsdl")
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Header"))
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("HeaderType", emptyMap(), emptySet())
+        val headerPattern = concreteRoot(typeInfo.types.getValue("HeaderType") as XMLPattern, "Header", "tns:Header", namespace)
+        val sample = toXMLNode(
+            """
+            <tns:Header xmlns:tns="$namespace">
+                <tns:Known>value</tns:Known>
+                <tns:Extension/>
+            </tns:Header>
+            """.trimIndent()
+        )
+
+        assertThat(headerPattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `xsd anyAttribute permits otherwise unexpected attributes`() {
+        val namespace = "http://example.com/attribute-types"
+        val personPattern = concreteRoot(
+            personPatternForAttribute("""<xsd:anyAttribute/>"""),
+            "Person",
+            "tns:Person",
+            namespace
+        )
+        val sample = toXMLNode(
+            """
+            <tns:Person xmlns:tns="$namespace" tracking="abc">
+                <tns:Name>Jane</tns:Name>
+            </tns:Person>
+            """.trimIndent()
+        )
+
+        assertThat(personPattern.pattern.attributeWildcards).hasSize(1)
+        assertThat(personPattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `xml attributes remain strict without anyAttribute wildcard`() {
+        val namespace = "http://example.com/attribute-types"
+        val personPattern = concreteRoot(
+            personPatternForAttribute(""),
+            "Person",
+            "tns:Person",
+            namespace
+        )
+        val sample = toXMLNode(
+            """
+            <tns:Person xmlns:tns="$namespace" tracking="abc">
+                <tns:Name>Jane</tns:Name>
+            </tns:Person>
+            """.trimIndent()
+        )
+
+        assertThat(personPattern.matches(sample, Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
     private fun loadWsdl(path: String): WSDL {
         val wsdlFile = File(path)
         return WSDL(toXMLNode(wsdlFile.readText()), wsdlFile.canonicalPath)
     }
+
+    private fun concreteRoot(pattern: XMLPattern, name: String, realName: String, namespace: String): XMLPattern =
+        pattern.copy(pattern = pattern.pattern.copy(name = name, realName = realName, namespaceUri = namespace))
+
+    private fun wildcardWsdl(namespace: String, anyNamespaceAttribute: String = "namespace=\"##other\""): String =
+        """
+        <definitions name="Wildcard"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:complexType name="HeaderType">
+                        <xsd:sequence>
+                            <xsd:element name="Known" type="xsd:string"/>
+                            <xsd:any $anyNamespaceAttribute minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+                        </xsd:sequence>
+                    </xsd:complexType>
+                    <xsd:element name="Header" type="tns:HeaderType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
 
     private fun personPatternForAttribute(attribute: String, simpleTypeDeclarations: String = ""): XMLPattern {
         val namespace = "http://example.com/attribute-types"

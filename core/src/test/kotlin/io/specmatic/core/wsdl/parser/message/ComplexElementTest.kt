@@ -38,6 +38,9 @@ internal class ComplexElementTest {
             complexType2.getAttributes()
         } returns emptyList()
         every {
+            complexType2.getAttributeWildcards()
+        } returns emptyList()
+        every {
             wsdl.getComplexTypeNode(element)
         } returns complexType2
 
@@ -78,6 +81,9 @@ internal class ComplexElementTest {
         } returns listOf(WSDLTypeInfo(listOf(toXMLNode("<data>(string)</data>"))))
         every {
             complexType2.getAttributes()
+        } returns emptyList()
+        every {
+            complexType2.getAttributeWildcards()
         } returns emptyList()
         every {
             wsdl.getComplexTypeNode(element)

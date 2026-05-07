@@ -3,8 +3,11 @@ package io.specmatic.core.wsdl.parser.message
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.XMLAttributeWildcard
 import io.specmatic.core.pattern.XML_ATTR_OPTIONAL_SUFFIX
+import io.specmatic.core.pattern.XMLProcessContents
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.pattern.xmlNamespaceConstraint
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
@@ -53,6 +56,10 @@ fun attributesFrom(complexType: XMLNode, wsdl: WSDL): List<AttributeElement> {
     return expandAttributes(complexType, wsdl, emptySet())
 }
 
+fun attributeWildcardsFrom(complexType: XMLNode, wsdl: WSDL): List<XMLAttributeWildcard> {
+    return expandAttributeWildcards(complexType, wsdl, emptySet())
+}
+
 fun attributePatternMap(attributes: List<AttributeElement>): Map<String, Pattern> {
     val duplicateAttribute = attributes
         .groupBy { withoutOptionality(it.nameWithOptionality) }
@@ -80,6 +87,29 @@ private fun expandAttributes(
     }
 }
 
+private fun expandAttributeWildcards(
+    parentNode: XMLNode,
+    wsdl: WSDL,
+    visitedAttributeGroups: Set<String>
+): List<XMLAttributeWildcard> {
+    return parentNode.childNodes.filterIsInstance<XMLNode>().flatMap { childNode ->
+        when (childNode.name) {
+            "anyAttribute" -> listOf(attributeWildcard(childNode))
+            "attributeGroup" -> expandAttributeGroupWildcards(childNode, wsdl, visitedAttributeGroups)
+            else -> emptyList()
+        }
+    }
+}
+
+private fun attributeWildcard(anyAttribute: XMLNode): XMLAttributeWildcard {
+    val targetNamespace = schemaTargetNamespace(anyAttribute)
+
+    return XMLAttributeWildcard(
+        namespaceConstraint = xmlNamespaceConstraint(anyAttribute.attributes["namespace"]?.toStringLiteral(), targetNamespace),
+        processContents = XMLProcessContents.from(anyAttribute.attributes["processContents"]?.toStringLiteral())
+    )
+}
+
 private fun expandAttributeGroup(
     attributeGroupReference: XMLNode,
     wsdl: WSDL,
@@ -95,4 +125,20 @@ private fun expandAttributeGroup(
 
     val attributeGroup = wsdl.findAttributeGroup(fullyQualifiedName, attributeGroupReference.schema)
     return expandAttributes(attributeGroup, wsdl, visitedAttributeGroups.plus(groupKey))
+}
+
+private fun expandAttributeGroupWildcards(
+    attributeGroupReference: XMLNode,
+    wsdl: WSDL,
+    visitedAttributeGroups: Set<String>
+): List<XMLAttributeWildcard> {
+    val fullyQualifiedName = attributeGroupReference.fullyQualifiedNameFromAttribute("ref")
+    val groupKey = "${fullyQualifiedName.namespace}:${fullyQualifiedName.localName}"
+
+    if (groupKey in visitedAttributeGroups) {
+        return emptyList()
+    }
+
+    val attributeGroup = wsdl.findAttributeGroup(fullyQualifiedName, attributeGroupReference.schema)
+    return expandAttributeWildcards(attributeGroup, wsdl, visitedAttributeGroups.plus(groupKey))
 }

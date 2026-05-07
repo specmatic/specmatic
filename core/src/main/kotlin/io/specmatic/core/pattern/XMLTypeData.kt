@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import io.specmatic.core.Resolver
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.message.*
@@ -10,6 +11,8 @@ data class XMLTypeData(
     val attributes: Map<String, Pattern> = emptyMap(),
     val nodes: List<Pattern> = emptyList(),
     val isSOAP: Boolean = false,
+    val namespaceUri: String? = null,
+    val attributeWildcards: List<XMLAttributeWildcard> = emptyList(),
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
@@ -32,17 +35,23 @@ data class XMLTypeData(
             nodes.isEmpty() -> {
                 return "$indent<$realName$attributeText/>"
             }
-            nodes.size == 1 && nodes.first() !is XMLPattern -> {
+            nodes.size == 1 && nodes.first() !is XMLPattern && nodes.first() !is XMLWildcardPattern -> {
                 val bodyText = nodes.first().pattern.toString()
                 "$indent<$realName$attributeText>$bodyText</$realName>"
             }
             else -> {
-                val childNodeText = nodes.joinToString("\n") {
-                    if(it !is XMLPattern)
-                        throw ContractException("Expected an xml node: $it")
+                val childNodeText = nodes.flatMap {
+                    when (it) {
+                        is XMLPattern -> listOf(it.toGherkinString(additionalIndent, indent + additionalIndent))
+                        is XMLWildcardPattern -> (it.generate(Resolver()) as XMLNode).childNodes.map { generated ->
+                            XMLPattern(generated as XMLNode).toGherkinString(additionalIndent, indent + additionalIndent)
+                        }
+                        else -> throw ContractException("Expected an xml node: $it")
+                    }
+                }.joinToString("\n")
 
-                    it.toGherkinString(additionalIndent, indent + additionalIndent)
-                }
+                if (childNodeText.isBlank())
+                    return "$indent<$realName$attributeText/>"
 
                 "$indent<$realName$attributeText>\n$childNodeText\n$indent</$realName>"
             }
@@ -53,9 +62,10 @@ data class XMLTypeData(
         val childXMLNodes = nodes.map {
             when(it) {
                 is XMLPattern -> it.toGherkinXMLNode()
+                is XMLWildcardPattern -> null
                 else -> StringValue(it.pattern.toString())
             }
-        }
+        }.filterNotNull()
 
         return XMLNode(realName, attributes.mapValues { StringValue(it.value.pattern.toString()) }, childXMLNodes)
     }
