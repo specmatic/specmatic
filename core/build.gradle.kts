@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     implementation("io.netty:netty-codec-http:4.2.12.Final")
-    implementation("io.netty:netty-codec-http2:4.2.12.Final")
+    implementation("io.netty:netty-codec-http2:4.2.13.Final")
 
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
