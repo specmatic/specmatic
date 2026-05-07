@@ -396,6 +396,61 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `inline complex content extension inherits base attributes and keeps extension children`() {
+        val namespace = "http://example.com/cba-style-extension"
+        val wsdl = WSDL(toXMLNode(cbaStyleInlineExtensionWsdl(namespace)), "/path/to/cba-style-extension.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Command"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("CommandType", emptyMap(), emptySet())
+        val requestPattern = typeInfo.types.getValue("CommandType_retrieveCardStatusRequest") as XMLPattern
+
+        assertXmlAttribute(requestPattern, "id", "(string)")
+        assertThat(requestPattern.toPrettyString()).contains("productAccessArrangement")
+    }
+
+    @Test
+    fun `complex content extension attributes are inherited through chained bases`() {
+        val namespace = "http://example.com/chained-extension-attributes"
+        val wsdl = WSDL(toXMLNode(chainedExtensionAttributesWsdl(namespace)), "/path/to/chained-extension-attributes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Final"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("FinalType", emptyMap(), emptySet())
+        val finalPattern = typeInfo.types.getValue("FinalType") as XMLPattern
+
+        assertXmlAttribute(finalPattern, "baseId", "(string)")
+        assertXmlAttribute(finalPattern, "middleId.opt", "(string)")
+        assertXmlAttribute(finalPattern, "finalId.opt", "(string)")
+    }
+
+    @Test
+    fun `complex content extension inherits attribute groups and anyAttribute wildcards`() {
+        val namespace = "http://example.com/extension-attribute-groups"
+        val wsdl = WSDL(toXMLNode(extensionAttributeGroupWsdl(namespace)), "/path/to/extension-attribute-groups.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Derived"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("DerivedType", emptyMap(), emptySet())
+        val derivedPattern = typeInfo.types.getValue("DerivedType") as XMLPattern
+
+        assertXmlAttribute(derivedPattern, "traceId.opt", "(string)")
+        assertThat(derivedPattern.pattern.attributeWildcards).hasSize(1)
+    }
+
+    @Test
+    fun `complex content extension attributes are emitted in SOAP payload templates`() {
+        val namespace = "http://example.com/chained-extension-attributes"
+        val wsdl = WSDL(toXMLNode(chainedExtensionAttributesWsdl(namespace)), "/path/to/chained-extension-attributes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Final"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("FinalType", emptyMap(), emptySet())
+        val requestBody = soapBody(soapElement, wsdl, "Final", "FinalType", typeInfo)
+
+        assertThat(requestBody)
+            .contains("baseId=\"(string)\"")
+            .contains("middleId.opt=\"(string)\"")
+            .contains("finalId.opt=\"(string)\"")
+    }
+
+    @Test
     fun `simple content extension wiring still resolves the base simple type into the assembled payload`() {
         val wsdl = loadWsdl("src/test/resources/wsdl/wiring_routes.wsdl")
 
@@ -410,6 +465,18 @@ class WSDLWiringCharacterizationTest {
             .contains("IdentifierType")
             .contains("(string)")
         assertThat(requestBody).contains("<SimpleExtensionElement specmatic_type=\"SimpleExtensionElementType\"/>")
+    }
+
+    @Test
+    fun `simple content extension wiring includes extension attribute groups`() {
+        val namespace = "http://example.com/simple-content-extension-attributes"
+        val wsdl = WSDL(toXMLNode(simpleContentExtensionAttributesWsdl(namespace)), "/path/to/simple-content-extension-attributes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Code"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("CodeType", emptyMap(), emptySet())
+        val codePattern = typeInfo.types.getValue("CodeType") as XMLPattern
+
+        assertXmlAttribute(codePattern, "code.opt", "(string)")
     }
 
     @Test
@@ -772,6 +839,137 @@ class WSDLWiringCharacterizationTest {
                         </xsd:sequence>
                     </xsd:complexType>
                     <xsd:element name="Header" type="tns:HeaderType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun cbaStyleInlineExtensionWsdl(namespace: String): String =
+        """
+        <definitions name="CBAStyleExtension"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:complexType name="CommandRequestBase">
+                        <xsd:attribute id="ID" name="id" use="required"/>
+                    </xsd:complexType>
+
+                    <xsd:complexType name="CommandType">
+                        <xsd:choice minOccurs="1" maxOccurs="unbounded">
+                            <xsd:element minOccurs="0" maxOccurs="1" name="retrieveCardStatusRequest">
+                                <xsd:complexType>
+                                    <xsd:complexContent mixed="false">
+                                        <xsd:extension base="tns:CommandRequestBase">
+                                            <xsd:sequence minOccurs="0" maxOccurs="1">
+                                                <xsd:element minOccurs="0" maxOccurs="1" name="productAccessArrangement" type="xsd:string"/>
+                                            </xsd:sequence>
+                                        </xsd:extension>
+                                    </xsd:complexContent>
+                                </xsd:complexType>
+                            </xsd:element>
+                        </xsd:choice>
+                    </xsd:complexType>
+
+                    <xsd:element name="Command" type="tns:CommandType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun chainedExtensionAttributesWsdl(namespace: String): String =
+        """
+        <definitions name="ChainedExtensionAttributes"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:complexType name="BaseType">
+                        <xsd:attribute name="baseId" type="xsd:string" use="required"/>
+                    </xsd:complexType>
+
+                    <xsd:complexType name="MiddleType">
+                        <xsd:complexContent>
+                            <xsd:extension base="tns:BaseType">
+                                <xsd:attribute name="middleId" type="xsd:string"/>
+                            </xsd:extension>
+                        </xsd:complexContent>
+                    </xsd:complexType>
+
+                    <xsd:complexType name="FinalType">
+                        <xsd:complexContent>
+                            <xsd:extension base="tns:MiddleType">
+                                <xsd:attribute name="finalId" type="xsd:string"/>
+                            </xsd:extension>
+                        </xsd:complexContent>
+                    </xsd:complexType>
+
+                    <xsd:element name="Final" type="tns:FinalType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun extensionAttributeGroupWsdl(namespace: String): String =
+        """
+        <definitions name="ExtensionAttributeGroups"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:attributeGroup name="TraceAttributes">
+                        <xsd:attribute name="traceId" type="xsd:string"/>
+                    </xsd:attributeGroup>
+
+                    <xsd:complexType name="BaseType">
+                        <xsd:attributeGroup ref="tns:TraceAttributes"/>
+                        <xsd:anyAttribute namespace="##any" processContents="skip"/>
+                    </xsd:complexType>
+
+                    <xsd:complexType name="DerivedType">
+                        <xsd:complexContent>
+                            <xsd:extension base="tns:BaseType"/>
+                        </xsd:complexContent>
+                    </xsd:complexType>
+
+                    <xsd:element name="Derived" type="tns:DerivedType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun simpleContentExtensionAttributesWsdl(namespace: String): String =
+        """
+        <definitions name="SimpleContentExtensionAttributes"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:simpleType name="CodeEnum">
+                        <xsd:restriction base="xsd:string"/>
+                    </xsd:simpleType>
+
+                    <xsd:attributeGroup name="CodeAttributes">
+                        <xsd:attribute name="code" type="xsd:string"/>
+                    </xsd:attributeGroup>
+
+                    <xsd:complexType name="CodeType">
+                        <xsd:simpleContent>
+                            <xsd:extension base="tns:CodeEnum">
+                                <xsd:attributeGroup ref="tns:CodeAttributes"/>
+                            </xsd:extension>
+                        </xsd:simpleContent>
+                    </xsd:complexType>
+
+                    <xsd:element name="Code" type="tns:CodeType"/>
                 </xsd:schema>
             </types>
         </definitions>

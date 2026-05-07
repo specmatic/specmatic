@@ -14,6 +14,8 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.localName
 import io.specmatic.core.wsdl.parser.WSDL
 
+private data class TypeReferenceKey(val namespace: String, val localName: String)
+
 class AttributeElement(xmlNode: XMLNode, wsdl: WSDL) {
     val name: String = fromNameAttribute(xmlNode)
         ?: throw ContractException("'name' not defined for attribute: ${xmlNode.oneLineDescription}")
@@ -53,11 +55,11 @@ fun fromNameAttribute(element: XMLNode): String? {
 }
 
 fun attributesFrom(complexType: XMLNode, wsdl: WSDL): List<AttributeElement> {
-    return expandAttributes(complexType, wsdl, emptySet())
+    return expandAttributesFromComplexType(complexType, wsdl, initialVisitedTypeReferences(complexType))
 }
 
 fun attributeWildcardsFrom(complexType: XMLNode, wsdl: WSDL): List<XMLAttributeWildcard> {
-    return expandAttributeWildcards(complexType, wsdl, emptySet())
+    return expandAttributeWildcardsFromComplexType(complexType, wsdl, initialVisitedTypeReferences(complexType))
 }
 
 fun attributePatternMap(attributes: List<AttributeElement>): Map<String, Pattern> {
@@ -87,6 +89,27 @@ private fun expandAttributes(
     }
 }
 
+private fun expandAttributesFromComplexType(
+    complexType: XMLNode,
+    wsdl: WSDL,
+    visitedTypeReferences: Set<TypeReferenceKey>
+): List<AttributeElement> {
+    val inheritedAttributes = complexContentExtensions(complexType).flatMap { extension ->
+        val baseTypeKey = extension.baseTypeKey()
+        when {
+            baseTypeKey in visitedTypeReferences -> emptyList()
+            else -> {
+                val baseComplexType = wsdl.getComplexTypeNode(wsdl.findTypeFromAttribute(extension, "base")).complexType
+                expandAttributesFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
+            }
+        }
+    }
+
+    return inheritedAttributes
+        .plus(expandAttributes(complexType, wsdl, emptySet()))
+        .plus(extensionNodes(complexType).flatMap { expandAttributes(it, wsdl, emptySet()) })
+}
+
 private fun expandAttributeWildcards(
     parentNode: XMLNode,
     wsdl: WSDL,
@@ -101,6 +124,27 @@ private fun expandAttributeWildcards(
     }
 }
 
+private fun expandAttributeWildcardsFromComplexType(
+    complexType: XMLNode,
+    wsdl: WSDL,
+    visitedTypeReferences: Set<TypeReferenceKey>
+): List<XMLAttributeWildcard> {
+    val inheritedWildcards = complexContentExtensions(complexType).flatMap { extension ->
+        val baseTypeKey = extension.baseTypeKey()
+        when {
+            baseTypeKey in visitedTypeReferences -> emptyList()
+            else -> {
+                val baseComplexType = wsdl.getComplexTypeNode(wsdl.findTypeFromAttribute(extension, "base")).complexType
+                expandAttributeWildcardsFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
+            }
+        }
+    }
+
+    return inheritedWildcards
+        .plus(expandAttributeWildcards(complexType, wsdl, emptySet()))
+        .plus(extensionNodes(complexType).flatMap { expandAttributeWildcards(it, wsdl, emptySet()) })
+}
+
 private fun attributeWildcard(anyAttribute: XMLNode): XMLAttributeWildcard {
     val targetNamespace = schemaTargetNamespace(anyAttribute)
 
@@ -108,6 +152,29 @@ private fun attributeWildcard(anyAttribute: XMLNode): XMLAttributeWildcard {
         namespaceConstraint = xmlNamespaceConstraint(anyAttribute.attributes["namespace"]?.toStringLiteral(), targetNamespace),
         processContents = XMLProcessContents.from(anyAttribute.attributes["processContents"]?.toStringLiteral())
     )
+}
+
+private fun initialVisitedTypeReferences(complexType: XMLNode): Set<TypeReferenceKey> {
+    val name = complexType.attributes["name"]?.toStringLiteral()?.localName() ?: return emptySet()
+    return setOf(TypeReferenceKey(schemaTargetNamespace(complexType).orEmpty(), name))
+}
+
+private fun extensionNodes(complexType: XMLNode): List<XMLNode> {
+    return complexType.childNodes.filterIsInstance<XMLNode>()
+        .filter { it.name == "complexContent" || it.name == "simpleContent" }
+        .mapNotNull { it.findFirstChildByName("extension") }
+}
+
+private fun complexContentExtensions(complexType: XMLNode): List<XMLNode> {
+    return complexType.childNodes.filterIsInstance<XMLNode>()
+        .filter { it.name == "complexContent" }
+        .mapNotNull { it.findFirstChildByName("extension") }
+}
+
+private fun XMLNode.baseTypeKey(): TypeReferenceKey {
+    val baseType = fullyQualifiedNameFromAttribute("base")
+    val namespace = baseType.namespace.ifBlank { schemaTargetNamespace(this).orEmpty() }
+    return TypeReferenceKey(namespace, baseType.localName)
 }
 
 private fun expandAttributeGroup(

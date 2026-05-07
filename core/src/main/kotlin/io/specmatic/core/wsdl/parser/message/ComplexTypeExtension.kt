@@ -21,7 +21,7 @@ class ComplexTypeExtension(
         val parentTypeVariants = generateChildren(parentTypeName, parentComplexType, existingTypes, typeStack, wsdl)
 
         val extensionChild = extension.childNodes.filterIsInstance<XMLNode>().filterNot {
-            it.name == "annotation"
+            it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" || it.name == "anyAttribute"
         }.firstOrNull()
 
         return wsdlTypeInfos.flatMap { current ->
