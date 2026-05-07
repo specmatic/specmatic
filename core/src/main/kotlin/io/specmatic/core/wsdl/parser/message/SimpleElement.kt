@@ -171,6 +171,15 @@ private fun constrainedStringValue(restrictions: StringRestrictions): StringValu
 fun elementTypeValue(element: XMLNode): StringValue =
     primitiveTypeValue(simpleTypeName(element))
 
+fun simpleTypeValue(element: XMLNode): StringValue {
+    val restrictions = stringRestrictions(element)
+
+    return when {
+        restrictions != null && !restrictions.isEmpty -> constrainedStringValue(restrictions)
+        else -> elementTypeValue(element)
+    }
+}
+
 private fun primitiveTypeValue(typeName: String): StringValue = when (typeName) {
     in primitiveStringTypes -> StringValue("(string)")
     in constrainedPrimitiveNumberTypes -> constrainedNumberValue(constrainedPrimitiveNumberTypes.getValue(typeName))

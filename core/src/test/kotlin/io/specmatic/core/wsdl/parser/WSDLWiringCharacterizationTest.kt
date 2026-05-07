@@ -462,8 +462,8 @@ class WSDLWiringCharacterizationTest {
         val requestBody = soapBody(soapElement, wsdl, "SimpleExtensionElement", "SimpleExtensionElementType", typeInfo)
 
         assertThat((typeInfo.types.getValue("SimpleExtensionElementType") as XMLPattern).toPrettyString())
-            .contains("IdentifierType")
             .contains("(string)")
+            .doesNotContain("IdentifierType")
         assertThat(requestBody).contains("<SimpleExtensionElement specmatic_type=\"SimpleExtensionElementType\"/>")
     }
 
@@ -477,6 +477,23 @@ class WSDLWiringCharacterizationTest {
         val codePattern = typeInfo.types.getValue("CodeType") as XMLPattern
 
         assertXmlAttribute(codePattern, "code.opt", "(string)")
+    }
+
+    @Test
+    fun `simple content extension with named base matches direct text and extension attributes`() {
+        val namespace = "http://example.com/simple-content-extension-attributes"
+        val wsdl = WSDL(toXMLNode(simpleContentExtensionAttributesWsdl(namespace)), "/path/to/simple-content-extension-attributes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Code"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("CodeType", emptyMap(), emptySet())
+        val codePattern = concreteRoot(typeInfo.types.getValue("CodeType") as XMLPattern, "Code", "tns:Code", namespace)
+        val sample = toXMLNode("""<tns:Code xmlns:tns="$namespace" code="ABC">item</tns:Code>""")
+
+        assertThat(codePattern.toPrettyString())
+            .contains("(string)")
+            .doesNotContain("CodeEnum")
+        assertThat(codePattern.matches(sample, Resolver()))
+            .isInstanceOf(Result.Success::class.java)
     }
 
     @Test
@@ -512,6 +529,43 @@ class WSDLWiringCharacterizationTest {
 
         assertThat((typeInfo.types.getValue("NumberType") as XMLPattern).toPrettyString())
             .contains("<SPECMATIC_TYPE>(number)</SPECMATIC_TYPE>")
+    }
+
+    @Test
+    fun `simple content extension with unsupported xsd primitive base falls back to string`() {
+        val namespace = "http://example.com/simple-content-unsupported-primitive"
+        val wsdl = WSDL(
+            toXMLNode(
+                """
+                <definitions name="SimpleContentUnsupportedPrimitive"
+                             targetNamespace="$namespace"
+                             xmlns:tns="$namespace"
+                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                             xmlns="http://schemas.xmlsoap.org/wsdl/">
+                    <types>
+                        <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                            <xsd:complexType name="UnsupportedPrimitiveType">
+                                <xsd:simpleContent>
+                                    <xsd:extension base="xsd:unknownPrimitive"/>
+                                </xsd:simpleContent>
+                            </xsd:complexType>
+
+                            <xsd:element name="UnsupportedPrimitive" type="tns:UnsupportedPrimitiveType"/>
+                        </xsd:schema>
+                    </types>
+                </definitions>
+                """.trimIndent()
+            ),
+            "/path/to/simple-content-unsupported-primitive.wsdl"
+        )
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "UnsupportedPrimitive"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("UnsupportedPrimitiveType", emptyMap(), emptySet())
+        val pattern = concreteRoot(typeInfo.types.getValue("UnsupportedPrimitiveType") as XMLPattern, "UnsupportedPrimitive", "tns:UnsupportedPrimitive", namespace)
+        val sample = toXMLNode("""<tns:UnsupportedPrimitive xmlns:tns="$namespace">value</tns:UnsupportedPrimitive>""")
+
+        assertThat(pattern.toPrettyString()).contains("(string)")
+        assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
