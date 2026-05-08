@@ -163,11 +163,7 @@ data class XMLChoiceGroupPattern(
         return concreteSequences { alternative ->
             listCombinations(
                 alternative.map { pattern ->
-                    HasValue(
-                        resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                            pattern.newBasedOn(row, cyclePreventedResolver).map { it.value as Pattern? }
-                        }
-                    )
+                    HasValue(pattern.newBasedOnXMLChoice(row, resolver))
                 }
             ).map { it.value }
         }.map { HasValue(copy(concreteSequence = it)) }
@@ -185,8 +181,38 @@ data class XMLChoiceGroupPattern(
         }
 
         return concreteSequences { alternative ->
-            newBasedOn(alternative, resolver)
+            listCombinations(
+                alternative.map { pattern ->
+                    HasValue(pattern.newBasedOnXMLChoice(resolver))
+                }
+            ).map { it.value }
         }.map { copy(concreteSequence = it) }
+    }
+
+    private fun Pattern.newBasedOnXMLChoice(row: Row, resolver: Resolver): Sequence<Pattern?> {
+        if (hasXMLChoiceReferenceCycle(resolver)) {
+            return sequenceOf(null)
+        }
+
+        return resolver.withCyclePrevention(
+            xmlChoiceCyclePreventionPattern(),
+            returnNullOnCycle = canReturnNullOnXMLChoiceCycle()
+        ) { cyclePreventedResolver ->
+            newBasedOn(row, cyclePreventedResolver).map { it.value as Pattern? }
+        } ?: sequenceOf(null)
+    }
+
+    private fun Pattern.newBasedOnXMLChoice(resolver: Resolver): Sequence<Pattern?> {
+        if (hasXMLChoiceReferenceCycle(resolver)) {
+            return sequenceOf(null)
+        }
+
+        return resolver.withCyclePrevention(
+            xmlChoiceCyclePreventionPattern(),
+            returnNullOnCycle = canReturnNullOnXMLChoiceCycle()
+        ) { cyclePreventedResolver ->
+            newBasedOn(cyclePreventedResolver).map { it as Pattern? }
+        } ?: sequenceOf(null)
     }
 
     private fun concreteSequences(

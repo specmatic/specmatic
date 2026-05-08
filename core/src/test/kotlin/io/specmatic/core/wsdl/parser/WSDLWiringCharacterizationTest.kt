@@ -502,6 +502,21 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `complex content restriction derives restricted children with inherited attributes`() {
+        val namespace = "http://example.com/complex-content-restriction-attributes"
+        val wsdl = WSDL(toXMLNode(complexContentRestrictionAttributeWsdl(namespace)), "/path/to/complex-content-restriction-attributes.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Derived"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("DerivedType", emptyMap(), emptySet())
+        val derivedPattern = typeInfo.types.getValue("DerivedType") as XMLPattern
+        val childNames = derivedPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.name }
+
+        assertThat(childNames).containsExactly("id")
+        assertXmlAttribute(derivedPattern, "traceId.opt", "(string)")
+        assertXmlAttribute(derivedPattern, "localCode.opt", "(string)")
+    }
+
+    @Test
     fun `complex content extension attributes are emitted in SOAP payload templates`() {
         val namespace = "http://example.com/chained-extension-attributes"
         val wsdl = WSDL(toXMLNode(chainedExtensionAttributesWsdl(namespace)), "/path/to/chained-extension-attributes.wsdl")
@@ -1104,6 +1119,28 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `attribute ref resolves global attribute declaration`() {
+        val personPattern = personPatternForAttribute(
+            """<xsd:attribute ref="tns:traceId" use="required"/>""",
+            """<xsd:attribute name="traceId" type="xsd:ID"/>"""
+        )
+
+        assertXmlAttribute(personPattern, "traceId", "(string)")
+    }
+
+    @Test
+    fun `attribute ref resolves predeclared xml namespace prefix`() {
+        val namespace = "http://example.com/xml-attribute-ref"
+        val wsdl = WSDL(toXMLNode(xmlAttributeReferenceWsdl(namespace)), "/path/to/xml-attribute-ref.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Person"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("PersonType", emptyMap(), emptySet())
+        val personPattern = typeInfo.types.getValue("PersonType") as XMLPattern
+
+        assertXmlAttribute(personPattern, "id", "(string)")
+    }
+
+    @Test
     fun `inline simpleType attribute resolves restriction base`() {
         val personPattern = personPatternForAttribute(
             """
@@ -1498,6 +1535,33 @@ class WSDLWiringCharacterizationTest {
                             </xsd:restriction>
                         </xsd:complexContent>
                     </xsd:complexType>
+
+                    <xsd:element name="Derived" type="tns:DerivedType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun xmlAttributeReferenceWsdl(namespace: String): String =
+        """
+        <definitions name="XmlAttributeRef"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:complexType name="PersonType">
+                        <xsd:attribute ref="xml:id" use="required"/>
+                    </xsd:complexType>
+
+                    <xsd:element name="Person" type="tns:PersonType"/>
+                </xsd:schema>
+
+                <xsd:schema targetNamespace="http://www.w3.org/XML/1998/namespace"
+                            elementFormDefault="unqualified"
+                            attributeFormDefault="qualified">
+                    <xsd:attribute name="id" type="xsd:ID"/>
                 </xsd:schema>
             </types>
         </definitions>

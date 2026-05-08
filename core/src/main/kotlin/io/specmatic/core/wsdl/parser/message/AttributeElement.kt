@@ -17,14 +17,25 @@ import io.specmatic.core.wsdl.parser.WSDL
 private data class TypeReferenceKey(val namespace: String, val localName: String)
 
 class AttributeElement(xmlNode: XMLNode, wsdl: WSDL) {
-    val name: String = fromNameAttribute(xmlNode)
+    private val resolvedAttribute = resolveAttributeReference(xmlNode, wsdl)
+    val name: String = fromNameAttribute(resolvedAttribute)
         ?: throw ContractException("'name' not defined for attribute: ${xmlNode.oneLineDescription}")
-    val type: Value = attributeTypeValue(xmlNode, wsdl)
-    private val mandatory: Boolean = isMandatory(xmlNode) ?: false
+    val type: Value = attributeTypeValue(resolvedAttribute, wsdl)
+    private val mandatory: Boolean = isMandatory(resolvedAttribute) ?: false
     val nameWithOptionality: String = when (mandatory) {
         true -> name
         else -> "${name}${XML_ATTR_OPTIONAL_SUFFIX}"
     }
+}
+
+private fun resolveAttributeReference(attribute: XMLNode, wsdl: WSDL): XMLNode {
+    if (!attribute.attributes.containsKey("ref")) {
+        return attribute
+    }
+
+    val fullyQualifiedName = attribute.fullyQualifiedNameFromAttribute("ref")
+    val referencedAttribute = wsdl.findAttribute(fullyQualifiedName, attribute.schema)
+    return referencedAttribute.plusAttributes(attribute.attributes.minus("ref"))
 }
 
 private fun attributeTypeValue(attribute: XMLNode, wsdl: WSDL): Value {

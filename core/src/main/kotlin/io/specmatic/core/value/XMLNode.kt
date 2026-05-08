@@ -309,6 +309,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
 
         return when {
             namespacePrefix.isBlank() -> ""
+            namespacePrefix == XML_NAMESPACE_PREFIX -> XML_NAMESPACE_URI
             else -> namespaces[name.namespacePrefix()] ?:
                 throw ContractException("Namespace ${name.namespacePrefix()} not found in node $this\nAvailable namespaces: $namespaces")
         }

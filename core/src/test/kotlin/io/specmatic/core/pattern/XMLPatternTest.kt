@@ -208,6 +208,34 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `choice group newBasedOn omits recursive xml type reference at cycle cutoff`() {
+            val choiceGroup = XMLChoiceGroupPattern(
+                choices = listOf(listOf(XMLPattern("<child $TYPE_ATTRIBUTE_NAME=\"Node\"/>")))
+            )
+            val resolver = Resolver(newPatterns = mapOf(withPatternDelimiters("Node") to XMLPattern("<Node/>")))
+
+            val expandedChoice = resolver.withCyclePrevention(DeferredPattern(withPatternDelimiters("Node"))) { cycleResolver ->
+                choiceGroup.newBasedOn(cycleResolver).first() as XMLChoiceGroupPattern
+            }
+
+            assertThat(expandedChoice.concreteSequence).containsExactly(emptyList<Pattern>())
+        }
+
+        @Test
+        fun `choice group row based newBasedOn omits recursive xml type reference at cycle cutoff`() {
+            val choiceGroup = XMLChoiceGroupPattern(
+                choices = listOf(listOf(XMLPattern("<child $TYPE_ATTRIBUTE_NAME=\"Node\"/>")))
+            )
+            val resolver = Resolver(newPatterns = mapOf(withPatternDelimiters("Node") to XMLPattern("<Node/>")))
+
+            val expandedChoice = resolver.withCyclePrevention(DeferredPattern(withPatternDelimiters("Node"))) { cycleResolver ->
+                choiceGroup.newBasedOn(Row(), cycleResolver).first().value as XMLChoiceGroupPattern
+            }
+
+            assertThat(expandedChoice.concreteSequence).containsExactly(emptyList<Pattern>())
+        }
+
+        @Test
         fun `finite recursive xml sample matches at cycle cutoff`() {
             val responseType = XMLPattern(
                 """

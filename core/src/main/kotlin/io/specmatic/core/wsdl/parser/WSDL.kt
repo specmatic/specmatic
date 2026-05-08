@@ -319,6 +319,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         return schema.findByNodeNameAndAttribute("attributeGroup", "name", fullyQualifiedName.localName)
     }
 
+    fun findAttribute(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
+        val schema = findSchema(fullyQualifiedName.namespace, localSchema)
+        return schema.findByNodeNameAndAttribute("attribute", "name", fullyQualifiedName.localName)
+    }
+
     private fun findSchema(namespace: String, schema: XMLNode?): XMLNode {
         val resolvedNamespace: String? = namespaceOrSchemaNamespace(namespace, schema)
         if(resolvedNamespace.isNullOrBlank())
