@@ -4,16 +4,38 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
+import io.specmatic.core.report.ReportGenerator
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
 import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
+import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.TestResultRecord
+import io.specmatic.test.TestResultRecord.Companion.BACKWARD_COMPATIBILITY_TEST_TYPE
 import io.specmatic.test.asserts.toFailure
 import io.specmatic.test.openAPIOperationFrom
+import java.io.File
 import java.util.Collections
 import java.util.IdentityHashMap
 
 class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
 
-    fun run(): Map<OpenAPIOperation, Results> {
+    fun run(reportDir: File = File(DEFAULT_REPORT_DIR)): Map<OpenAPIOperation, Results> {
+        LicenseResolver.utilize(
+            product = LicensedProduct.OPEN_SOURCE,
+            feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
+            protocol = listOf(newFeature.protocol),
+        )
+
+        val startTime = System.currentTimeMillis()
         val requestFamilies = groupScenariosByPathAndMethod(oldFeature)
         val resultsByOperation = buildMap {
             requestFamilies.forEach { requestFamily ->
@@ -22,8 +44,68 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
                 collectOperationResults(requestResults, responseResults, this@buildMap)
             }
         }
+        val endTime = System.currentTimeMillis()
 
-        return resultsByOperation.mapValues { (_, results) -> Results(results).distinct() }
+        val operationToResults = resultsByOperation.mapValues { (_, results) -> Results(results).distinct() }
+        produceReport(allOperationResults(operationToResults), reportDir, startTime, endTime)
+        return operationToResults
+    }
+
+    private fun allOperationResults(failuresByOperation: Map<OpenAPIOperation, Results>): Map<OpenAPIOperation, Results> {
+        return oldFeature.scenarios
+            .filter { !it.ignoreFailure }
+            .map { scenario -> openAPIOperationFrom(scenario, convertPathParameterStyle(scenario.path)) }
+            .distinct()
+            .associateWith { operation -> failuresByOperation[operation] ?: Results() }
+    }
+
+    private fun produceReport(
+        operationToResults: Map<OpenAPIOperation, Results>,
+        reportDir: File,
+        startTime: Long,
+        endTime: Long,
+    ) {
+        val specPath = newFeature.path.takeIf { it.isNotEmpty() } ?: BACKWARD_COMPATIBILITY_FALLBACK_SPEC_PATH
+        val specConfig = CtrfSpecConfig(
+            protocol = SpecmaticProtocol.HTTP.key,
+            specType = SpecType.OPENAPI.value,
+            specification = specPath,
+        )
+
+        val coverageReportOperations = operationToResults.map { (operation, results) ->
+            val passed = results.success()
+            val testResultRecord = TestResultRecord(
+                path = operation.path,
+                method = operation.method,
+                responseStatus = operation.responseCode,
+                requestContentType = operation.contentType,
+                responseContentType = operation.responseContentType,
+                request = null,
+                response = null,
+                result = if (passed) TestResult.Success else TestResult.Failed,
+                specification = specPath,
+                specType = SpecType.OPENAPI,
+                protocol = operation.protocol,
+                testType = BACKWARD_COMPATIBILITY_TEST_TYPE,
+            )
+            CoverageReportOperation<OpenAPIOperation, TestResultRecord>(
+                operation = operation,
+                specConfig = specConfig,
+                coverageStatus = if (passed) CoverageStatus.COVERED else CoverageStatus.MISMATCH,
+                eligibleForCoverage = true,
+                omittedStatus = OmittedStatus.NONE,
+                tests = listOf(testResultRecord),
+                metrics = CtrfOperationMetrics(attempts = 1, matches = if (passed) 1 else 0),
+            )
+        }
+
+        ReportGenerator.generateReport(
+            coverageReportOperations = coverageReportOperations,
+            startTime = startTime,
+            endTime = endTime,
+            specConfigs = listOf(specConfig),
+            reportDir = reportDir,
+        )
     }
 
     private fun groupScenariosByPathAndMethod(feature: Feature): List<RequestFamily> {
@@ -176,6 +258,8 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         private const val PROGRESSION_LOG_INCREMENT = 100
         private const val PROGRESSION_LOG_THRESHOLD = 1000
         private const val STACK_OVERFLOW_MESSAGE = "Exception: Stack overflow error, most likely caused by a recursive definition. Please report this with a sample contract as a bug!"
+        private const val DEFAULT_REPORT_DIR = "build/reports/specmatic/backward-compatibility"
+        private const val BACKWARD_COMPATIBILITY_FALLBACK_SPEC_PATH = "backward-compatibility"
     }
 }
 

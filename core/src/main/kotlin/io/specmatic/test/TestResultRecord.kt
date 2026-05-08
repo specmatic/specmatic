@@ -141,6 +141,7 @@ data class TestResultRecord(
     companion object {
         const val STUB_TEST_TYPE = "Mock"
         const val CONTRACT_TEST_TEST_TYPE = "ContractTest"
+        const val BACKWARD_COMPATIBILITY_TEST_TYPE = "BackwardCompatibility"
 
         fun List<TestResultRecord>.getCoverageStatus(): CoverageStatus {
             val areAnyOfTheTestsWip = this.any { it.isWip }
