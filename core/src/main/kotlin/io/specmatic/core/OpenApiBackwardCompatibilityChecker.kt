@@ -85,8 +85,12 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun requestMatches(request: HttpRequest, variationFromOldScenario: Scenario): List<ResultWithScenario> {
         if (newFeature.scenarios.isEmpty()) throw EmptyContract()
+        val candidates = newScenariosByMethodAndReqContentType.findExactOrSingle(
+            first = variationFromOldScenario.method,
+            second = variationFromOldScenario.requestContentType,
+            valueFilter = { it.matchesPathStructureAndMethod(request) }
+        )
 
-        val candidates = newScenariosByMethodAndReqContentType.findExactOrByFirst(variationFromOldScenario.method, variationFromOldScenario.requestContentType)
         val identifierMatches = candidates.filter { candidate -> candidate.matchesPathStructureAndMethod(request) }
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
@@ -115,7 +119,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         val newScenariosByStatusAndResContentType = newScenarios.groupBy { it.status to it.responseContentType }
 
         return oldScenarios.flatMap { oldScenario ->
-            val identifierMatches = newScenariosByStatusAndResContentType.findExactOrByFirst(oldScenario.status, oldScenario.responseContentType)
+            val identifierMatches = newScenariosByStatusAndResContentType.findExactOrSingle(oldScenario.status, oldScenario.responseContentType)
             if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
                 return@flatMap listOf(ResultWithScenario(result.updateScenario(oldScenario), oldScenario))
@@ -162,14 +166,16 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         logger.log("[Compatibility Check] Verdict: ${if (failures.isNotEmpty()) "FAIL" else "PASS"}")
     }
 
-    private fun <First, Second, Item> Map<Pair<First, Second>, List<Item>>.findExactOrByFirst(first: First, second: Second): List<Item> {
-        val exact = this[first to second]
+    private fun <First, Second, Item> Map<Pair<First, Second?>, List<Item>>.findExactOrSingle(
+        first: First,
+        second: Second?,
+        valueFilter: (Item) -> Boolean = { true },
+    ): List<Item> {
+        val exact = this[first to second]?.filter(valueFilter)
         if (!exact.isNullOrEmpty()) return exact
-        return buildList {
-            for ((key, value) in this@findExactOrByFirst) {
-                if (key.first == first) addAll(value)
-            }
-        }
+
+        val fallBackEntries = entries.asSequence().filter { it.key.first == first }.flatMap { it.value.asSequence() }
+        return fallBackEntries.singleOrNull(valueFilter)?.let(::listOf).orEmpty()
     }
 
     companion object {
