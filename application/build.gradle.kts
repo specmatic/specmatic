@@ -13,7 +13,7 @@ dependencies {
     implementation("joda-time:joda-time:2.14.1")
     implementation("net.minidev:json-smart:2.6.0")
 
-    implementation("com.ezylang:EvalEx:3.6.0")
+    implementation("com.ezylang:EvalEx:3.6.1")
     implementation("com.arakelian:java-jq:2.0.0")
     testImplementation("com.arakelian:java-jq:2.0.0")
 
