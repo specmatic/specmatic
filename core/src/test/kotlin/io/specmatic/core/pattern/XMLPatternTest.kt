@@ -863,6 +863,17 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `direct generation of an xml node that occurs multiple times generates at most two occurrences`() {
+            val nameType = XMLPattern("<name><title $occursMultipleTimes>(number)</title></name>")
+
+            val generated = nameType.generate(Resolver())
+            val generatedChildren = generated.childNodes.filterIsInstance<XMLNode>()
+
+            assertThat(generatedChildren).hasSizeBetween(1, 2)
+            assertThat(generatedChildren.map { it.name }).containsOnly("title")
+        }
+
+        @Test
         fun `xml with a node that occurs multiple times generates multiple nodes`() {
             val nameType = XMLPattern("<name><title $occursMultipleTimes>(number)</title></name>")
             val newValues =

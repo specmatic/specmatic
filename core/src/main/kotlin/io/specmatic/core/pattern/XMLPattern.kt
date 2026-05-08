@@ -14,6 +14,7 @@ const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
 const val TYPE_ATTRIBUTE_NAME = "specmatic_type"
 const val SOAP_BODY = "body"
 const val SOAP_FAULT = "fault"
+private const val XML_RANDOM_NUMBER_CEILING = 3
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
 
@@ -783,7 +784,7 @@ data class XMLPattern(
             this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLPattern && occurMultipleTimes() ->
-                0.until(randomNumber(RANDOM_NUMBER_CEILING)).map { generate(resolver) }
+                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }
 
             else -> listOf(generate(resolver))
         }
