@@ -92,11 +92,24 @@ data class XMLPattern(
         if (xmlValues.size != sampleData.size)
             return ConsumeResult(Failure("XMLPattern can only match XML values"))
 
+        if (canSkipRecursiveXMLReference(xmlValues, resolver)) {
+            return ConsumeResult(Success(), sampleData)
+        }
+
         return when {
             pattern.isOptionalNode() -> matchesOptionalNode(xmlValues, resolver)
             pattern.isMultipleNode() -> matchesMultipleNodes(xmlValues, resolver)
             else -> matchesRequiredNode(xmlValues, sampleData, resolver)
         }
+    }
+
+    private fun canSkipRecursiveXMLReference(xmlValues: List<XMLValue>, resolver: Resolver): Boolean {
+        if (!hasXMLReferenceCycle(resolver)) {
+            return false
+        }
+
+        val nextXMLValue = xmlValues.firstOrNull() ?: return true
+        return nextXMLValue !is XMLNode || !prefixLessComparison(nextXMLValue)
     }
 
     private fun matchesRequiredNode(
@@ -155,6 +168,14 @@ data class XMLPattern(
             sampleData,
             resolver.mismatchMessages
         ).breadCrumb(pattern.name)
+
+        val cyclePreventionPattern = cyclePreventionPattern()
+        if (cyclePreventionPattern != this && !resolver.hasCycle(cyclePreventionPattern)) {
+            return resolver.withCyclePrevention(cyclePreventionPattern) { cyclePreventedResolver ->
+                matchesXMLNode(sampleData, cyclePreventedResolver)
+            } ?: Success()
+        }
+
         return matchesXMLNode(sampleData, resolver)
     }
 
@@ -496,7 +517,7 @@ data class XMLPattern(
         }.map { pattern ->
             attempt(breadCrumb = name) {
                 val generatedNodes = when {
-                    pattern.hasXMLReferenceCycle(resolver) -> null
+                    pattern.hasXMLReferenceCycle(resolver) -> emptyList()
                     pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateNodes(resolver)
                     else -> resolver.withCyclePrevention(
                         pattern.cyclePreventionPattern(),
@@ -570,7 +591,7 @@ data class XMLPattern(
                                 is XMLPattern -> {
                                     val returnNullOnCycle = childPattern.canBeOmittedAfterCycle()
                                     val generatedPatterns = when {
-                                        childPattern.hasXMLReferenceCycle(resolver) -> null
+                                        childPattern.hasXMLReferenceCycle(resolver) -> sequenceOf(null)
                                         else -> resolver.withCyclePrevention(
                                             childPattern.cyclePreventionPattern(),
                                             returnNullOnCycle = returnNullOnCycle
@@ -654,7 +675,7 @@ data class XMLPattern(
                         is XMLPattern -> {
                             val returnNullOnCycle = childPattern.canBeOmittedAfterCycle()
                             val generatedPatterns = when {
-                                childPattern.hasXMLReferenceCycle(resolver) -> null
+                                childPattern.hasXMLReferenceCycle(resolver) -> sequenceOf(null)
                                 else -> resolver.withCyclePrevention(
                                     childPattern.cyclePreventionPattern(),
                                     returnNullOnCycle = returnNullOnCycle

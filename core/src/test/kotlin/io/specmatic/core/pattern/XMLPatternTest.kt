@@ -113,6 +113,150 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `required recursive xml child is omitted at cycle cutoff`() {
+            val responseType = XMLPattern("<response><characteristics $TYPE_ATTRIBUTE_NAME=\"AttributeValuePair\"/></response>")
+            val attributeValuePairType = XMLPattern(
+                """
+                <AttributeValuePair>
+                    <attributeName>(string)</attributeName>
+                    <attributeValue>(string)</attributeValue>
+                    <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                    <action>(string)</action>
+                    <unitOfMeasure>(string)</unitOfMeasure>
+                </AttributeValuePair>
+                """.trimIndent()
+            )
+            val resolver = Resolver(newPatterns = mapOf("(AttributeValuePair)" to attributeValuePairType))
+
+            val generated = responseType.generate(resolver)
+
+            val characteristics = generated.getXMLNodeByPath("characteristics")
+            assertThat(characteristics.childNodes.filterIsInstance<XMLNode>().map { it.name })
+                .containsExactly("attributeName", "attributeValue", "action", "unitOfMeasure")
+        }
+
+        @Test
+        fun `required recursive xml child in generated examples is omitted at cycle cutoff`() {
+            val responseType = XMLPattern(
+                """
+                <response>
+                    <characteristics>
+                        <attributeName>(string)</attributeName>
+                        <attributeValue>(string)</attributeValue>
+                        <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                        <action>(string)</action>
+                        <unitOfMeasure>(string)</unitOfMeasure>
+                    </characteristics>
+                </response>
+                """.trimIndent()
+            )
+            val attributeValuePairType = XMLPattern(
+                """
+                <AttributeValuePair>
+                    <attributeName>(string)</attributeName>
+                    <attributeValue>(string)</attributeValue>
+                    <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                    <action>(string)</action>
+                    <unitOfMeasure>(string)</unitOfMeasure>
+                </AttributeValuePair>
+                """.trimIndent()
+            )
+            val resolver = Resolver(newPatterns = mapOf("(AttributeValuePair)" to attributeValuePairType))
+
+            val generatedPattern = responseType.newBasedOn(Row(), resolver).map { it.value as XMLPattern }.first()
+            val generated = generatedPattern.generate(resolver)
+
+            val nestedCharacteristics = generated.getXMLNodeByPath("characteristics.characteristics")
+            assertThat(nestedCharacteristics.childNodes.filterIsInstance<XMLNode>().map { it.name })
+                .containsExactly("attributeName", "attributeValue", "action", "unitOfMeasure")
+        }
+
+        @Test
+        fun `required recursive xml child in generated negative examples is omitted at cycle cutoff`() {
+            val responseType = XMLPattern(
+                """
+                <response>
+                    <characteristics>
+                        <attributeName>(string)</attributeName>
+                        <attributeValue>(string)</attributeValue>
+                        <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                        <action>(string)</action>
+                        <unitOfMeasure>(string)</unitOfMeasure>
+                    </characteristics>
+                </response>
+                """.trimIndent()
+            )
+            val attributeValuePairType = XMLPattern(
+                """
+                <AttributeValuePair>
+                    <attributeName>(string)</attributeName>
+                    <attributeValue>(string)</attributeValue>
+                    <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                    <action>(string)</action>
+                    <unitOfMeasure>(string)</unitOfMeasure>
+                </AttributeValuePair>
+                """.trimIndent()
+            )
+            val resolver = Resolver(newPatterns = mapOf("(AttributeValuePair)" to attributeValuePairType))
+
+            val generatedPattern = responseType.negativeBasedOn(Row(), resolver).map { it.value as XMLPattern }.first()
+            val generated = generatedPattern.generate(resolver)
+
+            val nestedCharacteristics = generated.getXMLNodeByPath("characteristics.characteristics")
+            assertThat(nestedCharacteristics.childNodes.filterIsInstance<XMLNode>().map { it.name })
+                .containsExactly("attributeName", "attributeValue", "action", "unitOfMeasure")
+        }
+
+        @Test
+        fun `finite recursive xml sample matches at cycle cutoff`() {
+            val responseType = XMLPattern(
+                """
+                <response>
+                    <characteristics>
+                        <attributeName>(string)</attributeName>
+                        <attributeValue>(string)</attributeValue>
+                        <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                        <action>(string)</action>
+                        <unitOfMeasure>(string)</unitOfMeasure>
+                    </characteristics>
+                </response>
+                """.trimIndent()
+            )
+            val attributeValuePairType = XMLPattern(
+                """
+                <AttributeValuePair>
+                    <attributeName>(string)</attributeName>
+                    <attributeValue>(string)</attributeValue>
+                    <characteristics $TYPE_ATTRIBUTE_NAME="AttributeValuePair"/>
+                    <action>(string)</action>
+                    <unitOfMeasure>(string)</unitOfMeasure>
+                </AttributeValuePair>
+                """.trimIndent()
+            )
+            val response = toXMLNode(
+                """
+                <response>
+                    <characteristics>
+                        <attributeName>name</attributeName>
+                        <attributeValue>value</attributeValue>
+                        <characteristics>
+                            <attributeName>nested-name</attributeName>
+                            <attributeValue>nested-value</attributeValue>
+                            <action>nested-action</action>
+                            <unitOfMeasure>nested-unit</unitOfMeasure>
+                        </characteristics>
+                        <action>action</action>
+                        <unitOfMeasure>unit</unitOfMeasure>
+                    </characteristics>
+                </response>
+                """.trimIndent()
+            )
+            val resolver = Resolver(newPatterns = mapOf("(AttributeValuePair)" to attributeValuePairType))
+
+            assertThat(responseType.matches(response, resolver)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
         fun `values should be generated for nested multiples`() {
             val customerType = XMLPattern("<SPECMATIC_TYPE><name>(string)</name></SPECMATIC_TYPE>")
             val salesDataType = XMLPattern("<sales><customer specmatic_type=\"Customer\" specmatic_occurs=\"multiple\"/></sales>")
