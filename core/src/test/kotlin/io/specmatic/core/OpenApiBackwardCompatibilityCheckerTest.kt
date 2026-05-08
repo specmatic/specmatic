@@ -40,7 +40,9 @@ class OpenApiBackwardCompatibilityCheckerTest {
         val v1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml").toFeature()
         val v2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml").toFeature()
 
-        OpenApiBackwardCompatibilityChecker(v1, v2).run(tempDir)
+        val result = OpenApiBackwardCompatibilityChecker(v1, v2).run(tempDir)
+
+        println(result.values.fold(Results()) { acc, results -> acc.plus(results) }.report())
 
         val htmlReport = File(tempDir, "html/index.html")
         assertThat(htmlReport).exists().isFile()

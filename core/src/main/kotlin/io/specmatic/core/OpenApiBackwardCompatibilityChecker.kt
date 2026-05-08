@@ -79,11 +79,11 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
             CoverageReportOperation(
                 operation = operation,
                 specConfig = specConfig,
-                coverageStatus = if (results.success()) CoverageStatus.COVERED else CoverageStatus.MISMATCH,
+                coverageStatus = CoverageStatus.COVERED,
                 eligibleForCoverage = true,
                 omittedStatus = OmittedStatus.NONE,
                 tests = listOf(testResultRecord),
-                metrics = CtrfOperationMetrics(attempts = 1, matches = if (results.success()) 1 else 0),
+                metrics = null,
             )
         }
 
