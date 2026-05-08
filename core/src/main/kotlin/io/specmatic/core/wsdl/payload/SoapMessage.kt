@@ -9,7 +9,7 @@ import io.specmatic.core.wsdl.parser.message.primitiveNamespace
 fun soapMessage(bodyPayload: XMLNode, namespaces: Map<String, String>, headers: RequestHeaders): XMLNode {
     val payload = soapSkeleton(namespaces.plus(headers.namespaces))
 
-    val headerNode: XMLNode? = headers.toHeaderNode()
+    val headerNode: XMLNode? = headers.toHeaderNode(payload.namespaces)
 
     val bodyNode: XMLNode = toXMLNode("<soapenv:Body/>").let {
         it.copy(childNodes = it.childNodes.plus(bodyPayload))

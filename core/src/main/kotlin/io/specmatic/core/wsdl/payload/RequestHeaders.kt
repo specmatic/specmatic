@@ -34,10 +34,13 @@ class RequestHeaders private constructor(
             namespaces.plus(header.namespaces)
         }
 
-    fun toHeaderNode(): XMLNode? {
+    fun toHeaderNode(parentNamespaces: Map<String, String> = emptyMap()): XMLNode? {
         if (headers.isEmpty()) return null
 
-        return toXMLNode("<$HEADER_NODE_NAME/>").copy(childNodes = headers.map { it.node })
+        val headerNamespaces = parentNamespaces.plus(namespaces)
+        return toXMLNode("<$HEADER_NODE_NAME/>", headerNamespaces).copy(
+            childNodes = headers.map { it.node.withNamespaceContext(headerNamespaces.plus(it.namespaces)) }
+        )
     }
 
     companion object {
@@ -58,4 +61,18 @@ class RequestHeaders private constructor(
                 else -> emptyMap()
             }.mapValues { (_, value) -> StringValue(value) }
     }
+}
+
+private fun XMLNode.withNamespaceContext(namespaceContext: Map<String, String>): XMLNode {
+    val updatedNamespaces = namespaceContext.plus(namespaces)
+
+    return copy(
+        namespaces = updatedNamespaces,
+        childNodes = childNodes.map {
+            when (it) {
+                is XMLNode -> it.withNamespaceContext(updatedNamespaces)
+                else -> it
+            }
+        }
+    )
 }

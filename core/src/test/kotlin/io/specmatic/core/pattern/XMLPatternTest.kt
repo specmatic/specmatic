@@ -1040,4 +1040,235 @@ internal class XMLPatternTest {
 
         assertThat(matchResult).isInstanceOf(Result.Success::class.java)
     }
+
+    @Test
+    fun `soap header pattern is marked only for the direct envelope header`() {
+        val type = XMLPattern(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:h="http://headers" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <h:TraceId>(string)</h:TraceId>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Header>
+                        <tns:Name>(string)</tns:Name>
+                    </tns:Header>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent(),
+            isSOAP = true
+        )
+
+        val envelopeChildren = type.pattern.nodes.filterIsInstance<XMLPattern>()
+        val soapHeader = envelopeChildren.single { it.pattern.name == "Header" }
+        val body = envelopeChildren.single { it.pattern.name == "Body" }
+        val payloadHeader = body.pattern.nodes.single() as XMLPattern
+
+        assertThat(soapHeader.pattern.isSOAPHeader).isTrue()
+        assertThat(payloadHeader.pattern.isSOAPHeader).isFalse()
+    }
+
+    @Test
+    fun `soap header children match in pattern order even when sample order is different`() {
+        val type = soapEnvelopePatternWithHeader()
+        val value = toXMLNode(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:h="http://headers" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <h:ClientId>client-123</h:ClientId>
+                    <h:TraceId>trace-123</h:TraceId>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>hello</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `soap header children with same local name match in namespace order when sample order is different`() {
+        val type = XMLPattern(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a="http://headers/a" xmlns:b="http://headers/b" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <a:Token>alpha</a:Token>
+                    <b:Token>beta</b:Token>
+                    <a:TraceId>(string)</a:TraceId>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>hello</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent(),
+            isSOAP = true
+        )
+        val value = toXMLNode(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a="http://headers/a" xmlns:b="http://headers/b" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <a:TraceId>trace-123</a:TraceId>
+                    <b:Token>beta</b:Token>
+                    <a:Token>alpha</a:Token>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>hello</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `soap header children match in pattern order for soap 1_2 envelope namespace`() {
+        val type = soapEnvelopePatternWithHeader()
+        val value = toXMLNode(
+            """
+            <env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:h="http://headers" xmlns:tns="http://body">
+                <env:Header>
+                    <h:ClientId>client-123</h:ClientId>
+                    <h:TraceId>trace-123</h:TraceId>
+                </env:Header>
+                <env:Body>
+                    <tns:Request>hello</tns:Request>
+                </env:Body>
+            </env:Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `unexpected soap header child still fails after header order normalization`() {
+        val type = soapEnvelopePatternWithHeader()
+        val value = toXMLNode(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:h="http://headers" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <h:ClientId>client-123</h:ClientId>
+                    <h:Unexpected>unexpected</h:Unexpected>
+                    <h:TraceId>trace-123</h:TraceId>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>hello</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `duplicate soap header names preserve relative sample order during normalization`() {
+        val type = XMLPattern(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:h="http://headers" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <h:Token>one</h:Token>
+                    <h:Token>two</h:Token>
+                    <h:TraceId>(string)</h:TraceId>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>hello</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent(),
+            isSOAP = true
+        )
+        val value = toXMLNode(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:h="http://headers" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <h:TraceId>trace-123</h:TraceId>
+                    <h:Token>two</h:Token>
+                    <h:Token>one</h:Token>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>hello</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `non soap header named node remains order sensitive`() {
+        val type = XMLPattern(
+            """
+            <Envelope>
+                <Header>
+                    <TraceId>(string)</TraceId>
+                    <ClientId>(string)</ClientId>
+                </Header>
+            </Envelope>
+            """.trimIndent()
+        )
+        val value = toXMLNode(
+            """
+            <Envelope>
+                <Header>
+                    <ClientId>client-123</ClientId>
+                    <TraceId>trace-123</TraceId>
+                </Header>
+            </Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `soap body payload children remain order sensitive`() {
+        val type = XMLPattern(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://body">
+                <soapenv:Body>
+                    <tns:Request>
+                        <tns:AccountId>(string)</tns:AccountId>
+                        <tns:CustomerId>(string)</tns:CustomerId>
+                    </tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent(),
+            isSOAP = true
+        )
+        val value = toXMLNode(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://body">
+                <soapenv:Body>
+                    <tns:Request>
+                        <tns:CustomerId>customer-123</tns:CustomerId>
+                        <tns:AccountId>account-123</tns:AccountId>
+                    </tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent()
+        )
+
+        assertThat(type.matches(value, Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    private fun soapEnvelopePatternWithHeader(): XMLPattern =
+        XMLPattern(
+            """
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:h="http://headers" xmlns:tns="http://body">
+                <soapenv:Header>
+                    <h:TraceId>(string)</h:TraceId>
+                    <h:ClientId>(string)</h:ClientId>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <tns:Request>(string)</tns:Request>
+                </soapenv:Body>
+            </soapenv:Envelope>
+            """.trimIndent(),
+            isSOAP = true
+        )
 }

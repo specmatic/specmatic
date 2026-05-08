@@ -14,20 +14,41 @@ const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
 const val TYPE_ATTRIBUTE_NAME = "specmatic_type"
 const val SOAP_BODY = "body"
 const val SOAP_FAULT = "fault"
+private const val SOAP_ENVELOPE = "Envelope"
+private const val SOAP_HEADER = "Header"
 
-fun toTypeData(node: XMLNode, isSOAP: Boolean? = null): XMLTypeData {
+private data class XMLHeaderName(
+    val namespaceUri: String?,
+    val localName: String
+)
+
+fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false): XMLTypeData {
     val attributes = attributeTypeMap(node)
     val isSOAP = isSOAP ?: (attributes["xmlns"] == ExactValuePattern(StringValue("http://schemas.xmlsoap.org/wsdl/")))
-    return XMLTypeData(node.name, node.realName, attributes, nodeTypes(node, isSOAP), isSOAP, node.elementNamespaceUriOrNull())
+    return XMLTypeData(
+        name = node.name,
+        realName = node.realName,
+        attributes = attributes,
+        nodes = nodeTypes(node, isSOAP),
+        isSOAP = isSOAP,
+        namespaceUri = node.elementNamespaceUriOrNull(),
+        isSOAPHeader = isSOAPHeader
+    )
 }
 
 private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
     return node.childNodes.map { value ->
         when (value) {
-            is XMLNode -> XMLPattern(value, isSOAP = isSOAP)
+            is XMLNode -> XMLPattern(value, isSOAP = isSOAP, isSOAPHeader = isSOAPHeader(node, value, isSOAP))
             is StringValue, is CDATAValue, is BinaryValue -> value.exactMatchElseType()
         }
     }
+}
+
+private fun isSOAPHeader(parentNode: XMLNode, childNode: XMLNode, isSOAP: Boolean): Boolean {
+    return isSOAP &&
+        parentNode.name.equals(SOAP_ENVELOPE, ignoreCase = true) &&
+        childNode.name.equals(SOAP_HEADER, ignoreCase = true)
 }
 
 private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
@@ -40,8 +61,8 @@ private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
 }
 
 data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName = ""), override val typeAlias: String? = null) : Pattern, SequenceType {
-    constructor(node: XMLNode, typeAlias: String? = null, isSOAP: Boolean? = null) : this(toTypeData(node, isSOAP), typeAlias)
-    constructor(xmlString: String, typeAlias: String? = null, isSOAP: Boolean? = null) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP)
+    constructor(node: XMLNode, typeAlias: String? = null, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false) : this(toTypeData(node, isSOAP, isSOAPHeader), typeAlias)
+    constructor(xmlString: String, typeAlias: String? = null, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP, isSOAPHeader)
 
     fun toPrettyString(): String {
         return pattern.toGherkinishNode().toPrettyStringValue()
@@ -179,10 +200,12 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         if (sampleData.name.lowercase() == SOAP_BODY && sampleData.firstNode() is XMLNode && sampleData.firstNode()?.name?.lowercase() == SOAP_FAULT)
             return Success()
 
+        val sampleChildNodes = childNodesForMatching(sampleData)
+
         val results = pattern.nodes.scanIndexed(
             ConsumeResult<XMLValue, Value>(
                 Success(),
-                sampleData.childNodes,
+                sampleChildNodes,
             ),
         ) { index, consumeResult, type ->
             when (val resolvedType = resolvedHop(type, resolver)) {
@@ -197,8 +220,8 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 )
                 else -> {
                     try {
-                        if (sampleData.childNodes.size == 1 && consumeResult.remainder.size == 1 && sampleData.childNodes.first() is StringValue) {
-                            val childValue = when (val childNode = sampleData.childNodes[index]) {
+                        if (sampleChildNodes.size == 1 && consumeResult.remainder.size == 1 && sampleChildNodes.first() is StringValue) {
+                            val childValue = when (val childNode = sampleChildNodes[index]) {
                                 is StringValue -> when {
                                     childNode.isPatternToken() -> childNode.trimmed()
                                     else -> {
@@ -227,6 +250,43 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
 
         return failureFrom(results) ?: Success()
     }
+
+    private fun childNodesForMatching(sampleData: XMLNode): List<XMLValue> {
+        if (!pattern.isSOAPHeader || !sampleData.name.equals(SOAP_HEADER, ignoreCase = true)) {
+            return sampleData.childNodes
+        }
+
+        val headerOrder = soapHeaderOrder() ?: return sampleData.childNodes
+
+        if (sampleData.childNodes.any { it !is XMLNode }) {
+            return sampleData.childNodes
+        }
+
+        return sampleData.childNodes.withIndex().sortedWith(
+            compareBy<IndexedValue<XMLValue>> { indexedValue ->
+                val childNode = indexedValue.value as XMLNode
+                headerOrder[childNode.headerName()] ?: Int.MAX_VALUE
+            }.thenBy { indexedValue ->
+                indexedValue.index
+            }
+        ).map { it.value }
+    }
+
+    private fun soapHeaderOrder(): Map<XMLHeaderName, Int>? {
+        val headerPatterns = pattern.nodes.filterIsInstance<XMLPattern>()
+
+        if (headerPatterns.size != pattern.nodes.size) {
+            return null
+        }
+
+        return headerPatterns.map { it.headerName() }.distinct().withIndex().associate { indexedValue ->
+            indexedValue.value to indexedValue.index
+        }
+    }
+
+    private fun headerName(): XMLHeaderName = XMLHeaderName(pattern.namespaceUri, pattern.name)
+
+    private fun XMLNode.headerName(): XMLHeaderName = XMLHeaderName(elementNamespaceUriOrNull(), name)
 
     private fun breadCrumbIfXMLTag(resolvedType: Pattern): String {
         return when (resolvedType) {

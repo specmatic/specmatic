@@ -13,6 +13,7 @@ data class XMLTypeData(
     val isSOAP: Boolean = false,
     val namespaceUri: String? = null,
     val attributeWildcards: List<XMLAttributeWildcard> = emptyList(),
+    val isSOAPHeader: Boolean = false,
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
