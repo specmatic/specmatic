@@ -94,22 +94,22 @@ private fun expandAttributesFromComplexType(
     wsdl: WSDL,
     visitedTypeReferences: Set<TypeReferenceKey>
 ): List<AttributeElement> {
-    val complexContentInheritedAttributes = complexContentExtensions(complexType).flatMap { extension ->
-        val baseTypeKey = extension.baseTypeKey()
+    val complexContentInheritedAttributes = complexContentDerivations(complexType).flatMap { derivation ->
+        val baseTypeKey = derivation.baseTypeKey()
         when {
             baseTypeKey in visitedTypeReferences -> emptyList()
             else -> {
-                val baseComplexType = wsdl.getComplexTypeNode(wsdl.findTypeFromAttribute(extension, "base")).complexType
+                val baseComplexType = wsdl.getComplexTypeNode(wsdl.findTypeFromAttribute(derivation, "base")).complexType
                 expandAttributesFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
             }
         }
     }
-    val simpleContentInheritedAttributes = simpleContentExtensions(complexType).flatMap { extension ->
-        val baseTypeKey = extension.baseTypeKey()
+    val simpleContentInheritedAttributes = simpleContentDerivations(complexType).flatMap { derivation ->
+        val baseTypeKey = derivation.baseTypeKey()
         when {
             baseTypeKey in visitedTypeReferences -> emptyList()
             baseTypeKey.isPrimitiveTypeReference() -> emptyList()
-            else -> wsdl.findComplexTypeOrNull(extension, "base")?.let { baseComplexType ->
+            else -> wsdl.findComplexTypeOrNull(derivation, "base")?.let { baseComplexType ->
                 expandAttributesFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
             } ?: emptyList()
         }
@@ -140,22 +140,22 @@ private fun expandAttributeWildcardsFromComplexType(
     wsdl: WSDL,
     visitedTypeReferences: Set<TypeReferenceKey>
 ): List<XMLAttributeWildcard> {
-    val complexContentInheritedWildcards = complexContentExtensions(complexType).flatMap { extension ->
-        val baseTypeKey = extension.baseTypeKey()
+    val complexContentInheritedWildcards = complexContentDerivations(complexType).flatMap { derivation ->
+        val baseTypeKey = derivation.baseTypeKey()
         when {
             baseTypeKey in visitedTypeReferences -> emptyList()
             else -> {
-                val baseComplexType = wsdl.getComplexTypeNode(wsdl.findTypeFromAttribute(extension, "base")).complexType
+                val baseComplexType = wsdl.getComplexTypeNode(wsdl.findTypeFromAttribute(derivation, "base")).complexType
                 expandAttributeWildcardsFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
             }
         }
     }
-    val simpleContentInheritedWildcards = simpleContentExtensions(complexType).flatMap { extension ->
-        val baseTypeKey = extension.baseTypeKey()
+    val simpleContentInheritedWildcards = simpleContentDerivations(complexType).flatMap { derivation ->
+        val baseTypeKey = derivation.baseTypeKey()
         when {
             baseTypeKey in visitedTypeReferences -> emptyList()
             baseTypeKey.isPrimitiveTypeReference() -> emptyList()
-            else -> wsdl.findComplexTypeOrNull(extension, "base")?.let { baseComplexType ->
+            else -> wsdl.findComplexTypeOrNull(derivation, "base")?.let { baseComplexType ->
                 expandAttributeWildcardsFromComplexType(baseComplexType, wsdl, visitedTypeReferences.plus(baseTypeKey))
             } ?: emptyList()
         }
@@ -185,7 +185,9 @@ private fun derivationNodes(complexType: XMLNode): List<XMLNode> {
     return complexType.childNodes.filterIsInstance<XMLNode>()
         .flatMap { childNode ->
             when (childNode.name) {
-                "complexContent" -> listOfNotNull(childNode.findFirstChildByName("extension"))
+                "complexContent" -> listOfNotNull(
+                    childNode.findFirstChildByName("extension") ?: childNode.findFirstChildByName("restriction")
+                )
                 "simpleContent" -> listOfNotNull(
                     childNode.findFirstChildByName("extension") ?: childNode.findFirstChildByName("restriction")
                 )
@@ -194,16 +196,16 @@ private fun derivationNodes(complexType: XMLNode): List<XMLNode> {
         }
 }
 
-private fun complexContentExtensions(complexType: XMLNode): List<XMLNode> {
+private fun complexContentDerivations(complexType: XMLNode): List<XMLNode> {
     return complexType.childNodes.filterIsInstance<XMLNode>()
         .filter { it.name == "complexContent" }
-        .mapNotNull { it.findFirstChildByName("extension") }
+        .mapNotNull { it.findFirstChildByName("extension") ?: it.findFirstChildByName("restriction") }
 }
 
-private fun simpleContentExtensions(complexType: XMLNode): List<XMLNode> {
+private fun simpleContentDerivations(complexType: XMLNode): List<XMLNode> {
     return complexType.childNodes.filterIsInstance<XMLNode>()
         .filter { it.name == "simpleContent" }
-        .mapNotNull { it.findFirstChildByName("extension") }
+        .mapNotNull { it.findFirstChildByName("extension") ?: it.findFirstChildByName("restriction") }
 }
 
 private fun XMLNode.baseTypeKey(): TypeReferenceKey {

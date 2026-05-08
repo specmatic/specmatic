@@ -432,6 +432,24 @@ class WSDLWiringCharacterizationTest {
     }
 
     @Test
+    fun `recursive complex type generation terminates when the same type is reached through different element names`() {
+        val rootPattern = XMLPattern(toXMLNode("""<tns:Root specmatic_type="A"/>"""))
+        val typeA = XMLPattern(toXMLNode("""<tns:A><tns:b specmatic_type="B" specmatic_occurs="optional"/></tns:A>"""))
+        val typeB = XMLPattern(toXMLNode("""<tns:B><tns:a specmatic_type="A" specmatic_occurs="optional"/></tns:B>"""))
+        val resolver = Resolver(
+            newPatterns = mapOf(
+                "(A)" to typeA,
+                "(B)" to typeB,
+            )
+        )
+
+        val generated = rootPattern.generate(resolver).toStringLiteral()
+
+        assertThat(generated).contains(":Root").contains(":b")
+        assertThat(countOccurrences(generated, "<tns:a>")).isLessThan(3)
+    }
+
+    @Test
     fun `inline complex content extension inherits base attributes and keeps extension children`() {
         val namespace = "http://example.com/cba-style-extension"
         val wsdl = WSDL(toXMLNode(cbaStyleInlineExtensionWsdl(namespace)), "/path/to/cba-style-extension.wsdl")
@@ -469,6 +487,18 @@ class WSDLWiringCharacterizationTest {
 
         assertXmlAttribute(derivedPattern, "traceId.opt", "(string)")
         assertThat(derivedPattern.pattern.attributeWildcards).hasSize(1)
+    }
+
+    @Test
+    fun `complex content restriction inherits base attributes and anyAttribute wildcards`() {
+        val namespace = "http://example.com/complex-content-restriction-attributes"
+        val wsdl = WSDL(toXMLNode(complexContentRestrictionAttributeWsdl(namespace)), "/path/to/complex-content-restriction-attributes.wsdl")
+        val derivedElement = toXMLNode("""<xsd:element xmlns:tns="$namespace" type="tns:DerivedType"/>""")
+        val derivedType = wsdl.getComplexTypeNode(derivedElement)
+
+        assertThat(derivedType.getAttributes().map { it.nameWithOptionality })
+            .contains("traceId.opt", "localCode.opt")
+        assertThat(derivedType.getAttributeWildcards()).hasSize(1)
     }
 
     @Test
@@ -746,11 +776,11 @@ class WSDLWiringCharacterizationTest {
         val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Boolean"))
         val typeInfo = soapElement.deriveSpecmaticTypes("Boolean", emptyMap(), emptySet())
         val pattern = concreteRoot(typeInfo.types.getValue("Boolean") as XMLPattern, "Boolean", "tns:Boolean", namespace)
-        val sample = toXMLNode("""<tns:Boolean xmlns:tns="$namespace" source="request">true</tns:Boolean>""")
+        val sample = toXMLNode("""<tns:Boolean xmlns:tns="$namespace" baseLabel="inherited" source="request">true</tns:Boolean>""")
 
         assertThat(pattern.toPrettyString()).contains("(boolean)")
+        assertXmlAttribute(pattern, "baseLabel.opt", "(string)")
         assertXmlAttribute(pattern, "source.opt", "(string)")
-        assertThat(pattern.pattern.attributes.keys).doesNotContain("baseLabel.opt")
         assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
@@ -798,14 +828,14 @@ class WSDLWiringCharacterizationTest {
         val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Code"))
         val typeInfo = soapElement.deriveSpecmaticTypes("Code", emptyMap(), emptySet())
         val pattern = concreteRoot(typeInfo.types.getValue("Code") as XMLPattern, "Code", "tns:Code", namespace)
-        val sample = toXMLNode("""<tns:Code xmlns:tns="$namespace" code="A1">ABC</tns:Code>""")
+        val sample = toXMLNode("""<tns:Code xmlns:tns="$namespace" baseLabel="inherited" code="A1">ABC</tns:Code>""")
 
         assertThat(pattern.toPrettyString())
             .contains("minLength 2")
             .contains("maxLength 8")
             .contains("regex [A-Z]+")
+        assertXmlAttribute(pattern, "baseLabel.opt", "(string)")
         assertXmlAttribute(pattern, "code.opt", "(string)")
-        assertThat(pattern.pattern.attributes.keys).doesNotContain("baseLabel.opt")
         assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
@@ -1432,6 +1462,42 @@ class WSDLWiringCharacterizationTest {
                     </xsd:complexType>
 
                     <xsd:element name="Derived" type="tns:DerivedType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun complexContentRestrictionAttributeWsdl(namespace: String): String =
+        """
+        <definitions name="ComplexContentRestrictionAttributes"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:attributeGroup name="TraceAttributes">
+                        <xsd:attribute name="traceId" type="xsd:string"/>
+                    </xsd:attributeGroup>
+
+                    <xsd:complexType name="BaseType">
+                        <xsd:sequence>
+                            <xsd:element name="id" type="xsd:string"/>
+                        </xsd:sequence>
+                        <xsd:attributeGroup ref="tns:TraceAttributes"/>
+                        <xsd:anyAttribute namespace="##any" processContents="skip"/>
+                    </xsd:complexType>
+
+                    <xsd:complexType name="DerivedType">
+                        <xsd:complexContent>
+                            <xsd:restriction base="tns:BaseType">
+                                <xsd:sequence>
+                                    <xsd:element name="id" type="xsd:string"/>
+                                </xsd:sequence>
+                                <xsd:attribute name="localCode" type="xsd:string"/>
+                            </xsd:restriction>
+                        </xsd:complexContent>
+                    </xsd:complexType>
                 </xsd:schema>
             </types>
         </definitions>
