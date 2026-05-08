@@ -53,9 +53,8 @@ class OpenApiBackwardCompatibilityCheckerTest {
         assertThat(summary["tests"].asInt()).isEqualTo(summary["passed"].asInt() + summary["failed"].asInt())
 
         val tests = report["results"]["tests"].toList()
-        val failingTestNames = tests
-            .filter { it["status"].asText() == "failed" }
-            .map { it["name"].asText() }
+        val failingTests = tests.filter { it["status"].asText() == "failed" }
+        val failingTestNames = failingTests.map { it["name"].asText() }
         assertThat(failingTestNames)
             .withFailMessage(
                 "Expected at least one failing test for /missing (removed in v2). Failing tests: %s",
@@ -68,6 +67,16 @@ class OpenApiBackwardCompatibilityCheckerTest {
                 failingTestNames
             )
             .anyMatch { it.contains("/exists/{id}") }
+
+        val missingTest = failingTests.first { it["name"].asText().contains("/missing") }
+        assertThat(missingTest["message"].asText())
+            .contains("This API exists in the old contract but not in the new contract")
+
+        val existsTest = failingTests.first { it["name"].asText().contains("/exists/{id}") }
+        val existsMessage = existsTest["message"].asText()
+        assertThat(existsMessage).contains("REQUEST.BODY.field", "RESPONSE.BODY.field")
+        assertThat(existsMessage).contains("R1001", "Type mismatch")
+        assertThat(existsMessage).contains("number", "string")
     }
 
     private fun extractEmbeddedReport(htmlFile: File): JsonNode {

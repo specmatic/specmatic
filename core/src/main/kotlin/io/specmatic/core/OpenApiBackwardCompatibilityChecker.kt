@@ -62,6 +62,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         )
 
         val coverageReportOperations = operationToResults.map { (operation, results) ->
+            val failures = results.results.filterIsInstance<Result.Failure>()
             val testResultRecord = TestResultRecord(
                 path = operation.path,
                 method = operation.method,
@@ -70,7 +71,8 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
                 responseContentType = operation.responseContentType,
                 request = null,
                 response = null,
-                result = if (results.success()) TestResult.Success else TestResult.Failed,
+                result = if (failures.isEmpty()) TestResult.Success else TestResult.Failed,
+                scenarioResult = failures.takeIf { it.isNotEmpty() }?.let(Result.Failure::fromFailures),
                 specification = oldFeature.path,
                 specType = SpecType.OPENAPI,
                 protocol = operation.protocol,
