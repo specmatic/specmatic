@@ -76,10 +76,11 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
                 protocol = operation.protocol,
                 testType = "Backward Compatibility",
             )
+            // no presentation logic controls
             CoverageReportOperation(
                 operation = operation,
                 specConfig = specConfig,
-                coverageStatus = CoverageStatus.COVERED,
+                coverageStatus = CoverageStatus.MISMATCH,
                 eligibleForCoverage = true,
                 omittedStatus = OmittedStatus.NONE,
                 tests = listOf(testResultRecord),
