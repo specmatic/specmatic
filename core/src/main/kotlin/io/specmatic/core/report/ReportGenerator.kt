@@ -6,49 +6,11 @@ import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
 import java.io.File
+
 object ReportGenerator {
-    fun generateReport(
-        testResultRecords: List<CtrfTestResultRecord>,
-        startTime: Long,
-        endTime: Long,
-        specConfigs: List<CtrfSpecConfig>,
-        coverage: Int? = null,
-        actuatorEnabled: Boolean? = null,
-        absoluteCoverage: Int? = null,
-        reportDir: File,
-        toolName: String = "Specmatic ${VersionInfo.describe()}",
-        getCoverageStatus: (List<CtrfTestResultRecord>) -> CoverageStatus
-    ) {
-        if(isCtrfSpecConfigsValid(specConfigs).not()) return
-
-        val extra = buildMap<String, Any> {
-            coverage?.let { put("apiCoverage", "$coverage%") }
-            actuatorEnabled?.let { put("actuatorEnabled", it) }
-            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
-            put("specmaticConfigPath", getConfigFilePath())
-        }
-
-        consoleLog("Generating report for ${testResultRecords.size} tests...")
-
-        val report = CtrfReportGenerator.generate(
-            testResultRecords = testResultRecords,
-            startTime = startTime,
-            endTime = endTime,
-            extra = extra,
-            specConfig = specConfigs,
-            getCoverageStatus = getCoverageStatus,
-            toolName = toolName
-        )
-
-        ReportProvider.generateCtrfReport(report, reportDir)
-        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
-    }
-
     fun generateReport(
         coverageReportOperations: List<BaseCoverageReportOperation>,
         startTime: Long,
