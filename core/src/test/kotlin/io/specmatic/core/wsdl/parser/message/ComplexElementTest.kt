@@ -16,12 +16,24 @@ internal class ComplexElementTest {
     @Test
     fun `does not recurse`() {
         val element = toXMLNode("<xsd:element type=\"ns0:Person\"/>")
+        val wsdl = mockk<WSDL>()
 
-        val complexElement = ComplexElement("ns0:PersonRequest", element, mockk())
+        every {
+            wsdl.getQualification(element, "ns0:PersonRequest")
+        } returns UnqualifiedNamespace("Person")
+
+        val complexElement = ComplexElement("ns0:PersonRequest", element, wsdl)
         val preExistingTypes = mapOf("Name" to XMLPattern("<name>(string)</name>"))
         val wsdlTypeInfo = complexElement.deriveSpecmaticTypes("PersonRequest", preExistingTypes, setOf("PersonRequest"))
+        val recursiveNode = toXMLNode("<Person $TYPE_ATTRIBUTE_NAME=\"PersonRequest\"/>")
 
-        assertThat(wsdlTypeInfo).isEqualTo(WSDLTypeInfo(types = preExistingTypes))
+        assertThat(wsdlTypeInfo).isEqualTo(
+            WSDLTypeInfo(
+                nodes = listOf(recursiveNode),
+                members = listOf(XMLPattern(recursiveNode)),
+                types = preExistingTypes
+            )
+        )
     }
 
     @Test

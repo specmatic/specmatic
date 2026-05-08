@@ -8,6 +8,7 @@ import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLWildcardPattern
+import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
@@ -111,7 +112,7 @@ class WSDLWiringCharacterizationTest {
         )
 
         val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceRequestType", emptyMap(), emptySet())
-        val resolver = Resolver(newPatterns = typeInfo.types)
+        val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
         val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
@@ -152,7 +153,7 @@ class WSDLWiringCharacterizationTest {
         )
 
         val typeInfo = soapElement.deriveSpecmaticTypes("RepeatingScalarChoiceUnboundedRequestType", emptyMap(), emptySet())
-        val resolver = Resolver(newPatterns = typeInfo.types)
+        val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceUnboundedRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
 
@@ -393,6 +394,41 @@ class WSDLWiringCharacterizationTest {
             .contains("(string)")
             .contains("extraField")
             .contains("(number)")
+    }
+
+    @Test
+    fun `recursive complex type child is retained and matches nested occurrences`() {
+        val namespace = "http://example.com/recursive-complex-type"
+        val wsdl = WSDL(toXMLNode(recursiveComplexTypeWsdl(namespace)), "/path/to/recursive-complex-type.wsdl")
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Root"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("RootType", emptyMap(), emptySet())
+        val rootPattern = typeInfo.members.single() as XMLPattern
+        val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
+        val nestedRecursiveValue = toXMLNode(
+            """
+            <tns:Root xmlns:tns="$namespace">
+                <tns:child>
+                    <tns:child/>
+                </tns:child>
+            </tns:Root>
+            """.trimIndent()
+        )
+
+        assertThat(rootPattern.matches(nestedRecursiveValue, resolver)).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `recursive optional repeating complex type generation terminates`() {
+        val namespace = "http://example.com/recursive-complex-type"
+        val wsdl = WSDL(toXMLNode(recursiveComplexTypeWsdl(namespace)), "/path/to/recursive-complex-type.wsdl")
+        val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Root"))
+        val typeInfo = soapElement.deriveSpecmaticTypes("RootType", emptyMap(), emptySet())
+        val rootPattern = typeInfo.members.single() as XMLPattern
+        val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
+
+        val generated = rootPattern.generate(resolver).toStringLiteral()
+
+        assertThat(generated).contains(":Root").contains(":child")
     }
 
     @Test
@@ -1309,6 +1345,28 @@ class WSDLWiringCharacterizationTest {
                     </xsd:complexType>
 
                     <xsd:element name="Command" type="tns:CommandType"/>
+                </xsd:schema>
+            </types>
+        </definitions>
+        """.trimIndent()
+
+    private fun recursiveComplexTypeWsdl(namespace: String): String =
+        """
+        <definitions name="RecursiveComplexType"
+                     targetNamespace="$namespace"
+                     xmlns:tns="$namespace"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="$namespace" elementFormDefault="qualified">
+                    <xsd:complexType name="Node">
+                        <xsd:sequence>
+                            <xsd:element minOccurs="0" maxOccurs="unbounded" name="child" type="tns:Node"/>
+                            <xsd:element minOccurs="0" maxOccurs="1" name="label" type="xsd:string"/>
+                        </xsd:sequence>
+                    </xsd:complexType>
+
+                    <xsd:element name="Root" type="tns:Node"/>
                 </xsd:schema>
             </types>
         </definitions>

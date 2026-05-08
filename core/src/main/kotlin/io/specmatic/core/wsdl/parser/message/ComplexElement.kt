@@ -18,7 +18,7 @@ import io.specmatic.core.wsdl.payload.SOAPPayload
 data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, val wsdl: WSDL, val namespaceQualification: NamespaceQualification? = null): WSDLElement {
     override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, Pattern>, typeStack: Set<String>): WSDLTypeInfo {
         if(specmaticTypeName in typeStack)
-            return WSDLTypeInfo(types = existingTypes)
+            return shallowRecursiveTypeReference(specmaticTypeName, existingTypes)
 
         val complexType = try {
             wsdl.getComplexTypeNode(element)
@@ -44,10 +44,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         val qualification = namespaceQualification ?: wsdl.getQualification(element, wsdlTypeReference)
 
-        val inPlaceNode = toXMLNode(
-            "<${qualification.nodeName} $TYPE_ATTRIBUTE_NAME=\"${specmaticTypeName.trim()}\"/>",
-            namespaceMapFor(qualification.nodeName, wsdl)
-        ).plusAttributes(deriveSpecmaticAttributes(element))
+        val inPlaceNode = inPlaceNode(specmaticTypeName, qualification)
 
         val childTypes = childTypeInfos.fold(existingTypes) { accumulated, childTypeInfo ->
             accumulated.plus(childTypeInfo.types)
@@ -67,6 +64,24 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             namespaces
         )
     }
+
+    private fun shallowRecursiveTypeReference(specmaticTypeName: String, existingTypes: Map<String, Pattern>): WSDLTypeInfo {
+        val qualification = namespaceQualification ?: wsdl.getQualification(element, wsdlTypeReference)
+        val inPlaceNode = inPlaceNode(specmaticTypeName, qualification)
+
+        return WSDLTypeInfo(
+            nodes = listOf(inPlaceNode),
+            members = listOf(XMLPattern(inPlaceNode)),
+            types = existingTypes,
+            namespacePrefixes = qualification.namespacePrefix.toSet()
+        )
+    }
+
+    private fun inPlaceNode(specmaticTypeName: String, qualification: NamespaceQualification): XMLNode =
+        toXMLNode(
+            "<${qualification.nodeName} $TYPE_ATTRIBUTE_NAME=\"${specmaticTypeName.trim()}\"/>",
+            namespaceMapFor(qualification.nodeName, wsdl)
+        ).plusAttributes(deriveSpecmaticAttributes(element))
 
     internal fun generateChildren(
         parentTypeName: String,

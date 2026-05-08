@@ -47,8 +47,8 @@ private fun nodeTypes(node: XMLNode, isSOAP: Boolean): List<Pattern> {
 
 private fun isSOAPHeader(parentNode: XMLNode, childNode: XMLNode, isSOAP: Boolean): Boolean {
     return isSOAP &&
-        parentNode.name.equals(SOAP_ENVELOPE, ignoreCase = true) &&
-        childNode.name.equals(SOAP_HEADER, ignoreCase = true)
+            parentNode.name.equals(SOAP_ENVELOPE, ignoreCase = true) &&
+            childNode.name.equals(SOAP_HEADER, ignoreCase = true)
 }
 
 private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
@@ -60,9 +60,23 @@ private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
     }
 }
 
-data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName = ""), override val typeAlias: String? = null) : Pattern, SequenceType {
-    constructor(node: XMLNode, typeAlias: String? = null, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false) : this(toTypeData(node, isSOAP, isSOAPHeader), typeAlias)
-    constructor(xmlString: String, typeAlias: String? = null, isSOAP: Boolean? = null, isSOAPHeader: Boolean = false) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP, isSOAPHeader)
+data class XMLPattern(
+    override val pattern: XMLTypeData = XMLTypeData(realName = ""),
+    override val typeAlias: String? = null
+) : Pattern, SequenceType {
+    constructor(
+        node: XMLNode,
+        typeAlias: String? = null,
+        isSOAP: Boolean? = null,
+        isSOAPHeader: Boolean = false
+    ) : this(toTypeData(node, isSOAP, isSOAPHeader), typeAlias)
+
+    constructor(
+        xmlString: String,
+        typeAlias: String? = null,
+        isSOAP: Boolean? = null,
+        isSOAPHeader: Boolean = false
+    ) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP, isSOAPHeader)
 
     fun toPrettyString(): String {
         return pattern.toGherkinishNode().toPrettyStringValue()
@@ -85,17 +99,17 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     private fun matchesRequiredNode(
-            xmlValues: List<XMLValue>,
-            sampleData: List<Value>,
-            resolver: Resolver
+        xmlValues: List<XMLValue>,
+        sampleData: List<Value>,
+        resolver: Resolver
     ): ConsumeResult<Value, Value> = if (xmlValues.isEmpty())
         ConsumeResult(Failure("Didn't get enough values", breadCrumb = this.pattern.name), sampleData)
     else
         ConsumeResult(matches(xmlValues.first(), resolver), xmlValues.drop(1))
 
     private fun matchesMultipleNodes(
-            xmlValues: List<XMLValue>,
-            resolver: Resolver
+        xmlValues: List<XMLValue>,
+        resolver: Resolver
     ): ConsumeResult<Value, Value> {
         val remainder = xmlValues.dropWhile {
             matches(it, resolver) is Success
@@ -105,9 +119,9 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             ConsumeResult(matches(remainder.first(), resolver), remainder)
         } else if (remainder.isNotEmpty()) {
             val provisionalError = ProvisionalError<Value>(
-                    matches(remainder.first(), resolver) as Failure,
-                    this,
-                    remainder.first()
+                matches(remainder.first(), resolver) as Failure,
+                this,
+                remainder.first()
             )
             ConsumeResult(Success(), remainder, provisionalError)
         } else {
@@ -116,8 +130,8 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     private fun matchesOptionalNode(
-            xmlValues: List<XMLValue>,
-            resolver: Resolver
+        xmlValues: List<XMLValue>,
+        resolver: Resolver
     ): ConsumeResult<Value, Value> = if (xmlValues.isEmpty())
         ConsumeResult(Success())
     else {
@@ -135,13 +149,17 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         xmlValue.name.substringAfter(":") == this.pattern.name
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        if (sampleData !is XMLNode) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages).breadCrumb(pattern.name)
+        if (sampleData !is XMLNode) return dataTypeMismatchResult(
+            this,
+            sampleData,
+            resolver.mismatchMessages
+        ).breadCrumb(pattern.name)
         return matchesXMLNode(sampleData, resolver)
     }
 
     private fun matchesXMLNode(sampleData: XMLNode, resolver: Resolver): Result {
-        if(pattern.isNillable()) {
-            if(sampleData.childNodes.isEmpty())
+        if (pattern.isNillable()) {
+            if (sampleData.childNodes.isEmpty())
                 return Success()
         }
 
@@ -159,13 +177,15 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                     matchingType.matchNodes(sampleDataWithoutEmptyHeader, resolver)
                 }
             }
+
             is AnyPattern -> matchingType.matches(sampleDataWithoutEmptyHeader, resolver)
             else -> {
                 if (sampleDataWithoutEmptyHeader.childNodes.size != 1) {
                     return valueMismatchResult("single node", sampleDataWithoutEmptyHeader, resolver.mismatchMessages)
                 }
 
-                val valueToMatch = matchingType.parse(sampleDataWithoutEmptyHeader.firstChild().toStringLiteral(), resolver)
+                val valueToMatch =
+                    matchingType.parse(sampleDataWithoutEmptyHeader.firstChild().toStringLiteral(), resolver)
                 matchingType.matches(valueToMatch, resolver)
             }
         }.breadCrumb(pattern.name)
@@ -218,6 +238,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                     ),
                     emptyList()
                 )
+
                 else -> {
                     try {
                         if (sampleChildNodes.size == 1 && consumeResult.remainder.size == 1 && sampleChildNodes.first() is StringValue) {
@@ -226,11 +247,12 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                                     childNode.isPatternToken() -> childNode.trimmed()
                                     else -> {
                                         attempt(
-                                                "Couldn't read value ${childNode.string} as type ${resolvedType.pattern}",
-                                                breadCrumb = breadCrumbIfXMLTag(resolvedType)
+                                            "Couldn't read value ${childNode.string} as type ${resolvedType.pattern}",
+                                            breadCrumb = breadCrumbIfXMLTag(resolvedType)
                                         ) { resolvedType.parse(childNode.string, resolver) }
                                     }
                                 }
+
                                 else -> childNode
                             }
 
@@ -306,6 +328,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                     val unexpectedValue = results.last().remainder.first()
                     unexpectedValue.matchFailure()
                 }
+
                 else -> null
             }
         }
@@ -314,7 +337,10 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     private fun matchNamespaces(sampleData: XMLNode): Result {
-        return PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(Success(), "Removed namespace validation but we should put it back")
+        return PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(
+            Success(),
+            "Removed namespace validation but we should put it back"
+        )
     }
 
     private fun matchAttributes(sampleData: XMLNode, resolver: Resolver): Result {
@@ -323,8 +349,8 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         }
         val sampleAttributesWithoutXmlns: Map<String, StringValue> = sampleData.attributes.filterNot {
             it.key == "xmlns" ||
-                it.key.startsWith("xmlns:") ||
-                it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+                    it.key.startsWith("xmlns:") ||
+                    it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
         }.let { attributesWithoutXmlns ->
             dropSOAP11Info(sampleData, attributesWithoutXmlns)
         }
@@ -334,8 +360,8 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         }
 
         val missingKey = resolver.findKeyError(
-                ignoreXMLNamespaces(patternAttributesWithoutXmlns),
-                ignoreXMLNamespaces(sampleAttributesForKeyCheck)
+            ignoreXMLNamespaces(patternAttributesWithoutXmlns),
+            ignoreXMLNamespaces(sampleAttributesForKeyCheck)
         )
         if (missingKey != null)
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
@@ -351,7 +377,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         val declaredAttributeNames = declaredAttributes.keys.map(::withoutOptionality).toSet()
 
         return withoutOptionality(attributeName) !in declaredAttributeNames &&
-            pattern.attributeWildcards.any { it.allows(attributeName, sampleData) }
+                pattern.attributeWildcards.any { it.allows(attributeName, sampleData) }
     }
 
     private fun dropSOAP11Info(
@@ -382,27 +408,27 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     private fun matchAttributes(
-            patternAttributesWithoutXmlns: Map<String, Pattern>,
-            sampleAttributesWithoutXmlns: Map<String, StringValue>,
-            resolver: Resolver
+        patternAttributesWithoutXmlns: Map<String, Pattern>,
+        sampleAttributesWithoutXmlns: Map<String, StringValue>,
+        resolver: Resolver
     ): Result =
-            mapZip(
-                    ignoreXMLNamespaces(patternAttributesWithoutXmlns),
-                    ignoreXMLNamespaces(sampleAttributesWithoutXmlns)
-            ).asSequence().map { (key, patternValue, sampleValue) ->
-                try {
-                    val resolvedValue: Value = when {
-                        sampleValue.isPatternToken() -> sampleValue.trimmed()
-                        else -> patternValue.parse(sampleValue.string, resolver)
-                    }
-                    resolver.matchesPattern(key, patternValue, resolvedValue)
-                } catch (e: ContractException) {
-                    e.failure()
-                }.breadCrumb(key)
-            }.find { it is Failure } ?: Success()
+        mapZip(
+            ignoreXMLNamespaces(patternAttributesWithoutXmlns),
+            ignoreXMLNamespaces(sampleAttributesWithoutXmlns)
+        ).asSequence().map { (key, patternValue, sampleValue) ->
+            try {
+                val resolvedValue: Value = when {
+                    sampleValue.isPatternToken() -> sampleValue.trimmed()
+                    else -> patternValue.parse(sampleValue.string, resolver)
+                }
+                resolver.matchesPattern(key, patternValue, resolvedValue)
+            } catch (e: ContractException) {
+                e.failure()
+            }.breadCrumb(key)
+        }.find { it is Failure } ?: Success()
 
     private fun <ValueType> ignoreXMLNamespaces(attributes: Map<String, ValueType>): Map<String, ValueType> =
-            attributes.filterNot { it.key.lowercase().startsWith("xmlns:") }
+        attributes.filterNot { it.key.lowercase().startsWith("xmlns:") }
 
     private fun expectingEmpty(sampleData: XMLNode, type: Pattern, resolver: Resolver): Boolean {
         val resolvedPatternSet = type.patternSet(resolver).map { resolvedHop(it, resolver) }
@@ -446,7 +472,10 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
             resolvedHop(it, resolver)
         }.map { pattern ->
             attempt(breadCrumb = name) {
-                resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
+                val generatedNodes = resolver.withCyclePrevention(
+                    pattern,
+                    returnNullOnCycle = pattern.canReturnNullOnCycle()
+                ) { cyclePreventedResolver ->
                     when {
                         pattern is ListPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
                         pattern is XMLChoiceGroupPattern -> (pattern.generate(cyclePreventedResolver) as XMLNode).childNodes
@@ -458,6 +487,8 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                         else -> listOf(pattern.generate(cyclePreventedResolver))
                     }
                 }
+
+                generatedNodes ?: recursiveGenerationFallback(pattern)
             }
         }.flatten().map {
             when (it) {
@@ -516,39 +547,63 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
 
                 else -> {
                     listCombinations(pattern.nodes.map { childPattern ->
-                                        attempt(breadCrumb = pattern.name) {
-                                            when (childPattern) {
-                                                is XMLPattern -> {
-                                                    val dereferenced = childPattern.dereferenceType(resolver)
+                        attempt(breadCrumb = pattern.name) {
+                            when (childPattern) {
+                                is XMLPattern -> {
+                                    val returnNullOnCycle = childPattern.canBeOmittedAfterCycle()
+                                    val generatedPatterns = resolver.withCyclePrevention(
+                                        childPattern,
+                                        returnNullOnCycle = returnNullOnCycle
+                                    ) { childResolver ->
+                                        val dereferenced = childPattern.dereferenceType(childResolver)
 
-                                                    resolver.withCyclePrevention(dereferenced) { cyclePreventedResolver ->
-                                                        when (dereferenced) {
-                                                            is XMLPattern -> when {
-                                                                dereferenced.occurMultipleTimes() -> {
-                                                                    dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                        .map { (it.value as XMLPattern).withTypeReferenceFrom(childPattern) }
-                                                                }
-
-                                                                dereferenced.isOptional() -> {
-                                                                    dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                        .map { (it.value as XMLPattern).withTypeReferenceFrom(childPattern) }.plus(null)
-                                                                }
-
-                                                                else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
-                                                                    .map { (it.value as XMLPattern).withTypeReferenceFrom(childPattern) }
+                                        childResolver.withCyclePrevention(
+                                            dereferenced,
+                                            returnNullOnCycle = returnNullOnCycle
+                                        ) { cyclePreventedResolver ->
+                                            when (dereferenced) {
+                                                is XMLPattern -> when {
+                                                    dereferenced.occurMultipleTimes() -> {
+                                                        dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                            .map {
+                                                                (it.value as XMLPattern).withTypeReferenceFrom(
+                                                                    childPattern
+                                                                )
                                                             }
-
-                                                            else -> dereferenced.newBasedOn(row, cyclePreventedResolver).map { it.value }
-                                                        }
                                                     }
+
+                                                    dereferenced.isOptional() -> {
+                                                        dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                            .map {
+                                                                (it.value as XMLPattern).withTypeReferenceFrom(
+                                                                    childPattern
+                                                                )
+                                                            }.plus(null)
+                                                    }
+
+                                                    else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                        .map {
+                                                            (it.value as XMLPattern).withTypeReferenceFrom(
+                                                                childPattern
+                                                            )
+                                                        }
                                                 }
 
-                                                else -> resolver.withCyclePrevention(childPattern) { cyclePreventedResolver ->
-                                                    childPattern.newBasedOn(row, cyclePreventedResolver).map { it.value }
-                                                }
+                                                else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                    .map { it.value }
                                             }
                                         }
-                                    }.map { HasValue(it) }).map { it.value }
+                                    }
+
+                                    generatedPatterns ?: recursiveExampleFallback(childPattern)
+                                }
+
+                                else -> resolver.withCyclePrevention(childPattern) { cyclePreventedResolver ->
+                                    childPattern.newBasedOn(row, cyclePreventedResolver).map { it.value }
+                                }
+                            }
+                        }
+                    }.map { HasValue(it) }).map { it.value }
                 }
             }
 
@@ -574,37 +629,49 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 attempt(breadCrumb = this.pattern.name) {
                     when (childPattern) {
                         is XMLPattern -> {
-                            val dereferenced = childPattern.dereferenceType(resolver)
+                            val returnNullOnCycle = childPattern.canBeOmittedAfterCycle()
+                            val generatedPatterns = resolver.withCyclePrevention(
+                                childPattern,
+                                returnNullOnCycle = returnNullOnCycle
+                            ) { childResolver ->
+                                val dereferenced = childPattern.dereferenceType(childResolver)
 
-                            resolver.withCyclePrevention(dereferenced) { cyclePreventedResolver ->
-                                when (dereferenced) {
-                                    is XMLPattern -> when {
-                                        dereferenced.occurMultipleTimes() -> {
-                                            dereferenced.newBasedOn(cyclePreventedResolver)
-                                                .map { it.withTypeReferenceFrom(childPattern) }
-                                        }
+                                childResolver.withCyclePrevention(
+                                    dereferenced,
+                                    returnNullOnCycle = returnNullOnCycle
+                                ) { cyclePreventedResolver ->
+                                    when (dereferenced) {
+                                        is XMLPattern -> when {
+                                            dereferenced.occurMultipleTimes() -> {
+                                                dereferenced.newBasedOn(cyclePreventedResolver)
+                                                    .map { it.withTypeReferenceFrom(childPattern) }
+                                            }
 
-                                        dereferenced.isOptional() -> {
-                                            dereferenced.newBasedOn(cyclePreventedResolver)
+                                            dereferenced.isOptional() -> {
+                                                dereferenced.newBasedOn(cyclePreventedResolver)
+                                                    .map { it.withTypeReferenceFrom(childPattern) }
+                                                    .plus(null)
+                                            }
+
+                                            else -> dereferenced.newBasedOn(cyclePreventedResolver)
                                                 .map { it.withTypeReferenceFrom(childPattern) }
-                                                .plus(null)
                                         }
 
                                         else -> dereferenced.newBasedOn(cyclePreventedResolver)
-                                            .map { it.withTypeReferenceFrom(childPattern) }
                                     }
-
-                                    else -> dereferenced.newBasedOn(cyclePreventedResolver)
                                 }
                             }
+
+                            generatedPatterns ?: recursiveExampleFallback(childPattern)
                         }
+
                         else -> resolver.withCyclePrevention(childPattern) { cyclePreventedResolver ->
                             childPattern.newBasedOn(cyclePreventedResolver)
                         }
                     }
                 }
             }
-        )
+            )
 
             newNodesList.map { newNodes ->
                 XMLPattern(XMLTypeData(pattern.name, pattern.realName, newAttributes, newNodes.toList()))
@@ -612,7 +679,11 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         }
     }
 
-    override fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration): Sequence<ReturnValue<Pattern>> {
+    override fun negativeBasedOn(
+        row: Row,
+        resolver: Resolver,
+        config: NegativePatternConfiguration
+    ): Sequence<ReturnValue<Pattern>> {
         return newBasedOn(row, resolver).map { HasValue(it.value) }
     }
 
@@ -656,25 +727,53 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
 
     private fun isOptional(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Optional
 
+    private fun recursiveGenerationFallback(pattern: Pattern): List<Value> {
+        if (pattern is XMLPattern && pattern.canBeOmittedAfterCycle()) {
+            return emptyList()
+        }
+
+        throw recursiveGenerationException(pattern)
+    }
+
+    private fun recursiveExampleFallback(pattern: Pattern): Sequence<Pattern?> {
+        if (pattern is XMLPattern && pattern.canBeOmittedAfterCycle()) {
+            return sequenceOf(null)
+        }
+
+        throw recursiveGenerationException(pattern)
+    }
+
+    private fun XMLPattern.canBeOmittedAfterCycle(): Boolean = occurMultipleTimes() || isOptional()
+
+    private fun Pattern.canReturnNullOnCycle(): Boolean = this is XMLPattern && canBeOmittedAfterCycle()
+
+    private fun recursiveGenerationException(pattern: Pattern): ContractException {
+        return when (pattern) {
+            is XMLPattern -> ContractException("Cannot generate XML for required recursive node ${pattern.pattern.realName}")
+            else -> ContractException("Cannot generate recursive XML value for $pattern")
+        }
+    }
+
     override fun parse(value: String, resolver: Resolver): Value {
         return toXMLNode(parseXML(value))
     }
 
     override fun encompasses(
-            otherPattern: Pattern,
-            thisResolver: Resolver,
-            otherResolver: Resolver,
-            typeStack: TypeStack
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
     ): Result {
         val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)
 
         return when (otherResolvedPattern) {
             is ExactValuePattern -> otherResolvedPattern.fitsWithin(
-                    listOf(this),
-                    otherResolver,
-                    thisResolver,
-                    typeStack
+                listOf(this),
+                otherResolver,
+                thisResolver,
+                typeStack
             )
+
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
                 attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
@@ -684,34 +783,36 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 val otherMembers = otherResolvedPattern.memberList
 
                 val others = otherMembers.getEncompassables(otherResolver)
-                val these = adapt(adaptFromList(theseMembers.getEncompassables(thisResolver), thisResolver), thisResolver)
+                val these =
+                    adapt(adaptFromList(theseMembers.getEncompassables(thisResolver), thisResolver), thisResolver)
 
                 val adaptedOthers = adapt(others, otherResolver)
 
                 val results =
-                        these.runningFold(ConsumeResult<Pattern, Pattern>(adaptedOthers)) { consumeResult, thisOne ->
-                            val unmatched = dropOneIfMatching(consumeResult.remainder) { otherOne ->
-                                encompassResult(thisOne, otherOne, thisResolver, otherResolver, typeStack)
-                            }
-
-                            if (unmatched.size == consumeResult.remainder.size) {
-                                val failure = encompassResult(
-                                        thisOne,
-                                        unmatched.first(),
-                                        thisResolver,
-                                        otherResolver,
-                                        typeStack
-                                ) as Failure
-                                ConsumeResult(failure, unmatched)
-                            } else {
-                                ConsumeResult(Success(), unmatched)
-                            }
+                    these.runningFold(ConsumeResult<Pattern, Pattern>(adaptedOthers)) { consumeResult, thisOne ->
+                        val unmatched = dropOneIfMatching(consumeResult.remainder) { otherOne ->
+                            encompassResult(thisOne, otherOne, thisResolver, otherResolver, typeStack)
                         }
+
+                        if (unmatched.size == consumeResult.remainder.size) {
+                            val failure = encompassResult(
+                                thisOne,
+                                unmatched.first(),
+                                thisResolver,
+                                otherResolver,
+                                typeStack
+                            ) as Failure
+                            ConsumeResult(failure, unmatched)
+                        } else {
+                            ConsumeResult(Success(), unmatched)
+                        }
+                    }
 
                 val failureResult = results.find { it.result is Failure }?.result
 
                 failureResult ?: provisionalFailure(results) ?: Success()
             }
+
             else -> patternMismatchResult(this, otherResolvedPattern, thisResolver.mismatchMessages)
         }.breadCrumb(this.pattern.name)
     }
@@ -722,8 +823,11 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         otherResolver: Resolver,
         typeStack: TypeStack,
     ): Result {
-        val thisAttributes = pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") }
-        val otherAttributes = otherResolvedPattern.pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") }
+        val thisAttributes =
+            pattern.attributes.filterNot { it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:") }
+        val otherAttributes = otherResolvedPattern.pattern.attributes.filterNot {
+            it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) || it.key.startsWith("xmlns:")
+        }
 
         val declaredAttributeResult = mapEncompassesMap(
             thisAttributes,
@@ -734,12 +838,13 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
         )
 
         val thisAttributeNames = thisAttributes.keys.map(::withoutOptionality).toSet()
-        val extraAttributeFailures = otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
-            when {
-                pattern.attributeWildcards.any { it.namespaceConstraint.allows(null) } -> null
-                else -> Failure("XML attribute compatibility failed: attribute \"$attributeName\" is present in the other pattern, but this pattern does not declare it and has no anyAttribute wildcard that allows it.")
+        val extraAttributeFailures =
+            otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
+                when {
+                    pattern.attributeWildcards.any { it.namespaceConstraint.allows(null) } -> null
+                    else -> Failure("XML attribute compatibility failed: attribute \"$attributeName\" is present in the other pattern, but this pattern does not declare it and has no anyAttribute wildcard that allows it.")
+                }
             }
-        }
 
         val wildcardFailures = otherResolvedPattern.pattern.attributeWildcards.mapNotNull { otherWildcard ->
             when {
@@ -779,32 +884,33 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 
     private fun dropOneIfMatching(remainder: List<Pattern>, test: (Pattern) -> Result): List<Pattern> {
-        if(remainder.isEmpty())
+        if (remainder.isEmpty())
             return remainder
 
         val first = remainder.first()
 
-        return when(test(first)) {
+        return when (test(first)) {
             is Success -> remainder.drop(1)
             is Failure -> remainder
         }
     }
 
     private fun encompassResult(
-            thisOne: Pattern,
-            otherOne: Pattern,
-            thisResolver: Resolver,
-            otherResolver: Resolver,
-            typeStack: TypeStack
+        thisOne: Pattern,
+        otherOne: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
     ): Result {
         return try {
             val otherOneAdjustedForExactValue = when {
                 otherOne is ExactValuePattern && otherOne.pattern is StringValue -> ExactValuePattern(
-                        thisOne.parse(
-                                otherOne.pattern.string,
-                                thisResolver
-                        )
+                    thisOne.parse(
+                        otherOne.pattern.string,
+                        thisResolver
+                    )
                 )
+
                 else -> otherOne
             }
 
@@ -832,6 +938,7 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     private fun nodeNamesShouldBeEqual(otherResolvedPattern: XMLPattern) = when {
         pattern.name != otherResolvedPattern.pattern.name ->
             Failure("Expected a node named ${pattern.name}, but got ${otherResolvedPattern.pattern.name} instead.")
+
         else -> Success()
     }
 
@@ -852,16 +959,16 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
                 throw ContractException("A list specification inside an XML definition must refer to an XML type. But $typeName is not an XML type.")
 
             val multipleOccursAttribute =
-                    mapOf(OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(MULTIPLE_ATTRIBUTE_VALUE)))
+                mapOf(OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(MULTIPLE_ATTRIBUTE_VALUE)))
 
             return listOf(
-                    type.copy(
-                            pattern = type.pattern.copy(
-                                    attributes = type.pattern.attributes.plus(
-                                            multipleOccursAttribute
-                                    )
-                            )
+                type.copy(
+                    pattern = type.pattern.copy(
+                        attributes = type.pattern.attributes.plus(
+                            multipleOccursAttribute
+                        )
                     )
+                )
             )
         }
 
@@ -896,6 +1003,6 @@ data class XMLPattern(override val pattern: XMLTypeData = XMLTypeData(realName =
     }
 }
 
-private fun <T> PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT (value: T, s: String): T {
+private fun <T> PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(value: T, s: String): T {
     return value
 }
