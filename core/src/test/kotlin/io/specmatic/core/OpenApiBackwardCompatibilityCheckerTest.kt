@@ -79,6 +79,27 @@ class OpenApiBackwardCompatibilityCheckerTest {
         assertThat(existsMessage).contains("number", "string")
     }
 
+    @Test
+    fun `should mark only the breaking GET operation as failed when sibling POST stays compatible`(@TempDir tempDir: File) {
+        val v1 = OpenApiSpecification.fromFile("src/test/resources/openapi/products_get_break/openapi_v1.yaml").toFeature()
+        val v2 = OpenApiSpecification.fromFile("src/test/resources/openapi/products_get_break/openapi_v2.yaml").toFeature()
+
+        OpenApiBackwardCompatibilityChecker(v1, v2).run(tempDir)
+
+        val report = extractEmbeddedReport(File(tempDir, "html/index.html"))
+        val tests = report["results"]["tests"].toList()
+
+        val getTest = tests.single { it["name"].asText().contains("GET /products/{id}") }
+        assertThat(getTest["status"].asText()).isEqualTo("failed")
+        val getMessage = getTest["message"].asText()
+        assertThat(getMessage).contains("RESPONSE.BODY.name")
+        assertThat(getMessage).contains("R1001", "Type mismatch")
+        assertThat(getMessage).contains("number", "string")
+
+        val postTest = tests.single { it["name"].asText().contains("POST /products/{id}") }
+        assertThat(postTest["status"].asText()).isEqualTo("passed")
+    }
+
     private fun extractEmbeddedReport(htmlFile: File): JsonNode {
         val html = htmlFile.readText()
         val marker = "const report = "

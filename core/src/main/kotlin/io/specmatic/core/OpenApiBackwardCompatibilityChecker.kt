@@ -7,7 +7,6 @@ import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
-import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.coverage.OmittedStatus
@@ -15,7 +14,6 @@ import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.TestResultRecord
-import io.specmatic.test.TestResultRecord.Companion.BACKWARD_COMPATIBILITY_TEST_TYPE
 import io.specmatic.test.asserts.toFailure
 import io.specmatic.test.openAPIOperationFrom
 import java.io.File
@@ -76,7 +74,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
                 specification = oldFeature.path,
                 specType = SpecType.OPENAPI,
                 protocol = operation.protocol,
-                testType = BACKWARD_COMPATIBILITY_TEST_TYPE,
+                testType = "Backward Compatibility",
             )
             CoverageReportOperation(
                 operation = operation,
