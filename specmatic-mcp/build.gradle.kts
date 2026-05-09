@@ -6,7 +6,7 @@ plugins {
 dependencies {
     implementation(project(":specmatic-core"))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0")
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
     implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
