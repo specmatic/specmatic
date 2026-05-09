@@ -233,6 +233,76 @@ internal class XMLWildcardPatternTest {
     }
 
     @Test
+    fun `other namespace attribute wildcard encompasses concrete foreign namespace attribute`() {
+        val thisPattern = XMLPattern(
+            XMLTypeData(
+                name = "Parent",
+                realName = "Parent",
+                attributeWildcards = listOf(XMLAttributeWildcard(xmlNamespaceConstraint("##other", TARGET_NAMESPACE)))
+            )
+        )
+        val otherPattern = XMLPattern("""<Parent xmlns:ext="$FOREIGN_NAMESPACE" ext:tracking="(string)"/>""")
+
+        assertThat(thisPattern.encompasses(otherPattern, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `other namespace attribute wildcard does not encompass concrete local attribute`() {
+        val thisPattern = XMLPattern(
+            XMLTypeData(
+                name = "Parent",
+                realName = "Parent",
+                attributeWildcards = listOf(XMLAttributeWildcard(xmlNamespaceConstraint("##other", TARGET_NAMESPACE)))
+            )
+        )
+        val otherPattern = XMLPattern("""<Parent tracking="(string)"/>""")
+
+        assertThat(thisPattern.encompasses(otherPattern, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `local namespace attribute wildcard does not encompass concrete foreign namespace attribute`() {
+        val thisPattern = XMLPattern(
+            XMLTypeData(
+                name = "Parent",
+                realName = "Parent",
+                attributeWildcards = listOf(XMLAttributeWildcard(xmlNamespaceConstraint("##local", TARGET_NAMESPACE)))
+            )
+        )
+        val otherPattern = XMLPattern("""<Parent xmlns:ext="$FOREIGN_NAMESPACE" ext:tracking="(string)"/>""")
+
+        assertThat(thisPattern.encompasses(otherPattern, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `target namespace attribute wildcard encompasses concrete target namespace attribute`() {
+        val thisPattern = XMLPattern(
+            XMLTypeData(
+                name = "Parent",
+                realName = "Parent",
+                attributeWildcards = listOf(XMLAttributeWildcard(xmlNamespaceConstraint("##targetNamespace", TARGET_NAMESPACE)))
+            )
+        )
+        val otherPattern = XMLPattern("""<Parent xmlns:tns="$TARGET_NAMESPACE" tns:tracking="(string)"/>""")
+
+        assertThat(thisPattern.encompasses(otherPattern, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `attribute wildcard compatibility uses predeclared xml namespace`() {
+        val thisPattern = XMLPattern(
+            XMLTypeData(
+                name = "Parent",
+                realName = "Parent",
+                attributeWildcards = listOf(XMLAttributeWildcard(xmlNamespaceConstraint(XML_NAMESPACE, TARGET_NAMESPACE)))
+            )
+        )
+        val otherPattern = XMLPattern("""<Parent xml:id="(string)"/>""")
+
+        assertThat(thisPattern.encompasses(otherPattern, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `xml pattern without attribute wildcard is not backward compatible with other attribute wildcard`() {
         val thisPattern = XMLPattern(XMLTypeData(name = "Parent", realName = "Parent"))
         val otherPattern = XMLPattern(
@@ -257,5 +327,6 @@ internal class XMLWildcardPatternTest {
     companion object {
         private const val TARGET_NAMESPACE = "urn:target"
         private const val FOREIGN_NAMESPACE = "urn:foreign"
+        private const val XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
     }
 }

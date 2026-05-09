@@ -33,7 +33,8 @@ fun toTypeData(node: XMLNode, isSOAP: Boolean? = null, isSOAPHeader: Boolean = f
         nodes = nodeTypes(node, isSOAP),
         isSOAP = isSOAP,
         namespaceUri = node.elementNamespaceUriOrNull(),
-        isSOAPHeader = isSOAPHeader
+        isSOAPHeader = isSOAPHeader,
+        attributeNamespaceUris = attributeNamespaceUriMap(node)
     )
 }
 
@@ -60,6 +61,17 @@ private fun attributeTypeMap(node: XMLNode): Map<String, Pattern> {
         }
     }
 }
+
+private fun attributeNamespaceUriMap(node: XMLNode): Map<String, String?> {
+    return node.attributes.keys
+        .filterNot(::isNamespaceDeclarationAttribute)
+        .associate { attributeName ->
+            withoutOptionality(attributeName) to node.attributeNamespaceUri(attributeName)
+        }
+}
+
+private fun isNamespaceDeclarationAttribute(attributeName: String): Boolean =
+    attributeName == "xmlns" || attributeName.startsWith("xmlns:")
 
 data class XMLPattern(
     override val pattern: XMLTypeData = XMLTypeData(realName = ""),
@@ -911,8 +923,9 @@ data class XMLPattern(
         val thisAttributeNames = thisAttributes.keys.map(::withoutOptionality).toSet()
         val extraAttributeFailures =
             otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
+                val namespaceUri = otherResolvedPattern.pattern.attributeNamespaceUri(attributeName)
                 when {
-                    pattern.attributeWildcards.any { it.namespaceConstraint.allows(null) } -> null
+                    pattern.attributeWildcards.any { it.namespaceConstraint.allows(namespaceUri) } -> null
                     else -> Failure("XML attribute compatibility failed: attribute \"$attributeName\" is present in the other pattern, but this pattern does not declare it and has no anyAttribute wildcard that allows it.")
                 }
             }

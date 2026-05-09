@@ -29,6 +29,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         val attributes = complexType.getAttributes()
         val attributePatterns = attributePatternMap(attributes)
+        val attributeNamespaceUris = attributeNamespaceMap(attributes)
         val attributeWildcards = complexType.getAttributeWildcards()
 
         val childTypeInfos = try {
@@ -50,8 +51,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             accumulated.plus(childTypeInfo.types)
         }
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
-            1 -> XMLPattern(childTypeInfos.single().xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards))
-            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards)) }, extensions = emptyMap())
+            1 -> XMLPattern(childTypeInfos.single().xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards, attributeNamespaceUris = attributeNamespaceUris))
+            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards, attributeNamespaceUris = attributeNamespaceUris)) }, extensions = emptyMap())
         }
         val types = childTypes.plus(specmaticTypeName to resolvedPattern)
 

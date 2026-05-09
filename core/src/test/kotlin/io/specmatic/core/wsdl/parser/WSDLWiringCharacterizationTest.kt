@@ -1126,6 +1126,7 @@ class WSDLWiringCharacterizationTest {
         )
 
         assertXmlAttribute(personPattern, "traceId", "(string)")
+        assertThat(personPattern.pattern.attributeNamespaceUri("traceId")).isEqualTo("http://example.com/attribute-types")
     }
 
     @Test
@@ -1138,6 +1139,7 @@ class WSDLWiringCharacterizationTest {
         val personPattern = typeInfo.types.getValue("PersonType") as XMLPattern
 
         assertXmlAttribute(personPattern, "id", "(string)")
+        assertThat(personPattern.pattern.attributeNamespaceUri("id")).isEqualTo("http://www.w3.org/XML/1998/namespace")
     }
 
     @Test

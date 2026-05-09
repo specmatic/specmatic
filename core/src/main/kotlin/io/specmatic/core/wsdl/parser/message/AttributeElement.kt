@@ -21,10 +21,25 @@ class AttributeElement(xmlNode: XMLNode, wsdl: WSDL) {
     val name: String = fromNameAttribute(resolvedAttribute)
         ?: throw ContractException("'name' not defined for attribute: ${xmlNode.oneLineDescription}")
     val type: Value = attributeTypeValue(resolvedAttribute, wsdl)
+    val namespaceUri: String? = attributeNamespaceUri(xmlNode)
     private val mandatory: Boolean = isMandatory(resolvedAttribute) ?: false
     val nameWithOptionality: String = when (mandatory) {
         true -> name
         else -> "${name}${XML_ATTR_OPTIONAL_SUFFIX}"
+    }
+}
+
+private fun attributeNamespaceUri(attribute: XMLNode): String? {
+    if (attribute.attributes.containsKey("ref")) {
+        return attribute.fullyQualifiedNameFromAttribute("ref").namespace.takeIf { it.isNotBlank() }
+    }
+
+    val attributeForm = attribute.attributes["form"]?.toStringLiteral()
+    val schemaAttributeFormDefault = attribute.schema?.attributes?.get("attributeFormDefault")?.toStringLiteral()
+
+    return when (attributeForm ?: schemaAttributeFormDefault) {
+        "qualified" -> schemaTargetNamespace(attribute)
+        else -> null
     }
 }
 
@@ -85,6 +100,9 @@ fun attributePatternMap(attributes: List<AttributeElement>): Map<String, Pattern
 
     return attributes.associate { it.nameWithOptionality to it.type.exactMatchElseType() }
 }
+
+fun attributeNamespaceMap(attributes: List<AttributeElement>): Map<String, String?> =
+    attributes.associate { withoutOptionality(it.nameWithOptionality) to it.namespaceUri }
 
 private fun expandAttributes(
     parentNode: XMLNode,

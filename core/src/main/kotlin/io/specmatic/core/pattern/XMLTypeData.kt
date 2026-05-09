@@ -14,6 +14,7 @@ data class XMLTypeData(
     val namespaceUri: String? = null,
     val attributeWildcards: List<XMLAttributeWildcard> = emptyList(),
     val isSOAPHeader: Boolean = false,
+    val attributeNamespaceUris: Map<String, String?> = emptyMap(),
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
@@ -24,6 +25,9 @@ data class XMLTypeData(
 
     fun getAttributeValue(name: String): String? =
         (attributes[name] as ExactValuePattern?)?.pattern?.toStringLiteral()
+
+    fun attributeNamespaceUri(attributeName: String): String? =
+        attributeNamespaceUris[withoutOptionality(attributeName)]
 
     fun isEmpty(): Boolean {
         return name.isEmpty() && attributes.isEmpty() && nodes.isEmpty()
