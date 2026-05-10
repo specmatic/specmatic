@@ -448,7 +448,7 @@ class LenientParserTest {
                     }
                 },
 
-                multiVersionLenientCase(name = "object schema not supported", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "object schema with non-exploded form serialization not supported", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
                             path("/test") {
@@ -456,6 +456,8 @@ class LenientParserTest {
                                     parameter {
                                         put("name", "filter")
                                         put("in", "query")
+                                        put("style", "form")
+                                        put("explode", false)
                                         put("schema", mapOf("type" to "object"))
                                     }
                                 }
@@ -466,10 +468,10 @@ class LenientParserTest {
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
-                        toMatchText("Query parameter filter is an object, and not yet supported")
+                        toMatchText("Query parameter filter is an object, and only style form with explode true is supported")
                     }
                 },
-                multiVersionLenientCase(name = "refed out object schema not supported", *OpenApiVersion.allVersions()) {
+                multiVersionLenientCase(name = "refed out object schema with non-exploded form serialization not supported", *OpenApiVersion.allVersions()) {
                     openApi {
                         paths {
                             path("/test") {
@@ -477,6 +479,8 @@ class LenientParserTest {
                                     parameter {
                                         put("name", "filter")
                                         put("in", "query")
+                                        put("style", "form")
+                                        put("explode", false)
                                         put("schema", mapOf("\$ref" to "#/components/schemas/FilterObject"))
                                     }
                                 }
@@ -494,7 +498,7 @@ class LenientParserTest {
                     assert("paths./test.get.parameters[0].schema") {
                         toHaveSeverity(IssueSeverity.WARNING)
                         toContainViolation(OpenApiLintViolations.UNSUPPORTED_FEATURE)
-                        toMatchText("Query parameter filter is an object, and not yet supported")
+                        toMatchText("Query parameter filter is an object, and only style form with explode true is supported")
                     }
                 },
             ).flatten().stream()

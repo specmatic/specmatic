@@ -1,6 +1,8 @@
 package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.QueryParameters
 import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
@@ -211,6 +213,163 @@ class OpenApiSpecificationParseTest {
 
         val headerPattern = requestPattern.headersPattern.pattern["X-Request-Id"]
         assertThat(headerPattern).isInstanceOf(NumberPattern::class.java)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `should parse form exploded object query parameter properties as query params`(explicitSerialization: Boolean) {
+        val serialization = if (explicitSerialization) {
+            "          style: form\n          explode: true\n"
+        } else {
+            ""
+        }
+        val spec = """
+            |openapi: 3.0.0
+            |info:
+            |  title: Form Exploded Object Query Param
+            |  version: 1.0.0
+            |paths:
+            |  /orders:
+            |    get:
+            |      parameters:
+            |        - in: query
+            |          name: info
+            |          required: true
+            |${serialization}          schema:
+            |            ${"$"}ref: '#/components/schemas/info'
+            |        - in: query
+            |          name: type
+            |          required: false
+            |          schema:
+            |            type: string
+            |      responses:
+            |        '200':
+            |          description: OK
+            |components:
+            |  schemas:
+            |    info:
+            |      type: object
+            |      required:
+            |        - name
+            |      properties:
+            |        name:
+            |          type: string
+            |        description:
+            |          type: string
+        """.trimMargin()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactlyInAnyOrder("name", "description?", "type?")
+        assertThat(queryParamPattern.queryPatterns).doesNotContainKey("info")
+        assertThat(queryParamPattern.queryPatterns["name"]).isInstanceOf(QueryParameterScalarPattern::class.java)
+
+        val result = queryParamPattern.matches(
+            HttpRequest(
+                "GET",
+                "/orders",
+                queryParams = QueryParameters(listOf("name" to "Jane", "description" to "buyer", "type" to "retail"))
+            ),
+            Resolver()
+        )
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should require required object properties only when optional form exploded object query param is present`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Optional Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: false
+                      schema:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val withoutInfo = queryParamPattern.matches(
+            HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("type" to "retail"))),
+            Resolver()
+        )
+        assertThat(withoutInfo).isInstanceOf(Result.Success::class.java)
+
+        val partialInfo = queryParamPattern.matches(
+            HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("description" to "buyer"))),
+            Resolver()
+        )
+        assertThat(partialInfo).isInstanceOf(Result.Failure::class.java)
+        assertThat(partialInfo.reportString()).contains("name")
+
+        val completeInfo = queryParamPattern.matches(
+            HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("name" to "Jane"))),
+            Resolver()
+        )
+        assertThat(completeInfo).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `standalone query parameter colliding with form exploded object property should be reported and dropped`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
+        val queryPatterns = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern.queryPatterns
+        val typePattern = queryPatterns["type"]
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("conflicts with form-exploded object query parameter info.type")
+        assertThat(queryPatterns.keys).containsExactly("type")
+        assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
     }
 
     @ParameterizedTest(name = "openapi {0}")

@@ -624,6 +624,31 @@ class HttpQueryParamPatternTest {
         }
 
         @Test
+        fun `should add missing required property when optional form exploded object query param is partially present`() {
+            val queryPattern = HttpQueryParamPattern(
+                mapOf(
+                    "name?" to QueryParameterScalarPattern(StringPattern()),
+                    "description?" to QueryParameterScalarPattern(StringPattern())
+                ),
+                formExplodedObjectQueryParams = listOf(
+                    FormExplodedObjectQueryParam(
+                        parameterName = "info",
+                        required = false,
+                        propertyKeys = setOf("name", "description"),
+                        requiredPropertyKeys = setOf("name")
+                    )
+                )
+            )
+            val invalidValue = QueryParameters(listOf("description" to "buyer"))
+
+            val dictionary = "PARAMETERS: { QUERY: { name: Jane } }".let(Dictionary::fromYaml)
+            val fixedValue = queryPattern.fixValue(invalidValue, Resolver(dictionary = dictionary))
+
+            assertThat(fixedValue.keys).containsExactlyInAnyOrder("name", "description")
+            assertThat(fixedValue.getValues("description")).containsExactly("buyer")
+        }
+
+        @Test
         fun `should not add missing optional keys`() {
             val queryPattern = HttpQueryParamPattern(mapOf("petId" to NumberPattern(), "owner?" to StringPattern()))
 
