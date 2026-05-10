@@ -32,9 +32,10 @@ inline fun <Item> Iterable<Item>.firstSuccessOrFailures(evaluate: (Item) -> io.s
     val failures = mutableListOf<io.specmatic.core.Result.Failure>()
 
     for (item in this) {
-        val result = evaluate(item)
-        if (result !is io.specmatic.core.Result.Failure) return EarlyResult.FirstSuccess(item)
-        failures.add(result)
+        when (val result = evaluate(item)) {
+            is io.specmatic.core.Result.Success -> return EarlyResult.FirstSuccess(item)
+            is io.specmatic.core.Result.Failure -> failures.add(result)
+        }
     }
 
     return EarlyResult.Failures(failures)

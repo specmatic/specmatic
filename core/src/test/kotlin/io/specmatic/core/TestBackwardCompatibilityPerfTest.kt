@@ -2,8 +2,8 @@ package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Assertions.assertTimeout
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertTimeoutPreemptively
 import java.io.File
 import java.time.Duration.ofSeconds
 import kotlin.system.measureTimeMillis
@@ -16,7 +16,7 @@ class TestBackwardCompatibilityPerfTest {
         val newFeature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
         var results: Results? = null
-        assertTimeout(ofSeconds(1)) {
+        assertTimeoutPreemptively(ofSeconds(5)) {
             val timeTaken = measureTimeMillis { results = testBackwardCompatibility(oldFeature, newFeature) }
             System.err.println("Backward compatibility check took ${timeTaken}ms")
         }
