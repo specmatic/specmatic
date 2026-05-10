@@ -2620,7 +2620,7 @@ class OpenApiSpecification(
 
         val queryPattern: Map<String, Pattern> = filteredQueryPatternEntries.associate { it.key to it.pattern }
 
-        val additionalProperties = additionalPropertiesInQueryParam(queryParameters)
+        val additionalProperties = additionalPropertiesInQueryParam(parsedQueryParameters)
         return HttpQueryParamPattern(
             queryPattern,
             additionalProperties,
@@ -2644,7 +2644,8 @@ class OpenApiSpecification(
 
     private data class QueryParameterParseResult(
         val entries: List<QueryParameterPatternEntry>,
-        val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null
+        val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
+        val additionalProperties: Pattern? = null
     )
 
     private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>): QueryParameterParseResult {
@@ -2724,7 +2725,8 @@ class OpenApiSpecification(
                 required = parameter.required == true,
                 propertyKeys = schemaProperties.keys,
                 requiredPropertyKeys = requiredProperties
-            )
+            ),
+            additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
         )
     }
 
@@ -2761,13 +2763,20 @@ class OpenApiSpecification(
         )
     }
 
-    private fun additionalPropertiesInQueryParam(queryParameters: List<ParameterWithContext<QueryParameter>>): Pattern? {
-        val queryParamWithContext = queryParameters.firstOrNull {
-            it.parameter.schema.isSchema(OBJECT_TYPE, multi = false) && it.parameter.schema.extractAdditionalProperties() != null
-        } ?: return null
-        val additionalProperties = queryParamWithContext.parameter.schema.extractAdditionalProperties() ?: return null
+    private fun additionalPropertiesInQueryParam(parsedQueryParameters: List<QueryParameterParseResult>): Pattern? {
+        val additionalProperties = parsedQueryParameters.mapNotNull(QueryParameterParseResult::additionalProperties).distinct()
+        return when {
+            additionalProperties.isEmpty() -> null
+            additionalProperties.any { it is AnythingPattern } -> AnythingPattern
+            additionalProperties.size == 1 -> additionalProperties.single()
+            else -> AnyPattern(additionalProperties, extensions = emptyMap())
+        }
+    }
 
-        val additionalPropContext = queryParamWithContext.collectorContext.at("additionalProperties")
+    private fun additionalPropertiesInQueryParam(schema: Schema<*>, collectorContext: CollectorContext): Pattern? {
+        val additionalProperties = schema.extractAdditionalProperties() ?: return null
+
+        val additionalPropContext = collectorContext.at("additionalProperties")
         return when (additionalProperties) {
             true -> AnythingPattern
             is Schema<*> -> toSpecmaticPattern(additionalProperties, emptyList(), collectorContext = additionalPropContext)

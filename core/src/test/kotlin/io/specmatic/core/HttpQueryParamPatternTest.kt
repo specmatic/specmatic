@@ -563,7 +563,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `an additional query param should be added in a generated value`() {
+    fun `an additional query param should not be added in a generated value`() {
         val queryPattern = HttpQueryParamPattern(mapOf("key" to QueryParameterScalarPattern(NumberPattern())), NumberPattern())
 
         val generatedValue = queryPattern.generate(Resolver())
@@ -571,24 +571,58 @@ class HttpQueryParamPatternTest {
         val keys = generatedValue.map { it.first }
         val values = generatedValue.map { it.second }
 
-        assertThat(generatedValue).hasSize(2)
-        assertThat(keys).contains("key")
-        assertThat(keys.filter { it != "key" }).hasSize(1)
+        assertThat(generatedValue).hasSize(1)
+        assertThat(keys).containsExactly("key")
         assertThat(values).allSatisfy {
             assertThat(it.toIntOrNull()).withFailMessage("$it was expected to be a number").isNotNull()
         }
     }
 
     @Test
-    fun `an additional query param should be added in a test`() {
+    fun `an additional query param should not be added in a test`() {
         val queryPattern = HttpQueryParamPattern(mapOf("key" to QueryParameterScalarPattern(NumberPattern())), NumberPattern())
 
         val generatedValue = queryPattern.newBasedOn(Row(), Resolver()).toList().map { it.value.queryPatterns }
 
         assertThat(generatedValue).hasSize(1)
-        assertThat(generatedValue.first()).hasSize(2)
-        assertThat(generatedValue.first().keys).contains("key")
-        assertThat(generatedValue.first().keys.filter { it != "key" }).hasSize(1)
+        assertThat(generatedValue.first()).containsOnlyKeys("key")
+    }
+
+    @Test
+    fun `valid additional query params should be preserved when fixing values`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("key" to QueryParameterScalarPattern(NumberPattern())),
+            NumberPattern()
+        )
+
+        val fixedValue = queryPattern.fixValue(QueryParameters(mapOf("key" to "10", "extra" to "20")), Resolver())
+
+        assertThat(fixedValue.asMap()).containsEntry("extra", "20")
+    }
+
+    @Test
+    fun `invalid additional query params should be fixed when fixing values`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("key" to QueryParameterScalarPattern(NumberPattern())),
+            NumberPattern()
+        )
+
+        val fixedValue = queryPattern.fixValue(QueryParameters(mapOf("key" to "10", "extra" to "abc")), Resolver())
+
+        assertThat(fixedValue.asMap()["extra"]).isNotEqualTo("abc")
+        assertThat(fixedValue.asMap()["extra"]?.toDoubleOrNull()).isNotNull()
+    }
+
+    @Test
+    fun `valid additional query params should be preserved when filling blanks`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("key" to QueryParameterScalarPattern(NumberPattern())),
+            NumberPattern()
+        )
+
+        val filledValue = queryPattern.fillInTheBlanks(QueryParameters(mapOf("key" to "10", "extra" to "20")), Resolver()).value
+
+        assertThat(filledValue.asMap()).containsEntry("extra", "20")
     }
 
     @Test

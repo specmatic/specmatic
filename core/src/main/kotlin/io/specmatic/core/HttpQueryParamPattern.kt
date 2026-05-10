@@ -38,23 +38,13 @@ data class HttpQueryParamPattern(
                         listOf(parameterName to generatedValue.toString())
                     }
                 }
-            }.let { queryParamPairs ->
-                if(additionalProperties == null)
-                    queryParamPairs
-                else
-                    queryParamPairs.plus(randomString(5) to additionalProperties.generate(resolver).toStringLiteral())
             }
         }
     }
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = effectiveQueryPatterns(row).let {
-                if(additionalProperties != null)
-                    it.plus(randomString(5) to additionalProperties)
-                else
-                    it
-            }
+            val queryParams = effectiveQueryPatterns(row)
             val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
             allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
@@ -63,6 +53,7 @@ data class HttpQueryParamPattern(
                 it.ifValue {
                     HttpQueryParamPattern(
                         it.mapKeys { entry -> withoutOptionality(entry.key) },
+                        additionalProperties = additionalProperties,
                         extensibleQueryParams = extensibleQueryParams,
                         formExplodedObjectQueryParams = formExplodedObjectQueryParams
                     )
@@ -75,7 +66,7 @@ data class HttpQueryParamPattern(
         return addComplimentaryPatterns(
             basePatterns.map { rValue -> rValue.ifValue { it.queryPatterns } },
             queryPatterns,
-            additionalProperties,
+            null,
             row,
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
@@ -83,6 +74,7 @@ data class HttpQueryParamPattern(
             patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) { patternMap ->
                 HttpQueryParamPattern(
                     patternMap.mapKeys { entry -> withoutOptionality(entry.key) },
+                    additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams
                 )
@@ -151,12 +143,7 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = queryPatterns.let {
-                if(additionalProperties != null)
-                    it.plus(randomString(5) to additionalProperties)
-                else
-                    it
-            }
+            val queryParams = queryPatterns
 
             allOrNothingCombinationIn(
                 queryParams,
@@ -167,6 +154,7 @@ data class HttpQueryParamPattern(
             ).map {
                 HttpQueryParamPattern(
                     it.value,
+                    additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams
                 )
@@ -204,6 +192,7 @@ data class HttpQueryParamPattern(
                     patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) {
                         HttpQueryParamPattern(
                             it.mapKeys { entry -> withoutOptionality(entry.key) },
+                            additionalProperties = additionalProperties,
                             extensibleQueryParams = extensibleQueryParams,
                             formExplodedObjectQueryParams = formExplodedObjectQueryParams
                         )
@@ -228,6 +217,7 @@ data class HttpQueryParamPattern(
             pattern.ifValue {
                 HttpQueryParamPattern(
                     pattern.value,
+                    additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams
                 )
@@ -241,6 +231,9 @@ data class HttpQueryParamPattern(
     fun fixValue(queryParams: QueryParameters?, resolver: Resolver): QueryParameters {
         val queryParamsToFix = queryParams ?: QueryParameters(emptyMap())
         val effectivePatterns = effectiveQueryPatterns(queryParamsToFix)
+        val additionalQueryParams = matchingAdditionalQueryParams(queryParamsToFix, effectivePatterns, resolver)
+        val invalidAdditionalQueryPatterns = invalidAdditionalQueryParamPatterns(queryParamsToFix, effectivePatterns, resolver)
+        val patternsToFix = effectivePatterns + invalidAdditionalQueryPatterns
         val adjustedQueryParams = when {
             queryParamsToFix.paramPairs.isEmpty() -> QueryParameters(emptyMap())
             additionalProperties != null -> queryParamsToFix.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
@@ -252,17 +245,18 @@ data class HttpQueryParamPattern(
         } else resolver.withUnexpectedKeyCheck(ValidateUnexpectedKeys)
 
         val fixedQueryParams = fix(
-            jsonPatternMap = effectivePatterns, jsonValueMap = adjustedQueryParams.asValueMap(),
+            jsonPatternMap = patternsToFix, jsonValueMap = adjustedQueryParams.asValueMap(),
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value).withoutAllPatternsAsMandatory(),
-            jsonPattern = JSONObjectPattern(effectivePatterns, typeAlias = null)
+            jsonPattern = JSONObjectPattern(patternsToFix, typeAlias = null)
         )
 
-        return QueryParameters(fixedQueryParams.mapValues { it.value.toStringLiteral() })
+        return QueryParameters(fixedQueryParams.mapValues { it.value.toStringLiteral() }.toList() + additionalQueryParams.paramPairs)
     }
 
     fun fillInTheBlanks(queryParams: QueryParameters?, resolver: Resolver): ReturnValue<QueryParameters> {
         val queryParamsToFill = queryParams ?: QueryParameters(emptyMap())
         val effectivePatterns = effectiveQueryPatterns(queryParamsToFill)
+        val additionalQueryParams = matchingAdditionalQueryParams(queryParamsToFill, effectivePatterns, resolver)
         val adjustedQueryParams = when {
             queryParamsToFill.paramPairs.isEmpty() -> QueryParameters(emptyMap())
             additionalProperties != null -> queryParamsToFill.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
@@ -283,9 +277,25 @@ data class HttpQueryParamPattern(
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value),
             typeAlias = null
         ).realise(
-            hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() })) },
+            hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() }.toList() + additionalQueryParams.paramPairs)) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
+    }
+
+    private fun matchingAdditionalQueryParams(queryParams: QueryParameters, effectivePatterns: Map<String, Pattern>, resolver: Resolver): QueryParameters {
+        return additionalProperties?.let { queryParams.matching(effectivePatterns.normalizedKeys(), it, resolver) }
+            ?: QueryParameters(emptyMap())
+    }
+
+    private fun invalidAdditionalQueryParamPatterns(queryParams: QueryParameters, effectivePatterns: Map<String, Pattern>, resolver: Resolver): Map<String, Pattern> {
+        val additionalProperties = additionalProperties ?: return emptyMap()
+        val effectiveKeys = effectivePatterns.normalizedKeys()
+        val validAdditionalQueryParams = queryParams.matching(effectiveKeys, additionalProperties, resolver).paramPairs.toSet()
+
+        return queryParams.paramPairs
+            .filter { (key, _) -> key !in effectiveKeys }
+            .filterNot(validAdditionalQueryParams::contains)
+            .associate { (key, _) -> key to additionalProperties }
     }
 
     companion object {

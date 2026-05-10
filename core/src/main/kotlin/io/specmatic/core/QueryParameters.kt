@@ -102,17 +102,26 @@ data class QueryParameters(val paramPairs: List<Pair<String, String>> = emptyLis
 
     fun withoutMatching(patternKeys: Set<String>, additionalProperties: Pattern, resolver: Resolver): QueryParameters {
         return QueryParameters(paramPairs.filterNot { (key, value) ->
-            if(key in patternKeys)
-                return@filterNot false
-
-            try {
-                val parsedValue: Value = additionalProperties.parse(value, resolver)
-                additionalProperties.matches(parsedValue, resolver) is Result.Success
-            } catch(e: Throwable) {
-                false
-            }
-
+            matchesAdditionalProperty(key, value, patternKeys, additionalProperties, resolver)
         })
+    }
+
+    fun matching(patternKeys: Set<String>, additionalProperties: Pattern, resolver: Resolver): QueryParameters {
+        return QueryParameters(paramPairs.filter { (key, value) ->
+            matchesAdditionalProperty(key, value, patternKeys, additionalProperties, resolver)
+        })
+    }
+
+    private fun matchesAdditionalProperty(key: String, value: String, patternKeys: Set<String>, additionalProperties: Pattern, resolver: Resolver): Boolean {
+        if(key in patternKeys)
+            return false
+
+        return try {
+            val parsedValue: Value = additionalProperties.parse(value, resolver)
+            additionalProperties.matches(parsedValue, resolver) is Result.Success
+        } catch(e: Throwable) {
+            false
+        }
     }
 }
 

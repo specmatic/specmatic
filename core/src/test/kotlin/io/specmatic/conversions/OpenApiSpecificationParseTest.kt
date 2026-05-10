@@ -589,12 +589,169 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `form exploded object query params allow any additional query param with free form additional properties`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = true
+        )
+
+        val result = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(result).withFailMessage(result.reportString()).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `form exploded object query params allow any additional query param when any object allows free form additional properties`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = mapOf("type" to "boolean"),
+            departmentAdditionalProperties = true
+        )
+
+        val result = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(result).withFailMessage(result.reportString()).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `form exploded object query params restrict additional query params to a single schema`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = mapOf("type" to "boolean")
+        )
+
+        val validResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "true"))),
+            Resolver()
+        )
+        val invalidResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(validResult).withFailMessage(validResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(invalidResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `form exploded object query params allow additional query params matching any constrained schema`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = mapOf("type" to "boolean"),
+            departmentAdditionalProperties = mapOf("type" to "integer")
+        )
+
+        val booleanResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "true"))),
+            Resolver()
+        )
+        val integerResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "10"))),
+            Resolver()
+        )
+        val invalidResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean-or-integer"))),
+            Resolver()
+        )
+
+        assertThat(booleanResult).withFailMessage(booleanResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(integerResult).withFailMessage(integerResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(invalidResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `form exploded object query param should use additionalProperties from referenced object schema`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Referenced Object Query Param
+              version: 1.0.0
+            paths:
+              /test:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      schema:
+                        ${"$"}ref: '#/components/schemas/Info'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                Info:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                  additionalProperties:
+                    type: boolean
+        """.trimIndent()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val validResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "true"))),
+            Resolver()
+        )
+        val invalidResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(validResult).withFailMessage(validResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(invalidResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
     fun `should guard against the swagger-parser regression for discriminator mappings to external schema files with nested refs`() {
         val specFile = File("src/test/resources/openapi/discriminator_external_file_refs/openapi.yaml")
 
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
         assertThat(feature.scenarios).hasSize(1)
+    }
+
+    private fun queryParamPatternWithObjectAdditionalProperties(
+        personAdditionalProperties: Any?,
+        departmentAdditionalProperties: Any? = null
+    ) = OpenApiSpecification.fromYAML(
+        yamlMapper.writeValueAsString(
+            mapOf(
+                "openapi" to "3.0.0",
+                "info" to mapOf("title" to "Test API", "version" to "1.0.0"),
+                "paths" to mapOf(
+                    "/test" to mapOf(
+                        "get" to mapOf(
+                            "parameters" to listOf(
+                                mapOf(
+                                    "name" to "person_info",
+                                    "in" to "query",
+                                    "schema" to objectSchema("name", personAdditionalProperties)
+                                ),
+                                mapOf(
+                                    "name" to "department_info",
+                                    "in" to "query",
+                                    "schema" to objectSchema("department", departmentAdditionalProperties)
+                                )
+                            ),
+                            "responses" to mapOf("200" to mapOf("description" to "OK"))
+                        )
+                    )
+                )
+            )
+        ),
+        "test-api.yaml"
+    ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+    private fun objectSchema(propertyName: String, additionalProperties: Any?): Map<String, Any?> {
+        return buildMap {
+            put("type", "object")
+            put("properties", mapOf(propertyName to mapOf("type" to "string")))
+            if (additionalProperties != null) put("additionalProperties", additionalProperties)
+        }
     }
 
     companion object {
