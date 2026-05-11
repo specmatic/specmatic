@@ -2696,6 +2696,15 @@ class OpenApiSpecification(
 
         val requiredProperties = resolvedSchema.required.orEmpty().toSet()
         val schemaProperties = resolvedSchema.properties.orEmpty()
+
+        if (parameter.required == true && requiredProperties.isEmpty()) {
+            parameterContext.at("required").record(
+                message = "Query parameter ${parameter.name} is a required form-exploded object, but its schema does not define any required properties. Since form-exploded object parameters are represented by their properties, no property is made mandatory.",
+                ruleViolation = OpenApiLintViolations.SCHEMA_UNCLEAR,
+                isWarning = true
+            )
+        }
+
         val entries = schemaProperties.map { (propertyName, propertySchema) ->
             val propertyContext = schemaContext.at("properties").at(propertyName)
             val (resolvedPropertySchema, resolvedPropertyContext) = resolveSchemaIfRefElseAtSchema(

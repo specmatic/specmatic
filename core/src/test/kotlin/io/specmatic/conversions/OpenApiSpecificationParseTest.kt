@@ -3,19 +3,21 @@ package io.specmatic.conversions
 import integration_tests.OpenApiVersion
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.QueryParameters
+import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
-import io.specmatic.core.Result
-import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.stub.captureStandardOutput
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -328,6 +330,41 @@ class OpenApiSpecificationParseTest {
             Resolver()
         )
         assertThat(completeInfo).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `required form exploded object query param with no required properties treats all object properties as optional`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(requiredObjectQueryParamWithNoRequiredPropertiesSpec(), "")
+            .toFeature()
+            .scenarios
+            .single()
+            .httpRequestPattern
+            .httpQueryParamPattern
+
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactlyInAnyOrder("name?", "description?")
+
+        assertThat(queryParamPattern.matches(HttpRequest("GET", "/orders"), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(
+            queryParamPattern.matches(
+                HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("description" to "buyer"))),
+                Resolver()
+            )
+        ).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `required form exploded object query param with no required properties should warn`() {
+        val (stdout, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(requiredObjectQueryParamWithNoRequiredPropertiesSpec(), "spec.yaml").toFeature()
+        }
+
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./orders.get.parameters[0].required",
+                details = "Query parameter info is a required form-exploded object, but its schema does not define any required properties. Since form-exploded object parameters are represented by their properties, no property is made mandatory.",
+                OpenApiLintViolations.SCHEMA_UNCLEAR
+            )
+        )
     }
 
     @Test
@@ -752,6 +789,32 @@ class OpenApiSpecificationParseTest {
             put("properties", mapOf(propertyName to mapOf("type" to "string")))
             if (additionalProperties != null) put("additionalProperties", additionalProperties)
         }
+    }
+
+    private fun requiredObjectQueryParamWithNoRequiredPropertiesSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Required Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
     }
 
     companion object {
