@@ -198,6 +198,147 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    @Tag(GENERATION)
+    fun `should generate absent required-only and all combinations for optional form exploded object query params from row`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "name?" to QueryParameterScalarPattern(StringPattern()),
+                "description?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = false,
+                    propertyKeys = setOf("name", "description"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            )
+        )
+
+        val generatedPatterns = queryPattern.newBasedOn(Row(), Resolver()).toList().map { it.value.queryPatterns.keys }
+
+        assertThat(generatedPatterns).containsExactlyInAnyOrder(
+            emptySet(),
+            setOf("name"),
+            setOf("name", "description")
+        )
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate absent required-only and all combinations for optional form exploded object query params without row`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "name?" to QueryParameterScalarPattern(StringPattern()),
+                "description?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = false,
+                    propertyKeys = setOf("name", "description"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            )
+        )
+
+        val generatedPatterns = queryPattern.newBasedOn(Resolver()).toList().map { it.queryPatterns.keys }
+
+        assertThat(generatedPatterns).containsExactlyInAnyOrder(
+            emptySet(),
+            setOf("name"),
+            setOf("name", "description")
+        )
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate required-only and all combinations for mandatory form exploded object query params from row`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "name" to QueryParameterScalarPattern(StringPattern()),
+                "description?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = true,
+                    propertyKeys = setOf("name", "description"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            )
+        )
+
+        val generatedPatterns = queryPattern.newBasedOn(Row(), Resolver()).toList().map { it.value.queryPatterns.keys }
+
+        assertThat(generatedPatterns).containsExactlyInAnyOrder(
+            setOf("name"),
+            setOf("name", "description")
+        )
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate required-only and all combinations for mandatory form exploded object query params without row`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "name" to QueryParameterScalarPattern(StringPattern()),
+                "description?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = true,
+                    propertyKeys = setOf("name", "description"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            )
+        )
+
+        val generatedPatterns = queryPattern.newBasedOn(Resolver()).toList().map { it.queryPatterns.keys }
+
+        assertThat(generatedPatterns).containsExactlyInAnyOrder(
+            setOf("name"),
+            setOf("name", "description")
+        )
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate one required-only combination across multiple optional form exploded object query params`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "name?" to QueryParameterScalarPattern(StringPattern()),
+                "description?" to QueryParameterScalarPattern(StringPattern()),
+                "department?" to QueryParameterScalarPattern(StringPattern()),
+                "location?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "person_info",
+                    required = false,
+                    propertyKeys = setOf("name", "description"),
+                    requiredPropertyKeys = setOf("name")
+                ),
+                FormExplodedObjectQueryParam(
+                    parameterName = "department_info",
+                    required = false,
+                    propertyKeys = setOf("department", "location"),
+                    requiredPropertyKeys = setOf("department")
+                )
+            )
+        )
+
+        val generatedPatterns = queryPattern.newBasedOn(Row(), Resolver()).toList().map { it.value.queryPatterns.keys }
+
+        assertThat(generatedPatterns).containsExactlyInAnyOrder(
+            emptySet(),
+            setOf("name", "department"),
+            setOf("name", "description", "department", "location")
+        )
+    }
+
+    @Test
     fun `should correctly stringize a url matching having a query param with an array type`() {
         val matcher = HttpQueryParamPattern(mapOf("data" to CsvPattern(NumberPattern())))
         assertThat(matcher.toString()).isEqualTo("?data=(csv/number)")

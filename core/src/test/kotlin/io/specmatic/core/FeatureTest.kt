@@ -3293,6 +3293,57 @@ paths:
     }
 
     @Test
+    fun `validate externalized examples for absent required-only and all optional form exploded object query params`(@TempDir tempDir: File) {
+        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
+        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
+        writeExternalizedExample(examplesDir, "absent.json", "/data")
+        writeExternalizedExample(examplesDir, "required-only.json", "/data?name=Jane")
+        writeExternalizedExample(examplesDir, "all.json", "/data?name=Jane&description=buyer")
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+    }
+
+    @Test
+    fun `optional form exploded object query param example with only optional property should fail validation`(@TempDir tempDir: File) {
+        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
+        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
+        writeExternalizedExample(examplesDir, "optional-only.json", "/data?description=buyer")
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
+            assertThat(exceptionCauseMessage(exception)).contains("REQUEST.PARAMETERS.QUERY.name")
+        })
+    }
+
+    @Test
+    fun `validate externalized examples for required-only and all mandatory form exploded object query params`(@TempDir tempDir: File) {
+        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
+        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
+        writeExternalizedExample(examplesDir, "required-only.json", "/data?name=Jane")
+        writeExternalizedExample(examplesDir, "all.json", "/data?name=Jane&description=buyer")
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+    }
+
+    @Test
+    fun `mandatory form exploded object query param example with absent object should fail validation`(@TempDir tempDir: File) {
+        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
+        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
+        writeExternalizedExample(examplesDir, "absent.json", "/data")
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
+            assertThat(exceptionCauseMessage(exception)).contains("REQUEST.PARAMETERS.QUERY.name")
+        })
+    }
+
+    @Test
     @Disabled
     fun `should be able to stub out enum with string type using substitution`() {
         createStubFromContracts(
@@ -3937,6 +3988,54 @@ paths:
                 .filter { it.isFile && it.extension == "json" }
                 .sortedBy { it.name }
                 .map { ScenarioStub.readFromFile(it) }
+        }
+
+        private fun writeFormExplodedObjectQueryParamSpec(tempDir: File, objectParamRequired: Boolean = false): File {
+            return tempDir.resolve("object_query_param.yaml").apply {
+                writeText(
+                    """
+                    openapi: 3.0.0
+                    info:
+                      title: Object Query Param API
+                      version: 1.0.0
+                    paths:
+                      /data:
+                        get:
+                          parameters:
+                            - in: query
+                              name: info
+                              required: $objectParamRequired
+                              schema:
+                                type: object
+                                required:
+                                  - name
+                                properties:
+                                  name:
+                                    type: string
+                                  description:
+                                    type: string
+                          responses:
+                            '200':
+                              description: OK
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private fun writeExternalizedExample(examplesDir: File, fileName: String, path: String) {
+            examplesDir.resolve(fileName).writeText(
+                """
+                {
+                  "http-request": {
+                    "method": "GET",
+                    "path": "$path"
+                  },
+                  "http-response": {
+                    "status": 200
+                  }
+                }
+                """.trimIndent()
+            )
         }
     }
 

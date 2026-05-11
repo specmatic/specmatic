@@ -47,8 +47,8 @@ data class HttpQueryParamPattern(
             val queryParams = effectiveQueryPatterns(row)
             val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
-            allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
-                newMapBasedOn(pattern,row,withNullPattern(resolver))
+            queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(row)).flatMap { pattern ->
+                newMapBasedOn(pattern, row, withNullPattern(resolver))
             }.map { it: ReturnValue<Map<String, Pattern>> ->
                 it.ifValue {
                     HttpQueryParamPattern(
@@ -145,15 +145,11 @@ data class HttpQueryParamPattern(
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             val queryParams = queryPatterns
 
-            allOrNothingCombinationIn(
-                queryParams,
-                Row(),
-                null,
-                null,
-                returnValues { entry -> newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver) }
-            ).map {
+            queryParamCombinationsRespectingFormExplodedObjects(queryParams, Row()).flatMap { entry ->
+                newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver)
+            }.map {
                 HttpQueryParamPattern(
-                    it.value,
+                    it,
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams
@@ -298,6 +294,39 @@ data class HttpQueryParamPattern(
             .associate { (key, _) -> key to additionalProperties }
     }
 
+    private fun queryParamCombinationsRespectingFormExplodedObjects(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {
+        return allOrNothingQueryParamCombinations(patternMap, row)
+            .flatMap(::withRequiredOnlyVariantsForPresentFormExplodedObjects)
+            .distinct()
+    }
+
+    private fun allOrNothingQueryParamCombinations(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {
+        return allOrNothingCombinationIn(patternMap, row) { selectedPatternMap ->
+            sequenceOf(HasValue(selectedPatternMap))
+        }.map { it.value }
+    }
+
+    private fun withRequiredOnlyVariantsForPresentFormExplodedObjects(patternMap: Map<String, Pattern>): Sequence<Map<String, Pattern>> {
+        val requiredOnlyObjectPatternMap = requiredOnlyVariantForPresentFormExplodedObjects(patternMap)
+        return sequenceOf(patternMap) + listOfNotNull(requiredOnlyObjectPatternMap).asSequence()
+    }
+
+    private fun requiredOnlyVariantForPresentFormExplodedObjects(patternMap: Map<String, Pattern>): Map<String, Pattern>? {
+        val requiredOnlyPatternMap = formExplodedObjectQueryParams.fold(patternMap) { patterns, objectQueryParam ->
+            if (objectQueryParam.requiredPropertyKeys.isEmpty()) return@fold patterns
+            if (objectQueryParam.propertyKeys.none { propertyKey -> patterns.containsNormalizedKey(propertyKey) }) return@fold patterns
+
+            val optionalPropertyKeys = objectQueryParam.propertyKeys - objectQueryParam.requiredPropertyKeys
+            val patternsWithoutOptionalObjectProperties = patterns.filterKeys { key -> withoutOptionality(key) !in optionalPropertyKeys }
+
+            objectQueryParam.requiredPropertyKeys.fold(patternsWithoutOptionalObjectProperties) { updatedPatterns, propertyKey ->
+                updatedPatterns.makeKeyMandatory(propertyKey)
+            }
+        }
+
+        return requiredOnlyPatternMap.takeUnless { it == patternMap }
+    }
+
     companion object {
         private const val QUERY_PARAM_KEY_ID_IN_TEST_DETAILS = "param"
     }
@@ -334,6 +363,10 @@ data class HttpQueryParamPattern(
 
     private fun Map<String, Pattern>.normalizedKeys(): Set<String> {
         return keys.map(::withoutOptionality).toSet()
+    }
+
+    private fun Map<String, Pattern>.containsNormalizedKey(key: String): Boolean {
+        return containsKey(key) || containsKey(withOptionality(key))
     }
 }
 
