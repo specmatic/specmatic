@@ -284,6 +284,38 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    fun `should explain missing required properties when mandatory form exploded object query param has only optional property`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "name" to QueryParameterScalarPattern(StringPattern()),
+                "description?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = true,
+                    propertyKeys = setOf("name", "description"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            )
+        )
+
+        val result = queryPattern.matches(
+            HttpRequest("GET", "/", queryParams = QueryParameters(listOf("description" to "buyer"))),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+        assertThat(result.reportString()).isEqualToIgnoringWhitespace(
+            toViolationReportString(
+                breadCrumb = "PARAMETERS.QUERY.name",
+                details = "The request includes property \"description\" from required form-exploded query parameter object \"info\". Required property \"name\" must also be provided.",
+                StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+            )
+        )
+    }
+
+    @Test
     @Tag(GENERATION)
     fun `should generate required-only and all combinations for mandatory form exploded object query params from row`() {
         val queryPattern = HttpQueryParamPattern(

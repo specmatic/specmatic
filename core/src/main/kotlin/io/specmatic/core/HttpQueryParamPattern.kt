@@ -149,8 +149,7 @@ data class HttpQueryParamPattern(
 
     private fun missingRequiredFormExplodedObjectPropertyToResult(missingPropertyKey: String, queryParams: QueryParameters): Result.Failure? {
         val objectQueryParam = formExplodedObjectQueryParams.firstOrNull { objectQueryParam ->
-            !objectQueryParam.required &&
-                missingPropertyKey in objectQueryParam.requiredPropertyKeys &&
+            missingPropertyKey in objectQueryParam.requiredPropertyKeys &&
                 objectQueryParam.propertyKeys.any(queryParams::containsKey)
         } ?: return null
 
@@ -160,9 +159,22 @@ data class HttpQueryParamPattern(
         val missingRequiredProperties = propertyListMessage(missingRequiredPropertyKeys)
 
         return Result.Failure(
-            message = "The request includes $presentProperties from optional form-exploded query parameter object \"${objectQueryParam.parameterName}\". Since that object is present, required $missingRequiredProperties must also be provided.",
+            message = missingRequiredFormExplodedObjectPropertyMessage(objectQueryParam, presentProperties, missingRequiredProperties),
             ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
         )
+    }
+
+    private fun missingRequiredFormExplodedObjectPropertyMessage(
+        objectQueryParam: FormExplodedObjectQueryParam,
+        presentProperties: String,
+        missingRequiredProperties: String
+    ): String {
+        return when {
+            objectQueryParam.required ->
+                "The request includes $presentProperties from required form-exploded query parameter object \"${objectQueryParam.parameterName}\". Required $missingRequiredProperties must also be provided."
+            else ->
+                "The request includes $presentProperties from optional form-exploded query parameter object \"${objectQueryParam.parameterName}\". Since that object is present, required $missingRequiredProperties must also be provided."
+        }
     }
 
     private fun propertyListMessage(propertyKeys: List<String>): String {

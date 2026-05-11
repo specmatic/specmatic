@@ -3344,6 +3344,20 @@ paths:
     }
 
     @Test
+    fun `mandatory form exploded object query param example with only optional property should mention object query param name`(@TempDir tempDir: File) {
+        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
+        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
+        writeExternalizedExample(examplesDir, "optional-only.json", "/data?description=buyer")
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
+            assertThat(exceptionCauseMessage(exception))
+                .contains("The request includes property \"description\" from required form-exploded query parameter object \"info\"")
+        })
+    }
+
+    @Test
     @Disabled
     fun `should be able to stub out enum with string type using substitution`() {
         createStubFromContracts(
