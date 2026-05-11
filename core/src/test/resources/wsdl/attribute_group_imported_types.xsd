@@ -1,0 +1,15 @@
+<schema targetNamespace="http://example.com/imported-attribute-group"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:imp="http://example.com/imported-attribute-group">
+    <attributeGroup name="ImportedAttrs">
+        <attribute name="externalTrace" type="string" use="required"/>
+        <attribute name="externalTenant" type="string"/>
+    </attributeGroup>
+
+    <complexType name="ImportedPersonType">
+        <sequence>
+            <element name="name" type="string"/>
+        </sequence>
+        <attributeGroup ref="imp:ImportedAttrs"/>
+    </complexType>
+</schema>

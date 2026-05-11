@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Simple API
+  version: 1.0.0
+paths:
+  /exists/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Simple test POST endpoint
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - field
+              properties:
+                field:
+                  type: integer
+          application/merge-patch+json:
+            schema:
+              type: object
+              required:
+                - field2
+              properties:
+                field2:
+                  type: integer
+      responses:
+        '200':
+          description: A simple integer response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: integer
+            application/merge-meta+json:
+              schema:
+                type: object
+                required:
+                  - field2
+                properties:
+                  field2:
+                    type: integer
+        '201':
+          description: A simple integer response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: integer
+            application/merge-meta+json:
+              schema:
+                type: object
+                required:
+                  - field2
+                properties:
+                  field2:
+                    type: integer
+  /new:
+    get:
+      summary: New endpoint
+      responses:
+        '200':
+          description: A simple integer response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: integer

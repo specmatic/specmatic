@@ -7,12 +7,12 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 
 data class EmptySOAPPayload(private val soapMessageType: SOAPMessageType): SOAPPayload {
-    override fun specmaticStatement(requestHeaders: RequestHeaders): List<String> {
+    override fun specmaticStatement(headers: RequestHeaders): List<String> {
         val body = emptySoapMessage()
         return listOf("And ${soapMessageType.specmaticBodyType}-body\n\"\"\"\n$body\n\"\"\"")
     }
 
-    override fun toPattern(requestHeaders: RequestHeaders): Pattern {
+    override fun toPattern(headers: RequestHeaders): Pattern {
         return XMLPattern(emptySoapMessage(), isSOAP = true)
     }
 }

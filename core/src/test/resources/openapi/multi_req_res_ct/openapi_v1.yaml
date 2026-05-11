@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Simple API
+  version: 1.0.0
+paths:
+  /missing:
+    get:
+      summary: Missing endpoint
+      responses:
+        '200':
+          description: A simple string response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: string
+  /exists/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Simple POST endpoint
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - field
+              properties:
+                field:
+                  type: string
+          application/merge-patch+json:
+            schema:
+              type: object
+              required:
+                - field2
+              properties:
+                field2:
+                  type: string
+      responses:
+        '200':
+          description: A simple string response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: string
+            application/merge-meta+json:
+              schema:
+                type: object
+                required:
+                  - field2
+                properties:
+                  field2:
+                    type: string
+        '201':
+          description: A simple string response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: string
+            application/merge-meta+json:
+              schema:
+                type: object
+                required:
+                  - field2
+                properties:
+                  field2:
+                    type: string

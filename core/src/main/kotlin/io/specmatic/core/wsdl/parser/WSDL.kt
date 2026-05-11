@@ -305,6 +305,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         }
     }
 
+    fun findAttributeGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
+        val schema = findSchema(fullyQualifiedName.namespace, localSchema)
+        return schema.findByNodeNameAndAttribute("attributeGroup", "name", fullyQualifiedName.localName)
+    }
+
     private fun findSchema(namespace: String, schema: XMLNode?): XMLNode {
         val resolvedNamespace: String? = namespaceOrSchemaNamespace(namespace, schema)
         if(resolvedNamespace.isNullOrBlank())

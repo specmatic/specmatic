@@ -15,18 +15,18 @@ data class ComplexTypedSOAPPayload(
     val namespaces: Map<String, String>,
     val attributes: List<AttributeElement> = emptyList()
 ) : SOAPPayload {
-    override fun specmaticStatement(requestHeaders: RequestHeaders): List<String> {
-        val body = toEnvelope(requestHeaders)
+    override fun specmaticStatement(headers: RequestHeaders): List<String> {
+        val body = toEnvelope(headers)
         return listOf("And ${soapMessageType.specmaticBodyType}-body\n\"\"\"\n${body.toPrettyStringValue()}\n\"\"\"")
     }
 
-    override fun toPattern(requestHeaders: RequestHeaders): Pattern {
-        return XMLPattern(toEnvelope(requestHeaders), isSOAP = true)
+    override fun toPattern(headers: RequestHeaders): Pattern {
+        return XMLPattern(toEnvelope(headers), isSOAP = true)
     }
 
-    private fun toEnvelope(requestHeaders: RequestHeaders): XMLNode {
+    private fun toEnvelope(headers: RequestHeaders): XMLNode {
         val xml = buildXmlDataForComplexElement(nodeName, specmaticTypeName, attributes)
-        return soapMessage(toXMLNode(xml), namespaces, requestHeaders)
+        return soapMessage(toXMLNode(xml), namespaces, headers)
     }
 }
 

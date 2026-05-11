@@ -1,0 +1,13 @@
+<definitions name="AttributeGroupImportRoutes"
+             targetNamespace="http://example.com/attribute-group-import"
+             xmlns:tns="http://example.com/attribute-group-import"
+             xmlns:imp="http://example.com/imported-attribute-group"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/attribute-group-import">
+            <xsd:import schemaLocation="attribute_group_imported_types.xsd" namespace="http://example.com/imported-attribute-group"/>
+            <xsd:element name="ImportedPerson" type="imp:ImportedPersonType"/>
+        </xsd:schema>
+    </types>
+</definitions>

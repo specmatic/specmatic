@@ -4,11 +4,11 @@ import io.specmatic.core.pattern.EmptyStringPattern
 import io.specmatic.core.pattern.Pattern
 
 class EmptyHTTPBodyPayload : SOAPPayload {
-    override fun specmaticStatement(requestHeaders: RequestHeaders): List<String> {
+    override fun specmaticStatement(headers: RequestHeaders): List<String> {
         return emptyList()
     }
 
-    override fun toPattern(requestHeaders: RequestHeaders): Pattern {
+    override fun toPattern(headers: RequestHeaders): Pattern {
         return EmptyStringPattern
     }
 }

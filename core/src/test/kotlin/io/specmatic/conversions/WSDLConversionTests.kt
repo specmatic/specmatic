@@ -616,7 +616,7 @@ class WSDLConversionTests {
                 Scenario: SimpleOperation
                     Given type SimpleOperation_SOAPPayload_Input
                     ""${'"'}
-                    <SPECMATIC_TYPE>
+                    <SPECMATIC_TYPE $optionalAttribute.opt="(number)">
                       <Id>(number)</Id>
                       <Name>(string)</Name>
                     </SPECMATIC_TYPE>
@@ -717,7 +717,7 @@ class WSDLConversionTests {
                 Scenario: SimpleOperation
                     Given type SimpleOperation_SOAPPayload_Input
                     ""${'"'}
-                    <SPECMATIC_TYPE>
+                    <SPECMATIC_TYPE $mandatoryAttribute="(number)">
                       <Id>(number)</Id>
                       <Name>(string)</Name>
                     </SPECMATIC_TYPE>

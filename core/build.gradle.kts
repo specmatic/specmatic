@@ -5,14 +5,16 @@ plugins {
 }
 
 dependencies {
-    implementation("io.netty:netty-codec-http:4.2.12.Final")
-    implementation("io.netty:netty-codec-http2:4.2.12.Final")
-
+    // Being explicitly added due a HIGH vulnerability GHSA-rwm7-x88c-3g2p, being pulled transitively
+    // Remove and upgrade io.ktor:ktor-server-netty-jvm:2.3.13 once it has been updated
+    implementation("io.netty:netty-transport-native-epoll:4.2.13.Final")
+    implementation("io.netty:netty-codec-http:4.2.13.Final")
+    implementation("io.netty:netty-codec-http2:4.2.13.Final")
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
     }
-    implementation("joda-time:joda-time:2.14.1")
+    implementation("joda-time:joda-time:2.14.2")
     implementation("net.minidev:json-smart:2.6.0")
 
     implementation("com.ezylang:EvalEx:3.6.0")
@@ -54,7 +56,7 @@ dependencies {
     testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
-    implementation("org.thymeleaf:thymeleaf:3.1.4.RELEASE")
+    implementation("org.thymeleaf:thymeleaf:3.1.5.RELEASE")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
 }
 

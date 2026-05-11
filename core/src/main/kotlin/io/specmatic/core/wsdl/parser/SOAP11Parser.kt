@@ -25,6 +25,21 @@ private data class QualifiedMessageName(
     val nodeName: String,
 )
 
+private data class SOAPHeadersInfo(
+    val headers: RequestHeaders,
+    val types: Map<String, Pattern>,
+)
+
+private data class SOAPHeaderAccumulator(
+    val headers: List<RequestHeaders.Header>,
+    val types: Map<String, Pattern>,
+)
+
+private data class SOAPHeaderInfo(
+    val header: RequestHeaders.Header,
+    val types: Map<String, Pattern>,
+)
+
 class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     override fun convertToGherkin(url: String): String {
         val operationsTypeInfo = operationsTypeInfo(url)
@@ -56,10 +71,15 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
     }
 
-    private fun headerRequired(portType: XMLNode, operationName: String, bindingPartName: String): NodeOccurrence? {
+    private fun headerRequired(
+        portType: XMLNode,
+        operationName: String,
+        soapMessageType: SOAPMessageType,
+        bindingPartName: String
+    ): NodeOccurrence? {
         val portOperation = portType.findByNodeNameAndAttributeOrNull("operation", "name", operationName) ?: return null
-        val portInput = portOperation.findFirstChildByName("input") ?: return null
-        val portHeader = portInput.findByNodeNameAndAttributeOrNull("header", "part", bindingPartName) ?: return null
+        val portMessage = portOperation.findFirstChildByName(soapMessageType.messageTypeName) ?: return null
+        val portHeader = portMessage.findByNodeNameAndAttributeOrNull("header", "part", bindingPartName) ?: return null
         return when (portHeader.attributes["required"]?.toStringLiteral()) {
             "true" -> NodeOccurrence.Once
             "false" -> NodeOccurrence.Optional
@@ -98,57 +118,154 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
         val path = URI(url).path
 
-        val soapHeaders = bindingOperationNode
-            .findFirstChildByName("input")
-            ?.findChildrenByName("header")
-            .orEmpty()
+        val requestHeadersInfo = parseSoapHeaders(
+            bindingOperationNode = bindingOperationNode,
+            portType = portType,
+            operationName = operationName,
+            soapMessageType = SOAPMessageType.Input,
+            existingTypes = responseTypeInfo.types
+        )
 
-        val requestHeaders: Map<String, RequestHeaders.HeaderDetails> =
-            soapHeaders
-                .mapNotNull { soapHeader ->
-                    try {
-                        val bindingMessageRef = soapHeader.attributes["message"]?.toStringLiteral() ?: return@mapNotNull null
-                        val bindingPartName = soapHeader.attributes["part"]?.toStringLiteral() ?: return@mapNotNull null
-                        val bindingNamespace = soapHeader.attributes["namespace"]?.toStringLiteral()
-                            ?: soapHeader.resolveNamespace(bindingMessageRef)
-                        val bindingOccurrence = soapHeader.attributes["minOccurs"]?.toStringLiteral().let {
-                            when (it) {
-                                "0" -> NodeOccurrence.Optional
-                                "1" -> NodeOccurrence.Once
-                                null -> null
-                                else -> {
-                                    if (it.toIntOrNull() != null) NodeOccurrence.Multiple else null
-                                }
-                            }
-                        }
-
-                        val headerRequired = headerRequired(portType, operationName, bindingPartName)
-
-                        val messageName = bindingMessageRef.substringAfter(":")
-                        val prefix = bindingMessageRef.substringBefore(":")
-                        val messageNode = wsdl.findMessageNode(FullyQualifiedName(prefix, bindingNamespace, messageName))
-
-                        val partNode = messageNode.findByNodeNameAndAttribute("part", "name", bindingPartName)
-
-                        val type = elementTypeValue(partNode)
-
-                        val occurrence = bindingOccurrence ?: headerRequired ?: NodeOccurrence.Once
-
-                        bindingPartName to RequestHeaders.HeaderDetails(type.toStringLiteral(), occurrence)
-                    } catch (e: Throwable) {
-                        throw e
-                    }
-                }.toMap()
+        val responseHeadersInfo = parseSoapHeaders(
+            bindingOperationNode = bindingOperationNode,
+            portType = portType,
+            operationName = operationName,
+            soapMessageType = SOAPMessageType.Output,
+            existingTypes = requestHeadersInfo.types
+        )
 
         return SOAPOperationTypeInfo(
             path = path,
             operationName = operationName,
             soapAction = soapAction,
             soapVersion = soapVersion,
-            types = responseTypeInfo.types.mapKeys { it.key.trim() },
+            types = responseHeadersInfo.types.mapKeys { it.key.trim() },
             requestPayload = requestTypeInfo.soapPayload,
-            requestHeaders = RequestHeaders(requestHeaders),
-            responsePayload = responseTypeInfo.soapPayload
+            requestHeaders = requestHeadersInfo.headers,
+            responsePayload = responseTypeInfo.soapPayload,
+            responseHeaders = responseHeadersInfo.headers
+        )
+    }
+
+    private fun parseSoapHeaders(
+        bindingOperationNode: XMLNode,
+        portType: XMLNode,
+        operationName: String,
+        soapMessageType: SOAPMessageType,
+        existingTypes: Map<String, Pattern>
+    ): SOAPHeadersInfo {
+        val soapHeaders = bindingOperationNode
+            .findFirstChildByName(soapMessageType.messageTypeName)
+            ?.findChildrenByName("header")
+            .orEmpty()
+
+        val parsedHeaders = soapHeaders.fold(SOAPHeaderAccumulator(emptyList(), existingTypes)) { accumulator, soapHeader ->
+            val parsedHeader = parseSoapHeader(
+                soapHeader = soapHeader,
+                portType = portType,
+                operationName = operationName,
+                soapMessageType = soapMessageType,
+                existingTypes = accumulator.types
+            )
+
+            accumulator.copy(
+                headers = accumulator.headers.plus(parsedHeader.header),
+                types = parsedHeader.types
+            )
+        }
+
+        return SOAPHeadersInfo(
+            headers = RequestHeaders.fromHeaders(parsedHeaders.headers),
+            types = parsedHeaders.types
+        )
+    }
+
+    private fun parseSoapHeader(
+        soapHeader: XMLNode,
+        portType: XMLNode,
+        operationName: String,
+        soapMessageType: SOAPMessageType,
+        existingTypes: Map<String, Pattern>
+    ): SOAPHeaderInfo {
+        val bindingMessageRef = soapHeader.attributes["message"]?.toStringLiteral()
+            ?: throw ContractException("SOAP header in operation $operationName does not have a message attribute.")
+        val bindingPartName = soapHeader.attributes["part"]?.toStringLiteral()
+            ?: throw ContractException("SOAP header in operation $operationName does not have a part attribute.")
+        val bindingNamespace = soapHeader.attributes["namespace"]?.toStringLiteral()
+            ?: soapHeader.resolveNamespace(bindingMessageRef)
+        val bindingOccurrence = bindingOccurrence(soapHeader)
+        val headerRequired = headerRequired(portType, operationName, soapMessageType, bindingPartName)
+        val occurrence = bindingOccurrence ?: headerRequired ?: NodeOccurrence.Once
+
+        val messageName = bindingMessageRef.substringAfter(":")
+        val prefix = bindingMessageRef.substringBefore(":")
+        val messageNode = wsdl.findMessageNode(FullyQualifiedName(prefix, bindingNamespace, messageName))
+        val partNode = messageNode.findByNodeNameAndAttribute("part", "name", bindingPartName)
+
+        return when {
+            partNode.attributes.containsKey("element") -> parseElementReferencedHeader(
+                partNode = partNode,
+                bindingPartName = bindingPartName,
+                soapMessageType = soapMessageType,
+                operationName = operationName,
+                existingTypes = existingTypes,
+                occurrence = occurrence
+            )
+            partNode.attributes.containsKey("type") -> parseTypeReferencedHeader(
+                partNode = partNode,
+                bindingPartName = bindingPartName,
+                occurrence = occurrence,
+                existingTypes = existingTypes
+            )
+            else -> throw ContractException(
+                "Part node $bindingPartName of SOAP header message $messageName should contain either an element attribute or a type attribute."
+            )
+        }
+    }
+
+    private fun bindingOccurrence(soapHeader: XMLNode): NodeOccurrence? {
+        return soapHeader.attributes["minOccurs"]?.toStringLiteral().let {
+            when (it) {
+                "0" -> NodeOccurrence.Optional
+                "1" -> NodeOccurrence.Once
+                null -> null
+                else -> {
+                    if (it.toIntOrNull() != null) NodeOccurrence.Multiple else null
+                }
+            }
+        }
+    }
+
+    private fun parseTypeReferencedHeader(
+        partNode: XMLNode,
+        bindingPartName: String,
+        occurrence: NodeOccurrence,
+        existingTypes: Map<String, Pattern>
+    ): SOAPHeaderInfo {
+        val type = elementTypeValue(partNode)
+        val header = RequestHeaders.primitiveHeader(bindingPartName, type.toStringLiteral(), occurrence)
+        return SOAPHeaderInfo(header = header, types = existingTypes)
+    }
+
+    private fun parseElementReferencedHeader(
+        partNode: XMLNode,
+        bindingPartName: String,
+        soapMessageType: SOAPMessageType,
+        operationName: String,
+        existingTypes: Map<String, Pattern>,
+        occurrence: NodeOccurrence
+    ): SOAPHeaderInfo {
+        val fullyQualifiedName = partNode.fullyQualifiedNameFromAttribute("element")
+        val topLevelElement = wsdl.getSOAPElement(fullyQualifiedName)
+        val specmaticTypeName =
+            "${operationName.replace(":", "_")}_SOAPHeader_${soapMessageType.messageTypeName.capitalizeFirstChar()}_$bindingPartName"
+        val typeInfo = topLevelElement.deriveSpecmaticTypes(specmaticTypeName, existingTypes, emptySet())
+        val headerNode = RequestHeaders.withOccurrence(typeInfo.nodes.first() as XMLNode, occurrence)
+        val namespaces = wsdl.getNamespaces(typeInfo)
+
+        return SOAPHeaderInfo(
+            header = RequestHeaders.Header(headerNode, namespaces),
+            types = typeInfo.types
         )
     }
 

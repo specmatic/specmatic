@@ -6,10 +6,10 @@ import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.primitiveNamespace
 
-fun soapMessage(bodyPayload: XMLNode, namespaces: Map<String, String>, requestHeaders: RequestHeaders): XMLNode {
-    val payload = soapSkeleton(namespaces)
+fun soapMessage(bodyPayload: XMLNode, namespaces: Map<String, String>, headers: RequestHeaders): XMLNode {
+    val payload = soapSkeleton(namespaces.plus(headers.namespaces))
 
-    val headerNode: XMLNode? = requestHeaders.toHeaderNode()
+    val headerNode: XMLNode? = headers.toHeaderNode()
 
     val bodyNode: XMLNode = toXMLNode("<soapenv:Body/>").let {
         it.copy(childNodes = it.childNodes.plus(bodyPayload))

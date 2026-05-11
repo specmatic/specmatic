@@ -3,6 +3,7 @@ package io.specmatic.core.wsdl.parser
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
@@ -15,6 +16,7 @@ import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.payload.RequestHeaders
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.io.File
 
@@ -422,6 +424,78 @@ class WSDLWiringCharacterizationTest {
         assertThat(requestBody).contains("<ImportedPerson specmatic_type=\"ImportedPersonType\"/>")
     }
 
+    @Test
+    fun `attribute group wiring expands direct and nested groups into complex type attributes`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/attribute_group.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/attribute-group", "Person")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("PersonType", emptyMap(), emptySet())
+        val personPattern = typeInfo.types.getValue("PersonType") as XMLPattern
+
+        assertXmlAttribute(personPattern, "traceId", "(string)")
+        assertXmlAttribute(personPattern, "createdBy.opt", "(string)")
+        assertXmlAttribute(personPattern, "requestNumber.opt", "(number)")
+    }
+
+    @Test
+    fun `attribute group wiring expands groups on nested complex children`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/attribute_group.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/attribute-group", "Account")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("AccountType", emptyMap(), emptySet())
+        val ownerPattern = typeInfo.types.getValue("AccountType_Owner") as XMLPattern
+
+        assertXmlAttribute(ownerPattern, "traceId", "(string)")
+        assertXmlAttribute(ownerPattern, "createdBy.opt", "(string)")
+        assertXmlAttribute(ownerPattern, "requestNumber.opt", "(number)")
+    }
+
+    @Test
+    fun `attribute group wiring resolves groups from imported schemas`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/attribute_group_import.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/attribute-group-import", "ImportedPerson")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("ImportedPersonType", emptyMap(), emptySet())
+        val importedPersonPattern = typeInfo.types.getValue("ImportedPersonType") as XMLPattern
+
+        assertXmlAttribute(importedPersonPattern, "externalTrace", "(string)")
+        assertXmlAttribute(importedPersonPattern, "externalTenant.opt", "(string)")
+    }
+
+    @Test
+    fun `attribute group wiring rejects duplicate expanded attribute names`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/attribute_group.wsdl")
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/attribute-group", "DuplicatePerson")
+        )
+
+        assertThatThrownBy {
+            soapElement.deriveSpecmaticTypes("DuplicatePersonType", emptyMap(), emptySet())
+        }.hasMessageContaining("Duplicate attribute traceId")
+    }
+
+    @Test
+    fun `attribute group wiring ignores recursive groups`() {
+        val wsdl = loadWsdl("src/test/resources/wsdl/attribute_group.wsdl")
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://example.com/attribute-group", "RecursivePerson")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("RecursivePersonType", emptyMap(), emptySet())
+        val recursivePersonPattern = typeInfo.types.getValue("RecursivePersonType") as XMLPattern
+
+        assertXmlAttribute(recursivePersonPattern, "safe.opt", "(string)")
+    }
+
     private fun loadWsdl(path: String): WSDL {
         val wsdlFile = File(path)
         return WSDL(toXMLNode(wsdlFile.readText()), wsdlFile.canonicalPath)
@@ -442,5 +516,16 @@ class WSDLWiringCharacterizationTest {
             namespaces,
             typeInfo,
         ).specmaticStatement(RequestHeaders()).single()
+    }
+
+    private fun assertXmlAttribute(xmlPattern: XMLPattern, name: String, expectedPattern: String) {
+        val attributePattern = xmlPattern.pattern.attributes[name]
+
+        assertThat(attributePattern)
+            .withFailMessage("Expected XML attribute $name in ${xmlPattern.pattern.attributes.keys}")
+            .isInstanceOf(DeferredPattern::class.java)
+
+        attributePattern as DeferredPattern
+        assertThat(attributePattern.pattern).isEqualTo(expectedPattern)
     }
 }

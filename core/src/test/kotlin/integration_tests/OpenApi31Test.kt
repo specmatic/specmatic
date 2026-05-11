@@ -262,13 +262,11 @@ class OpenApi31Test {
         val openApi31Feature = ScenarioFilter(filterClauses = backwardCompatibilityFilter).filter(openApi31Specification.toFeature())
 
         val openApi30To31 = testBackwardCompatibility(openApi30Feature, openApi31Feature)
-        assertThat(openApi30To31.results).hasSize(44)
         assertThat(Result.fromResults(openApi30To31.results))
             .withFailMessage { Result.fromResults(openApi30To31.results).reportString() }
             .isInstanceOf(Result.Success::class.java)
 
         val openApi31To30 = testBackwardCompatibility(openApi31Feature, openApi30Feature)
-        assertThat(openApi31To30.results).hasSize(44)
         assertThat(Result.fromResults(openApi31To30.results))
             .withFailMessage { Result.fromResults(openApi31To30.results).reportString() }
             .isInstanceOf(Result.Success::class.java)

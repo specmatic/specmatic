@@ -5,6 +5,9 @@ import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.parseContractFileToFeature
+import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.value.toXMLNode
+import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
@@ -332,6 +335,85 @@ class WSDLParserContractBlackBoxTest {
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `contract test for wsdl element backed header parts supports response soap header`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/response_header_part.wsdl"))
+        val responseWithSoapHeader = HttpResponse(
+            200,
+            body = parsedValue(
+                """
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://specmatic.io/response-header-part" xmlns:rh="http://specmatic.io/response-header-part/headers">
+                    <soapenv:Header>
+                        <rh:ResponseHeader>
+                            <rh:Headers>tracking-id</rh:Headers>
+                        </rh:ResponseHeader>
+                    </soapenv:Header>
+                    <soapenv:Body>
+                        <tns:HeaderPartResponse>done</tns:HeaderPartResponse>
+                    </soapenv:Body>
+                </soapenv:Envelope>
+                """.trimIndent()
+            )
+        )
+
+        val result = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.path).isEqualTo("/response-header-part")
+                assertThat(request.body.toStringLiteral())
+                    .contains("soapenv:Header")
+                    .contains("ClientHeader")
+                    .contains("ClientId")
+                    .contains("soapenv:Body")
+                    .contains("HeaderPartRequest")
+                return responseWithSoapHeader
+            }
+        })
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `contract test fails when mandatory wsdl response soap header is missing`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/response_header_part.wsdl"))
+        val responseWithoutSoapHeader = HttpResponse(
+            200,
+            body = parsedValue(
+                """
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://specmatic.io/response-header-part">
+                    <soapenv:Body>
+                        <tns:HeaderPartResponse>done</tns:HeaderPartResponse>
+                    </soapenv:Body>
+                </soapenv:Envelope>
+                """.trimIndent()
+            )
+        )
+
+        val result = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return responseWithoutSoapHeader
+            }
+        })
+
+        assertThat(result.success()).isFalse()
+        assertThat(result.failureCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `wsdl gherkin generation includes response soap header part`() {
+        val wsdlPath = "src/test/resources/wsdl/state_machine/response_header_part.wsdl"
+        val wsdl = WSDL(toXMLNode(File(wsdlPath).readText()), wsdlPath)
+
+        val gherkin = wsdl.convertToGherkin()
+
+        assertThat(gherkin)
+            .contains("And response-body")
+            .contains("soapenv:Header")
+            .contains("ResponseHeader")
+            .contains("Headers")
+            .contains("HeaderPartResponse")
     }
 
     private fun scalarRequestBranch(body: String): String {
