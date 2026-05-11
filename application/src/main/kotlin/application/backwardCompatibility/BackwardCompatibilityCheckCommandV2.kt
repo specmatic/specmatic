@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.backwardCompatibility.FileHunks
+import io.specmatic.core.backwardCompatibility.OperationChange
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
@@ -26,6 +28,21 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
         return testBackwardCompatibility(oldFeature as Feature, newFeature as Feature)
+    }
+
+    override fun computeLogicalChanges(
+        specFilePath: String,
+        newSpecText: String,
+        oldFeature: IFeature?,
+        newFeature: IFeature,
+        physical: FileHunks?
+    ): List<OperationChange> {
+        return OpenApiLogicalChanges.compute(
+            newSpecText = newSpecText,
+            oldFeature = oldFeature as? Feature,
+            newFeature = newFeature as Feature,
+            physical = physical
+        )
     }
 
     companion object {

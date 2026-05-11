@@ -34,6 +34,9 @@ interface GitCommand {
     fun getRemoteUrl(name: String = "origin"): String
     fun checkIgnore(path: String): String
     fun getFilesChangedInCurrentBranch(baseBranch: String): List<String>
+    fun diffUnifiedZero(baseBranch: String, relativePath: String): String {
+        return ""
+    }
     fun getFileInBranch(fileName: String, currentBranch: String, baseBranch: String): File?
     fun currentRemoteBranch(): String
     fun getOriginDefaultBranchName(): String

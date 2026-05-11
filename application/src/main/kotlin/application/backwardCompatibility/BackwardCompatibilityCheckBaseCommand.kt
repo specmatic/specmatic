@@ -4,6 +4,10 @@ import io.specmatic.core.Feature
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.backwardCompatibility.ChangeInfo
+import io.specmatic.core.backwardCompatibility.FileHunks
+import io.specmatic.core.backwardCompatibility.GitHunkParser
+import io.specmatic.core.backwardCompatibility.OperationChange
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
@@ -89,6 +93,18 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     open fun regexForMatchingReferred(schemaFileName: String): String = ""
     open fun areExamplesValid(feature: IFeature, which: String): Boolean = true
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
+
+    open fun computeLogicalChanges(
+        specFilePath: String,
+        newSpecText: String,
+        oldFeature: IFeature?,
+        newFeature: IFeature,
+        physical: FileHunks?
+    ): List<OperationChange> = emptyList()
+
+    @Volatile
+    var lastRunChangeInfo: Map<String, ChangeInfo> = emptyMap()
+        private set
 
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
@@ -235,7 +251,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
             CompatibilityResult.UNKNOWN, emptyList()
         ),
-        val isNewFile: Boolean
+        val isNewFile: Boolean,
+        val changeInfo: ChangeInfo? = null
     )
 
     private fun runBackwardCompatibilityCheckFor(files: Set<String>, baseBranch: String): CompatibilityReport {
@@ -254,18 +271,23 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     val unusedExamples = getUnusedExamples(newer)
 
                     val repoDirFile = File(effectiveRepoDir).absoluteFile
-                    val olderFileExists =
-                        gitCommand.exists(baseBranch, File(specFilePath).relativeTo(repoDirFile).path)
+                    val relativeSpecPath = File(specFilePath).relativeTo(repoDirFile).path
+                    val olderFileExists = gitCommand.exists(baseBranch, relativeSpecPath)
+
+                    val physical = computePhysicalChanges(specFilePath, relativeSpecPath, baseBranch, olderFileExists)
+                    val newSpecText = runCatching { File(specFilePath).readText() }.getOrDefault("")
 
                     if (!olderFileExists) {
                         // new file: mark as passed immediately
+                        val logical = computeLogicalChanges(specFilePath, newSpecText, null, newer, physical)
                         return@mapNotNull ProcessedSpec(
                             specFilePath = specFilePath,
                             backwardCompatibilityResult = Results(),
                             newer = newer,
                             unusedExamples = unusedExamples,
                             precomputedCompatibilityResult = CompatibilityResult.PASSED,
-                            isNewFile = true
+                            isNewFile = true,
+                            changeInfo = ChangeInfo(physical = null, logical = logical)
                         )
                     }
 
@@ -284,13 +306,15 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                         protocol = listOfNotNull((older as? Feature)?.protocol)
                     )
 
+                    val logical = computeLogicalChanges(specFilePath, newSpecText, older, newer, physical)
                     return@mapNotNull ProcessedSpec(
                         specFilePath = specFilePath,
                         backwardCompatibilityResult = backwardCompatibilityResult,
                         newer = newer,
                         unusedExamples = unusedExamples,
                         precomputedCompatibilityResult = result,
-                        isNewFile = false
+                        isNewFile = false,
+                        changeInfo = ChangeInfo(physical = physical, logical = logical)
                     )
                 } finally {
                     gitCommand.checkout(treeishWithChanges)
@@ -300,6 +324,10 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     }
                 }
             }
+
+            lastRunChangeInfo = processedSpecs.mapNotNull { spec ->
+                spec.changeInfo?.let { spec.specFilePath to it }
+            }.toMap()
 
             // SECOND PASS: for all specs that failed the compatibility check, call the potentially long-running ServiceLoader hooks in batches of 5
             val specsValidatedByHook = validateSpecsWithHook(processedSpecs)
@@ -319,6 +347,22 @@ abstract class BackwardCompatibilityCheckBaseCommand(
             return CompatibilityReport(results)
         } finally {
             gitCommand.checkout(treeishWithChanges)
+        }
+    }
+
+    private fun computePhysicalChanges(
+        specFilePath: String,
+        relativeSpecPath: String,
+        baseBranch: String,
+        olderFileExists: Boolean
+    ): FileHunks? {
+        return try {
+            val diff = gitCommand.diffUnifiedZero(baseBranch, relativeSpecPath)
+            if (diff.isBlank() && olderFileExists) return null
+            GitHunkParser.parse(specFilePath, diff)
+        } catch (e: Throwable) {
+            logger.debug("Failed to compute physical change info for $specFilePath: ${e.message}")
+            null
         }
     }
 

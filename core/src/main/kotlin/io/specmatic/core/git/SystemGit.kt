@@ -106,6 +106,20 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
         }.distinct()
     }
 
+    override fun diffUnifiedZero(baseBranch: String, relativePath: String): String {
+        val committed = try {
+            execute(Configuration.gitCommand, "diff", "--unified=0", "--no-color", "$baseBranch..HEAD", "--", relativePath)
+        } catch (e: NonZeroExitError) {
+            ""
+        }
+        val uncommitted = try {
+            execute(Configuration.gitCommand, "diff", "--unified=0", "--no-color", "HEAD", "--", relativePath)
+        } catch (e: NonZeroExitError) {
+            ""
+        }
+        return if (uncommitted.isBlank()) committed else committed + System.lineSeparator() + uncommitted
+    }
+
     override fun getFileInBranch(fileName: String, currentBranch: String, baseBranch: String): File? {
         try {
             if(baseBranch != currentBranch) checkout(baseBranch)
