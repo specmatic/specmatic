@@ -223,6 +223,13 @@ data class Resolver(
         }
     }
 
+    fun hasCycle(pattern: Pattern): Boolean {
+        if (allPatternsAreMandatory)
+            return false
+
+        return cyclePreventionStack.any { it == pattern }
+    }
+
     fun generate(pattern: Pattern): Value {
         val valueFromDict = dictionary.getValueFor(dictionaryLookupPath, pattern, this)
         if (valueFromDict != null) {

@@ -104,7 +104,21 @@ data class XMLChoiceGroupPattern(
         val occurrences = concreteSequence ?: generateOccurrenceSequence(resolver)
         val generatedNodes = occurrences.flatMap { alternative ->
             alternative.flatMap { pattern ->
-                when (val generated = pattern.generate(resolver)) {
+                if (pattern.hasXMLChoiceReferenceCycle(resolver)) {
+                    return@flatMap emptyList()
+                }
+
+                val generated = when {
+                    pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generate(resolver)
+                    else -> resolver.withCyclePrevention(
+                        pattern.xmlChoiceCyclePreventionPattern(),
+                        returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
+                    ) { cyclePreventedResolver ->
+                        pattern.generate(cyclePreventedResolver)
+                    } ?: return@flatMap emptyList()
+                }
+
+                when (generated) {
                     is XMLNode -> listOf(generated)
                     is XMLValue -> listOf(generated)
                     else -> listOf(StringValue(generated.toStringLiteral()))
@@ -125,6 +139,22 @@ data class XMLChoiceGroupPattern(
         return 0.until(count).map { choices.random() }
     }
 
+    private fun Pattern.xmlChoiceCyclePreventionPattern(): Pattern {
+        val referredType = (this as? XMLPattern)?.referredType ?: return this
+        return DeferredPattern(withPatternDelimiters(referredType))
+    }
+
+    private fun Pattern.hasXMLChoiceReferenceCycle(resolver: Resolver): Boolean {
+        val cyclePreventionPattern = xmlChoiceCyclePreventionPattern()
+        return cyclePreventionPattern != this && resolver.hasCycle(cyclePreventionPattern)
+    }
+
+    private fun Pattern.canReturnNullOnXMLChoiceCycle(): Boolean {
+        return this is XMLPattern && (occurMultipleTimes() || pattern.getNodeOccurrence() == NodeOccurrence.Optional)
+    }
+
+    private fun XMLPattern.hasTypeReference(): Boolean = referredType != null
+
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
         if (concreteSequence != null) {
             return sequenceOf(HasValue(this))
@@ -133,11 +163,7 @@ data class XMLChoiceGroupPattern(
         return concreteSequences { alternative ->
             listCombinations(
                 alternative.map { pattern ->
-                    HasValue(
-                        resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                            pattern.newBasedOn(row, cyclePreventedResolver).map { it.value as Pattern? }
-                        }
-                    )
+                    HasValue(pattern.newBasedOnXMLChoice(row, resolver))
                 }
             ).map { it.value }
         }.map { HasValue(copy(concreteSequence = it)) }
@@ -155,8 +181,38 @@ data class XMLChoiceGroupPattern(
         }
 
         return concreteSequences { alternative ->
-            newBasedOn(alternative, resolver)
+            listCombinations(
+                alternative.map { pattern ->
+                    HasValue(pattern.newBasedOnXMLChoice(resolver))
+                }
+            ).map { it.value }
         }.map { copy(concreteSequence = it) }
+    }
+
+    private fun Pattern.newBasedOnXMLChoice(row: Row, resolver: Resolver): Sequence<Pattern?> {
+        if (hasXMLChoiceReferenceCycle(resolver)) {
+            return sequenceOf(null)
+        }
+
+        return resolver.withCyclePrevention(
+            xmlChoiceCyclePreventionPattern(),
+            returnNullOnCycle = canReturnNullOnXMLChoiceCycle()
+        ) { cyclePreventedResolver ->
+            newBasedOn(row, cyclePreventedResolver).map { it.value as Pattern? }
+        } ?: sequenceOf(null)
+    }
+
+    private fun Pattern.newBasedOnXMLChoice(resolver: Resolver): Sequence<Pattern?> {
+        if (hasXMLChoiceReferenceCycle(resolver)) {
+            return sequenceOf(null)
+        }
+
+        return resolver.withCyclePrevention(
+            xmlChoiceCyclePreventionPattern(),
+            returnNullOnCycle = canReturnNullOnXMLChoiceCycle()
+        ) { cyclePreventedResolver ->
+            newBasedOn(cyclePreventedResolver).map { it as Pattern? }
+        } ?: sequenceOf(null)
     }
 
     private fun concreteSequences(

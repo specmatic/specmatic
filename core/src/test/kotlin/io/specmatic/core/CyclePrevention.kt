@@ -118,6 +118,47 @@ class CyclePrevention {
         assertThat(testCount).isEqualTo(8)
     }
 
+    @Test
+    fun `openapi response generation terminates for indirect optional cycle`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: "3.0.0"
+            info:
+              version: 1.0.0
+              title: Data API
+            paths:
+              /data:
+                get:
+                  responses:
+                    '200':
+                      description: data
+                      content:
+                        application/json:
+                          schema:
+                            ${'$'}ref: '#/components/schemas/A'
+            components:
+              schemas:
+                A:
+                  type: object
+                  properties:
+                    b:
+                      ${'$'}ref: '#/components/schemas/B'
+                B:
+                  type: object
+                  properties:
+                    a:
+                      ${'$'}ref: '#/components/schemas/A'
+        """.trimIndent(), ""
+        ).toFeature()
+
+        val scenario = feature.scenarios.single()
+
+        val generated = scenario.httpResponsePattern.body.generate(scenario.resolver).toStringLiteral()
+
+        assertThat(generated).contains("\"b\"")
+        assertThat(Regex("\"a\"").findAll(generated).count()).isLessThan(3)
+    }
+
     @RepeatedTest(5)
     fun `test cycle in optional key to circular ref`() {
         val stubContract = OpenApiSpecification.fromYAML(

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions
+    xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:tns="http://specmatic.io/multiple-header-parts"
+    xmlns:mh="http://specmatic.io/multiple-header-parts/headers"
+    targetNamespace="http://specmatic.io/multiple-header-parts">
+    <wsdl:types>
+        <xsd:schema targetNamespace="http://specmatic.io/multiple-header-parts" elementFormDefault="qualified">
+            <xsd:element name="MultipleHeaderRequest" type="xsd:string"/>
+            <xsd:element name="MultipleHeaderResponse" type="xsd:string"/>
+        </xsd:schema>
+
+        <xsd:schema targetNamespace="http://specmatic.io/multiple-header-parts/headers" elementFormDefault="qualified">
+            <xsd:element name="ClientHeader" type="xsd:string"/>
+            <xsd:element name="TraceHeader" type="xsd:string"/>
+        </xsd:schema>
+    </wsdl:types>
+
+    <wsdl:message name="MultipleHeaderRequestMessage">
+        <wsdl:part name="payload" element="tns:MultipleHeaderRequest"/>
+    </wsdl:message>
+
+    <wsdl:message name="MultipleHeaderResponseMessage">
+        <wsdl:part name="payload" element="tns:MultipleHeaderResponse"/>
+    </wsdl:message>
+
+    <wsdl:message name="ClientHeaderMessage">
+        <wsdl:part name="ClientHeader" element="mh:ClientHeader"/>
+    </wsdl:message>
+
+    <wsdl:message name="TraceHeaderMessage">
+        <wsdl:part name="TraceHeader" element="mh:TraceHeader"/>
+    </wsdl:message>
+
+    <wsdl:portType name="MultipleHeaderPartsPortType">
+        <wsdl:operation name="MultipleHeaderPartsOperation">
+            <wsdl:input message="tns:MultipleHeaderRequestMessage"/>
+            <wsdl:output message="tns:MultipleHeaderResponseMessage"/>
+        </wsdl:operation>
+    </wsdl:portType>
+
+    <wsdl:binding name="MultipleHeaderPartsBinding" type="tns:MultipleHeaderPartsPortType">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="MultipleHeaderPartsOperation">
+            <soap:operation soapAction="/multiple-header-parts/operation"/>
+            <wsdl:input>
+                <soap:body use="literal"/>
+                <soap:header message="tns:ClientHeaderMessage" part="ClientHeader" use="literal"/>
+                <soap:header message="tns:TraceHeaderMessage" part="TraceHeader" use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+    </wsdl:binding>
+
+    <wsdl:service name="MultipleHeaderPartsService">
+        <wsdl:port name="MultipleHeaderPartsPort" binding="tns:MultipleHeaderPartsBinding">
+            <soap:address location="http://specmatic.io/multiple-header-parts"/>
+        </wsdl:port>
+    </wsdl:service>
+</wsdl:definitions>

@@ -4,12 +4,14 @@ import io.ktor.http.ContentType
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.RequestContext
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -335,6 +337,41 @@ class WSDLParserContractBlackBoxTest {
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `wsdl stub response matches soap request with headers out of wsdl order`() {
+        val feature = parseContractFileToFeature(File("src/test/resources/wsdl/state_machine/multiple_header_parts.wsdl"))
+        val request = HttpRequest(
+            method = "POST",
+            path = "/multiple-header-parts",
+            headers = mapOf(
+                CONTENT_TYPE to ContentType.Text.Xml.toString(),
+                "SOAPAction" to "\"/multiple-header-parts/operation\""
+            ),
+            body = parsedValue(
+                """
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://specmatic.io/multiple-header-parts" xmlns:mh="http://specmatic.io/multiple-header-parts/headers">
+                    <soapenv:Header>
+                        <mh:TraceHeader>trace-123</mh:TraceHeader>
+                        <mh:ClientHeader>client-123</mh:ClientHeader>
+                    </soapenv:Header>
+                    <soapenv:Body>
+                        <tns:MultipleHeaderRequest>hello</tns:MultipleHeaderRequest>
+                    </soapenv:Body>
+                </soapenv:Envelope>
+                """.trimIndent()
+            )
+        )
+
+        val stubResponse = feature.stubResponse(request)
+
+        assertThat(stubResponse.second.success()).withFailMessage(stubResponse.second.report()).isTrue()
+
+        val response = stubResponse.first!!.build(RequestContext(request))!!
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.headers[SPECMATIC_RESULT_HEADER]).isEqualTo("success")
     }
 
     @Test
