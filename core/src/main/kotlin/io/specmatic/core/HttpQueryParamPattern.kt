@@ -92,11 +92,7 @@ data class HttpQueryParamPattern(
 
         val keyErrors = resolver.findKeyErrorList(effectivePatterns, queryParams.asMap().mapValues { StringValue(it.value) })
         val keyErrorList: List<Result.Failure> = keyErrors.map {
-            when {
-                effectivePatterns.contains(it.name) -> it.missingKeyToResult("query param", resolver.mismatchMessages)
-                effectivePatterns.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("query param", resolver.mismatchMessages)
-                else -> it.unknownKeyToResult("query param", resolver.mismatchMessages)
-            }.breadCrumb(it.name)
+            keyErrorToResult(it, effectivePatterns, httpRequest.queryParams, resolver).breadCrumb(it.name)
         }
 
         // 1. key is optional and request does not have the key as well
@@ -140,6 +136,43 @@ data class HttpQueryParamPattern(
         else
             Result.Success()
     }
+
+    private fun keyErrorToResult(keyError: KeyError, effectivePatterns: Map<String, Pattern>, queryParams: QueryParameters, resolver: Resolver): Result.Failure {
+        return when {
+            effectivePatterns.contains(keyError.name) ->
+                missingRequiredFormExplodedObjectPropertyToResult(keyError.name, queryParams)
+                    ?: keyError.missingKeyToResult("query param", resolver.mismatchMessages)
+            effectivePatterns.contains(withOptionality(keyError.name)) -> keyError.missingOptionalKeyToResult("query param", resolver.mismatchMessages)
+            else -> keyError.unknownKeyToResult("query param", resolver.mismatchMessages)
+        }
+    }
+
+    private fun missingRequiredFormExplodedObjectPropertyToResult(missingPropertyKey: String, queryParams: QueryParameters): Result.Failure? {
+        val objectQueryParam = formExplodedObjectQueryParams.firstOrNull { objectQueryParam ->
+            !objectQueryParam.required &&
+                missingPropertyKey in objectQueryParam.requiredPropertyKeys &&
+                objectQueryParam.propertyKeys.any(queryParams::containsKey)
+        } ?: return null
+
+        val presentPropertyKeys = objectQueryParam.propertyKeys.filter(queryParams::containsKey).sorted()
+        val missingRequiredPropertyKeys = objectQueryParam.requiredPropertyKeys.filterNot(queryParams::containsKey).sorted()
+        val presentProperties = propertyListMessage(presentPropertyKeys)
+        val missingRequiredProperties = propertyListMessage(missingRequiredPropertyKeys)
+
+        return Result.Failure(
+            message = "The request includes $presentProperties from optional form-exploded query parameter object \"${objectQueryParam.parameterName}\". Since that object is present, required $missingRequiredProperties must also be provided.",
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+        )
+    }
+
+    private fun propertyListMessage(propertyKeys: List<String>): String {
+        return when (propertyKeys.size) {
+            1 -> "property ${propertyKeys.single().quoted()}"
+            else -> "properties ${propertyKeys.joinToString(", ") { it.quoted() }}"
+        }
+    }
+
+    private fun String.quoted(): String = "\"$this\""
 
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
