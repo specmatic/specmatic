@@ -4,6 +4,7 @@ import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
+import io.specmatic.reporter.ctrf.model.BaseBccCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.reporting.ReportProvider
@@ -47,6 +48,35 @@ object ReportGenerator {
             extra = extra,
             specConfig = specConfigs,
             toolName = toolName
+        )
+
+        ReportProvider.generateCtrfReport(report, reportDir)
+        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+    }
+
+    fun generateReportBcc(
+        endTime: Long,
+        startTime: Long,
+        reportDir: File,
+        specConfigs: List<CtrfSpecConfig>,
+        toolName: String = "Specmatic ${VersionInfo.describe()}",
+        coverageReportOperations: List<BaseBccCoverageReportOperation>,
+    ) {
+        if (isCtrfSpecConfigsValid(specConfigs).not()) return
+        val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()
+        val extra = buildMap<String, Any> {
+            put("specmaticConfigPath", getConfigFilePath())
+            put("reportType", "BackwardCompatibility")
+        }
+
+        consoleLog("Generating BCC report for $totalChecksRan checks and ${coverageReportOperations.size} operations...")
+        val report = CtrfReportGenerator.generateBccReport(
+            coverageReportOperations = coverageReportOperations,
+            specConfig = specConfigs,
+            startTime = startTime,
+            toolName = toolName,
+            endTime = endTime,
+            extra = extra,
         )
 
         ReportProvider.generateCtrfReport(report, reportDir)

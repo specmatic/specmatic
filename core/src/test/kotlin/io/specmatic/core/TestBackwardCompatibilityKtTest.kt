@@ -1,13 +1,19 @@
 package io.specmatic.core
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
+import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 internal class TestBackwardCompatibilityKtTest {
     private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
@@ -4124,8 +4130,8 @@ paths:
     fun `backward breaking multi request and response content-type scenario`() {
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
-        val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
-        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+        val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
+        val result = bccChecker.run().toBackwardCompatibilityResults()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4315,8 +4321,8 @@ paths:
     fun `backward breaking multi request and response content-type scenario content-type overridden`() {
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
-        val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
-        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+        val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
+        val result = bccChecker.run().toBackwardCompatibilityResults()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4500,6 +4506,134 @@ paths:
           
               This is number in the new specification response but string in the old specification
         """.trimIndent())
+    }
+
+    @Test
+    fun `should generate backward compatibility report with mixed compatible and incompatible operations`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 2
+            reportDirPath: ${tempDir.canonicalPath}/reports
+            """.trimIndent())
+        }
+
+        val olderSpec = tempDir.resolve("orders-v1.yaml").apply {
+            writeText("""
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: List orders
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: object
+                              required: [id]
+                              properties:
+                                id:
+                                  type: string
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [id]
+                          properties:
+                            id:
+                              type: string
+                            note:
+                              type: string
+                  responses:
+                    '201':
+                      description: Created
+            """.trimIndent())
+        }
+
+        val newerSpec = tempDir.resolve("orders-v2.yaml").apply {
+            writeText("""
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 2.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: List orders
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: object
+                              required: [id]
+                              properties:
+                                id:
+                                  type: string
+                                note:
+                                  type: string
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [id, note]
+                          properties:
+                            id:
+                              type: string
+                            note:
+                              type: string
+                  responses:
+                    '201':
+                      description: Created
+            """.trimIndent())
+        }
+
+        val olderContract = OpenApiSpecification.fromFile(olderSpec.canonicalPath).toFeature()
+        val newerContract = OpenApiSpecification.fromFile(newerSpec.canonicalPath).toFeature()
+        val reportDir = tempDir.resolve("reports/backward_compatibility").canonicalFile
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            val result = testBackwardCompatibility(olderContract, newerContract)
+            assertThat(result.success()).isFalse
+
+            val jsonReport = reportDir.resolve("ctrf/ctrf-report.json")
+            val htmlReport = reportDir.resolve("html/index.html")
+            val reportJson = ObjectMapper().readTree(jsonReport)
+            val summary = reportJson.path("results").path("summary")
+            val executionDetails = summary.path("extra").path("executionDetails")
+            val operations = executionDetails.first().path("operations")
+
+            assertThat(jsonReport).exists()
+            assertThat(htmlReport).exists()
+
+            assertThat(htmlReport.readText()).contains("BackwardCompatibility")
+            assertThat(executionDetails.toString()).contains(newerSpec.canonicalPath)
+
+            assertThat(summary.path("tests").asInt()).isEqualTo(5)
+            assertThat(summary.path("failed").asInt()).isEqualTo(1)
+            assertThat(reportJson.path("results").path("tests").size()).isEqualTo(5)
+            assertThat(reportJson.path("results").path("extra").path("reportType").asText()).isEqualTo("BackwardCompatibility")
+            assertThat(reportJson.path("results").path("extra").path("specmaticConfigPath").asText()).isEqualTo(configFile.canonicalPath)
+
+            assertThat(operations.size()).isEqualTo(2)
+            assertThat(operations.toString()).contains("\"method\":\"GET\"")
+            assertThat(operations.toString()).contains("\"method\":\"POST\"")
+            assertThat(operations.toString()).contains("\"backwardCompatibilityResult\":\"Compatible\"")
+            assertThat(operations.toString()).contains("\"backwardCompatibilityResult\":\"Incompatible\"")
+        }
     }
 }
 
