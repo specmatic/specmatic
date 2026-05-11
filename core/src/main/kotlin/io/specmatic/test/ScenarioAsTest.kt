@@ -58,7 +58,7 @@ data class ScenarioAsTest(
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
     override fun testResultRecord(executionResult: ContractTestExecutionResult): TestResultRecord {
-        val (result, request, response) = executionResult
+        val (result, request, response,beforeFixtureExecutionResult, afterFixtureExecutionResult) = executionResult
         val scenario = result.scenario as? Scenario ?: updateBasedOnResponseIfNegativeGeneration(scenario, response)
         val path = convertPathParameterStyle(scenario.path)
 
@@ -91,7 +91,9 @@ data class ScenarioAsTest(
             isResponseInSpecification = response?.let {
                 if (result.isSuccess() || scenario.matchesStatusAndContentType(it)) return@let true
                 feature.isResponsePossible(scenario, it)
-            }
+            },
+            beforeFixtureExecutionResult = beforeFixtureExecutionResult,
+            afterFixtureExecutionResult = afterFixtureExecutionResult
         )
     }
 
@@ -142,8 +144,11 @@ data class ScenarioAsTest(
     ): ContractTestExecutionResult {
         try {
             val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
-            if (beforeFixtureExecutionResult.isSuccess().not()) {
-                return ContractTestExecutionResult(result = beforeFixtureExecutionResult.updateScenario(testScenario))
+            if (beforeFixtureExecutionResult.combinedResult.isSuccess().not()) {
+                return ContractTestExecutionResult(
+                    result = beforeFixtureExecutionResult.combinedResult.updateScenario(testScenario),
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
+                )
             }
             val request = testScenario.generateHttpRequest(flagsBased).let {
                 workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
@@ -166,7 +171,8 @@ data class ScenarioAsTest(
                         return ContractTestExecutionResult(
                             result = matchesResult.withBindings(testScenario.bindings, response),
                             request = request,
-                            response = response
+                            response = response,
+                            beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
                         )
                     }
                 }
@@ -180,7 +186,8 @@ data class ScenarioAsTest(
                 return ContractTestExecutionResult(
                     result = validatorResult.withBindings(testScenario.bindings, response),
                     request = request,
-                    response = response
+                    response = response,
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
                 )
             }
 
@@ -190,7 +197,8 @@ data class ScenarioAsTest(
                 return ContractTestExecutionResult(
                     result = testResult.withBindings(testScenario.bindings, response),
                     request = request,
-                    response = response
+                    response = response,
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
                 )
             }
 
@@ -205,7 +213,8 @@ data class ScenarioAsTest(
                             return ContractTestExecutionResult(
                                 result = handlerResult.result.withBindings(testScenario.bindings, bindingResponse),
                                 request = request,
-                                response = bindingResponse
+                                response = bindingResponse,
+                                beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
                             )
                         }
                     }
@@ -220,18 +229,24 @@ data class ScenarioAsTest(
 
             if(result !is Result.Failure) {
                 val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
-                if (afterFixtureExecutionResult.isSuccess().not()) {
-                    return ContractTestExecutionResult(
-                        result = afterFixtureExecutionResult.withBindings(testScenario.bindings, response),
-                        request = request,
-                        response = response
-                    )
+
+                val contractTestResult = when {
+                    afterFixtureExecutionResult.combinedResult.isSuccess().not() -> afterFixtureExecutionResult.combinedResult
+                    else -> result
                 }
+                return ContractTestExecutionResult(
+                    result = contractTestResult.withBindings(testScenario.bindings, response),
+                    request = request,
+                    response = response,
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
+                    afterFixtureExecutionResult = afterFixtureExecutionResult.fixtureExecutionResults
+                )
             }
             return ContractTestExecutionResult(
                 result = result.withBindings(testScenario.bindings, response),
                 request = request,
-                response = response
+                response = response,
+                beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
             )
         } catch (exception: Throwable) {
             return ContractTestExecutionResult(
@@ -258,10 +273,10 @@ data class ScenarioAsTest(
         }
     }
 
-    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): Result {
-        if (scenario.isNegative) return Result.Success()
-        val row = scenario.exampleRow ?: return Result.Success()
-        val scenarioStub = row.scenarioStub ?: return Result.Success()
+    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): FixtureExecutionDetails {
+        if (scenario.isNegative) return FixtureExecutionDetails(Result.Success())
+        val row = scenario.exampleRow ?: return FixtureExecutionDetails(Result.Success())
+        val scenarioStub = row.scenarioStub ?: return FixtureExecutionDetails(Result.Success())
         val id = scenarioStub.id.orEmpty()
         val fixtures = when (fixtureDiscriminatorKey) {
             BEFORE_FIXTURE_DISCRIMINATOR_KEY -> scenarioStub.beforeFixtures
@@ -269,7 +284,7 @@ data class ScenarioAsTest(
         }
 
         return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
-            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: Result.Success()
+            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: FixtureExecutionDetails(Result.Success())
     }
 
     private fun testResult(

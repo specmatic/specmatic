@@ -14,6 +14,7 @@ import io.specmatic.reporter.ctrf.model.CtrfTestOutput
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfTestResultRecord
+import io.specmatic.reporter.ctrf.model.FixtureExecutionResult
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -69,6 +70,8 @@ data class TestResultRecord(
         expectedType = responseContentType,
         actualType = actualResponseContentType
     ),
+    val beforeFixtureExecutionResult: List<FixtureExecutionResult>? = null,
+    val afterFixtureExecutionResult: List<FixtureExecutionResult>? = null,
 ): CtrfTestResultRecord {
     val isExercised = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
     val isCovered = result !in setOf(TestResult.MissingInSpec, TestResult.NotCovered)
@@ -94,7 +97,9 @@ data class TestResultRecord(
             match = matchesResponseIdentifiers,
             input = request?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L,
-            reasons = reasoning.toCtrfSnapshots()
+            reasons = reasoning.toCtrfSnapshots(),
+            beforeFixtureExecutionResults = beforeFixtureExecutionResult,
+            afterFixtureExecutionResults = afterFixtureExecutionResult
         )
     }
 

@@ -311,9 +311,9 @@ class ScenarioAsTestTest {
 }
 
 class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
-    override fun execute(id: String, fixtures: List<Value>, fixtureDiscriminatorKey: String): Result {
+    override fun execute(id: String, fixtures: List<Value>, fixtureDiscriminatorKey: String): FixtureExecutionDetails {
         calls.add(fixtureDiscriminatorKey)
-        return Result.Success()
+        return FixtureExecutionDetails(combinedResult = Result.Success())
     }
 
     companion object {
