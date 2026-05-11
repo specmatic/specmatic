@@ -99,12 +99,15 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         newSpecText: String,
         oldFeature: IFeature?,
         newFeature: IFeature,
-        physical: FileHunks?
+        physical: FileHunks?,
+        changedReferencedFiles: Set<String>
     ): List<OperationChange> = emptyList()
 
     @Volatile
     var lastRunChangeInfo: Map<String, ChangeInfo> = emptyMap()
         private set
+
+    private var changedReferredFilesBySpec: Map<String, Set<String>> = emptyMap()
 
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
@@ -144,6 +147,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         }
 
         val filesReferringToChangedSchemaFiles = getSpecsReferringTo(filesChangedInCurrentBranch)
+        changedReferredFilesBySpec = filesReferringToChangedSchemaFiles.associateWith { specPath ->
+            val specText = runCatching { File(specPath).readText() }.getOrDefault("")
+            filesChangedInCurrentBranch.filter { changedFile ->
+                File(changedFile).name in specText
+            }.map { File(it).canonicalPath }.toSet()
+        }
 
         val specificationsOfChangedExternalisedExamples =
             getSpecsOfChangedExternalisedExamples(filesChangedInCurrentBranch)
@@ -269,6 +278,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
                     val newer = getFeatureFromSpecPath(specFilePath)
                     val unusedExamples = getUnusedExamples(newer)
+                    val canonicalSpecPath = File(specFilePath).canonicalPath
+                    val changedReferencedFiles = changedReferredFilesBySpec[canonicalSpecPath].orEmpty()
 
                     val repoDirFile = File(effectiveRepoDir).absoluteFile
                     val relativeSpecPath = File(specFilePath).relativeTo(repoDirFile).path
@@ -279,7 +290,14 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
                     if (!olderFileExists) {
                         // new file: mark as passed immediately
-                        val logical = computeLogicalChanges(specFilePath, newSpecText, null, newer, physical)
+                        val logical = computeLogicalChanges(
+                            specFilePath,
+                            newSpecText,
+                            null,
+                            newer,
+                            physical,
+                            changedReferencedFiles
+                        )
                         return@mapNotNull ProcessedSpec(
                             specFilePath = specFilePath,
                             backwardCompatibilityResult = Results(),
@@ -306,7 +324,14 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                         protocol = listOfNotNull((older as? Feature)?.protocol)
                     )
 
-                    val logical = computeLogicalChanges(specFilePath, newSpecText, older, newer, physical)
+                    val logical = computeLogicalChanges(
+                        specFilePath,
+                        newSpecText,
+                        older,
+                        newer,
+                        physical,
+                        changedReferencedFiles
+                    )
                     return@mapNotNull ProcessedSpec(
                         specFilePath = specFilePath,
                         backwardCompatibilityResult = backwardCompatibilityResult,

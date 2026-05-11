@@ -35,13 +35,15 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
         newSpecText: String,
         oldFeature: IFeature?,
         newFeature: IFeature,
-        physical: FileHunks?
+        physical: FileHunks?,
+        changedReferencedFiles: Set<String>
     ): List<OperationChange> {
         return OpenApiLogicalChanges.compute(
             newSpecText = newSpecText,
             oldFeature = oldFeature as? Feature,
             newFeature = newFeature as Feature,
-            physical = physical
+            physical = physical,
+            changedReferencedFiles = changedReferencedFiles
         )
     }
 

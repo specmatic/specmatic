@@ -30,13 +30,15 @@ object OpenApiOperationAnchors {
         for (tuple in paths.value) {
             val key = (tuple.keyNode as? ScalarNode)?.value ?: continue
             val pathItem = tuple.valueNode as? MappingNode ?: continue
-            for (opTuple in pathItem.value) {
-                val methodKey = (opTuple.keyNode as? ScalarNode)?.value?.lowercase() ?: continue
-                if (methodKey !in HTTP_METHODS) continue
-                val keyNode = opTuple.keyNode
-                val anchor = anchorOf(keyNode) ?: continue
-                val tentativeEnd = endLineOf(opTuple.valueNode) ?: anchor.startLine
-                raw.add(Triple(key to methodKey.uppercase(), anchor, tentativeEnd))
+            for (resolvedPathItem in resolvePathItem(pathItem, rootMap)) {
+                for (opTuple in resolvedPathItem.value) {
+                    val methodKey = (opTuple.keyNode as? ScalarNode)?.value?.lowercase() ?: continue
+                    if (methodKey !in HTTP_METHODS) continue
+                    val keyNode = opTuple.keyNode
+                    val anchor = anchorOf(keyNode) ?: continue
+                    val tentativeEnd = endLineOf(opTuple.valueNode) ?: anchor.startLine
+                    raw.add(Triple(key to methodKey.uppercase(), anchor, tentativeEnd))
+                }
             }
         }
 
@@ -44,7 +46,7 @@ object OpenApiOperationAnchors {
         val result = mutableMapOf<Pair<String, String>, OpenApiOperationLocation>()
         for ((index, entry) in sortedByStart.withIndex()) {
             val (key, anchor, tentativeEnd) = entry
-            val nextStart = sortedByStart.getOrNull(index + 1)?.second?.startLine
+            val nextStart = sortedByStart.getOrNull(index + 1)?.second?.startLine?.takeIf { it > anchor.startLine }
             val cappedEnd = if (nextStart != null) minOf(tentativeEnd, nextStart - 1) else tentativeEnd
             val end = maxOf(cappedEnd, anchor.startLine)
             result[key] = OpenApiOperationLocation(
@@ -57,6 +59,26 @@ object OpenApiOperationAnchors {
 
     private fun mappingValueOf(node: MappingNode, key: String): Node? {
         return node.value.firstOrNull { (it.keyNode as? ScalarNode)?.value == key }?.valueNode
+    }
+
+    private fun resolvePathItem(pathItem: MappingNode, rootMap: MappingNode): List<MappingNode> {
+        val ref = (mappingValueOf(pathItem, "\$ref") as? ScalarNode)?.value
+        if (ref.isNullOrBlank() || !ref.startsWith("#/")) return listOf(pathItem)
+
+        return listOfNotNull(resolveLocalRef(rootMap, ref) as? MappingNode)
+    }
+
+    private fun resolveLocalRef(rootMap: MappingNode, ref: String): Node? {
+        return ref.removePrefix("#/")
+            .split("/")
+            .fold(rootMap as Node?) { current, token ->
+                val mapping = current as? MappingNode ?: return@fold null
+                mappingValueOf(mapping, token.decodeJsonPointerToken())
+            }
+    }
+
+    private fun String.decodeJsonPointerToken(): String {
+        return replace("~1", "/").replace("~0", "~")
     }
 
     private fun anchorOf(node: Node): OperationAnchor? {

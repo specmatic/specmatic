@@ -11,7 +11,14 @@ class GitHunkParserTest {
             index abc..def 100644
             --- a/spec.yaml
             +++ b/spec.yaml
-            @@ -10,3 +12,4 @@ paths:
+            @@ -10,3 +12,4 @@
+            -old 10
+            -old 11
+            -old 12
+            +new 12
+            +new 13
+            +new 14
+            +new 15
         """.trimIndent()
 
         val hunks = GitHunkParser.parse("spec.yaml", diff)
@@ -23,8 +30,18 @@ class GitHunkParserTest {
     @Test
     fun `parses multiple hunks`() {
         val diff = """
+            diff --git a/spec.yaml b/spec.yaml
+            --- a/spec.yaml
+            +++ b/spec.yaml
             @@ -1 +1 @@
+            -old 1
+            +new 1
             @@ -5,2 +6,3 @@
+            -old 5
+            -old 6
+            +new 6
+            +new 7
+            +new 8
         """.trimIndent()
 
         val hunks = GitHunkParser.parse("spec.yaml", diff)
@@ -35,7 +52,17 @@ class GitHunkParserTest {
 
     @Test
     fun `pure addition uses count zero on old side`() {
-        val diff = "@@ -0,0 +1,5 @@"
+        val diff = """
+            diff --git a/spec.yaml b/spec.yaml
+            --- /dev/null
+            +++ b/spec.yaml
+            @@ -0,0 +1,5 @@
+            +new 1
+            +new 2
+            +new 3
+            +new 4
+            +new 5
+        """.trimIndent()
 
         val hunks = GitHunkParser.parse("spec.yaml", diff)
 
@@ -45,7 +72,15 @@ class GitHunkParserTest {
 
     @Test
     fun `pure deletion uses count zero on new side`() {
-        val diff = "@@ -10,3 +9,0 @@"
+        val diff = """
+            diff --git a/spec.yaml b/spec.yaml
+            --- a/spec.yaml
+            +++ /dev/null
+            @@ -10,3 +9,0 @@
+            -old 10
+            -old 11
+            -old 12
+        """.trimIndent()
 
         val hunks = GitHunkParser.parse("spec.yaml", diff)
 
@@ -55,7 +90,14 @@ class GitHunkParserTest {
 
     @Test
     fun `defaults count to 1 when omitted`() {
-        val diff = "@@ -7 +9 @@"
+        val diff = """
+            diff --git a/spec.yaml b/spec.yaml
+            --- a/spec.yaml
+            +++ b/spec.yaml
+            @@ -7 +9 @@
+            -old 7
+            +new 9
+        """.trimIndent()
 
         val hunks = GitHunkParser.parse("spec.yaml", diff)
 
