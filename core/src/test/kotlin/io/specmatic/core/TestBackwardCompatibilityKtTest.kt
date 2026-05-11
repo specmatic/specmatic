@@ -3547,6 +3547,310 @@ paths:
     }
 
     @Test
+    fun `should fail when request is changed from some-body to no-body with appropriate error message`() {
+        val olderContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val newerContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.1.9
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+              >> REQUEST.BODY
+              
+                  R1002: Value mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1002
+                  Summary: The value does not match the expected value defined in the specification
+              
+                  This is no body in the new specification, but json object in the old specification
+            """
+        )
+    }
+
+    @Test
+    fun `should fail when request content-type has been changes from one to another`() {
+        val olderContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val newerContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/custom+json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        assertBackwardCompatibilityFailure(
+            results = results,
+            expectedReport = """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+              >> REQUEST.PARAMETERS.HEADER.Content-Type
+              
+                  R1002: Value mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1002
+                  Summary: The value does not match the expected value defined in the specification
+              
+                  This is application/custom+json in the new specification, but application/json in the old specification
+            """
+        )
+    }
+
+    @Test
+    fun `should fail when request content-type has been changes from one to another but another path with same method and content-type exists`() {
+        val olderContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+          /orders:
+            post:
+              summary: Create an order
+              description: Create a new order entry
+              requestBody:
+                description: Order to add
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val newerContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/custom+json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+          /orders:
+            post:
+              summary: Create an order
+              description: Create a new order entry
+              requestBody:
+                description: Order to add
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        assertBackwardCompatibilityFailure(
+            results = results,
+            expectedReport = """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+              >> REQUEST.PARAMETERS.HEADER.Content-Type
+              
+                  R1002: Value mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1002
+                  Summary: The value does not match the expected value defined in the specification
+              
+                  This is application/custom+json in the new specification, but application/json in the old specification
+            """
+        )
+    }
+
+    @Test
+    fun `should fail when request content-type has been changes from one to another but multiple content-type exists making the change ambiguous`() {
+        val olderContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val newerContract: Feature = """
+        openapi: 3.0.0
+        info:
+          title: Sample API
+          version: 0.2.0
+        paths:
+          /products:
+            post:
+              summary: Create a product
+              description: Create a new product entry
+              requestBody:
+                description: Product to add
+                required: true
+                content:
+                  application/custom+json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                  application/custom2+json:
+                    schema:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+              responses:
+                '201':
+                  description: Created
+        """.trimIndent().openAPIToContract()
+
+        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        assertBackwardCompatibilityFailure(
+            results = results,
+            expectedReport = """
+            In scenario "Create a product. Response: Created"
+            API: POST /products -> 201
+            
+                  This API exists in the old contract but not in the new contract
+            """
+        )
+    }
+
+    @Test
     fun `example-only changes do not break backward compatibility for anyOf nullable response schema`() {
         val oldSpec = """
 openapi: 3.1.0
