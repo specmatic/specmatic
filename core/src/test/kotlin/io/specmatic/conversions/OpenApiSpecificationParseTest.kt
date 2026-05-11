@@ -1,19 +1,23 @@
 package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.QueryParameters
+import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
-import io.specmatic.core.Result
-import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.stub.captureStandardOutput
+import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -211,6 +215,198 @@ class OpenApiSpecificationParseTest {
 
         val headerPattern = requestPattern.headersPattern.pattern["X-Request-Id"]
         assertThat(headerPattern).isInstanceOf(NumberPattern::class.java)
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `should parse form exploded object query parameter properties as query params`(explicitSerialization: Boolean) {
+        val serialization = if (explicitSerialization) {
+            "          style: form\n          explode: true\n"
+        } else {
+            ""
+        }
+        val spec = """
+            |openapi: 3.0.0
+            |info:
+            |  title: Form Exploded Object Query Param
+            |  version: 1.0.0
+            |paths:
+            |  /orders:
+            |    get:
+            |      parameters:
+            |        - in: query
+            |          name: info
+            |          required: true
+            |${serialization}          schema:
+            |            ${"$"}ref: '#/components/schemas/info'
+            |        - in: query
+            |          name: type
+            |          required: false
+            |          schema:
+            |            type: string
+            |      responses:
+            |        '200':
+            |          description: OK
+            |components:
+            |  schemas:
+            |    info:
+            |      type: object
+            |      required:
+            |        - name
+            |      properties:
+            |        name:
+            |          type: string
+            |        description:
+            |          type: string
+        """.trimMargin()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactlyInAnyOrder("name", "description?", "type?")
+        assertThat(queryParamPattern.queryPatterns).doesNotContainKey("info")
+        assertThat(queryParamPattern.queryPatterns["name"]).isInstanceOf(QueryParameterScalarPattern::class.java)
+
+        val result = queryParamPattern.matches(
+            HttpRequest(
+                "GET",
+                "/orders",
+                queryParams = QueryParameters(listOf("name" to "Jane", "description" to "buyer", "type" to "retail"))
+            ),
+            Resolver()
+        )
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should require required object properties only when optional form exploded object query param is present`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Optional Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: false
+                      schema:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val withoutInfo = queryParamPattern.matches(
+            HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("type" to "retail"))),
+            Resolver()
+        )
+        assertThat(withoutInfo).isInstanceOf(Result.Success::class.java)
+
+        val partialInfo = queryParamPattern.matches(
+            HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("description" to "buyer"))),
+            Resolver()
+        )
+        assertThat(partialInfo).isInstanceOf(Result.Failure::class.java)
+        assertThat(partialInfo.reportString()).contains("name")
+
+        val completeInfo = queryParamPattern.matches(
+            HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("name" to "Jane"))),
+            Resolver()
+        )
+        assertThat(completeInfo).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `required form exploded object query param with no required properties treats all object properties as optional`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(requiredObjectQueryParamWithNoRequiredPropertiesSpec(), "")
+            .toFeature()
+            .scenarios
+            .single()
+            .httpRequestPattern
+            .httpQueryParamPattern
+
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactlyInAnyOrder("name?", "description?")
+
+        assertThat(queryParamPattern.matches(HttpRequest("GET", "/orders"), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(
+            queryParamPattern.matches(
+                HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("description" to "buyer"))),
+                Resolver()
+            )
+        ).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `required form exploded object query param with no required properties should warn`() {
+        val (stdout, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(requiredObjectQueryParamWithNoRequiredPropertiesSpec(), "spec.yaml").toFeature()
+        }
+
+        assertThat(stdout).containsIgnoringWhitespaces(
+            toViolationReportString(
+                breadCrumb = "paths./orders.get.parameters[0].required",
+                details = "Query parameter info is a required form-exploded object, but its schema does not define any required properties. Since form-exploded object parameters are represented by their properties, no property is made mandatory.",
+                OpenApiLintViolations.REQUIRED_QUERY_OBJECT_CONFLICT
+            )
+        )
+    }
+
+    @Test
+    fun `standalone query parameter colliding with form exploded object property should be reported and dropped`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
+        val queryPatterns = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern.queryPatterns
+        val typePattern = queryPatterns["type"]
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("conflicts with form-exploded object query parameter info.type")
+        assertThat(queryPatterns.keys).containsExactly("type")
+        assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
     }
 
     @ParameterizedTest(name = "openapi {0}")
@@ -430,12 +626,195 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `form exploded object query params allow any additional query param with free form additional properties`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = true
+        )
+
+        val result = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(result).withFailMessage(result.reportString()).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `form exploded object query params allow any additional query param when any object allows free form additional properties`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = mapOf("type" to "boolean"),
+            departmentAdditionalProperties = true
+        )
+
+        val result = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(result).withFailMessage(result.reportString()).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `form exploded object query params restrict additional query params to a single schema`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = mapOf("type" to "boolean")
+        )
+
+        val validResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "true"))),
+            Resolver()
+        )
+        val invalidResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(validResult).withFailMessage(validResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(invalidResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `form exploded object query params allow additional query params matching any constrained schema`() {
+        val queryParamPattern = queryParamPatternWithObjectAdditionalProperties(
+            personAdditionalProperties = mapOf("type" to "boolean"),
+            departmentAdditionalProperties = mapOf("type" to "integer")
+        )
+
+        val booleanResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "true"))),
+            Resolver()
+        )
+        val integerResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "10"))),
+            Resolver()
+        )
+        val invalidResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean-or-integer"))),
+            Resolver()
+        )
+
+        assertThat(booleanResult).withFailMessage(booleanResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(integerResult).withFailMessage(integerResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(invalidResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `form exploded object query param should use additionalProperties from referenced object schema`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Referenced Object Query Param
+              version: 1.0.0
+            paths:
+              /test:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      schema:
+                        ${"$"}ref: '#/components/schemas/Info'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                Info:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                  additionalProperties:
+                    type: boolean
+        """.trimIndent()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val validResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "true"))),
+            Resolver()
+        )
+        val invalidResult = queryParamPattern.matches(
+            HttpRequest("GET", "/test", queryParams = QueryParameters(mapOf("extra" to "not-a-boolean"))),
+            Resolver()
+        )
+
+        assertThat(validResult).withFailMessage(validResult.reportString()).isInstanceOf(Result.Success::class.java)
+        assertThat(invalidResult).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
     fun `should guard against the swagger-parser regression for discriminator mappings to external schema files with nested refs`() {
         val specFile = File("src/test/resources/openapi/discriminator_external_file_refs/openapi.yaml")
 
         val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
 
         assertThat(feature.scenarios).hasSize(1)
+    }
+
+    private fun queryParamPatternWithObjectAdditionalProperties(
+        personAdditionalProperties: Any?,
+        departmentAdditionalProperties: Any? = null
+    ) = OpenApiSpecification.fromYAML(
+        yamlMapper.writeValueAsString(
+            mapOf(
+                "openapi" to "3.0.0",
+                "info" to mapOf("title" to "Test API", "version" to "1.0.0"),
+                "paths" to mapOf(
+                    "/test" to mapOf(
+                        "get" to mapOf(
+                            "parameters" to listOf(
+                                mapOf(
+                                    "name" to "person_info",
+                                    "in" to "query",
+                                    "schema" to objectSchema("name", personAdditionalProperties)
+                                ),
+                                mapOf(
+                                    "name" to "department_info",
+                                    "in" to "query",
+                                    "schema" to objectSchema("department", departmentAdditionalProperties)
+                                )
+                            ),
+                            "responses" to mapOf("200" to mapOf("description" to "OK"))
+                        )
+                    )
+                )
+            )
+        ),
+        "test-api.yaml"
+    ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+    private fun objectSchema(propertyName: String, additionalProperties: Any?): Map<String, Any?> {
+        return buildMap {
+            put("type", "object")
+            put("properties", mapOf(propertyName to mapOf("type" to "string")))
+            if (additionalProperties != null) put("additionalProperties", additionalProperties)
+        }
+    }
+
+    private fun requiredObjectQueryParamWithNoRequiredPropertiesSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Required Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
     }
 
     companion object {

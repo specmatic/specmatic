@@ -9,10 +9,18 @@ import io.specmatic.core.value.StringValue
 import java.net.URI
 import kotlin.collections.contains
 
+data class FormExplodedObjectQueryParam(
+    val parameterName: String,
+    val required: Boolean,
+    val propertyKeys: Set<String>,
+    val requiredPropertyKeys: Set<String>
+)
+
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
-    val extensibleQueryParams: Boolean = false
+    val extensibleQueryParams: Boolean = false,
+    val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList()
 ) {
 
     val queryKeyNames = queryPatterns.keys
@@ -30,32 +38,24 @@ data class HttpQueryParamPattern(
                         listOf(parameterName to generatedValue.toString())
                     }
                 }
-            }.let { queryParamPairs ->
-                if(additionalProperties == null)
-                    queryParamPairs
-                else
-                    queryParamPairs.plus(randomString(5) to additionalProperties.generate(resolver).toStringLiteral())
             }
         }
     }
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = queryPatterns.let {
-                if(additionalProperties != null)
-                    it.plus(randomString(5) to additionalProperties)
-                else
-                    it
-            }
+            val queryParams = effectiveQueryPatterns(row)
             val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
-            allOrNothingCombinationIn(patternMap, resolver.resolveRow(row)) { pattern ->
-                newMapBasedOn(pattern,row,withNullPattern(resolver))
+            queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(row)).flatMap { pattern ->
+                newMapBasedOn(pattern, row, withNullPattern(resolver))
             }.map { it: ReturnValue<Map<String, Pattern>> ->
                 it.ifValue {
                     HttpQueryParamPattern(
                         it.mapKeys { entry -> withoutOptionality(entry.key) },
-                        extensibleQueryParams = extensibleQueryParams
+                        additionalProperties = additionalProperties,
+                        extensibleQueryParams = extensibleQueryParams,
+                        formExplodedObjectQueryParams = formExplodedObjectQueryParams
                     )
                 }
             }
@@ -66,7 +66,7 @@ data class HttpQueryParamPattern(
         return addComplimentaryPatterns(
             basePatterns.map { rValue -> rValue.ifValue { it.queryPatterns } },
             queryPatterns,
-            additionalProperties,
+            null,
             row,
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
@@ -74,26 +74,25 @@ data class HttpQueryParamPattern(
             patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) { patternMap ->
                 HttpQueryParamPattern(
                     patternMap.mapKeys { entry -> withoutOptionality(entry.key) },
-                    extensibleQueryParams = extensibleQueryParams
+                    additionalProperties = additionalProperties,
+                    extensibleQueryParams = extensibleQueryParams,
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
                 )
             }
         }
     }
 
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
+        val effectivePatterns = effectiveQueryPatterns(httpRequest.queryParams)
         val queryParams = if(additionalProperties != null) {
-            httpRequest.queryParams.withoutMatching(queryPatterns.keys, additionalProperties, resolver)
+            httpRequest.queryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
         } else {
             httpRequest.queryParams
         }
 
-        val keyErrors = resolver.findKeyErrorList(queryPatterns, queryParams.asMap().mapValues { StringValue(it.value) })
+        val keyErrors = resolver.findKeyErrorList(effectivePatterns, queryParams.asMap().mapValues { StringValue(it.value) })
         val keyErrorList: List<Result.Failure> = keyErrors.map {
-            when {
-                queryPatterns.contains(it.name) -> it.missingKeyToResult("query param", resolver.mismatchMessages)
-                queryPatterns.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("query param", resolver.mismatchMessages)
-                else -> it.unknownKeyToResult("query param", resolver.mismatchMessages)
-            }.breadCrumb(it.name)
+            keyErrorToResult(it, effectivePatterns, httpRequest.queryParams, resolver).breadCrumb(it.name)
         }
 
         // 1. key is optional and request does not have the key as well
@@ -115,7 +114,7 @@ data class HttpQueryParamPattern(
         // Where we need unmatched values:
         // Matching incoming request to stubbed out API
 
-        val results: List<Result?> = queryPatterns.mapNotNull { (key, parameterPattern) ->
+        val results: List<Result?> = effectivePatterns.mapNotNull { (key, parameterPattern) ->
             val requestValues = queryParams.getValues(withoutOptionality(key))
 
             if (requestValues.isEmpty()) return@mapNotNull null
@@ -138,23 +137,68 @@ data class HttpQueryParamPattern(
             Result.Success()
     }
 
+    private fun keyErrorToResult(keyError: KeyError, effectivePatterns: Map<String, Pattern>, queryParams: QueryParameters, resolver: Resolver): Result.Failure {
+        return when {
+            effectivePatterns.contains(keyError.name) ->
+                missingRequiredFormExplodedObjectPropertyToResult(keyError.name, queryParams)
+                    ?: keyError.missingKeyToResult("query param", resolver.mismatchMessages)
+            effectivePatterns.contains(withOptionality(keyError.name)) -> keyError.missingOptionalKeyToResult("query param", resolver.mismatchMessages)
+            else -> keyError.unknownKeyToResult("query param", resolver.mismatchMessages)
+        }
+    }
+
+    private fun missingRequiredFormExplodedObjectPropertyToResult(missingPropertyKey: String, queryParams: QueryParameters): Result.Failure? {
+        val objectQueryParam = formExplodedObjectQueryParams.firstOrNull { objectQueryParam ->
+            missingPropertyKey in objectQueryParam.requiredPropertyKeys &&
+                objectQueryParam.propertyKeys.any(queryParams::containsKey)
+        } ?: return null
+
+        val presentPropertyKeys = objectQueryParam.propertyKeys.filter(queryParams::containsKey).sorted()
+        val missingRequiredPropertyKeys = objectQueryParam.requiredPropertyKeys.filterNot(queryParams::containsKey).sorted()
+        val presentProperties = propertyListMessage(presentPropertyKeys)
+        val missingRequiredProperties = propertyListMessage(missingRequiredPropertyKeys)
+
+        return Result.Failure(
+            message = missingRequiredFormExplodedObjectPropertyMessage(objectQueryParam, presentProperties, missingRequiredProperties),
+            ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
+        )
+    }
+
+    private fun missingRequiredFormExplodedObjectPropertyMessage(
+        objectQueryParam: FormExplodedObjectQueryParam,
+        presentProperties: String,
+        missingRequiredProperties: String
+    ): String {
+        return when {
+            objectQueryParam.required ->
+                "The request includes $presentProperties from required form-exploded query parameter object \"${objectQueryParam.parameterName}\". Required $missingRequiredProperties must also be provided."
+            else ->
+                "The request includes $presentProperties from optional form-exploded query parameter object \"${objectQueryParam.parameterName}\". Since that object is present, required $missingRequiredProperties must also be provided."
+        }
+    }
+
+    private fun propertyListMessage(propertyKeys: List<String>): String {
+        return when (propertyKeys.size) {
+            1 -> "property ${propertyKeys.single().quoted()}"
+            else -> "properties ${propertyKeys.joinToString(", ") { it.quoted() }}"
+        }
+    }
+
+    private fun String.quoted(): String = "\"$this\""
+
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = queryPatterns.let {
-                if(additionalProperties != null)
-                    it.plus(randomString(5) to additionalProperties)
-                else
-                    it
-            }
+            val queryParams = queryPatterns
 
-            allOrNothingCombinationIn(
-                queryParams,
-                Row(),
-                null,
-                null,
-                returnValues { entry -> newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver) }
-            ).map {
-                HttpQueryParamPattern(it.value, extensibleQueryParams = extensibleQueryParams)
+            queryParamCombinationsRespectingFormExplodedObjects(queryParams, Row()).flatMap { entry ->
+                newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver)
+            }.map {
+                HttpQueryParamPattern(
+                    it,
+                    additionalProperties = additionalProperties,
+                    extensibleQueryParams = extensibleQueryParams,
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                )
             }
         }
     }
@@ -170,7 +214,7 @@ data class HttpQueryParamPattern(
     fun negativeBasedOn(row: Row, resolver: Resolver, config: NegativePatternConfiguration = NegativePatternConfiguration()): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return returnValue(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-                val queryParams: Map<String, Pattern> = queryPatterns.let {
+                val queryParams: Map<String, Pattern> = effectiveQueryPatterns(row).let {
                     if (additionalProperties != null)
                         it.plus(randomString(5) to additionalProperties)
                     else
@@ -189,7 +233,9 @@ data class HttpQueryParamPattern(
                     patternWithKeyCombinationDetailsFrom(it, QUERY_PARAM_KEY_ID_IN_TEST_DETAILS) {
                         HttpQueryParamPattern(
                             it.mapKeys { entry -> withoutOptionality(entry.key) },
-                            extensibleQueryParams = extensibleQueryParams
+                            additionalProperties = additionalProperties,
+                            extensibleQueryParams = extensibleQueryParams,
+                            formExplodedObjectQueryParams = formExplodedObjectQueryParams
                         )
                     }
                 }
@@ -207,20 +253,32 @@ data class HttpQueryParamPattern(
         generateMandatoryEntryIfMissing: Boolean
     ): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            readFrom(queryPatterns, row, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
+            readFrom(effectiveQueryPatterns(row), row, resolver, generateMandatoryEntryIfMissing).map { HasValue(it) }
         }.map { pattern ->
-            pattern.ifValue { HttpQueryParamPattern(pattern.value, extensibleQueryParams = extensibleQueryParams) }
+            pattern.ifValue {
+                HttpQueryParamPattern(
+                    pattern.value,
+                    additionalProperties = additionalProperties,
+                    extensibleQueryParams = extensibleQueryParams,
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                )
+            }
         }
     }
     fun matches(row: Row, resolver: Resolver): Result {
-        return matches(queryPatterns, row, resolver, "query param")
+        return matches(effectiveQueryPatterns(row), row, resolver, "query param")
     }
 
     fun fixValue(queryParams: QueryParameters?, resolver: Resolver): QueryParameters {
+        val queryParamsToFix = queryParams ?: QueryParameters(emptyMap())
+        val effectivePatterns = effectiveQueryPatterns(queryParamsToFix)
+        val additionalQueryParams = matchingAdditionalQueryParams(queryParamsToFix, effectivePatterns, resolver)
+        val invalidAdditionalQueryPatterns = invalidAdditionalQueryParamPatterns(queryParamsToFix, effectivePatterns, resolver)
+        val patternsToFix = effectivePatterns + invalidAdditionalQueryPatterns
         val adjustedQueryParams = when {
-            queryParams == null || queryParams.paramPairs.isEmpty() -> QueryParameters(emptyMap())
-            additionalProperties != null -> queryParams.withoutMatching(queryPatterns.keys, additionalProperties, resolver)
-            else -> queryParams
+            queryParamsToFix.paramPairs.isEmpty() -> QueryParameters(emptyMap())
+            additionalProperties != null -> queryParamsToFix.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
+            else -> queryParamsToFix
         }
 
         val updatedResolver = if (extensibleQueryParams) {
@@ -228,19 +286,22 @@ data class HttpQueryParamPattern(
         } else resolver.withUnexpectedKeyCheck(ValidateUnexpectedKeys)
 
         val fixedQueryParams = fix(
-            jsonPatternMap = queryPatterns, jsonValueMap = adjustedQueryParams.asValueMap(),
+            jsonPatternMap = patternsToFix, jsonValueMap = adjustedQueryParams.asValueMap(),
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value).withoutAllPatternsAsMandatory(),
-            jsonPattern = JSONObjectPattern(queryPatterns, typeAlias = null)
+            jsonPattern = JSONObjectPattern(patternsToFix, typeAlias = null)
         )
 
-        return QueryParameters(fixedQueryParams.mapValues { it.value.toStringLiteral() })
+        return QueryParameters(fixedQueryParams.mapValues { it.value.toStringLiteral() }.toList() + additionalQueryParams.paramPairs)
     }
 
     fun fillInTheBlanks(queryParams: QueryParameters?, resolver: Resolver): ReturnValue<QueryParameters> {
+        val queryParamsToFill = queryParams ?: QueryParameters(emptyMap())
+        val effectivePatterns = effectiveQueryPatterns(queryParamsToFill)
+        val additionalQueryParams = matchingAdditionalQueryParams(queryParamsToFill, effectivePatterns, resolver)
         val adjustedQueryParams = when {
-            queryParams == null || queryParams.paramPairs.isEmpty() -> QueryParameters(emptyMap())
-            additionalProperties != null -> queryParams.withoutMatching(queryPatterns.keys, additionalProperties, resolver)
-            else -> queryParams
+            queryParamsToFill.paramPairs.isEmpty() -> QueryParameters(emptyMap())
+            additionalProperties != null -> queryParamsToFill.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
+            else -> queryParamsToFill
         }
 
         val updatedResolver = if (extensibleQueryParams) {
@@ -248,22 +309,109 @@ data class HttpQueryParamPattern(
         } else resolver.withUnexpectedKeyCheck(ValidateUnexpectedKeys)
 
         val parsedQueryParams = adjustedQueryParams.asValueMap().mapValues { (key, value) ->
-            val pattern = queryPatterns[key] ?: queryPatterns["${key}?"] ?: return@mapValues value
+            val pattern = effectivePatterns[key] ?: effectivePatterns["${key}?"] ?: return@mapValues value
             runCatching { pattern.parse(value.toStringLiteral(), resolver) }.getOrDefault(value)
         }
 
         return fill(
-            jsonPatternMap = queryPatterns, jsonValueMap = parsedQueryParams,
+            jsonPatternMap = effectivePatterns, jsonValueMap = parsedQueryParams,
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value),
             typeAlias = null
         ).realise(
-            hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() })) },
+            hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() }.toList() + additionalQueryParams.paramPairs)) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
     }
 
+    private fun matchingAdditionalQueryParams(queryParams: QueryParameters, effectivePatterns: Map<String, Pattern>, resolver: Resolver): QueryParameters {
+        return additionalProperties?.let { queryParams.matching(effectivePatterns.normalizedKeys(), it, resolver) }
+            ?: QueryParameters(emptyMap())
+    }
+
+    private fun invalidAdditionalQueryParamPatterns(queryParams: QueryParameters, effectivePatterns: Map<String, Pattern>, resolver: Resolver): Map<String, Pattern> {
+        val additionalProperties = additionalProperties ?: return emptyMap()
+        val effectiveKeys = effectivePatterns.normalizedKeys()
+        val validAdditionalQueryParams = queryParams.matching(effectiveKeys, additionalProperties, resolver).paramPairs.toSet()
+
+        return queryParams.paramPairs
+            .filter { (key, _) -> key !in effectiveKeys }
+            .filterNot(validAdditionalQueryParams::contains)
+            .associate { (key, _) -> key to additionalProperties }
+    }
+
+    private fun queryParamCombinationsRespectingFormExplodedObjects(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {
+        return allOrNothingQueryParamCombinations(patternMap, row)
+            .flatMap(::withRequiredOnlyVariantsForPresentFormExplodedObjects)
+            .distinct()
+    }
+
+    private fun allOrNothingQueryParamCombinations(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {
+        return allOrNothingCombinationIn(patternMap, row) { selectedPatternMap ->
+            sequenceOf(HasValue(selectedPatternMap))
+        }.map { it.value }
+    }
+
+    private fun withRequiredOnlyVariantsForPresentFormExplodedObjects(patternMap: Map<String, Pattern>): Sequence<Map<String, Pattern>> {
+        val requiredOnlyObjectPatternMap = requiredOnlyVariantForPresentFormExplodedObjects(patternMap)
+        return sequenceOf(patternMap) + listOfNotNull(requiredOnlyObjectPatternMap).asSequence()
+    }
+
+    private fun requiredOnlyVariantForPresentFormExplodedObjects(patternMap: Map<String, Pattern>): Map<String, Pattern>? {
+        val requiredOnlyPatternMap = formExplodedObjectQueryParams.fold(patternMap) { patterns, objectQueryParam ->
+            if (objectQueryParam.requiredPropertyKeys.isEmpty()) return@fold patterns
+            if (objectQueryParam.propertyKeys.none { propertyKey -> patterns.containsNormalizedKey(propertyKey) }) return@fold patterns
+
+            val optionalPropertyKeys = objectQueryParam.propertyKeys - objectQueryParam.requiredPropertyKeys
+            val patternsWithoutOptionalObjectProperties = patterns.filterKeys { key -> withoutOptionality(key) !in optionalPropertyKeys }
+
+            objectQueryParam.requiredPropertyKeys.fold(patternsWithoutOptionalObjectProperties) { updatedPatterns, propertyKey ->
+                updatedPatterns.makeKeyMandatory(propertyKey)
+            }
+        }
+
+        return requiredOnlyPatternMap.takeUnless { it == patternMap }
+    }
+
     companion object {
         private const val QUERY_PARAM_KEY_ID_IN_TEST_DETAILS = "param"
+    }
+
+    private fun effectiveQueryPatterns(queryParams: QueryParameters): Map<String, Pattern> {
+        return formExplodedObjectQueryParams.fold(queryPatterns) { patterns, objectQueryParam ->
+            when {
+                objectQueryParam.required || objectQueryParam.propertyKeys.any(queryParams::containsKey) ->
+                    objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
+                        updatedPatterns.makeKeyMandatory(propertyKey)
+                    }
+                else -> patterns
+            }
+        }
+    }
+
+    private fun effectiveQueryPatterns(row: Row): Map<String, Pattern> {
+        return formExplodedObjectQueryParams.fold(queryPatterns) { patterns, objectQueryParam ->
+            when {
+                objectQueryParam.required || objectQueryParam.propertyKeys.any(row::containsField) ->
+                    objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
+                        updatedPatterns.makeKeyMandatory(propertyKey)
+                    }
+                else -> patterns
+            }
+        }
+    }
+
+    private fun Map<String, Pattern>.makeKeyMandatory(key: String): Map<String, Pattern> {
+        val optionalKey = withOptionality(key)
+        val pattern = this[key] ?: this[optionalKey] ?: return this
+        return this.minus(optionalKey).plus(key to pattern)
+    }
+
+    private fun Map<String, Pattern>.normalizedKeys(): Set<String> {
+        return keys.map(::withoutOptionality).toSet()
+    }
+
+    private fun Map<String, Pattern>.containsNormalizedKey(key: String): Boolean {
+        return containsKey(key) || containsKey(withOptionality(key))
     }
 }
 

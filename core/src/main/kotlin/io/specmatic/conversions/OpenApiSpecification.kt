@@ -2604,44 +2604,188 @@ class OpenApiSpecification(
 
     private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
-        val queryPattern: Map<String, Pattern> = queryParameters.associate { queryParamWithContext ->
-            val parameter = queryParamWithContext.parameter
-            logger.debug("Processing query parameter ${parameter.name}")
-            val queryParamContext = queryParamWithContext.collectorContext
-            val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = queryParamContext)
-            val specmaticPattern: Pattern? = if (resolvedSchema.isSchema(ARRAY_TYPE)) {
-                val itemsSchema = paramContext.requirePojo(extract = { resolvedSchema.items }, createDefault = { Schema<Any>() }, message = { "No items schema defined for array schema defaulting to empty schema" })
-                QueryParameterArrayPattern(listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = paramContext.at("items"))), parameter.name)
-            } else if (!resolvedSchema.isSchema(OBJECT_TYPE)) {
-                QueryParameterScalarPattern(toSpecmaticPattern(schema = parameter.schema, typeStack = emptyList(), collectorContext = queryParamContext.at("schema")))
+        val parsedQueryParameters = queryParameters.map(::toQueryParameterParseResult)
+        val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
+        val objectPropertyEntries = queryPatternEntries.filter { it.source.isFormExplodedObjectProperty }
+        val objectPropertyEntriesByWireKey = objectPropertyEntries.groupBy(QueryParameterPatternEntry::wireKey)
+
+        val filteredQueryPatternEntries = queryPatternEntries.filter { entry ->
+            if (!entry.source.isFormExplodedObjectProperty && entry.wireKey in objectPropertyEntriesByWireKey) {
+                recordQueryParameterCollision(entry, objectPropertyEntriesByWireKey.getValue(entry.wireKey).first())
+                false
             } else {
-                queryParamContext.at("schema").record(
-                    message = "Query parameter ${parameter.name} is an object, and not yet supported",
-                    ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE,
-                    isWarning = true
-                )
-                null
+                true
             }
+        }
 
-            val queryParamKey = if (parameter.required == true) parameter.name else "${parameter.name}?"
-            queryParamKey to specmaticPattern
-        }.filterValues { it != null }.mapValues { it.value!! }
+        val queryPattern: Map<String, Pattern> = filteredQueryPatternEntries.associate { it.key to it.pattern }
 
-        val additionalProperties = additionalPropertiesInQueryParam(queryParameters)
+        val additionalProperties = additionalPropertiesInQueryParam(parsedQueryParameters)
         return HttpQueryParamPattern(
             queryPattern,
             additionalProperties,
-            extensibleQueryParams = extensibleQueryParams
+            extensibleQueryParams = extensibleQueryParams,
+            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam)
         )
     }
 
-    private fun additionalPropertiesInQueryParam(queryParameters: List<ParameterWithContext<QueryParameter>>): Pattern? {
-        val queryParamWithContext = queryParameters.firstOrNull {
-            it.parameter.schema.isSchema(OBJECT_TYPE, multi = false) && it.parameter.schema.extractAdditionalProperties() != null
-        } ?: return null
-        val additionalProperties = queryParamWithContext.parameter.schema.extractAdditionalProperties() ?: return null
+    private data class QueryParameterPatternSource(val parameterName: String, val propertyName: String? = null) {
+        val isFormExplodedObjectProperty: Boolean = propertyName != null
+        val displayName: String = propertyName?.let { "$parameterName.$it" } ?: parameterName
+    }
 
-        val additionalPropContext = queryParamWithContext.collectorContext.at("additionalProperties")
+    private data class QueryParameterPatternEntry(
+        val key: String,
+        val wireKey: String,
+        val pattern: Pattern,
+        val source: QueryParameterPatternSource,
+        val collectorContext: CollectorContext
+    )
+
+    private data class QueryParameterParseResult(
+        val entries: List<QueryParameterPatternEntry>,
+        val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
+        val additionalProperties: Pattern? = null
+    )
+
+    private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>): QueryParameterParseResult {
+        val parameter = queryParamWithContext.parameter
+        logger.debug("Processing query parameter ${parameter.name}")
+        val queryParamContext = queryParamWithContext.collectorContext
+        val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = queryParamContext)
+
+        return if (resolvedSchema.isSchema(OBJECT_TYPE)) {
+            toFormExplodedObjectQueryParameterParseResult(parameter, resolvedSchema, paramContext, queryParamContext)
+        } else {
+            val specmaticPattern = toQueryParameterPattern(
+                parameterName = parameter.name,
+                schema = parameter.schema,
+                resolvedSchema = resolvedSchema,
+                resolvedSchemaContext = paramContext,
+                schemaContext = queryParamContext.at("schema")
+            )
+            val queryParamKey = if (parameter.required == true) parameter.name else "${parameter.name}?"
+            QueryParameterParseResult(
+                entries = listOf(
+                    QueryParameterPatternEntry(
+                        key = queryParamKey,
+                        wireKey = parameter.name,
+                        pattern = specmaticPattern,
+                        source = QueryParameterPatternSource(parameter.name),
+                        collectorContext = queryParamContext
+                    )
+                )
+            )
+        }
+    }
+
+    private fun toFormExplodedObjectQueryParameterParseResult(
+        parameter: QueryParameter,
+        resolvedSchema: Schema<*>,
+        schemaContext: CollectorContext,
+        parameterContext: CollectorContext
+    ): QueryParameterParseResult {
+        if (!parameter.isFormExploded()) {
+            parameterContext.at("schema").record(
+                message = "Query parameter ${parameter.name} is an object, and only style form with explode true is supported",
+                ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE,
+                isWarning = true
+            )
+            return QueryParameterParseResult(emptyList())
+        }
+
+        val requiredProperties = resolvedSchema.required.orEmpty().toSet()
+        val schemaProperties = resolvedSchema.properties.orEmpty()
+
+        if (parameter.required == true && requiredProperties.isEmpty()) {
+            parameterContext.at("required").record(
+                message = "Query parameter ${parameter.name} is a required form-exploded object, but its schema does not define any required properties. Since form-exploded object parameters are represented by their properties, no property is made mandatory.",
+                ruleViolation = OpenApiLintViolations.REQUIRED_QUERY_OBJECT_CONFLICT,
+                isWarning = true
+            )
+        }
+
+        val entries = schemaProperties.map { (propertyName, propertySchema) ->
+            val propertyContext = schemaContext.at("properties").at(propertyName)
+            val (resolvedPropertySchema, resolvedPropertyContext) = resolveSchemaIfRefElseAtSchema(
+                schema = propertySchema,
+                collectorContext = propertyContext
+            )
+            val optional = parameter.required != true || propertyName !in requiredProperties
+            QueryParameterPatternEntry(
+                key = toSpecmaticParamName(optional, propertyName),
+                wireKey = propertyName,
+                pattern = toQueryParameterPattern(
+                    parameterName = propertyName,
+                    schema = propertySchema,
+                    resolvedSchema = resolvedPropertySchema,
+                    resolvedSchemaContext = resolvedPropertyContext,
+                    schemaContext = propertyContext
+                ),
+                source = QueryParameterPatternSource(parameter.name, propertyName),
+                collectorContext = propertyContext
+            )
+        }
+
+        return QueryParameterParseResult(
+            entries = entries,
+            formExplodedObjectQueryParam = FormExplodedObjectQueryParam(
+                parameterName = parameter.name,
+                required = parameter.required == true,
+                propertyKeys = schemaProperties.keys,
+                requiredPropertyKeys = requiredProperties
+            ),
+            additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
+        )
+    }
+
+    private fun QueryParameter.isFormExploded(): Boolean {
+        return (style == null || style == Parameter.StyleEnum.FORM) && explode != false
+    }
+
+    private fun toQueryParameterPattern(
+        parameterName: String,
+        schema: Schema<*>,
+        resolvedSchema: Schema<*>,
+        resolvedSchemaContext: CollectorContext,
+        schemaContext: CollectorContext
+    ): Pattern {
+        return if (resolvedSchema.isSchema(ARRAY_TYPE)) {
+            val itemsSchema = resolvedSchemaContext.requirePojo(
+                extract = { resolvedSchema.items },
+                createDefault = { Schema<Any>() },
+                message = { "No items schema defined for array schema defaulting to empty schema" }
+            )
+            QueryParameterArrayPattern(
+                listOf(toSpecmaticPattern(schema = itemsSchema, typeStack = emptyList(), collectorContext = resolvedSchemaContext.at("items"))),
+                parameterName
+            )
+        } else {
+            QueryParameterScalarPattern(toSpecmaticPattern(schema = schema, typeStack = emptyList(), collectorContext = schemaContext))
+        }
+    }
+
+    private fun recordQueryParameterCollision(entry: QueryParameterPatternEntry, objectPropertyEntry: QueryParameterPatternEntry) {
+        entry.collectorContext.record(
+            message = "Query parameter ${entry.source.displayName} conflicts with form-exploded object query parameter ${objectPropertyEntry.source.displayName}; ignoring ${entry.source.displayName}",
+            ruleViolation = OpenApiLintViolations.INVALID_PARAMETER_DEFINITION
+        )
+    }
+
+    private fun additionalPropertiesInQueryParam(parsedQueryParameters: List<QueryParameterParseResult>): Pattern? {
+        val additionalProperties = parsedQueryParameters.mapNotNull(QueryParameterParseResult::additionalProperties).distinct()
+        return when {
+            additionalProperties.isEmpty() -> null
+            additionalProperties.any { it is AnythingPattern } -> AnythingPattern
+            additionalProperties.size == 1 -> additionalProperties.single()
+            else -> AnyPattern(additionalProperties, extensions = emptyMap())
+        }
+    }
+
+    private fun additionalPropertiesInQueryParam(schema: Schema<*>, collectorContext: CollectorContext): Pattern? {
+        val additionalProperties = schema.extractAdditionalProperties() ?: return null
+
+        val additionalPropContext = collectorContext.at("additionalProperties")
         return when (additionalProperties) {
             true -> AnythingPattern
             is Schema<*> -> toSpecmaticPattern(additionalProperties, emptyList(), collectorContext = additionalPropContext)
