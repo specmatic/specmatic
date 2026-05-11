@@ -48,6 +48,12 @@ enum class OpenApiLintViolations(override val id: String, override val title: St
         summary = "All path template segments must be defined as parameters"
     ),
 
+    REQUIRED_QUERY_OBJECT_CONFLICT(
+        id = "OAS0012",
+        title = "Required query object conflict",
+        summary = "A required form-exploded object query parameter must have at least one required schema property to make a concrete query parameter mandatory"
+    ),
+
     /* -------- Security -------- */
     SECURITY_PROPERTY_REDEFINED(
         id = "OAS0020",

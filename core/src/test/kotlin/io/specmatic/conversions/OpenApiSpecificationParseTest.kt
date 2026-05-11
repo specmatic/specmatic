@@ -362,7 +362,7 @@ class OpenApiSpecificationParseTest {
             toViolationReportString(
                 breadCrumb = "paths./orders.get.parameters[0].required",
                 details = "Query parameter info is a required form-exploded object, but its schema does not define any required properties. Since form-exploded object parameters are represented by their properties, no property is made mandatory.",
-                OpenApiLintViolations.SCHEMA_UNCLEAR
+                OpenApiLintViolations.REQUIRED_QUERY_OBJECT_CONFLICT
             )
         )
     }
