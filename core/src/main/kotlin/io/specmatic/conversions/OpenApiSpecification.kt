@@ -733,11 +733,13 @@ class OpenApiSpecification(
                     val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation(methodContext)
                     val queryParameterPointers = buildParameterPointers(openApiPath, httpMethod, "query", pathItem.parameters, openApiOperation.parameters, methodContext)
                     val requestHeaderPointers = buildParameterPointers(openApiPath, httpMethod, "header", pathItem.parameters, openApiOperation.parameters, methodContext)
+                    val pathParameterPointers = buildParameterPointers(openApiPath, httpMethod, "path", pathItem.parameters, openApiOperation.parameters, methodContext)
                     val specmaticPathParam = toSpecmaticPathParam(
                         openApiPath = openApiPath,
                         parameters = parameters,
                         otherPathPatterns = allPathPatternsGroupedByMethod[httpMethod].orEmpty(),
-                        collectorContext = methodContext
+                        collectorContext = methodContext,
+                        parameterPointers = pathParameterPointers
                     )
 
                     val specmaticQueryParam = toSpecmaticQueryParam(
@@ -2899,7 +2901,7 @@ class OpenApiSpecification(
         }
     }
 
-    private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext): HttpPathPattern {
+    private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext, parameterPointers: Map<String, String> = emptyMap()): HttpPathPattern {
         val pathParamMap = parameters
             .safeFilter<PathParameter>(collectorContext)
             .associateBy { parameterWithContext -> parameterWithContext.parameter.name }
@@ -2936,7 +2938,7 @@ class OpenApiSpecification(
         }
 
         val specmaticPath = toSpecmaticFormattedPathString(parameters, openApiPath)
-        return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns)
+        return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns, parameterPointers)
     }
 
     private fun toSpecmaticFormattedPathString(parameters: List<Parameter>, openApiPath: String): String {

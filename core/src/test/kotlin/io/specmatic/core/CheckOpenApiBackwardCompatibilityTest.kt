@@ -773,7 +773,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "get item. Response: ok"
                 API: GET /items/(id:number) -> 200
 
-                  >> REQUEST.PARAMETERS.PATH.id
+                  >> REQUEST.PARAMETERS.PATH.id (new.yaml:51:9)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001
