@@ -1321,58 +1321,27 @@ Then status 200
         assertThat(results.hasFailures()).isFalse()
     }
 
+    private fun xmlBccResults(oldFile: String, newFile: String): Results {
+        val oldSpec = File("src/test/resources/openapi/bcc-xml/$oldFile").readText()
+        val newSpec = File("src/test/resources/openapi/bcc-xml/$newFile").readText()
+        val older = OpenApiSpecification.fromYAML(oldSpec, oldFile).toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, newFile).toFeature()
+        return testBackwardCompatibility(older, newer)
+    }
+
     @Test
     fun `two xml contracts should be backward compatibility when the only thing changing is namespace prefixes`() {
-        val gherkin1 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body <ns1:customer xmlns:ns1="http://example.com/customer"><name>(string)</name></ns1:customer>
-Then status 200
-    """.trim()
-
-        val gherkin2 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body <ns2:customer xmlns:ns2="http://example.com/customer"><name>(string)</name></ns2:customer>
-Then status 200
-    """.trim()
-
-        val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results = xmlBccResults("namespace-prefix-old.yaml", "namespace-prefix-new.yaml")
 
         if (results.failureCount > 0)
             println(results.report())
 
-        assertThat(results.success()).isTrue
         assertThat(results.success()).isTrue()
     }
 
     @Test
     fun `two xml contracts should not be backward compatibility when optional key is made mandatory in request`() {
-        val gherkin1 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body <ns1:customer xmlns:ns1="http://example.com/customer"><name specmatic_occurs="optional">(string)</name></ns1:customer>
-Then status 200
-    """.trim()
-
-        val gherkin2 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body <ns2:customer xmlns:ns2="http://example.com/customer"><name>(string)</name></ns2:customer>
-Then status 200
-    """.trim()
-
-        val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results = xmlBccResults("optional-to-mandatory-old.yaml", "optional-to-mandatory-new.yaml")
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1380,11 +1349,11 @@ Then status 200
         assertBackwardCompatibilityFailure(
             results,
             """
-            In scenario "api call"
+            In scenario "post xml. Response: ok"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY.customer.name
-              
+
+              >> REQUEST.BODY.customer.name (optional-to-mandatory-new.yaml:22:17)
+
                   Didn't get enough values
             """
         )
@@ -1392,28 +1361,7 @@ Then status 200
 
     @Test
     fun `two xml contracts should not be backward compatibility when mandatory key is made optional in response`() {
-        val gherkin1 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body "test"
-Then status 200
-  And response-body <ns1:customer xmlns:ns1="http://example.com/customer"><name>(string)</name></ns1:customer>
-    """.trim()
-
-        val gherkin2 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body "test"
-Then status 200
-  And response-body <ns1:customer xmlns:ns1="http://example.com/customer"><name specmatic_occurs="optional">(string)</name></ns1:customer>
-    """.trim()
-
-        val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+        val results = xmlBccResults("mandatory-to-optional-response-old.yaml", "mandatory-to-optional-response-new.yaml")
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1421,11 +1369,11 @@ Then status 200
         assertBackwardCompatibilityFailure(
             results,
             """
-            In scenario "api call"
+            In scenario "post xml. Response: ok"
             API: POST /data -> 200
-            
-              >> RESPONSE.BODY.customer.name
-              
+
+              >> RESPONSE.BODY.customer.name (mandatory-to-optional-response-new.yaml:27:19)
+
                   This node must occur whereas the other is optional.
             """
         )

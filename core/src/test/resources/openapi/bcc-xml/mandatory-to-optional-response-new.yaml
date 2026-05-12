@@ -1,0 +1,28 @@
+openapi: 3.0.0
+info:
+  title: XML API
+  version: 1
+paths:
+  /data:
+    post:
+      summary: post xml
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/xml:
+              schema:
+                type: object
+                xml:
+                  name: customer
+                  namespace: http://example.com/customer
+                  prefix: ns1
+                properties:
+                  name:
+                    type: string

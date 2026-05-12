@@ -1391,7 +1391,11 @@ class OpenApiSpecification(
                 ),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
-                    "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
+                    "application/xml" -> {
+                        val rawXmlBody = toXMLPattern(mediaType, mediaTypeContext)
+                        val xmlSchemaPointer = "$responseBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                        annotateWithPropertyPointers(rawXmlBody, mediaType.schema, xmlSchemaPointer)
+                    }
                     else -> {
                         val rawBody = toSpecmaticPattern(
                             mediaType = mediaType,
@@ -1585,12 +1589,19 @@ class OpenApiSpecification(
                     ), emptyMap()
                 )
 
-                "application/xml" -> Pair(
-                    requestPattern.copy(
-                        body = toXMLPattern(mediaType, collectorContext = mediaTypeContext),
-                        headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                    ), emptyMap()
-                )
+                "application/xml" -> {
+                    val rawXmlBody = toXMLPattern(mediaType, collectorContext = mediaTypeContext)
+                    val requestBodyUseSitePointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val xmlSchemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                    val annotatedXmlBody = annotateWithPropertyPointers(rawXmlBody, mediaType.schema, xmlSchemaPointer)
+                    Pair(
+                        requestPattern.copy(
+                            body = annotatedXmlBody,
+                            headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                        ), emptyMap()
+                    )
+                }
 
                 else -> {
                     val actualContentType = if (contentTypeHeader != null) {
@@ -1796,8 +1807,47 @@ class OpenApiSpecification(
             is ListPattern -> annotateListPattern(pattern, schema, schemaPointer)
             is AnyPattern -> annotateAnyPattern(pattern, schema?.oneOf, schemaPointer)
             is AnyOfPattern -> annotateAnyOfPattern(pattern, schema?.anyOf, schemaPointer)
+            is XMLPattern -> annotateXMLPattern(pattern, schema, schemaPointer)
             else -> pattern
         }
+    }
+
+    private fun annotateXMLPattern(pattern: XMLPattern, schema: Schema<*>?, schemaPointer: String): XMLPattern {
+        val withPointer = pattern.copy(schemaPointer = schemaPointer)
+        if (schema == null) return withPointer
+
+        val resolvedSchema = schema
+
+        val annotatedNodes: List<Pattern> = when {
+            resolvedSchema.isSchema(OBJECT_TYPE, multi = false) -> {
+                val nodeProperties = resolvedSchema.properties.orEmpty().filter { it.value.xml?.attribute != true }
+                val childByName = withPointer.pattern.nodes.filterIsInstance<XMLPattern>().associateBy { it.pattern.name }
+                val annotatedChildren = nodeProperties.mapNotNull { (propertyName, propertySchema) ->
+                    val xmlName = propertySchema.xml?.name ?: propertyName
+                    val child = childByName[xmlName] ?: return@mapNotNull null
+                    val childPointer = "$schemaPointer/properties/${escapeJsonPointer(propertyName)}"
+                    val annotatedChild = annotateXMLPattern(child, propertySchema, childPointer)
+                    xmlName to annotatedChild
+                }.toMap()
+                withPointer.pattern.nodes.map { node ->
+                    if (node is XMLPattern) annotatedChildren[node.pattern.name] ?: node else node
+                }
+            }
+            resolvedSchema.isSchema(ARRAY_TYPE, multi = false) -> {
+                val itemsSchema = resolvedSchema.items
+                val itemsPointer = "$schemaPointer/items"
+                if (resolvedSchema.xml?.wrapped == true) {
+                    withPointer.pattern.nodes.map { node ->
+                        if (node is XMLPattern) annotateXMLPattern(node, itemsSchema, itemsPointer) else node
+                    }
+                } else {
+                    withPointer.pattern.nodes
+                }
+            }
+            else -> withPointer.pattern.nodes
+        }
+
+        return withPointer.copy(pattern = withPointer.pattern.copy(nodes = annotatedNodes))
     }
 
     private fun annotateAnyPattern(pattern: AnyPattern, branchSchemas: List<Schema<*>>?, schemaPointer: String): AnyPattern {

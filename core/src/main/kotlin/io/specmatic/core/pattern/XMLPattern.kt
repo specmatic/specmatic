@@ -75,7 +75,8 @@ private fun isNamespaceDeclarationAttribute(attributeName: String): Boolean =
 
 data class XMLPattern(
     override val pattern: XMLTypeData = XMLTypeData(realName = ""),
-    override val typeAlias: String? = null
+    override val typeAlias: String? = null,
+    val schemaPointer: String? = null
 ) : Pattern, SequenceType {
     constructor(
         node: XMLNode,
@@ -129,7 +130,7 @@ data class XMLPattern(
         sampleData: List<Value>,
         resolver: Resolver
     ): ConsumeResult<Value, Value> = if (xmlValues.isEmpty())
-        ConsumeResult(Failure("Didn't get enough values", breadCrumb = this.pattern.name), sampleData)
+        ConsumeResult(Failure("Didn't get enough values").breadCrumb(this.pattern.name, resolver.locate(schemaPointer)), sampleData)
     else
         ConsumeResult(matches(xmlValues.first(), resolver), xmlValues.drop(1))
 
@@ -179,7 +180,7 @@ data class XMLPattern(
             this,
             sampleData,
             resolver.mismatchMessages
-        ).breadCrumb(pattern.name)
+        ).breadCrumb(pattern.name, resolver.locate(schemaPointer))
 
         val cyclePreventionPattern = cyclePreventionPattern()
         if (cyclePreventionPattern != this && !resolver.hasCycle(cyclePreventionPattern)) {
@@ -222,7 +223,7 @@ data class XMLPattern(
                     matchingType.parse(sampleDataWithoutEmptyHeader.firstChild().toStringLiteral(), resolver)
                 matchingType.matches(valueToMatch, resolver)
             }
-        }.breadCrumb(pattern.name)
+        }.breadCrumb(pattern.name, resolver.locate(schemaPointer))
     }
 
     private fun dropEmptySOAPHeader(sampleData: XMLNode): XMLNode {
@@ -897,7 +898,12 @@ data class XMLPattern(
             }
 
             else -> patternMismatchResult(this, otherResolvedPattern, thisResolver.mismatchMessages)
-        }.breadCrumb(this.pattern.name)
+        }.breadCrumb(this.pattern.name, locateForEncompassFailure(otherResolvedPattern, thisResolver, otherResolver))
+    }
+
+    private fun locateForEncompassFailure(otherResolvedPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver): SourceLocation? {
+        val otherPointer = (otherResolvedPattern as? XMLPattern)?.schemaPointer
+        return otherResolver.locate(otherPointer) ?: thisResolver.locate(schemaPointer)
     }
 
     private fun attributesEncompass(
