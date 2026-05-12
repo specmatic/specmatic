@@ -41,7 +41,7 @@ class CheckOpenApiBackwardCompatibilityTest {
         val results = testBackwardCompatibility(older, newer)
 
         assertThat(results.success()).isFalse
-        assertThat(results.distinctReport()).isEqualTo(
+        assertThat(results.distinctReport()).isEqualToNormalizingNewlines(
             """
     In scenario "submit data. Response: ok"
     API: POST /data -> 200
