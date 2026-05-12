@@ -95,7 +95,7 @@ data class JSONObjectPattern(
     val maxProperties: Int? = null,
     val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
     override val extensions: Map<String, Any> = emptyMap(),
-    val propertySourceLocations: Map<String, io.specmatic.core.SourceLocation> = emptyMap()
+    val propertyPointers: Map<String, String> = emptyMap()
 ) : Pattern, PossibleJsonObjectPatternContainer {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
@@ -376,8 +376,8 @@ data class JSONObjectPattern(
 
         val resultsWithDiscriminator: List<ResultWithDiscriminatorStatus> =
             mapZip(adjustedPattern, sampleData.jsonObject).map { (key, patternValue, sampleValue) ->
-                val location = propertySourceLocations[key] ?: propertySourceLocations[withoutOptionality(key)]
-                val result = updatedResolver.matchesPattern(key, patternValue, sampleValue).breadCrumb(key, location)
+                val pointer = propertyPointers[key] ?: propertyPointers[withoutOptionality(key)]
+                val result = updatedResolver.matchesPattern(key, patternValue, sampleValue).breadCrumb(key, updatedResolver.locate(pointer))
 
                 val isDiscrimintor = patternValue.isDiscriminator()
 

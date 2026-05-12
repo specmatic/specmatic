@@ -834,7 +834,8 @@ class OpenApiSpecification(
                             specification = specificationPath,
                             protocol = protocol,
                             specType = SpecType.OPENAPI,
-                            operationMetadata = operationMetadata
+                            operationMetadata = operationMetadata,
+                            sourceLocations = sourceLocationsFromMap()
                         )
                     }
 
@@ -1584,8 +1585,8 @@ class OpenApiSpecification(
 
                     val rawBody = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext)
                     val schemaPointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody/content/${escapeJsonPointer(contentType)}/schema"
-                    val bodyWithLocations = annotateWithPropertyLocations(rawBody, mediaType.schema, schemaPointer)
-                    val body = if (bodyIsRequired) bodyWithLocations else OptionalBodyPattern.fromPattern(bodyWithLocations)
+                    val bodyWithPointers = annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
+                    val body = if (bodyIsRequired) bodyWithPointers else OptionalBodyPattern.fromPattern(bodyWithPointers)
 
                     Pair(
                         requestPattern.copy(
@@ -1716,16 +1717,20 @@ class OpenApiSpecification(
     private fun escapeJsonPointer(token: String): String =
         token.replace("~", "~0").replace("/", "~1")
 
-    private fun annotateWithPropertyLocations(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
+    private fun annotateWithPropertyPointers(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
         if (pattern !is JSONObjectPattern) return pattern
         val propertyNames = schema?.properties?.keys ?: return pattern
-        val locations = propertyNames.mapNotNull { name ->
-            val pointer = "$schemaPointer/properties/${escapeJsonPointer(name)}"
-            val node = jsonPointerSourceMap[pointer] ?: return@mapNotNull null
-            name to SourceLocation(openApiFilePath, node.line, node.column)
-        }.toMap()
-        if (locations.isEmpty()) return pattern
-        return pattern.copy(propertySourceLocations = locations)
+        val pointers = propertyNames.associateWith { name ->
+            "$schemaPointer/properties/${escapeJsonPointer(name)}"
+        }
+        if (pointers.isEmpty()) return pattern
+        return pattern.copy(propertyPointers = pointers)
+    }
+
+    private fun sourceLocationsFromMap(): Map<String, SourceLocation> {
+        return jsonPointerSourceMap.mapValues { (_, node) ->
+            SourceLocation(openApiFilePath, node.line, node.column)
+        }
     }
 
     private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext>? {

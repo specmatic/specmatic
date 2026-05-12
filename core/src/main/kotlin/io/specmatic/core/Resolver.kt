@@ -54,7 +54,13 @@ data class Resolver(
     val lookupPathsSeenSoFar: Set<String> = setOf(),
     val cycleMarker: String = "",
     val maxTestRequestCombinations: Int = Int.MAX_VALUE,
+    val sourceLocations: Map<String, SourceLocation> = emptyMap(),
 ) {
+    fun locate(pointer: String?): SourceLocation? {
+        if (pointer == null) return null
+        return sourceLocations[pointer]
+    }
+
     constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
     constructor() : this(emptyMap(), false)
 
