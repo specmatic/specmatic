@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.error.Mark
 import org.yaml.snakeyaml.nodes.AnchorNode
 import org.yaml.snakeyaml.nodes.MappingNode
 import org.yaml.snakeyaml.nodes.Node
@@ -22,23 +23,23 @@ class JsonPointerSourceMap(private val yaml: String) {
     fun build(): Map<String, YamlNodeLocation> {
         val root = Yaml().compose(yaml.reader()) ?: return emptyMap()
         val out = mutableMapOf<String, YamlNodeLocation>()
-        walk(root, "", out)
+        walk(root, "", root.startMark, out)
         return out
     }
 
-    private fun walk(node: Node, pointer: String, out: MutableMap<String, YamlNodeLocation>) {
-        out[pointer] = locationOf(node, refTargetOf(node))
+    private fun walk(node: Node, pointer: String, mark: Mark, out: MutableMap<String, YamlNodeLocation>) {
+        out[pointer] = locationOf(node, mark, refTargetOf(node))
         when (node) {
             is MappingNode -> for (tuple in node.value) {
                 val keyNode = tuple.keyNode
                 if (keyNode !is ScalarNode) continue
-                walk(tuple.valueNode, "$pointer/${escape(keyNode.value)}", out)
+                walk(tuple.valueNode, "$pointer/${escape(keyNode.value)}", keyNode.startMark, out)
             }
             is SequenceNode -> node.value.forEachIndexed { i, child ->
-                walk(child, "$pointer/$i", out)
+                walk(child, "$pointer/$i", child.startMark, out)
             }
             is ScalarNode -> Unit
-            is AnchorNode -> walk(node.realNode, pointer, out)
+            is AnchorNode -> walk(node.realNode, pointer, mark, out)
             else -> error("Unexpected YAML node type: ${node::class.java.name}")
         }
     }
@@ -58,8 +59,7 @@ class JsonPointerSourceMap(private val yaml: String) {
         return null
     }
 
-    private fun locationOf(node: Node, refTarget: String?): YamlNodeLocation {
-        val mark = node.startMark
+    private fun locationOf(node: Node, mark: Mark, refTarget: String?): YamlNodeLocation {
         val kind = when (node) {
             is MappingNode -> "mapping"
             is SequenceNode -> "sequence"
