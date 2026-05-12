@@ -8,10 +8,12 @@ import org.yaml.snakeyaml.nodes.Node
 import org.yaml.snakeyaml.nodes.ScalarNode
 import org.yaml.snakeyaml.nodes.SequenceNode
 
+enum class YamlNodeKind { MAPPING, SEQUENCE, SCALAR, ANCHOR }
+
 data class YamlNodeLocation(
     val line: Int,
     val column: Int,
-    val nodeKind: String,
+    val nodeKind: YamlNodeKind,
     val refTarget: String? = null
 )
 
@@ -61,10 +63,10 @@ class JsonPointerSourceMap(private val yaml: String) {
 
     private fun locationOf(node: Node, mark: Mark, refTarget: String?): YamlNodeLocation {
         val kind = when (node) {
-            is MappingNode -> "mapping"
-            is SequenceNode -> "sequence"
-            is ScalarNode -> "scalar"
-            is AnchorNode -> "anchor"
+            is MappingNode -> YamlNodeKind.MAPPING
+            is SequenceNode -> YamlNodeKind.SEQUENCE
+            is ScalarNode -> YamlNodeKind.SCALAR
+            is AnchorNode -> YamlNodeKind.ANCHOR
             else -> error("Unexpected YAML node type: ${node::class.java.name}")
         }
         return YamlNodeLocation(mark.line + 1, mark.column + 1, kind, refTarget)
