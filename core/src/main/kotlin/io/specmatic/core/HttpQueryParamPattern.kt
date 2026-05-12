@@ -20,7 +20,8 @@ data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
     val extensibleQueryParams: Boolean = false,
-    val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList()
+    val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList(),
+    val parameterPointers: Map<String, String> = emptyMap()
 ) {
 
     val queryKeyNames = queryPatterns.keys
@@ -92,7 +93,8 @@ data class HttpQueryParamPattern(
 
         val keyErrors = resolver.findKeyErrorList(effectivePatterns, queryParams.asMap().mapValues { StringValue(it.value) })
         val keyErrorList: List<Result.Failure> = keyErrors.map {
-            keyErrorToResult(it, effectivePatterns, httpRequest.queryParams, resolver).breadCrumb(it.name)
+            keyErrorToResult(it, effectivePatterns, httpRequest.queryParams, resolver)
+                .breadCrumb(it.name, resolver.locate(parameterPointers[it.name]))
         }
 
         // 1. key is optional and request does not have the key as well
@@ -125,7 +127,8 @@ data class HttpQueryParamPattern(
                 StringValue(it)
             })
 
-            resolver.matchesPattern(keyWithoutOptionality, parameterPattern, requestValuesList).breadCrumb(keyWithoutOptionality)
+            resolver.matchesPattern(keyWithoutOptionality, parameterPattern, requestValuesList)
+                .breadCrumb(keyWithoutOptionality, resolver.locate(parameterPointers[keyWithoutOptionality]))
 
         }
 

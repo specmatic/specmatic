@@ -46,7 +46,7 @@ class CheckOpenApiBackwardCompatibilityTest {
     In scenario "submit data. Response: ok"
     API: POST /data -> 200
     
-      >> REQUEST.PARAMETERS.QUERY.extra
+      >> REQUEST.PARAMETERS.QUERY.extra (new.yaml:36:11)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -54,7 +54,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           New specification expects query param "extra" in the request but it is missing from the old specification
       
-      >> REQUEST.PARAMETERS.QUERY.q
+      >> REQUEST.PARAMETERS.QUERY.q (new.yaml:24:11)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -62,7 +62,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.PARAMETERS.HEADER.X-Extra
+      >> REQUEST.PARAMETERS.HEADER.X-Extra (new.yaml:54:11)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -70,7 +70,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           New specification expects header "X-Extra" in the request but it is missing from the old specification
       
-      >> REQUEST.PARAMETERS.HEADER.X-Required
+      >> REQUEST.PARAMETERS.HEADER.X-Required (new.yaml:42:11)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -94,7 +94,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.PARAMETERS.HEADER.X-Optional
+      >> REQUEST.PARAMETERS.HEADER.X-Optional (new.yaml:48:11)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -110,7 +110,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           New specification expects property "note" in the request but it is missing from the old specification
       
-      >> REQUEST.PARAMETERS.QUERY.tag
+      >> REQUEST.PARAMETERS.QUERY.tag (new.yaml:30:11)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -118,7 +118,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           New specification expects query param "tag" in the request but it is missing from the old specification
       
-      >> RESPONSE.HEADER.X-Resp
+      >> RESPONSE.HEADER.X-Resp (new.yaml:81:13)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -453,7 +453,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.PARAMETERS.QUERY.extra
+                  >> REQUEST.PARAMETERS.QUERY.extra (new.yaml:31:9)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -474,7 +474,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.PARAMETERS.QUERY.tag
+                  >> REQUEST.PARAMETERS.QUERY.tag (new.yaml:16:9)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -495,7 +495,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.PARAMETERS.QUERY.q
+                  >> REQUEST.PARAMETERS.QUERY.q (new.yaml:11:9)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001
@@ -521,7 +521,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.PARAMETERS.HEADER.X-Extra
+                  >> REQUEST.PARAMETERS.HEADER.X-Extra (new.yaml:31:9)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -542,7 +542,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.PARAMETERS.HEADER.X-Optional
+                  >> REQUEST.PARAMETERS.HEADER.X-Optional (new.yaml:26:9)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -563,7 +563,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.PARAMETERS.HEADER.X-Required
+                  >> REQUEST.PARAMETERS.HEADER.X-Required (new.yaml:21:9)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001
@@ -584,7 +584,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> RESPONSE.HEADER.X-Resp
+                  >> RESPONSE.HEADER.X-Resp (new.yaml:46:13)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001

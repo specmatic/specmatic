@@ -731,6 +731,8 @@ class OpenApiSpecification(
 
                     val methodContext = pathsContext.at(openApiPath).at(httpMethod.lowercase())
                     val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation(methodContext)
+                    val queryParameterPointers = buildParameterPointers(openApiPath, httpMethod, "query", pathItem.parameters, openApiOperation.parameters, methodContext)
+                    val requestHeaderPointers = buildParameterPointers(openApiPath, httpMethod, "header", pathItem.parameters, openApiOperation.parameters, methodContext)
                     val specmaticPathParam = toSpecmaticPathParam(
                         openApiPath = openApiPath,
                         parameters = parameters,
@@ -741,7 +743,8 @@ class OpenApiSpecification(
                     val specmaticQueryParam = toSpecmaticQueryParam(
                         parameters = parameters,
                         collectorContext = methodContext,
-                        extensibleQueryParams = extensibleQueryParams
+                        extensibleQueryParams = extensibleQueryParams,
+                        parameterPointers = queryParameterPointers
                     )
                     val httpResponsePatterns: List<ResponsePatternData> = attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
                         toHttpResponsePatterns(
@@ -771,7 +774,8 @@ class OpenApiSpecification(
                                 httpMethod = httpMethod,
                                 operation = openApiOperation,
                                 collectorContext = methodContext,
-                                openApiPath = openApiPath
+                                openApiPath = openApiPath,
+                                requestHeaderPointers = requestHeaderPointers
                             )
                         }
 
@@ -1252,8 +1256,12 @@ class OpenApiSpecification(
                 .orUse { "default" }
                 .build()
 
+            val responseHeaderPointers = response.headers.orEmpty().keys.associateWith { headerName ->
+                "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status/headers/${escapeJsonPointer(headerName)}"
+            }
+
             attempt(breadCrumb = status) {
-                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, openApiPath, httpMethod)
+                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, openApiPath, httpMethod, responseHeaderPointers)
             }
         }.flatten()
     }
@@ -1317,7 +1325,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, openApiPath: String, httpMethod: String): List<ResponsePatternData> {
+    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, openApiPath: String, httpMethod: String, responseHeaderPointers: Map<String, String> = emptyMap()): List<ResponsePatternData> {
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
@@ -1331,7 +1339,8 @@ class OpenApiSpecification(
                 HttpResponsePattern(
                     headersPattern = HttpHeadersPattern(
                         headersMap.mapValues { it.value.first },
-                        preferEscapedSoapAction = preferEscapedSoapAction
+                        preferEscapedSoapAction = preferEscapedSoapAction,
+                        parameterPointers = responseHeaderPointers
                     ),
                     body = NoBodyPattern,
                     status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
@@ -1368,7 +1377,8 @@ class OpenApiSpecification(
                 headersPattern = HttpHeadersPattern(
                     headersMap.mapValues { it.value.first },
                     contentType = contentType,
-                    preferEscapedSoapAction = preferEscapedSoapAction
+                    preferEscapedSoapAction = preferEscapedSoapAction,
+                    parameterPointers = responseHeaderPointers
                 ),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
@@ -1450,7 +1460,8 @@ class OpenApiSpecification(
         operation: Operation,
         parameters: List<Parameter>,
         collectorContext: CollectorContext,
-        openApiPath: String
+        openApiPath: String,
+        requestHeaderPointers: Map<String, String> = emptyMap()
     ): List<RequestPatternsData> {
         logger.debug("Processing requests for $httpMethod")
         val securitySchemeEntries = parsedOpenApi.components?.securitySchemes.orEmpty()
@@ -1483,7 +1494,8 @@ class OpenApiSpecification(
         val contentTypeHeader = effectiveHeadersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
         val headersPattern = HttpHeadersPattern(
             effectiveHeadersMap.mapValues { it.value.first },
-            preferEscapedSoapAction = preferEscapedSoapAction
+            preferEscapedSoapAction = preferEscapedSoapAction,
+            parameterPointers = requestHeaderPointers
         )
         val requestPattern = HttpRequestPattern(
             httpPathPattern = httpPathPattern,
@@ -1725,6 +1737,33 @@ class OpenApiSpecification(
 
     private fun escapeJsonPointer(token: String): String =
         token.replace("~", "~0").replace("/", "~1")
+
+    private fun buildParameterPointers(
+        openApiPath: String,
+        httpMethod: String,
+        paramIn: String,
+        pathItemParameters: List<Parameter>?,
+        operationParameters: List<Parameter>?,
+        collectorContext: CollectorContext
+    ): Map<String, String> {
+        val pathScope = "/paths/${escapeJsonPointer(openApiPath)}"
+        val pathItemPrefix = "$pathScope/parameters"
+        val operationPrefix = "$pathScope/${httpMethod.lowercase()}/parameters"
+        val pointers = mutableMapOf<String, String>()
+
+        fun record(parameters: List<Parameter>?, prefix: String) {
+            parameters?.forEachIndexed { idx, parameter ->
+                val resolved = resolveParameter(parameter, collectorContext.at("parameters").at(idx)).first
+                if (resolved.`in` == paramIn && !resolved.name.isNullOrBlank()) {
+                    pointers[resolved.name] = "$prefix/$idx"
+                }
+            }
+        }
+
+        record(pathItemParameters, pathItemPrefix)
+        record(operationParameters, operationPrefix)
+        return pointers
+    }
 
     private fun annotateWithPropertyPointers(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
         if (pattern !is JSONObjectPattern) return pattern
@@ -2645,7 +2684,7 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean): HttpQueryParamPattern {
+    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean, parameterPointers: Map<String, String> = emptyMap()): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map(::toQueryParameterParseResult)
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
@@ -2668,7 +2707,8 @@ class OpenApiSpecification(
             queryPattern,
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
-            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam)
+            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
+            parameterPointers = parameterPointers
         )
     }
 
