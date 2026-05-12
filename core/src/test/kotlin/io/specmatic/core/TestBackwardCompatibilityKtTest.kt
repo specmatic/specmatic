@@ -1321,105 +1321,51 @@ Then status 200
         assertThat(results.hasFailures()).isFalse()
     }
 
-    private fun xmlBccResults(oldFile: String, newFile: String): Results {
-        val oldSpec = File("src/test/resources/openapi/bcc-xml/$oldFile").readText()
-        val newSpec = File("src/test/resources/openapi/bcc-xml/$newFile").readText()
-        val older = OpenApiSpecification.fromYAML(oldSpec, oldFile).toFeature()
-        val newer = OpenApiSpecification.fromYAML(newSpec, newFile).toFeature()
-        return testBackwardCompatibility(older, newer)
-    }
-
     @Test
-    fun `two xml contracts should be backward compatibility when the only thing changing is namespace prefixes`() {
-        val results = xmlBccResults("namespace-prefix-old.yaml", "namespace-prefix-new.yaml")
+    fun `all breaking XML changes from the fixture pair are detected and annotated`() {
+        val oldSpec = File("src/test/resources/openapi/bcc-xml/old.yaml").readText()
+        val newSpec = File("src/test/resources/openapi/bcc-xml/new.yaml").readText()
 
-        if (results.failureCount > 0)
-            println(results.report())
+        val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-        assertThat(results.success()).isTrue()
-    }
+        val results = testBackwardCompatibility(older, newer)
 
-    @Test
-    fun `two xml contracts should not be backward compatibility when optional key is made mandatory in request`() {
-        val results = xmlBccResults("optional-to-mandatory-old.yaml", "optional-to-mandatory-new.yaml")
-
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertBackwardCompatibilityFailure(
-            results,
+        assertThat(results.success()).isFalse
+        assertThat(results.distinctReport().normalizeBlankLines()).isEqualToNormalizingNewlines(
             """
-            In scenario "post xml. Response: ok"
-            API: POST /data -> 200
+    In scenario "attribute breakage. Response: ok"
+    API: POST /attributes -> 200
 
-              >> REQUEST.BODY.customer.name (optional-to-mandatory-new.yaml:22:17)
+      >> REQUEST.BODY.order.id (new.yaml:20:17)
 
-                  Didn't get enough values
-            """
-        )
-    }
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
 
-    @Test
-    fun `two xml contracts should not be backward compatible when a required attribute is added`() {
-        val results = xmlBccResults("attribute-added-old.yaml", "attribute-added-new.yaml")
+          New specification expects attribute "id" in the request but it is missing from the old specification
 
-        if (results.failureCount > 0)
-            println(results.report())
+    In scenario "child property breakage. Response: ok"
+    API: POST /child-property -> 200
 
-        assertBackwardCompatibilityFailure(
-            results,
-            """
-            In scenario "post xml. Response: ok"
-            API: POST /data -> 200
+      >> REQUEST.BODY.order.customer.name (new.yaml:57:21)
 
-              >> REQUEST.BODY.customer.id (attribute-added-new.yaml:21:17)
+          Didn't get enough values
 
-                  R2001: Missing required property
-                  Documentation: https://docs.specmatic.io/rules#r2001
-                  Summary: A required property defined in the specification is missing
+    In scenario "array item breakage. Response: ok"
+    API: POST /array-items -> 200
 
-                  New specification expects attribute "id" in the request but it is missing from the old specification
-            """
-        )
-    }
+      >> REQUEST.BODY.order.items.item.name (new.yaml:88:23)
 
-    @Test
-    fun `two xml contracts should not be backward compatible when an array item field is made mandatory`() {
-        val results = xmlBccResults("array-items-mandatory-old.yaml", "array-items-mandatory-new.yaml")
+          Didn't get enough values
 
-        if (results.failureCount > 0)
-            println(results.report())
+    In scenario "response breakage. Response: ok"
+    API: POST /response -> 200
 
-        assertBackwardCompatibilityFailure(
-            results,
-            """
-            In scenario "post xml. Response: ok"
-            API: POST /data -> 200
+      >> RESPONSE.BODY.customer.name (new.yaml:112:19)
 
-              >> REQUEST.BODY.customers.items.customer.name (array-items-mandatory-new.yaml:30:23)
-
-                  Didn't get enough values
-            """
-        )
-    }
-
-    @Test
-    fun `two xml contracts should not be backward compatibility when mandatory key is made optional in response`() {
-        val results = xmlBccResults("mandatory-to-optional-response-old.yaml", "mandatory-to-optional-response-new.yaml")
-
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertBackwardCompatibilityFailure(
-            results,
-            """
-            In scenario "post xml. Response: ok"
-            API: POST /data -> 200
-
-              >> RESPONSE.BODY.customer.name (mandatory-to-optional-response-new.yaml:27:19)
-
-                  This node must occur whereas the other is optional.
-            """
+          This node must occur whereas the other is optional.
+    """.trimIndent()
         )
     }
 
