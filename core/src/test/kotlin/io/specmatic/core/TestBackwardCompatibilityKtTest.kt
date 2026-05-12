@@ -4352,18 +4352,18 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
         val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
-        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }.copy(addSourceLocation = true)
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
         API: GET /missing -> 200
         
-              This API exists in the old contract but not in the new contract
+              This API exists in the old contract but not in the new contract (src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml:7:5)
         
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4374,7 +4374,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:43:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4385,7 +4385,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4396,7 +4396,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:51:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4407,7 +4407,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4418,7 +4418,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:62:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4429,7 +4429,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4440,29 +4440,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is number in the new specification response but string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> REQUEST.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is type number in the new specification, but type string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:70:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4473,7 +4451,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4484,7 +4462,29 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:43:19)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:51:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4495,7 +4495,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4506,7 +4506,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:62:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4517,7 +4517,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4528,7 +4528,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:70:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
