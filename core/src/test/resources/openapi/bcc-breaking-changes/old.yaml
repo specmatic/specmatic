@@ -1,0 +1,170 @@
+openapi: 3.0.0
+info:
+  title: BCC integration sample
+  version: '1.0'
+paths:
+  /data:
+    get:
+      summary: list data
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+    post:
+      summary: submit data
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: X-Required
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Optional
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                note:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          headers:
+            X-Resp:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, extra]
+                properties:
+                  id:
+                    type: string
+                  note:
+                    type: string
+                  extra:
+                    type: string
+  /items/{id}:
+    get:
+      summary: get item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  /foo:
+    get:
+      summary: foo
+      responses:
+        '200':
+          description: ok
+  /bar:
+    get:
+      summary: bar
+      responses:
+        '200':
+          description: ok
+  /baz:
+    get:
+      summary: list baz
+      responses:
+        '200':
+          description: ok
+    post:
+      summary: create baz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  /submissions:
+    post:
+      summary: submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Submission'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted]
+components:
+  schemas:
+    Submission:
+      type: object
+      required: [id, kind, category]
+      properties:
+        id:
+          type: string
+        kind:
+          oneOf:
+            - type: string
+            - type: number
+        category:
+          type: string
+          enum: [A, B]

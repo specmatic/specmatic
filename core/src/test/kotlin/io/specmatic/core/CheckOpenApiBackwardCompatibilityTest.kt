@@ -5,9 +5,11 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
 import java.util.stream.Stream
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -26,6 +28,22 @@ class CheckOpenApiBackwardCompatibilityTest {
         val results = runCompatCheck(testCase)
         assertThat(results.success()).isFalse
         assertThat(results.report()).isEqualToNormalizingWhitespace(testCase.expectedReport)
+    }
+
+    @Test
+    fun `all breaking changes from the fixture pair are detected and annotated`() {
+        val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
+        val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()
+        val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+
+        val results = testBackwardCompatibility(older, newer)
+
+        println("===== BCC REPORT =====")
+        println(results.report())
+        println("===== END BCC REPORT =====")
+
+        assertThat(results.success()).isFalse
     }
 
     private fun runCompatCheck(testCase: CompatTestCase): Results {
