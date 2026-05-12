@@ -229,7 +229,7 @@ class InterpolatedPathsE2ETest {
 In scenario "Inline and external examples endpoint. Response: Inline success"
 API: GET /example/(id1:string),(id2:number)/status -> 200
 
-  >> REQUEST.PARAMETERS.PATH.id2
+  >> REQUEST.PARAMETERS.PATH.id2 (src/test/resources/openapi/interpolated_paths_e2e.yaml:54:11)
   
       R1001: Type mismatch
       Documentation: https://docs.specmatic.io/rules#r1001
@@ -240,7 +240,7 @@ API: GET /example/(id1:string),(id2:number)/status -> 200
 In scenario "Inline and external examples endpoint. Response: External success"
 API: GET /example/(id1:string),(id2:number)/status -> 202
 
-  >> REQUEST.PARAMETERS.PATH.id2
+  >> REQUEST.PARAMETERS.PATH.id2 (src/test/resources/openapi/interpolated_paths_e2e.yaml:54:11)
   
       R1001: Type mismatch
       Documentation: https://docs.specmatic.io/rules#r1001
@@ -251,7 +251,7 @@ API: GET /example/(id1:string),(id2:number)/status -> 202
 In scenario "Inline and external examples endpoint. Response: Inline not found"
 API: GET /example/(id1:string),(id2:number)/status -> 404
 
-  >> REQUEST.PARAMETERS.PATH.id2
+  >> REQUEST.PARAMETERS.PATH.id2 (src/test/resources/openapi/interpolated_paths_e2e.yaml:54:11)
   
       R1001: Type mismatch
       Documentation: https://docs.specmatic.io/rules#r1001
