@@ -184,7 +184,7 @@ class CheckOpenApiBackwardCompatibilityTest {
     In scenario "register pet. Response: ok"
     API: POST /pets -> 200
     
-      >> REQUEST.BODY (when Dog object).species (new.yaml:211:9)
+      >> REQUEST.BODY (when Dog object).species (new.yaml:222:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -192,7 +192,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY (when Dog object).sound (new.yaml:226:13)
+      >> REQUEST.BODY (when Dog object).sound (new.yaml:237:13)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -200,7 +200,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY (when Cat object).species (new.yaml:211:9)
+      >> REQUEST.BODY (when Cat object).species (new.yaml:222:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -208,7 +208,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY (when Cat object).sound (new.yaml:237:13)
+      >> REQUEST.BODY (when Cat object).sound (new.yaml:248:13)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -219,7 +219,7 @@ class CheckOpenApiBackwardCompatibilityTest {
     In scenario "submit. Response: ok"
     API: POST /submissions -> 200
     
-      >> REQUEST.BODY.id (new.yaml:196:9)
+      >> REQUEST.BODY.id (new.yaml:207:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -227,7 +227,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY.kind (new.yaml:199:9)
+      >> REQUEST.BODY.kind (new.yaml:210:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -235,7 +235,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type string in the new specification, but type number in the old specification
       
-      >> REQUEST.BODY.category (new.yaml:203:9)
+      >> REQUEST.BODY.category (new.yaml:214:9)
       
           R1002: Value mismatch
           Documentation: https://docs.specmatic.io/rules#r1002
@@ -250,6 +250,49 @@ class CheckOpenApiBackwardCompatibilityTest {
           Summary: The value type does not match the expected type defined in the specification
       
           This is ("accepted" or "pending") in the new specification response but ("accepted") in the old specification
+
+    In scenario "reusable components. Response: ok"
+    API: POST /reusable-components -> 200
+
+      >> REQUEST.PARAMETERS.QUERY.reusableQuery (new.yaml:251:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Reusable (new.yaml:257:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.componentId (new.yaml:272:15)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> RESPONSE.HEADER.X-Reusable-Response (new.yaml:289:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+      >> RESPONSE.BODY.componentStatus (new.yaml:286:15)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
             """.trimIndent()
         )
     }

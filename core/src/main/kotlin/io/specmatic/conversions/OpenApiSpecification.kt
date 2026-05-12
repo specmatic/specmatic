@@ -1251,21 +1251,28 @@ class OpenApiSpecification(
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
             val (resolvedResponse, responseContext) = resolveResponse(response, statusContext)
-            val headersMap = openAPIHeadersToSpecmatic(response, responseContext)
+            val responseUseSitePointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status"
+            val responseBasePointer = sourcePointerForRefUseSite(responseUseSitePointer, response.`$ref`)
+            val headersMap = openAPIHeadersToSpecmatic(resolvedResponse, responseContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
                 .violation { OpenApiLintViolations.INVALID_OPERATION_STATUS }
                 .message { "Expected status codes to be numbers or default, but \"$status\" was found, defaulting to 'default'" }
                 .orUse { "default" }
                 .build()
 
-            val responseHeaderPointers = response.headers.orEmpty().keys.associateWith { headerName ->
-                "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status/headers/${escapeJsonPointer(headerName)}"
-            }
+            val responseHeaderPointers = buildResponseHeaderPointers(resolvedResponse, responseBasePointer)
 
             attempt(breadCrumb = status) {
-                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, openApiPath, httpMethod, responseHeaderPointers)
+                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, responseBasePointer, responseHeaderPointers)
             }
         }.flatten()
+    }
+
+    private fun buildResponseHeaderPointers(response: ApiResponse, responseBasePointer: String): Map<String, String> {
+        return response.headers.orEmpty().mapValues { (headerName, header) ->
+            val headerUseSitePointer = "$responseBasePointer/headers/${escapeJsonPointer(headerName)}"
+            sourcePointerForRefUseSite(headerUseSitePointer, header.`$ref`)
+        }
     }
 
     private fun openAPIHeadersToSpecmatic(response: ApiResponse, collectorContext: CollectorContext): Map<String, Pair<Pattern, CollectorContext>> {
@@ -1327,7 +1334,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, openApiPath: String, httpMethod: String, responseHeaderPointers: Map<String, String> = emptyMap()): List<ResponsePatternData> {
+    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, responseBasePointer: String, responseHeaderPointers: Map<String, String> = emptyMap()): List<ResponsePatternData> {
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
@@ -1391,7 +1398,7 @@ class OpenApiSpecification(
                             contentType = contentType,
                             collectorContext = mediaTypeContext,
                         )
-                        val schemaPointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status/content/${escapeJsonPointer(contentType)}/schema"
+                        val schemaPointer = "$responseBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                         annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
                     }
                 }
@@ -1607,7 +1614,9 @@ class OpenApiSpecification(
                     val bodyIsRequired: Boolean = requestBody.required ?: false
 
                     val rawBody = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext)
-                    val schemaPointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody/content/${escapeJsonPointer(contentType)}/schema"
+                    val requestBodyUseSitePointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     val bodyWithPointers = annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
                     val body = if (bodyIsRequired) bodyWithPointers else OptionalBodyPattern.fromPattern(bodyWithPointers)
 
@@ -1740,6 +1749,19 @@ class OpenApiSpecification(
     private fun escapeJsonPointer(token: String): String =
         token.replace("~", "~0").replace("/", "~1")
 
+    private fun internalRefPointer(ref: String?): String? {
+        if (ref == null) return null
+        if (ref == "#") return ""
+        if (ref.startsWith("#/")) return ref.removePrefix("#")
+        return null
+    }
+
+    private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
+        return jsonPointerSourceMap[useSitePointer]?.refTarget
+            ?: internalRefPointer(ref)
+            ?: useSitePointer
+    }
+
     private fun buildParameterPointers(
         openApiPath: String,
         httpMethod: String,
@@ -1757,7 +1779,8 @@ class OpenApiSpecification(
             parameters?.forEachIndexed { idx, parameter ->
                 val resolved = resolveParameter(parameter, collectorContext.at("parameters").at(idx)).first
                 if (resolved.`in` == paramIn && !resolved.name.isNullOrBlank()) {
-                    pointers[resolved.name] = "$prefix/$idx"
+                    val parameterUseSitePointer = "$prefix/$idx"
+                    pointers[resolved.name] = sourcePointerForRefUseSite(parameterUseSitePointer, parameter.`$ref`)
                 }
             }
         }

@@ -186,6 +186,17 @@ paths:
                     type: string
                     # response enum widened: added 'pending'
                     enum: [accepted, pending]
+  /reusable-components:
+    post:
+      summary: reusable components
+      parameters:
+        - $ref: '#/components/parameters/ReusableQuery'
+        - $ref: '#/components/parameters/ReusableHeader'
+      requestBody:
+        $ref: '#/components/requestBodies/ReusableRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReusableResponse'
 components:
   schemas:
     Submission:
@@ -236,3 +247,45 @@ components:
             # Cat.sound type changed: string -> boolean
             sound:
               type: boolean
+  parameters:
+    ReusableQuery:
+      name: reusableQuery
+      in: query
+      required: true
+      schema:
+        type: number
+    ReusableHeader:
+      name: X-Reusable
+      in: header
+      required: true
+      schema:
+        type: number
+  requestBodies:
+    ReusableRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentId]
+            properties:
+              componentId:
+                type: number
+  responses:
+    ReusableResponse:
+      description: ok
+      headers:
+        X-Reusable-Response:
+          $ref: '#/components/headers/ReusableResponseHeader'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentStatus]
+            properties:
+              componentStatus:
+                type: number
+  headers:
+    ReusableResponseHeader:
+      schema:
+        type: number

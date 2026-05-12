@@ -186,6 +186,17 @@ paths:
                   status:
                     type: string
                     enum: [accepted]
+  /reusable-components:
+    post:
+      summary: reusable components
+      parameters:
+        - $ref: '#/components/parameters/ReusableQuery'
+        - $ref: '#/components/parameters/ReusableHeader'
+      requestBody:
+        $ref: '#/components/requestBodies/ReusableRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReusableResponse'
 components:
   schemas:
     Submission:
@@ -231,3 +242,45 @@ components:
               type: string
             sound:
               type: string
+  parameters:
+    ReusableQuery:
+      name: reusableQuery
+      in: query
+      required: true
+      schema:
+        type: string
+    ReusableHeader:
+      name: X-Reusable
+      in: header
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    ReusableRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentId]
+            properties:
+              componentId:
+                type: string
+  responses:
+    ReusableResponse:
+      description: ok
+      headers:
+        X-Reusable-Response:
+          $ref: '#/components/headers/ReusableResponseHeader'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentStatus]
+            properties:
+              componentStatus:
+                type: string
+  headers:
+    ReusableResponseHeader:
+      schema:
+        type: string
