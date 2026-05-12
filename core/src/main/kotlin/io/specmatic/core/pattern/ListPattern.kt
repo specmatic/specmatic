@@ -10,7 +10,8 @@ data class ListPattern(
     override val pattern: Pattern,
     override val typeAlias: String? = null,
     override val example: List<String?>? = null,
-    override val extensions: Map<String, Any>  = emptyMap()
+    override val extensions: Map<String, Any>  = emptyMap(),
+    val itemsPointer: String? = null
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
@@ -120,7 +121,7 @@ data class ListPattern(
         }.filter {
             it.result is Result.Failure
         }.map {
-            it.result.breadCrumb("[${it.index}]") as Result.Failure
+            (it.result as Result.Failure).breadCrumb("[${it.index}]", updatedResolver.locate(itemsPointer))
         }
 
         return if(failures.isEmpty())
@@ -201,7 +202,7 @@ data class ListPattern(
                     Pair(index, biggerEncompassesSmaller(pattern, otherPatternEntry, thisResolverWithEmptyType, otherResolverWithEmptyType, typeStack))
                 }
 
-                results.find { it.second is Result.Failure }?.let { result -> result.second.breadCrumb("[${result.first}]") } ?: Result.Success()
+                results.find { it.second is Result.Failure }?.let { result -> result.second.breadCrumb("[${result.first}]", otherResolverWithEmptyType.locate(itemsPointer)) } ?: Result.Success()
             }
             else -> Result.Failure("Expected array or list type, got ${otherPattern.typeName}")
         }
@@ -218,7 +219,7 @@ data class ListPattern(
                 is SequenceType ->
                     biggerEncompassesSmaller(pattern, resolvedHop(otherPattern, otherResolverWithEmptyType), thisResolverWithEmptyType, otherResolverWithEmptyType, typeStack)
                 else -> Result.Failure("Expected array or list type, got ${otherPattern.typeName}")
-            }.breadCrumb("[$index]")
+            }.breadCrumb("[$index]", otherResolverWithEmptyType.locate(itemsPointer))
         }
 
         val result = results.find { it is Result.Failure } ?: Result.Success()

@@ -80,6 +80,15 @@ paths:
                     # nested object: address.street type changed: string -> number
                     street:
                       type: number
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      # array of objects: tags[*].name type changed: string -> number
+                      name:
+                        type: number
       responses:
         '200':
           description: ok

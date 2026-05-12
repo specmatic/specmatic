@@ -1766,7 +1766,14 @@ class OpenApiSpecification(
     }
 
     private fun annotateWithPropertyPointers(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
-        if (pattern !is JSONObjectPattern) return pattern
+        return when (pattern) {
+            is JSONObjectPattern -> annotateJsonObjectPattern(pattern, schema, schemaPointer)
+            is ListPattern -> annotateListPattern(pattern, schema, schemaPointer)
+            else -> pattern
+        }
+    }
+
+    private fun annotateJsonObjectPattern(pattern: JSONObjectPattern, schema: Schema<*>?, schemaPointer: String): JSONObjectPattern {
         val propertyNames = schema?.properties?.keys.orEmpty()
         val pointers = propertyNames.associateWith { name ->
             "$schemaPointer/properties/${escapeJsonPointer(name)}"
@@ -1782,6 +1789,12 @@ class OpenApiSpecification(
             propertyPointers = pointers,
             schemaPointer = schemaPointer
         )
+    }
+
+    private fun annotateListPattern(pattern: ListPattern, schema: Schema<*>?, schemaPointer: String): ListPattern {
+        val itemsPointer = "$schemaPointer/items"
+        val annotatedInner = annotateWithPropertyPointers(pattern.pattern, schema?.items, itemsPointer)
+        return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
     }
 
     private fun sourceLocationsFromMap(): Map<String, SourceLocation> {

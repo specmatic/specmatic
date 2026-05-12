@@ -58,6 +58,14 @@ paths:
                   properties:
                     street:
                       type: string
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
       responses:
         '200':
           description: ok

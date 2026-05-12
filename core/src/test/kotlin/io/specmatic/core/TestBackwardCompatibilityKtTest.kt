@@ -4114,7 +4114,7 @@ paths:
             API: POST /products/validate -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.BODY.data[0] (new.yaml:17:17)
+             >> REQUEST.BODY.data[0] (new.yaml:19:19)
 
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
