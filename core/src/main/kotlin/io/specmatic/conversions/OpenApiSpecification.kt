@@ -1813,41 +1813,59 @@ class OpenApiSpecification(
     }
 
     private fun annotateXMLPattern(pattern: XMLPattern, schema: Schema<*>?, schemaPointer: String): XMLPattern {
-        val withPointer = pattern.copy(schemaPointer = schemaPointer)
-        if (schema == null) return withPointer
+        if (schema == null) return pattern.copy(schemaPointer = schemaPointer)
 
-        val resolvedSchema = schema
-
-        val annotatedNodes: List<Pattern> = when {
-            resolvedSchema.isSchema(OBJECT_TYPE, multi = false) -> {
-                val nodeProperties = resolvedSchema.properties.orEmpty().filter { it.value.xml?.attribute != true }
-                val childByName = withPointer.pattern.nodes.filterIsInstance<XMLPattern>().associateBy { it.pattern.name }
-                val annotatedChildren = nodeProperties.mapNotNull { (propertyName, propertySchema) ->
-                    val xmlName = propertySchema.xml?.name ?: propertyName
-                    val child = childByName[xmlName] ?: return@mapNotNull null
-                    val childPointer = "$schemaPointer/properties/${escapeJsonPointer(propertyName)}"
-                    val annotatedChild = annotateXMLPattern(child, propertySchema, childPointer)
-                    xmlName to annotatedChild
-                }.toMap()
-                withPointer.pattern.nodes.map { node ->
-                    if (node is XMLPattern) annotatedChildren[node.pattern.name] ?: node else node
-                }
-            }
-            resolvedSchema.isSchema(ARRAY_TYPE, multi = false) -> {
-                val itemsSchema = resolvedSchema.items
-                val itemsPointer = "$schemaPointer/items"
-                if (resolvedSchema.xml?.wrapped == true) {
-                    withPointer.pattern.nodes.map { node ->
-                        if (node is XMLPattern) annotateXMLPattern(node, itemsSchema, itemsPointer) else node
-                    }
-                } else {
-                    withPointer.pattern.nodes
-                }
-            }
-            else -> withPointer.pattern.nodes
+        if (schema.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return annotateXMLPattern(pattern, resolvedSchema, targetPointer)
         }
 
-        return withPointer.copy(pattern = withPointer.pattern.copy(nodes = annotatedNodes))
+        if (schema.isSchema(ARRAY_TYPE, multi = false)) {
+            val itemsSchema = schema.items
+            val itemsPointer = "$schemaPointer/items"
+            return if (schema.xml?.wrapped == true) {
+                val annotatedChildren = pattern.pattern.nodes.map { node ->
+                    if (node is XMLPattern) annotateXMLPattern(node, itemsSchema, itemsPointer) else node
+                }
+                pattern.copy(
+                    schemaPointer = schemaPointer,
+                    pattern = pattern.pattern.copy(nodes = annotatedChildren)
+                )
+            } else {
+                annotateXMLPattern(pattern, itemsSchema, itemsPointer)
+            }
+        }
+
+        val withPointer = pattern.copy(schemaPointer = schemaPointer)
+        if (!schema.isSchema(OBJECT_TYPE, multi = false)) return withPointer
+
+        val allProperties = schema.properties.orEmpty()
+        val nodeProperties = allProperties.filter { it.value.xml?.attribute != true }
+        val attributeProperties = allProperties.filter { it.value.xml?.attribute == true }
+
+        val childByName = withPointer.pattern.nodes.filterIsInstance<XMLPattern>().associateBy { it.pattern.name }
+        val annotatedChildren = nodeProperties.mapNotNull { (propertyName, propertySchema) ->
+            val xmlName = propertySchema.xml?.name ?: propertyName
+            val child = childByName[xmlName] ?: return@mapNotNull null
+            val childPointer = "$schemaPointer/properties/${escapeJsonPointer(propertyName)}"
+            xmlName to annotateXMLPattern(child, propertySchema, childPointer)
+        }.toMap()
+        val annotatedNodes = withPointer.pattern.nodes.map { node ->
+            if (node is XMLPattern) annotatedChildren[node.pattern.name] ?: node else node
+        }
+
+        val requiredAttributeNames = schema.required.orEmpty().toSet()
+        val attributePointers = attributeProperties.mapKeys { (name, _) ->
+            if (name in requiredAttributeNames) name else "$name.opt"
+        }.mapValues { (propertyName, _) ->
+            "$schemaPointer/properties/${escapeJsonPointer(propertyName.removeSuffix(".opt"))}"
+        }
+
+        return withPointer.copy(
+            pattern = withPointer.pattern.copy(nodes = annotatedNodes),
+            attributePointers = attributePointers
+        )
     }
 
     private fun annotateAnyPattern(pattern: AnyPattern, branchSchemas: List<Schema<*>>?, schemaPointer: String): AnyPattern {

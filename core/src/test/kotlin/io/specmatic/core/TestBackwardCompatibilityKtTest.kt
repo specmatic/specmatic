@@ -1360,6 +1360,50 @@ Then status 200
     }
 
     @Test
+    fun `two xml contracts should not be backward compatible when a required attribute is added`() {
+        val results = xmlBccResults("attribute-added-old.yaml", "attribute-added-new.yaml")
+
+        if (results.failureCount > 0)
+            println(results.report())
+
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "post xml. Response: ok"
+            API: POST /data -> 200
+
+              >> REQUEST.BODY.customer.id (attribute-added-new.yaml:21:17)
+
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+
+                  New specification expects attribute "id" in the request but it is missing from the old specification
+            """
+        )
+    }
+
+    @Test
+    fun `two xml contracts should not be backward compatible when an array item field is made mandatory`() {
+        val results = xmlBccResults("array-items-mandatory-old.yaml", "array-items-mandatory-new.yaml")
+
+        if (results.failureCount > 0)
+            println(results.report())
+
+        assertBackwardCompatibilityFailure(
+            results,
+            """
+            In scenario "post xml. Response: ok"
+            API: POST /data -> 200
+
+              >> REQUEST.BODY.customers.items.customer.name (array-items-mandatory-new.yaml:30:23)
+
+                  Didn't get enough values
+            """
+        )
+    }
+
+    @Test
     fun `two xml contracts should not be backward compatibility when mandatory key is made optional in response`() {
         val results = xmlBccResults("mandatory-to-optional-response-old.yaml", "mandatory-to-optional-response-new.yaml")
 

@@ -76,7 +76,8 @@ private fun isNamespaceDeclarationAttribute(attributeName: String): Boolean =
 data class XMLPattern(
     override val pattern: XMLTypeData = XMLTypeData(realName = ""),
     override val typeAlias: String? = null,
-    val schemaPointer: String? = null
+    val schemaPointer: String? = null,
+    val attributePointers: Map<String, String> = emptyMap()
 ) : Pattern, SequenceType {
     constructor(
         node: XMLNode,
@@ -398,8 +399,11 @@ data class XMLPattern(
             ignoreXMLNamespaces(patternAttributesWithoutXmlns),
             ignoreXMLNamespaces(sampleAttributesForKeyCheck)
         )
-        if (missingKey != null)
+        if (missingKey != null) {
+            val keyLocation = resolver.locate(attributePointers[missingKey.name] ?: attributePointers[withoutOptionality(missingKey.name)])
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
+                .breadCrumb(missingKey.name, keyLocation)
+        }
 
         return matchAttributes(patternAttributesWithoutXmlns, sampleAttributesWithoutXmlns, resolver)
     }
@@ -923,16 +927,21 @@ data class XMLPattern(
             otherAttributes,
             thisResolver,
             otherResolver,
-            typeStack
+            typeStack,
+            otherPropertyPointers = otherResolvedPattern.attributePointers,
+            thisPropertyPointers = this.attributePointers
         )
 
         val thisAttributeNames = thisAttributes.keys.map(::withoutOptionality).toSet()
         val extraAttributeFailures =
             otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
                 val namespaceUri = otherResolvedPattern.pattern.attributeNamespaceUri(attributeName)
+                val rawName = withoutOptionality(attributeName)
+                val otherPointer = otherResolvedPattern.attributePointers[attributeName] ?: otherResolvedPattern.attributePointers[rawName]
                 when {
                     pattern.attributeWildcards.any { it.namespaceConstraint.allows(namespaceUri) } -> null
                     else -> Failure("XML attribute compatibility failed: attribute \"$attributeName\" is present in the other pattern, but this pattern does not declare it and has no anyAttribute wildcard that allows it.")
+                        .breadCrumb(rawName, otherResolver.locate(otherPointer))
                 }
             }
 
