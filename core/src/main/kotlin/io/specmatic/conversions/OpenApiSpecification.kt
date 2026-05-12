@@ -97,7 +97,8 @@ class OpenApiSpecification(
     private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getDictionary(), strictMode),
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
-    private val exampleDirPaths: List<String> = emptyList()
+    private val exampleDirPaths: List<String> = emptyList(),
+    private val jsonPointerSourceMap: Map<String, YamlNodeLocation> = emptyMap()
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
@@ -296,6 +297,9 @@ class OpenApiSpecification(
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
             val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
+            // TODO: Figure out how this would work with JSON files
+            // TODO: Validate the behaviour with composition and $refs etc.
+            val jsonPointerSourceMap = JsonPointerSourceMap(mergedYaml).build()
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -335,7 +339,8 @@ class OpenApiSpecification(
                 lenientMode = lenientMode,
                 logger = logger,
                 parseCollectorContext = collectorContext,
-                exampleDirPaths = exampleDirPaths
+                exampleDirPaths = exampleDirPaths,
+                jsonPointerSourceMap = jsonPointerSourceMap
             )
         }
 
