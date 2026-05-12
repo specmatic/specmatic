@@ -1771,7 +1771,17 @@ class OpenApiSpecification(
         val pointers = propertyNames.associateWith { name ->
             "$schemaPointer/properties/${escapeJsonPointer(name)}"
         }
-        return pattern.copy(propertyPointers = pointers, schemaPointer = schemaPointer)
+        val annotatedPropertyPatterns = pattern.pattern.mapValues { (key, propertyPattern) ->
+            val rawName = withoutOptionality(key)
+            val nestedSchema = schema?.properties?.get(rawName) ?: return@mapValues propertyPattern
+            val nestedPointer = pointers[rawName] ?: return@mapValues propertyPattern
+            annotateWithPropertyPointers(propertyPattern, nestedSchema, nestedPointer)
+        }
+        return pattern.copy(
+            pattern = annotatedPropertyPatterns,
+            propertyPointers = pointers,
+            schemaPointer = schemaPointer
+        )
     }
 
     private fun sourceLocationsFromMap(): Map<String, SourceLocation> {

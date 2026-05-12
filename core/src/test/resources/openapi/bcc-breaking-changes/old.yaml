@@ -52,6 +52,12 @@ paths:
                   type: string
                 note:
                   type: string
+                address:
+                  type: object
+                  required: [street]
+                  properties:
+                    street:
+                      type: string
       responses:
         '200':
           description: ok

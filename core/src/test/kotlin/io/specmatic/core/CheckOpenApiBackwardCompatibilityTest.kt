@@ -94,6 +94,14 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
+      >> REQUEST.BODY.address.street (new.yaml:81:21)
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type number in the new specification, but type string in the old specification
+      
       >> REQUEST.PARAMETERS.HEADER.X-Optional (new.yaml:48:11)
       
           R2001: Missing required property
@@ -118,7 +126,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           New specification expects query param "tag" in the request but it is missing from the old specification
       
-      >> RESPONSE.HEADER.X-Resp (new.yaml:81:13)
+      >> RESPONSE.HEADER.X-Resp (new.yaml:88:13)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -126,7 +134,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is number in the new specification response but string in the old specification
       
-      >> RESPONSE.BODY.id (new.yaml:91:19)
+      >> RESPONSE.BODY.id (new.yaml:98:19)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -134,7 +142,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           The old specification expects property "id" but it is missing in the new specification
       
-      >> RESPONSE.BODY.extra (new.yaml:86:15)
+      >> RESPONSE.BODY.extra (new.yaml:93:15)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -142,7 +150,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           The old specification expects property "extra" but it is missing in the new specification
       
-      >> RESPONSE.BODY.code (new.yaml:101:19)
+      >> RESPONSE.BODY.code (new.yaml:108:19)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -168,7 +176,7 @@ class CheckOpenApiBackwardCompatibilityTest {
     In scenario "submit. Response: ok"
     API: POST /submissions -> 200
     
-      >> REQUEST.BODY.id (new.yaml:168:9)
+      >> REQUEST.BODY.id (new.yaml:175:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -176,7 +184,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY.kind (new.yaml:171:9)
+      >> REQUEST.BODY.kind (new.yaml:178:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -184,7 +192,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type string in the new specification, but type number in the old specification
       
-      >> REQUEST.BODY.category (new.yaml:175:9)
+      >> REQUEST.BODY.category (new.yaml:182:9)
       
           R1002: Value mismatch
           Documentation: https://docs.specmatic.io/rules#r1002
@@ -192,7 +200,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is ("A") in the new specification, but "B" in the old specification
       
-      >> RESPONSE.BODY.status (new.yaml:157:19)
+      >> RESPONSE.BODY.status (new.yaml:164:19)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -591,6 +599,44 @@ class CheckOpenApiBackwardCompatibilityTest {
                       Summary: The value type does not match the expected type defined in the specification
 
                       This is number in the new specification response but string in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "changing the type of a nested inline object property",
+            baseSpec = baseSpec,
+            oldPatch = """
+                - op: add
+                  path: /paths/~1data/post/requestBody/content/application~1json/schema/properties/address
+                  value:
+                    type: object
+                    required:
+                      - street
+                    properties:
+                      street:
+                        type: string
+            """,
+            newPatch = """
+                - op: add
+                  path: /paths/~1data/post/requestBody/content/application~1json/schema/properties/address
+                  value:
+                    type: object
+                    required:
+                      - street
+                    properties:
+                      street:
+                        type: number
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.BODY.address.street (new.yaml:28:21)
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type number in the new specification, but type string in the old specification
             """.trimIndent()
         ),
         IncompatibleTestCase(

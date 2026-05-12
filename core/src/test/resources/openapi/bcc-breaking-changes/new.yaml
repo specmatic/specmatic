@@ -73,6 +73,13 @@ paths:
                 # new property 'extra'
                 extra:
                   type: string
+                address:
+                  type: object
+                  required: [street]
+                  properties:
+                    # nested object: address.street type changed: string -> number
+                    street:
+                      type: number
       responses:
         '200':
           description: ok
