@@ -134,8 +134,9 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     private fun getMockSettingsFor(specFile: File): MockSettings {
         val globalMockSettings = specmaticSettings.mock ?: MockSettings()
-        val service = getMockService(specFile) ?: return globalMockSettings
-        return specmaticConfig.dependencies?.getSettings(service,globalMockSettings, resolver) ?: globalMockSettings
+        val dependencyMockSettings = specmaticConfig.dependencies?.settings?.resolveElseThrow(resolver)?.merge(globalMockSettings) ?: globalMockSettings
+        val service = getMockService(specFile) ?: return dependencyMockSettings
+        return specmaticConfig.dependencies?.getSettings(service, globalMockSettings, resolver) ?: dependencyMockSettings
     }
 
     private fun exampleFromSysProp(): List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",")?.map { it.trim() }.orEmpty()

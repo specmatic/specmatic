@@ -145,6 +145,10 @@ data class StubConfiguration(
     private val https: HttpsConfiguration? = null,
     private val lenientMode: Boolean? = null
 ) {
+    fun getLenientMode(): Boolean? {
+        return lenientMode
+    }
+
     fun getGenerative(): Boolean? {
         return generative
     }
@@ -430,7 +434,7 @@ data class SpecmaticConfigV1V2Common(
         }
 
         @JsonIgnore
-        fun getIgnoreInlineExampleWarningsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.ignoreInlineExamples
+        fun getIgnoreInlineExampleWarningsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.ignoreInlineExampleWarnings
 
         @JsonIgnore
         fun getEscapeSoapActionOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.escapeSoapAction
@@ -475,6 +479,11 @@ data class SpecmaticConfigV1V2Common(
         @JsonIgnore
         fun getProxyConfig(specmaticConfig: SpecmaticConfigV1V2Common): ProxyConfig? {
             return specmaticConfig.proxy
+        }
+
+        @JsonIgnore
+        fun getLogConfigurationOrNull(specmaticConfig: SpecmaticConfigV1V2Common): LoggingConfiguration? {
+            return specmaticConfig.logging
         }
     }
 
@@ -1758,6 +1767,9 @@ data class SecurityConfiguration(
     @param:JsonProperty("OpenAPI")
     private val OpenAPI: OpenAPISecurityConfiguration?
 ) {
+    val openAPI: OpenAPISecurityConfiguration?
+        get() = OpenAPI
+
     fun getOpenAPISecurityScheme(scheme: String): SecuritySchemeConfiguration? {
         return OpenAPI?.securitySchemes?.get(scheme)
     }

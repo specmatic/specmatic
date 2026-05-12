@@ -47,6 +47,33 @@ data class TestRunOptions(
     val protobuf: ProtobufTestConfig? = null,
 ) {
     @JsonIgnore
+    fun hasSpecOverride(specId: String): Boolean {
+        return collectOverriddenSpecIds().contains(specId)
+    }
+
+    @JsonIgnore
+    fun dropNoOpSpecificationOverrides(): TestRunOptions {
+        return copy(
+            wsdl = wsdl?.copy(specs = wsdl.specs.filterOverrides()),
+            openapi = openapi?.copy(specs = openapi.specs.filterOverrides()),
+            protobuf = protobuf?.copy(specs = protobuf.specs.filterOverrides()),
+            asyncapi = asyncapi?.copy(specs = asyncapi.specs.filterOverrides()),
+            graphqlsdl = graphqlsdl?.copy(specs = graphqlsdl.specs.filterOverrides()),
+        )
+    }
+
+    @JsonIgnore
+    private fun collectOverriddenSpecIds(): Set<String> {
+        return buildSet {
+            addAll(wsdl?.specs.collectSpecIds())
+            addAll(openapi?.specs.collectSpecIds())
+            addAll(asyncapi?.specs.collectSpecIds())
+            addAll(protobuf?.specs.collectSpecIds())
+            addAll(graphqlsdl?.specs.collectSpecIds())
+        }
+    }
+
+    @JsonIgnore
     fun getRunOptionsFor(specType: SpecType): IRunOptions? {
         return when(specType) {
             SpecType.WSDL -> wsdl
@@ -66,6 +93,33 @@ data class MockRunOptions(
     val protobuf: ProtobufMockConfig? = null,
 ) {
     @JsonIgnore
+    fun hasSpecOverride(specId: String): Boolean {
+        return collectOverriddenSpecIds().contains(specId)
+    }
+
+    @JsonIgnore
+    fun dropNoOpSpecificationOverrides(): MockRunOptions {
+        return copy(
+            wsdl = wsdl?.copy(specs = wsdl.specs.filterOverrides()),
+            openapi = openapi?.copy(specs = openapi.specs.filterOverrides()),
+            protobuf = protobuf?.copy(specs = protobuf.specs.filterOverrides()),
+            asyncapi = asyncapi?.copy(specs = asyncapi.specs.filterOverrides()),
+            graphqlsdl = graphqlsdl?.copy(specs = graphqlsdl.specs.filterOverrides()),
+        )
+    }
+
+    @JsonIgnore
+    private fun collectOverriddenSpecIds(): Set<String> {
+        return buildSet {
+            addAll(wsdl?.specs.collectSpecIds())
+            addAll(openapi?.specs.collectSpecIds())
+            addAll(asyncapi?.specs.collectSpecIds())
+            addAll(protobuf?.specs.collectSpecIds())
+            addAll(graphqlsdl?.specs.collectSpecIds())
+        }
+    }
+
+    @JsonIgnore
     fun getRunOptionsFor(specType: SpecType): IRunOptions? {
         return when(specType) {
             SpecType.WSDL -> wsdl
@@ -83,4 +137,12 @@ data class ContextDependentRunOptions(@get:JsonAnyGetter val rawValue: Map<Strin
         @JsonCreator
         fun create(@JsonAnySetter raw: Map<String, Any?>): ContextDependentRunOptions = ContextDependentRunOptions(raw)
     }
+}
+
+private fun <T : IRunOptionSpecification> List<T>?.filterOverrides(): List<T>? {
+    return this?.filterNot(IRunOptionSpecification::isNoOpOverride)?.takeUnless { it.isEmpty() }
+}
+
+private fun <T : IRunOptionSpecification> List<T>?.collectSpecIds(): Set<String> {
+    return this.orEmpty().mapNotNull(IRunOptionSpecification::getId).toSet()
 }

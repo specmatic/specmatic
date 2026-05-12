@@ -13,8 +13,9 @@ data class WsdlTestConfig(
     val baseUrl: String? = null,
     val host: String? = null,
     val port: Int? = null,
+    override val cert: RefOrValue<HttpsConfiguration>? = null,
     override val specs: List<WsdlRunOptionsSpecifications>? = null
-) : WsdlRunOptions {
+) : WsdlRunOptions, ConfigWithCert {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
     @JsonIgnore

@@ -11,6 +11,7 @@ interface IRunOptionSpecification {
     fun getBaseUrl(defaultHost: String): String?
     fun getConfig(): Map<String, Any>
     fun getOverlayFilePath(): String?
+    fun isNoOpOverride(): Boolean
 
     fun extractBaseUrlFromMap(map: Map<*, *>?, defaultHost: String): String? {
         if (map.isNullOrEmpty()) return null
@@ -44,6 +45,11 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
             spec.host?.let { put("host", it) }
             spec.port?.let { put("port", it) }
         }
+    }
+
+    @JsonIgnore
+    override fun isNoOpOverride(): Boolean {
+        return spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.config.isEmpty()
     }
 
     data class Value(
@@ -83,6 +89,11 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     }
 
     @JsonIgnore
+    override fun isNoOpOverride(): Boolean {
+        return spec.baseUrl == null && spec.host == null && spec.port == null
+    }
+
+    @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
         if (spec.baseUrl != null) return spec.baseUrl
         if (spec.port == null) return null
@@ -111,6 +122,11 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     @JsonIgnore
     override fun getConfig(): Map<String, Any> {
         return emptyMap()
+    }
+
+    @JsonIgnore
+    override fun isNoOpOverride(): Boolean {
+        return spec.baseUrl == null && spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.securitySchemes == null
     }
 
     @JsonIgnore

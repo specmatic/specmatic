@@ -13,6 +13,6 @@ data class GeneralSettings(
     val featureFlags: FeatureFlags? = null,
     @field:JsonDeserialize(using = ExampleTemplateStringDeserializer::class)
     val specExamplesDirectoryTemplate: String? = null,
-    @field:JsonDeserialize(using = ExampleTemplateStringDeserializer::class)
+    @field:JsonDeserialize(contentUsing = ExampleTemplateStringDeserializer::class)
     val sharedExamplesDirectoryTemplate: List<String>? = null
 )

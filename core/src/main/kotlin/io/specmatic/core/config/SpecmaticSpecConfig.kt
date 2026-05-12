@@ -7,6 +7,7 @@ class RawRunOptionSpecification(private val config: Map<String, Any>): IRunOptio
     override fun getBaseUrl(defaultHost: String): String? = null
     override fun getOverlayFilePath(): String? = null
     override fun getConfig(): Map<String, Any> = config
+    override fun isNoOpOverride(): Boolean = config.isEmpty()
 }
 
 class SpecmaticSpecConfig(val baseUrl: String? = null, val spec: IRunOptionSpecification? = null, val config: Map<String, Any> = emptyMap()) {

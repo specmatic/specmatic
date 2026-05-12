@@ -1,0 +1,48 @@
+version: 2
+contracts:
+  - git:
+      url: https://github.com/specmatic/specmatic-order-contracts.git
+    provides:
+      - specs:
+          - io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
+        specType: openapi
+        config:
+          baseUrl: "{APP_URL:http://localhost:8080}"
+          examples:
+            - ./src/test/resources/bff
+          resiliencyTests:
+            enable: "all"
+    consumes:
+      - specs:
+          - io/specmatic/examples/store/openapi/api_order_v5.yaml
+        specType: openapi
+        config:
+          baseUrl: http://localhost:8090
+          examples:
+            - ./src/test/resources/domain_service
+      - specs:
+          - io/specmatic/examples/store/asyncapi/kafka.yaml
+        specType: asyncapi
+        config:
+          inMemoryBroker:
+            host: localhost
+            port: 9092
+          servers:
+            - host: localhost:9092
+              protocol: kafka
+license_path: "/root/specmatic-license.txt"
+test:
+  filter: "PATH!='/health,/monitor/{id},/swagger'"
+  actuatorUrl: "{APP_URL:http://localhost:8080}/actuator/mappings"
+  resiliencyTests:
+    enable: all
+hooks:
+  post_specmatic_response_processor: ./hooks/post_specmatic_response_processor.sh
+report:
+  types:
+    APICoverage:
+      OpenAPI:
+        successCriteria:
+          minThresholdPercentage: 70
+          maxMissedEndpointsInSpec: 0
+          enforce: true

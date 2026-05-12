@@ -1,0 +1,81 @@
+version: 3
+systemUnderTest:
+  service:
+    definitions:
+      - definition:
+          source:
+            git:
+              url: https://github.com/specmatic/specmatic-order-contracts.git
+          specs:
+            - spec:
+                id: io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
+                path: io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
+    runOptions:
+      openapi:
+        filter: PATH!='/health,/monitor/{id},/swagger'
+        actuatorUrl: http://localhost:8080/actuator/mappings
+        specs:
+          - spec:
+              id: io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
+              baseUrl: http://localhost:8080
+    data:
+      examples:
+        - directories:
+            - ./src/test/resources/bff
+dependencies:
+  services:
+    - service:
+        definitions:
+          - definition:
+              source:
+                git:
+                  url: https://github.com/specmatic/specmatic-order-contracts.git
+              specs:
+                - spec:
+                    id: io/specmatic/examples/store/openapi/api_order_v5.yaml
+                    path: io/specmatic/examples/store/openapi/api_order_v5.yaml
+        runOptions:
+          openapi:
+            specs:
+              - spec:
+                  id: io/specmatic/examples/store/openapi/api_order_v5.yaml
+                  baseUrl: http://localhost:8090
+        data:
+          examples:
+            - directories:
+                - ./src/test/resources/domain_service
+    - service:
+        definitions:
+          - definition:
+              source:
+                git:
+                  url: https://github.com/specmatic/specmatic-order-contracts.git
+              specs:
+                - spec:
+                    id: io/specmatic/examples/store/asyncapi/kafka.yaml
+                    path: io/specmatic/examples/store/asyncapi/kafka.yaml
+        runOptions:
+          asyncapi:
+            specs:
+              - spec:
+                  id: io/specmatic/examples/store/asyncapi/kafka.yaml
+                  inMemoryBroker:
+                    host: localhost
+                    port: 9092
+                  servers:
+                    - host: localhost:9092
+                      protocol: kafka
+  data:
+    adapters:
+      post_specmatic_response_processor: ./hooks/post_specmatic_response_processor.sh
+specmatic:
+  license:
+    path: /root/specmatic-license.txt
+  governance:
+    successCriteria:
+      minCoveragePercentage: 70
+      maxMissedOperationsInSpec: 0
+      enforce: true
+  settings:
+    test:
+      schemaResiliencyTests: all
