@@ -1811,7 +1811,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1845,7 +1845,7 @@ paths:
             text/plain:
               schema:
                 type: number
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1859,12 +1859,12 @@ paths:
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
             
-              >> REQUEST.BODY.data2
-              
+              >> REQUEST.BODY.data2 (new.yaml:21:17)
+
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
                   Summary: A required property defined in the specification is missing
-              
+
                   New specification expects property "data2" in the request but it is missing from the old specification
             
             In scenario "hello world. Response: Says hello"
