@@ -31,8 +31,8 @@ class CheckOpenApiBackwardCompatibilityTest {
     private fun runCompatCheck(testCase: CompatTestCase): Results {
         val oldSpec = testCase.oldPatch?.let { testCase.baseSpec.applyJsonPatch(it) } ?: testCase.baseSpec
         val newSpec = testCase.newPatch?.let { testCase.baseSpec.applyJsonPatch(it) } ?: testCase.baseSpec
-        val older = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
-        val newer = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+        val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
         return testBackwardCompatibility(older, newer)
     }
 
@@ -252,7 +252,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.BODY.id
+                  >> REQUEST.BODY.id (new.yaml:19:17)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001

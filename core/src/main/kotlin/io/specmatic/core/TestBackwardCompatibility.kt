@@ -6,7 +6,8 @@ import io.specmatic.core.value.Value
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
     val operationToResult = OpenApiBackwardCompatibilityChecker(older, newer).run()
-    return operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+    val aggregated = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+    return aggregated.copy(addSourceLocation = true)
 }
 
 object NewAndOldSpecificationRequestMismatches: MismatchMessages {

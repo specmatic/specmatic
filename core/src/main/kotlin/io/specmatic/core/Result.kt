@@ -226,8 +226,8 @@ sealed class Result {
             return this.copy(failureReason = failureReason)
         }
 
-        fun toFailureReport(scenarioMessage: String? = null): FailureReport {
-            return FailureReport(contractPath, scenarioMessage, scenario, toMatchFailureDetailList())
+        fun toFailureReport(scenarioMessage: String? = null, addSourceLocation: Boolean = false): FailureReport {
+            return FailureReport(contractPath, scenarioMessage, scenario, toMatchFailureDetailList(), addSourceLocation)
         }
 
         fun toMatchFailureDetails(): MatchFailureDetails {

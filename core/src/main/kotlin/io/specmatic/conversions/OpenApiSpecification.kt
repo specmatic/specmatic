@@ -297,9 +297,6 @@ class OpenApiSpecification(
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
             val preprocessedYaml = preprocessYamlForParser(mergedYaml, collectorContext)
-            // TODO: Figure out how this would work with JSON files
-            // TODO: Validate the behaviour with composition and $refs etc.
-            val jsonPointerSourceMap = JsonPointerSourceMap(mergedYaml).build()
 
             val parseResult: SwaggerParseResult =
                 OpenAPIV3Parser().readContents(
@@ -325,6 +322,12 @@ class OpenApiSpecification(
                 }
                 logger.boundary()
             }
+
+            // TODO: Figure out how this would work with JSON files
+            // TODO: Validate the behaviour with composition and $refs etc.
+            // TODO: What to do if this fails?
+            // TODO: Performance impact?
+            val jsonPointerSourceMap = JsonPointerSourceMap(mergedYaml).build()
 
             return OpenApiSpecification(
                 openApiFilePath,
@@ -762,7 +765,8 @@ class OpenApiSpecification(
                                 parameters = parameters,
                                 httpMethod = httpMethod,
                                 operation = openApiOperation,
-                                collectorContext = methodContext
+                                collectorContext = methodContext,
+                                openApiPath = openApiPath
                             )
                         }
 
@@ -1435,7 +1439,8 @@ class OpenApiSpecification(
         httpMethod: String,
         operation: Operation,
         parameters: List<Parameter>,
-        collectorContext: CollectorContext
+        collectorContext: CollectorContext,
+        openApiPath: String
     ): List<RequestPatternsData> {
         logger.debug("Processing requests for $httpMethod")
         val securitySchemeEntries = parsedOpenApi.components?.securitySchemes.orEmpty()
@@ -1577,12 +1582,10 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: false
 
-                    val body = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext).let {
-                        if (bodyIsRequired)
-                            it
-                        else
-                            OptionalBodyPattern.fromPattern(it)
-                    }
+                    val rawBody = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext)
+                    val schemaPointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody/content/${escapeJsonPointer(contentType)}/schema"
+                    val bodyWithLocations = annotateWithPropertyLocations(rawBody, mediaType.schema, schemaPointer)
+                    val body = if (bodyIsRequired) bodyWithLocations else OptionalBodyPattern.fromPattern(bodyWithLocations)
 
                     Pair(
                         requestPattern.copy(
@@ -1708,6 +1711,21 @@ class OpenApiSpecification(
                 val exampleMap = acc[exampleName] ?: emptyMap()
                 acc.plus(exampleName to exampleMap.plus(parameterName to exampleValue))
             }
+    }
+
+    private fun escapeJsonPointer(token: String): String =
+        token.replace("~", "~0").replace("/", "~1")
+
+    private fun annotateWithPropertyLocations(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
+        if (pattern !is JSONObjectPattern) return pattern
+        val propertyNames = schema?.properties?.keys ?: return pattern
+        val locations = propertyNames.mapNotNull { name ->
+            val pointer = "$schemaPointer/properties/${escapeJsonPointer(name)}"
+            val node = jsonPointerSourceMap[pointer] ?: return@mapNotNull null
+            name to SourceLocation(openApiFilePath, node.line, node.column)
+        }.toMap()
+        if (locations.isEmpty()) return pattern
+        return pattern.copy(propertySourceLocations = locations)
     }
 
     private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext>? {

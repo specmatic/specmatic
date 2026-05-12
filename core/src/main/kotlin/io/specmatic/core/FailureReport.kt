@@ -1,6 +1,6 @@
 package io.specmatic.core
 
-data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
+data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>, private val addSourceLocation: Boolean = false): Report {
 
     fun groupingKey(): String {
         if(contractPath != null && scenario != null) return "$contractPath ${scenario.operationDescription()}"
@@ -65,9 +65,11 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
         val crumbs = breadCrumbString(matchFailureDetails.breadCrumbs)
-        val crumbsWithLocation = matchFailureDetails.sourceLocation?.let { loc ->
-            if (crumbs.isBlank()) crumbs else "$crumbs (${loc.filePath}:${loc.line}:${loc.column})"
-        } ?: crumbs
+        val crumbsWithLocation = if (addSourceLocation) {
+            matchFailureDetails.sourceLocation?.let { loc ->
+                if (crumbs.isBlank()) crumbs else "$crumbs (${loc.filePath}:${loc.line}:${loc.column})"
+            } ?: crumbs
+        } else crumbs
         val breadCrumbString = startOfBreadCrumbPrefix(crumbsWithLocation)
         val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
         return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")

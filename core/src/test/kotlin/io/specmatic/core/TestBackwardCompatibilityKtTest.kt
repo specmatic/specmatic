@@ -12,7 +12,11 @@ import org.junit.jupiter.api.Test
 internal class TestBackwardCompatibilityKtTest {
     private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
         assertThat(results.success()).withFailMessage(results.report()).isFalse
-        assertThat(results.report()).isEqualToNormalizingNewlines(expectedReport.trimIndent())
+        val stripTrailingWhitespacePerLine: (String) -> String = { s ->
+            s.lines().joinToString("\n") { it.trimEnd() }
+        }
+        assertThat(stripTrailingWhitespacePerLine(results.report()))
+            .isEqualToNormalizingNewlines(stripTrailingWhitespacePerLine(expectedReport.trimIndent()))
     }
 
     @Test
@@ -1345,7 +1349,7 @@ paths:
                   value: 10
               schema:
                 type: number
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1383,7 +1387,7 @@ paths:
                   value: 10
               schema:
                 type: number
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1392,10 +1396,10 @@ paths:
             """
         In scenario "hello world. Response: Says hello"
         API: POST /data -> 200
-        
+
         ${
                 toViolationReportString(
-                    breadCrumb = "REQUEST.BODY.data",
+                    breadCrumb = "REQUEST.BODY.data (new.yaml:20:17)",
                     details = "This is type string in the new specification, but type number in the old specification",
                     StandardRuleViolation.TYPE_MISMATCH
                 )
@@ -2354,7 +2358,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -2385,7 +2389,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result = testBackwardCompatibility(oldContract, newContract)
@@ -2394,13 +2398,13 @@ paths:
             """
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY.data
-              
+
+              >> REQUEST.BODY.data (new.yaml:18:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type null in the old specification
             """
         )
@@ -2508,7 +2512,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -2541,7 +2545,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result = testBackwardCompatibility(oldContract, newContract)
@@ -2550,21 +2554,21 @@ paths:
             """
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY.data
-              
+
+              >> REQUEST.BODY.data (new.yaml:18:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type null in the old specification
-              
-              >> REQUEST.BODY.data
-              
+
+              >> REQUEST.BODY.data (new.yaml:18:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type string in the new specification, but type null in the old specification
             """
         )
@@ -4098,8 +4102,8 @@ paths:
           description: Validation successful
 """.trimIndent()
 
-        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
-        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -4110,12 +4114,12 @@ paths:
             API: POST /products/validate -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.BODY.data[0]
-  
+             >> REQUEST.BODY.data[0] (new.yaml:17:17)
+
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
               Summary: The value type does not match the expected type defined in the specification
-          
+
               This is type boolean in the new specification, but type string in the old specification
             """.trimIndent())
     }
