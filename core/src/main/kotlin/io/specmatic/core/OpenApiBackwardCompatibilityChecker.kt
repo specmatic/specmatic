@@ -187,7 +187,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun locateRemovedResponse(scenario: Scenario): SourceLocation? {
         val operationPointer = operationPointer(scenario) ?: return null
-        val statusToken = if (scenario.status == 0) "default" else scenario.status.toString()
+        val statusToken = if (scenario.status == DEFAULT_RESPONSE_CODE) "default" else scenario.status.toString()
         return scenario.resolver.locate("$operationPointer/responses/$statusToken")
             ?: scenario.resolver.locate(operationPointer)
     }

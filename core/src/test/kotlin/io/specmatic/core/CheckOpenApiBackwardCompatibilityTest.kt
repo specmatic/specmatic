@@ -301,6 +301,11 @@ class CheckOpenApiBackwardCompatibilityTest {
           Summary: The value type does not match the expected type defined in the specification
 
           This is number in the new specification response but string in the old specification
+
+    In scenario "reusable components. Response: fallback"
+    API: POST /reusable-components -> 1000
+
+          This API exists in the old contract but not in the new contract (old.yaml:201:9)
             """.trimIndent().normalizeBlankLines()
         )
     }

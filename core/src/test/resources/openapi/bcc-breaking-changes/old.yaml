@@ -198,6 +198,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ReusableResponse'
+        default:
+          description: fallback
 components:
   schemas:
     Submission:
