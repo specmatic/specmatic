@@ -7,7 +7,6 @@ import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
-import kotlin.runCatching
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
 private const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
@@ -31,17 +30,15 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityResults(): Resu
 
 private fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long) {
     if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return
-    runCatching {
-        val reportOperations = BccReportGenerator().generateReportOperations(records)
-        val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
-        ReportGenerator.generateReportBcc(
-            endTime = endTime,
-            startTime = startTime,
-            reportDir = reportDir,
-            coverageReportOperations = reportOperations,
-            specConfigs = reportOperations.map { it.specConfig }.distinct(),
-        )
-    }
+    val reportOperations = BccReportGenerator().generateReportOperations(records)
+    val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
+    ReportGenerator.generateReportBcc(
+        endTime = endTime,
+        startTime = startTime,
+        reportDir = reportDir,
+        coverageReportOperations = reportOperations,
+        specConfigs = reportOperations.map { it.specConfig }.distinct(),
+    )
 }
 
 object NewAndOldSpecificationRequestMismatches: MismatchMessages {

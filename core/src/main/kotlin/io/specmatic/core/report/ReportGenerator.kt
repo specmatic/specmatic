@@ -4,7 +4,7 @@ import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
-import io.specmatic.reporter.ctrf.model.BaseBccCoverageReportOperation
+import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
 import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.reporting.ReportProvider
@@ -60,7 +60,7 @@ object ReportGenerator {
         reportDir: File,
         specConfigs: List<CtrfSpecConfig>,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
-        coverageReportOperations: List<BaseBccCoverageReportOperation>,
+        coverageReportOperations: List<BaseBccReportOperation>,
     ) {
         if (isCtrfSpecConfigsValid(specConfigs).not()) return
         val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()
@@ -71,7 +71,7 @@ object ReportGenerator {
 
         consoleLog("Generating BCC report for $totalChecksRan checks and ${coverageReportOperations.size} operations...")
         val report = CtrfReportGenerator.generateBccReport(
-            coverageReportOperations = coverageReportOperations,
+            bccReportOperations = coverageReportOperations,
             specConfig = specConfigs,
             startTime = startTime,
             toolName = toolName,

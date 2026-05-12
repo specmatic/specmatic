@@ -4689,10 +4689,28 @@ paths:
             assertThat(reportJson.path("results").path("extra").path("specmaticConfigPath").asText()).isEqualTo(configFile.canonicalPath)
 
             assertThat(operations.size()).isEqualTo(2)
-            assertThat(operations.toString()).contains("\"method\":\"GET\"")
-            assertThat(operations.toString()).contains("\"method\":\"POST\"")
-            assertThat(operations.toString()).contains("\"backwardCompatibilityResult\":\"Compatible\"")
-            assertThat(operations.toString()).contains("\"backwardCompatibilityResult\":\"Incompatible\"")
+
+            val postOperation = operations.first { it.path("method").asText() == "POST" }
+            assertThat(postOperation.path("path").asText()).isEqualTo("/orders")
+            assertThat(postOperation.path("method").asText()).isEqualTo("POST")
+            assertThat(postOperation.path("contentType").asText()).isEqualTo("application/json")
+            assertThat(postOperation.path("responseCode").asInt()).isEqualTo(201)
+            assertThat(postOperation.path("qualifiers").size()).isEqualTo(0)
+            assertThat(postOperation.path("testIds").isArray).isTrue()
+            assertThat(postOperation.path("testIds").size()).isGreaterThan(0)
+            assertThat(postOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
+            assertThat(postOperation.path("compatibility").path("result").asText()).isEqualTo("Incompatible")
+
+            val getOperation = operations.first { it.path("method").asText() == "GET" }
+            assertThat(getOperation.path("path").asText()).isEqualTo("/orders")
+            assertThat(getOperation.path("method").asText()).isEqualTo("GET")
+            assertThat(getOperation.path("responseCode").asInt()).isEqualTo(200)
+            assertThat(getOperation.path("responseContentType").asText()).isEqualTo("application/json")
+            assertThat(getOperation.path("qualifiers").size()).isEqualTo(0)
+            assertThat(getOperation.path("testIds").isArray).isTrue()
+            assertThat(getOperation.path("testIds").size()).isGreaterThan(0)
+            assertThat(getOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
+            assertThat(getOperation.path("compatibility").path("result").asText()).isEqualTo("Compatible")
         }
     }
 }

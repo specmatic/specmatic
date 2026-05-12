@@ -50,20 +50,20 @@ class BccReportGeneratorTest {
         assertThat(reportOperations).hasSize(3)
 
         val groupedCreateOrder = reportOperations.single { it.operation == createOrder && it.specConfig.specification == "specs/orders.yaml" }
-        assertThat(groupedCreateOrder.changeStatus).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(groupedCreateOrder.compatibility.changeStatus).isEqualTo(ChangeStatus.CHANGED)
         assertThat(groupedCreateOrder.tests).containsExactly(firstRecord, secondRecord)
         assertThat(groupedCreateOrder.qualifiers).containsExactly(CtrfOperationQualifiers.WIP)
-        assertThat(groupedCreateOrder.backwardCompatibilityResult).isEqualTo(BackwardCompatibilityResult.Incompatible)
+        assertThat(groupedCreateOrder.compatibility.result).isEqualTo(BackwardCompatibilityResult.Incompatible)
 
         val groupedGetOrders = reportOperations.single { it.operation == getOrders && it.specConfig.specification == "specs/orders.yaml" }
         assertThat(groupedGetOrders.tests).containsExactly(firstRecord)
         assertThat(groupedGetOrders.qualifiers).containsExactly(CtrfOperationQualifiers.WIP)
-        assertThat(groupedGetOrders.backwardCompatibilityResult).isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(groupedGetOrders.compatibility.result).isEqualTo(BackwardCompatibilityResult.Compatible)
 
         val groupedPayments = reportOperations.single { it.operation == createOrder && it.specConfig.specification == "specs/payments.yaml" }
         assertThat(groupedPayments.qualifiers).isEmpty()
         assertThat(groupedPayments.tests).containsExactly(thirdRecord)
-        assertThat(groupedPayments.backwardCompatibilityResult).isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(groupedPayments.compatibility.result).isEqualTo(BackwardCompatibilityResult.Compatible)
     }
 
     @Test
@@ -136,7 +136,7 @@ class BccReportGeneratorTest {
             )
         ).single()
 
-        assertThat(reportOperation.changeStatus).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(reportOperation.compatibility.changeStatus).isEqualTo(ChangeStatus.CHANGED)
     }
 
     @Test
@@ -149,7 +149,7 @@ class BccReportGeneratorTest {
             )
         ).single()
 
-        assertThat(reportOperation.changeStatus).isEqualTo(ChangeStatus.UNCHANGED)
+        assertThat(reportOperation.compatibility.changeStatus).isEqualTo(ChangeStatus.UNCHANGED)
     }
 
     @Test
@@ -164,8 +164,8 @@ class BccReportGeneratorTest {
         val createOrderReport = reportOperations.single { it.operation == createOrder }
         val getOrdersReport = reportOperations.single { it.operation == getOrders }
 
-        assertThat(createOrderReport.changeStatus).isEqualTo(ChangeStatus.CHANGED)
-        assertThat(getOrdersReport.changeStatus).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(createOrderReport.compatibility.changeStatus).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(getOrdersReport.compatibility.changeStatus).isEqualTo(ChangeStatus.CHANGED)
     }
 
     @Test
@@ -178,8 +178,7 @@ class BccReportGeneratorTest {
             )
         )
 
-        assertThat(reportOperation.single().backwardCompatibilityResult)
-            .isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(reportOperation.single().compatibility.result).isEqualTo(BackwardCompatibilityResult.Compatible)
     }
 
     @Test
@@ -192,8 +191,7 @@ class BccReportGeneratorTest {
             )
         )
 
-        assertThat(reportOperation.single().backwardCompatibilityResult)
-            .isEqualTo(BackwardCompatibilityResult.Incompatible)
+        assertThat(reportOperation.single().compatibility.result).isEqualTo(BackwardCompatibilityResult.Incompatible)
     }
 
     @Test

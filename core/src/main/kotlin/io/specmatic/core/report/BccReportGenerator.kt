@@ -1,8 +1,9 @@
 package io.specmatic.core.report
 
-import io.specmatic.reporter.ctrf.model.BccCoverageReportOperation
-import io.specmatic.reporter.ctrf.model.BaseBccCoverageReportOperation
+import io.specmatic.reporter.ctrf.model.BccReportOperation
+import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
+import io.specmatic.reporter.ctrf.model.CtrfOperationCompatibility
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
@@ -10,21 +11,23 @@ import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.BackwardCompatibilityResult
 
 class BccReportGenerator {
-    fun generateReportOperations(tests: List<CtrfBackwardCompatibilityRecord>): List<BaseBccCoverageReportOperation> {
+    fun generateReportOperations(tests: List<CtrfBackwardCompatibilityRecord>): List<BaseBccReportOperation> {
         return tests.operationSources().groupByOperation().map { (groupKey, sources) ->
             reportOperationFrom(groupKey, sources)
         }
     }
 
-    private fun reportOperationFrom(groupKey: BccOperationGroupKey, sources: List<BccOperationSource>): BaseBccCoverageReportOperation {
+    private fun reportOperationFrom(groupKey: BccOperationGroupKey, sources: List<BccOperationSource>): BaseBccReportOperation {
         val tests = sources.map { it.test }
-        return BccCoverageReportOperation(
+        return BccReportOperation(
             tests = tests,
             operation = groupKey.operation,
             specConfig = groupKey.specConfig,
             qualifiers = operationQualifiersFrom(tests),
-            changeStatus = operationChangeStatus(tests),
-            backwardCompatibilityResult = backwardCompatibilityResultFrom(tests),
+            compatibility = CtrfOperationCompatibility(
+                changeStatus = operationChangeStatus(tests),
+                result = backwardCompatibilityResultFrom(tests),
+            ),
         )
     }
 
