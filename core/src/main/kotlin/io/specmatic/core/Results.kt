@@ -28,7 +28,7 @@ data class Results(val results: List<Result> = emptyList()) {
     }
 
     fun toResultIfAnyWithCausesOrFailure(): Result {
-        if (results.isEmpty()) return Result.Failure()
+        if (results.isEmpty()) return Result.Failure(message = "")
         return toResultIfAnyWithCauses()
     }
 

@@ -64,7 +64,11 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     }
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
-        val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
+        val crumbs = breadCrumbString(matchFailureDetails.breadCrumbs)
+        val crumbsWithLocation = matchFailureDetails.sourceLocation?.let { loc ->
+            if (crumbs.isBlank()) crumbs else "$crumbs (${loc.filePath}:${loc.line}:${loc.column})"
+        } ?: crumbs
+        val breadCrumbString = startOfBreadCrumbPrefix(crumbsWithLocation)
         val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
         return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")
     }

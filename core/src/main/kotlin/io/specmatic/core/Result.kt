@@ -49,6 +49,7 @@ sealed class Result {
     abstract fun ifSuccess(function: () -> Result): Result
     abstract fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result
     abstract fun breadCrumb(breadCrumb: String): Result
+    open fun breadCrumb(breadCrumb: String, sourceLocation: SourceLocation?): Result = breadCrumb(breadCrumb)
     abstract fun failureReason(failureReason: FailureReason?): Result
     open fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter = BreadCrumbToJsonPathConverter()): List<Issue> = emptyList()
     open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
@@ -120,7 +121,8 @@ sealed class Result {
         val isPartial: Boolean = false,
         val ruleViolationReport: RuleViolationReport? = null,
         override val scenario: ScenarioDetailsForResult? = null,
-        override val contractPath: String? = null
+        override val contractPath: String? = null,
+        val sourceLocation: SourceLocation? = null
     ) : Result() {
         constructor(
             message: String = "",
@@ -217,6 +219,9 @@ sealed class Result {
 
         fun reason(errorMessage: String) = Failure(errorMessage, this, scenario = scenario, contractPath = contractPath)
         override fun breadCrumb(breadCrumb: String) = Failure(cause = this, breadCrumb = breadCrumb, isPartial = isPartial, scenario = scenario, contractPath = contractPath)
+        override fun breadCrumb(breadCrumb: String, sourceLocation: SourceLocation?): Failure =
+            Failure(cause = this, breadCrumb = breadCrumb, isPartial = isPartial, scenario = scenario, contractPath = contractPath)
+                .copy(sourceLocation = sourceLocation)
         override fun failureReason(failureReason: FailureReason?): Result {
             return this.copy(failureReason = failureReason)
         }
@@ -232,9 +237,10 @@ sealed class Result {
                     else -> reason
                 }
             }.let { reason ->
+                val withLocation = reason.copy(sourceLocation = reason.sourceLocation ?: sourceLocation)
                 when {
-                    breadCrumb.isNotEmpty() -> reason.copy(breadCrumbs = listOf(breadCrumb).plus(reason.breadCrumbs))
-                    else -> reason
+                    breadCrumb.isNotEmpty() -> withLocation.copy(breadCrumbs = listOf(breadCrumb).plus(withLocation.breadCrumbs))
+                    else -> withLocation
                 }
             }
         }
@@ -247,9 +253,10 @@ sealed class Result {
                         else -> matchFailureDetails
                     }
 
+                    val withLocation = withReason.copy(sourceLocation = withReason.sourceLocation ?: sourceLocation)
                     val withBreadCrumbs = when {
-                        breadCrumb.isNotEmpty() -> withReason.copy(breadCrumbs = listOf(breadCrumb).plus(withReason.breadCrumbs))
-                        else -> withReason
+                        breadCrumb.isNotEmpty() -> withLocation.copy(breadCrumbs = listOf(breadCrumb).plus(withLocation.breadCrumbs))
+                        else -> withLocation
                     }
 
                     when {
@@ -420,8 +427,11 @@ data class MatchFailureDetails(
     val errorMessages: List<String> = emptyList(),
     val path: String? = null,
     val isPartial: Boolean = false,
-    val ruleViolationReport: RuleViolationReport? = null
+    val ruleViolationReport: RuleViolationReport? = null,
+    val sourceLocation: SourceLocation? = null
 )
+
+data class SourceLocation(val filePath: String, val line: Int, val column: Int)
 
 interface MismatchMessages {
     fun mismatchMessage(expected: String, actual: String): String

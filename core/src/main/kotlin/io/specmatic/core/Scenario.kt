@@ -401,6 +401,7 @@ data class Scenario(
     ): Result {
         if (httpResponsePattern.status == DEFAULT_RESPONSE_CODE || httpResponse.status != httpResponsePattern.status) {
             return Result.Failure(
+                message = "",
                 breadCrumb = "STATUS",
                 failureReason = FailureReason.StatusMismatch
             ).updateScenario(this)
