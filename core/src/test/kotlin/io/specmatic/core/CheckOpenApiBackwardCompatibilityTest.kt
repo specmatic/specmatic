@@ -983,6 +983,37 @@ class CheckOpenApiBackwardCompatibilityTest {
             """.trimIndent()
         ),
         IncompatibleTestCase(
+            name = "narrowing the scalar types in an anyOf property",
+            baseSpec = baseSpec,
+            oldPatch = """
+                - op: replace
+                  path: /paths/~1data/post/requestBody/content/application~1json/schema/properties/id
+                  value:
+                    anyOf:
+                      - type: string
+                      - type: number
+            """,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1data/post/requestBody/content/application~1json/schema/properties/id
+                  value:
+                    anyOf:
+                      - type: string
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.BODY.id (new.yaml:19:17)
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type string in the new specification, but type number in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
             name = "removing a branch from a oneOf in the request body",
             baseSpec = baseSpecWithComposition,
             newPatch = """

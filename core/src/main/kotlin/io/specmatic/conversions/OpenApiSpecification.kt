@@ -1771,7 +1771,42 @@ class OpenApiSpecification(
         return when (pattern) {
             is JSONObjectPattern -> annotateJsonObjectPattern(pattern, schema, schemaPointer)
             is ListPattern -> annotateListPattern(pattern, schema, schemaPointer)
+            is AnyPattern -> annotateAnyPattern(pattern, schema?.oneOf, schemaPointer)
+            is AnyOfPattern -> annotateAnyOfPattern(pattern, schema?.anyOf, schemaPointer)
             else -> pattern
+        }
+    }
+
+    private fun annotateAnyPattern(pattern: AnyPattern, branchSchemas: List<Schema<*>>?, schemaPointer: String): AnyPattern {
+        val variants = annotateBranchVariants(pattern.pattern, branchSchemas, schemaPointer, "oneOf") ?: return pattern
+        return pattern.copy(pattern = variants)
+    }
+
+    private fun annotateAnyOfPattern(pattern: AnyOfPattern, branchSchemas: List<Schema<*>>?, schemaPointer: String): AnyOfPattern {
+        val variants = annotateBranchVariants(pattern.pattern, branchSchemas, schemaPointer, "anyOf") ?: return pattern
+        // Reconstruct rather than copy: AnyOfPattern's private `delegate: AnyPattern` is
+        // constructed from the constructor's `pattern` parameter, and a data-class copy
+        // keeps the original delegate (with the un-annotated variants) — its matches()
+        // would still consult the stale list. A fresh constructor invocation rebuilds the
+        // delegate with the annotated variants.
+        return AnyOfPattern(
+            pattern = variants,
+            typeAlias = pattern.typeAlias,
+            example = pattern.example,
+            discriminator = pattern.discriminator,
+            extensions = pattern.extensions
+        )
+    }
+
+    private fun annotateBranchVariants(
+        variants: List<Pattern>,
+        branchSchemas: List<Schema<*>>?,
+        schemaPointer: String,
+        keyword: String
+    ): List<Pattern>? {
+        if (branchSchemas == null || variants.size != branchSchemas.size) return null
+        return variants.mapIndexed { index, variant ->
+            annotateWithPropertyPointers(variant, branchSchemas[index], "$schemaPointer/$keyword/$index")
         }
     }
 
