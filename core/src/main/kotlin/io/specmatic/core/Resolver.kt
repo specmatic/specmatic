@@ -354,7 +354,7 @@ data class Resolver(
     }
 
     private fun generateRandomList(pattern: Pattern): Value {
-        val maxLimit = if (maxRandomArraySize <= 1) 1 else randomNumber(maxRandomArraySize)
+        val maxLimit = if (maxRandomArraySize <= 1) 1 else randomNumber(maxRandomArraySize + 1)
         return pattern.listOf(0.until(maxLimit).mapIndexed { index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)

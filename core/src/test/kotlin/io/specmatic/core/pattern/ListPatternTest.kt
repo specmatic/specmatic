@@ -193,6 +193,14 @@ Feature: Recursive test
             val value = pattern.generate(Resolver(maxRandomArraySize = 1)) as JSONArrayValue
             assertThat(value.list).hasSize(1)
         }
+
+        val generatedSizes = (1..100).map {
+            val value = pattern.generate(Resolver(maxRandomArraySize = 3)) as JSONArrayValue
+            value.list.size
+        }
+
+        assertTrue(generatedSizes.all { it in 1..3 })
+        assertThat(generatedSizes).contains(3)
     }
 
     @ParameterizedTest
