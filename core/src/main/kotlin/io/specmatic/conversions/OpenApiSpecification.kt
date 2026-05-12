@@ -2101,8 +2101,34 @@ class OpenApiSpecification(
                 createObjectPattern(schemaProperties, patternName)
             }
         }.let {
+            annotateAllOfPattern(it, schema, patternName)
+        }.let {
             cacheComponentPattern(patternName, it)
         }
+    }
+
+    private fun annotateAllOfPattern(pattern: Pattern, schema: Schema<*>, patternName: String): Pattern {
+        if (pattern !is JSONObjectPattern || patternName.isBlank()) return pattern
+        val componentPointer = "/components/schemas/${escapeJsonPointer(patternName)}"
+        val pointers = buildAllOfPropertyPointers(schema, componentPointer)
+        if (pointers.isEmpty()) return pattern
+        return pattern.copy(propertyPointers = pointers, schemaPointer = componentPointer)
+    }
+
+    private fun buildAllOfPropertyPointers(schema: Schema<*>, basePointer: String): Map<String, String> {
+        val pointers = mutableMapOf<String, String>()
+        schema.properties?.keys.orEmpty().forEach { propertyName ->
+            pointers[propertyName] = "$basePointer/properties/${escapeJsonPointer(propertyName)}"
+        }
+        schema.allOf.orEmpty().forEachIndexed { index, constituent ->
+            val constituentPointer = constituent.`$ref`?.let { ref ->
+                val componentName = ref.substringAfterLast("/")
+                val refSchema = parsedOpenApi.components?.schemas?.get(componentName) ?: return@forEachIndexed
+                "/components/schemas/${escapeJsonPointer(componentName)}" to refSchema
+            } ?: ("$basePointer/allOf/$index" to constituent)
+            pointers.putAll(buildAllOfPropertyPointers(constituentPointer.second, constituentPointer.first))
+        }
+        return pointers
     }
 
     private fun resolveSchemaIfRef(schema: Schema<*>?, patternName: String? = null, collectorContext: CollectorContext): ResolvedRef {

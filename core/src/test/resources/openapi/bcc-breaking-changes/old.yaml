@@ -201,23 +201,33 @@ components:
         category:
           type: string
           enum: [A, B]
+    Animal:
+      type: object
+      required: [species]
+      properties:
+        species:
+          type: string
     Pet:
       oneOf:
         - $ref: '#/components/schemas/Dog'
         - $ref: '#/components/schemas/Cat'
     Dog:
-      type: object
-      required: [name, sound]
-      properties:
-        name:
-          type: string
-        sound:
-          type: string
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            sound:
+              type: string
     Cat:
-      type: object
-      required: [name, sound]
-      properties:
-        name:
-          type: string
-        sound:
-          type: string
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            sound:
+              type: string

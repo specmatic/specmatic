@@ -203,25 +203,36 @@ components:
         category:
           type: string
           enum: [A]
+    Animal:
+      type: object
+      required: [species]
+      properties:
+        # Animal.species type changed: string -> number — surfaces via Dog/Cat allOf
+        species:
+          type: number
     Pet:
       oneOf:
         - $ref: '#/components/schemas/Dog'
         - $ref: '#/components/schemas/Cat'
     Dog:
-      type: object
-      required: [name, sound]
-      properties:
-        name:
-          type: string
-        # Dog.sound type changed: string -> number
-        sound:
-          type: number
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            # Dog.sound type changed: string -> number
+            sound:
+              type: number
     Cat:
-      type: object
-      required: [name, sound]
-      properties:
-        name:
-          type: string
-        # Cat.sound type changed: string -> boolean
-        sound:
-          type: boolean
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            # Cat.sound type changed: string -> boolean
+            sound:
+              type: boolean
