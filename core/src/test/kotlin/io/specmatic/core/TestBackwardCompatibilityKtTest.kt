@@ -8,6 +8,7 @@ import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.io.File
 
 internal class TestBackwardCompatibilityKtTest {
     private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
@@ -17,6 +18,290 @@ internal class TestBackwardCompatibilityKtTest {
         }
         assertThat(stripTrailingWhitespacePerLine(results.report()))
             .isEqualToNormalizingNewlines(stripTrailingWhitespacePerLine(expectedReport.trimIndent()))
+    }
+
+    @Test
+    fun `all breaking changes from the fixture pair are detected and annotated`() {
+        val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
+        val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()
+
+        val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+
+        val results = testBackwardCompatibility(older, newer)
+
+        assertThat(results.success()).isFalse
+        assertThat(results.distinctReport().normalizeBlankLines()).isEqualToNormalizingNewlines(
+            """
+    In scenario "submit data. Response: ok"
+    API: POST /data -> 200
+
+      >> REQUEST.PARAMETERS.QUERY.extra (new.yaml:36:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects query param "extra" in the request but it is missing from the old specification
+
+      >> REQUEST.PARAMETERS.QUERY.q (new.yaml:24:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Extra (new.yaml:54:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects header "X-Extra" in the request but it is missing from the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Required (new.yaml:42:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.extra (new.yaml:74:17)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects property "extra" in the request but it is missing from the old specification
+
+      >> REQUEST.BODY.id (new.yaml:69:17)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.address.street (new.yaml:81:21)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.tags[0].name (new.yaml:90:23)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Optional (new.yaml:48:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects header "X-Optional" in the request but it is missing from the old specification
+
+      >> REQUEST.BODY.note (new.yaml:71:17)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects property "note" in the request but it is missing from the old specification
+
+      >> REQUEST.PARAMETERS.QUERY.tag (new.yaml:30:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects query param "tag" in the request but it is missing from the old specification
+
+      >> RESPONSE.HEADER.X-Resp (new.yaml:97:13)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+      >> RESPONSE.BODY.id (new.yaml:107:19)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          The old specification expects property "id" but it is missing in the new specification
+
+      >> RESPONSE.BODY.extra (old.yaml:86:19)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          The old specification expects property "extra" but it is missing in the new specification
+
+      >> RESPONSE.BODY.code (new.yaml:117:19)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+    In scenario "foo. Response: ok"
+    API: GET /foo -> 200
+
+          This API exists in the old contract but not in the new contract (old.yaml:116:5)
+
+    In scenario "bar. Response: ok"
+    API: GET /bar -> 200
+
+          This API exists in the old contract but not in the new contract (old.yaml:122:5)
+
+    In scenario "create baz. Response: ok"
+    API: POST /baz -> 200
+
+          This API exists in the old contract but not in the new contract (old.yaml:133:5)
+
+    In scenario "register pet. Response: ok"
+    API: POST /pets -> 200
+
+      >> REQUEST.BODY (when Dog object).species (new.yaml:223:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY (when Dog object).sound (new.yaml:238:13)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY (when Cat object).species (new.yaml:223:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY (when Cat object).sound (new.yaml:249:13)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type boolean in the new specification, but type string in the old specification
+
+    In scenario "submit. Response: ok"
+    API: POST /submissions -> 200
+
+      >> REQUEST.BODY.id (new.yaml:208:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.kind (new.yaml:211:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type string in the new specification, but type number in the old specification
+
+      >> REQUEST.BODY.category (new.yaml:215:9)
+
+          R1002: Value mismatch
+          Documentation: https://docs.specmatic.io/rules#r1002
+          Summary: The value does not match the expected value defined in the specification
+
+          This is ("A") in the new specification, but "B" in the old specification
+
+      >> RESPONSE.BODY.status (new.yaml:185:19)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is ("accepted" or "pending") in the new specification response but ("accepted") in the old specification
+
+    In scenario "reusable components. Response: ok"
+    API: POST /reusable-components -> 200
+
+      >> REQUEST.PARAMETERS.QUERY.reusableQuery (new.yaml:252:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.QUERY.filterKind (new.yaml:274:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Reusable (new.yaml:258:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.componentId (new.yaml:285:15)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> RESPONSE.HEADER.X-Reusable-Response (new.yaml:302:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+      >> RESPONSE.BODY.componentStatus (new.yaml:299:15)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+    In scenario "reusable components. Response: fallback"
+    API: POST /reusable-components -> 1000
+
+          This API exists in the old contract but not in the new contract (old.yaml:201:9)
+            """.trimIndent().normalizeBlankLines()
+        )
+    }
+
+    private fun String.normalizeBlankLines(): String {
+        return lineSequence().joinToString("\n") { line -> if (line.isBlank()) "" else line }
     }
 
     @Test
@@ -4320,18 +4605,18 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
         val operationToResult = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature()).run()
-        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
+        val result = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }.copy(addSourceLocation = true)
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
         API: GET /missing -> 200
         
-              This API exists in the old contract but not in the new contract
+              This API exists in the old contract but not in the new contract (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml:7:5)
         
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4342,7 +4627,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:58:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4353,7 +4638,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4364,7 +4649,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:66:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4375,7 +4660,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4386,7 +4671,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:84:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4397,7 +4682,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4408,29 +4693,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is number in the new specification response but string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> REQUEST.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is type number in the new specification, but type string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:92:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4441,7 +4704,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4452,7 +4715,29 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:58:19)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:66:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4463,7 +4748,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4474,7 +4759,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:84:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4485,7 +4770,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4496,7 +4781,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:92:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
