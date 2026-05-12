@@ -1201,7 +1201,7 @@ Then status 200
                         properties:
                           data:
                             type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -1228,7 +1228,7 @@ Then status 200
                         properties:
                           data:
                             type: number
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2696,7 +2696,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2722,7 +2722,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2755,7 +2755,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2781,7 +2781,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2790,13 +2790,13 @@ paths:
             """
             In scenario "get products. Response: OK"
             API: GET /products -> 200
-            
-              >> REQUEST.PARAMETERS.QUERY.brand_ids
-              
+
+              >> REQUEST.PARAMETERS.QUERY.brand_ids (new.yaml:11:11)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
             """
         )
@@ -2830,7 +2830,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2858,7 +2858,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2893,7 +2893,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2921,7 +2921,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -2931,12 +2931,12 @@ paths:
             API: GET /products -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.PARAMETERS.QUERY.brand_ids
-              
+             >> REQUEST.PARAMETERS.QUERY.brand_ids (new.yaml:11:11)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
             """.trimIndent())
     }
@@ -2967,7 +2967,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2995,7 +2995,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertThat(results.success()).isTrue
@@ -3029,7 +3029,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3055,7 +3055,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertThat(results.report())
@@ -3064,7 +3064,7 @@ paths:
             API: GET /products -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.PARAMETERS.QUERY.brand_ids
+             >> REQUEST.PARAMETERS.QUERY.brand_ids (new.yaml:11:11)
              R1001: Type mismatch
              Documentation: https://docs.specmatic.io/rules#r1001
              Summary: The value type does not match the expected type defined in the specification
@@ -3100,7 +3100,7 @@ paths:
                         '201':
                           description: Created
                           # No content key, indicating no body
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3137,7 +3137,7 @@ paths:
                                     type: string
                                   message:
                                     type: string
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3190,7 +3190,7 @@ paths:
                                     type: string
                                   message:
                                     type: string
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3219,7 +3219,7 @@ paths:
                         '201':
                           description: Created
                           # No content key, indicating no body
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -3268,7 +3268,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3285,7 +3285,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -3294,8 +3294,8 @@ paths:
             """
             In scenario "Create a product. Response: Created"
             API: POST /products -> 201
-            
-                  This API exists in the old contract but not in the new contract
+
+                  This API exists in the old contract but not in the new contract (old.yaml:7:5)
             """
         )
     }
@@ -3452,7 +3452,7 @@ paths:
               responses:
                 '200':
                   description: OK
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3474,7 +3474,7 @@ paths:
               responses:
                 '200':
                   description: OK
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val (stdout, _) = captureStandardOutput {
             testBackwardCompatibility(olderContract, newerContract)
@@ -3501,7 +3501,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3533,7 +3533,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -3575,7 +3575,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3590,7 +3590,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3635,7 +3635,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3660,7 +3660,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3722,7 +3722,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3764,7 +3764,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3809,7 +3809,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3840,7 +3840,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3848,8 +3848,8 @@ paths:
             expectedReport = """
             In scenario "Create a product. Response: Created"
             API: POST /products -> 201
-            
-                  This API exists in the old contract but not in the new contract
+
+                  This API exists in the old contract but not in the new contract (old.yaml:7:5)
             """
         )
     }
@@ -4507,6 +4507,6 @@ paths:
     }
 }
 
-private fun String.openAPIToContract(): Feature {
-    return OpenApiSpecification.fromYAML(this, "").toFeature()
+private fun String.openAPIToContract(fileName: String = ""): Feature {
+    return OpenApiSpecification.fromYAML(this, fileName).toFeature()
 }
