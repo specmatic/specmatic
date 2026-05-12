@@ -862,6 +862,38 @@ data class XMLPattern(
                 typeStack
             )
 
+            // TODO: BCC blind spot for top-level $ref XML bodies.
+            // When `application/xml` request/response bodies are `$ref`s to component schemas,
+            // toXMLPattern() returns a stub XMLPattern that only carries the `specmatic_type`
+            // attribute and has no child nodes. encompasses() then compares the two stubs:
+            // nodeNames match, attributes (both just `specmatic_type=Customer`) match, and
+            // memberList iteration is over empty lists — so any breakage *inside* the
+            // referenced component (e.g. a child property going from required to optional)
+            // goes undetected. Request matches() is unaffected because matchesXMLNode() calls
+            // dereferenceType() before deep-matching.
+            //
+            // Sketch of the fix (attempted in this PR, reverted because it needs more work):
+            //   1. In `encompasses`, before the deep compare, call
+            //      `this.dereferenceType(thisResolver)` and
+            //      `otherResolvedPattern.dereferenceType(otherResolver)`. If either changes,
+            //      recurse with the dereferenced patterns.
+            //   2. That alone yields correct *detection* but the source-location anchor lands
+            //      on the component header, not the child property. The component patterns
+            //      cached via `cacheComponentPattern` (see OpenApiSpecification.handleXmlReference
+            //      → convertAndCacheResolvedRef) are built by `toXMLPattern` but never passed
+            //      through `annotateXMLPattern`, so the cached Customer.name XMLPattern has no
+            //      `schemaPointer`. Fix: annotate at cache time using
+            //      `/components/schemas/<name>` as the base pointer (the existing JSON path
+            //      already does this — see annotateJsonObjectPattern call sites for shared
+            //      components).
+            //   3. mergeReferredPattern() in XMLPattern.kt copies `referred` and overrides
+            //      name/attributes from the referring stub — make sure it preserves the
+            //      referred pattern's `schemaPointer` and `attributePointers` (data-class copy
+            //      already does, but worth verifying after step 2).
+            //   4. Add BCC test fixtures back: ref-name-mandatory-old.yaml / -new.yaml with
+            //      response body $ref to a Customer component whose `name` toggles required.
+            //      Expected anchor: the new spec's `components.schemas.Customer.properties.name`
+            //      line (was 30:11 in the test fixture I drafted).
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
                 attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
