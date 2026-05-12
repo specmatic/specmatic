@@ -261,6 +261,163 @@ class CheckOpenApiBackwardCompatibilityTest {
                       This is type number in the new specification, but type string in the old specification
             """.trimIndent()
         ),
+        IncompatibleTestCase(
+            name = "adding a required query parameter",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: add
+                  path: /paths/~1data/post/parameters/-
+                  value:
+                    name: extra
+                    in: query
+                    required: true
+                    schema:
+                      type: string
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.PARAMETERS.QUERY.extra
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects query param "extra" in the request but it is missing from the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "making an optional query parameter required",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1data/post/parameters/1/required
+                  value: true
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.PARAMETERS.QUERY.tag
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects query param "tag" in the request but it is missing from the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "changing the type of a query parameter",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1data/post/parameters/0/schema/type
+                  value: number
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.PARAMETERS.QUERY.q
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type number in the new specification, but type string in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "adding a required request header",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: add
+                  path: /paths/~1data/post/parameters/-
+                  value:
+                    name: X-Extra
+                    in: header
+                    required: true
+                    schema:
+                      type: string
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.PARAMETERS.HEADER.X-Extra
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects header "X-Extra" in the request but it is missing from the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "making an optional request header required",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1data/post/parameters/3/required
+                  value: true
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.PARAMETERS.HEADER.X-Optional
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects header "X-Optional" in the request but it is missing from the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "changing the type of a request header",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1data/post/parameters/2/schema/type
+                  value: number
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> REQUEST.PARAMETERS.HEADER.X-Required
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type number in the new specification, but type string in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "changing the type of a response header",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1data/post/responses/200/headers/X-Resp/schema/type
+                  value: number
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> RESPONSE.HEADER.X-Resp
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is number in the new specification response but string in the old specification
+            """.trimIndent()
+        ),
     )
 
     companion object {
@@ -301,6 +458,65 @@ class CheckOpenApiBackwardCompatibilityTest {
                               id:
                                 type: string
                               note:
+                                type: string
+        """.trimIndent()
+
+        private val baseSpecWithParamsAndHeaders = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data:
+                post:
+                  summary: submit data
+                  parameters:
+                    - name: q
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: tag
+                      in: query
+                      required: false
+                      schema:
+                        type: string
+                    - name: X-Required
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                    - name: X-Optional
+                      in: header
+                      required: false
+                      schema:
+                        type: string
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - id
+                          properties:
+                            id:
+                              type: string
+                  responses:
+                    '200':
+                      description: ok
+                      headers:
+                        X-Resp:
+                          schema:
+                            type: string
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
                                 type: string
         """.trimIndent()
     }
