@@ -150,7 +150,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           The old specification expects property "id" but it is missing in the new specification
       
-      >> RESPONSE.BODY.extra (new.yaml:102:15)
+      >> RESPONSE.BODY.extra (old.yaml:86:19)
       
           R2001: Missing required property
           Documentation: https://docs.specmatic.io/rules#r2001
@@ -169,17 +169,17 @@ class CheckOpenApiBackwardCompatibilityTest {
     In scenario "foo. Response: ok"
     API: GET /foo -> 200
     
-          This API exists in the old contract but not in the new contract
+          This API exists in the old contract but not in the new contract (old.yaml:116:5)
     
     In scenario "bar. Response: ok"
     API: GET /bar -> 200
     
-          This API exists in the old contract but not in the new contract
+          This API exists in the old contract but not in the new contract (old.yaml:122:5)
     
     In scenario "create baz. Response: ok"
     API: POST /baz -> 200
     
-          This API exists in the old contract but not in the new contract
+          This API exists in the old contract but not in the new contract (old.yaml:133:5)
     
     In scenario "register pet. Response: ok"
     API: POST /pets -> 200
@@ -436,7 +436,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> RESPONSE.BODY.extra (new.yaml:27:15)
+                  >> RESPONSE.BODY.extra (old.yaml:38:19)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -645,6 +645,31 @@ class CheckOpenApiBackwardCompatibilityTest {
             """.trimIndent()
         ),
         IncompatibleTestCase(
+            name = "removing a required response header",
+            baseSpec = baseSpecWithParamsAndHeaders,
+            oldPatch = """
+                - op: add
+                  path: /paths/~1data/post/responses/200/headers/X-Resp/required
+                  value: true
+            """,
+            newPatch = """
+                - op: remove
+                  path: /paths/~1data/post/responses/200/headers/X-Resp
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                  >> RESPONSE.HEADER.X-Resp (old.yaml:46:13)
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      The old specification expects header "X-Resp" but it is missing in the new specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
             name = "changing the type of a nested inline object property",
             baseSpec = baseSpec,
             oldPatch = """
@@ -799,12 +824,12 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                      This API exists in the old contract but not in the new contract
+                      This API exists in the old contract but not in the new contract (old.yaml:21:5)
 
                 In scenario "list data. Response: ok"
                 API: GET /data -> 200
 
-                      This API exists in the old contract but not in the new contract
+                      This API exists in the old contract but not in the new contract (old.yaml:7:5)
             """.trimIndent()
         ),
         IncompatibleTestCase(
@@ -818,7 +843,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                      This API exists in the old contract but not in the new contract
+                      This API exists in the old contract but not in the new contract (old.yaml:21:5)
             """.trimIndent()
         ),
         IncompatibleTestCase(
@@ -833,12 +858,12 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                      This API exists in the old contract but not in the new contract
+                      This API exists in the old contract but not in the new contract (old.yaml:21:5)
 
                 In scenario "list data. Response: ok"
                 API: GET /data -> 200
 
-                      This API exists in the old contract but not in the new contract
+                      This API exists in the old contract but not in the new contract (old.yaml:7:5)
             """.trimIndent()
         ),
         IncompatibleTestCase(

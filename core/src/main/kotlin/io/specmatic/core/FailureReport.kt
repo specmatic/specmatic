@@ -65,15 +65,23 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
         val crumbs = breadCrumbString(matchFailureDetails.breadCrumbs)
-        val crumbsWithLocation = if (addSourceLocation) {
+        val locationSuffix = if (addSourceLocation) {
             matchFailureDetails.sourceLocation?.let { loc ->
-                if (crumbs.isBlank() || loc.filePath.isBlank()) crumbs
-                else "$crumbs (${loc.filePath}:${loc.line}:${loc.column})"
-            } ?: crumbs
-        } else crumbs
+                if (loc.filePath.isBlank()) null
+                else "(${loc.filePath}:${loc.line}:${loc.column})"
+            }
+        } else null
+        val crumbsWithLocation = when {
+            crumbs.isBlank() -> crumbs
+            locationSuffix != null -> "$crumbs $locationSuffix"
+            else -> crumbs
+        }
         val breadCrumbString = startOfBreadCrumbPrefix(crumbsWithLocation)
-        val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
-        return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")
+        val messageLines = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
+        val finalMessageLines = if (crumbs.isBlank() && locationSuffix != null && messageLines.isNotEmpty()) {
+            messageLines.dropLast(1) + (messageLines.last() + " " + locationSuffix)
+        } else messageLines
+        return listOf(breadCrumbString).plus(finalMessageLines).filter(String::isNotBlank).joinToString("\n\n")
     }
 
     private fun matchFailureDetailsErrorMessage(matchFailureDetails: MatchFailureDetails): List<String> {

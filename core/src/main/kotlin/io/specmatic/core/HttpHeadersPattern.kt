@@ -354,7 +354,7 @@ data class HttpHeadersPattern(
         val myRequiredKeys = pattern.keys.filter { !isOptional(it) }
         val otherRequiredKeys = other.pattern.keys.filter { !isOptional(it) }
 
-        val missingHeaderResult: Result = checkAllMissingHeaders(myRequiredKeys, otherRequiredKeys, thisResolver, other.parameterPointers, otherResolver)
+        val missingHeaderResult: Result = checkAllMissingHeaders(myRequiredKeys, otherRequiredKeys, thisResolver, parameterPointers)
 
         val otherWithoutOptionality = other.pattern.mapKeys { withoutOptionality(it.key) }
         val thisWithoutOptionality = pattern.filterKeys { withoutOptionality(it) in otherWithoutOptionality }
@@ -378,12 +378,11 @@ data class HttpHeadersPattern(
         myRequiredKeys: List<String>,
         otherRequiredKeys: List<String>,
         resolver: Resolver,
-        otherParameterPointers: Map<String, String> = emptyMap(),
-        otherResolver: Resolver = resolver
+        thisParameterPointers: Map<String, String> = emptyMap()
     ): Result {
         val failures = myRequiredKeys.filter { it !in otherRequiredKeys }.map { missingFixedKey ->
             MissingKeyError(missingFixedKey).missingKeyToResult("header", resolver.mismatchMessages)
-                .breadCrumb(missingFixedKey, otherResolver.locate(otherParameterPointers[missingFixedKey]))
+                .breadCrumb(missingFixedKey, resolver.locate(thisParameterPointers[missingFixedKey]))
         }
 
         return Result.fromFailures(failures)

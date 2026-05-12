@@ -270,7 +270,9 @@ data class JSONObjectPattern(
                     typeStack,
                     propertyLimitResults,
                     otherPropertyPointers = otherPattern.propertyPointers,
-                    otherSchemaPointer = otherPattern.schemaPointer
+                    otherSchemaPointer = otherPattern.schemaPointer,
+                    thisPropertyPointers = this.propertyPointers,
+                    thisSchemaPointer = this.schemaPointer
                 )
 
                 val additionalPropertiesResult = additionalProperties.encompasses(
@@ -933,7 +935,9 @@ internal fun mapEncompassesMap(
     typeStack: TypeStack = emptySet(),
     previousResults: List<Result.Failure> = emptyList(),
     otherPropertyPointers: Map<String, String> = emptyMap(),
-    otherSchemaPointer: String? = null
+    otherSchemaPointer: String? = null,
+    thisPropertyPointers: Map<String, String> = emptyMap(),
+    thisSchemaPointer: String? = null
 ): Result {
     val myRequiredKeys = pattern.keys.filter { !isOptional(it) }
     val otherRequiredKeys = otherPattern.keys.filter { !isOptional(it) }
@@ -942,10 +946,21 @@ internal fun mapEncompassesMap(
         otherPropertyPointers[key] ?: otherPropertyPointers[withoutOptionality(key)] ?: otherSchemaPointer
     )
 
+    fun thisLocationFor(key: String) = thisResolverWithNullType.locate(
+        thisPropertyPointers[key] ?: thisPropertyPointers[withoutOptionality(key)] ?: thisSchemaPointer
+    )
+
+    val otherKeysWithoutOptionality = otherPattern.keys.map(::withoutOptionality).toSet()
     val missingFixedKeyErrors: List<Result.Failure> =
         myRequiredKeys.filter { it !in otherRequiredKeys }.map { missingFixedKey ->
+            // If the property still exists in `other` (just demoted to optional) the user
+            // will most likely fix it by editing the new spec, so anchor on new. If the
+            // property is gone from `other` entirely, anchor on old where it was defined.
+            val rawKey = withoutOptionality(missingFixedKey)
+            val location = if (rawKey in otherKeysWithoutOptionality) otherLocationFor(missingFixedKey)
+                           else thisLocationFor(missingFixedKey)
             MissingKeyError(missingFixedKey).missingKeyToResult("property", thisResolverWithNullType.mismatchMessages)
-                .breadCrumb(withoutOptionality(missingFixedKey), otherLocationFor(missingFixedKey))
+                .breadCrumb(rawKey, location)
         }
 
     val keyErrors = pattern.keys.map { key ->
