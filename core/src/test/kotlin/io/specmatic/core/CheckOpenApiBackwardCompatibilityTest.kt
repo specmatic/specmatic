@@ -418,6 +418,80 @@ class CheckOpenApiBackwardCompatibilityTest {
                       This is number in the new specification response but string in the old specification
             """.trimIndent()
         ),
+        IncompatibleTestCase(
+            name = "removing an existing path",
+            baseSpec = baseSpecWithPaths,
+            newPatch = """
+                - op: remove
+                  path: /paths/~1data
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                      This API exists in the old contract but not in the new contract
+
+                In scenario "list data. Response: ok"
+                API: GET /data -> 200
+
+                      This API exists in the old contract but not in the new contract
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "removing an HTTP method on an existing path",
+            baseSpec = baseSpecWithPaths,
+            newPatch = """
+                - op: remove
+                  path: /paths/~1data/post
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                      This API exists in the old contract but not in the new contract
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "renaming a path",
+            baseSpec = baseSpecWithPaths,
+            newPatch = """
+                - op: move
+                  from: /paths/~1data
+                  path: /paths/~1data-v2
+            """,
+            expectedReport = """
+                In scenario "submit data. Response: ok"
+                API: POST /data -> 200
+
+                      This API exists in the old contract but not in the new contract
+
+                In scenario "list data. Response: ok"
+                API: GET /data -> 200
+
+                      This API exists in the old contract but not in the new contract
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "changing the type of a path parameter",
+            baseSpec = baseSpecWithPaths,
+            newPatch = """
+                - op: replace
+                  path: /paths/~1items~1{id}/get/parameters/0/schema/type
+                  value: integer
+            """,
+            expectedReport = """
+                In scenario "get item. Response: ok"
+                API: GET /items/(id:number) -> 200
+
+                  >> REQUEST.PARAMETERS.PATH.id
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type number in the new specification, but type string in the old specification
+            """.trimIndent()
+        ),
     )
 
     companion object {
@@ -509,6 +583,75 @@ class CheckOpenApiBackwardCompatibilityTest {
                         X-Resp:
                           schema:
                             type: string
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+        """.trimIndent()
+
+        private val baseSpecWithPaths = """
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /data:
+                get:
+                  summary: list data
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+                post:
+                  summary: submit data
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required:
+                            - id
+                          properties:
+                            id:
+                              type: string
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: string
+              /items/{id}:
+                get:
+                  summary: get item
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: ok
                       content:
                         application/json:
                           schema:
