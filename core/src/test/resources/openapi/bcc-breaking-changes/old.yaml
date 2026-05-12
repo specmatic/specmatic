@@ -71,6 +71,13 @@ paths:
                     type: string
                   extra:
                     type: string
+            text/plain:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
   /items/{id}:
     get:
       summary: get item

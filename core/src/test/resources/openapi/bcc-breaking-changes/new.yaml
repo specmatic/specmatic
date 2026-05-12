@@ -92,6 +92,14 @@ paths:
                     type: string
                   note:
                     type: string
+            text/plain:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  # text/plain 'code' type changed: string -> number
+                  code:
+                    type: number
   /items/{id}:
     get:
       summary: get item

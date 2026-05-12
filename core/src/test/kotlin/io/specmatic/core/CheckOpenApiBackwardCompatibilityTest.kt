@@ -141,6 +141,14 @@ class CheckOpenApiBackwardCompatibilityTest {
           Summary: A required property defined in the specification is missing
       
           The old specification expects property "extra" but it is missing in the new specification
+      
+      >> RESPONSE.BODY.code (new.yaml:101:19)
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is number in the new specification response but string in the old specification
     
     In scenario "foo. Response: ok"
     API: GET /foo -> 200
@@ -184,7 +192,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is ("A") in the new specification, but "B" in the old specification
       
-      >> RESPONSE.BODY.status (new.yaml:149:19)
+      >> RESPONSE.BODY.status (new.yaml:157:19)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
