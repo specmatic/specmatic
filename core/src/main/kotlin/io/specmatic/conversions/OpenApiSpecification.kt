@@ -1926,8 +1926,9 @@ class OpenApiSpecification(
     }
 
     private fun sourceLocationsFromMap(): Map<String, SourceLocation> {
+        val displayPath = File(openApiFilePath).invariantSeparatorsPath
         return jsonPointerSourceMap.mapValues { (_, node) ->
-            SourceLocation(openApiFilePath, node.line, node.column)
+            SourceLocation(displayPath, node.line, node.column)
         }
     }
 
