@@ -2795,7 +2795,7 @@ class OpenApiSpecification(
 
     private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean, parameterPointers: Map<String, String> = emptyMap()): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
-        val parsedQueryParameters = queryParameters.map(::toQueryParameterParseResult)
+        val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
         val objectPropertyEntries = queryPatternEntries.filter { it.source.isFormExplodedObjectProperty }
         val objectPropertyEntriesByWireKey = objectPropertyEntries.groupBy(QueryParameterPatternEntry::wireKey)
@@ -2810,6 +2810,9 @@ class OpenApiSpecification(
         }
 
         val queryPattern: Map<String, Pattern> = filteredQueryPatternEntries.associate { it.key to it.pattern }
+        val queryParameterPointers = parameterPointers + filteredQueryPatternEntries.mapNotNull { entry ->
+            entry.pointer?.let { pointer -> entry.wireKey to pointer }
+        }
 
         val additionalProperties = additionalPropertiesInQueryParam(parsedQueryParameters)
         return HttpQueryParamPattern(
@@ -2817,7 +2820,7 @@ class OpenApiSpecification(
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
             formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
-            parameterPointers = parameterPointers
+            parameterPointers = queryParameterPointers
         )
     }
 
@@ -2831,7 +2834,8 @@ class OpenApiSpecification(
         val wireKey: String,
         val pattern: Pattern,
         val source: QueryParameterPatternSource,
-        val collectorContext: CollectorContext
+        val collectorContext: CollectorContext,
+        val pointer: String? = null
     )
 
     private data class QueryParameterParseResult(
@@ -2840,14 +2844,14 @@ class OpenApiSpecification(
         val additionalProperties: Pattern? = null
     )
 
-    private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>): QueryParameterParseResult {
+    private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>, parameterPointers: Map<String, String>): QueryParameterParseResult {
         val parameter = queryParamWithContext.parameter
         logger.debug("Processing query parameter ${parameter.name}")
         val queryParamContext = queryParamWithContext.collectorContext
         val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = queryParamContext)
 
         return if (resolvedSchema.isSchema(OBJECT_TYPE)) {
-            toFormExplodedObjectQueryParameterParseResult(parameter, resolvedSchema, paramContext, queryParamContext)
+            toFormExplodedObjectQueryParameterParseResult(parameter, resolvedSchema, paramContext, queryParamContext, parameterPointers[parameter.name])
         } else {
             val specmaticPattern = toQueryParameterPattern(
                 parameterName = parameter.name,
@@ -2864,7 +2868,8 @@ class OpenApiSpecification(
                         wireKey = parameter.name,
                         pattern = specmaticPattern,
                         source = QueryParameterPatternSource(parameter.name),
-                        collectorContext = queryParamContext
+                        collectorContext = queryParamContext,
+                        pointer = parameterPointers[parameter.name]
                     )
                 )
             )
@@ -2875,7 +2880,8 @@ class OpenApiSpecification(
         parameter: QueryParameter,
         resolvedSchema: Schema<*>,
         schemaContext: CollectorContext,
-        parameterContext: CollectorContext
+        parameterContext: CollectorContext,
+        parameterPointer: String?
     ): QueryParameterParseResult {
         if (!parameter.isFormExploded()) {
             parameterContext.at("schema").record(
@@ -2888,6 +2894,9 @@ class OpenApiSpecification(
 
         val requiredProperties = resolvedSchema.required.orEmpty().toSet()
         val schemaProperties = resolvedSchema.properties.orEmpty()
+        val schemaPointer = parameterPointer?.let {
+            sourcePointerForRefUseSite("$it/schema", parameter.schema?.`$ref`)
+        }
 
         if (parameter.required == true && requiredProperties.isEmpty()) {
             parameterContext.at("required").record(
@@ -2915,7 +2924,8 @@ class OpenApiSpecification(
                     schemaContext = propertyContext
                 ),
                 source = QueryParameterPatternSource(parameter.name, propertyName),
-                collectorContext = propertyContext
+                collectorContext = propertyContext,
+                pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" }
             )
         }
 

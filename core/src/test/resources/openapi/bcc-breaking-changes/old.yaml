@@ -192,6 +192,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ReusableQuery'
         - $ref: '#/components/parameters/ReusableHeader'
+        - $ref: '#/components/parameters/ReusableFilter'
       requestBody:
         $ref: '#/components/requestBodies/ReusableRequest'
       responses:
@@ -255,6 +256,18 @@ components:
       required: true
       schema:
         type: string
+    ReusableFilter:
+      name: filter
+      in: query
+      required: true
+      style: form
+      explode: true
+      schema:
+        type: object
+        required: [filterKind]
+        properties:
+          filterKind:
+            type: string
   requestBodies:
     ReusableRequest:
       required: true
