@@ -164,7 +164,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.BODY.extra
+                  >> REQUEST.BODY.extra (new.yaml:24:17)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -185,7 +185,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> REQUEST.BODY.note
+                  >> REQUEST.BODY.note (new.yaml:22:17)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -210,7 +210,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> RESPONSE.BODY.extra
+                  >> RESPONSE.BODY.extra (new.yaml:27:15)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -231,7 +231,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit data. Response: ok"
                 API: POST /data -> 200
 
-                  >> RESPONSE.BODY.id
+                  >> RESPONSE.BODY.id (new.yaml:32:19)
 
                       R2001: Missing required property
                       Documentation: https://docs.specmatic.io/rules#r2001
@@ -524,7 +524,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit. Response: ok"
                 API: POST /submissions -> 200
 
-                  >> RESPONSE.BODY.status
+                  >> RESPONSE.BODY.status (new.yaml:26:19)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001

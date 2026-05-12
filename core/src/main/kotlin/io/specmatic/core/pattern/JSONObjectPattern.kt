@@ -95,7 +95,8 @@ data class JSONObjectPattern(
     val maxProperties: Int? = null,
     val additionalProperties: AdditionalProperties = AdditionalProperties.NoAdditionalProperties,
     override val extensions: Map<String, Any> = emptyMap(),
-    val propertyPointers: Map<String, String> = emptyMap()
+    val propertyPointers: Map<String, String> = emptyMap(),
+    val schemaPointer: String? = null
 ) : Pattern, PossibleJsonObjectPatternContainer {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
@@ -267,7 +268,9 @@ data class JSONObjectPattern(
                     thisResolverWithNullType,
                     otherResolverWithNullType,
                     typeStack,
-                    propertyLimitResults
+                    propertyLimitResults,
+                    otherPropertyPointers = otherPattern.propertyPointers,
+                    otherSchemaPointer = otherPattern.schemaPointer
                 )
 
                 val additionalPropertiesResult = additionalProperties.encompasses(
@@ -363,11 +366,12 @@ data class JSONObjectPattern(
         }.let { additionalProperties.updatePatternMap(it, sampleData.jsonObject) }
 
         val keyErrors: List<Result.Failure> = resolverWithNullType.findKeyErrorList(adjustedPattern, sampleData.jsonObject).map {
+            val keyPointer = propertyPointers[it.name] ?: propertyPointers[withoutOptionality(it.name)] ?: schemaPointer
             when {
                 pattern.contains(it.canonicalKey) -> it.missingKeyToResult("property", resolver.mismatchMessages)
                 pattern.contains(withOptionality(it.canonicalKey)) -> it.missingOptionalKeyToResult("property", resolver.mismatchMessages)
                 else -> it.unknownKeyToResult("property", resolver.mismatchMessages)
-            }.breadCrumb(it.name)
+            }.breadCrumb(it.name, resolverWithNullType.locate(keyPointer))
         }
 
         val updatedResolver = resolverWithNullType.addPatternAsSeen(this)
@@ -376,7 +380,7 @@ data class JSONObjectPattern(
 
         val resultsWithDiscriminator: List<ResultWithDiscriminatorStatus> =
             mapZip(adjustedPattern, sampleData.jsonObject).map { (key, patternValue, sampleValue) ->
-                val pointer = propertyPointers[key] ?: propertyPointers[withoutOptionality(key)]
+                val pointer = propertyPointers[key] ?: propertyPointers[withoutOptionality(key)] ?: schemaPointer
                 val result = updatedResolver.matchesPattern(key, patternValue, sampleValue).breadCrumb(key, updatedResolver.locate(pointer))
 
                 val isDiscrimintor = patternValue.isDiscriminator()
@@ -927,15 +931,21 @@ internal fun mapEncompassesMap(
     thisResolverWithNullType: Resolver,
     otherResolverWithNullType: Resolver,
     typeStack: TypeStack = emptySet(),
-    previousResults: List<Result.Failure> = emptyList()
+    previousResults: List<Result.Failure> = emptyList(),
+    otherPropertyPointers: Map<String, String> = emptyMap(),
+    otherSchemaPointer: String? = null
 ): Result {
     val myRequiredKeys = pattern.keys.filter { !isOptional(it) }
     val otherRequiredKeys = otherPattern.keys.filter { !isOptional(it) }
 
+    fun otherLocationFor(key: String) = otherResolverWithNullType.locate(
+        otherPropertyPointers[key] ?: otherPropertyPointers[withoutOptionality(key)] ?: otherSchemaPointer
+    )
+
     val missingFixedKeyErrors: List<Result.Failure> =
         myRequiredKeys.filter { it !in otherRequiredKeys }.map { missingFixedKey ->
             MissingKeyError(missingFixedKey).missingKeyToResult("property", thisResolverWithNullType.mismatchMessages)
-                .breadCrumb(withoutOptionality(missingFixedKey))
+                .breadCrumb(withoutOptionality(missingFixedKey), otherLocationFor(missingFixedKey))
         }
 
     val keyErrors = pattern.keys.map { key ->
@@ -949,7 +959,7 @@ internal fun mapEncompassesMap(
                 thisResolverWithNullType,
                 otherResolverWithNullType,
                 typeStack
-            ).breadCrumb(withoutOptionality(key))
+            ).breadCrumb(withoutOptionality(key), otherLocationFor(key))
 
             else -> Result.Success()
         }

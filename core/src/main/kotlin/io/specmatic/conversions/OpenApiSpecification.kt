@@ -744,7 +744,12 @@ class OpenApiSpecification(
                         extensibleQueryParams = extensibleQueryParams
                     )
                     val httpResponsePatterns: List<ResponsePatternData> = attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
-                        toHttpResponsePatterns(responses = openApiOperation.responses, collectorContext = methodContext)
+                        toHttpResponsePatterns(
+                            responses = openApiOperation.responses,
+                            collectorContext = methodContext,
+                            openApiPath = openApiPath,
+                            httpMethod = httpMethod
+                        )
                     }
 
                     val first2xxResponseStatus =
@@ -1234,7 +1239,7 @@ class OpenApiSpecification(
         return value.toIntOrNull() != null
     }
 
-    private fun toHttpResponsePatterns(responses: ApiResponses?, collectorContext: CollectorContext): List<ResponsePatternData> {
+    private fun toHttpResponsePatterns(responses: ApiResponses?, collectorContext: CollectorContext, openApiPath: String, httpMethod: String): List<ResponsePatternData> {
         val responsesContext = collectorContext.at("responses")
         return responses.orEmpty().map { (status, response) ->
             logger.debug("Processing response payload with status $status")
@@ -1248,7 +1253,7 @@ class OpenApiSpecification(
                 .build()
 
             attempt(breadCrumb = status) {
-                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext)
+                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, openApiPath, httpMethod)
             }
         }.flatten()
     }
@@ -1312,7 +1317,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext): List<ResponsePatternData> {
+    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, openApiPath: String, httpMethod: String): List<ResponsePatternData> {
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
@@ -1368,11 +1373,15 @@ class OpenApiSpecification(
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
                     "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
-                    else -> toSpecmaticPattern(
-                        mediaType = mediaType,
-                        contentType = contentType,
-                        collectorContext = mediaTypeContext,
-                    )
+                    else -> {
+                        val rawBody = toSpecmaticPattern(
+                            mediaType = mediaType,
+                            contentType = contentType,
+                            collectorContext = mediaTypeContext,
+                        )
+                        val schemaPointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status/content/${escapeJsonPointer(contentType)}/schema"
+                        annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
+                    }
                 }
             )
 
@@ -1719,12 +1728,11 @@ class OpenApiSpecification(
 
     private fun annotateWithPropertyPointers(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
         if (pattern !is JSONObjectPattern) return pattern
-        val propertyNames = schema?.properties?.keys ?: return pattern
+        val propertyNames = schema?.properties?.keys.orEmpty()
         val pointers = propertyNames.associateWith { name ->
             "$schemaPointer/properties/${escapeJsonPointer(name)}"
         }
-        if (pointers.isEmpty()) return pattern
-        return pattern.copy(propertyPointers = pointers)
+        return pattern.copy(propertyPointers = pointers, schemaPointer = schemaPointer)
     }
 
     private fun sourceLocationsFromMap(): Map<String, SourceLocation> {
