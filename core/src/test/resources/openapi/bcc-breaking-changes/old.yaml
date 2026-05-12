@@ -153,6 +153,18 @@ paths:
                 properties:
                   id:
                     type: string
+  /pets:
+    post:
+      summary: register pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: ok
   /submissions:
     post:
       summary: submit
@@ -189,3 +201,23 @@ components:
         category:
           type: string
           enum: [A, B]
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
+    Dog:
+      type: object
+      required: [name, sound]
+      properties:
+        name:
+          type: string
+        sound:
+          type: string
+    Cat:
+      type: object
+      required: [name, sound]
+      properties:
+        name:
+          type: string
+        sound:
+          type: string

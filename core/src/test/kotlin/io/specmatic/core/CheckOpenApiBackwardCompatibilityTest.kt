@@ -181,10 +181,10 @@ class CheckOpenApiBackwardCompatibilityTest {
     
           This API exists in the old contract but not in the new contract
     
-    In scenario "submit. Response: ok"
-    API: POST /submissions -> 200
+    In scenario "register pet. Response: ok"
+    API: POST /pets -> 200
     
-      >> REQUEST.BODY.id (new.yaml:184:9)
+      >> REQUEST.BODY (when Dog object).sound (new.yaml:217:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -192,7 +192,26 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY.kind (new.yaml:187:9)
+      >> REQUEST.BODY (when Cat object).sound (new.yaml:226:9)
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type boolean in the new specification, but type string in the old specification
+    
+    In scenario "submit. Response: ok"
+    API: POST /submissions -> 200
+    
+      >> REQUEST.BODY.id (new.yaml:196:9)
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type number in the new specification, but type string in the old specification
+      
+      >> REQUEST.BODY.kind (new.yaml:199:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -200,7 +219,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type string in the new specification, but type number in the old specification
       
-      >> REQUEST.BODY.category (new.yaml:191:9)
+      >> REQUEST.BODY.category (new.yaml:203:9)
       
           R1002: Value mismatch
           Documentation: https://docs.specmatic.io/rules#r1002
@@ -208,7 +227,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is ("A") in the new specification, but "B" in the old specification
       
-      >> RESPONSE.BODY.status (new.yaml:173:19)
+      >> RESPONSE.BODY.status (new.yaml:185:19)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001

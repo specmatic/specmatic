@@ -152,6 +152,18 @@ paths:
         '200':
           description: ok
     # post on /baz removed
+  /pets:
+    post:
+      summary: register pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: ok
   /submissions:
     post:
       summary: submit
@@ -191,3 +203,25 @@ components:
         category:
           type: string
           enum: [A]
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
+    Dog:
+      type: object
+      required: [name, sound]
+      properties:
+        name:
+          type: string
+        # Dog.sound type changed: string -> number
+        sound:
+          type: number
+    Cat:
+      type: object
+      required: [name, sound]
+      properties:
+        name:
+          type: string
+        # Cat.sound type changed: string -> boolean
+        sound:
+          type: boolean
