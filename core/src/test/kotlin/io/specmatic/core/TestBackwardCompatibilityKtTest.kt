@@ -1601,7 +1601,7 @@ paths:
       responses:
         '200':
           description: ok
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1629,7 +1629,7 @@ paths:
       responses:
         '200':
           description: ok
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1637,8 +1637,8 @@ paths:
         assertThat(result.distinctReport()).isEqualTo("""
             In scenario "POST /ping. Response: ok"
             API: POST /ping -> 200
-            
-              >> REQUEST.BODY.timestamp
+
+              >> REQUEST.BODY.timestamp (new.yaml:19:17)
               
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
@@ -1646,7 +1646,7 @@ paths:
               
                   New specification expects property "timestamp" in the request but it is missing from the old specification
               
-              >> REQUEST.BODY.event
+              >> REQUEST.BODY.event (new.yaml:17:17)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -1688,7 +1688,7 @@ paths:
                 properties:
                   message:
                     type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1729,7 +1729,7 @@ paths:
                     type: number
                   code:
                     type: string
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1737,48 +1737,48 @@ paths:
         assertThat(result.distinctReport()).isEqualToIgnoringWhitespace("""
             In scenario "POST /ping. Response: common"
             API: POST /ping -> 200
-            
-              >> REQUEST.BODY.timestamp
-              
+
+              >> REQUEST.BODY.timestamp (new.yaml:19:17)
+
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
                   Summary: A required property defined in the specification is missing
-              
+
                   New specification expects property "timestamp" in the request but it is missing from the old specification
-              
-              >> REQUEST.BODY.event
-              
+
+              >> REQUEST.BODY.event (new.yaml:17:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
-            
+
             In scenario "POST /ping. Response: common"
             API: POST /ping -> 400
-            
-              >> REQUEST.BODY.timestamp
-              
+
+              >> REQUEST.BODY.timestamp (new.yaml:19:17)
+
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
                   Summary: A required property defined in the specification is missing
-              
+
                   New specification expects property "timestamp" in the request but it is missing from the old specification
-              
-              >> REQUEST.BODY.event
-              
+
+              >> REQUEST.BODY.event (new.yaml:17:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
-            
-              >> RESPONSE.BODY.message
-              
+
+              >> RESPONSE.BODY.message (new.yaml:33:19)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is number in the new specification response but string in the old specification
         """.trimIndent())
     }

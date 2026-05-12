@@ -69,7 +69,7 @@ data class Results(val results: List<Result> = emptyList(), val addSourceLocatio
     }
 
     fun distinctReport(defaultMessage: String = PATH_NOT_RECOGNIZED_ERROR): String {
-        val failureReports = withoutFluff().results.filterIsInstance<Result.Failure>().map(Result.Failure::toFailureReport)
+        val failureReports = withoutFluff().results.filterIsInstance<Result.Failure>().map { it.toFailureReport(addSourceLocation = addSourceLocation) }
 
         if(failureReports.isEmpty()) {
             return when {
@@ -93,7 +93,7 @@ data class Results(val results: List<Result> = emptyList(), val addSourceLocatio
         val filteredResults = withoutFluff().results
         val resultReports = filteredResults.map {
             when(it) {
-                is Result.Failure -> it.toFailureReport().toText()
+                is Result.Failure -> it.toFailureReport(addSourceLocation = addSourceLocation).toText()
                 else -> ""
             }
         }
@@ -111,7 +111,7 @@ data class Results(val results: List<Result> = emptyList(), val addSourceLocatio
             }
         }
 
-        return Results(uniqueResults)
+        return Results(uniqueResults, addSourceLocation)
     }
 
     fun getResultCounts(): Triple<Int, Int, Int> {

@@ -34,16 +34,15 @@ class CheckOpenApiBackwardCompatibilityTest {
     fun `all breaking changes from the fixture pair are detected and annotated`() {
         val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
         val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()
+        val expected = File("src/test/resources/openapi/bcc-breaking-changes/expected-report.txt").readText()
+
         val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
         val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
         val results = testBackwardCompatibility(older, newer)
 
-        println("===== BCC REPORT =====")
-        println(results.report())
-        println("===== END BCC REPORT =====")
-
         assertThat(results.success()).isFalse
+        assertThat(results.distinctReport()).isEqualTo(expected)
     }
 
     private fun runCompatCheck(testCase: CompatTestCase): Results {
