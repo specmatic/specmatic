@@ -492,6 +492,118 @@ class CheckOpenApiBackwardCompatibilityTest {
                       This is type number in the new specification, but type string in the old specification
             """.trimIndent()
         ),
+        IncompatibleTestCase(
+            name = "narrowing an enum in the request body",
+            baseSpec = baseSpecWithComposition,
+            newPatch = """
+                - op: remove
+                  path: /components/schemas/Submission/properties/category/enum/1
+            """,
+            expectedReport = """
+                In scenario "submit. Response: ok"
+                API: POST /submissions -> 200
+
+                  >> REQUEST.BODY.category
+
+                      R1002: Value mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1002
+                      Summary: The value does not match the expected value defined in the specification
+
+                      This is ("A") in the new specification, but "B" in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "widening an enum in the response body",
+            baseSpec = baseSpecWithComposition,
+            newPatch = """
+                - op: add
+                  path: /paths/~1submissions/post/responses/200/content/application~1json/schema/properties/status/enum/-
+                  value: pending
+            """,
+            expectedReport = """
+                In scenario "submit. Response: ok"
+                API: POST /submissions -> 200
+
+                  >> RESPONSE.BODY.status
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is ("accepted" or "pending") in the new specification response but ("accepted") in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "changing a property type inside a shared \$ref schema",
+            baseSpec = baseSpecWithComposition,
+            newPatch = """
+                - op: replace
+                  path: /components/schemas/Submission/properties/id/type
+                  value: number
+            """,
+            expectedReport = """
+                In scenario "submit. Response: ok"
+                API: POST /submissions -> 200
+
+                  >> REQUEST.BODY.id
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type number in the new specification, but type string in the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "adding a required field inside an array item schema in the request body",
+            baseSpec = baseSpecWithComposition,
+            newPatch = """
+                - op: add
+                  path: /components/schemas/Submission/properties/items/items/required
+                  value:
+                    - name
+            """,
+            expectedReport = """
+                In scenario "submit. Response: ok"
+                API: POST /submissions -> 200
+
+                  >> REQUEST.BODY.items[0].name
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects property "name" in the request but it is missing from the old specification
+
+                  >> REQUEST.BODY.items[1].name
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects property "name" in the request but it is missing from the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
+            name = "removing a branch from a oneOf in the request body",
+            baseSpec = baseSpecWithComposition,
+            newPatch = """
+                - op: remove
+                  path: /components/schemas/Submission/properties/kind/oneOf/1
+            """,
+            expectedReport = """
+                In scenario "submit. Response: ok"
+                API: POST /submissions -> 200
+
+                  >> REQUEST.BODY.kind
+
+                      R1001: Type mismatch
+                      Documentation: https://docs.specmatic.io/rules#r1001
+                      Summary: The value type does not match the expected type defined in the specification
+
+                      This is type string in the new specification, but type number in the old specification
+            """.trimIndent()
+        ),
     )
 
     companion object {
@@ -661,6 +773,64 @@ class CheckOpenApiBackwardCompatibilityTest {
                             properties:
                               id:
                                 type: string
+        """.trimIndent()
+
+        private val baseSpecWithComposition = $$"""
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 0.1.9
+            paths:
+              /submissions:
+                post:
+                  summary: submit
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/Submission'
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - status
+                            properties:
+                              status:
+                                type: string
+                                enum:
+                                  - accepted
+            components:
+              schemas:
+                Submission:
+                  type: object
+                  required:
+                    - id
+                    - kind
+                    - category
+                  properties:
+                    id:
+                      type: string
+                    kind:
+                      oneOf:
+                        - type: string
+                        - type: number
+                    category:
+                      type: string
+                      enum:
+                        - A
+                        - B
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
         """.trimIndent()
     }
 }
