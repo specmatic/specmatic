@@ -2494,7 +2494,14 @@ class OpenApiSpecification(
             additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext),
             extensions = schema.extensions.orEmpty()
         )
-        return cacheComponentPattern(patternName, jsonObjectPattern)
+        val annotated = if (patternName.isNotBlank()) {
+            annotateWithPropertyPointers(
+                jsonObjectPattern,
+                schema,
+                "/components/schemas/${escapeJsonPointer(patternName)}"
+            ) as JSONObjectPattern
+        } else jsonObjectPattern
+        return cacheComponentPattern(patternName, annotated)
     }
 
     private fun additionalPropertiesFrom(schema: Schema<*>, patternName: String, typeStack: List<String>, collectorContext: CollectorContext): AdditionalProperties {

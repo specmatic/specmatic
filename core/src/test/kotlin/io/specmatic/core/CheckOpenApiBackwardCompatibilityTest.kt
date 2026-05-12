@@ -168,7 +168,7 @@ class CheckOpenApiBackwardCompatibilityTest {
     In scenario "submit. Response: ok"
     API: POST /submissions -> 200
     
-      >> REQUEST.BODY.id
+      >> REQUEST.BODY.id (new.yaml:168:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -176,7 +176,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type number in the new specification, but type string in the old specification
       
-      >> REQUEST.BODY.kind
+      >> REQUEST.BODY.kind (new.yaml:171:9)
       
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -184,7 +184,7 @@ class CheckOpenApiBackwardCompatibilityTest {
       
           This is type string in the new specification, but type number in the old specification
       
-      >> REQUEST.BODY.category
+      >> REQUEST.BODY.category (new.yaml:175:9)
       
           R1002: Value mismatch
           Documentation: https://docs.specmatic.io/rules#r1002
@@ -678,7 +678,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit. Response: ok"
                 API: POST /submissions -> 200
 
-                  >> REQUEST.BODY.category
+                  >> REQUEST.BODY.category (new.yaml:45:9)
 
                       R1002: Value mismatch
                       Documentation: https://docs.specmatic.io/rules#r1002
@@ -720,7 +720,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit. Response: ok"
                 API: POST /submissions -> 200
 
-                  >> REQUEST.BODY.id
+                  >> REQUEST.BODY.id (new.yaml:39:9)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001
@@ -763,6 +763,31 @@ class CheckOpenApiBackwardCompatibilityTest {
 //            """.trimIndent()
 //        ),
         IncompatibleTestCase(
+            name = "adding a required property inside a shared \$ref schema",
+            baseSpec = baseSpecWithComposition,
+            newPatch = """
+                - op: add
+                  path: /components/schemas/Submission/properties/note
+                  value:
+                    type: string
+                - op: add
+                  path: /components/schemas/Submission/required/-
+                  value: note
+            """,
+            expectedReport = """
+                In scenario "submit. Response: ok"
+                API: POST /submissions -> 200
+
+                  >> REQUEST.BODY.note (new.yaml:58:9)
+
+                      R2001: Missing required property
+                      Documentation: https://docs.specmatic.io/rules#r2001
+                      Summary: A required property defined in the specification is missing
+
+                      New specification expects property "note" in the request but it is missing from the old specification
+            """.trimIndent()
+        ),
+        IncompatibleTestCase(
             name = "removing a branch from a oneOf in the request body",
             baseSpec = baseSpecWithComposition,
             newPatch = """
@@ -773,7 +798,7 @@ class CheckOpenApiBackwardCompatibilityTest {
                 In scenario "submit. Response: ok"
                 API: POST /submissions -> 200
 
-                  >> REQUEST.BODY.kind
+                  >> REQUEST.BODY.kind (new.yaml:41:9)
 
                       R1001: Type mismatch
                       Documentation: https://docs.specmatic.io/rules#r1001
