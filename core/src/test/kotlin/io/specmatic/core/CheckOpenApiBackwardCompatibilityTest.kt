@@ -34,7 +34,6 @@ class CheckOpenApiBackwardCompatibilityTest {
     fun `all breaking changes from the fixture pair are detected and annotated`() {
         val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
         val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()
-        val expected = File("src/test/resources/openapi/bcc-breaking-changes/expected-report.txt").readText()
 
         val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
         val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
@@ -42,7 +41,158 @@ class CheckOpenApiBackwardCompatibilityTest {
         val results = testBackwardCompatibility(older, newer)
 
         assertThat(results.success()).isFalse
-        assertThat(results.distinctReport()).isEqualTo(expected)
+        assertThat(results.distinctReport()).isEqualTo(
+            """
+    In scenario "submit data. Response: ok"
+    API: POST /data -> 200
+    
+      >> REQUEST.PARAMETERS.QUERY.extra
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          New specification expects query param "extra" in the request but it is missing from the old specification
+      
+      >> REQUEST.PARAMETERS.QUERY.q
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type number in the new specification, but type string in the old specification
+      
+      >> REQUEST.PARAMETERS.HEADER.X-Extra
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          New specification expects header "X-Extra" in the request but it is missing from the old specification
+      
+      >> REQUEST.PARAMETERS.HEADER.X-Required
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type number in the new specification, but type string in the old specification
+      
+      >> REQUEST.BODY.extra (new.yaml:74:17)
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          New specification expects property "extra" in the request but it is missing from the old specification
+      
+      >> REQUEST.BODY.id (new.yaml:69:17)
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type number in the new specification, but type string in the old specification
+      
+      >> REQUEST.PARAMETERS.HEADER.X-Optional
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          New specification expects header "X-Optional" in the request but it is missing from the old specification
+      
+      >> REQUEST.BODY.note (new.yaml:71:17)
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          New specification expects property "note" in the request but it is missing from the old specification
+      
+      >> REQUEST.PARAMETERS.QUERY.tag
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          New specification expects query param "tag" in the request but it is missing from the old specification
+      
+      >> RESPONSE.HEADER.X-Resp
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is number in the new specification response but string in the old specification
+      
+      >> RESPONSE.BODY.id (new.yaml:91:19)
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          The old specification expects property "id" but it is missing in the new specification
+      
+      >> RESPONSE.BODY.extra (new.yaml:86:15)
+      
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+      
+          The old specification expects property "extra" but it is missing in the new specification
+    
+    In scenario "foo. Response: ok"
+    API: GET /foo -> 200
+    
+          This API exists in the old contract but not in the new contract
+    
+    In scenario "bar. Response: ok"
+    API: GET /bar -> 200
+    
+          This API exists in the old contract but not in the new contract
+    
+    In scenario "create baz. Response: ok"
+    API: POST /baz -> 200
+    
+          This API exists in the old contract but not in the new contract
+    
+    In scenario "submit. Response: ok"
+    API: POST /submissions -> 200
+    
+      >> REQUEST.BODY.id
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type number in the new specification, but type string in the old specification
+      
+      >> REQUEST.BODY.kind
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is type string in the new specification, but type number in the old specification
+      
+      >> REQUEST.BODY.category
+      
+          R1002: Value mismatch
+          Documentation: https://docs.specmatic.io/rules#r1002
+          Summary: The value does not match the expected value defined in the specification
+      
+          This is ("A") in the new specification, but "B" in the old specification
+      
+      >> RESPONSE.BODY.status (new.yaml:149:19)
+      
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+      
+          This is ("accepted" or "pending") in the new specification response but ("accepted") in the old specification
+            """.trimIndent()
+        )
     }
 
     private fun runCompatCheck(testCase: CompatTestCase): Results {
