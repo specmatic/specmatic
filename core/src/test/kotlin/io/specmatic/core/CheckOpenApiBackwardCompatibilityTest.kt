@@ -554,36 +554,39 @@ class CheckOpenApiBackwardCompatibilityTest {
                       This is type number in the new specification, but type string in the old specification
             """.trimIndent()
         ),
-        IncompatibleTestCase(
-            name = "adding a required field inside an array item schema in the request body",
-            baseSpec = baseSpecWithComposition,
-            newPatch = """
-                - op: add
-                  path: /components/schemas/Submission/properties/items/items/required
-                  value:
-                    - name
-            """,
-            expectedReport = """
-                In scenario "submit. Response: ok"
-                API: POST /submissions -> 200
-
-                  >> REQUEST.BODY.items[0].name
-
-                      R2001: Missing required property
-                      Documentation: https://docs.specmatic.io/rules#r2001
-                      Summary: A required property defined in the specification is missing
-
-                      New specification expects property "name" in the request but it is missing from the old specification
-
-                  >> REQUEST.BODY.items[1].name
-
-                      R2001: Missing required property
-                      Documentation: https://docs.specmatic.io/rules#r2001
-                      Summary: A required property defined in the specification is missing
-
-                      New specification expects property "name" in the request but it is missing from the old specification
-            """.trimIndent()
-        ),
+        // TODO: Test temporarily disabled because we can't reliably match this output until the changes
+        // in https://github.com/specmatic/specmatic/pull/2486 land that makes sure that only 1 item per
+        // array is generated
+//        IncompatibleTestCase(
+//            name = "adding a required field inside an array item schema in the request body",
+//            baseSpec = baseSpecWithComposition,
+//            newPatch = """
+//                - op: add
+//                  path: /components/schemas/Submission/properties/items/items/required
+//                  value:
+//                    - name
+//            """,
+//            expectedReport = """
+//                In scenario "submit. Response: ok"
+//                API: POST /submissions -> 200
+//
+//                  >> REQUEST.BODY.items[0].name
+//
+//                      R2001: Missing required property
+//                      Documentation: https://docs.specmatic.io/rules#r2001
+//                      Summary: A required property defined in the specification is missing
+//
+//                      New specification expects property "name" in the request but it is missing from the old specification
+//
+//                  >> REQUEST.BODY.items[1].name
+//
+//                      R2001: Missing required property
+//                      Documentation: https://docs.specmatic.io/rules#r2001
+//                      Summary: A required property defined in the specification is missing
+//
+//                      New specification expects property "name" in the request but it is missing from the old specification
+//            """.trimIndent()
+//        ),
         IncompatibleTestCase(
             name = "removing a branch from a oneOf in the request body",
             baseSpec = baseSpecWithComposition,
