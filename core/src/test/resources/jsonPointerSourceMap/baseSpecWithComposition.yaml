@@ -1,0 +1,55 @@
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 0.1.9
+paths:
+  /submissions:
+    post:
+      summary: submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Submission'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - accepted
+components:
+  schemas:
+    Submission:
+      type: object
+      required:
+        - id
+        - kind
+        - category
+      properties:
+        id:
+          type: string
+        kind:
+          oneOf:
+            - type: string
+            - type: number
+        category:
+          type: string
+          enum:
+            - A
+            - B
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string

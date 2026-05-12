@@ -10,11 +10,12 @@ import org.yaml.snakeyaml.nodes.SequenceNode
 data class YamlNodeLocation(
     val line: Int,
     val column: Int,
-    val nodeKind: String
+    val nodeKind: String,
+    val refTarget: String? = null
 )
 
 // TODO: Support JSON input (snakeyaml parses JSON-as-YAML, validate behaviour).
-// TODO: Resolve $ref pointers to their target locations.
+// TODO: Resolve external $refs (other files, URLs); currently only internal "#/..." refs are linked.
 // TODO: Follow YAML anchors/aliases to a canonical location instead of indirecting through AnchorNode.
 // TODO: Handle merge keys (<<) for composed objects.
 class JsonPointerSourceMap(private val yaml: String) {
@@ -26,7 +27,7 @@ class JsonPointerSourceMap(private val yaml: String) {
     }
 
     private fun walk(node: Node, pointer: String, out: MutableMap<String, YamlNodeLocation>) {
-        out[pointer] = locationOf(node)
+        out[pointer] = locationOf(node, refTargetOf(node))
         when (node) {
             is MappingNode -> for (tuple in node.value) {
                 val keyNode = tuple.keyNode
@@ -42,7 +43,22 @@ class JsonPointerSourceMap(private val yaml: String) {
         }
     }
 
-    private fun locationOf(node: Node): YamlNodeLocation {
+    private fun refTargetOf(node: Node): String? {
+        if (node !is MappingNode) return null
+        for (tuple in node.value) {
+            val keyNode = tuple.keyNode
+            val valueNode = tuple.valueNode
+            if (keyNode is ScalarNode && keyNode.value == $$"$ref" && valueNode is ScalarNode) {
+                val ref = valueNode.value
+                if (ref.startsWith("#/")) return ref.removePrefix("#")
+                if (ref == "#") return ""
+                return null
+            }
+        }
+        return null
+    }
+
+    private fun locationOf(node: Node, refTarget: String?): YamlNodeLocation {
         val mark = node.startMark
         val kind = when (node) {
             is MappingNode -> "mapping"
@@ -51,7 +67,7 @@ class JsonPointerSourceMap(private val yaml: String) {
             is AnchorNode -> "anchor"
             else -> error("Unexpected YAML node type: ${node::class.java.name}")
         }
-        return YamlNodeLocation(mark.line + 1, mark.column + 1, kind)
+        return YamlNodeLocation(mark.line + 1, mark.column + 1, kind, refTarget)
     }
 
     private fun escape(token: String): String =
