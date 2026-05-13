@@ -244,7 +244,7 @@ internal class TestBackwardCompatibilityKtTest {
     In scenario "reusable components. Response: ok"
     API: POST /reusable-components -> 200
 
-      >> REQUEST.PARAMETERS.QUERY.reusableQuery (new.yaml:252:5)
+      >> REQUEST.PARAMETERS.QUERY.reusableQuery (new.yaml:253:7)
 
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001
@@ -260,7 +260,7 @@ internal class TestBackwardCompatibilityKtTest {
 
           This is type number in the new specification, but type string in the old specification
 
-      >> REQUEST.PARAMETERS.HEADER.X-Reusable (new.yaml:258:5)
+      >> REQUEST.PARAMETERS.HEADER.X-Reusable (new.yaml:259:7)
 
           R1001: Type mismatch
           Documentation: https://docs.specmatic.io/rules#r1001

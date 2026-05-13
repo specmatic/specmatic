@@ -739,7 +739,7 @@ class OpenApiSpecification(
                         parameters = parameters,
                         otherPathPatterns = allPathPatternsGroupedByMethod[httpMethod].orEmpty(),
                         collectorContext = methodContext,
-                        parameterPointers = pathParameterPointers
+                        parameterPointers = pathParameterPointers.mapValues { "${it.value}/name" }
                     )
 
                     val specmaticQueryParam = toSpecmaticQueryParam(
@@ -1508,7 +1508,7 @@ class OpenApiSpecification(
         val headersPattern = HttpHeadersPattern(
             effectiveHeadersMap.mapValues { it.value.first },
             preferEscapedSoapAction = preferEscapedSoapAction,
-            parameterPointers = requestHeaderPointers
+            parameterPointers = requestHeaderPointers.mapValues { "${it.value}/name" }
         )
         val requestPattern = HttpRequestPattern(
             httpPathPattern = httpPathPattern,
@@ -2938,7 +2938,7 @@ class OpenApiSpecification(
                         pattern = specmaticPattern,
                         source = QueryParameterPatternSource(parameter.name),
                         collectorContext = queryParamContext,
-                        pointer = parameterPointers[parameter.name]
+                        pointer = parameterPointers[parameter.name]?.let { "$it/name" }
                     )
                 )
             )
