@@ -1,6 +1,14 @@
 package io.specmatic.test
 
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
+import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
+import io.specmatic.reporter.model.OpenAPIOperation
+import io.specmatic.reporter.model.SpecType
+import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.reports.coverage.console.OpenApiCoverageConsoleRow
 import io.specmatic.test.reports.coverage.console.ReportColumn
 import org.assertj.core.api.Assertions.assertThat
@@ -125,4 +133,253 @@ class OpenApiCoverageConsoleRowTest {
         ).toRowString(reportColumns)
         assertThat(coverageRowString).isEqualTo("| 100%     | /orders | GET    | application/json   | 200      | NA                   | covered        | 1p         |")
     }
+
+    @Test
+    fun `should show failed count when there are wip tests`() {
+        val tests = listOf(
+            TestResultRecord(
+                result = TestResult.Failed,
+                isWip = false,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+            TestResultRecord(
+                result = TestResult.Failed,
+                isWip = true,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val operation = OpenAPIOperation(
+            method = "GET",
+            path = "/orders",
+            responseCode = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val coverageOperation = CoverageReportOperation(
+            operation = operation,
+            tests = tests,
+            coverageStatus = CoverageStatus.COVERED,
+            eligibleForCoverage = true,
+            specConfig = CtrfSpecConfig(
+                protocol = "HTTP",
+                specType = "openapi",
+                specification = "HTTP",
+
+            )
+        )
+
+
+        val row = OpenApiCoverageConsoleRow(
+            coverageReportOperation = coverageOperation,
+            coveragePercentage = 100,
+            showPath = true,
+            showMethod = true,
+            showRequestContentType = true
+        )
+
+
+        assertThat(row.result).isEqualTo("1f 1w")
+    }
+
+    @Test
+    fun `should show passed count when there are wip tests`() {
+        val tests = listOf(
+            TestResultRecord(
+                result = TestResult.Success,
+                isWip = false,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+            TestResultRecord(
+                result = TestResult.Success,
+                isWip = true,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            )
+        )
+
+        val operation = OpenAPIOperation(
+            method = "GET",
+            path = "/orders",
+            responseCode = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val coverageOperation = CoverageReportOperation(
+            operation = operation,
+            tests = tests,
+            coverageStatus = CoverageStatus.COVERED,
+            eligibleForCoverage = true,
+            specConfig = CtrfSpecConfig(
+                protocol = "HTTP",
+                specType = "openapi",
+                specification = "HTTP",
+
+                )
+        )
+
+        val row = OpenApiCoverageConsoleRow(
+            coverageReportOperation = coverageOperation,
+            coveragePercentage = 100,
+            showPath = true,
+            showMethod = true,
+            showRequestContentType = true
+        )
+
+        assertThat(row.result).isEqualTo("1p 1w")
+    }
+
+    @Test
+    fun `should show passed count and failed count when there are wip tests`() {
+        val tests = listOf(
+            TestResultRecord(
+                result = TestResult.Success,
+                isWip = false,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+            TestResultRecord(
+                result = TestResult.Failed,
+                isWip = false,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+            TestResultRecord(
+                result = TestResult.Failed,
+                isWip = true,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+            TestResultRecord(
+                result = TestResult.Success,
+                isWip = true,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+
+        )
+
+        val operation = OpenAPIOperation(
+            method = "GET",
+            path = "/orders",
+            responseCode = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val coverageOperation = CoverageReportOperation(
+            operation = operation,
+            tests = tests,
+            coverageStatus = CoverageStatus.COVERED,
+            eligibleForCoverage = true,
+            specConfig = CtrfSpecConfig(
+                protocol = "HTTP",
+                specType = "openapi",
+                specification = "HTTP",
+
+                )
+        )
+
+        val row = OpenApiCoverageConsoleRow(
+            coverageReportOperation = coverageOperation,
+            coveragePercentage = 100,
+            showPath = true,
+            showMethod = true,
+            showRequestContentType = true
+        )
+
+        assertThat(row.result).isEqualTo("1p 1f 2w")
+    }
+
+
+    @Test
+    fun `should show passed count and failed count when there are no wip tests`() {
+        val tests = listOf(
+            TestResultRecord(
+                result = TestResult.Success,
+                isWip = false,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+            TestResultRecord(
+                result = TestResult.Failed,
+                isWip = false,
+                method = "GET",
+                path = "/orders",
+                responseStatus = 200,
+                request = HttpRequest(),
+                response = HttpResponse(),
+                specType = SpecType.OPENAPI
+            ),
+        )
+
+        val operation = OpenAPIOperation(
+            method = "GET",
+            path = "/orders",
+            responseCode = 200,
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val coverageOperation = CoverageReportOperation(
+            operation = operation,
+            tests = tests,
+            coverageStatus = CoverageStatus.COVERED,
+            eligibleForCoverage = true,
+            specConfig = CtrfSpecConfig(
+                protocol = "HTTP",
+                specType = "openapi",
+                specification = "HTTP",
+
+                )
+        )
+
+        val row = OpenApiCoverageConsoleRow(
+            coverageReportOperation = coverageOperation,
+            coveragePercentage = 100,
+            showPath = true,
+            showMethod = true,
+            showRequestContentType = true
+        )
+
+        assertThat(row.result).isEqualTo("1p 1f")
+    }
+
 }

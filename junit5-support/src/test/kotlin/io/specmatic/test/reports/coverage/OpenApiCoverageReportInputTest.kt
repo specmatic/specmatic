@@ -482,7 +482,7 @@ class OpenApiCoverageReportInputTest {
                 path = "/mixed",
                 responseStatus = "200",
                 exercisedCount = 1,
-                result = "1f",
+                result = "1w",
                 coveragePercentage = 0,
                 remarks = CoverageStatus.NOT_IMPLEMENTED,
                 eligibleForCoverage = true,
