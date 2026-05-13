@@ -3,7 +3,13 @@ package io.specmatic.test.listeners
 import org.junit.jupiter.api.Assertions.assertEquals
 import io.specmatic.core.Result
 import io.specmatic.core.ScenarioDetailsForResult
+import io.specmatic.core.utilities.Decision
+import io.specmatic.core.utilities.Reasoning
+import io.specmatic.test.SkipExcludedCountTracker
 import io.specmatic.test.SpecmaticJUnitSupport
+import io.specmatic.test.TestRunContext
+import io.specmatic.test.TestRunContextHolder
+import io.specmatic.test.TestSkipReason
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.platform.engine.TestDescriptor
@@ -11,6 +17,7 @@ import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.engine.UniqueId
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor
 import org.junit.platform.launcher.TestIdentifier
+import org.fusesource.jansi.Ansi
 import java.util.UUID
 
 class ContractExecutionListenerTest {
@@ -18,6 +25,7 @@ class ContractExecutionListenerTest {
     fun resetState() {
         ContractExecutionListener.reset()
         SpecmaticJUnitSupport.partialSuccesses.clear()
+        TestRunContextHolder.clear()
     }
 
     @Test
@@ -125,6 +133,75 @@ class ContractExecutionListenerTest {
 
         assertEquals(0, listener.exitCode())
         assertEquals(0, ContractExecutionListener.exitCode())
+    }
+
+    @Test
+    fun `summary provider counts excluded and skipped decisions`() {
+        val tracker = SkipExcludedCountTracker()
+        tracker.record(Decision.Skip(context = FakeScenario(), reasoning = Reasoning(TestSkipReason.EXCLUDED)))
+        tracker.record(Decision.Skip(context = FakeScenario(), reasoning = Reasoning(TestSkipReason.MAX_TEST_COUNT_EXCEEDED)))
+
+        val counts = tracker.snapshot()
+        assertEquals(1, counts.excluded)
+        assertEquals(1, counts.skipped)
+    }
+
+    @Test
+    fun `listener falls back to zero summary when provider missing`() {
+        val listener = ContractExecutionListener()
+        listener.testPlanExecutionStarted(null)
+
+        val counts = listener.getNotTestedCountsAndClear()
+        assertEquals(0, counts.skipped)
+        assertEquals(0, counts.excluded)
+    }
+
+    @Test
+    fun `listener reads summary provider from thread local and clears it when finished`() {
+        val listener = ContractExecutionListener()
+        val provider = SkipExcludedCountTracker()
+        TestRunContextHolder.set(TestRunContext(provider))
+        provider.record(Decision.Skip(context = FakeScenario(), reasoning = Reasoning(TestSkipReason.EXCLUDED)))
+
+        listener.testPlanExecutionStarted(null)
+        val firstRun = listener.getNotTestedCountsAndClear()
+        assertEquals(0, firstRun.skipped)
+        assertEquals(1, firstRun.excluded)
+
+        listener.testPlanExecutionFinished(null)
+        val secondRun = listener.getNotTestedCountsAndClear()
+        assertEquals(null, TestRunContextHolder.get())
+        assertEquals(0, secondRun.skipped)
+        assertEquals(0, secondRun.excluded)
+    }
+
+    @Test
+    fun `summary color reflects failure before skipped`() {
+        val printer = ColorPrinter()
+        val red = printer.summaryColor(TestSummary(success = 1, failure = 0, aborted = 1, skipped = 1, excluded = 0, partialSuccess = 0)).a("x").toString()
+        val yellow = printer.summaryColor(TestSummary(success = 1, failure = 0, aborted = 0, skipped = 0, excluded = 0, partialSuccess = 1)).a("x").toString()
+        val green = printer.summaryColor(TestSummary(success = 1, failure = 0, aborted = 0, skipped = 1, excluded = 0, partialSuccess = 0)).a("x").toString()
+
+        assertEquals(Ansi.ansi().fgBrightRed().a("x").toString(), red)
+        assertEquals(Ansi.ansi().fgYellow().a("x").toString(), yellow)
+        assertEquals(Ansi.ansi().fgGreen().a("x").toString(), green)
+    }
+
+    @Test
+    fun `summary counts failures and total without double counting partial successes`() {
+        val summary = TestSummary(
+            success = 7,
+            failure = 2,
+            aborted = 3,
+            skipped = 4,
+            excluded = 5,
+            partialSuccess = 6,
+        )
+
+        assertEquals(5, summary.failed)
+        assertEquals(21, summary.total)
+        assertEquals(6, summary.partialSuccess)
+        assertEquals("Success: 7, Failure: 5, Skipped: 4, Excluded: 5, Total: 21", summary.message)
     }
 }
 

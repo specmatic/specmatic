@@ -1,10 +1,14 @@
 package io.specmatic.test.listeners
 
-data class TestSummary(val success: Int, val partialSuccesses: Int, val aborted: Int, val failure: Int) {
-    val message: String
-        get() {
-            val total = success + aborted + failure
-            val partialSuccessNote = if(partialSuccesses > 0) " (of which $partialSuccesses are partial)" else ""
-            return "Tests run: $total, Successes: ${success}$partialSuccessNote, Failures: $failure, Errors: $aborted"
-        }
+data class TestSummary(
+    val success: Int,
+    val failure: Int,
+    val aborted: Int,
+    val skipped: Int,
+    val excluded: Int,
+    val partialSuccess: Int,
+) {
+    val failed: Int = failure + aborted
+    val total: Int = success + failed + skipped + excluded
+    val message: String = "Success: $success, Failure: $failed, Skipped: $skipped, Excluded: $excluded, Total: $total"
 }
