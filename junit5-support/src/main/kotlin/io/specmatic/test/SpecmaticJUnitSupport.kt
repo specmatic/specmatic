@@ -21,6 +21,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.*
 import io.specmatic.license.core.util.LicenseConfig
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.hasOpenApiFileExtension
 import io.specmatic.stub.isOpenAPI
@@ -524,12 +525,12 @@ open class SpecmaticJUnitSupport {
                     }
 
                     when {
-                        result.shouldBeIgnored() -> {
+                        result.scenario?.ignoreFailure == true -> {
                             val message =
-                                "Test FAILED, ignoring since the scenario is tagged @WIP${System.lineSeparator()}${
+                                "Ignoring since the scenario is tagged @WIP${System.lineSeparator()}${
                                     result.toReport().toText().prependIndent("  ")
                                 }"
-                            throw TestAbortedException(message)
+                            throw TestAbortedException(message, Exception(CoverageStatus.WIP.value))
                         }
 
                         else -> ResultAssert.assertThat(result).isSuccess()
