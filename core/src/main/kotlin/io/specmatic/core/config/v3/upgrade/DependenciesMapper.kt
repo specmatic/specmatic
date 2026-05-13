@@ -33,7 +33,7 @@ class DependenciesMapper {
                 )
             },
             data = DataSectionMapper().mapFrom(
-                hooks = view.globalHooks,
+                hooks = view.stubHooks,
                 exampleDirectories = view.globalExamples,
                 dictionaryPath = view.stubConfig?.getDictionary(),
             ),

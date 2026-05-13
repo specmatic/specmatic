@@ -22,6 +22,26 @@ data class LegacyConfigView(
     val globalSettings: SpecmaticGlobalSettings,
     val stubConfig: io.specmatic.core.StubConfiguration?,
 ) {
+    val stubHooks: Map<String, String> by lazy {
+        globalHooks.filterKeys {
+            when (it) {
+                "post_specmatic_response_processor", "pre_specmatic_request_processor" -> true
+                "pre_specmatic_response_processor" -> false
+                else -> true
+            }
+        }
+    }
+
+    val proxyHooks: Map<String, String> by lazy {
+        globalHooks.filterKeys {
+            when (it) {
+                "pre_specmatic_request_processor", "pre_specmatic_response_processor" -> true
+                "post_specmatic_response_processor" -> false
+                else -> true
+            }
+        }
+    }
+
     companion object {
         fun from(legacyConfig: SpecmaticConfigV1V2Common): LegacyConfigView {
             val testConfig = SpecmaticConfigV1V2Common.getTestConfigOrNull(legacyConfig)

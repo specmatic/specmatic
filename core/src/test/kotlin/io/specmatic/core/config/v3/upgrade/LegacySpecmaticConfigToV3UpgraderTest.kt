@@ -47,4 +47,37 @@ class LegacySpecmaticConfigToV3UpgraderTest {
         val upgraded = LegacySpecmaticConfigToV3Upgrader().upgrade(SpecmaticConfigV1V2Common())
         assertThat(upgraded.proxies).isNull()
     }
+
+    @Test
+    fun `upgrade routes stub hook to stub data and proxy hook to proxy adapters`() {
+        val config = SpecmaticConfigV1V2Common(
+            sources = listOf(
+                Source(
+                    provider = SourceProvider.filesystem,
+                    stub = listOf(SpecExecutionConfig.StringValue("spec.yaml"))
+                )
+            ),
+            proxy = ProxyConfig(baseUrl = "http://localhost:9090", targetUrl = "http://upstream:8080"),
+            hooks = mapOf(
+                "pre_specmatic_request_processor" to "cat request.txt",
+                "pre_specmatic_response_processor" to "cat proxy-response.txt",
+                "post_specmatic_response_processor" to "cat stub-response.txt",
+                "custom_hook" to "cat custom.txt",
+            )
+        )
+
+        val upgraded = LegacySpecmaticConfigToV3Upgrader().upgrade(config)
+        val dependenciesHooks = upgraded.dependencies?.data?.adapters?.getUnsafe()?.hooks.orEmpty()
+        val proxyHooks = upgraded.proxies?.single()?.proxy?.adapters?.getUnsafe()?.hooks.orEmpty()
+
+        assertThat(dependenciesHooks["pre_specmatic_request_processor"]).isEqualTo("cat request.txt")
+        assertThat(dependenciesHooks["post_specmatic_response_processor"]).isEqualTo("cat stub-response.txt")
+        assertThat(dependenciesHooks["custom_hook"]).isEqualTo("cat custom.txt")
+        assertThat(dependenciesHooks["pre_specmatic_response_processor"]).isNull()
+
+        assertThat(proxyHooks["pre_specmatic_request_processor"]).isEqualTo("cat request.txt")
+        assertThat(proxyHooks["pre_specmatic_response_processor"]).isEqualTo("cat proxy-response.txt")
+        assertThat(proxyHooks["custom_hook"]).isEqualTo("cat custom.txt")
+        assertThat(proxyHooks["post_specmatic_response_processor"]).isNull()
+    }
 }

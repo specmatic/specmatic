@@ -7,6 +7,7 @@ import io.specmatic.core.config.v3.Proxy
 import io.specmatic.core.config.v3.ProxyConfigV3
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.SpecmaticConfigV3
+import io.specmatic.core.config.v3.components.Adapter
 
 class LegacySpecmaticConfigToV3Upgrader {
     fun upgrade(legacyConfig: SpecmaticConfigV1V2Common): SpecmaticConfigV3 {
@@ -18,11 +19,12 @@ class LegacySpecmaticConfigToV3Upgrader {
             dependencies = DependenciesMapper().mapFrom(view, source),
             systemUnderTest = SystemUnderTestMapper().mapFrom(view, source),
             specmatic = SpecmaticMetadataMapper().mapFrom(legacyConfig, view),
-            proxies = legacyConfig.getProxyConfig()?.let { listOf(Proxy(it.toV3())) },
+            proxies = legacyConfig.getProxyConfig()?.let { listOf(Proxy(it.toV3(view.proxyHooks))) },
         )
     }
 
-    private fun ProxyConfig.toV3(): ProxyConfigV3 {
+    private fun ProxyConfig.toV3(hooks: Map<String, String>): ProxyConfigV3 {
+        val mergedAdapters = adapters?.hooks.orEmpty().plus(hooks).takeUnless { it.isEmpty() }
         return ProxyConfigV3(
             mock = consumes,
             baseUrl = baseUrl,
@@ -30,7 +32,7 @@ class LegacySpecmaticConfigToV3Upgrader {
             recordingsDirectory = outputDirectory,
             cert = https?.let { RefOrValue.Value(it) },
             timeoutInMilliseconds = timeoutInMilliseconds,
-            adapters = adapters?.let { RefOrValue.Value(it) },
+            adapters = mergedAdapters?.let { RefOrValue.Value(Adapter(it)) }
         )
     }
 }
