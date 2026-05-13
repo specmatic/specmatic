@@ -17,10 +17,6 @@ data class YamlNodeLocation(
     val refTarget: String? = null
 )
 
-// TODO: Support JSON input (snakeyaml parses JSON-as-YAML, validate behaviour).
-// TODO: Resolve external $refs (other files, URLs); currently only internal "#/..." refs are linked.
-// TODO: Follow YAML anchors/aliases to a canonical location instead of indirecting through AnchorNode.
-// TODO: Handle merge keys (<<) for composed objects.
 class JsonPointerSourceMap(private val yaml: String) {
     fun build(): Map<String, YamlNodeLocation> {
         val root = Yaml().compose(yaml.reader()) ?: return emptyMap()

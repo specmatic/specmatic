@@ -323,10 +323,6 @@ class OpenApiSpecification(
                 logger.boundary()
             }
 
-            // TODO: Figure out how this would work with JSON files
-            // TODO: Validate the behaviour with composition and $refs etc.
-            // TODO: What to do if this fails?
-            // TODO: Performance impact?
             val jsonPointerSourceMap = JsonPointerSourceMap(mergedYaml).build()
 
             return OpenApiSpecification(
