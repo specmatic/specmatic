@@ -16,21 +16,22 @@ import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.License
 import io.specmatic.core.config.v3.specmatic.Report
 import io.specmatic.core.config.v3.specmatic.SuccessCriterion
+import java.nio.file.Path
 
 class SpecmaticMetadataMapper {
     fun mapFrom(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): Specmatic {
         return Specmatic(
             governance = buildGovernance(legacyConfig, view),
             settings = RefOrValue.Value(buildSettings(legacyConfig, view)),
-            license = legacyConfig.getLicensePath()?.let { License(path = it.toString()) },
+            license = legacyConfig.getLicensePath()?.let { License(path = it.toUnixPath()) },
         )
     }
 
     private fun buildGovernance(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): Governance {
         val reportDir = SpecmaticConfigV1V2Common.getReportDirPathOrNull(legacyConfig)
         return Governance(
-            report = Report(outputDirectory = reportDir?.toString()),
-            successCriterion = view.report?.getSuccessCriteria()?.let(SuccessCriterion.Companion::from),
+            report = Report(outputDirectory = reportDir?.toUnixPath()),
+            successCriterion = view.report?.types?.apiCoverage?.openAPI?.successCriteria?.let(SuccessCriterion.Companion::from),
         )
     }
 
@@ -112,5 +113,9 @@ class SpecmaticMetadataMapper {
     private fun Switch.toBoolean() = when (this) {
         Switch.enabled -> true
         Switch.disabled -> false
+    }
+
+    private fun Path.toUnixPath(): String {
+        return toString().replace('\\', '/')
     }
 }

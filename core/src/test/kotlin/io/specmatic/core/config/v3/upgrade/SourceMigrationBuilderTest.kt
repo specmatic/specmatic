@@ -30,7 +30,7 @@ class SourceMigrationBuilderTest {
         assertThat(migration.specTypesByPath).containsEntry("api.yaml", SpecType.OPENAPI)
 
         val spec = migration.definition.definition.specs.single() as SpecificationDefinition.ObjectValue
-        assertThat(spec.spec.id).isEqualTo("api.yaml")
+        assertThat(spec.spec.id).isEqualTo("api")
         assertThat(spec.spec.urlPathPrefix).isEqualTo("/v2")
 
         val sourceV3 = (migration.definition.definition.source as RefOrValue.Value).value
@@ -48,5 +48,23 @@ class SourceMigrationBuilderTest {
         val migrations = SourceMigrationBuilder(null).buildMockMigrations(listOf(source))
         assertThat(migrations).hasSize(2)
         assertThat(migrations.map { it.specTypesByPath.keys.single() }).containsExactly("a.yaml", "b.yaml")
+    }
+
+    @Test
+    fun `build test migrations creates stable readable ids and disambiguates collisions`() {
+        val source = Source(
+            provider = SourceProvider.filesystem,
+            directory = "./specs",
+            test = listOf(
+                SpecExecutionConfig.StringValue("services/payments/api.yaml"),
+                SpecExecutionConfig.StringValue("customers/api.yaml"),
+            ),
+        )
+
+        val migration = SourceMigrationBuilder(null).buildTestMigrations(listOf(source)).single()
+        val ids = migration.definition.definition.specs.map { (it as SpecificationDefinition.ObjectValue).spec.id }
+
+        assertThat(ids[0]).isEqualTo("payments-api")
+        assertThat(ids[1]).isEqualTo("customers-api")
     }
 }

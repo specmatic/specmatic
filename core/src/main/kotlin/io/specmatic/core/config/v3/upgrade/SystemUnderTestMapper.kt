@@ -31,14 +31,14 @@ class SystemUnderTestMapper {
     fun mapFrom(view: LegacyConfigView, source: SourceMigrationBuilder): TestServiceConfig? {
         val testDefinitions = source.buildTestMigrations(view.sources)
         val specTypesByPath = testDefinitions.mergeAllSpecTypesByPath()
+        val specIdsByPath = testDefinitions.specIdsByPath()
         if (testDefinitions.isEmpty()) return null
 
+        val runOptionsMapper = RunOptionsMapper(defaultHostForPortOnly = "localhost", specIdsByPath = specIdsByPath, specTypesByPath = specTypesByPath)
         val runOptionsOverrides = view.sources
             .flatMap { it.test.orEmpty() }
-            .fold(RunOptionsMapper(defaultHostForPortOnly = "localhost")) { acc, config ->
-                acc.mergeConfig(config, specTypesByPath)
-            }.mergeGlobalOpenApi(
-                specTypesByPath = specTypesByPath,
+            .fold(runOptionsMapper) { acc, config -> acc.mergeConfig(config) }
+            .mergeGlobalOpenApi(
                 overlayFilePath = view.testConfig?.overlayFilePath,
                 securitySchemes = view.security?.toSecuritySchemesV3(),
             )
@@ -64,6 +64,12 @@ class SystemUnderTestMapper {
     private fun List<SourceMigration.TestSourceMigration>.mergeAllSpecTypesByPath(): Map<String, SpecType> {
         return fold(mapOf()) { acc, migration ->
             acc.plus(migration.specTypesByPath)
+        }
+    }
+
+    private fun List<SourceMigration.TestSourceMigration>.specIdsByPath(): Map<String, String> {
+        return fold(mapOf()) { acc, migration ->
+            acc.plus(migration.specIdsByPath)
         }
     }
 

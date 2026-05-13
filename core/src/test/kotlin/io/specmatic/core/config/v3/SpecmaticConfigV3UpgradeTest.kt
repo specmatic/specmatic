@@ -138,13 +138,13 @@ class SpecmaticConfigV3UpgradeTest {
                                   directory: ./specs
                               specs:
                                 - spec:
-                                    id: resilient.yaml
+                                    id: resilient
                                     path: resilient.yaml
                         runOptions:
                           openapi:
                             specs:
                               - spec:
-                                  id: resilient.yaml
+                                  id: resilient
                                   baseUrl: http://resilient.example
                     """.trimIndent())
                 ),
@@ -179,13 +179,13 @@ class SpecmaticConfigV3UpgradeTest {
                                   directory: ./specs
                               specs:
                                 - spec:
-                                    id: resilient-config.yaml
+                                    id: resilient-config
                                     path: resilient-config.yaml
                         runOptions:
                           openapi:
                             specs:
                               - spec:
-                                  id: resilient-config.yaml
+                                  id: resilient-config
                                   baseUrl: http://resilient.example
                     """.trimIndent())
                 )
@@ -300,7 +300,7 @@ class SpecmaticConfigV3UpgradeTest {
                                   directory: ./src/test/resources/openapi
                               specs:
                                 - spec:
-                                    id: hello.yaml
+                                    id: hello
                                     path: hello.yaml
                         runOptions:
                           openapi:
@@ -315,7 +315,7 @@ class SpecmaticConfigV3UpgradeTest {
                               keyStorePassword: password
                             specs:
                               - spec:
-                                  id: hello.yaml
+                                  id: hello
                                   overlayFilePath: overlay-v2.yaml
                     """.trimIndent())
                 ),
@@ -588,7 +588,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: petstore.yaml
+                            id: petstore
                             baseUrl: http://full.example:8081
                     """.trimIndent()
                 ),
@@ -603,7 +603,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: orders.yaml
+                            id: orders
                             host: host-only.example
                     """.trimIndent()
                 ),
@@ -618,7 +618,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: payments.yaml
+                            id: payments
                             port: 9191
                     """.trimIndent()
                 ),
@@ -634,7 +634,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: users.yaml
+                            id: users
                             host: hp.example
                             port: 8181
                     """.trimIndent()
@@ -653,7 +653,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: basepath.yaml
+                            id: basepath
                             host: basepath.example
                             port: 8088
                     """.trimIndent()
@@ -669,7 +669,7 @@ class SpecmaticConfigV3UpgradeTest {
                     wsdl:
                       specs:
                         - spec:
-                            id: calculator.wsdl
+                            id: calculator
                             baseUrl: http://wsdl.example:7070
                     """.trimIndent()
                 ),
@@ -685,7 +685,7 @@ class SpecmaticConfigV3UpgradeTest {
                     wsdl:
                       specs:
                         - spec:
-                            id: inventory.wsdl
+                            id: inventory
                             host: wsdl-host.example
                             port: 7171
                     """.trimIndent()
@@ -703,7 +703,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: cfg-openapi.yaml
+                            id: cfg-openapi
                             baseUrl: http://cfg-openapi.example:9090
                     """.trimIndent()
                 ),
@@ -721,7 +721,7 @@ class SpecmaticConfigV3UpgradeTest {
                     wsdl:
                       specs:
                         - spec:
-                            id: cfg-wsdl.wsdl
+                            id: cfg-wsdl
                             host: cfg-wsdl.example
                             port: 5252
                     """.trimIndent()
@@ -742,7 +742,7 @@ class SpecmaticConfigV3UpgradeTest {
                     graphqlsdl:
                       specs:
                         - spec:
-                            id: graph.graphql
+                            id: graph
                             host: graph.example
                             port: 4040
                             timeout: 50
@@ -763,7 +763,7 @@ class SpecmaticConfigV3UpgradeTest {
                     graphqlsdl:
                       specs:
                         - spec:
-                            id: graph-baseurl.graphql
+                            id: graph-baseurl
                             host: graph-baseurl.example
                             port: 5050
                             timeout: 50
@@ -783,7 +783,7 @@ class SpecmaticConfigV3UpgradeTest {
                     graphqlsdl:
                       specs:
                         - spec:
-                            id: graph-port.graphql
+                            id: graph-port
                             host: localhost
                             port: 5051
                             timeout: 99
@@ -792,7 +792,7 @@ class SpecmaticConfigV3UpgradeTest {
                     graphqlsdl:
                       specs:
                         - spec:
-                            id: graph-port.graphql
+                            id: graph-port
                             host: 0.0.0.0
                             port: 5051
                             timeout: 99
@@ -816,7 +816,7 @@ class SpecmaticConfigV3UpgradeTest {
                     asyncapi:
                       specs:
                         - spec:
-                            id: event-spec.yaml
+                            id: event-spec
                             host: async.example
                             port: 6060
                             inMemoryBroker:
@@ -841,7 +841,7 @@ class SpecmaticConfigV3UpgradeTest {
                     protobuf:
                       specs:
                         - spec:
-                            id: payment.proto
+                            id: payment
                             host: proto.example
                             port: 6161
                             package: payment
@@ -861,7 +861,7 @@ class SpecmaticConfigV3UpgradeTest {
                       baseUrl: http://global.example
                       specs:
                         - spec:
-                            id: precedence.yaml
+                            id: precedence
                             baseUrl: http://object.example
                     """.trimIndent()
                 ),
@@ -880,7 +880,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: precedence-clear.yaml
+                            id: precedence-clear
                             baseUrl: http://final.example
                     """.trimIndent(),
                     sides = listOf(Side.SystemUnderTest)
@@ -898,7 +898,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: retained.yaml
+                            id: retained
                             host: retained.example
                             port: 9898
                     """.trimIndent(),
@@ -920,7 +920,7 @@ class SpecmaticConfigV3UpgradeTest {
                     openapi:
                       specs:
                         - spec:
-                            id: repeated.yaml
+                            id: repeated
                             host: final.example
                             port: 8181
                     """.trimIndent(),
@@ -975,6 +975,7 @@ class SpecmaticConfigV3UpgradeTest {
                 else -> "\nstub:\n${indent(beforeSettings, 2)}"
             }
 
+            val primarySpecPath = primarySpecPath(beforeSpecs)
             val primarySpecId = primarySpecId(beforeSpecs)
             val urlPathPrefix = specUrlPathPrefix(beforeSpecs)
             val plainSpecDefinition = shouldUsePlainSpecDefinition(beforeSpecs)
@@ -989,11 +990,11 @@ class SpecmaticConfigV3UpgradeTest {
                     appendLine("              directory: ./specs")
                     appendLine("          specs:")
                     if (plainSpecDefinition && urlPathPrefix == null) {
-                        appendLine("            - $primarySpecId")
+                        appendLine("            - $primarySpecPath")
                     } else {
                         appendLine("            - spec:")
                         appendLine("                id: $primarySpecId")
-                        appendLine("                path: $primarySpecId")
+                        appendLine("                path: $primarySpecPath")
                         appendLine("                urlPathPrefix: $urlPathPrefix")
                     }
                     appendLine("    runOptions:")
@@ -1009,11 +1010,11 @@ class SpecmaticConfigV3UpgradeTest {
                     appendLine("                  directory: ./specs")
                     appendLine("              specs:")
                     if (plainSpecDefinition && urlPathPrefix == null) {
-                        appendLine("                - $primarySpecId")
+                        appendLine("                - $primarySpecPath")
                     } else {
                         appendLine("                - spec:")
                         appendLine("                    id: $primarySpecId")
-                        appendLine("                    path: $primarySpecId")
+                        appendLine("                    path: $primarySpecPath")
                         appendLine("                    urlPathPrefix: $urlPathPrefix")
                     }
                     appendLine("        runOptions:")
@@ -1039,10 +1040,31 @@ class SpecmaticConfigV3UpgradeTest {
             )
         }
 
+        private fun primarySpecPath(providesBlock: String): String {
+            return Regex("""-\s+([A-Za-z0-9._/-]+\.(yaml|yml|wsdl|proto|graphql|graphqls))\b""")
+                .findAll(providesBlock)
+                .map { it.groupValues[1] }
+                .toList()
+                .ifEmpty {
+                    Regex("""id:\s*([A-Za-z0-9._/-]+\.(yaml|yml|wsdl|proto|graphql|graphqls))\b""")
+                        .findAll(providesBlock)
+                        .map { it.groupValues[1] }
+                        .toList()
+                }
+                .distinct()
+                .first()
+        }
+
         private fun primarySpecId(providesBlock: String): String {
-            val ids = Regex("""-\s+([A-Za-z0-9._/-]+\.(yaml|yml|wsdl|proto|graphql|graphqls))\b""").findAll(providesBlock).map { it.groupValues[1] }.toList()
+            val ids = Regex("""-\s+([A-Za-z0-9._/-]+\.(yaml|yml|wsdl|proto|graphql|graphqls))\b""")
+                .findAll(providesBlock)
+                .map { it.groupValues[1].substringBeforeLast('.') }
+                .toList()
             return ids.ifEmpty {
-                Regex("""id:\s*([A-Za-z0-9._/-]+\.(yaml|yml|wsdl|proto|graphql|graphqls))\b""").findAll(providesBlock).map { it.groupValues[1] }.toList()
+                Regex("""id:\s*([A-Za-z0-9._/-]+\.(yaml|yml|wsdl|proto|graphql|graphqls))\b""")
+                    .findAll(providesBlock)
+                    .map { it.groupValues[1].substringBeforeLast('.') }
+                    .toList()
             }.distinct().first()
         }
 
@@ -1169,13 +1191,13 @@ class SpecmaticConfigV3UpgradeTest {
                                   directory: ./specs
                               specs:
                                 - spec:
-                                    id: secure.yaml
+                                    id: secure
                                     path: secure.yaml
                         runOptions:
                           openapi:
                             specs:
                               - spec:
-                                  id: secure.yaml
+                                  id: secure
                                   securitySchemes:
                                     basicAuth:
                                       type: basicAuth
@@ -1350,13 +1372,13 @@ class SpecmaticConfigV3UpgradeTest {
                                       directory: ./specs
                                   specs:
                                     - spec:
-                                        id: dep.yaml
+                                        id: dep
                                         path: dep.yaml
                             runOptions:
                               openapi:
                                 specs:
                                   - spec:
-                                      id: dep.yaml
+                                      id: dep
                                       baseUrl: https//localhost:9090
                             data:
                               examples:
@@ -1380,13 +1402,13 @@ class SpecmaticConfigV3UpgradeTest {
                                   directory: ./specs
                               specs:
                                 - spec:
-                                    id: sut.yaml
+                                    id: sut
                                     path: sut.yaml
                         runOptions:
                           openapi:
                             specs:
                               - spec:
-                                  id: sut.yaml
+                                  id: sut
                                   baseUrl: https//localhost:8080
                     """.trimIndent()
                 ),

@@ -61,6 +61,6 @@ class DependenciesMapperTest {
         val runOptions = (service.runOptions as RefOrValue.Value<MockRunOptions>).value
         assertThat(runOptions.openapi?.filter).isEqualTo("PATH='/orders'")
         assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://global-mock:8080")
-        assertThat(runOptions.openapi?.specs?.map { it.spec.id }).containsExactly("orders.yaml")
+        assertThat(runOptions.openapi?.specs?.map { it.spec.id }).containsExactly("orders")
     }
 }

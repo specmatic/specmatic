@@ -8,7 +8,7 @@ systemUnderTest:
               url: https://github.com/specmatic/specmatic-order-contracts.git
           specs:
             - spec:
-                id: io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
+                id: product-search-bff-v6
                 path: io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
     runOptions:
       openapi:
@@ -16,7 +16,7 @@ systemUnderTest:
         actuatorUrl: http://localhost:8080/actuator/mappings
         specs:
           - spec:
-              id: io/specmatic/examples/store/openapi/product_search_bff_v6.yaml
+              id: product-search-bff-v6
               baseUrl: http://localhost:8080
     data:
       examples:
@@ -32,13 +32,13 @@ dependencies:
                   url: https://github.com/specmatic/specmatic-order-contracts.git
               specs:
                 - spec:
-                    id: io/specmatic/examples/store/openapi/api_order_v5.yaml
+                    id: api-order-v5
                     path: io/specmatic/examples/store/openapi/api_order_v5.yaml
         runOptions:
           openapi:
             specs:
               - spec:
-                  id: io/specmatic/examples/store/openapi/api_order_v5.yaml
+                  id: api-order-v5
                   baseUrl: http://localhost:8090
         data:
           examples:
@@ -52,13 +52,13 @@ dependencies:
                   url: https://github.com/specmatic/specmatic-order-contracts.git
               specs:
                 - spec:
-                    id: io/specmatic/examples/store/asyncapi/kafka.yaml
+                    id: kafka
                     path: io/specmatic/examples/store/asyncapi/kafka.yaml
         runOptions:
           asyncapi:
             specs:
               - spec:
-                  id: io/specmatic/examples/store/asyncapi/kafka.yaml
+                  id: kafka
                   inMemoryBroker:
                     host: localhost
                     port: 9092

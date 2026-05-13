@@ -15,17 +15,20 @@ import java.io.File
 sealed interface SourceMigration {
     val definition: Definition
     val specTypesByPath: Map<String, SpecType>
+    val specIdsByPath: Map<String, String>
 
     data class TestSourceMigration(
         override val definition: Definition,
         val configs: List<SpecExecutionConfig>,
         override val specTypesByPath: Map<String, SpecType>,
+        override val specIdsByPath: Map<String, String>,
     ) : SourceMigration
 
     data class MockSourceMigration(
         override val definition: Definition,
         val config: SpecExecutionConfig,
         override val specTypesByPath: Map<String, SpecType>,
+        override val specIdsByPath: Map<String, String>,
     ) : SourceMigration
 
     fun hasSpecType(specType: SpecType): Boolean {
@@ -50,22 +53,24 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     private fun createTestMigration(source: Source, configs: List<SpecExecutionConfig>): SourceMigration.TestSourceMigration? {
         if (configs.isEmpty()) return null
         val specTypesByPath = resolveSpecTypesByPath(configs)
-        val definition = createDefinition(source, configs, specTypesByPath)
-        return SourceMigration.TestSourceMigration(definition = definition, configs = configs, specTypesByPath = specTypesByPath)
+        val specIdsByPath = buildSpecificationIds(specTypesByPath.keys)
+        val definition = createDefinition(source, configs, specTypesByPath, specIdsByPath)
+        return SourceMigration.TestSourceMigration(definition = definition, configs = configs, specTypesByPath = specTypesByPath, specIdsByPath = specIdsByPath)
     }
 
     private fun createMockMigration(source: Source, config: SpecExecutionConfig): SourceMigration.MockSourceMigration {
         val configs = listOf(config)
         val specTypesByPath = resolveSpecTypesByPath(configs)
-        val definition = createDefinition(source, configs, specTypesByPath)
-        return SourceMigration.MockSourceMigration(definition = definition, config = config, specTypesByPath = specTypesByPath)
+        val specIdsByPath = buildSpecificationIds(specTypesByPath.keys)
+        val definition = createDefinition(source, configs, specTypesByPath, specIdsByPath)
+        return SourceMigration.MockSourceMigration(definition = definition, config = config, specTypesByPath = specTypesByPath, specIdsByPath = specIdsByPath)
     }
 
-    private fun createDefinition(source: Source, configs: List<SpecExecutionConfig>, specTypesByPath: Map<String, SpecType>): Definition {
+    private fun createDefinition(source: Source, configs: List<SpecExecutionConfig>, specTypesByPath: Map<String, SpecType>, specIdsByPath: Map<String, String>): Definition {
         return Definition(
             Definition.Value(
                 source = RefOrValue.Value(source.toSourceV3(gitAuth)),
-                specs = specTypesByPath.keys.map { specPath -> toSpecificationDefinition(specPath, configs) },
+                specs = specTypesByPath.keys.map { specPath -> toSpecificationDefinition(specPath, specIdsByPath, configs) },
             )
         )
     }
@@ -79,14 +84,14 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
         }
     }
 
-    private fun toSpecificationDefinition(specPath: String, configs: List<SpecExecutionConfig>): SpecificationDefinition {
+    private fun toSpecificationDefinition(specPath: String, specIdsByPath: Map<String, String>, configs: List<SpecExecutionConfig>): SpecificationDefinition {
         val urlPathPrefix = configs.asReversed().firstNotNullOfOrNull { config ->
             val objectValue = config as? SpecExecutionConfig.ObjectValue.PartialUrl ?: return@firstNotNullOfOrNull null
             if (specPath in objectValue.specs) objectValue.basePath else null
         }
 
         return SpecificationDefinition.ObjectValue(
-            SpecificationDefinition.Specification(id = specPath, path = specPath, urlPathPrefix = urlPathPrefix)
+            SpecificationDefinition.Specification(id = specIdsByPath[specPath], path = specPath, urlPathPrefix = urlPathPrefix)
         )
     }
 

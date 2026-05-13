@@ -9,6 +9,8 @@ import io.specmatic.reporter.model.SpecType
 
 data class RunOptionsMapper(
     private val defaultHostForPortOnly: String = "0.0.0.0",
+    private val specIdsByPath: Map<String, String> = emptyMap(),
+    private val specTypesByPath: Map<String, SpecType> = emptyMap(),
     val graphQl: Map<String, RunOptionsSpecifications.Value> = linkedMapOf(),
     val wsdl: Map<String, WsdlRunOptionsSpecifications.Value> = linkedMapOf(),
     val protobuf: Map<String, RunOptionsSpecifications.Value> = linkedMapOf(),
@@ -17,34 +19,33 @@ data class RunOptionsMapper(
 ) {
     fun mergeGlobalOpenApi(
         overlayFilePath: String? = null,
-        specTypesByPath: Map<String, SpecType>,
         securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
     ): RunOptionsMapper {
         return specTypesByPath.entries.fold(this) { acc, (specPath, specType) ->
             if (specType != SpecType.OPENAPI) return@fold acc
-            acc.mergeGlobalOpenApi(specPath, overlayFilePath = overlayFilePath, securitySchemes = securitySchemes)
+            acc.mergeGlobalOpenApi(specPath, specIdsByPath, overlayFilePath = overlayFilePath, securitySchemes = securitySchemes)
         }
     }
 
-    fun mergeConfig(config: SpecExecutionConfig, specTypesByPath: Map<String, SpecType>): RunOptionsMapper {
+    fun mergeConfig(config: SpecExecutionConfig): RunOptionsMapper {
         return config.specs().fold(this) { acc, specPath ->
             val specType = specTypesByPath[specPath] ?: return@fold acc
             when (config) {
                 is SpecExecutionConfig.StringValue -> acc
-                is SpecExecutionConfig.ObjectValue -> acc.mergeObjectValue(specPath, specType, config)
-                is SpecExecutionConfig.ConfigValue -> acc.mergeConfigValue(specPath, specType, config)
+                is SpecExecutionConfig.ObjectValue -> acc.mergeObjectValue(specPath, specIdsByPath, specType, config)
+                is SpecExecutionConfig.ConfigValue -> acc.mergeConfigValue(specPath, specIdsByPath, specType, config)
             }
         }
     }
 
-    private fun mergeObjectValue(specPath: String, specType: SpecType, config: SpecExecutionConfig.ObjectValue): RunOptionsMapper {
+    private fun mergeObjectValue(specPath: String, specIdsByPath: Map<String, String>, specType: SpecType, config: SpecExecutionConfig.ObjectValue): RunOptionsMapper {
         val input = config.toUrlMergeInput()
         return when (specType) {
-            SpecType.WSDL -> mergeWsdl(specPath, input)
-            SpecType.OPENAPI -> mergeOpenApi(specPath, input)
-            SpecType.GRAPHQL -> mergeGeneric(specPath, specType, input = input)
-            SpecType.ASYNCAPI -> mergeGeneric(specPath, specType, input = input)
-            SpecType.PROTOBUF -> mergeGeneric(specPath, specType, input = input)
+            SpecType.WSDL -> mergeWsdl(specPath, specIdsByPath, input)
+            SpecType.OPENAPI -> mergeOpenApi(specPath, specIdsByPath, input)
+            SpecType.GRAPHQL -> mergeGeneric(specPath, specIdsByPath, specType, input = input)
+            SpecType.ASYNCAPI -> mergeGeneric(specPath, specIdsByPath, specType, input = input)
+            SpecType.PROTOBUF -> mergeGeneric(specPath, specIdsByPath, specType, input = input)
         }
     }
 
@@ -67,24 +68,24 @@ data class RunOptionsMapper(
         }
     }
 
-    private fun mergeConfigValue(specPath: String, specType: SpecType, config: SpecExecutionConfig.ConfigValue): RunOptionsMapper {
+    private fun mergeConfigValue(specPath: String, specIdsByPath: Map<String, String>, specType: SpecType, config: SpecExecutionConfig.ConfigValue): RunOptionsMapper {
         val input = config.toUrlMergeInput()
         return when (specType) {
-            SpecType.WSDL -> mergeWsdl(specPath, input)
-            SpecType.OPENAPI -> mergeOpenApi(specPath, input)
-            SpecType.GRAPHQL -> mergeGeneric(specPath, specType, config.config, input)
-            SpecType.ASYNCAPI -> mergeGeneric(specPath, specType, config.config, input)
-            SpecType.PROTOBUF -> mergeGeneric(specPath, specType, config.config, input)
+            SpecType.WSDL -> mergeWsdl(specPath, specIdsByPath, input)
+            SpecType.OPENAPI -> mergeOpenApi(specPath, specIdsByPath, input)
+            SpecType.GRAPHQL -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
+            SpecType.ASYNCAPI -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
+            SpecType.PROTOBUF -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
         }
     }
 
-    private fun mergeOpenApi(specPath: String, input: UrlMergeInput): RunOptionsMapper {
+    private fun mergeOpenApi(specPath: String, specIdsByPath: Map<String, String>, input: UrlMergeInput): RunOptionsMapper {
         val existing = openApi[specPath]
         return copy(
             openApi = openApi.update(
                 key = specPath,
                 value = (existing ?: OpenApiRunOptionsSpecifications.Value()).copy(
-                    id = specPath,
+                    id = specIdsByPath[specPath],
                     baseUrl = input.baseUrl(existing?.baseUrl),
                     host = input.host(existing?.host, existing?.baseUrl),
                     port = input.port(existing?.port, existing?.baseUrl),
@@ -93,13 +94,13 @@ data class RunOptionsMapper(
         )
     }
 
-    private fun mergeWsdl(specPath: String, input: UrlMergeInput): RunOptionsMapper {
+    private fun mergeWsdl(specPath: String, specIdsByPath: Map<String, String>, input: UrlMergeInput): RunOptionsMapper {
         val existing = wsdl[specPath]
         return copy(
             wsdl = wsdl.update(
                 key = specPath,
                 value = (existing ?: WsdlRunOptionsSpecifications.Value()).copy(
-                    id = specPath,
+                    id = specIdsByPath[specPath],
                     baseUrl = input.baseUrl(existing?.baseUrl),
                     host = input.host(existing?.host, existing?.baseUrl),
                     port = input.port(existing?.port, existing?.baseUrl),
@@ -108,7 +109,7 @@ data class RunOptionsMapper(
         )
     }
 
-    private fun mergeGeneric(specPath: String, specType: SpecType, config: Map<String, Any> = emptyMap(), input: UrlMergeInput = UrlMergeInput.None): RunOptionsMapper {
+    private fun mergeGeneric(specPath: String, specIdsByPath: Map<String, String>, specType: SpecType, config: Map<String, Any> = emptyMap(), input: UrlMergeInput = UrlMergeInput.None): RunOptionsMapper {
         val target = when (specType) {
             SpecType.GRAPHQL -> graphQl
             SpecType.ASYNCAPI -> asyncApi
@@ -124,7 +125,7 @@ data class RunOptionsMapper(
         val updated = target.update(
             key = specPath,
             value = (existing ?: RunOptionsSpecifications.Value()).copy(
-                id = specPath,
+                id = specIdsByPath[specPath],
                 host = input.toHost(existing?.host, defaultHostForPortOnly),
                 port = input.toPort(existing?.port)
             ).withConfig(merged)
@@ -140,6 +141,7 @@ data class RunOptionsMapper(
 
     private fun mergeGlobalOpenApi(
         specPath: String,
+        specIdsByPath: Map<String, String>,
         overlayFilePath: String? = null,
         securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null
     ): RunOptionsMapper {
@@ -148,7 +150,7 @@ data class RunOptionsMapper(
             openApi = openApi.update(
                 key = specPath,
                 value = (existing ?: OpenApiRunOptionsSpecifications.Value()).copy(
-                    id = specPath,
+                    id = specIdsByPath[specPath],
                     overlayFilePath = existing?.overlayFilePath ?: overlayFilePath,
                     securitySchemes = existing?.securitySchemes ?: securitySchemes
                 )

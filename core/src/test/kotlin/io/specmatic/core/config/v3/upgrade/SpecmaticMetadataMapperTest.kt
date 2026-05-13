@@ -63,4 +63,11 @@ class SpecmaticMetadataMapperTest {
         assertThat(metadata.governance?.successCriterion?.maxMissedOperationsInSpec).isEqualTo(2)
         assertThat(metadata.governance?.successCriterion?.enforce).isTrue()
     }
+
+    @Test
+    fun `should not use default value for successCriteria if missing from legacy config`() {
+        val config = SpecmaticConfigV1V2Common(report = ReportConfigurationDetails(types = ReportTypes(apiCoverage = APICoverage(openAPI = APICoverageConfiguration()))))
+        val metadata = SpecmaticMetadataMapper().mapFrom(config, LegacyConfigView.from(config))
+        assertThat(metadata.governance?.successCriterion).isNull()
+    }
 }

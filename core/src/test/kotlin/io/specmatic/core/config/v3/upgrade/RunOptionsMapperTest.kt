@@ -11,20 +11,21 @@ class RunOptionsMapperTest {
     @Test
     fun `openapi baseUrl overrides host port and keeps global overlay security`() {
         val specTypes = linkedMapOf("petstore.yaml" to SpecType.OPENAPI)
-        val mapper = RunOptionsMapper(defaultHostForPortOnly = "localhost")
-            .mergeConfig(
-                specTypesByPath = specTypes,
-                config = SpecExecutionConfig.ConfigValue(
-                    specs = listOf("petstore.yaml"),
-                    specType = "OPENAPI",
-                    config = mapOf("baseUrl" to "http://example.com:9001")
-                ),
-            )
-            .mergeGlobalOpenApi(
-                overlayFilePath = "overlay.yaml",
-                securitySchemes = mapOf("oauth" to SecuritySchemeConfigurationV3(SecuritySchemeType.OAUTH2, "token")),
-                specTypesByPath = specTypes,
-            )
+        val mapper = RunOptionsMapper(
+            defaultHostForPortOnly = "localhost",
+            specIdsByPath = mapOf("petstore.yaml" to "petstore"),
+            specTypesByPath = specTypes,
+        ).mergeConfig(
+            config = SpecExecutionConfig.ConfigValue(
+                specs = listOf("petstore.yaml"),
+                specType = "OPENAPI",
+                config = mapOf("baseUrl" to "http://example.com:9001")
+            ),
+        )
+        .mergeGlobalOpenApi(
+            overlayFilePath = "overlay.yaml",
+            securitySchemes = mapOf("oauth" to SecuritySchemeConfigurationV3(SecuritySchemeType.OAUTH2, "token")),
+        )
 
         val openApi = mapper.openApi["petstore.yaml"]!!
         assertThat(openApi.securitySchemes).containsKey("oauth")
@@ -37,8 +38,10 @@ class RunOptionsMapperTest {
     @Test
     fun `openapi host and port mapped when baseUrl is missing`() {
         val specTypes = linkedMapOf("inventory.yaml" to SpecType.OPENAPI)
-        val mapper = RunOptionsMapper().mergeConfig(
+        val mapper = RunOptionsMapper(
+            specIdsByPath = mapOf("inventory.yaml" to "inventory"),
             specTypesByPath = specTypes,
+        ).mergeConfig(
             config = SpecExecutionConfig.ConfigValue(
                 specs = listOf("inventory.yaml"),
                 specType = "openapi",
@@ -50,5 +53,26 @@ class RunOptionsMapperTest {
         assertThat(openApi.baseUrl).isNull()
         assertThat(openApi.port).isEqualTo(9090)
         assertThat(openApi.host).isEqualTo("svc.internal")
+    }
+
+    @Test
+    fun `run options uses same stable readable id for matching specs`() {
+        val specTypes = linkedMapOf("services/payments/api.yaml" to SpecType.OPENAPI, "customers/api.yaml" to SpecType.OPENAPI)
+        val mapper = RunOptionsMapper(
+            specTypesByPath = specTypes,
+            specIdsByPath = mapOf(
+                "services/payments/api.yaml" to "payments-api",
+                "customers/api.yaml" to "customers-api",
+            ),
+        ).mergeConfig(
+            config = SpecExecutionConfig.ConfigValue(
+                specs = listOf("services/payments/api.yaml", "customers/api.yaml"),
+                specType = "openapi",
+                config = emptyMap(),
+            ),
+        )
+
+        assertThat(mapper.openApi["services/payments/api.yaml"]?.id).isEqualTo("payments-api")
+        assertThat(mapper.openApi["customers/api.yaml"]?.id).isEqualTo("customers-api")
     }
 }

@@ -53,8 +53,9 @@ class DependenciesMapper {
     }
 
     private fun buildRunOptions(migration: SourceMigration.MockSourceMigration, view: LegacyConfigView): MockRunOptions {
-        val overrides = listOf(migration.config).fold(RunOptionsMapper(defaultHostForPortOnly = "0.0.0.0")) { acc, config ->
-            acc.mergeConfig(config = config, specTypesByPath = migration.specTypesByPath)
+        val initialMapper = RunOptionsMapper(defaultHostForPortOnly = "0.0.0.0", specIdsByPath = migration.specIdsByPath, specTypesByPath = migration.specTypesByPath)
+        val overrides = listOf(migration.config).fold(initialMapper) { acc, config ->
+            acc.mergeConfig(config = config)
         }
 
         return MockRunOptions(
