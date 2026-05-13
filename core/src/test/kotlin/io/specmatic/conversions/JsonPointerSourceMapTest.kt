@@ -95,6 +95,23 @@ class JsonPointerSourceMapTest {
     }
 
     @Test
+    fun `non-scalar mapping keys are skipped because json pointer segments are strings`() {
+        val yaml = """
+            ? [a, b]
+            : complex-keyed
+            foo: bar
+        """.trimIndent()
+
+        val map = JsonPointerSourceMap(yaml).build()
+
+        val expected = mapOf(
+            "" to YamlNodeLocation(1, 1, MAPPING),
+            "/foo" to YamlNodeLocation(3, 1, SCALAR),
+        )
+        assertThat(map).isEqualTo(expected)
+    }
+
+    @Test
     fun `realistic openapi spec with inline schemas has no refTargets and indexes every node`() {
         val map = JsonPointerSourceMap(loadFixture("baseSpec.yaml")).build()
 
