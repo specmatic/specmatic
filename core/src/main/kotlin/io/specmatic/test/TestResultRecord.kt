@@ -94,7 +94,6 @@ data class TestResultRecord(
             wip = isWip,
             outputs = outputs,
             qualifiers = testQualifiers(),
-            match = matchesResponseIdentifiers,
             input = request?.toLogString().orEmpty(),
             inputTime = requestTime?.toEpochMilli() ?: 0L,
             reasons = reasoning.toCtrfSnapshots(),
