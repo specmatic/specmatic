@@ -3,7 +3,7 @@ plugins {
 }
 dependencies {
     implementation("ch.qos.logback:logback-core:1.5.32")
-    implementation("org.slf4j:slf4j-api:2.0.17")
+    implementation("org.slf4j:slf4j-api:2.0.18")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.3")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.3")
