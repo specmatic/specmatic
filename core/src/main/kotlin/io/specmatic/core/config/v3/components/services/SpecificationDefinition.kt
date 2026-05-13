@@ -41,6 +41,8 @@ sealed interface SpecificationDefinition {
             return source.toSpecificationSource(specFile, spec.path, baseUrl, resiliencyTestSuite, examples)
         }
 
+        fun hasNoData(): Boolean = spec.urlPathPrefix == null && spec.config.isEmpty()
+
         companion object {
             fun from(specFile: File, id: String): ObjectValue {
                 val spec = Specification(id, specFile.canonicalPath)

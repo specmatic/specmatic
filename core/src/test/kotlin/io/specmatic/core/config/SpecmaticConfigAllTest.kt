@@ -12,6 +12,7 @@ import io.specmatic.core.SourceProvider.web
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToVersionedConfig
 import io.specmatic.core.config.v1.SpecmaticConfigV1
 import io.specmatic.core.config.v2.ContractConfig
 import io.specmatic.core.config.v2.ContractConfig.FileSystemContractSource
@@ -1064,7 +1065,7 @@ internal class SpecmaticConfigAllTest {
         val dslConfig = configV1.transform()
 
         val (output, configV2) = captureStandardOutput {
-            convertToLatestVersionedConfig(dslConfig) as SpecmaticConfigV2
+            convertToVersionedConfig(dslConfig, SpecmaticConfigVersion.VERSION_2) as SpecmaticConfigV2
         }
 
         assertThat(output).contains("WARNING")
