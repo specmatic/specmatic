@@ -75,6 +75,7 @@ internal class FlagsBasedTest {
         assertThat(result.useFuzzyMatching).isFalse()
         assertThat(result.defaultExampleResolver).isInstanceOf(DoNotUseDefaultExample::class.java)
         assertThat(result.maxTestRequestCombinations).isEqualTo(Int.MAX_VALUE)
+        assertThat(result.randomArraySize).isNull()
     }
 
     @Test
@@ -164,5 +165,16 @@ internal class FlagsBasedTest {
         assertThat(resolver.findKeyErrorCheck).isInstanceOf(FuzzyKeyCheck::class.java)
         assertThat(resolver.defaultExampleResolver).isInstanceOf(UseDefaultExample::class.java)
         assertThat(resolver.maxTestRequestCombinations).isEqualTo(50)
+    }
+
+    @Test
+    fun `DefaultStrategies should use random array size override only when configured`() {
+        assertThat(DefaultStrategies.randomArraySize).isNull()
+    }
+
+    @Test
+    fun `DefaultStrategies update resolver with the updated random array size`() {
+        val strategies = DefaultStrategies.copy(randomArraySize = 1)
+        assertThat(strategies.update(Resolver()).randomArraySize).isEqualTo(1)
     }
 }

@@ -54,6 +54,7 @@ data class Resolver(
     val lookupPathsSeenSoFar: Set<String> = setOf(),
     val cycleMarker: String = "",
     val maxTestRequestCombinations: Int = Int.MAX_VALUE,
+    val randomArraySize: Int? = null,
 ) {
     constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
     constructor() : this(emptyMap(), false)
@@ -347,7 +348,8 @@ data class Resolver(
     }
 
     private fun generateRandomList(pattern: Pattern): Value {
-        return pattern.listOf(0.until(randomNumber(3)).mapIndexed{ index, _ ->
+        val maxLimit = randomArraySize ?: randomNumber(3)
+        return pattern.listOf(0.until(maxLimit).mapIndexed { index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)
     }
@@ -466,7 +468,7 @@ data class Resolver(
             return null
         }
 
-        val path = dictionaryLookupPath.replace(WILDCARD_INDEX, "|$WILDCARD_INDEX|").split(".", "|")
+        val path = lookupPathSegments(dictionaryLookupPath)
         val values = StringProviders.getFor(pattern, this, path)
 
         return values.map(::StringValue).firstNotNullOfOrNull { value ->
@@ -476,6 +478,41 @@ data class Resolver(
     }
 
     private fun lastLookupKey(): String? = dictionaryLookupPath.substringAfterLast(".").takeIf(String::isNotBlank)
+
+    internal fun lookupPathSegments(path: String): List<String> {
+        val result = ArrayList<String>(lookupPathsSeenSoFar.size)
+
+        var i = 0
+        var start = 0
+        while (i < path.length) {
+            when {
+                path[i] == '.' -> {
+                    flushSegment(path, start, i, result)
+                    start = ++i
+                }
+
+                path.isWildcardAt(i) -> {
+                    flushSegment(path, start, i, result)
+                    result.add(WILDCARD_INDEX)
+                    i += 3
+                    start = i
+                }
+
+                else -> i++
+            }
+        }
+
+        if (start < path.length) result.add(path.substring(start))
+        return result
+    }
+
+    private fun String.isWildcardAt(i: Int): Boolean {
+        return i + 2 < length && this[i] == '[' && this[i + 1] == '*' && this[i + 2] == ']'
+    }
+
+    private fun flushSegment(path: String, start: Int, end: Int, out: MutableList<String>): Unit {
+        if (end > start) out.add(path.substring(start, end))
+    }
 }
 
 private fun ExactValuePattern.hasPatternToken(): Boolean {

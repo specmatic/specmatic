@@ -183,6 +183,24 @@ Feature: Recursive test
         assertThat(value).isEqualTo(JSONArrayValue(listOf(NumberValue(1), NumberValue(2), NumberValue(3))))
     }
 
+    @Test
+    @Tag(GENERATION)
+    fun `should determine exact list size from resolver randomArraySize`() {
+        val pattern = ListPattern(NumberPattern())
+        repeat(10) {
+            val value = pattern.generate(Resolver(randomArraySize = 1)) as JSONArrayValue
+            assertThat(value.list).hasSize(1)
+        }
+    }
+
+    @Tag(GENERATION)
+    @Test
+    fun `should use configured randomArraySize exactly`() {
+        val pattern = ListPattern(NumberPattern())
+        val value = pattern.generate(Resolver(randomArraySize = 2)) as JSONArrayValue
+        assertThat(value.list).hasSize(2)
+    }
+
     @Nested
     inner class AllPatternsMandatory {
         @Test

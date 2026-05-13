@@ -12,6 +12,7 @@ class RegExSpec(
 ) {
     private val originalRegex = regex
     private val regexGenerator = regex?.let(::cleanRegex)?.let(::RegexBasedStringGenerator)
+    private val regexForRuntimeMatch: Regex? = originalRegex?.let { Regex(it.replaceRegexLowerBounds()) }
 
     init {
         validateRegex()
@@ -75,9 +76,7 @@ class RegExSpec(
         return regexGenerator.generateLongest(maxLen) ?: throw IllegalStateException("No valid string found")
     }
 
-    fun match(sampleData: StringValue) = originalRegex?.let {
-        Regex(originalRegex.replaceRegexLowerBounds()).matches(sampleData.toStringLiteral())
-    } ?: true
+    fun match(sampleData: StringValue) = regexForRuntimeMatch?.matches(sampleData.toStringLiteral()) ?: true
 
     fun generateRandomString(minLength: Int, maxLength: Int? = null): Value {
         return regexGenerator?.let {
