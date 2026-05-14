@@ -6,28 +6,41 @@ import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 
 data class SpecmaticGlobalSettings(
     @field:JsonDeserialize(using = ExampleTemplateStringDeserializer::class)
-    val specExamplesDirectoryTemplate: String? = null,
+    val specExamplesDirectoryTemplate: TemplateOrValue<String>? = null,
     @field:JsonDeserialize(contentUsing = ExampleTemplateStringDeserializer::class)
-    val sharedExamplesDirectoryTemplate: List<String>? = null
+    val sharedExamplesDirectoryTemplate: TemplateOrValue<List<TemplateOrValue<String>>>? = null
 ) {
     @JsonIgnore
     fun getSpecExampleDirTemplate(): String {
-        if (specExamplesDirectoryTemplate != null) return specExamplesDirectoryTemplate
+        if (specExamplesDirectoryTemplate != null) return specExamplesDirectoryTemplate.resolve()
         return DEFAULT_SPEC_EXAMPLE_DIR_TEMPLATE
     }
 
     @JsonIgnore
     fun getSharedExampleDirTemplates(): List<String> {
-        if (sharedExamplesDirectoryTemplate != null) return sharedExamplesDirectoryTemplate
+        if (sharedExamplesDirectoryTemplate != null) return sharedExamplesDirectoryTemplate.resolveFully()
         return defaultSharedExamplesDirTemplate
     }
 
     companion object {
         private const val DEFAULT_SPEC_EXAMPLE_DIR_TEMPLATE = "<SPEC_FILE_NAME>_examples"
         private val defaultSharedExamplesDirTemplate = listOf("<SPEC_EACH_PARENT>_common", "common")
+
+        fun from(
+            specExamplesDirectoryTemplate: String? = null,
+            sharedExamplesDirectoryTemplate: List<String>? = null
+        ) = SpecmaticGlobalSettings(
+            specExamplesDirectoryTemplate = specExamplesDirectoryTemplate?.let(::wrapTemplateValue),
+            sharedExamplesDirectoryTemplate = sharedExamplesDirectoryTemplate?.let(::wrapTemplateList)
+        )
+
+        private fun <T : Any> wrapTemplateValue(value: T): TemplateOrValue<T> = TemplateOrValue.Value(value)
+        private fun <T : Any> wrapTemplateList(values: List<T>): TemplateOrValue<List<TemplateOrValue<T>>> = wrapTemplateValue(values.map(::wrapTemplateValue))
     }
 }
 

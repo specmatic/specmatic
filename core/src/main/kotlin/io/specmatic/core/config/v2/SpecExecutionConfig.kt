@@ -2,6 +2,7 @@ package io.specmatic.core.config.v2
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
@@ -13,34 +14,39 @@ import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.config.resolveFully
+import io.specmatic.core.config.wrap
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.utilities.Flags
 import java.io.File
 import java.net.URI
 
+@JsonDeserialize(using = SpecExecutionConfigDeserializer::class)
 sealed class SpecExecutionConfig {
-    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
+    data class StringValue(@get:JsonValue val value: TemplateOrValue<String>) : SpecExecutionConfig() {
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-            return StringValue(baseDirectory.resolve(value).canonicalPath)
+            return StringValue(wrap(baseDirectory.resolve(value.resolve()).canonicalPath))
         }
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
-            val specFile = resolveSpecFile(source, baseDir, value)
-            return listOf(SpecificationSourceEntry(source, specFile, value, null, null, resiliencyTestSuite))
+            val specFile = resolveSpecFile(source, baseDir, value.resolve())
+            return listOf(SpecificationSourceEntry(source, specFile, value.resolve(), null, null, resiliencyTestSuite))
         }
 
         override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-            return ObjectValue.FullUrl(baseUrl = baseUrl, specs = specs(), resiliencyTests = resiliencyTestsConfig)
+            return ObjectValue.FullUrl(baseUrl = wrap(baseUrl), specs = wrap(listOf(value)), resiliencyTests = wrap(resiliencyTestsConfig))
         }
 
         override fun use(port: Int): SpecExecutionConfig {
-            return ObjectValue.PartialUrl(port = port, specs = specs())
+            return ObjectValue.PartialUrl(port = wrap(port), specs = wrap(listOf(value)))
         }
     }
 
     sealed class ObjectValue : SpecExecutionConfig() {
-        abstract val specs: List<String>
-        abstract val resiliencyTests: ResiliencyTestsConfig?
+        abstract val specs: TemplateOrValue<List<TemplateOrValue<String>>>
+        abstract val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>?
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
             val resolvedBaseUrl = defaultBaseUrl
@@ -50,96 +56,100 @@ sealed class SpecExecutionConfig {
             return toUrl(baseUrl).toString()
         }
 
+        fun resolvedSpecs(): List<String> = specs.resolveFully()
+        fun resolvedResiliencyTests(): ResiliencyTestsConfig? = resiliencyTests?.resolve()
+
         abstract fun toUrl(default: URI): URI
 
         data class FullUrl(
-            val baseUrl: String,
-            override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null,
+            val baseUrl: TemplateOrValue<String>,
+            override val specs: TemplateOrValue<List<TemplateOrValue<String>>>,
+            override val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>? = null,
         ) : ObjectValue() {
-            override fun toUrl(default: URI) = URI(baseUrl)
+            override fun toUrl(default: URI) = URI(baseUrl.resolve())
 
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+                return this.copy(specs = wrap(resolvedSpecs().map { wrap(baseDirectory.resolve(it).canonicalPath) }))
             }
 
             override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
                 val baseUrl = toBaseUrl(null)
-                val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
-                return specs().map { spec ->
+                val resiliency = resolvedResiliencyTests()?.getEnabled() ?: resiliencyTestSuite
+                return resolvedSpecs().map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
                 }
             }
 
             override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-                return this.copy(baseUrl = baseUrl, resiliencyTests = resiliencyTestsConfig)
+                return this.copy(baseUrl = wrap(baseUrl), resiliencyTests = wrap(resiliencyTestsConfig))
             }
 
             override fun use(port: Int): SpecExecutionConfig {
-                return PartialUrl(port = port, specs = specs(), resiliencyTests = resiliencyTests)
+                return PartialUrl(port = wrap(port), specs = specs, resiliencyTests = resiliencyTests)
             }
         }
 
         data class PartialUrl(
-            val host: String? = null,
-            val port: Int? = null,
-            val basePath: String? = null,
-            override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null,
+            val host: TemplateOrValue<String>? = null,
+            val port: TemplateOrValue<Int>? = null,
+            val basePath: TemplateOrValue<String>? = null,
+            override val specs: TemplateOrValue<List<TemplateOrValue<String>>>,
+            override val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>? = null,
         ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
                     default.scheme,
                     default.userInfo,
-                    host ?: default.host,
-                    port ?: default.port,
-                    basePath ?: default.path,
+                    host?.resolve() ?: default.host,
+                    port?.resolve() ?: default.port,
+                    basePath?.resolve() ?: default.path,
                     default.query,
                     default.fragment
                 )
             }
 
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+                return this.copy(specs = wrap(resolvedSpecs().map { wrap(baseDirectory.resolve(it).canonicalPath) }))
             }
 
             override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
                 val baseUrl = toBaseUrl(null)
-                val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
-                return specs().map { spec ->
+                val resiliency = resolvedResiliencyTests()?.getEnabled() ?: resiliencyTestSuite
+                return resolvedSpecs().map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
-                    SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
+                    SpecificationSourceEntry(source, specFile, spec, baseUrl, port?.resolve(), resiliency)
                 }
             }
 
             override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-                return FullUrl(baseUrl = baseUrl, specs = specs(), resiliencyTests = resiliencyTestsConfig)
+                return FullUrl(baseUrl = wrap(baseUrl), specs = specs, resiliencyTests = wrap(resiliencyTestsConfig))
             }
 
             override fun use(port: Int): SpecExecutionConfig {
-                return this.copy(port = port)
+                return this.copy(port = wrap(port))
             }
         }
     }
 
     data class ConfigValue(
-        val specs: List<String>,
-        val specType: String,
-        val config: Map<String, Any>
+        val specs: TemplateOrValue<List<TemplateOrValue<String>>>,
+        val specType: TemplateOrValue<String>,
+        val config: TemplateOrValue<Map<String, Any>>
     ) : SpecExecutionConfig() {
         fun contains(specPath: String, specType: String): Boolean {
-            return specPath in this.specs.toSet() && specType == this.specType
+            return specPath in this.specs.resolveFully() && specType == this.specType.resolve()
         }
 
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-            return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+            return this.copy(specs = wrap(specs.resolve().map { wrap(baseDirectory.resolve(it.resolve()).canonicalPath) }))
         }
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
-            return specs().map { spec ->
-                val specFile = resolveSpecFile(source, baseDir, spec)
-                SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite)
+            return specs.resolve().map { spec ->
+                val specPath = spec.resolve()
+                val specFile = resolveSpecFile(source, baseDir, specPath)
+                SpecificationSourceEntry(source, specFile, specPath, null, null, resiliencyTestSuite)
             }
         }
 
@@ -156,29 +166,29 @@ sealed class SpecExecutionConfig {
 
     @JsonIgnore
     fun contains(absoluteSpecPath: String): Boolean = when (this) {
-        is StringValue -> absoluteSpecPath.contains(this.value)
-        is ObjectValue -> this.specs.any { absoluteSpecPath.contains(it) }
-        is ConfigValue -> this.specs.any { absoluteSpecPath.contains(it) }
+        is StringValue -> absoluteSpecPath.contains(this.value.resolve())
+        is ObjectValue -> this.resolvedSpecs().any { absoluteSpecPath.contains(it) }
+        is ConfigValue -> this.specs.resolve().map { it.resolve() }.any { absoluteSpecPath.contains(it) }
     }
 
     @JsonIgnore
     fun specs(): List<String> {
         return when (this) {
-            is StringValue -> listOf(this.value)
-            is ObjectValue -> this.specs
-            is ConfigValue -> this.specs
+            is StringValue -> listOf(this.value.resolve())
+            is ObjectValue -> this.resolvedSpecs()
+            is ConfigValue -> this.specs.resolve().map { it.resolve() }
         }
     }
 
     @JsonIgnore
     fun specToBaseUrlPairList(defaultBaseUrl: String?, baseUrlFrom: (ConfigValue) -> String?): List<Pair<String, String?>> {
         return when (this) {
-            is StringValue -> listOf(this.value to null)
-            is ObjectValue -> this.specs.map { specPath ->
+            is StringValue -> listOf(this.value.resolve() to null)
+            is ObjectValue -> this.resolvedSpecs().map { specPath ->
                 specPath to this.toBaseUrl(defaultBaseUrl)
             }
-            is ConfigValue -> this.specs.map { specPath ->
-                specPath to baseUrlFrom(this)
+            is ConfigValue -> this.specs.resolve().map { specPath ->
+                specPath.resolve() to baseUrlFrom(this)
             }
         }
     }
@@ -192,8 +202,8 @@ sealed class SpecExecutionConfig {
     abstract fun use(port: Int): SpecExecutionConfig
 
     protected fun resolveSpecFile(source: Source, baseDir: File, specPath: String): File {
-        return if (source.provider == SourceProvider.web) {
-            val webBaseUrl = source.webBaseUrl ?: error("Web source url should have been validated before use")
+        return if (source.getProvider() == SourceProvider.web) {
+            val webBaseUrl = source.getWebBaseUrl() ?: error("Web source url should have been validated before use")
             ResolvedWebSource.localPathFor(baseDir.resolve(".specmatic/web"), webBaseUrl, specPath)
         } else {
             baseDir.resolve(specPath).canonicalFile
@@ -207,8 +217,8 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecExecutionConfig> {
         return p.codec.readTree<JsonNode>(p).takeIf(JsonNode::isArray)?.map { element ->
             when {
-                element.isTextual -> SpecExecutionConfig.StringValue(element.asText())
                 element.isObject -> element.parseObjectValue(p)
+                element.isTextual -> p.codec.treeToValue(element, SpecExecutionConfig.StringValue::class.java)
                 else -> throw JsonMappingException(p, "Consumes entry must be string or object")
             }
         } ?: throw JsonMappingException(p, "Consumes should be an array")
@@ -216,38 +226,15 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
 
     private fun JsonNode.parseObjectValue(p: JsonParser): SpecExecutionConfig {
         if (has("specType") || has("config")) {
-            return parseConfigValue(p)
+            validateConfigValueFields(p)
+            return p.codec.treeToValue(this, SpecExecutionConfig.ConfigValue::class.java)
         }
 
-        val validatedJsonNode = this.getValidatedJsonNode(p)
-        val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
-        val resiliencyTests = parseResiliencyTestsIfApplicable(p)
-
+        val validatedJsonNode = getValidatedJsonNode(p)
         return when {
-            has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(
-                get("baseUrl").asText(),
-                specs,
-                resiliencyTests,
-            )
-
-            else -> SpecExecutionConfig.ObjectValue.PartialUrl(
-                host = get("host")?.asText(),
-                port = get("port")?.asInt(),
-                basePath = get("basePath")?.asText(),
-                specs = specs,
-                resiliencyTests = resiliencyTests,
-            )
+            validatedJsonNode.has("baseUrl") -> p.codec.treeToValue(validatedJsonNode, SpecExecutionConfig.ObjectValue.FullUrl::class.java)
+            else -> p.codec.treeToValue(validatedJsonNode, SpecExecutionConfig.ObjectValue.PartialUrl::class.java)
         }
-    }
-
-    private fun JsonNode.parseConfigValue(p: JsonParser): SpecExecutionConfig.ConfigValue {
-        validateConfigValueFields(p)
-
-        val specs = get("specs").map(JsonNode::asText)
-        val specType = get("specType").asText()
-        val config = get("config").toMap(p)
-
-        return SpecExecutionConfig.ConfigValue(specs, specType, config)
     }
 
     private fun JsonNode.validateConfigValueFields(p: JsonParser) {
@@ -271,28 +258,6 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
             specsField.any { !it.isTextual } -> throw JsonMappingException(p, "'specs' must contain only strings in '$keyBeingDeserialized' field in Specmatic configuration")
         }
         return specsField
-    }
-
-    private fun JsonNode.toMap(p: JsonParser): Map<String, Any> {
-        val map = mutableMapOf<String, Any>()
-        this.properties().forEach { (key, value) ->
-            map[key] = value.nativeValue(p)
-        }
-        return map
-    }
-
-    private fun JsonNode.nativeValue(p: JsonParser): Any {
-        return when {
-            this.isTextual -> this.asText()
-            this.isInt -> this.asInt()
-            this.isLong -> this.asLong()
-            this.isDouble -> this.asDouble()
-            this.isBoolean -> this.asBoolean()
-            this.isArray -> this.map { it.nativeValue(p) }
-            this.isObject -> this.toMap(p)
-            this.isNull -> throw JsonMappingException(p, "Null values not supported in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
-            else -> throw JsonMappingException(p, "Unsupported value type in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
-        }
     }
 
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {
@@ -332,20 +297,23 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
 
         return this
     }
+}
 
-    private fun JsonNode.parseResiliencyTestsIfApplicable(p: JsonParser): ResiliencyTestsConfig? {
-        if (consumes) return null // consumes: resiliencyTests not supported
-        val node = get("resiliencyTests") ?: return null
-        if (!node.isObject) throw JsonMappingException(p, "'resiliencyTests' must be an object with field 'enable'")
-
-        val enableNode = node.get("enable") ?: return ResiliencyTestsConfig() // present but no enable -> default/null
-        if (!enableNode.isTextual) throw JsonMappingException(p, "'resiliencyTests.enable' must be one of: positiveOnly, all, none")
-        val enable = when (val value = enableNode.asText()) {
-            "positiveOnly" -> ResiliencyTestSuite.positiveOnly
-            "all" -> ResiliencyTestSuite.all
-            "none" -> ResiliencyTestSuite.none
-            else -> throw JsonMappingException(p, "Unknown value '$value' for 'resiliencyTests.enable'. Allowed: positiveOnly, all, none")
+private class SpecExecutionConfigDeserializer : JsonDeserializer<SpecExecutionConfig>() {
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): SpecExecutionConfig {
+        val node = p.codec.readTree<JsonNode>(p)
+        return when {
+            node.isObject && node.has("specType") -> p.codec.treeToValue(node, SpecExecutionConfig.ConfigValue::class.java)
+            node.isObject -> deserializeObjectValue(node, p)
+            node.isTextual -> p.codec.treeToValue(node, SpecExecutionConfig.StringValue::class.java)
+            else -> throw JsonMappingException(p, "SpecExecutionConfig must be string or object")
         }
-        return ResiliencyTestsConfig(enable = enable)
+    }
+
+    private fun deserializeObjectValue(node: JsonNode, p: JsonParser): SpecExecutionConfig {
+        return when {
+            node.has("baseUrl") -> p.codec.treeToValue(node, SpecExecutionConfig.ObjectValue.FullUrl::class.java)
+            else -> p.codec.treeToValue(node, SpecExecutionConfig.ObjectValue.PartialUrl::class.java)
+        }
     }
 }

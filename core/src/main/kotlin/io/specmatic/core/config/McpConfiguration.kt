@@ -3,6 +3,8 @@ package io.specmatic.core.config
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import java.io.File
 
 enum class McpTransport(private val value: String) {
@@ -19,16 +21,40 @@ enum class McpTransport(private val value: String) {
 }
 
 data class McpTestConfiguration(
-    val baseUrl: String,
-    val transportKind: McpTransport? = null,
-    val enableResiliencyTests: Boolean = false,
-    val dictionaryFile: String? = null,
-    val bearerToken: String? = null,
-    val filterTools: List<String>? = null,
-    val skipTools: List<String>? = null,
+    val baseUrl: TemplateOrValue<String>,
+    val transportKind: TemplateOrValue<McpTransport>? = null,
+    val enableResiliencyTests: TemplateOrValue<Boolean> = TemplateOrValue.Value(false),
+    val dictionaryFile: TemplateOrValue<String>? = null,
+    val bearerToken: TemplateOrValue<String>? = null,
+    val filterTools: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+    val skipTools: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
 ) {
     @JsonIgnore
-    fun getDictionaryIfExists(): File? = dictionaryFile?.let(::File)
+    fun getBaseUrl(): String = baseUrl.resolve()
+
+    @JsonIgnore
+    fun getTransportKindOrNull(): McpTransport? = transportKind?.resolve()
+
+    @JsonIgnore
+    fun isResiliencyTestsEnabled(): Boolean = enableResiliencyTests.resolve()
+
+    @JsonIgnore
+    fun getDictionaryFileOrNull(): String? = dictionaryFile?.resolve()
+
+    @JsonIgnore
+    fun getBearerTokenOrNull(): String? = bearerToken?.resolve()
+
+    @JsonIgnore
+    fun getFilterToolsOrNull(): List<String>? = filterTools?.resolveFully()
+
+    @JsonIgnore
+    fun getSkipToolsOrNull(): List<String>? = skipTools?.resolveFully()
+
+    @JsonIgnore
+    fun getDictionaryIfExists(): File? = getDictionaryFileOrNull()?.let(::File)
 }
 
-data class McpConfiguration(val test: McpTestConfiguration)
+data class McpConfiguration(val test: TemplateOrValue<McpTestConfiguration>) {
+    @JsonIgnore
+    fun getTestConfiguration(): McpTestConfiguration = test.resolve()
+}

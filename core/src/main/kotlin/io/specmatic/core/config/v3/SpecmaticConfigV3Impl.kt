@@ -55,6 +55,8 @@ import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
+import io.specmatic.core.config.resolveFully
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiRunOptions
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
@@ -269,7 +271,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getGlobalSettingsOrDefault(): SpecmaticGlobalSettings {
-        return SpecmaticGlobalSettings(
+        return SpecmaticGlobalSettings.from(
             specExamplesDirectoryTemplate = specmaticSettings.general?.specExamplesDirectoryTemplate,
             sharedExamplesDirectoryTemplate = specmaticSettings.general?.sharedExamplesDirectoryTemplate
         )
@@ -356,7 +358,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun getResiliencyTestsEnabled(): ResiliencyTestSuite {
         val resiliencyFromProperty = ResiliencyTestsConfig.fromSystemProperties()
         val resiliencyTestSuite = (testSettings.schemaResiliencyTests?.let(::ResiliencyTestsConfig) ?: resiliencyFromProperty)
-        return resiliencyTestSuite.enable ?: ResiliencyTestSuite.none
+        return resiliencyTestSuite.getEnabled() ?: ResiliencyTestSuite.none
     }
 
     override fun getTestTimeoutInMilliseconds(): Long? {
@@ -562,7 +564,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getHooks(): Map<String, String> {
         val fromDependencies = specmaticConfig.dependencies?.data?.adapters?.resolveElseThrow(resolver)?.hooks
-        return fromDependencies.orEmpty()
+        return fromDependencies?.resolveFully().orEmpty()
     }
 
     override fun getStubHooks(): List<FileAssociation<Map<String, String>>> {
@@ -676,17 +678,17 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getBasicAuthSecurityToken(schemeName: String, securitySchemeConfiguration: SecuritySchemeConfiguration?): String? {
-        val tokenFromConfig = (securitySchemeConfiguration as? BasicAuthSecuritySchemeConfiguration)?.token
+        val tokenFromConfig = (securitySchemeConfiguration as? BasicAuthSecuritySchemeConfiguration)?.token?.resolve()
         return resolveSecurityToken(tokenFromConfig, schemeName, SPECMATIC_BASIC_AUTH_TOKEN)
     }
 
     override fun getBearerSecurityToken(schemeName: String, securitySchemeConfiguration: SecuritySchemeConfiguration?): String? {
-        val tokenFromConfig = (securitySchemeConfiguration as? SecuritySchemeWithOAuthToken)?.token
+        val tokenFromConfig = (securitySchemeConfiguration as? SecuritySchemeWithOAuthToken)?.token?.resolve()
         return resolveSecurityToken(tokenFromConfig, schemeName, SPECMATIC_OAUTH2_TOKEN)
     }
 
     override fun getApiKeySecurityToken(schemeName: String, securitySchemeConfiguration: SecuritySchemeConfiguration?): String? {
-        val tokenFromConfig = (securitySchemeConfiguration as? APIKeySecuritySchemeConfiguration)?.value
+        val tokenFromConfig = (securitySchemeConfiguration as? APIKeySecuritySchemeConfiguration)?.value?.resolve()
         return resolveSecurityToken(tokenFromConfig, schemeName)
     }
 
@@ -834,7 +836,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return null
         val testRunOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, SpecType.OPENAPI) ?: return null
         val specData = testRunOpts.getMatchingSpecification(specId) as? OpenApiRunOptionsSpecifications ?: return null
-        val schemes = specData.getSecuritySchemes()?.mapValues { it.value.toSecuritySchemeConfiguration() } ?: return null
-        return SecurityConfiguration(OpenAPI = OpenAPISecurityConfiguration(schemes))
+        val schemes = specData.getSecuritySchemes()?.mapValues { TemplateOrValue.Value(it.value.toSecuritySchemeConfiguration()) } ?: return null
+        return SecurityConfiguration(OpenAPI = TemplateOrValue.Value(OpenAPISecurityConfiguration(schemes)))
     }
 }

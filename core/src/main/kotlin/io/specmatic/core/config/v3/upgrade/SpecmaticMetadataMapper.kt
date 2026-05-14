@@ -5,6 +5,7 @@ import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.OpenAPITestConfig as LegacyOpenAPITestConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import io.specmatic.core.config.v3.ConcreteSettings
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.Specmatic
@@ -47,8 +48,8 @@ class SpecmaticMetadataMapper {
     private fun buildGeneralSettings(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): GeneralSettings {
         return GeneralSettings(
             featureFlags = featureFlagsFrom(legacyConfig),
-            specExamplesDirectoryTemplate = view.globalSettings.specExamplesDirectoryTemplate,
-            sharedExamplesDirectoryTemplate = view.globalSettings.sharedExamplesDirectoryTemplate,
+            specExamplesDirectoryTemplate = view.globalSettings.specExamplesDirectoryTemplate?.resolve(),
+            sharedExamplesDirectoryTemplate = view.globalSettings.sharedExamplesDirectoryTemplate?.resolve()?.map { it.resolve() },
             prettyPrint = SpecmaticConfigV1V2Common.getPrettyPrintOrNull(legacyConfig),
             logging = SpecmaticConfigV1V2Common.getLogConfigurationOrNull(legacyConfig),
             disableTelemetry = SpecmaticConfigV1V2Common.isTelemetryDisabledOrNull(legacyConfig),

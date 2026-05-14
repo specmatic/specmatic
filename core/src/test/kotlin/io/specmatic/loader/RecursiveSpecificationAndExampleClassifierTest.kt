@@ -861,7 +861,7 @@ class RecursiveSpecificationAndExampleClassifierTest {
         private data class TestConfig(val specExampleTemplate: String, val sharedExampleTemplates: List<String>) {
             fun toSpecmaticConfig(): SpecmaticConfig {
                 return SpecmaticConfigV1V2Common(
-                    globalSettings = SpecmaticGlobalSettings(
+                    globalSettings = SpecmaticGlobalSettings.from(
                         specExamplesDirectoryTemplate = specExampleTemplate,
                         sharedExamplesDirectoryTemplate = sharedExampleTemplates
                     )
