@@ -5,11 +5,12 @@ import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.SpecmaticSpecConfig
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
     val specs: List<IRunOptionSpecification>?
-    val config: Map<String, Any>
+    val config: Map<String, TemplateOrValue<Any>>
 
     @JsonIgnore
     fun getBaseUrlIfExists(): String?
@@ -32,19 +33,19 @@ interface IRunOptions {
 }
 
 data class RunOptions(
-    val openapi: OpenApiRunOptions? = null,
-    val wsdl: WsdlRunOptions? = null,
-    val asyncapi: AsyncApiRunOptions? = null,
-    val graphqlsdl: GraphQLSdlRunOptions? = null,
-    val protobuf: ProtobufRunOptions? = null,
+    val openapi: TemplateOrValue<OpenApiRunOptions>? = null,
+    val wsdl: TemplateOrValue<WsdlRunOptions>? = null,
+    val asyncapi: TemplateOrValue<AsyncApiRunOptions>? = null,
+    val graphqlsdl: TemplateOrValue<GraphQLSdlRunOptions>? = null,
+    val protobuf: TemplateOrValue<ProtobufRunOptions>? = null,
 )
 
 data class TestRunOptions(
-    val openapi: OpenApiTestConfig? = null,
-    val wsdl: WsdlTestConfig? = null,
-    val asyncapi: AsyncApiTestConfig? = null,
-    val graphqlsdl: GraphQLSdlTestConfig? = null,
-    val protobuf: ProtobufTestConfig? = null,
+    val openapi: TemplateOrValue<OpenApiTestConfig>? = null,
+    val wsdl: TemplateOrValue<WsdlTestConfig>? = null,
+    val asyncapi: TemplateOrValue<AsyncApiTestConfig>? = null,
+    val graphqlsdl: TemplateOrValue<GraphQLSdlTestConfig>? = null,
+    val protobuf: TemplateOrValue<ProtobufTestConfig>? = null,
 ) {
     @JsonIgnore
     fun hasSpecOverride(specId: String): Boolean {
@@ -86,11 +87,11 @@ data class TestRunOptions(
 }
 
 data class MockRunOptions(
-    val openapi: OpenApiMockConfig? = null,
-    val wsdl: WsdlMockConfig? = null,
-    val asyncapi: AsyncApiMockConfig? = null,
-    val graphqlsdl: GraphQLSdlMockConfig? = null,
-    val protobuf: ProtobufMockConfig? = null,
+    val openapi: TemplateOrValue<OpenApiMockConfig>? = null,
+    val wsdl: TemplateOrValue<WsdlMockConfig>? = null,
+    val asyncapi: TemplateOrValue<AsyncApiMockConfig>? = null,
+    val graphqlsdl: TemplateOrValue<GraphQLSdlMockConfig>? = null,
+    val protobuf: TemplateOrValue<ProtobufMockConfig>? = null,
 ) {
     @JsonIgnore
     fun hasSpecOverride(specId: String): Boolean {
@@ -131,11 +132,11 @@ data class MockRunOptions(
     }
 }
 
-data class ContextDependentRunOptions(@get:JsonAnyGetter val rawValue: Map<String, Any?>) {
+data class ContextDependentRunOptions(@get:JsonAnyGetter val rawValue: TemplateOrValue<Map<String, TemplateOrValue<Any>>> ) {
     companion object {
         @JvmStatic
         @JsonCreator
-        fun create(@JsonAnySetter raw: Map<String, Any?>): ContextDependentRunOptions = ContextDependentRunOptions(raw)
+        fun create(@JsonAnySetter raw: Map<String, TemplateOrValue<Any>>): ContextDependentRunOptions = ContextDependentRunOptions(TemplateOrValue.Value(raw))
     }
 }
 

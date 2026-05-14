@@ -9,7 +9,7 @@ import kotlin.String
 interface IRunOptionSpecification {
     fun getId(): String?
     fun getBaseUrl(defaultHost: String): String?
-    fun getConfig(): Map<String, Any>
+    fun getConfig(): Map<String, TemplateOrValue<Any>>
     fun getOverlayFilePath(): String?
     fun isNoOpOverride(): Boolean
 
@@ -39,7 +39,7 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     }
 
     @JsonIgnore
-    override fun getConfig(): Map<String, Any> {
+    override fun getConfig(): Map<String, TemplateOrValue<Any>> {
         return buildMap {
             putAll(spec.config)
             spec.host?.let { put("host", it) }
@@ -53,26 +53,26 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     }
 
     data class Value(
-        val id: String? = null,
-        val overlayFilePath: String? = null,
-        val host: String? = null,
-        val port: Int? = null,
+        val id: TemplateOrValue<String>? = null,
+        val overlayFilePath: TemplateOrValue<String>? = null,
+        val host: TemplateOrValue<String>? = null,
+        val port: TemplateOrValue<Int>? = null,
         @JsonIgnore
-        private val _config: MutableMap<String, Any> = linkedMapOf()
+        private val _config: MutableMap<String, TemplateOrValue<Any>> = linkedMapOf()
     ) {
         @get:JsonAnyGetter
-        val config: Map<String, Any> get() = _config.toMap()
+        val config: Map<String, TemplateOrValue<Any>> get() = _config.toMap()
 
         @JsonAnySetter
-        fun put(key: String, value: Any) {
+        fun put(key: String, value: TemplateOrValue<Any>) {
             _config[key] = value
         }
 
-        fun withConfig(newConfig: Map<String, Any>): Value = copy(_config = LinkedHashMap(newConfig))
+        fun withConfig(newConfig: Map<String, TemplateOrValue<Any>>): Value = copy(_config = LinkedHashMap(newConfig))
     }
 }
 
-data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
+data class WsdlRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRunOptionSpecification {
     @JsonIgnore
     override fun getId(): String? {
         return spec.id
@@ -84,7 +84,7 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     }
 
     @JsonIgnore
-    override fun getConfig(): Map<String, Any> {
+    override fun getConfig(): Map<String, TemplateOrValue<Any>> {
         return emptyMap()
     }
 
@@ -101,14 +101,14 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     }
 
     data class Value(
-        val id: String? = null,
-        val baseUrl: String? = null,
-        val host: String? = null,
-        val port: Int? = null,
+        val id: TemplateOrValue<String>? = null,
+        val baseUrl: TemplateOrValue<String>? = null,
+        val host: TemplateOrValue<String>? = null,
+        val port: TemplateOrValue<Int>? = null,
     )
 }
 
-data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
+data class OpenApiRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRunOptionSpecification {
     @JsonIgnore
     override fun getId(): String? {
         return spec.id
@@ -120,7 +120,7 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     }
 
     @JsonIgnore
-    override fun getConfig(): Map<String, Any> {
+    override fun getConfig(): Map<String, TemplateOrValue<Any>> {
         return emptyMap()
     }
 
@@ -142,11 +142,11 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     }
 
     data class Value(
-        val id: String? = null,
-        val baseUrl: String? = null,
-        val host: String? = null,
-        val port: Int? = null,
-        val overlayFilePath: String? = null,
-        val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
+        val id: TemplateOrValue<String>? = null,
+        val baseUrl: TemplateOrValue<String>? = null,
+        val host: TemplateOrValue<String>? = null,
+        val port: TemplateOrValue<Int>? = null,
+        val overlayFilePath: TemplateOrValue<String>? = null,
+        val securitySchemes: TemplateOrValue<Map<String, TemplateOrValue<SecuritySchemeConfigurationV3>>>? = null,
     )
 }

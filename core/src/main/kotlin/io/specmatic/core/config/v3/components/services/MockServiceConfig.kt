@@ -8,6 +8,7 @@ import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
@@ -23,8 +24,8 @@ import java.io.File
 import kotlin.collections.orEmpty
 import kotlin.collections.plus
 
-data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>? = null) {
-    data class Value(val service: RefOrValue<CommonServiceConfig<MockRunOptions, MockSettings>>)
+data class MockServiceConfig(val services: List<TemplateOrValue<Value>>, val data: TemplateOrValue<Data>? = null, val settings: TemplateOrValue<RefOrValue<MockSettings>>? = null) {
+    data class Value(val service: TemplateOrValue<RefOrValue<CommonServiceConfig<MockRunOptions, MockSettings>>>)
 
     @JsonIgnore
     fun getService(specFile: File, resolver: RefOrValueResolver): CommonServiceConfig<MockRunOptions, MockSettings>? {

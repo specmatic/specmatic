@@ -1,3 +1,5 @@
 package io.specmatic.core.config.v3.specmatic
 
-data class License(val path: String)
+import io.specmatic.core.config.v3.TemplateOrValue
+
+data class License(val path: TemplateOrValue<String>)

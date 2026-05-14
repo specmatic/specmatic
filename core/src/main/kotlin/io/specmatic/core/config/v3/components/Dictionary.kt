@@ -1,3 +1,5 @@
 package io.specmatic.core.config.v3.components
 
-class Dictionary(val path: String)
+import io.specmatic.core.config.v3.TemplateOrValue
+
+class Dictionary(val path: TemplateOrValue<String>)

@@ -6,8 +6,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.TemplateOrValue
 
-interface ConfigWithCert { val cert: RefOrValue<HttpsConfiguration>? }
+interface ConfigWithCert { val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(OpenApiTestConfig::class, name = "test"), JsonSubTypes.Type(OpenApiMockConfig::class, name = "mock"), JsonSubTypes.Type(OpenApiMockConfig::class, name = "stateful-mock"))
@@ -16,18 +17,18 @@ sealed interface OpenApiRunOptions : IRunOptions { val type: RunOptionType? }
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class OpenApiTestConfig(
     override val type: RunOptionType? = null,
-    val baseUrl: String? = null,
-    val host: String? = null,
-    val port: Int? = null,
-    val filter: String? = null,
-    val workflow: WorkflowConfiguration? = null,
-    val swaggerUiBaseUrl: String? = null,
-    val swaggerUrl: String? = null,
-    val actuatorUrl: String? = null,
-    override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<OpenApiRunOptionsSpecifications>? = null
+    val baseUrl: TemplateOrValue<String>? = null,
+    val host: TemplateOrValue<String>? = null,
+    val port: TemplateOrValue<Int>? = null,
+    val filter: TemplateOrValue<String>? = null,
+    val workflow: TemplateOrValue<WorkflowConfiguration>? = null,
+    val swaggerUiBaseUrl: TemplateOrValue<String>? = null,
+    val swaggerUrl: TemplateOrValue<String>? = null,
+    val actuatorUrl: TemplateOrValue<String>? = null,
+    override val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? = null,
+    override val specs: TemplateOrValue<List<TemplateOrValue<OpenApiRunOptionsSpecifications>>>? = null
 ) : OpenApiRunOptions, ConfigWithCert {
-    override val config: Map<String, Any> = emptyMap()
+    override val config: Map<String, TemplateOrValue<Any>> = emptyMap()
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
@@ -45,17 +46,17 @@ data class OpenApiTestConfig(
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class OpenApiMockConfig(
-    override val type: RunOptionType? = null,
-    val baseUrl: String? = null,
-    val host: String? = null,
-    val port: Int? = null,
-    val filter: String? = null,
-    val logMode: String? = null,
-    val logsDirPath: String? = null,
-    override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<OpenApiRunOptionsSpecifications>? = null
+    override val type: TemplateOrValue<RunOptionType>? = null,
+    val baseUrl: TemplateOrValue<String>? = null,
+    val host: TemplateOrValue<String>? = null,
+    val port: TemplateOrValue<Int>? = null,
+    val filter: TemplateOrValue<String>? = null,
+    val logMode: TemplateOrValue<String>? = null,
+    val logsDirPath: TemplateOrValue<String>? = null,
+    override val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? = null,
+    override val specs: TemplateOrValue<List<TemplateOrValue<OpenApiRunOptionsSpecifications>>>? = null
 ) : OpenApiRunOptions, ConfigWithCert {
-    override val config: Map<String, Any> = emptyMap()
+    override val config: Map<String, TemplateOrValue<Any>> = emptyMap()
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {

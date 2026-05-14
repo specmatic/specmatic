@@ -1,10 +1,11 @@
 package io.specmatic.core.config.v3.components.services
 
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.components.sources.SourceV3
 
-data class Definition(val definition: Value) {
-    data class Value(val source: RefOrValue<SourceV3>, val specs: List<SpecificationDefinition>)
+data class Definition(val definition: TemplateOrValue<Value>) {
+    data class Value(val source: TemplateOrValue<RefOrValue<SourceV3>>, val specs: TemplateOrValue<List<TemplateOrValue<SpecificationDefinition>>>)
 
     companion object {
         fun create(specificationDefinition: SpecificationDefinition): Definition {

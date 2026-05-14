@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import io.specmatic.core.config.v3.TemplateOrValue
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(ProtobufTestConfig::class, name = "test"), JsonSubTypes.Type(ProtobufMockConfig::class, name = "mock"))
@@ -20,8 +21,8 @@ sealed interface ProtobufRunOptions : IRunOptions {
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class ProtobufTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
-    private val _config: MutableMap<String, Any> = linkedMapOf()
+data class ProtobufTestConfig(override val specs: TemplateOrValue<List<TemplateOrValue<RunOptionsSpecifications>>>? = null) : ProtobufRunOptions {
+    private val _config: MutableMap<String, TemplateOrValue<Any>> = linkedMapOf()
 
     @JsonIgnore
     override val type: RunOptionType? = null
@@ -34,17 +35,17 @@ data class ProtobufTestConfig(override val specs: List<RunOptionsSpecifications>
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config.toMap()
+    override val config: Map<String, TemplateOrValue<Any>> get() = _config.toMap()
 
     @JsonAnySetter
-    fun put(key: String, value: Any) {
+    fun put(key: String, value: TemplateOrValue<Any>) {
         _config[key] = value
     }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class ProtobufMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : ProtobufRunOptions {
-    private val _config: MutableMap<String, Any> = linkedMapOf()
+data class ProtobufMockConfig(override val specs: TemplateOrValue<List<TemplateOrValue<RunOptionsSpecifications>>>? = null) : ProtobufRunOptions {
+    private val _config: MutableMap<String, TemplateOrValue<Any>> = linkedMapOf()
 
     @JsonIgnore
     override val type: RunOptionType? = null
@@ -57,10 +58,10 @@ data class ProtobufMockConfig(override val specs: List<RunOptionsSpecifications>
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config.toMap()
+    override val config: Map<String, TemplateOrValue<Any>> get() = _config.toMap()
 
     @JsonAnySetter
-    fun put(key: String, value: Any) {
+    fun put(key: String, value: TemplateOrValue<Any>) {
         _config[key] = value
     }
 }

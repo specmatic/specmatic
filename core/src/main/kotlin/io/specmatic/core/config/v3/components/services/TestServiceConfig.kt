@@ -9,6 +9,7 @@ import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
@@ -21,7 +22,7 @@ import io.specmatic.core.config.v3.resolveElseThrow
 import io.specmatic.reporter.model.SpecType
 import java.io.File
 
-data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
+data class TestServiceConfig(val service: TemplateOrValue<RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>>) {
     @JsonIgnore
     fun getSpecDefinitionFor(specFile: File, resolver: RefOrValueResolver): SpecificationDefinition? {
         val serviceConfig = service.resolveElseThrow(resolver)

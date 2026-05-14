@@ -33,19 +33,19 @@ sealed interface Settings {
 }
 
 @JsonDeserialize
-data class ContextDependentSettings(@get:JsonAnyGetter val rawValue: Map<String, Any?>) : Settings {
+data class ContextDependentSettings(@get:JsonAnyGetter val rawValue: TemplateOrValue<Map<String, TemplateOrValue<Any>>> ) : Settings {
     companion object {
         @JvmStatic
         @JsonCreator
-        fun create(@JsonAnySetter raw: Map<String, Any?>): ContextDependentSettings = ContextDependentSettings(raw)
+        fun create(@JsonAnySetter raw: Map<String, TemplateOrValue<Any>>): ContextDependentSettings = ContextDependentSettings(TemplateOrValue.Value(raw))
     }
 }
 
 @JsonDeserialize
 data class ConcreteSettings(
-    val general: GeneralSettings? = null,
-    val test: TestSettings? = null,
-    val mock: MockSettings? = null,
-    val proxy: ProxySettings? = null,
-    val backwardCompatibility: BackwardCompatibilityConfig? = null,
+    val general: TemplateOrValue<GeneralSettings>? = null,
+    val test: TemplateOrValue<TestSettings>? = null,
+    val mock: TemplateOrValue<MockSettings>? = null,
+    val proxy: TemplateOrValue<ProxySettings>? = null,
+    val backwardCompatibility: TemplateOrValue<BackwardCompatibilityConfig>? = null,
 ): Settings

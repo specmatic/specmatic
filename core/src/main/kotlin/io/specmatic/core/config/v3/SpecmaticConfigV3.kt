@@ -14,12 +14,12 @@ import java.io.File
 
 data class SpecmaticConfigV3(
     val version: SpecmaticConfigVersion,
-    val systemUnderTest: TestServiceConfig? = null,
-    val dependencies: MockServiceConfig? = null,
-    val proxies: List<Proxy>? = null,
-    val mcp: McpConfiguration? = null,
-    val specmatic: Specmatic? = null,
-    val components: Components? = null,
+    val systemUnderTest: TemplateOrValue<TestServiceConfig>? = null,
+    val dependencies: TemplateOrValue<MockServiceConfig>? = null,
+    val proxies: TemplateOrValue<List<TemplateOrValue<Proxy>>>? = null,
+    val mcp: TemplateOrValue<McpConfiguration>? = null,
+    val specmatic: TemplateOrValue<Specmatic>? = null,
+    val components: TemplateOrValue<Components>? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(file: File?): SpecmaticConfig {
         return SpecmaticConfigV3Impl(file, this)

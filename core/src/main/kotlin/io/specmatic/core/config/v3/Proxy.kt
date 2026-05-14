@@ -2,27 +2,29 @@ package io.specmatic.core.config.v3
 
 import io.specmatic.core.ProxyConfig
 import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolveElseThrow
 import io.specmatic.core.config.v3.components.Adapter
+import io.specmatic.core.config.wrap
 
-data class Proxy(val proxy: ProxyConfigV3)
+data class Proxy(val proxy: TemplateOrValue<ProxyConfigV3>)
 data class ProxyConfigV3(
-    val target: String,
-    val baseUrl: String? = null,
-    val timeoutInMilliseconds: Long? = null,
-    val adapters: RefOrValue<Adapter>? = null,
-    val mock: List<String>? = null,
-    val cert: RefOrValue<HttpsConfiguration>? = null,
-    val recordingsDirectory: String? = null,
+    val target: TemplateOrValue<String>,
+    val baseUrl: TemplateOrValue<String>? = null,
+    val timeoutInMilliseconds: TemplateOrValue<Long>? = null,
+    val adapters: TemplateOrValue<RefOrValue<Adapter>>? = null,
+    val mock: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+    val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? = null,
+    val recordingsDirectory: TemplateOrValue<String>? = null,
 ) {
     fun toCommonConfig(resolver: RefOrValueResolver): ProxyConfig {
         return ProxyConfig(
-            targetUrl = target,
-            baseUrl = baseUrl,
-            timeoutInMilliseconds = timeoutInMilliseconds,
-            adapters = adapters?.resolveElseThrow(resolver),
             consumes = mock,
-            https = cert?.resolveElseThrow(resolver),
-            outputDirectory = recordingsDirectory
+            baseUrl = baseUrl,
+            targetUrl = target,
+            outputDirectory = recordingsDirectory,
+            timeoutInMilliseconds = timeoutInMilliseconds,
+            https = cert?.resolveElseThrow(resolver)?.let(::wrap),
+            adapters = adapters?.resolveElseThrow(resolver)?.let(::wrap),
         )
     }
 }

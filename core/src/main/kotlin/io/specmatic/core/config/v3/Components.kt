@@ -10,12 +10,12 @@ import io.specmatic.core.config.v3.components.runOptions.RunOptions
 import io.specmatic.core.config.v3.components.sources.SourceV3
 
 data class Components(
-    val sources: Map<String, SourceV3>? = null,
-    val services: Map<String, CommonServiceConfig<ContextDependentRunOptions, ContextDependentSettings>>? = null,
-    val runOptions: Map<String, RunOptions>? = null,
-    val examples: Examples? = null,
-    val dictionaries: Map<String, Dictionary>? = null,
-    val adapters: Map<String, Adapter>? = null,
-    val certificates: Map<String, HttpsConfiguration>? = null,
-    val settings: Map<String, Settings>? = null,
+    val sources: Map<String, TemplateOrValue<SourceV3>>? = null,
+    val services: Map<String, TemplateOrValue<CommonServiceConfig<ContextDependentRunOptions, ContextDependentSettings>>>? = null,
+    val runOptions: Map<String, TemplateOrValue<RunOptions>>? = null,
+    val examples: TemplateOrValue<Examples>? = null,
+    val dictionaries: Map<String, TemplateOrValue<Dictionary>>? = null,
+    val adapters: Map<String, TemplateOrValue<Adapter>>? = null,
+    val certificates: Map<String, TemplateOrValue<HttpsConfiguration>>? = null,
+    val settings: Map<String, TemplateOrValue<Settings>>? = null,
 )

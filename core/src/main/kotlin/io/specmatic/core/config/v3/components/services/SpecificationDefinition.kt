@@ -10,26 +10,27 @@ import com.fasterxml.jackson.annotation.JsonValue
 import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SpecificationSourceEntry
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.utilities.Flags
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION, defaultImpl = SpecificationDefinition.StringValue::class)
 sealed interface SpecificationDefinition {
-    data class Specification(val id: String? = null, val path: String, val urlPathPrefix: String? = null) {
-        private val _config: MutableMap<String, Any?> = linkedMapOf()
+    data class Specification(val id: TemplateOrValue<String>? = null, val path: TemplateOrValue<String>, val urlPathPrefix: TemplateOrValue<String>? = null) {
+        private val _config: MutableMap<String, TemplateOrValue<Any>> = linkedMapOf()
 
         @get:JsonAnyGetter
-        val config: Map<String, Any?> get() = _config.toMap()
+        val config: Map<String, TemplateOrValue<Any>> get() = _config.toMap()
 
         @JsonAnySetter
-        fun put(key: String, value: Any?) {
+        fun put(key: String, value: TemplateOrValue<Any>) {
             _config[key] = value
         }
     }
 
     @JsonFormat(shape = JsonFormat.Shape.OBJECT)
-    data class ObjectValue(val spec: Specification): SpecificationDefinition {
+    data class ObjectValue(val spec: TemplateOrValue<Specification>): SpecificationDefinition {
         override fun toSpecificationSource(
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
@@ -52,7 +53,7 @@ sealed interface SpecificationDefinition {
     }
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
-    data class StringValue(val specification: String) : SpecificationDefinition {
+    data class StringValue(val specification: TemplateOrValue<String>) : SpecificationDefinition {
         @Suppress("unused")
         @JsonValue
         fun asValue() = specification

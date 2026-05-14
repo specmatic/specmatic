@@ -4,7 +4,7 @@ import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.License
 
 data class Specmatic(
-    val license: License? = null,
-    val governance: Governance? = null,
-    val settings: RefOrValue<ConcreteSettings>? = null
+    val license: TemplateOrValue<License>? = null,
+    val governance: TemplateOrValue<Governance>? = null,
+    val settings: TemplateOrValue<RefOrValue<ConcreteSettings>>? = null
 )

@@ -5,9 +5,9 @@ import io.specmatic.core.config.v3.components.Dictionary
 import io.specmatic.core.config.v3.components.ExampleDirectories
 
 data class Data(
-    val examples: RefOrValue<List<RefOrValue<ExampleDirectories>>>? = null,
-    val dictionary: RefOrValue<Dictionary>? = null,
-    val adapters: RefOrValue<Adapter>? = null,
+    val examples: TemplateOrValue<RefOrValue<List<TemplateOrValue<RefOrValue<ExampleDirectories>>>>>? = null,
+    val dictionary: TemplateOrValue<RefOrValue<Dictionary>>? = null,
+    val adapters: TemplateOrValue<RefOrValue<Adapter>>? = null,
 ) {
     fun toExampleDirs(resolver: RefOrValueResolver): List<String> {
         if (examples == null) return emptyList()

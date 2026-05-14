@@ -8,6 +8,7 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.applyIf
@@ -15,7 +16,7 @@ import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.stub.extractPort
 import java.io.File
 
-data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, private val web: Web?) {
+data class SourceV3(private val git: TemplateOrValue<Git>?, private val fileSystem: TemplateOrValue<FileSystem>?, private val web: TemplateOrValue<Web>?) {
     init {
         val configuredSources = listOfNotNull(git, fileSystem, web)
         if (configuredSources.isEmpty()) throw IllegalStateException("Must specify exactly one of 'git', 'filesystem', or 'web'")
@@ -77,7 +78,7 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
         return this.copy(git = this.git.copy(matchBranch = matchBranch))
     }
 
-    data class Git(val url: String? = null, val branch: String? = null, val matchBranch: Boolean? = null, val auth: GitAuthentication? = null) {
+    data class Git(val url: TemplateOrValue<String>? = null, val branch: TemplateOrValue<String>? = null, val matchBranch: TemplateOrValue<Boolean>? = null, val auth: TemplateOrValue<GitAuthentication>? = null) {
         fun resolveSpecification(specification: File): File {
             val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")
             val specmaticFolder = workingDirectory.resolve(WorkingDirectory(DEFAULT_WORKING_DIRECTORY).path)
@@ -90,7 +91,7 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
         }
     }
 
-    data class FileSystem(val directory: String? = null) {
+    data class FileSystem(val directory: TemplateOrValue<String>? = null) {
         fun resolveSpecification(specification: File): File {
             val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")
             val specDirectory = workingDirectory.applyIf(directory) { resolve(it) }
@@ -98,7 +99,7 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
         }
     }
 
-    data class Web(val url: String? = null) {
+    data class Web(val url: TemplateOrValue<String>? = null) {
         fun resolveSpecification(specification: File): File {
             val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")
             return ResolvedWebSource.localPathFor(

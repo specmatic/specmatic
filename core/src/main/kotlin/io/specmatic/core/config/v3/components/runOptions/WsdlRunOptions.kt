@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.*
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.TemplateOrValue
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"))
@@ -10,13 +11,13 @@ sealed interface WsdlRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlTestConfig(
-    val baseUrl: String? = null,
-    val host: String? = null,
-    val port: Int? = null,
-    override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<WsdlRunOptionsSpecifications>? = null
+    val baseUrl: TemplateOrValue<String>? = null,
+    val host: TemplateOrValue<String>? = null,
+    val port: TemplateOrValue<Int>? = null,
+    override val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? = null,
+    override val specs: TemplateOrValue<List<TemplateOrValue<WsdlRunOptionsSpecifications>>>? = null
 ) : WsdlRunOptions, ConfigWithCert {
-    private val _config: MutableMap<String, Any> = linkedMapOf()
+    private val _config: MutableMap<String, TemplateOrValue<Any>> = linkedMapOf()
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
@@ -36,23 +37,23 @@ data class WsdlTestConfig(
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config.toMap()
+    override val config: Map<String, TemplateOrValue<Any>> get() = _config.toMap()
 
     @JsonAnySetter
-    fun put(key: String, value: Any) {
+    fun put(key: String, value: TemplateOrValue<Any>) {
         _config[key] = value
     }
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlMockConfig(
-    val baseUrl: String? = null,
-    val host: String? = null,
-    val port: Int? = null,
-    override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<WsdlRunOptionsSpecifications>? = null
+    val baseUrl: TemplateOrValue<String>? = null,
+    val host: TemplateOrValue<String>? = null,
+    val port: TemplateOrValue<Int>? = null,
+    override val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? = null,
+    override val specs: TemplateOrValue<List<TemplateOrValue<WsdlRunOptionsSpecifications>>>? = null
 ) : WsdlRunOptions, ConfigWithCert {
-    private val _config: MutableMap<String, Any> = linkedMapOf()
+    private val _config: MutableMap<String, TemplateOrValue<Any>> = linkedMapOf()
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
@@ -73,10 +74,10 @@ data class WsdlMockConfig(
     }
 
     @get:JsonAnyGetter
-    override val config: Map<String, Any> get() = _config.toMap()
+    override val config: Map<String, TemplateOrValue<Any>> get() = _config.toMap()
 
     @JsonAnySetter
-    fun put(key: String, value: Any) {
+    fun put(key: String, value: TemplateOrValue<Any>) {
         _config[key] = value
     }
 }
