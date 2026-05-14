@@ -10,6 +10,16 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+        maven {
+            name = "sonatypeCentralSnapshots"
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+            mavenContent {
+                snapshotsOnly()
+            }
+            content {
+                includeGroup("io.specmatic.build-reporter")
+            }
+        }
     }
 }
 
