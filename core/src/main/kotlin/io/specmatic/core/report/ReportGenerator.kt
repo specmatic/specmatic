@@ -6,6 +6,7 @@ import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
 import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
@@ -61,8 +62,8 @@ object ReportGenerator {
         specConfigs: List<CtrfSpecConfig>,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
         coverageReportOperations: List<BaseBccReportOperation>,
-    ) {
-        if (isCtrfSpecConfigsValid(specConfigs).not()) return
+    ): CtrfReport? {
+        if (isCtrfSpecConfigsValid(specConfigs).not()) return null
         val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()
         val extra = buildMap<String, Any> {
             put("specmaticConfigPath", getConfigFilePath())
@@ -81,6 +82,7 @@ object ReportGenerator {
 
         ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+        return report
     }
 
     internal fun specmaticConfigAsMap(): Map<String, Any> {

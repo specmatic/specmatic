@@ -7,17 +7,23 @@ import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
+import io.specmatic.reporter.ctrf.model.CtrfReport
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
 private const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
+    return testBackwardCompatibilityWithReport(older, newer).first
+}
+
+internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature): Pair<Results, CtrfReport?> {
     val startTime = System.currentTimeMillis()
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
     val endTime = System.currentTimeMillis()
 
-    generateBackwardCompatibilityReport(records, startTime, endTime)
-    return records.toBackwardCompatibilityResults()
+    val result = records.toBackwardCompatibilityResults()
+    val report = generateBackwardCompatibilityReport(records, startTime, endTime)
+    return Pair(result, report)
 }
 
 fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityResults(): Results {
@@ -28,11 +34,11 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityResults(): Resu
         }
 }
 
-private fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long) {
-    if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return
+private fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+    if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
-    ReportGenerator.generateReportBcc(
+    return ReportGenerator.generateReportBcc(
         endTime = endTime,
         startTime = startTime,
         reportDir = reportDir,

@@ -1,11 +1,12 @@
 package io.specmatic.core
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.JsonNode
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
+import io.specmatic.reporter.api.client.OBJECT_MAPPER
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
@@ -4666,29 +4667,33 @@ paths:
         val reportDir = tempDir.resolve("reports/backward_compatibility").canonicalFile
 
         using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
-            val result = testBackwardCompatibility(olderContract, newerContract)
+            val (result, report) = testBackwardCompatibilityWithReport(olderContract, newerContract)
+            assertThat(report).withFailMessage("Expected CTRF Report to be generated").isNotNull
             assertThat(result.success()).isFalse
 
-            val jsonReport = reportDir.resolve("ctrf/ctrf-report.json")
-            val htmlReport = reportDir.resolve("html/index.html")
-            val reportJson = ObjectMapper().readTree(jsonReport)
+            val htmlReport = reportDir.resolve("html/index.html").canonicalFile
+            assertThat(htmlReport)
+                .withFailMessage { "Expected HTML Report ${htmlReport.canonicalPath} to exist" }
+                .exists()
+
+            val reportJson = OBJECT_MAPPER.valueToTree<JsonNode>(report)
             val summary = reportJson.path("results").path("summary")
             val executionDetails = summary.path("extra").path("executionDetails")
             val operations = executionDetails.first().path("operations")
 
-            assertThat(jsonReport).exists()
-            assertThat(htmlReport).exists()
-
             assertThat(htmlReport.readText()).contains("BackwardCompatibility")
-            assertThat(executionDetails.toString()).contains(newerSpec.canonicalPath)
+            assertThat(executionDetails.toList()).allSatisfy {
+                assertThat(it.path("specification").asText().replace('\\', '/'))
+                    .isEqualTo(newerSpec.canonicalPath.replace('\\', '/'))
+            }
 
+            assertThat(operations.size()).isEqualTo(2)
             assertThat(summary.path("tests").asInt()).isEqualTo(5)
             assertThat(summary.path("failed").asInt()).isEqualTo(1)
             assertThat(reportJson.path("results").path("tests").size()).isEqualTo(5)
             assertThat(reportJson.path("results").path("extra").path("reportType").asText()).isEqualTo("BackwardCompatibility")
-            assertThat(reportJson.path("results").path("extra").path("specmaticConfigPath").asText()).isEqualTo(configFile.canonicalPath)
-
-            assertThat(operations.size()).isEqualTo(2)
+            assertThat(reportJson.path("results").path("extra").path("specmaticConfigPath").asText().replace('\\', '/'))
+                .isEqualTo(configFile.canonicalPath.replace('\\', '/'))
 
             val postOperation = operations.first { it.path("method").asText() == "POST" }
             assertThat(postOperation.path("path").asText()).isEqualTo("/orders")
