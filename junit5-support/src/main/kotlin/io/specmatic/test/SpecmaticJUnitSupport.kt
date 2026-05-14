@@ -214,6 +214,8 @@ open class SpecmaticJUnitSupport {
             startTime = start,
             reportDir = File("$reportDirPath/test"),
             coverageReportOperations = coverageReport.coverageOperations,
+            projectId = specmaticConfig.getProjectId(),
+            projectName = specmaticConfig.getProjectName(),
             coverage = coverageReport.totalCoveragePercentage,
             actuatorEnabled = coverageReport.actuatorEnabled,
             absoluteCoverage = coverageReport.absoluteCoveragePercentage,

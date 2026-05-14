@@ -667,6 +667,14 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return null
     }
 
+    override fun getProjectId(): String? {
+        return specmaticConfig.projectId
+    }
+
+    override fun getProjectName(): String? {
+        return specmaticConfig.projectName
+    }
+
     override fun getOpenAPISecurityConfigurationScheme(specFile: File, scheme: String): SecuritySchemeConfiguration? {
         val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return null
         val testRunOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, SpecType.OPENAPI) ?: return null

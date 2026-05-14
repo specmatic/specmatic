@@ -16,6 +16,8 @@ object ReportGenerator {
         startTime: Long,
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
+        projectId: String? = null,
+        projectName: String? = null,
         coverage: Int? = null,
         actuatorEnabled: Boolean? = null,
         absoluteCoverage: Int? = null,
@@ -28,12 +30,11 @@ object ReportGenerator {
             .flatMap { it.tests }
             .distinctBy { it.id }
 
-        val extra = buildMap<String, Any> {
-            coverage?.let { put("apiCoverage", "$coverage%") }
-            actuatorEnabled?.let { put("actuatorEnabled", it) }
-            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
-            put("specmaticConfigPath", getConfigFilePath())
-        }
+        val extra = ctrfExtra(
+            coverage = coverage,
+            actuatorEnabled = actuatorEnabled,
+            absoluteCoverage = absoluteCoverage,
+        )
 
         consoleLog(
             "Generating report for ${testResultRecords.size} tests and ${coverageReportOperations.size} coverage operations..."
@@ -46,7 +47,9 @@ object ReportGenerator {
             endTime = endTime,
             extra = extra,
             specConfig = specConfigs,
-            toolName = toolName
+            toolName = toolName,
+            projectId = projectId,
+            projectName = projectName,
         )
 
         ReportProvider.generateCtrfReport(report, reportDir)
@@ -58,6 +61,19 @@ object ReportGenerator {
             File(getConfigFilePath()).toResolvedSpecmaticConfigMap()
         } catch(_: Throwable) {
             emptyMap()
+        }
+    }
+
+    internal fun ctrfExtra(
+        coverage: Int? = null,
+        actuatorEnabled: Boolean? = null,
+        absoluteCoverage: Int? = null,
+    ): Map<String, Any> {
+        return buildMap {
+            coverage?.let { put("apiCoverage", "$coverage%") }
+            actuatorEnabled?.let { put("actuatorEnabled", it) }
+            absoluteCoverage?.let { put("absoluteCoverage", "$absoluteCoverage%") }
+            put("specmaticConfigPath", getConfigFilePath())
         }
     }
 

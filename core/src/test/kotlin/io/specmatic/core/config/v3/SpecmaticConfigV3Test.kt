@@ -53,6 +53,20 @@ class SpecmaticConfigV3Test {
     }
 
     @Test
+    fun `should deserialize project metadata in v3`() {
+        val yaml = """
+            version: 3
+            projectId: project-123
+            projectName: Payments
+        """.trimIndent()
+
+        val config = loadConfig(yaml, dereference = false).transform(null)
+
+        assertThat(config.getProjectId()).isEqualTo("project-123")
+        assertThat(config.getProjectName()).isEqualTo("Payments")
+    }
+
+    @Test
     fun `should be able to load specmatic config v3 with all of the fields specified`() {
         // TODO: Ensure it contains all the possible fields
         val configFile = File("src/test/resources/specmaticConfigFiles/v3/refed_out.yaml")

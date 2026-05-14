@@ -112,6 +112,26 @@ class VersionAwareConfigParserTest {
     }
 
     @Test
+    fun `version 2 config should parse project metadata`() {
+        val configFile =
+            tempDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    projectId: project-123
+                    projectName: Payments
+                    contracts: []
+                    """.trimIndent()
+                )
+            }
+
+        val config: SpecmaticConfig = configFile.toSpecmaticConfig()
+
+        assertThat(config.getProjectId()).isEqualTo("project-123")
+        assertThat(config.getProjectName()).isEqualTo("Payments")
+    }
+
+    @Test
     fun `interpolation works in the middle of the specified value`() {
         val configFile =
             tempDir.resolve("specmatic.yaml").apply {

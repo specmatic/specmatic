@@ -79,6 +79,35 @@ class ReportGeneratorTest {
         assertThat(configAsMap).isEmpty()
     }
 
+    @Test
+    fun `ctrfExtra includes report metadata`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 3") }
+
+        val extra = using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            ReportGenerator.ctrfExtra(
+                coverage = 91,
+                actuatorEnabled = true,
+                absoluteCoverage = 87
+            )
+        }
+
+        assertThat(extra["apiCoverage"]).isEqualTo("91%")
+        assertThat(extra["absoluteCoverage"]).isEqualTo("87%")
+        assertThat(extra["actuatorEnabled"]).isEqualTo(true)
+        assertThat(extra["specmaticConfigPath"]).isEqualTo(configFile.canonicalPath)
+    }
+
+    @Test
+    fun `ctrfExtra omits absent report metadata except config path`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 3") }
+
+        val extra = using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            ReportGenerator.ctrfExtra()
+        }
+
+        assertThat(extra).containsOnlyKeys("specmaticConfigPath")
+    }
+
     companion object {
         @JvmStatic
         fun templateConfigs(): Stream<Arguments> {
