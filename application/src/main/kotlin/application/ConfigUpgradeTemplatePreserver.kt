@@ -71,7 +71,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         }
 
         private fun targetFieldNamesFor(path: List<String>, sourceFieldName: String): Set<String> {
-            if (path == listOf("test", "resiliencyTests", "enable")) return setOf("schemaResiliencyTests")
+            if (path.endsWith("resiliencyTests", "enable")) return setOf("schemaResiliencyTests")
 
             return when (sourceFieldName) {
                 "swaggerUIBaseURL" -> setOf("swaggerUiBaseUrl")
@@ -90,6 +90,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                 "bearer-file" -> setOf("bearerFile")
                 "bearer-environment-variable" -> setOf("bearerEnvironmentVariable")
                 "personal-access-token" -> setOf("personalAccessToken")
+                "value" -> if (path.firstOrNull() == "security") setOf("token") else setOf(sourceFieldName)
                 else -> setOf(sourceFieldName)
             }
         }
@@ -99,7 +100,9 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
             return when {
                 root == "test" && sourceFieldName in testSettingsFields ->
                     setOf(TargetContainer.TEST_SETTINGS)
-                root == "test" && path == listOf("test", "resiliencyTests", "enable") ->
+                root == "test" && path.endsWith("resiliencyTests", "enable") ->
+                    setOf(TargetContainer.TEST_SETTINGS)
+                root == "contracts" && "provides" in path && path.endsWith("resiliencyTests", "enable") ->
                     setOf(TargetContainer.TEST_SETTINGS)
                 root == "test" ->
                     setOf(TargetContainer.TEST_RUN_OPTIONS)
@@ -135,6 +138,14 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     setOf(TargetContainer.GENERAL_FEATURE_FLAGS)
                 root in generalSettingsFields ->
                     setOf(TargetContainer.GENERAL_SETTINGS)
+                root == "contracts" && "provides" in path ->
+                    setOf(TargetContainer.TEST_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
+                root == "contracts" && "consumes" in path ->
+                    setOf(TargetContainer.MOCK_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
+                root == "default_pattern_values" ->
+                    setOf(TargetContainer.DATA_DICTIONARY)
+                root == "virtual_service" || root == "virtualService" ->
+                    setOf(TargetContainer.MOCK_RUN_OPTIONS)
                 else ->
                     null
             }
@@ -173,13 +184,15 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         private fun applyToObject(objectNode: ObjectNode, path: List<String>) {
             objectNode.properties().asSequence().toList().forEach { entry ->
                 val childPath = path + entry.key
-                val fieldReplacement = templates.fieldTemplates.firstOrNull { template ->
-                    template.matches(entry.key, entry.value, path)
-                }
+                val rawFieldReplacement = templates.fieldTemplates.asSequence()
+                    .filter { template -> template.matches(entry.key, entry.value, path) }
+                    .map(FieldTemplate::rawText)
+                    .distinct()
+                    .singleOrNull()
 
                 when {
-                    fieldReplacement != null ->
-                        objectNode.put(entry.key, fieldReplacement.rawText)
+                    rawFieldReplacement != null ->
+                        objectNode.put(entry.key, rawFieldReplacement)
 
                     entry.key in arrayValueTargetFieldNames && entry.value.isScalarValue() ->
                         templates.valueTemplates.firstOrNull { template ->
@@ -253,6 +266,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         SECURITY,
         AUTH,
         BACKWARD_COMPATIBILITY,
+        RUN_OPTIONS,
     }
 
     private companion object {
@@ -288,11 +302,11 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
 
         fun targetContainerFor(path: List<String>): TargetContainer? {
             return when {
-                path.endsWith("specmatic", "settings", "test") ->
+                path.lastOrNull() == "test" && "settings" in path ->
                     TargetContainer.TEST_SETTINGS
-                path.endsWith("specmatic", "settings", "mock") || path.endsWith("dependencies", "settings") ->
+                (path.lastOrNull() == "mock" && "settings" in path) || path.endsWith("dependencies", "settings") ->
                     TargetContainer.MOCK_SETTINGS
-                path.endsWith("specmatic", "settings", "general") ->
+                path.lastOrNull() == "general" && "settings" in path ->
                     TargetContainer.GENERAL_SETTINGS
                 path.any { it == "logging" } ->
                     TargetContainer.GENERAL_SETTINGS
@@ -322,6 +336,8 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     TargetContainer.TEST_RUN_OPTIONS
                 "dependencies" in path && "runOptions" in path ->
                     TargetContainer.MOCK_RUN_OPTIONS
+                path.firstOrNull() == "components" && "runOptions" in path ->
+                    TargetContainer.RUN_OPTIONS
                 else -> null
             }
         }

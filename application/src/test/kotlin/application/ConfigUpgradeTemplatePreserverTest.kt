@@ -160,6 +160,103 @@ class ConfigUpgradeTemplatePreserverTest {
     }
 
     @Test
+    fun `preserves scalar templates inside contract execution array objects`() {
+        val providerBaseUrl = "\${BASE_URL:http://localhost:8080}"
+        val dependencyBaseUrl = "\${DEPENDENCY_BASE_URL:http://localhost:7070}"
+
+        val upgraded = preserveTemplates(
+            originalConfigYaml =
+            """
+            version: 2
+            contracts:
+              - provides:
+                  - specs:
+                      - spec1.yaml
+                    specType: openapi
+                    config:
+                      baseUrl: $providerBaseUrl
+                  - specs:
+                      - spec2.yaml
+                    specType: openapi
+                    config:
+                      baseUrl: http://localhost:9090
+                consumes:
+                  - specs:
+                      - dependency.yaml
+                    specType: openapi
+                    config:
+                      baseUrl: $dependencyBaseUrl
+            """.trimIndent(),
+            upgradedConfigYaml =
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                runOptions:
+                  openapi:
+                    specs:
+                      - spec:
+                          baseUrl: http://localhost:8080
+                      - spec:
+                          baseUrl: http://localhost:9090
+            dependencies:
+              services:
+                - service:
+                    runOptions:
+                      openapi:
+                        specs:
+                          - spec:
+                              baseUrl: http://localhost:7070
+            components:
+              runOptions:
+                provider:
+                  openapi:
+                    specs:
+                      - spec:
+                          baseUrl: http://localhost:8080
+            """.trimIndent(),
+        )
+
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/0/spec/baseUrl").asText())
+            .isEqualTo(providerBaseUrl)
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/1/spec/baseUrl").asText())
+            .isEqualTo("http://localhost:9090")
+        assertThat(upgraded.at("/dependencies/services/0/service/runOptions/openapi/specs/0/spec/baseUrl").asText())
+            .isEqualTo(dependencyBaseUrl)
+        assertThat(upgraded.at("/components/runOptions/provider/openapi/specs/0/spec/baseUrl").asText())
+            .isEqualTo(providerBaseUrl)
+    }
+
+    @Test
+    fun `preserves resiliency test template when the field is renamed and moved`() {
+        val resiliencyTests = "\${RESILIENCY_TESTS:all}"
+
+        val upgraded = preserveTemplates(
+            originalConfigYaml =
+            """
+            version: 2
+            contracts:
+              - provides:
+                  - specs:
+                      - spec1.yaml
+                    resiliencyTests:
+                      enable: $resiliencyTests
+            """.trimIndent(),
+            upgradedConfigYaml =
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                settings:
+                  test:
+                    schemaResiliencyTests: all
+            """.trimIndent(),
+        )
+
+        assertThat(upgraded.allTextValues()).contains(resiliencyTests)
+    }
+
+    @Test
     fun `does not preserve template expressions that resolve to structured values`() {
         val stubConfig = """${'$'}{STUB_CONFIG:{"delayInMilliseconds":250}}"""
         val examples = """${'$'}{EXAMPLE_DIRS:["examples/a","examples/b"]}"""
