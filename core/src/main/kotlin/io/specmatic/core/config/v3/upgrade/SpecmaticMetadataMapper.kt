@@ -7,6 +7,7 @@ import io.specmatic.core.config.OpenAPITestConfig as LegacyOpenAPITestConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConcreteSettings
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.Specmatic
 import io.specmatic.core.config.v3.components.settings.FeatureFlags
 import io.specmatic.core.config.v3.components.settings.GeneralSettings
@@ -31,7 +32,7 @@ class SpecmaticMetadataMapper {
         val reportDir = SpecmaticConfigV1V2Common.getReportDirPathOrNull(legacyConfig)
         return Governance(
             report = Report(outputDirectory = reportDir?.toUnixPath()),
-            successCriterion = view.report?.types?.apiCoverage?.openAPI?.resolvedSuccessCriteria?.let(SuccessCriterion.Companion::from),
+            successCriterion = view.report?.types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedSuccessCriteria?.let(SuccessCriterion.Companion::from),
         )
     }
 

@@ -1763,7 +1763,7 @@ data class ReportConfigurationDetails(
         if(currentVersion.isLessThanOrEqualTo(VERSION_1))
             return this
 
-        if (types?.apiCoverage?.openAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
+        if (types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
             throw UnsupportedOperationException(excludedEndpointsWarning)
         }
         return this
@@ -1772,35 +1772,39 @@ data class ReportConfigurationDetails(
     fun clearPresenceOfExcludedEndpoints(): ReportConfigurationDetails {
         return this.copy(
             types = types?.copy(
-                apiCoverage = types.apiCoverage?.copy(
-                    openAPI = types.apiCoverage.openAPI?.copy(
+                apiCoverage = types.apiCoverage?.resolveOrNull()?.copy(
+                    openAPI = types.apiCoverage.resolveOrNull()?.resolvedOpenAPI?.copy(
                         excludedEndpoints = emptyList<String>().wrapFullyOrNull()
-                    )
-                )
+                    )?.wrapOrNull()
+                )?.wrapOrNull()
             )
         )
     }
 
     @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
-        return types?.apiCoverage?.openAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
+        return types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
     }
 
     @JsonIgnore
     override fun excludedOpenAPIEndpoints(): List<String> {
-        return types?.apiCoverage?.openAPI?.resolvedExcludedEndpoints ?: emptyList()
+        return types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedExcludedEndpoints ?: emptyList()
     }
 }
 
 data class ReportTypes(
     @param:JsonProperty("APICoverage")
-    val apiCoverage: APICoverage? = null
+    val apiCoverage: TemplateOrValue<APICoverage>? = null
 )
 
 data class APICoverage(
     @param:JsonProperty("OpenAPI")
-    val openAPI: APICoverageConfiguration? = null
-)
+    val openAPI: TemplateOrValue<APICoverageConfiguration>? = null
+) {
+    @get:JsonIgnore
+    val resolvedOpenAPI: APICoverageConfiguration?
+        get() = openAPI.resolveOrNull()
+}
 
 data class APICoverageConfiguration(
     val successCriteria: TemplateOrValue<SuccessCriteria>? = null,
