@@ -125,6 +125,10 @@ class SpecmaticConfigV3UpgradeTest {
                     """.trimIndent()),
                     after = InputSource.RawInput("""
                     version: 3
+                    specmatic:
+                      settings:
+                        test:
+                          schemaResiliencyTests: all
                     systemUnderTest:
                       service:
                         definitions:
@@ -142,8 +146,6 @@ class SpecmaticConfigV3UpgradeTest {
                               - spec:
                                   id: resilient
                                   baseUrl: http://resilient.example
-                        settings:
-                          schemaResiliencyTests: all
                     """.trimIndent())
                 ),
                 UpgradeTestCase(
@@ -164,6 +166,10 @@ class SpecmaticConfigV3UpgradeTest {
                     """.trimIndent()),
                     after = InputSource.RawInput("""
                     version: 3
+                    specmatic:
+                      settings:
+                        test:
+                          schemaResiliencyTests: all
                     systemUnderTest:
                       service:
                         definitions:
@@ -181,8 +187,6 @@ class SpecmaticConfigV3UpgradeTest {
                               - spec:
                                   id: resilient-config
                                   baseUrl: http://resilient.example
-                        settings:
-                          schemaResiliencyTests: all
                     """.trimIndent())
                 )
             )
@@ -487,8 +491,10 @@ class SpecmaticConfigV3UpgradeTest {
                                       id: hello
                                       host: mock.internal
                                       port: 9000
+                    specmatic:
                       settings:
-                        hotReload: false
+                        mock:
+                          hotReload: false
                     """.trimIndent())
                 ),
             )
@@ -537,9 +543,10 @@ class SpecmaticConfigV3UpgradeTest {
                     specmatic:
                       license:
                         path: ./license-v2.txt
+                      governance:
+                        report:
+                          outputDirectory: ./reports/v2
                       settings:
-                        test:
-                          junitReportDir: ./reports/v2
                         general:
                           featureFlags:
                             escapeSoapAction: true
@@ -563,11 +570,12 @@ class SpecmaticConfigV3UpgradeTest {
                     after = InputSource.RawInput("""
                     version: 3
                     specmatic:
+                      governance:
+                        report:
+                          outputDirectory: "./reports/camel"
                       license:
                         path: ./license-camel.txt
                       settings:
-                        test:
-                          junitReportDir: ./reports/camel
                         general:
                           specExamplesDirectoryTemplate: specs/%s
                     """.trimIndent())
@@ -1710,11 +1718,10 @@ class SpecmaticConfigV3UpgradeTest {
                       license:
                         path: ./license.txt
                       governance:
+                        report:
+                          outputDirectory: ./reports
                         successCriteria:
                           minCoveragePercentage: 95
-                      settings:
-                        test:
-                          junitReportDir: ./reports
                     """.trimIndent()
                 )
             )

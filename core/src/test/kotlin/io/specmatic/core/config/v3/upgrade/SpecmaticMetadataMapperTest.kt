@@ -4,9 +4,14 @@ import io.specmatic.core.APICoverage
 import io.specmatic.core.APICoverageConfiguration
 import io.specmatic.core.ReportConfigurationDetails
 import io.specmatic.core.ReportTypes
+import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.ResiliencyTestsConfig
+import io.specmatic.core.Source
+import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.SuccessCriteria
 import io.specmatic.core.TestConfiguration
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConcreteSettings
 import io.specmatic.core.config.v3.RefOrValue
 import org.assertj.core.api.Assertions.assertThat
@@ -14,9 +19,20 @@ import org.junit.jupiter.api.Test
 
 class SpecmaticMetadataMapperTest {
     @Test
-    fun `maps global test settings when system under test service is missing`() {
+    fun `maps test settings and picks resiliency from source when test config missing`() {
         val config = SpecmaticConfigV1V2Common(
             test = TestConfiguration(parallelism = "4", timeoutInMilliseconds = 9000, validateResponseValues = true),
+            sources = listOf(
+                Source(
+                    provider = SourceProvider.filesystem,
+                    test = listOf(
+                        SpecExecutionConfig.ObjectValue.PartialUrl(
+                            specs = listOf("payments.yaml"),
+                            resiliencyTests = ResiliencyTestsConfig(ResiliencyTestSuite.positiveOnly)
+                        )
+                    )
+                )
+            ),
         )
 
         val metadata = SpecmaticMetadataMapper().mapFrom(config, LegacyConfigView.from(config))
@@ -25,6 +41,7 @@ class SpecmaticMetadataMapperTest {
         assertThat(settings.test?.parallelism).isEqualTo("4")
         assertThat(settings.test?.validateResponseValues).isTrue()
         assertThat(settings.test?.timeoutInMilliseconds).isEqualTo(9000)
+        assertThat(settings.test?.schemaResiliencyTests).isEqualTo(ResiliencyTestSuite.positiveOnly)
     }
 
     @Test

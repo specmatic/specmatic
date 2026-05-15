@@ -54,13 +54,37 @@ class DependenciesMapperTest {
         val dictionary = ((result.data?.dictionary) as RefOrValue.Value).value
         assertThat(dictionary.path).isEqualTo("dict.json")
 
-        val settings = (result.settings as RefOrValue.Value<MockSettings>).value
-        assertThat(settings.hotReload).isTrue()
-
         val service = ((result.services.single().service) as RefOrValue.Value<CommonServiceConfig<MockRunOptions, MockSettings>>).value
         val runOptions = (service.runOptions as RefOrValue.Value<MockRunOptions>).value
         assertThat(runOptions.openapi?.filter).isEqualTo("PATH='/orders'")
         assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://global-mock:8080")
         assertThat(runOptions.openapi?.specs?.map { it.spec.id }).containsExactly("orders")
+    }
+
+    @Test
+    fun `should not move global test settings under dependencies settings, they belong under specmatic settings mock instead`() {
+        val source = Source(
+            provider = SourceProvider.filesystem,
+            directory = "./specs",
+            stub = listOf(
+                SpecExecutionConfig.ConfigValue(
+                    specType = "OPENAPI",
+                    specs = listOf("orders.yaml"),
+                    config = mapOf("baseUrl" to "http://localhost:9000", "examples" to listOf("examples/orders"))
+                )
+            )
+        )
+
+        val view = LegacyConfigView.from(
+            SpecmaticConfigV1V2Common(
+                sources = listOf(source),
+                hooks = mapOf("request-body" to "hooks/req.js"),
+                stub = StubConfiguration(hotReload = Switch.enabled, filter = "PATH='/orders'"),
+            )
+        )
+
+        val result = DependenciesMapper().mapFrom(view, SourceMigrationBuilder(null))!!
+        assertThat(result.services).hasSize(1)
+        assertThat(result.settings).isNull()
     }
 }

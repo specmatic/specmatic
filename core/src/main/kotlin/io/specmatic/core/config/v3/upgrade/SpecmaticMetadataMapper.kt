@@ -14,28 +14,30 @@ import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.License
+import io.specmatic.core.config.v3.specmatic.Report
 import io.specmatic.core.config.v3.specmatic.SuccessCriterion
 import java.nio.file.Path
 
 class SpecmaticMetadataMapper {
     fun mapFrom(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): Specmatic {
         return Specmatic(
-            governance = buildGovernance(view),
+            governance = buildGovernance(legacyConfig, view),
             settings = RefOrValue.Value(buildSettings(legacyConfig, view)),
             license = legacyConfig.getLicensePath()?.let { License(path = it.toUnixPath()) },
         )
     }
 
-    private fun buildGovernance(view: LegacyConfigView): Governance {
+    private fun buildGovernance(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): Governance {
+        val reportDir = SpecmaticConfigV1V2Common.getReportDirPathOrNull(legacyConfig)
         return Governance(
-            report = null,
+            report = Report(outputDirectory = reportDir?.toUnixPath()),
             successCriterion = view.report?.types?.apiCoverage?.openAPI?.successCriteria?.let(SuccessCriterion.Companion::from),
         )
     }
 
     private fun buildSettings(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): ConcreteSettings {
         return ConcreteSettings(
-            test = if (view.hasTestService()) null else buildTestSettings(view),
+            test = buildTestSettings(view),
             mock = buildMockSettings(view),
             general = buildGeneralSettings(legacyConfig, view),
             backwardCompatibility = legacyConfig.getBackwardCompatibilityConfig(),
@@ -72,7 +74,7 @@ class SpecmaticMetadataMapper {
             lenientMode = view.testConfig?.lenientMode,
             parallelism = view.testConfig?.parallelism,
             maxTestCount = view.testConfig?.maxTestCount,
-            junitReportDir = view.testConfig?.junitReportDir ?: view.reportDirPath?.toUnixPath(),
+            junitReportDir = view.testConfig?.junitReportDir,
             timeoutInMilliseconds = view.testConfig?.timeoutInMilliseconds,
             validateResponseValues = view.testConfig?.validateResponseValues,
             maxTestRequestCombinations = view.testConfig?.maxTestRequestCombinations,
@@ -101,19 +103,11 @@ class SpecmaticMetadataMapper {
             generative = view.stubConfig?.getGenerative(),
             strictMode = view.stubConfig?.getStrictMode(),
             lenientMode = view.stubConfig?.getLenientMode(),
-            hotReload = if (view.hasDependencyServices()) null else view.stubConfig?.getHotReload()?.toBoolean(),
+            hotReload = view.stubConfig?.getHotReload()?.toBoolean(),
             delayInMilliseconds = view.stubConfig?.getDelayInMilliseconds(),
             startTimeoutInMilliseconds = view.stubConfig?.getStartTimeoutInMilliseconds(),
             gracefulRestartTimeoutInMilliseconds = view.stubConfig?.getGracefulRestartTimeoutInMilliseconds(),
         )
-    }
-
-    private fun LegacyConfigView.hasTestService(): Boolean {
-        return sources.any { source -> !source.test.isNullOrEmpty() }
-    }
-
-    private fun LegacyConfigView.hasDependencyServices(): Boolean {
-        return sources.any { source -> !source.stub.isNullOrEmpty() }
     }
 
     private fun Switch.toBoolean() = when (this) {

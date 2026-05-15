@@ -22,8 +22,6 @@ systemUnderTest:
       examples:
         - directories:
             - ./src/test/resources/bff
-    settings:
-      schemaResiliencyTests: all
 dependencies:
   services:
     - service:
@@ -78,3 +76,6 @@ specmatic:
       minCoveragePercentage: 70
       maxMissedOperationsInSpec: 0
       enforce: true
+  settings:
+    test:
+      schemaResiliencyTests: all

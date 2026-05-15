@@ -15,7 +15,6 @@ import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
-import io.specmatic.core.config.v3.components.settings.TestSettings
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -51,9 +50,6 @@ class SystemUnderTestMapperTest {
         assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://localhost:8080")
         assertThat(runOptions.openapi?.specs?.single()?.spec?.overlayFilePath).isEqualTo("overlay.yaml")
         assertThat(runOptions.openapi?.specs?.single()?.spec?.securitySchemes).containsKey("api_key")
-
-        val settings = (service.settings as RefOrValue.Value<TestSettings>).value
-        assertThat(settings.schemaResiliencyTests).isEqualTo(ResiliencyTestSuite.all)
     }
 
     @Test

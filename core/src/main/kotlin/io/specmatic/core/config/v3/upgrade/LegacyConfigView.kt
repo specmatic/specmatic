@@ -9,7 +9,6 @@ import io.specmatic.core.TestConfiguration
 import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.v3.components.sources.GitAuthentication
-import java.nio.file.Path
 
 data class LegacyConfigView(
     val sources: List<Source>,
@@ -22,7 +21,6 @@ data class LegacyConfigView(
     val report: ReportConfigurationDetails?,
     val globalSettings: SpecmaticGlobalSettings,
     val stubConfig: io.specmatic.core.StubConfiguration?,
-    val reportDirPath: Path?,
 ) {
     val stubHooks: Map<String, String> by lazy {
         globalHooks.filterKeys {
@@ -59,8 +57,7 @@ data class LegacyConfigView(
                 globalSettings = legacyConfig.getGlobalSettingsOrDefault(),
                 sources = SpecmaticConfigV1V2Common.getSources(legacyConfig),
                 workflow = SpecmaticConfigV1V2Common.getWorkflowConfiguration(legacyConfig),
-                security = SpecmaticConfigV1V2Common.getSecurityConfiguration(legacyConfig),
-                reportDirPath = SpecmaticConfigV1V2Common.getReportDirPathOrNull(legacyConfig),
+                security = SpecmaticConfigV1V2Common.getSecurityConfiguration(legacyConfig)
             )
         }
 
