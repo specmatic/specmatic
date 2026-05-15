@@ -1237,7 +1237,7 @@ data class SpecmaticConfigV1V2Common(
         schemeName: String,
         securitySchemeConfiguration: SecuritySchemeConfiguration?
     ): String? {
-        val tokenFromConfig = (securitySchemeConfiguration as? BasicAuthSecuritySchemeConfiguration)?.token
+        val tokenFromConfig = (securitySchemeConfiguration as? BasicAuthSecuritySchemeConfiguration)?.token?.resolveOrNull()
         return resolveSecurityToken(tokenFromConfig, schemeName, SPECMATIC_BASIC_AUTH_TOKEN)
     }
 
@@ -1246,7 +1246,7 @@ data class SpecmaticConfigV1V2Common(
         schemeName: String,
         securitySchemeConfiguration: SecuritySchemeConfiguration?
     ): String? {
-        val tokenFromConfig = (securitySchemeConfiguration as? SecuritySchemeWithOAuthToken)?.token
+        val tokenFromConfig = (securitySchemeConfiguration as? SecuritySchemeWithOAuthToken)?.token?.resolveOrNull()
         return resolveSecurityToken(tokenFromConfig, schemeName, SPECMATIC_OAUTH2_TOKEN)
     }
 
@@ -1255,7 +1255,7 @@ data class SpecmaticConfigV1V2Common(
         schemeName: String,
         securitySchemeConfiguration: SecuritySchemeConfiguration?
     ): String? {
-        val tokenFromConfig = (securitySchemeConfiguration as? APIKeySecuritySchemeConfiguration)?.value
+        val tokenFromConfig = (securitySchemeConfiguration as? APIKeySecuritySchemeConfiguration)?.value?.resolveOrNull()
         return resolveSecurityToken(tokenFromConfig, schemeName)
     }
 
@@ -1879,35 +1879,35 @@ data class OpenAPISecurityConfiguration(
     JsonSubTypes.Type(value = APIKeySecuritySchemeConfiguration::class, name = "apiKey")
 )
 sealed class SecuritySchemeConfiguration {
-    abstract val type: String
+    abstract val type: TemplateOrValue<String>
 }
 
 interface SecuritySchemeWithOAuthToken {
-    val token: String
+    val token: TemplateOrValue<String>
 }
 
 @JsonTypeName("oauth2")
 data class OAuth2SecuritySchemeConfiguration(
-    override val type: String = "oauth2",
-    override val token: String = ""
+    override val type: TemplateOrValue<String> = "oauth2".wrap(),
+    override val token: TemplateOrValue<String> = "".wrap()
 ) : SecuritySchemeConfiguration(), SecuritySchemeWithOAuthToken
 
 @JsonTypeName("basicAuth")
 data class BasicAuthSecuritySchemeConfiguration(
-    override val type: String = "basicAuth",
-    val token: String = ""
+    override val type: TemplateOrValue<String> = "basicAuth".wrap(),
+    val token: TemplateOrValue<String> = "".wrap()
 ) : SecuritySchemeConfiguration()
 
 @JsonTypeName("bearer")
 data class BearerSecuritySchemeConfiguration(
-    override val type: String = "bearer",
-    override val token: String = ""
+    override val type: TemplateOrValue<String> = "bearer".wrap(),
+    override val token: TemplateOrValue<String> = "".wrap()
 ) : SecuritySchemeConfiguration(), SecuritySchemeWithOAuthToken
 
 @JsonTypeName("apiKey")
 data class APIKeySecuritySchemeConfiguration(
-    override val type: String = "apiKey",
-    val value: String = ""
+    override val type: TemplateOrValue<String> = "apiKey".wrap(),
+    val value: TemplateOrValue<String> = "".wrap()
 ) : SecuritySchemeConfiguration()
 
 fun loadSpecmaticConfigOrDefault(configFileName: String? = null): SpecmaticConfig {

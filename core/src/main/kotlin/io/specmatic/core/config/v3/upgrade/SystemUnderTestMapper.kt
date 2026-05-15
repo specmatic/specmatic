@@ -9,6 +9,7 @@ import io.specmatic.core.SecuritySchemeConfiguration
 import io.specmatic.core.config.OpenAPITestConfig as LegacyOpenAPITestConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import io.specmatic.core.config.v3.components.SecuritySchemeType
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiTestConfig
@@ -25,6 +26,7 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.TestSettings
+import io.specmatic.core.config.v3.resolve
 import io.specmatic.reporter.model.SpecType
 
 class SystemUnderTestMapper {
@@ -113,13 +115,13 @@ class SystemUnderTestMapper {
     private fun SecuritySchemeConfiguration.toSecuritySchemeV3(): SecuritySchemeConfigurationV3 {
         return when (this) {
             is OAuth2SecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.OAUTH2, token)
+                SecuritySchemeConfigurationV3(SecuritySchemeType.OAUTH2, token.resolve())
             is BasicAuthSecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.BASIC_AUTH, token)
+                SecuritySchemeConfigurationV3(SecuritySchemeType.BASIC_AUTH, token.resolve())
             is BearerSecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.BEARER, token)
+                SecuritySchemeConfigurationV3(SecuritySchemeType.BEARER, token.resolve())
             is APIKeySecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.API_KEY, value)
+                SecuritySchemeConfigurationV3(SecuritySchemeType.API_KEY, value.resolve())
         }
     }
 
