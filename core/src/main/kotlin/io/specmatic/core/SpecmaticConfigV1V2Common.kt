@@ -1582,9 +1582,17 @@ data class Pipeline(
 }
 
 data class Environment(
-    val baseurls: Map<String, String>? = null,
-    val variables: Map<String, String>? = null
-)
+    val baseurls: TemplateOrValue<Map<String, TemplateOrValue<String>>>? = null,
+    val variables: TemplateOrValue<Map<String, TemplateOrValue<String>>>? = null
+) {
+    @get:JsonIgnore
+    val resolvedBaseurls: Map<String, String>
+        get() = baseurls.resolveMapValuesOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedVariables: Map<String, String>
+        get() = variables.resolveMapValuesOrEmpty()
+}
 
 enum class SourceProvider { git, filesystem, web }
 
