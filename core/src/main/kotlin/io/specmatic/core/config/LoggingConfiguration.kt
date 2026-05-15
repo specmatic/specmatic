@@ -4,6 +4,11 @@ import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveOrDefault
+import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrap
+import io.specmatic.core.config.v3.wrapOrNull
 import java.io.File
 
 enum class ConfigLoggingLevel(private val level: String) {
@@ -20,15 +25,19 @@ enum class ConfigLoggingLevel(private val level: String) {
     }
 }
 
-data class LogOutputConfig(val directory: String?, val console: Boolean?, @field:JsonAlias("logPrefix") val logFilePrefix: String? = null) {
+data class LogOutputConfig(
+    val directory: TemplateOrValue<String>?,
+    val console: TemplateOrValue<Boolean>?,
+    @field:JsonAlias("logPrefix") val logFilePrefix: TemplateOrValue<String>? = null
+) {
     @JsonIgnore
-    fun getLogDirectory(): File? = directory?.let(::File)
+    fun getLogDirectory(): File? = directory.resolveOrNull()?.let(::File)
 
     @JsonIgnore
-    fun getLogFilePrefixOrDefault(): String = logFilePrefix ?: "specmatic"
+    fun getLogFilePrefixOrDefault(): String = logFilePrefix.resolveOrDefault("specmatic")
 
     @JsonIgnore
-    fun isConsoleLoggingEnabled(default: Boolean): Boolean = console ?: default
+    fun isConsoleLoggingEnabled(default: Boolean): Boolean = console.resolveOrDefault(default)
 
     fun overrideMergeWith(other: LogOutputConfig?): LogOutputConfig {
         if (other == null) return this
@@ -41,7 +50,7 @@ data class LogOutputConfig(val directory: String?, val console: Boolean?, @field
 
     companion object {
         fun default(): LogOutputConfig {
-            return LogOutputConfig(directory = null, console = true)
+            return LogOutputConfig(directory = null, console = true.wrapOrNull())
         }
     }
 }
@@ -77,12 +86,12 @@ data class LoggingConfiguration(
             return LoggingConfiguration(
                 level = if (data.debug == true) ConfigLoggingLevel.DEBUG else null,
                 text = if (data.textConsoleLog != null && data.textLogDirectory != null) {
-                    LogOutputConfig(directory = data.textLogDirectory.path, console = data.textConsoleLog, logFilePrefix = data.logPrefix)
+                    LogOutputConfig(directory = data.textLogDirectory.path.wrap(), console = data.textConsoleLog.wrap(), logFilePrefix = data.logPrefix.wrapOrNull())
                 } else {
                     null
                 },
                 json = if (data.jsonConsoleLog != null && data.jsonLogDirectory != null) {
-                    LogOutputConfig(directory = data.jsonLogDirectory.path, console = data.jsonConsoleLog, logFilePrefix = data.logPrefix)
+                    LogOutputConfig(directory = data.jsonLogDirectory.path.wrap(), console = data.jsonConsoleLog.wrap(), logFilePrefix = data.logPrefix.wrapOrNull())
                 } else {
                     null
                 },
