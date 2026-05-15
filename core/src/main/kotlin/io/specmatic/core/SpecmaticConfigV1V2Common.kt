@@ -22,6 +22,7 @@ import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.resolve
+import io.specmatic.core.config.v3.wrap
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -1793,27 +1794,27 @@ data class APICoverageConfiguration(
 )
 
 data class SuccessCriteria(
-    val minThresholdPercentage: Int? = null,
-    val maxMissedEndpointsInSpec: Int? = null,
-    val enforce: Boolean? = null
+    val minThresholdPercentage: TemplateOrValue<Int>? = null,
+    val maxMissedEndpointsInSpec: TemplateOrValue<Int>? = null,
+    val enforce: TemplateOrValue<Boolean>? = null
 ) {
     companion object {
-        val default = SuccessCriteria(0, 0, false)
+        val default = SuccessCriteria(0.wrap(), 0.wrap(), false.wrap())
     }
 
     @JsonIgnore
     fun getMinThresholdPercentageOrDefault(): Int {
-        return minThresholdPercentage ?: 0
+        return minThresholdPercentage.resolveOrDefault(0)
     }
 
     @JsonIgnore
     fun getMaxMissedEndpointsInSpecOrDefault(): Int {
-        return maxMissedEndpointsInSpec ?: 0
+        return maxMissedEndpointsInSpec.resolveOrDefault(0)
     }
 
     @JsonIgnore
     fun getEnforceOrDefault(): Boolean {
-        return enforce ?: false
+        return enforce.resolveOrDefault(false)
     }
 }
 
