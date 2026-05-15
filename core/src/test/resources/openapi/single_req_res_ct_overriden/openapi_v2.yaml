@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: Simple API
+  version: 1.0.0
+paths:
+  /exists/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: Content-Type
+        required: true
+        schema:
+          type: string
+          enum:
+            - application/json
+    post:
+      summary: Simple POST endpoint
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - field
+              properties:
+                field:
+                  type: integer
+      responses:
+        '200':
+          description: A simple string response
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/json
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: integer
+        '201':
+          description: A simple string response
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/json
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - field
+                properties:
+                  field:
+                    type: integer
