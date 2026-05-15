@@ -90,7 +90,7 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     private fun toSpecificationDefinition(specPath: String, specIdsByPath: Map<String, String>, configs: List<SpecExecutionConfig>): SpecificationDefinition {
         val urlPathPrefix = configs.asReversed().firstNotNullOfOrNull { config ->
             val objectValue = config as? SpecExecutionConfig.ObjectValue.PartialUrl ?: return@firstNotNullOfOrNull null
-            if (specPath in objectValue.specs) objectValue.basePath else null
+            if (specPath in objectValue.resolvedSpecs) objectValue.basePath.resolveOrNull() else null
         }
 
         return SpecificationDefinition.ObjectValue(
@@ -99,7 +99,7 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     }
 
     private fun resolveSpecType(specPath: String, config: SpecExecutionConfig): SpecType {
-        val explicitType = (config as? SpecExecutionConfig.ConfigValue)?.specType?.let { type ->
+        val explicitType = (config as? SpecExecutionConfig.ConfigValue)?.resolvedSpecType?.takeIf { it.isNotBlank() }?.let { type ->
             SpecType.entries.firstOrNull { it.value.equals(type, ignoreCase = true) }
         }
 

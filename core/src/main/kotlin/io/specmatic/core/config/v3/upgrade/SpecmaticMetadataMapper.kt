@@ -85,13 +85,13 @@ class SpecmaticMetadataMapper {
 
     private fun extractSchemaResiliencyTestsFromProvides(testConfigs: List<SpecExecutionConfig>): ResiliencyTestSuite? {
         return testConfigs.asReversed().firstNotNullOfOrNull { config ->
-            (config as? SpecExecutionConfig.ObjectValue)?.resiliencyTests?.resolvedEnable
+            (config as? SpecExecutionConfig.ObjectValue)?.resolvedResiliencyTests?.resolvedEnable
         }
     }
 
     private fun extractSchemaResiliencyTestsFromConfigValue(testConfigs: List<SpecExecutionConfig>): ResiliencyTestSuite? {
         return testConfigs.asConfigValues().firstNotNullOfOrNull { configValue ->
-            runCatching { LegacyOpenAPITestConfig.from(configValue.config).resiliencyTests?.resolvedEnable }.getOrNull()
+            runCatching { LegacyOpenAPITestConfig.from(configValue.resolvedConfig).resiliencyTests?.resolvedEnable }.getOrNull()
         }
     }
 

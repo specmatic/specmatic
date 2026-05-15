@@ -1,6 +1,8 @@
 package io.specmatic.core.config.v3.upgrade
 
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v3.resolve
+import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.RunOptionsSpecifications
@@ -51,16 +53,16 @@ data class RunOptionsMapper(
 
     private fun SpecExecutionConfig.ObjectValue.toUrlMergeInput(): UrlMergeInput {
         return when (this) {
-            is SpecExecutionConfig.ObjectValue.FullUrl -> UrlMergeInput.BaseUrl(baseUrl)
-            is SpecExecutionConfig.ObjectValue.PartialUrl -> UrlMergeInput.HostPort(host = host, port = port)
+            is SpecExecutionConfig.ObjectValue.FullUrl -> UrlMergeInput.BaseUrl(baseUrl.resolve())
+            is SpecExecutionConfig.ObjectValue.PartialUrl -> UrlMergeInput.HostPort(host = host.resolveOrNull(), port = port.resolveOrNull())
         }
     }
 
     private fun SpecExecutionConfig.ConfigValue.toUrlMergeInput(): UrlMergeInput {
-        val baseUrl = config["baseUrl"] as? String
+        val baseUrl = resolvedConfig["baseUrl"] as? String
         if (baseUrl != null) return UrlMergeInput.BaseUrl(baseUrl)
-        val port = config["port"] as? Int
-        val host = config["host"] as? String
+        val port = resolvedConfig["port"] as? Int
+        val host = resolvedConfig["host"] as? String
         return if (port != null) {
             UrlMergeInput.HostPort(host = host, port = port)
         } else {
@@ -73,9 +75,9 @@ data class RunOptionsMapper(
         return when (specType) {
             SpecType.WSDL -> mergeWsdl(specPath, specIdsByPath, input)
             SpecType.OPENAPI -> mergeOpenApi(specPath, specIdsByPath, input)
-            SpecType.GRAPHQL -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
-            SpecType.ASYNCAPI -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
-            SpecType.PROTOBUF -> mergeGeneric(specPath, specIdsByPath, specType, config.config, input)
+            SpecType.GRAPHQL -> mergeGeneric(specPath, specIdsByPath, specType, config.resolvedConfig, input)
+            SpecType.ASYNCAPI -> mergeGeneric(specPath, specIdsByPath, specType, config.resolvedConfig, input)
+            SpecType.PROTOBUF -> mergeGeneric(specPath, specIdsByPath, specType, config.resolvedConfig, input)
         }
     }
 

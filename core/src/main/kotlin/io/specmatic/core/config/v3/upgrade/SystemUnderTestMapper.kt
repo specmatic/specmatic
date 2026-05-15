@@ -139,7 +139,7 @@ class SystemUnderTestMapper {
     }
 
     private fun extractExamplesFromTestConfig(configValue: SpecExecutionConfig.ConfigValue): List<String> {
-        return runCatching { LegacyOpenAPITestConfig.from(configValue.config).examples.orEmpty() }.getOrDefault(emptyList())
+        return runCatching { LegacyOpenAPITestConfig.from(configValue.resolvedConfig).examples.orEmpty() }.getOrDefault(emptyList())
     }
 }
 

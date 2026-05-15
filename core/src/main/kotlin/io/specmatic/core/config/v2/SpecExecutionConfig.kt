@@ -13,34 +13,56 @@ import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.resolveMapValuesOrEmpty
+import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrapFully
+import io.specmatic.core.config.v3.wrap
+import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
+import io.specmatic.core.config.v3.resolve
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.utilities.Flags
 import java.io.File
 import java.net.URI
 
 sealed class SpecExecutionConfig {
-    data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
+    data class StringValue(val value: TemplateOrValue<String>) : SpecExecutionConfig() {
+        @get:JsonValue
+        val resolvedValue: String
+            get() = value.resolve()
+
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-            return StringValue(baseDirectory.resolve(value).canonicalPath)
+            return StringValue(baseDirectory.resolve(resolvedValue).canonicalPath.wrap())
         }
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
-            val specFile = resolveSpecFile(source, baseDir, value)
-            return listOf(SpecificationSourceEntry(source, specFile, value, null, null, resiliencyTestSuite))
+            val spec = resolvedValue
+            val specFile = resolveSpecFile(source, baseDir, spec)
+            return listOf(SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite))
         }
 
         override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-            return ObjectValue.FullUrl(baseUrl = baseUrl, specs = specs(), resiliencyTests = resiliencyTestsConfig)
+            return ObjectValue.FullUrl(baseUrl = baseUrl.wrap(), specs = listOf(resolvedValue).wrapFully(), resiliencyTests = resiliencyTestsConfig.wrapOrNull())
         }
 
         override fun use(port: Int): SpecExecutionConfig {
-            return ObjectValue.PartialUrl(port = port, specs = specs())
+            return ObjectValue.PartialUrl(port = port.wrap(), specs = listOf(resolvedValue).wrapFully())
         }
     }
 
     sealed class ObjectValue : SpecExecutionConfig() {
-        abstract val specs: List<String>
-        abstract val resiliencyTests: ResiliencyTestsConfig?
+        abstract val specs: TemplateOrValue<List<TemplateOrValue<String>>>?
+        abstract val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>?
+
+        @get:JsonIgnore
+        val resolvedSpecs: List<String>
+            get() = specs.resolveFullyOrEmpty()
+
+        @get:JsonIgnore
+        val resolvedResiliencyTests: ResiliencyTestsConfig?
+            get() = resiliencyTests.resolveOrNull()
 
         fun toBaseUrl(defaultBaseUrl: String? = null): String {
             val resolvedBaseUrl = defaultBaseUrl
@@ -53,131 +75,143 @@ sealed class SpecExecutionConfig {
         abstract fun toUrl(default: URI): URI
 
         data class FullUrl(
-            val baseUrl: String,
-            override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null,
+            val baseUrl: TemplateOrValue<String>,
+            override val specs: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+            override val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>? = null,
         ) : ObjectValue() {
-            override fun toUrl(default: URI) = URI(baseUrl)
+            override fun toUrl(default: URI) = URI(baseUrl.resolve())
 
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+                return this.copy(specs = this.specs.resolveOrNull()?.map { baseDirectory.resolve(it.resolve()).canonicalPath }.wrapFullyOrNull())
             }
 
             override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
                 val baseUrl = toBaseUrl(null)
-                val resiliency = resiliencyTests?.resolvedEnable ?: resiliencyTestSuite
-                return specs().map { spec ->
+                val resiliency = resolvedResiliencyTests?.resolvedEnable ?: resiliencyTestSuite
+                return resolvedSpecs.map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
                 }
             }
 
             override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-                return this.copy(baseUrl = baseUrl, resiliencyTests = resiliencyTestsConfig)
+                return this.copy(baseUrl = baseUrl.wrap(), resiliencyTests = resiliencyTestsConfig.wrapOrNull())
             }
 
             override fun use(port: Int): SpecExecutionConfig {
-                return PartialUrl(port = port, specs = specs(), resiliencyTests = resiliencyTests)
+                return PartialUrl(port = port.wrap(), specs = specs, resiliencyTests = resiliencyTests)
             }
         }
 
         data class PartialUrl(
-            val host: String? = null,
-            val port: Int? = null,
-            val basePath: String? = null,
-            override val specs: List<String>,
-            override val resiliencyTests: ResiliencyTestsConfig? = null,
+            val host: TemplateOrValue<String>? = null,
+            val port: TemplateOrValue<Int>? = null,
+            val basePath: TemplateOrValue<String>? = null,
+            override val specs: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+            override val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>? = null,
         ) : ObjectValue() {
             override fun toUrl(default: URI): URI {
                 return URI(
                     default.scheme,
                     default.userInfo,
-                    host ?: default.host,
-                    port ?: default.port,
-                    basePath ?: default.path,
+                    host.resolveOrNull() ?: default.host,
+                    port.resolveOrNull() ?: default.port,
+                    basePath.resolveOrNull() ?: default.path,
                     default.query,
                     default.fragment
                 )
             }
 
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-                return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+                return this.copy(specs = this.specs.resolveOrNull()?.map { baseDirectory.resolve(it.resolve()).canonicalPath }.wrapFullyOrNull())
             }
 
             override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
                 val baseUrl = toBaseUrl(null)
-                val resiliency = resiliencyTests?.resolvedEnable ?: resiliencyTestSuite
-                return specs().map { spec ->
+                val resiliency = resolvedResiliencyTests?.resolvedEnable ?: resiliencyTestSuite
+                return resolvedSpecs.map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
-                    SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
+                    SpecificationSourceEntry(source, specFile, spec, baseUrl, port.resolveOrNull(), resiliency)
                 }
             }
 
             override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-                return FullUrl(baseUrl = baseUrl, specs = specs(), resiliencyTests = resiliencyTestsConfig)
+                return FullUrl(baseUrl = baseUrl.wrap(), specs = specs, resiliencyTests = resiliencyTestsConfig.wrapOrNull())
             }
 
             override fun use(port: Int): SpecExecutionConfig {
-                return this.copy(port = port)
+                return this.copy(port = port.wrap())
             }
         }
     }
 
     data class ConfigValue(
-        val specs: List<String>,
-        val specType: String,
-        val config: Map<String, Any>
+        val specs: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+        val specType: TemplateOrValue<String>? = null,
+        val config: TemplateOrValue<Map<String, TemplateOrValue<Any>>>? = null
     ) : SpecExecutionConfig() {
+        @get:JsonIgnore
+        val resolvedSpecs: List<String>
+            get() = specs.resolveFullyOrEmpty()
+
+        @get:JsonIgnore
+        val resolvedSpecType: String
+            get() = specType.resolveOrNull().orEmpty()
+
+        @get:JsonIgnore
+        val resolvedConfig: Map<String, Any>
+            get() = config.resolveMapValuesOrEmpty()
+
         fun contains(specPath: String, specType: String): Boolean {
-            return specPath in this.specs.toSet() && specType == this.specType
+            return specPath in this.resolvedSpecs.toSet() && specType == this.resolvedSpecType
         }
 
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
-            return this.copy(specs = this.specs.map { baseDirectory.resolve(it).canonicalPath })
+            return this.copy(specs = this.specs.resolveOrNull()?.map { baseDirectory.resolve(it.resolve()).canonicalPath }.wrapFullyOrNull())
         }
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
-            return specs().map { spec ->
+            return resolvedSpecs.map { spec ->
                 val specFile = resolveSpecFile(source, baseDir, spec)
                 SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite)
             }
         }
 
         override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
-            // Can't convert to either of the types and the config is genric map
+            // Can't convert to either of the types and the config is generic map
             return this
         }
 
         override fun use(port: Int): SpecExecutionConfig {
-            // Can't convert to either of the types and the config is genric map
+            // Can't convert to either of the types and the config is generic map
             return this
         }
     }
 
     @JsonIgnore
     fun contains(absoluteSpecPath: String): Boolean = when (this) {
-        is StringValue -> absoluteSpecPath.contains(this.value)
-        is ObjectValue -> this.specs.any { absoluteSpecPath.contains(it) }
-        is ConfigValue -> this.specs.any { absoluteSpecPath.contains(it) }
+        is StringValue -> absoluteSpecPath.contains(this.resolvedValue)
+        is ObjectValue -> this.resolvedSpecs.any { absoluteSpecPath.contains(it) }
+        is ConfigValue -> this.resolvedSpecs.any { absoluteSpecPath.contains(it) }
     }
 
     @JsonIgnore
     fun specs(): List<String> {
         return when (this) {
-            is StringValue -> listOf(this.value)
-            is ObjectValue -> this.specs
-            is ConfigValue -> this.specs
+            is StringValue -> listOf(this.resolvedValue)
+            is ObjectValue -> this.resolvedSpecs
+            is ConfigValue -> this.resolvedSpecs
         }
     }
 
     @JsonIgnore
     fun specToBaseUrlPairList(defaultBaseUrl: String?, baseUrlFrom: (ConfigValue) -> String?): List<Pair<String, String?>> {
         return when (this) {
-            is StringValue -> listOf(this.value to null)
-            is ObjectValue -> this.specs.map { specPath ->
+            is StringValue -> listOf(this.resolvedValue to null)
+            is ObjectValue -> this.resolvedSpecs.map { specPath ->
                 specPath to this.toBaseUrl(defaultBaseUrl)
             }
-            is ConfigValue -> this.specs.map { specPath ->
+            is ConfigValue -> this.resolvedSpecs.map { specPath ->
                 specPath to baseUrlFrom(this)
             }
         }
@@ -207,7 +241,7 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): List<SpecExecutionConfig> {
         return p.codec.readTree<JsonNode>(p).takeIf(JsonNode::isArray)?.map { element ->
             when {
-                element.isTextual -> SpecExecutionConfig.StringValue(element.asText())
+                element.isTextual -> SpecExecutionConfig.StringValue(element.asText().wrap())
                 element.isObject -> element.parseObjectValue(p)
                 else -> throw JsonMappingException(p, "Consumes entry must be string or object")
             }
@@ -222,17 +256,17 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         val validatedJsonNode = this.getValidatedJsonNode(p)
         return when {
             has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(
-                baseUrl = validatedJsonNode.get("baseUrl").asText(),
-                specs = validatedJsonNode.get("specs").map(JsonNode::asText),
-                resiliencyTests = if (consumes) null else p.codec.treeToValue(get("resiliencyTests"), ResiliencyTestsConfig::class.java),
+                baseUrl = validatedJsonNode.get("baseUrl").asText().wrap(),
+                specs = validatedJsonNode.get("specs").map(JsonNode::asText).wrapFully(),
+                resiliencyTests = if (consumes) null else p.codec.treeToValue(get("resiliencyTests"), ResiliencyTestsConfig::class.java).wrapOrNull(),
             )
 
             else -> SpecExecutionConfig.ObjectValue.PartialUrl(
-                host = validatedJsonNode.get("host")?.asText(),
-                port = validatedJsonNode.get("port")?.asInt(),
-                basePath = validatedJsonNode.get("basePath")?.asText(),
-                specs = validatedJsonNode.get("specs").map(JsonNode::asText),
-                resiliencyTests = if (consumes) null else p.codec.treeToValue(get("resiliencyTests"), ResiliencyTestsConfig::class.java),
+                host = validatedJsonNode.get("host")?.asText()?.wrapOrNull(),
+                port = validatedJsonNode.get("port")?.asInt()?.wrapOrNull(),
+                basePath = validatedJsonNode.get("basePath")?.asText()?.wrapOrNull(),
+                specs = validatedJsonNode.get("specs").map(JsonNode::asText).wrapFully(),
+                resiliencyTests = if (consumes) null else p.codec.treeToValue(get("resiliencyTests"), ResiliencyTestsConfig::class.java).wrapOrNull(),
             )
         }
     }

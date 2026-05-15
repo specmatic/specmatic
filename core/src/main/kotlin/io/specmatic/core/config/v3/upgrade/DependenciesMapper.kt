@@ -103,6 +103,6 @@ class DependenciesMapper {
 
     private fun extractExamplesFromConfig(config: SpecExecutionConfig): List<String> {
         val configValue = config as? SpecExecutionConfig.ConfigValue ?: return emptyList()
-        return runCatching { LegacyOpenAPIMockConfig.from(configValue.config).examples.orEmpty() }.getOrDefault(emptyList())
+        return runCatching { LegacyOpenAPIMockConfig.from(configValue.resolvedConfig).examples.orEmpty() }.getOrDefault(emptyList())
     }
 }

@@ -685,18 +685,18 @@ data class SpecmaticConfigV1V2Common(
     override fun testConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
         val resolvedTestConfig = this.sources.flatMap { it.getCanonicalTestConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
-            if (config.specType != specType.value) return@firstOrNull false
-            config.specs.any { specPath -> File(specPath).sameAs(file) }
-        }?.config.orEmpty().let(::SpecmaticSpecConfig)
+            if (config.resolvedSpecType != specType.value) return@firstOrNull false
+            config.resolvedSpecs.any { specPath -> File(specPath).sameAs(file) }
+        }?.resolvedConfig.orEmpty().let(::SpecmaticSpecConfig)
     }
 
     @JsonIgnore
     override fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
         val resolvedTestConfig = this.sources.flatMap { it.getCanonicalStubConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
-            if (config.specType != specType.value) return@firstOrNull false
-            config.specs.any { specPath -> File(specPath).sameAs(file) }
-        }?.config.orEmpty().let(::SpecmaticSpecConfig)
+            if (config.resolvedSpecType != specType.value) return@firstOrNull false
+            config.resolvedSpecs.any { specPath -> File(specPath).sameAs(file) }
+        }?.resolvedConfig.orEmpty().let(::SpecmaticSpecConfig)
     }
 
     @JsonIgnore
@@ -708,7 +708,7 @@ data class SpecmaticConfigV1V2Common(
     private fun List<SpecExecutionConfig>.configWith(specPath: String, specType: String): SpecmaticSpecConfig? {
         return this.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull {
             it.contains(specPath, specType)
-        }?.config.orEmpty().let(::SpecmaticSpecConfig)
+        }?.resolvedConfig.orEmpty().let(::SpecmaticSpecConfig)
     }
 
     @JsonIgnore
@@ -784,9 +784,9 @@ data class SpecmaticConfigV1V2Common(
         return sources.flatMap { source ->
             source.resolvedStub.orEmpty().flatMap { consumes ->
                 when (consumes) {
-                    is SpecExecutionConfig.StringValue -> listOf(consumes.value to defaultBaseUrl)
-                    is SpecExecutionConfig.ObjectValue -> consumes.specs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
-                    is SpecExecutionConfig.ConfigValue -> consumes.specs.map { it to defaultBaseUrl }
+                    is SpecExecutionConfig.StringValue -> listOf(consumes.resolvedValue to defaultBaseUrl)
+                    is SpecExecutionConfig.ObjectValue -> consumes.resolvedSpecs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
+                    is SpecExecutionConfig.ConfigValue -> consumes.resolvedSpecs.map { it to defaultBaseUrl }
                 }
             }
         }
@@ -1797,8 +1797,8 @@ data class Source(
     val matchBranch: TemplateOrValue<Boolean>? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
-        test = test?.map { SpecExecutionConfig.StringValue(it) }.wrapFullyOrNull(),
-        stub = stub?.map { SpecExecutionConfig.StringValue(it) }.wrapFullyOrNull()
+        test = test?.map { SpecExecutionConfig.StringValue(it.wrap()) }.wrapFullyOrNull(),
+        stub = stub?.map { SpecExecutionConfig.StringValue(it.wrap()) }.wrapFullyOrNull()
     )
 
     @get:JsonIgnore
@@ -1844,7 +1844,7 @@ data class Source(
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
         return resolvedStub.orEmpty().flatMap {
             it.specToBaseUrlPairList(defaultBaseUrl) { configValue ->
-                if(configValue.specType == SpecType.OPENAPI.value) OpenAPIMockConfig.from(configValue.config).baseUrl
+                if(configValue.resolvedSpecType == SpecType.OPENAPI.value) OpenAPIMockConfig.from(configValue.resolvedConfig).baseUrl
                 else null
             }
         }.toMap()
@@ -1852,7 +1852,7 @@ data class Source(
 
     fun specToTestBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
         val baseUrlFromConfig : (SpecExecutionConfig.ConfigValue) -> String? = {
-            if(it.specType == SpecType.OPENAPI.value) OpenAPITestConfig.from(it.config).baseUrl
+            if(it.resolvedSpecType == SpecType.OPENAPI.value) OpenAPITestConfig.from(it.resolvedConfig).baseUrl
             else null
         }
         return resolvedTest.orEmpty().flatMap {
@@ -1863,12 +1863,12 @@ data class Source(
     fun specToTestGenerativeMap(): Map<String, ResiliencyTestSuite?> {
         return resolvedTest.orEmpty().flatMap {
             when (it) {
-                is SpecExecutionConfig.StringValue -> listOf(it.value to null)
-                is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.resiliencyTests?.resolvedEnable
+                is SpecExecutionConfig.StringValue -> listOf(it.resolvedValue to null)
+                is SpecExecutionConfig.ObjectValue -> it.resolvedSpecs.map { specPath ->
+                    specPath to it.resolvedResiliencyTests?.resolvedEnable
                 }
-                is SpecExecutionConfig.ConfigValue  -> it.specs.map { specPath ->
-                    if(it.specType == SpecType.OPENAPI.value) specPath to OpenAPITestConfig.from(it.config).resiliencyTests?.resolvedEnable
+                is SpecExecutionConfig.ConfigValue  -> it.resolvedSpecs.map { specPath ->
+                    if(it.resolvedSpecType == SpecType.OPENAPI.value) specPath to OpenAPITestConfig.from(it.resolvedConfig).resiliencyTests?.resolvedEnable
                     else specPath to null
                 }
             }
@@ -1877,9 +1877,9 @@ data class Source(
 
     fun specToTestExamplesMap(): Map<String, List<String>> {
         return resolvedTest.orEmpty().flatMap {
-            if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
-                return@flatMap it.specs.map { specPath ->
-                    specPath to OpenAPITestConfig.from(it.config).examples.orEmpty()
+            if(it is SpecExecutionConfig.ConfigValue && it.resolvedSpecType == SpecType.OPENAPI.value) {
+                return@flatMap it.resolvedSpecs.map { specPath ->
+                    specPath to OpenAPITestConfig.from(it.resolvedConfig).examples.orEmpty()
                 }
             }
             emptyList()
@@ -1888,9 +1888,9 @@ data class Source(
 
     fun specToStubExamplesMap(): Map<String, List<String>> {
         return resolvedStub.orEmpty().flatMap {
-            if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
-                return@flatMap it.specs.map { specPath ->
-                    specPath to OpenAPIMockConfig.from(it.config).examples.orEmpty()
+            if(it is SpecExecutionConfig.ConfigValue && it.resolvedSpecType == SpecType.OPENAPI.value) {
+                return@flatMap it.resolvedSpecs.map { specPath ->
+                    specPath to OpenAPIMockConfig.from(it.resolvedConfig).examples.orEmpty()
                 }
             }
             emptyList()
