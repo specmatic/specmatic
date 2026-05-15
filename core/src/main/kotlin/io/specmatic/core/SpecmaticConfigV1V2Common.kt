@@ -16,6 +16,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.resolve
@@ -505,7 +506,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getSpecificationSources(): List<SpecificationSource> {
-        val resiliencyTestSuite = test?.resiliencyTests?.enable
+        val resiliencyTestSuite = test?.resiliencyTests?.resolvedEnable
         return this.sources.map { source ->
             val specificationSource = SpecificationSource(source.provider, source.repository, source.directory, source.branch, source.matchBranch)
             val sourceBaseDir = source.getBaseDirectory()
@@ -524,7 +525,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
-        val resiliencyTestSuite = test?.resiliencyTests?.enable
+        val resiliencyTestSuite = test?.resiliencyTests?.resolvedEnable
         return this.sources.firstNotNullOfOrNull { source ->
             val sourceBaseDir = source.getBaseDirectory()
             source.stub.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
@@ -796,7 +797,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getResiliencyTestsEnabled(): ResiliencyTestSuite {
-        return (test?.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).enable ?: ResiliencyTestSuite.none
+        return (test?.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).resolvedEnable ?: ResiliencyTestSuite.none
     }
 
     @JsonIgnore
@@ -932,7 +933,7 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(
             test = testConfig.copy(
                 resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
-                    enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
+                    enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly.wrapOrNull() else ResiliencyTestSuite.all.wrapOrNull()
                 )
             )
         )
@@ -940,7 +941,7 @@ data class SpecmaticConfigV1V2Common(
 
     override fun disableResiliencyTests(): SpecmaticConfig {
         val testConfig = test ?: TestConfiguration()
-        val resiliencyTestsConfig = ResiliencyTestsConfig(enable = ResiliencyTestSuite.none)
+        val resiliencyTestsConfig = ResiliencyTestsConfig(enable = ResiliencyTestSuite.none.wrapOrNull())
         return this.copy(test = testConfig.copy(resiliencyTests = resiliencyTestsConfig))
     }
 
@@ -1318,7 +1319,7 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(
             test = testConfig.copy(
                 resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig()).copy(
-                    enable = ResiliencyTestSuite.all,
+                    enable = ResiliencyTestSuite.all.wrapOrNull(),
                 ),
             ),
         )
@@ -1474,11 +1475,15 @@ enum class ResiliencyTestSuite {
 }
 
 data class ResiliencyTestsConfig(
-    val enable: ResiliencyTestSuite? = null
+    val enable: TemplateOrValue<ResiliencyTestSuite>? = null
 ) {
     constructor(isResiliencyTestFlagEnabled: Boolean, isOnlyPositiveFlagEnabled: Boolean) : this(
-        enable = getEnableFrom(isResiliencyTestFlagEnabled, isOnlyPositiveFlagEnabled)
+        enable = getEnableFrom(isResiliencyTestFlagEnabled, isOnlyPositiveFlagEnabled).wrapOrNull()
     )
+
+    @get:JsonIgnore
+    val resolvedEnable: ResiliencyTestSuite?
+        get() = enable.resolveOrNull()
 
     companion object {
         fun fromSystemProperties() = ResiliencyTestsConfig(
@@ -1591,10 +1596,10 @@ data class Source(
             when (it) {
                 is SpecExecutionConfig.StringValue -> listOf(it.value to null)
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
-                    specPath to it.resiliencyTests?.enable
+                    specPath to it.resiliencyTests?.resolvedEnable
                 }
                 is SpecExecutionConfig.ConfigValue  -> it.specs.map { specPath ->
-                    if(it.specType == SpecType.OPENAPI.value) specPath to OpenAPITestConfig.from(it.config).resiliencyTests?.enable
+                    if(it.specType == SpecType.OPENAPI.value) specPath to OpenAPITestConfig.from(it.config).resiliencyTests?.resolvedEnable
                     else specPath to null
                 }
             }

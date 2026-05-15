@@ -93,6 +93,7 @@ import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
+import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.utilities.GitMonoRepo
 import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
@@ -355,8 +356,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getResiliencyTestsEnabled(): ResiliencyTestSuite {
         val resiliencyFromProperty = ResiliencyTestsConfig.fromSystemProperties()
-        val resiliencyTestSuite = (testSettings.schemaResiliencyTests?.let(::ResiliencyTestsConfig) ?: resiliencyFromProperty)
-        return resiliencyTestSuite.enable ?: ResiliencyTestSuite.none
+        val resiliencyTestSuite = (testSettings.schemaResiliencyTests?.wrapOrNull()?.let(::ResiliencyTestsConfig) ?: resiliencyFromProperty)
+        return resiliencyTestSuite.resolvedEnable ?: ResiliencyTestSuite.none
     }
 
     override fun getTestTimeoutInMilliseconds(): Long? {

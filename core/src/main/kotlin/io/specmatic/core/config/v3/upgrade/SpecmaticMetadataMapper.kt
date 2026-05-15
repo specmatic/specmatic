@@ -78,19 +78,19 @@ class SpecmaticMetadataMapper {
             timeoutInMilliseconds = view.testConfig?.timeoutInMilliseconds,
             validateResponseValues = view.testConfig?.validateResponseValues,
             maxTestRequestCombinations = view.testConfig?.maxTestRequestCombinations,
-            schemaResiliencyTests = view.testConfig?.resiliencyTests?.enable ?: schemaResiliencyTestsFromProvides,
+            schemaResiliencyTests = view.testConfig?.resiliencyTests?.resolvedEnable ?: schemaResiliencyTestsFromProvides,
         )
     }
 
     private fun extractSchemaResiliencyTestsFromProvides(testConfigs: List<SpecExecutionConfig>): ResiliencyTestSuite? {
         return testConfigs.asReversed().firstNotNullOfOrNull { config ->
-            (config as? SpecExecutionConfig.ObjectValue)?.resiliencyTests?.enable
+            (config as? SpecExecutionConfig.ObjectValue)?.resiliencyTests?.resolvedEnable
         }
     }
 
     private fun extractSchemaResiliencyTestsFromConfigValue(testConfigs: List<SpecExecutionConfig>): ResiliencyTestSuite? {
         return testConfigs.asConfigValues().firstNotNullOfOrNull { configValue ->
-            runCatching { LegacyOpenAPITestConfig.from(configValue.config).resiliencyTests?.enable }.getOrNull()
+            runCatching { LegacyOpenAPITestConfig.from(configValue.config).resiliencyTests?.resolvedEnable }.getOrNull()
         }
     }
 

@@ -13,6 +13,7 @@ import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.utilities.Flags
 import java.io.File
@@ -65,7 +66,7 @@ sealed class SpecExecutionConfig {
 
             override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
                 val baseUrl = toBaseUrl(null)
-                val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
+                val resiliency = resiliencyTests?.resolvedEnable ?: resiliencyTestSuite
                 return specs().map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
@@ -106,7 +107,7 @@ sealed class SpecExecutionConfig {
 
             override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
                 val baseUrl = toBaseUrl(null)
-                val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
+                val resiliency = resiliencyTests?.resolvedEnable ?: resiliencyTestSuite
                 return specs().map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
                     SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
@@ -346,6 +347,6 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
             "none" -> ResiliencyTestSuite.none
             else -> throw JsonMappingException(p, "Unknown value '$value' for 'resiliencyTests.enable'. Allowed: positiveOnly, all, none")
         }
-        return ResiliencyTestsConfig(enable = enable)
+        return ResiliencyTestsConfig(enable = enable.wrapOrNull())
     }
 }
