@@ -366,9 +366,13 @@ interface WorkflowDetails {
     }
 }
 
-data class WorkflowConfiguration(val ids: Map<String, WorkflowIDOperation> = emptyMap()) : WorkflowDetails {
+data class WorkflowConfiguration(val ids: TemplateOrValue<Map<String, TemplateOrValue<WorkflowIDOperation>>>? = null) : WorkflowDetails {
+    @get:JsonIgnore
+    val resolvedIds: Map<String, WorkflowIDOperation>
+        get() = ids.resolveMapValuesOrEmpty()
+
     private fun getOperation(operationId: String): WorkflowIDOperation? {
-        return ids[operationId]
+        return resolvedIds[operationId]
     }
 
     override fun getExtractForAPI(apiDescription: String): String? {
