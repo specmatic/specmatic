@@ -18,6 +18,7 @@ import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v3.resolve
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -1672,15 +1673,23 @@ data class Source(
 }
 
 data class RepositoryInfo(
-    private val provider: String,
-    private val collectionName: String
+    val provider: TemplateOrValue<String>,
+    val collectionName: TemplateOrValue<String>
 ) {
+    @get:JsonIgnore
+    val resolvedProvider: String
+        get() = provider.resolve()
+
+    @get:JsonIgnore
+    val resolvedCollectionName: String
+        get() = collectionName.resolve()
+
     fun getProvider(): String {
-        return provider
+        return provider.resolve()
     }
 
     fun getCollectionName(): String {
-        return collectionName
+        return collectionName.resolve()
     }
 }
 
