@@ -2,7 +2,10 @@ package io.specmatic.core.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.utilities.Flags
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.junit.jupiter.api.Test
 
 class ConfigTemplateUtilsTest {
@@ -119,6 +122,43 @@ class ConfigTemplateUtilsTest {
         assertThat(ConfigTemplateUtils.isConfigTemplate("prefix-{SYSTEM_PROP:default}-suffix")).isTrue()
         assertThat(ConfigTemplateUtils.isConfigTemplate("{SYSTEM_PROP}")).isFalse()
     }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "{SYSTEM_PROP:default-value}",
+            $$"${SYSTEM_PROP:default-value}",
+            "{SYSTEM_PROP|SYSTEM_OTHER_PROP:default-value}",
+            $$"${SYSTEM_PROP|SYSTEM_OTHER_PROP:default-value}",
+            "prefix-{SYSTEM_PROP:default}-suffix",
+            $$"prefix-${SYSTEM_PROP:default}-suffix",
+            "prefix-{SYSTEM_PROP|SYSTEM_OTHER_PROP:default}-suffix",
+            $$"prefix-${SYSTEM_PROP|SYSTEM_OTHER_PROP:default}-suffix",
+        ]
+    )
+    fun `validateTemplate should succeed for valid templates`(value: String) {
+        assertThat(ConfigTemplateUtils.validateTemplate(value).isSuccess).isTrue()
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["{SYSTEM_PROP}", "{:default}", "{ | :default}", "prefix-{SYSTEM_PROP}-suffix"])
+    fun `validateTemplate should fail for invalid templates`(value: String) {
+        assertThat(ConfigTemplateUtils.validateTemplate(value).isFailure).isTrue()
+    }
+
+    @Test
+    fun `validateTemplate should return failure reason for malformed full token`() {
+        val result = ConfigTemplateUtils.validateTemplate("{SYSTEM_PROP}")
+        assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()?.message).contains("invalid token(s)")
+    }
+
+    @Test
+    fun `validateTemplate should return failure reason for invalid embedded token`() {
+        val result = ConfigTemplateUtils.validateTemplate("prefix-{SYSTEM_PROP}-suffix")
+        assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()?.message).contains("invalid token(s)")
+    }
     
     @Test
     fun `isFullTemplateToken should match only complete template tokens`() {
@@ -172,5 +212,42 @@ class ConfigTemplateUtilsTest {
         assertThat(resolved[0].asText()).isEqualTo("one")
         assertThat(resolved[1].asText()).isEqualTo("prefix-two-suffix")
         assertThat(resolved[2].asInt()).isEqualTo(7)
+    }
+
+    @Test
+    fun `resolveTemplateValue should pass through plain values unchanged`() {
+        assertThat(ConfigTemplateUtils.resolveTemplateValue("plain-value")).isEqualTo("plain-value")
+    }
+
+    @Test
+    fun `resolveTemplateValue should resolve multiple tokens from sysprops and keep defaults`() {
+        Flags.using("A" to "alpha", "C" to "gamma") {
+            assertThat(ConfigTemplateUtils.resolveTemplateValue($$"pre-{A:one}-mid-${B:two}-post-{C:three}")).isEqualTo("pre-alpha-mid-two-post-gamma")
+        }
+    }
+
+    @Test
+    fun `resolveTemplateValue should prefer first matching name in multi-name token`() {
+        Flags.using("B" to "bravo", "C" to "charlie") {
+            assertThat(ConfigTemplateUtils.resolveTemplateValue("x-{A|B|C:default}-y")).isEqualTo("x-bravo-y")
+        }
+    }
+
+    @Test
+    fun `resolveTemplateValue should fall back to default when sysprops miss all names`() {
+        assertThat(ConfigTemplateUtils.resolveTemplateValue("x-{A|B:default}-y")).isEqualTo("x-default-y")
+    }
+
+    @Test
+    fun `resolveTemplateValue should use system property by default`() {
+        Flags.using("CONFIG_TEMPLATE_TEST_PROP" to "prop-value") {
+            assertThat(ConfigTemplateUtils.resolveTemplateValue("x-{CONFIG_TEMPLATE_TEST_PROP:default}-y")).isEqualTo("x-prop-value-y")
+        }
+    }
+
+    @Test
+    fun `resolveTemplateValue should preserve quoted and structured default text`() {
+        assertThat(ConfigTemplateUtils.resolveTemplateValue("x-{A:[1,true,\"z\"]}-y")).isEqualTo("x-[1,true,\"z\"]-y")
+        assertThat(ConfigTemplateUtils.resolveTemplateValue($$"x-${A:{\"a\":1}}-y")).isEqualTo("x-{\"a\":1}-y")
     }
 }

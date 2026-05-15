@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.TextNode
 data class ConfigTemplateVariable(val startIndex: Int, val endIndex: Int, val names: Set<String>, val default: String, val fullText: String)
 object ConfigTemplateUtils {
     internal val VARIABLE_TOKEN_REGEX = Regex("""\$?\{([^}:]+):([^}]*)}""")
+    private val TEMPLATE_LIKE_TOKEN_REGEX = Regex("""\$?\{[^}]*}""")
     private const val MULTI_VARIABLE_SEPARATOR = "|"
 
     fun findVariableTokens(templateText: String): List<ConfigTemplateVariable> {
@@ -18,6 +19,16 @@ object ConfigTemplateUtils {
     }
 
     fun isConfigTemplate(value: String): Boolean = VARIABLE_TOKEN_REGEX.containsMatchIn(value)
+
+    fun validateTemplate(value: String): Result<Unit> = runCatching {
+        val templateLikeTokens = TEMPLATE_LIKE_TOKEN_REGEX.findAll(value).map { it.value }.toList()
+        require(templateLikeTokens.isNotEmpty()) { "no template token found" }
+
+        val validTokenTexts = findVariableTokens(value).asSequence().filter { it.names.isNotEmpty() }.map { it.fullText }.toSet()
+        val invalidTokens = templateLikeTokens.filter { it !in validTokenTexts }
+
+        require(invalidTokens.isEmpty()) { "invalid token(s): ${invalidTokens.joinToString(", ")}" }
+    }
 
     fun isFullTemplateToken(value: String): Boolean = VARIABLE_TOKEN_REGEX.matchEntire(value) != null
 
@@ -33,6 +44,6 @@ object ConfigTemplateUtils {
 
     fun createTemplate(names: Set<String>, default: String): String {
         val fullName = names.joinToString(MULTI_VARIABLE_SEPARATOR)
-        return "\${$fullName:$default}"
+        return $$"${$$fullName:$$default}"
     }
 }
