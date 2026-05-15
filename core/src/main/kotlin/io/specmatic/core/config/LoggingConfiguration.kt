@@ -56,42 +56,54 @@ data class LogOutputConfig(
 }
 
 data class LoggingConfiguration(
-    val level: ConfigLoggingLevel? = null,
-    val json: LogOutputConfig? = null,
-    val text: LogOutputConfig? = null
+    val level: TemplateOrValue<ConfigLoggingLevel>? = null,
+    val json: TemplateOrValue<LogOutputConfig>? = null,
+    val text: TemplateOrValue<LogOutputConfig>? = null
 ) {
-    fun levelOrDefault(): ConfigLoggingLevel = level ?: ConfigLoggingLevel.INFO
+    @get:JsonIgnore
+    val resolvedLevel: ConfigLoggingLevel
+        get() = level.resolveOrDefault(ConfigLoggingLevel.INFO)
+
+    @get:JsonIgnore
+    val resolvedJson: LogOutputConfig?
+        get() = json.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedText: LogOutputConfig?
+        get() = text.resolveOrNull()
+
+    fun levelOrDefault(): ConfigLoggingLevel = resolvedLevel
 
     fun hasJsonConfiguration(): Boolean = json != null
-    fun jsonConfigurationOrDefault(): LogOutputConfig = json ?: LogOutputConfig.default()
+    fun jsonConfigurationOrDefault(): LogOutputConfig = resolvedJson ?: LogOutputConfig.default()
 
     fun hasTextConfiguration(): Boolean = text != null
-    fun textConfigurationOrDefault(): LogOutputConfig = text ?: LogOutputConfig.default()
+    fun textConfigurationOrDefault(): LogOutputConfig = resolvedText ?: LogOutputConfig.default()
 
     fun overrideMergeWith(other: LoggingConfiguration?): LoggingConfiguration {
         if (other == null) return this
         return LoggingConfiguration(
             level = other.level ?: this.level,
-            json = json.nonNullElse(other.json, LogOutputConfig::overrideMergeWith),
-            text = text.nonNullElse(other.text, LogOutputConfig::overrideMergeWith)
+            json = json.resolveOrNull().nonNullElse(other.json.resolveOrNull(), LogOutputConfig::overrideMergeWith)?.wrap(),
+            text = text.resolveOrNull().nonNullElse(other.text.resolveOrNull(), LogOutputConfig::overrideMergeWith)?.wrap()
         )
     }
 
     companion object {
         fun default(): LoggingConfiguration {
-            return LoggingConfiguration(level = ConfigLoggingLevel.INFO)
+            return LoggingConfiguration(level = ConfigLoggingLevel.INFO.wrap())
         }
 
         fun from(data: LoggingFromOpts): LoggingConfiguration {
             return LoggingConfiguration(
-                level = if (data.debug == true) ConfigLoggingLevel.DEBUG else null,
+                level = if (data.debug == true) ConfigLoggingLevel.DEBUG.wrap() else null,
                 text = if (data.textConsoleLog != null && data.textLogDirectory != null) {
-                    LogOutputConfig(directory = data.textLogDirectory.path.wrap(), console = data.textConsoleLog.wrap(), logFilePrefix = data.logPrefix.wrapOrNull())
+                    LogOutputConfig(directory = data.textLogDirectory.path.wrap(), console = data.textConsoleLog.wrap(), logFilePrefix = data.logPrefix.wrapOrNull()).wrap()
                 } else {
                     null
                 },
                 json = if (data.jsonConsoleLog != null && data.jsonLogDirectory != null) {
-                    LogOutputConfig(directory = data.jsonLogDirectory.path.wrap(), console = data.jsonConsoleLog.wrap(), logFilePrefix = data.logPrefix.wrapOrNull())
+                    LogOutputConfig(directory = data.jsonLogDirectory.path.wrap(), console = data.jsonConsoleLog.wrap(), logFilePrefix = data.logPrefix.wrapOrNull()).wrap()
                 } else {
                     null
                 },
