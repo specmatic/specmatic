@@ -7,13 +7,16 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.wrapFullyOrNull
 
 data class ContractConfig(
     @JsonIgnore
     val contractSource: ContractSource? = null,
     @JsonDeserialize(using = ProvidesDeserializer::class)
-    val provides: List<SpecExecutionConfig>? = null,
-    val consumes: List<SpecExecutionConfig>? = null
+    val provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>? = null,
+    val consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>? = null
 ) {
     @JsonCreator
     @Suppress("unused")
@@ -25,8 +28,8 @@ data class ContractConfig(
         @JsonDeserialize(using = ConsumesDeserializer::class) @JsonProperty("consumes") consumes: List<SpecExecutionConfig>? = null
     ) : this(
         contractSource = git ?: filesystem ?: web,
-        provides = provides,
-        consumes = consumes
+        provides = provides.wrapFullyOrNull(),
+        consumes = consumes.wrapFullyOrNull()
     )
 
     constructor(source: Source) : this(
@@ -36,9 +39,17 @@ data class ContractConfig(
             source.provider == SourceProvider.web && source.webBaseUrl != null -> WebContractSource(source.webBaseUrl)
             else -> null
         },
-        provides = source.test,
-        consumes = source.stub
+        provides = source.test.wrapFullyOrNull(),
+        consumes = source.stub.wrapFullyOrNull()
     )
+
+    @get:JsonIgnore
+    val resolvedProvides: List<SpecExecutionConfig>
+        get() = provides.resolveFullyOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedConsumes: List<SpecExecutionConfig>
+        get() = consumes.resolveFullyOrEmpty()
 
     @JsonProperty("git")
     @Suppress("unused")
@@ -60,11 +71,11 @@ data class ContractConfig(
 
     fun transform(): Source {
         return this.contractSource?.transform(provides, consumes)
-            ?: Source(test = provides, stub = consumes)
+            ?: Source(test = resolvedProvides, stub = resolvedConsumes)
     }
 
     fun interface ContractSource {
-        fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source
+        fun transform(provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?, consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?): Source
     }
 
     data class GitContractSource(
@@ -74,13 +85,13 @@ data class ContractConfig(
     ) : ContractSource {
         constructor(source: Source) : this(source.repository, source.branch, source.matchBranch)
 
-        override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
+        override fun transform(provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?, consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?): Source {
             return Source(
                 provider = SourceProvider.git,
                 repository = this.url,
                 branch = this.branch,
-                test = provides.orEmpty(),
-                stub = consumes.orEmpty(),
+                test = provides.resolveFullyOrEmpty(),
+                stub = consumes.resolveFullyOrEmpty(),
                 matchBranch = this.matchBranch
             )
         }
@@ -91,12 +102,12 @@ data class ContractConfig(
     ) : ContractSource {
         constructor(source: Source) : this(source.directory ?: ".")
 
-        override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
+        override fun transform(provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?, consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?): Source {
             return Source(
                 provider = SourceProvider.filesystem,
                 directory = this.directory,
-                test = provides.orEmpty(),
-                stub = consumes.orEmpty(),
+                test = provides.resolveFullyOrEmpty(),
+                stub = consumes.resolveFullyOrEmpty(),
             )
         }
     }
@@ -104,15 +115,15 @@ data class ContractConfig(
     data class WebContractSource(
         val url: String? = null
     ) : ContractSource {
-        override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
+        override fun transform(provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?, consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?): Source {
             val resolvedUrl = url?.takeIf { it.isNotBlank() }
                 ?: throw ContractException("Missing required field 'url' in 'web' contract source in Specmatic configuration")
 
             return Source(
                 provider = SourceProvider.web,
                 webBaseUrl = resolvedUrl,
-                test = provides.orEmpty(),
-                stub = consumes.orEmpty(),
+                test = provides.resolveFullyOrEmpty(),
+                stub = consumes.resolveFullyOrEmpty(),
             )
         }
     }
