@@ -10,26 +10,40 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.log.logger
 import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolve
 import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrap
 import io.specmatic.core.config.v3.wrapOrNull
 import java.io.File
 
 @JsonDeserialize(using = KeyStoreConfiguration.Companion.KeyStoreConfigurationDeserializer::class)
 @JsonIgnoreProperties("filePath", "directoryPath")
 sealed interface KeyStoreConfiguration {
-    val password: String?
-    val alias: String?
+    val password: TemplateOrValue<String>?
+    val alias: TemplateOrValue<String>?
 
-    fun getFilePath(): String? = (this as? FileBasedConfig)?.file?.let(::File)?.canonicalPath
-    fun getDirectoryPath(): String? = (this as? DirectoryBasedConfig)?.directory?.let(::File)?.canonicalPath
+    @get:JsonIgnore
+    val resolvedPassword: String?
+        get() = password.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedAlias: String?
+        get() = alias.resolveOrNull()
+
+    fun getFilePath(): String? = (this as? FileBasedConfig)?.resolvedFile?.let(::File)?.canonicalPath
+    fun getDirectoryPath(): String? = (this as? DirectoryBasedConfig)?.resolvedDirectory?.let(::File)?.canonicalPath
 
     fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration
 
     data class FileBasedConfig(
-        val file: String,
-        override val password: String? = null,
-        override val alias: String? = null
+        val file: TemplateOrValue<String>,
+        override val password: TemplateOrValue<String>? = null,
+        override val alias: TemplateOrValue<String>? = null
     ) : KeyStoreConfiguration {
+        @get:JsonIgnore
+        val resolvedFile: String
+            get() = file.resolve()
+
         override fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration {
             return when (other) {
                 is FileBasedConfig -> copy(file = other.file, password = other.password ?: password, alias = other.alias ?: alias)
@@ -41,10 +55,14 @@ sealed interface KeyStoreConfiguration {
     }
 
     data class DirectoryBasedConfig(
-        val directory: String,
-        override val password: String? = null,
-        override val alias: String? = null
+        val directory: TemplateOrValue<String>,
+        override val password: TemplateOrValue<String>? = null,
+        override val alias: TemplateOrValue<String>? = null
     ) : KeyStoreConfiguration {
+        @get:JsonIgnore
+        val resolvedDirectory: String
+            get() = directory.resolve()
+
         override fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration {
             return when (other) {
                 is DirectoryBasedConfig -> copy(directory = other.directory, password = other.password ?: password, alias = other.alias ?: alias)
@@ -55,7 +73,7 @@ sealed interface KeyStoreConfiguration {
         }
     }
 
-    data class PartialConfig(override val password: String? = null, override val alias: String? = null): KeyStoreConfiguration {
+    data class PartialConfig(override val password: TemplateOrValue<String>? = null, override val alias: TemplateOrValue<String>? = null): KeyStoreConfiguration {
         override fun overrideWith(other: KeyStoreConfiguration?): KeyStoreConfiguration {
             return when (other) {
                 is FileBasedConfig -> other.copy(password = other.password ?: password, alias = other.alias ?: alias)
@@ -72,8 +90,6 @@ sealed interface KeyStoreConfiguration {
                 val node = p.codec.readTree<ObjectNode>(p)
                 val fileNode = node.get("file")
                 val dirNode = node.get("directory")
-                val password = node.get("password")?.asText()
-                val alias = node.get("alias")?.asText()
 
                 val hasFile = fileNode != null && !fileNode.isNull
                 val hasDirectory = dirNode != null && !dirNode.isNull
@@ -89,8 +105,8 @@ sealed interface KeyStoreConfiguration {
                 }
 
                 return when {
-                    hasFile -> FileBasedConfig(file = fileNode.asText(), password = password, alias = alias)
-                    else -> DirectoryBasedConfig(directory = dirNode.asText(), password = password, alias = alias)
+                    hasFile -> p.codec.treeToValue(node, FileBasedConfig::class.java)
+                    else -> p.codec.treeToValue(node, DirectoryBasedConfig::class.java)
                 }
             }
         }
@@ -114,11 +130,11 @@ data class HttpsConfiguration(
 
     fun keyStoreDir(): String? = keyStore?.getDirectoryPath()
 
-    fun keyStorePasswordOrDefault(): String = resolvedKeyStorePassword ?: "forgotten"
+    fun keyStorePasswordOrDefault(): String = keyStore?.resolvedPassword ?: resolvedKeyStorePassword ?: "forgotten"
 
-    fun keyStoreAliasOrDefault(defaultSuffix: String): String = keyStore?.alias ?: "${APPLICATION_NAME_LOWER_CASE}$defaultSuffix"
+    fun keyStoreAliasOrDefault(defaultSuffix: String): String = keyStore?.resolvedAlias ?: "${APPLICATION_NAME_LOWER_CASE}$defaultSuffix"
 
-    fun keyPasswordOrDefault(): String = keyStore?.password ?: "forgotten"
+    fun keyPasswordOrDefault(): String = keyStore?.resolvedPassword ?: "forgotten"
 
     @JsonIgnore
     fun isMtlsEnabled(): Boolean = resolvedMtlsEnabled == true
@@ -147,9 +163,9 @@ data class HttpsConfiguration(
             return HttpsConfiguration(
                 keyStorePassword = opts.keyStorePassword.wrapOrNull(),
                 keyStore = when {
-                    opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = opts.keyStoreFile, password = opts.keyPassword, alias = opts.keyStoreAlias)
-                    opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = opts.keyStoreDir, password = opts.keyPassword, alias = opts.keyStoreAlias)
-                    else -> KeyStoreConfiguration.PartialConfig(password = opts.keyPassword, alias = opts.keyStoreAlias)
+                    opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = opts.keyStoreFile.wrap(), password = opts.keyPassword.wrapOrNull(), alias = opts.keyStoreAlias.wrapOrNull())
+                    opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = opts.keyStoreDir.wrap(), password = opts.keyPassword.wrapOrNull(), alias = opts.keyStoreAlias.wrapOrNull())
+                    else -> KeyStoreConfiguration.PartialConfig(password = opts.keyPassword.wrapOrNull(), alias = opts.keyStoreAlias.wrapOrNull())
                 },
             )
         }
