@@ -6,23 +6,32 @@ import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.resolveOrDefault
 
 data class SpecmaticGlobalSettings(
     @field:JsonDeserialize(using = ExampleTemplateStringDeserializer::class)
-    val specExamplesDirectoryTemplate: String? = null,
+    val specExamplesDirectoryTemplate: TemplateOrValue<String>? = null,
     @field:JsonDeserialize(contentUsing = ExampleTemplateStringDeserializer::class)
-    val sharedExamplesDirectoryTemplate: List<String>? = null
+    val sharedExamplesDirectoryTemplate: TemplateOrValue<List<TemplateOrValue<String>>>? = null
 ) {
+    @get:JsonIgnore
+    val resolvedSpecExamplesDirectoryTemplate: String
+        get() = specExamplesDirectoryTemplate.resolveOrDefault(DEFAULT_SPEC_EXAMPLE_DIR_TEMPLATE)
+
+    @get:JsonIgnore
+    val resolvedSharedExamplesDirectoryTemplate: List<String>
+        get() = sharedExamplesDirectoryTemplate.resolveFullyOrEmpty()
+
     @JsonIgnore
     fun getSpecExampleDirTemplate(): String {
-        if (specExamplesDirectoryTemplate != null) return specExamplesDirectoryTemplate
-        return DEFAULT_SPEC_EXAMPLE_DIR_TEMPLATE
+        return resolvedSpecExamplesDirectoryTemplate
     }
 
     @JsonIgnore
     fun getSharedExampleDirTemplates(): List<String> {
-        if (sharedExamplesDirectoryTemplate != null) return sharedExamplesDirectoryTemplate
-        return defaultSharedExamplesDirTemplate
+        return resolvedSharedExamplesDirectoryTemplate.ifEmpty { defaultSharedExamplesDirTemplate }
     }
 
     companion object {

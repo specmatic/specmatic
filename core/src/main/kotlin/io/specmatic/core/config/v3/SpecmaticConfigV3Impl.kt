@@ -69,6 +69,8 @@ import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.GitAuthentication
+import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.SuccessCriterion
 import io.specmatic.core.defaultReportDirPath
@@ -271,8 +273,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getGlobalSettingsOrDefault(): SpecmaticGlobalSettings {
         return SpecmaticGlobalSettings(
-            specExamplesDirectoryTemplate = specmaticSettings.general?.specExamplesDirectoryTemplate,
-            sharedExamplesDirectoryTemplate = specmaticSettings.general?.sharedExamplesDirectoryTemplate
+            specExamplesDirectoryTemplate = specmaticSettings.general?.specExamplesDirectoryTemplate.wrapOrNull(),
+            sharedExamplesDirectoryTemplate = specmaticSettings.general?.sharedExamplesDirectoryTemplate.wrapFullyOrNull()
         )
     }
 

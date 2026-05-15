@@ -48,8 +48,8 @@ class SpecmaticMetadataMapper {
     private fun buildGeneralSettings(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): GeneralSettings {
         return GeneralSettings(
             featureFlags = featureFlagsFrom(legacyConfig),
-            specExamplesDirectoryTemplate = view.globalSettings.specExamplesDirectoryTemplate,
-            sharedExamplesDirectoryTemplate = view.globalSettings.sharedExamplesDirectoryTemplate,
+            specExamplesDirectoryTemplate = view.globalSettings.resolvedSpecExamplesDirectoryTemplate,
+            sharedExamplesDirectoryTemplate = view.globalSettings.resolvedSharedExamplesDirectoryTemplate,
             prettyPrint = SpecmaticConfigV1V2Common.getPrettyPrintOrNull(legacyConfig),
             logging = SpecmaticConfigV1V2Common.getLogConfigurationOrNull(legacyConfig),
             disableTelemetry = SpecmaticConfigV1V2Common.isTelemetryDisabledOrNull(legacyConfig),
