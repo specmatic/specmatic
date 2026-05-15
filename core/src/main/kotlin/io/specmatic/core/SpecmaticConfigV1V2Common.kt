@@ -1763,7 +1763,7 @@ data class ReportConfigurationDetails(
         if(currentVersion.isLessThanOrEqualTo(VERSION_1))
             return this
 
-        if (types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
+        if (types?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
             throw UnsupportedOperationException(excludedEndpointsWarning)
         }
         return this
@@ -1772,8 +1772,8 @@ data class ReportConfigurationDetails(
     fun clearPresenceOfExcludedEndpoints(): ReportConfigurationDetails {
         return this.copy(
             types = types?.copy(
-                apiCoverage = types.apiCoverage?.resolveOrNull()?.copy(
-                    openAPI = types.apiCoverage.resolveOrNull()?.resolvedOpenAPI?.copy(
+                apiCoverage = types.resolvedApiCoverage?.copy(
+                    openAPI = types.resolvedApiCoverage?.resolvedOpenAPI?.copy(
                         excludedEndpoints = emptyList<String>().wrapFullyOrNull()
                     )?.wrapOrNull()
                 )?.wrapOrNull()
@@ -1783,19 +1783,24 @@ data class ReportConfigurationDetails(
 
     @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
-        return types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
+        return types?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
     }
 
     @JsonIgnore
     override fun excludedOpenAPIEndpoints(): List<String> {
-        return types?.apiCoverage?.resolveOrNull()?.resolvedOpenAPI?.resolvedExcludedEndpoints ?: emptyList()
+        return types?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedExcludedEndpoints ?: emptyList()
     }
 }
 
 data class ReportTypes(
     @param:JsonProperty("APICoverage")
     val apiCoverage: TemplateOrValue<APICoverage>? = null
-)
+) {
+    @get:JsonIgnore
+    val resolvedApiCoverage: APICoverage?
+        get() = apiCoverage.resolveOrNull()
+}
+
 
 data class APICoverage(
     @param:JsonProperty("OpenAPI")
