@@ -20,6 +20,7 @@ import io.specmatic.core.config.v3.resolveOrDefault
 import io.specmatic.core.config.v3.resolveFullyOrEmpty
 import io.specmatic.core.config.v3.resolveFullyOrNull
 import io.specmatic.core.config.v3.wrapOrNull
+import io.specmatic.core.config.v3.wrapFullyOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.resolve
@@ -1762,7 +1763,7 @@ data class ReportConfigurationDetails(
         if(currentVersion.isLessThanOrEqualTo(VERSION_1))
             return this
 
-        if (types?.apiCoverage?.openAPI?.excludedEndpoints.orEmpty().isNotEmpty()) {
+        if (types?.apiCoverage?.openAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
             throw UnsupportedOperationException(excludedEndpointsWarning)
         }
         return this
@@ -1773,7 +1774,7 @@ data class ReportConfigurationDetails(
             types = types?.copy(
                 apiCoverage = types.apiCoverage?.copy(
                     openAPI = types.apiCoverage.openAPI?.copy(
-                        excludedEndpoints = emptyList()
+                        excludedEndpoints = emptyList<String>().wrapFullyOrNull()
                     )
                 )
             )
@@ -1782,12 +1783,12 @@ data class ReportConfigurationDetails(
 
     @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
-        return types?.apiCoverage?.openAPI?.successCriteria ?: SuccessCriteria.default
+        return types?.apiCoverage?.openAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
     }
 
     @JsonIgnore
     override fun excludedOpenAPIEndpoints(): List<String> {
-        return types?.apiCoverage?.openAPI?.excludedEndpoints ?: emptyList()
+        return types?.apiCoverage?.openAPI?.resolvedExcludedEndpoints ?: emptyList()
     }
 }
 
@@ -1802,9 +1803,17 @@ data class APICoverage(
 )
 
 data class APICoverageConfiguration(
-    val successCriteria: SuccessCriteria? = null,
-    val excludedEndpoints: List<String>? = null
-)
+    val successCriteria: TemplateOrValue<SuccessCriteria>? = null,
+    val excludedEndpoints: TemplateOrValue<List<TemplateOrValue<String>>>? = null
+) {
+    @get:JsonIgnore
+    val resolvedSuccessCriteria: SuccessCriteria?
+        get() = successCriteria.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedExcludedEndpoints: List<String>
+        get() = excludedEndpoints.resolveFullyOrEmpty()
+}
 
 data class SuccessCriteria(
     val minThresholdPercentage: TemplateOrValue<Int>? = null,

@@ -31,7 +31,7 @@ class SpecmaticMetadataMapper {
         val reportDir = SpecmaticConfigV1V2Common.getReportDirPathOrNull(legacyConfig)
         return Governance(
             report = Report(outputDirectory = reportDir?.toUnixPath()),
-            successCriterion = view.report?.types?.apiCoverage?.openAPI?.successCriteria?.let(SuccessCriterion.Companion::from),
+            successCriterion = view.report?.types?.apiCoverage?.openAPI?.resolvedSuccessCriteria?.let(SuccessCriterion.Companion::from),
         )
     }
 
