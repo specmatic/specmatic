@@ -3,6 +3,10 @@ package io.specmatic.core.config.v3
 import io.specmatic.core.ProxyConfig
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.components.Adapter
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
 
 data class Proxy(val proxy: ProxyConfigV3)
 data class ProxyConfigV3(
@@ -16,13 +20,13 @@ data class ProxyConfigV3(
 ) {
     fun toCommonConfig(resolver: RefOrValueResolver): ProxyConfig {
         return ProxyConfig(
-            targetUrl = target,
-            baseUrl = baseUrl,
-            timeoutInMilliseconds = timeoutInMilliseconds,
+            targetUrl = target.wrap(),
+            baseUrl = baseUrl.wrapOrNull(),
+            timeoutInMilliseconds = timeoutInMilliseconds.wrapOrNull(),
             adapters = adapters?.resolveElseThrow(resolver),
-            consumes = mock,
+            consumes = mock.wrapFullyOrNull(),
             https = cert?.resolveElseThrow(resolver),
-            outputDirectory = recordingsDirectory
+            outputDirectory = recordingsDirectory.wrapOrNull()
         )
     }
 }
