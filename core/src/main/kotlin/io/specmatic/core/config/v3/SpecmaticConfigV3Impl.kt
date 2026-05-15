@@ -836,6 +836,6 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         val testRunOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, SpecType.OPENAPI) ?: return null
         val specData = testRunOpts.getMatchingSpecification(specId) as? OpenApiRunOptionsSpecifications ?: return null
         val schemes = specData.getSecuritySchemes()?.mapValues { it.value.toSecuritySchemeConfiguration() } ?: return null
-        return SecurityConfiguration(OpenAPI = OpenAPISecurityConfiguration(schemes))
+        return SecurityConfiguration(openAPI = OpenAPISecurityConfiguration(schemes).wrap())
     }
 }

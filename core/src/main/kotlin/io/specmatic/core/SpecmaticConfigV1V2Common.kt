@@ -1851,13 +1851,14 @@ data class SuccessCriteria(
 
 data class SecurityConfiguration(
     @param:JsonProperty("OpenAPI")
-    private val OpenAPI: OpenAPISecurityConfiguration?
+    val openAPI: TemplateOrValue<OpenAPISecurityConfiguration>? = null
 ) {
-    val openAPI: OpenAPISecurityConfiguration?
-        get() = OpenAPI
+    @get:JsonIgnore
+    val resolvedOpenAPI: OpenAPISecurityConfiguration?
+        get() = openAPI.resolveOrNull()
 
     fun getOpenAPISecurityScheme(scheme: String): SecuritySchemeConfiguration? {
-        return OpenAPI?.securitySchemes?.get(scheme)
+        return resolvedOpenAPI?.securitySchemes?.get(scheme)
     }
 }
 
