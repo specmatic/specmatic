@@ -349,6 +349,12 @@ data class WorkflowIDOperation(
     @get:JsonIgnore
     val resolvedUse: String?
         get() = use.resolveOrNull()
+
+    @JsonIgnore
+    fun getExtract(): String? = resolvedExtract
+
+    @JsonIgnore
+    fun getUse(): String? = resolvedUse
 }
 
 interface WorkflowDetails {
