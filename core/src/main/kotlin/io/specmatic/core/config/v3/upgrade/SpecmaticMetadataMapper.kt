@@ -29,7 +29,7 @@ class SpecmaticMetadataMapper {
     }
 
     private fun buildGovernance(legacyConfig: SpecmaticConfigV1V2Common, view: LegacyConfigView): Governance {
-        val reportDir = SpecmaticConfigV1V2Common.getReportDirPathOrNull(legacyConfig)
+        val reportDir = legacyConfig.resolvedReportDirPath
         return Governance(
             report = Report(outputDirectory = reportDir?.toUnixPath()),
             successCriterion = view.report?.resolvedTypes?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedSuccessCriteria?.let(SuccessCriterion.Companion::from),
@@ -50,19 +50,19 @@ class SpecmaticMetadataMapper {
             featureFlags = featureFlagsFrom(legacyConfig),
             specExamplesDirectoryTemplate = view.globalSettings.resolvedSpecExamplesDirectoryTemplate,
             sharedExamplesDirectoryTemplate = view.globalSettings.resolvedSharedExamplesDirectoryTemplate,
-            prettyPrint = SpecmaticConfigV1V2Common.getPrettyPrintOrNull(legacyConfig),
-            logging = SpecmaticConfigV1V2Common.getLogConfigurationOrNull(legacyConfig),
-            disableTelemetry = SpecmaticConfigV1V2Common.isTelemetryDisabledOrNull(legacyConfig),
-            ignoreInlineExamples = SpecmaticConfigV1V2Common.getIgnoreInlineExamples(legacyConfig),
-            ignoreInlineExampleWarnings = SpecmaticConfigV1V2Common.getIgnoreInlineExampleWarningsOrNull(legacyConfig),
+            prettyPrint = legacyConfig.resolvedPrettyPrint,
+            logging = legacyConfig.resolvedLogging,
+            disableTelemetry = legacyConfig.resolvedDisableTelemetry,
+            ignoreInlineExamples = legacyConfig.resolvedIgnoreInlineExamples,
+            ignoreInlineExampleWarnings = legacyConfig.resolvedIgnoreInlineExampleWarnings,
         )
     }
 
     private fun featureFlagsFrom(legacyConfig: SpecmaticConfigV1V2Common): FeatureFlags {
         return FeatureFlags(
-            escapeSoapAction = SpecmaticConfigV1V2Common.getEscapeSoapActionOrNull(legacyConfig),
-            schemaExampleDefault = SpecmaticConfigV1V2Common.getSchemaExampleDefaultOrNull(legacyConfig),
-            fuzzyMatcherForPayloads = SpecmaticConfigV1V2Common.getFuzzyMatchingEnabledOrNull(legacyConfig),
+            escapeSoapAction = legacyConfig.resolvedEscapeSoapAction,
+            schemaExampleDefault = legacyConfig.resolvedSchemaExampleDefault,
+            fuzzyMatcherForPayloads = legacyConfig.resolvedFuzzy,
         )
     }
 

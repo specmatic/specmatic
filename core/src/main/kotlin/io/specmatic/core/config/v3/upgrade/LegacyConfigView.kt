@@ -44,20 +44,17 @@ data class LegacyConfigView(
 
     companion object {
         fun from(legacyConfig: SpecmaticConfigV1V2Common): LegacyConfigView {
-            val testConfig = SpecmaticConfigV1V2Common.getTestConfigOrNull(legacyConfig)
-            val stubConfig = SpecmaticConfigV1V2Common.getStubConfigOrNull(legacyConfig)
-
             return LegacyConfigView(
-                testConfig = testConfig,
-                stubConfig = stubConfig,
-                globalHooks = legacyConfig.getHooks(),
-                globalExamples = legacyConfig.getExamples(),
-                gitAuth = legacyConfig.getAuth()?.toGitAuthentication(),
-                report = SpecmaticConfigV1V2Common.getReport(legacyConfig),
-                globalSettings = legacyConfig.getGlobalSettingsOrDefault(),
-                sources = SpecmaticConfigV1V2Common.getSources(legacyConfig),
-                workflow = SpecmaticConfigV1V2Common.getWorkflowConfiguration(legacyConfig),
-                security = SpecmaticConfigV1V2Common.getSecurityConfiguration(legacyConfig)
+                testConfig = legacyConfig.resolvedTest,
+                stubConfig = legacyConfig.resolvedStub,
+                globalHooks = legacyConfig.resolvedHooks,
+                globalExamples = legacyConfig.resolvedExamples,
+                gitAuth = legacyConfig.resolvedAuth?.toGitAuthentication(),
+                report = legacyConfig.resolvedReport,
+                globalSettings = legacyConfig.resolvedGlobalSettings,
+                sources = legacyConfig.resolvedSources,
+                workflow = legacyConfig.resolvedWorkflow,
+                security = legacyConfig.resolvedSecurity
             )
         }
 
