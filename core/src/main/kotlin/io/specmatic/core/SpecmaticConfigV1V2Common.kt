@@ -16,6 +16,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.resolveOrDefault
 import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
@@ -1525,25 +1526,41 @@ data class Auth(
 enum class PipelineProvider { azure }
 
 data class Pipeline(
-    private val provider: PipelineProvider = PipelineProvider.azure,
-    private val organization: String = "",
-    private val project: String = "",
-    private val definitionId: Int = 0
+    val provider: TemplateOrValue<PipelineProvider>? = null,
+    val organization: TemplateOrValue<String>? = null,
+    val project: TemplateOrValue<String>? = null,
+    val definitionId: TemplateOrValue<Int>? = null
 ) {
+    @get:JsonIgnore
+    val resolvedProvider: PipelineProvider
+        get() = provider.resolveOrDefault(PipelineProvider.azure)
+
+    @get:JsonIgnore
+    val resolvedOrganization: String
+        get() = organization.resolveOrDefault("")
+
+    @get:JsonIgnore
+    val resolvedProject: String
+        get() = project.resolveOrDefault("")
+
+    @get:JsonIgnore
+    val resolvedDefinitionId: Int
+        get() = definitionId.resolveOrDefault(0)
+
     fun getProvider(): PipelineProvider {
-        return provider
+        return resolvedProvider
     }
 
     fun getOrganization(): String {
-        return organization
+        return resolvedOrganization
     }
 
     fun getProject(): String {
-        return project
+        return resolvedProject
     }
 
     fun getDefinitionId(): Int {
-        return definitionId
+        return resolvedDefinitionId
     }
 }
 
