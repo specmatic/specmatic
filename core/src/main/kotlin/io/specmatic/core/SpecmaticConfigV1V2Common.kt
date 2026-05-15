@@ -14,6 +14,8 @@ import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.*
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_1
 import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.git.SystemGit
@@ -243,9 +245,17 @@ data class VirtualServiceConfiguration(
 }
 
 data class WorkflowIDOperation(
-    val extract: String? = null,
-    val use: String? = null
-)
+    val extract: TemplateOrValue<String>? = null,
+    val use: TemplateOrValue<String>? = null
+) {
+    @get:JsonIgnore
+    val resolvedExtract: String?
+        get() = extract.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedUse: String?
+        get() = use.resolveOrNull()
+}
 
 interface WorkflowDetails {
     fun getExtractForAPI(apiDescription: String): String?
@@ -262,12 +272,12 @@ data class WorkflowConfiguration(val ids: Map<String, WorkflowIDOperation> = emp
     }
 
     override fun getExtractForAPI(apiDescription: String): String? {
-        return getOperation(apiDescription)?.extract
+        return getOperation(apiDescription)?.resolvedExtract
     }
 
     override fun getUseForAPI(apiDescription: String): String? {
         val operation = getOperation(apiDescription) ?: getOperation("*")
-        return operation?.use
+        return operation?.resolvedUse
     }
 }
 
