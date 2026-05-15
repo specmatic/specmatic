@@ -64,4 +64,10 @@ data class McpTestConfiguration(
     fun getDictionaryIfExists(): File? = resolvedDictionaryFile?.let(::File)
 }
 
-data class McpConfiguration(val test: McpTestConfiguration)
+data class McpConfiguration(
+    val test: TemplateOrValue<McpTestConfiguration>
+) {
+    @get:JsonIgnore
+    val resolvedTest: McpTestConfiguration?
+        get() = test.resolveOrNull()
+}
