@@ -13,7 +13,6 @@ import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SourceProvider
-import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.utilities.Flags
 import java.io.File
@@ -217,38 +216,25 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
 
     private fun JsonNode.parseObjectValue(p: JsonParser): SpecExecutionConfig {
         if (has("specType") || has("config")) {
-            return parseConfigValue(p)
+            return p.codec.treeToValue(this, SpecExecutionConfig.ConfigValue::class.java)
         }
 
         val validatedJsonNode = this.getValidatedJsonNode(p)
-        val specs = validatedJsonNode.get("specs").map(JsonNode::asText)
-        val resiliencyTests = parseResiliencyTestsIfApplicable(p)
-
         return when {
             has("baseUrl") -> SpecExecutionConfig.ObjectValue.FullUrl(
-                get("baseUrl").asText(),
-                specs,
-                resiliencyTests,
+                baseUrl = validatedJsonNode.get("baseUrl").asText(),
+                specs = validatedJsonNode.get("specs").map(JsonNode::asText),
+                resiliencyTests = if (consumes) null else p.codec.treeToValue(get("resiliencyTests"), ResiliencyTestsConfig::class.java),
             )
 
             else -> SpecExecutionConfig.ObjectValue.PartialUrl(
-                host = get("host")?.asText(),
-                port = get("port")?.asInt(),
-                basePath = get("basePath")?.asText(),
-                specs = specs,
-                resiliencyTests = resiliencyTests,
+                host = validatedJsonNode.get("host")?.asText(),
+                port = validatedJsonNode.get("port")?.asInt(),
+                basePath = validatedJsonNode.get("basePath")?.asText(),
+                specs = validatedJsonNode.get("specs").map(JsonNode::asText),
+                resiliencyTests = if (consumes) null else p.codec.treeToValue(get("resiliencyTests"), ResiliencyTestsConfig::class.java),
             )
         }
-    }
-
-    private fun JsonNode.parseConfigValue(p: JsonParser): SpecExecutionConfig.ConfigValue {
-        validateConfigValueFields(p)
-
-        val specs = get("specs").map(JsonNode::asText)
-        val specType = get("specType").asText()
-        val config = get("config").toMap(p)
-
-        return SpecExecutionConfig.ConfigValue(specs, specType, config)
     }
 
     private fun JsonNode.validateConfigValueFields(p: JsonParser) {
@@ -274,27 +260,6 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         return specsField
     }
 
-    private fun JsonNode.toMap(p: JsonParser): Map<String, Any> {
-        val map = mutableMapOf<String, Any>()
-        this.properties().forEach { (key, value) ->
-            map[key] = value.nativeValue(p)
-        }
-        return map
-    }
-
-    private fun JsonNode.nativeValue(p: JsonParser): Any {
-        return when {
-            this.isTextual -> this.asText()
-            this.isInt -> this.asInt()
-            this.isLong -> this.asLong()
-            this.isDouble -> this.asDouble()
-            this.isBoolean -> this.asBoolean()
-            this.isArray -> this.map { it.nativeValue(p) }
-            this.isObject -> this.toMap(p)
-            this.isNull -> throw JsonMappingException(p, "Null values not supported in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
-            else -> throw JsonMappingException(p, "Unsupported value type in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
-        }
-    }
 
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {
         val allowedFields = buildSet {
@@ -334,19 +299,4 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
         return this
     }
 
-    private fun JsonNode.parseResiliencyTestsIfApplicable(p: JsonParser): ResiliencyTestsConfig? {
-        if (consumes) return null // consumes: resiliencyTests not supported
-        val node = get("resiliencyTests") ?: return null
-        if (!node.isObject) throw JsonMappingException(p, "'resiliencyTests' must be an object with field 'enable'")
-
-        val enableNode = node.get("enable") ?: return ResiliencyTestsConfig() // present but no enable -> default/null
-        if (!enableNode.isTextual) throw JsonMappingException(p, "'resiliencyTests.enable' must be one of: positiveOnly, all, none")
-        val enable = when (val value = enableNode.asText()) {
-            "positiveOnly" -> ResiliencyTestSuite.positiveOnly
-            "all" -> ResiliencyTestSuite.all
-            "none" -> ResiliencyTestSuite.none
-            else -> throw JsonMappingException(p, "Unknown value '$value' for 'resiliencyTests.enable'. Allowed: positiveOnly, all, none")
-        }
-        return ResiliencyTestsConfig(enable = enable.wrapOrNull())
-    }
 }
