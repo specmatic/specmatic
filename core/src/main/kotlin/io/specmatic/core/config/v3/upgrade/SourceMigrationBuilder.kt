@@ -8,6 +8,8 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.sources.GitAuthentication
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.reporter.model.SpecType
 import java.io.File
@@ -39,14 +41,15 @@ sealed interface SourceMigration {
 class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     fun buildTestMigrations(sources: List<Source>): List<SourceMigration.TestSourceMigration> {
         return sources.mapNotNull { source ->
-            createTestMigration(source, source.test.orEmpty())
+            createTestMigration(source, source.resolvedTest.orEmpty())
         }
     }
 
     fun buildMockMigrations(sources: List<Source>): List<SourceMigration.MockSourceMigration> {
         return sources.flatMap { source ->
-            if (source.stub.isNullOrEmpty()) return@flatMap emptyList()
-            source.stub.map { config -> createMockMigration(source, config) }
+            val resolvedStub = source.resolvedStub.orEmpty()
+            if (resolvedStub.isEmpty()) return@flatMap emptyList()
+            resolvedStub.map { config -> createMockMigration(source, config) }
         }
     }
 
@@ -104,23 +107,23 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     }
 
     private fun Source.toSourceV3(gitAuth: GitAuthentication?): SourceV3 {
-        return when (provider) {
+        return when (resolvedProvider) {
             SourceProvider.git -> SourceV3(
-                git = SourceV3.Git(url = repository, branch = branch, matchBranch = matchBranch, auth = gitAuth),
+                git = SourceV3.Git(url = resolvedRepository, branch = resolvedBranch, matchBranch = resolvedMatchBranch, auth = gitAuth),
                 fileSystem = null,
                 web = null
             )
 
             SourceProvider.filesystem -> SourceV3(
                 git = null,
-                fileSystem = SourceV3.FileSystem(directory = directory ?: "."),
+                fileSystem = SourceV3.FileSystem(directory = resolvedDirectory ?: "."),
                 web = null
             )
 
             SourceProvider.web -> SourceV3(
                 git = null,
                 fileSystem = null,
-                web = SourceV3.Web(url = webBaseUrl)
+                web = SourceV3.Web(url = resolvedWebBaseUrl)
             )
         }
     }

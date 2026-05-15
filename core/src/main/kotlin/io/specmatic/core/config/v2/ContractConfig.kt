@@ -9,7 +9,9 @@ import io.specmatic.core.SourceProvider
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.wrap
 import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
 
 data class ContractConfig(
     @JsonIgnore
@@ -34,13 +36,13 @@ data class ContractConfig(
 
     constructor(source: Source) : this(
         contractSource = when {
-            source.provider == SourceProvider.git -> GitContractSource(source)
-            source.directory != null -> FileSystemContractSource(source)
-            source.provider == SourceProvider.web && source.webBaseUrl != null -> WebContractSource(source.webBaseUrl)
+            source.resolvedProvider == SourceProvider.git -> GitContractSource(source)
+            source.resolvedDirectory != null -> FileSystemContractSource(source)
+            source.resolvedProvider == SourceProvider.web && source.resolvedWebBaseUrl != null -> WebContractSource(source.resolvedWebBaseUrl)
             else -> null
         },
-        provides = source.test.wrapFullyOrNull(),
-        consumes = source.stub.wrapFullyOrNull()
+        provides = source.test,
+        consumes = source.stub
     )
 
     @get:JsonIgnore
@@ -71,7 +73,7 @@ data class ContractConfig(
 
     fun transform(): Source {
         return this.contractSource?.transform(provides, consumes)
-            ?: Source(test = resolvedProvides, stub = resolvedConsumes)
+            ?: Source(test = provides, stub = consumes)
     }
 
     fun interface ContractSource {
@@ -83,16 +85,16 @@ data class ContractConfig(
         val branch: String? = null,
         val matchBranch: Boolean? = null
     ) : ContractSource {
-        constructor(source: Source) : this(source.repository, source.branch, source.matchBranch)
+        constructor(source: Source) : this(source.resolvedRepository, source.resolvedBranch, source.resolvedMatchBranch)
 
         override fun transform(provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?, consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?): Source {
             return Source(
-                provider = SourceProvider.git,
-                repository = this.url,
-                branch = this.branch,
-                test = provides.resolveFullyOrEmpty(),
-                stub = consumes.resolveFullyOrEmpty(),
-                matchBranch = this.matchBranch
+                provider = SourceProvider.git.wrap(),
+                repository = this.url.wrapOrNull(),
+                branch = this.branch.wrapOrNull(),
+                test = provides,
+                stub = consumes,
+                matchBranch = this.matchBranch.wrapOrNull()
             )
         }
     }
@@ -100,14 +102,14 @@ data class ContractConfig(
     data class FileSystemContractSource(
         val directory: String = "."
     ) : ContractSource {
-        constructor(source: Source) : this(source.directory ?: ".")
+        constructor(source: Source) : this(source.resolvedDirectory ?: ".")
 
         override fun transform(provides: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?, consumes: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>?): Source {
             return Source(
-                provider = SourceProvider.filesystem,
-                directory = this.directory,
-                test = provides.resolveFullyOrEmpty(),
-                stub = consumes.resolveFullyOrEmpty(),
+                provider = SourceProvider.filesystem.wrap(),
+                directory = this.directory.wrap(),
+                test = provides,
+                stub = consumes,
             )
         }
     }
@@ -120,10 +122,10 @@ data class ContractConfig(
                 ?: throw ContractException("Missing required field 'url' in 'web' contract source in Specmatic configuration")
 
             return Source(
-                provider = SourceProvider.web,
-                webBaseUrl = resolvedUrl,
-                test = provides.resolveFullyOrEmpty(),
-                stub = consumes.resolveFullyOrEmpty(),
+                provider = SourceProvider.web.wrap(),
+                webBaseUrl = resolvedUrl.wrap(),
+                test = provides,
+                stub = consumes,
             )
         }
     }

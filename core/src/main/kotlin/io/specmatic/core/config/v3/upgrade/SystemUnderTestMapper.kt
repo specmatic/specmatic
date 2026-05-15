@@ -38,7 +38,7 @@ class SystemUnderTestMapper {
 
         val runOptionsMapper = RunOptionsMapper(defaultHostForPortOnly = "localhost", specIdsByPath = specIdsByPath, specTypesByPath = specTypesByPath)
         val runOptionsOverrides = view.sources
-            .flatMap { it.test.orEmpty() }
+            .flatMap { it.resolvedTest.orEmpty() }
             .fold(runOptionsMapper) { acc, config -> acc.mergeConfig(config) }
             .mergeGlobalOpenApi(
                 overlayFilePath = view.testConfig?.resolvedOverlayFilePath,
@@ -127,7 +127,7 @@ class SystemUnderTestMapper {
 
     private fun extractExamplesFromTestConfigs(view: LegacyConfigView): List<String> {
         return view.sources
-            .flatMap { it.test.orEmpty() }
+            .flatMap { it.resolvedTest.orEmpty() }
             .asConfigValues()
             .flatMap { extractExamplesFromTestConfig(it).asSequence() }
             .distinct()

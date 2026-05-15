@@ -67,7 +67,7 @@ class SpecmaticMetadataMapper {
     }
 
     private fun buildTestSettings(view: LegacyConfigView): TestSettings {
-        val testConfigs = view.sources.flatMap { it.test.orEmpty() }
+        val testConfigs = view.sources.flatMap { it.resolvedTest.orEmpty() }
         val schemaResiliencyTestsFromProvides = extractSchemaResiliencyTestsFromProvides(testConfigs) ?: extractSchemaResiliencyTestsFromConfigValue(testConfigs)
 
         return TestSettings(
@@ -101,13 +101,13 @@ class SpecmaticMetadataMapper {
 
     private fun buildMockSettings(view: LegacyConfigView): MockSettings {
         return MockSettings(
-            generative = view.stubConfig?.getGenerative(),
-            strictMode = view.stubConfig?.getStrictMode(),
-            lenientMode = view.stubConfig?.getLenientMode(),
-            hotReload = view.stubConfig?.getHotReload()?.toBoolean(),
-            delayInMilliseconds = view.stubConfig?.getDelayInMilliseconds(),
-            startTimeoutInMilliseconds = view.stubConfig?.getStartTimeoutInMilliseconds(),
-            gracefulRestartTimeoutInMilliseconds = view.stubConfig?.getGracefulRestartTimeoutInMilliseconds(),
+            generative = view.stubConfig?.resolvedGenerative,
+            strictMode = view.stubConfig?.resolvedStrictMode,
+            lenientMode = view.stubConfig?.resolvedLenientMode,
+            hotReload = view.stubConfig?.resolvedHotReload?.toBoolean(),
+            delayInMilliseconds = view.stubConfig?.resolvedDelayInMilliseconds,
+            startTimeoutInMilliseconds = view.stubConfig?.resolvedStartTimeoutInMilliseconds,
+            gracefulRestartTimeoutInMilliseconds = view.stubConfig?.resolvedGracefulRestartTimeoutInMilliseconds,
         )
     }
 

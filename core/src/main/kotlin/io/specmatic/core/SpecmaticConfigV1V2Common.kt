@@ -622,15 +622,21 @@ data class SpecmaticConfigV1V2Common(
     override fun getSpecificationSources(): List<SpecificationSource> {
         val resiliencyTestSuite = test?.resolvedResiliencyTests?.resolvedEnable
         return this.sources.map { source ->
-            val specificationSource = SpecificationSource(source.provider, source.repository, source.directory, source.branch, source.matchBranch)
+            val specificationSource = SpecificationSource(
+                source.resolvedProvider,
+                source.resolvedRepository,
+                source.resolvedDirectory,
+                source.resolvedBranch,
+                source.resolvedMatchBranch
+            )
             val sourceBaseDir = source.getBaseDirectory()
 
-            val withTestSources = source.test.orEmpty().fold(specificationSource) { acc, testExecutionConfig ->
+            val withTestSources = source.resolvedTest.orEmpty().fold(specificationSource) { acc, testExecutionConfig ->
                 val testEntries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir, resiliencyTestSuite)
                 acc.copy(test = acc.test.plus(testEntries))
             }
 
-            source.stub.orEmpty().fold(withTestSources) { acc, mockExecutionConfig ->
+            source.resolvedStub.orEmpty().fold(withTestSources) { acc, mockExecutionConfig ->
                 val mockEntries = mockExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir)
                 acc.copy(mock = acc.mock.plus(mockEntries))
             }
@@ -642,7 +648,7 @@ data class SpecmaticConfigV1V2Common(
         val resiliencyTestSuite = test?.resolvedResiliencyTests?.resolvedEnable
         return this.sources.firstNotNullOfOrNull { source ->
             val sourceBaseDir = source.getBaseDirectory()
-            source.stub.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
+            source.resolvedStub.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
                 val entries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir, resiliencyTestSuite)
                 entries.firstOrNull(predicate)
             }
@@ -653,7 +659,7 @@ data class SpecmaticConfigV1V2Common(
     override fun getFirstTestSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
         return this.sources.firstNotNullOfOrNull { source ->
             val sourceBaseDir = source.getBaseDirectory()
-            source.test.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
+            source.resolvedTest.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
                 val entries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir)
                 entries.firstOrNull(predicate)
             }
@@ -672,7 +678,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun testConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
-        return sources.flatMap { it.test.orEmpty() }.configWith(specPath, specType)
+        return sources.flatMap { it.resolvedTest.orEmpty() }.configWith(specPath, specType)
     }
 
     @JsonIgnore
@@ -695,7 +701,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
-        return sources.flatMap { it.stub.orEmpty() }.configWith(specPath, specType)
+        return sources.flatMap { it.resolvedStub.orEmpty() }.configWith(specPath, specType)
     }
 
     @JsonIgnore
@@ -721,9 +727,9 @@ data class SpecmaticConfigV1V2Common(
             protocol = protocol,
             specType = specType,
             specification = specPathFromConfig.orEmpty(),
-            sourceProvider = source.provider.name,
-            repository = source.repository.orEmpty(),
-            branch = source.branch ?: "main",
+            sourceProvider = source.resolvedProvider.name,
+            repository = source.resolvedRepository.orEmpty(),
+            branch = source.resolvedBranch ?: "main",
         )
     }
 
@@ -768,7 +774,7 @@ data class SpecmaticConfigV1V2Common(
     override fun stubBaseUrls(defaultBaseUrl: String): List<String> =
         sources
             .flatMap { source ->
-                source.stub.orEmpty().map { consumes ->
+                source.resolvedStub.orEmpty().map { consumes ->
                     baseUrlFrom(consumes, defaultBaseUrl)
                 }
             }.distinct()
@@ -776,7 +782,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun stubToBaseUrlList(defaultBaseUrl: String): List<Pair<String, String>> {
         return sources.flatMap { source ->
-            source.stub.orEmpty().flatMap { consumes ->
+            source.resolvedStub.orEmpty().flatMap { consumes ->
                 when (consumes) {
                     is SpecExecutionConfig.StringValue -> listOf(consumes.value to defaultBaseUrl)
                     is SpecExecutionConfig.ObjectValue -> consumes.specs.map { it to consumes.toBaseUrl(defaultBaseUrl) }
@@ -810,7 +816,7 @@ data class SpecmaticConfigV1V2Common(
         logger.log("-------------------")
 
         sources.forEach { source ->
-            logger.log("In central repo ${source.repository}")
+            logger.log("In central repo ${source.resolvedRepository}")
 
             source.specsUsedAsTest().forEach { relativeContractPath ->
                 logger.log("  Consumers of $relativeContractPath")
@@ -849,28 +855,30 @@ data class SpecmaticConfigV1V2Common(
             val testExamplesMap = source.specToTestExamplesMap()
             val testPaths = testBaseUrlMap.entries.map { ContractSourceEntry(it.key, it.value, testGenerativeMap[it.key], exampleDirPaths = testExamplesMap[it.key]) }
 
-            val sourceMatchBranch = source.matchBranch ?: false
+            val sourceMatchBranch = source.resolvedMatchBranch ?: false
             val effectiveUseCurrentBranch = useCurrentBranchForCentralRepo || sourceMatchBranch
-            val effectiveBranch = getEffectiveBranchForSource(source.branch, effectiveUseCurrentBranch)
+            val configuredBranch = source.resolvedBranch
+            val effectiveBranch = getEffectiveBranchForSource(configuredBranch, effectiveUseCurrentBranch)
+            val repository = source.resolvedRepository
 
 
-            when (source.provider) {
-                git -> when (source.repository) {
-                    null -> GitMonoRepo(testPaths, stubPaths, source.provider.toString())
+            when (source.resolvedProvider) {
+                git -> when (repository) {
+                    null -> GitMonoRepo(testPaths, stubPaths, source.resolvedProvider.toString())
                     else -> GitRepo(
-                        source.repository,
+                        repository,
                         effectiveBranch,
                         testPaths,
                         stubPaths,
-                        source.provider.toString(),
+                        source.resolvedProvider.toString(),
                         effectiveUseCurrentBranch,
                         specmaticConfig = this
                     )
                 }
 
-                filesystem -> LocalFileSystemSource(source.directory ?: ".", testPaths, stubPaths)
+                filesystem -> LocalFileSystemSource(source.resolvedDirectory ?: ".", testPaths, stubPaths)
 
-                web -> source.webBaseUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) } ?: WebSource(testPaths, stubPaths)
+                web -> source.resolvedWebBaseUrl?.let { ResolvedWebSource(it, testPaths, stubPaths) } ?: WebSource(testPaths, stubPaths)
             }
         }
     }
@@ -1205,7 +1213,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getMatchBranchEnabled(): Boolean {
-        return sources.any { it.matchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
+        return sources.any { it.resolvedMatchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
     }
 
     @JsonIgnore
@@ -1404,10 +1412,10 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun stubContracts(relativeTo: File): List<String> {
         return sources.flatMap { source ->
-            source.stub.orEmpty().flatMap { stub ->
+            source.resolvedStub.orEmpty().flatMap { stub ->
                 stub.specs()
             }.map { spec ->
-                if (source.provider == web) spec
+                if (source.resolvedProvider == web) spec
                 else spec.canonicalPath(relativeTo)
             }
         }
@@ -1484,7 +1492,7 @@ data class SpecmaticConfigV1V2Common(
     }
 
     override fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig {
-        val transformedSources = this.sources.map { source -> source.copy(matchBranch = matchBranch) }
+        val transformedSources = this.sources.map { source -> source.copy(matchBranch = matchBranch.wrap()) }
         return this.copy(sources = transformedSources)
     }
 
@@ -1549,13 +1557,13 @@ data class SpecmaticConfigV1V2Common(
     }
 
     private fun Source.firstTestSpecMatching(specFile: File): String? {
-        return test.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
+        return resolvedTest.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
             resolveSpecFile(specPath).sameAs(specFile)
         }
     }
 
     private fun Source.firstStubSpecMatching(specFile: File): String? {
-        return stub.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
+        return resolvedStub.orEmpty().asSequence().flatMap { it.specs().asSequence() }.firstOrNull { specPath ->
             resolveSpecFile(specPath).sameAs(specFile)
         }
     }
@@ -1775,34 +1783,66 @@ enum class SourceProvider { git, filesystem, web }
 
 data class Source(
     @field:JsonAlias("type")
-    val provider: SourceProvider = filesystem,
-    val repository: String? = null,
-    val branch: String? = null,
+    val provider: TemplateOrValue<SourceProvider>? = null,
+    val repository: TemplateOrValue<String>? = null,
+    val branch: TemplateOrValue<String>? = null,
     @field:JsonAlias("provides")
     @JsonDeserialize(using = ConsumesDeserializer::class)
-    val test: List<SpecExecutionConfig>? = null,
+    val test: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>? = null,
     @field:JsonAlias("consumes")
     @JsonDeserialize(using = ConsumesDeserializer::class)
-    val stub: List<SpecExecutionConfig>? = null,
-    val directory: String? = null,
-    val webBaseUrl: String? = null,
-    val matchBranch: Boolean? = null,
+    val stub: TemplateOrValue<List<TemplateOrValue<SpecExecutionConfig>>>? = null,
+    val directory: TemplateOrValue<String>? = null,
+    val webBaseUrl: TemplateOrValue<String>? = null,
+    val matchBranch: TemplateOrValue<Boolean>? = null,
 ) {
     constructor(test: List<String>? = null, stub: List<String>? = null) : this(
-        test = test?.map { SpecExecutionConfig.StringValue(it) },
-        stub = stub?.map { SpecExecutionConfig.StringValue(it) }
+        test = test?.map { SpecExecutionConfig.StringValue(it) }.wrapFullyOrNull(),
+        stub = stub?.map { SpecExecutionConfig.StringValue(it) }.wrapFullyOrNull()
     )
 
+    @get:JsonIgnore
+    val resolvedProvider: SourceProvider
+        get() = provider.resolveOrDefault(filesystem)
+
+    @get:JsonIgnore
+    val resolvedRepository: String?
+        get() = repository.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedBranch: String?
+        get() = branch.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedTest: List<SpecExecutionConfig>?
+        get() = test.resolveFullyOrNull()
+
+    @get:JsonIgnore
+    val resolvedStub: List<SpecExecutionConfig>?
+        get() = stub.resolveFullyOrNull()
+
+    @get:JsonIgnore
+    val resolvedDirectory: String?
+        get() = directory.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedWebBaseUrl: String?
+        get() = webBaseUrl.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedMatchBranch: Boolean?
+        get() = matchBranch.resolveOrNull()
+
     fun specsUsedAsStub(): List<String> {
-        return stub.orEmpty().flatMap { it.specs() }
+        return resolvedStub.orEmpty().flatMap { it.specs() }
     }
 
     fun specsUsedAsTest(): List<String> {
-        return test?.flatMap { it.specs() } ?: test.orEmpty().flatMap { it.specs() }
+        return resolvedTest.orEmpty().flatMap { it.specs() }
     }
 
     fun specToStubBaseUrlMap(defaultBaseUrl: String? = null): Map<String, String?> {
-        return stub.orEmpty().flatMap {
+        return resolvedStub.orEmpty().flatMap {
             it.specToBaseUrlPairList(defaultBaseUrl) { configValue ->
                 if(configValue.specType == SpecType.OPENAPI.value) OpenAPIMockConfig.from(configValue.config).baseUrl
                 else null
@@ -1815,15 +1855,13 @@ data class Source(
             if(it.specType == SpecType.OPENAPI.value) OpenAPITestConfig.from(it.config).baseUrl
             else null
         }
-        return test?.flatMap {
-            it.specToBaseUrlPairList(defaultBaseUrl, baseUrlFromConfig)
-        }?.toMap() ?: test.orEmpty().flatMap {
+        return resolvedTest.orEmpty().flatMap {
             it.specToBaseUrlPairList(defaultBaseUrl, baseUrlFromConfig)
         }.toMap()
     }
 
     fun specToTestGenerativeMap(): Map<String, ResiliencyTestSuite?> {
-        return test?.flatMap {
+        return resolvedTest.orEmpty().flatMap {
             when (it) {
                 is SpecExecutionConfig.StringValue -> listOf(it.value to null)
                 is SpecExecutionConfig.ObjectValue -> it.specs.map { specPath ->
@@ -1834,52 +1872,52 @@ data class Source(
                     else specPath to null
                 }
             }
-        }?.toMap() ?: emptyMap()
+        }.toMap()
     }
 
     fun specToTestExamplesMap(): Map<String, List<String>> {
-        return test?.flatMap {
+        return resolvedTest.orEmpty().flatMap {
             if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
                 return@flatMap it.specs.map { specPath ->
                     specPath to OpenAPITestConfig.from(it.config).examples.orEmpty()
                 }
             }
             emptyList()
-        }?.toMap().orEmpty()
+        }.toMap()
     }
 
     fun specToStubExamplesMap(): Map<String, List<String>> {
-        return stub?.flatMap {
+        return resolvedStub.orEmpty().flatMap {
             if(it is SpecExecutionConfig.ConfigValue && it.specType == SpecType.OPENAPI.value) {
                 return@flatMap it.specs.map { specPath ->
                     specPath to OpenAPIMockConfig.from(it.config).examples.orEmpty()
                 }
             }
             emptyList()
-        }?.toMap().orEmpty()
+        }.toMap()
     }
 
 
     fun getCanonicalTestConfigs(): List<SpecExecutionConfig> {
         if (this.test == null) return emptyList()
         val baseDirectory = getBaseDirectory()
-        return this.test.map { config ->  config.resolveAgainst(baseDirectory) }
+        return this.resolvedTest.orEmpty().map { config ->  config.resolveAgainst(baseDirectory) }
     }
 
     fun getCanonicalStubConfigs(): List<SpecExecutionConfig> {
         if (this.stub == null) return emptyList()
         val baseDirectory = getBaseDirectory()
-        return this.stub.map { config ->  config.resolveAgainst(baseDirectory) }
+        return this.resolvedStub.orEmpty().map { config ->  config.resolveAgainst(baseDirectory) }
     }
 
     fun getBaseDirectory(): File {
         val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")
-        return when (provider) {
+        return when (resolvedProvider) {
             SourceProvider.web -> workingDirectory
-            SourceProvider.filesystem -> workingDirectory.applyIf(directory) { resolve(it) }
+            SourceProvider.filesystem -> workingDirectory.applyIf(resolvedDirectory) { resolve(it) }
             SourceProvider.git -> {
                 val specmaticFolder = File(".").resolve(WorkingDirectory(DEFAULT_WORKING_DIRECTORY).path)
-                val repository = repository?.split("/")?.lastOrNull()?.removeSuffix(".git")
+                val repository = resolvedRepository?.split("/")?.lastOrNull()?.removeSuffix(".git")
                 if (repository != null) specmaticFolder.resolve("repos").resolve(repository) else workingDirectory
             }
         }
@@ -1887,10 +1925,10 @@ data class Source(
 
     fun resolveSpecFile(specPath: String): File {
         val sourceBaseDir = getBaseDirectory()
-        return if (provider != web) {
+        return if (resolvedProvider != web) {
             sourceBaseDir.resolve(specPath).canonicalFile
         } else {
-            val cachedWebSpec = webBaseUrl?.let { baseUrl ->
+            val cachedWebSpec = resolvedWebBaseUrl?.let { baseUrl ->
                 ResolvedWebSource.localPathFor(
                     rootDir = sourceBaseDir.resolve(DEFAULT_WORKING_DIRECTORY).resolve("web"),
                     baseUrl = baseUrl,

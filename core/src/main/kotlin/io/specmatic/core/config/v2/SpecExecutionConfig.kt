@@ -192,8 +192,8 @@ sealed class SpecExecutionConfig {
     abstract fun use(port: Int): SpecExecutionConfig
 
     protected fun resolveSpecFile(source: Source, baseDir: File, specPath: String): File {
-        return if (source.provider == SourceProvider.web) {
-            val webBaseUrl = source.webBaseUrl ?: error("Web source url should have been validated before use")
+        return if (source.resolvedProvider == SourceProvider.web) {
+            val webBaseUrl = source.resolvedWebBaseUrl ?: error("Web source url should have been validated before use")
             ResolvedWebSource.localPathFor(baseDir.resolve(".specmatic/web"), webBaseUrl, specPath)
         } else {
             baseDir.resolve(specPath).canonicalFile
