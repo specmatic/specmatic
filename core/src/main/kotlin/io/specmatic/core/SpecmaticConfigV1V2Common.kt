@@ -141,70 +141,135 @@ fun String.loadContract(): Feature {
 }
 
 data class StubConfiguration(
-    private val generative: Boolean? = null,
-    private val delayInMilliseconds: Long? = null,
-    private val dictionary: String? = null,
-    private val includeMandatoryAndRequestedKeysInResponse: Boolean? = null,
-    private val startTimeoutInMilliseconds: Long? = null,
-    private val hotReload: Switch? = null,
-    private val strictMode: Boolean? = null,
-    private val baseUrl: String? = null,
-    private val customImplicitStubBase: String? = null,
-    private val filter: String? = null,
-    private val gracefulRestartTimeoutInMilliseconds: Long? = null,
-    private val https: HttpsConfiguration? = null,
-    private val lenientMode: Boolean? = null
+    val generative: TemplateOrValue<Boolean>? = null,
+    val delayInMilliseconds: TemplateOrValue<Long>? = null,
+    val dictionary: TemplateOrValue<String>? = null,
+    val includeMandatoryAndRequestedKeysInResponse: TemplateOrValue<Boolean>? = null,
+    val startTimeoutInMilliseconds: TemplateOrValue<Long>? = null,
+    val hotReload: TemplateOrValue<Switch>? = null,
+    val strictMode: TemplateOrValue<Boolean>? = null,
+    val baseUrl: TemplateOrValue<String>? = null,
+    val customImplicitStubBase: TemplateOrValue<String>? = null,
+    val filter: TemplateOrValue<String>? = null,
+    val gracefulRestartTimeoutInMilliseconds: TemplateOrValue<Long>? = null,
+    val https: TemplateOrValue<HttpsConfiguration>? = null,
+    val lenientMode: TemplateOrValue<Boolean>? = null
 ) {
+    @get:JsonIgnore
+    val resolvedLenientMode: Boolean?
+        get() = lenientMode.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedGenerative: Boolean?
+        get() = generative.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedDelayInMilliseconds: Long?
+        get() = delayInMilliseconds.resolveOrNull() ?: getLongValue(SPECMATIC_STUB_DELAY)
+
+    @get:JsonIgnore
+    val resolvedDictionary: String?
+        get() = dictionary.resolveOrNull() ?: getStringValue(SPECMATIC_STUB_DICTIONARY)
+
+    @get:JsonIgnore
+    val resolvedIncludeMandatoryAndRequestedKeysInResponse: Boolean?
+        get() = includeMandatoryAndRequestedKeysInResponse.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedStartTimeoutInMilliseconds: Long?
+        get() = startTimeoutInMilliseconds.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedHotReload: Switch?
+        get() = hotReload.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedStrictMode: Boolean?
+        get() = strictMode.resolveOrNull() ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
+
+    @get:JsonIgnore
+    val resolvedFilter: String?
+        get() = filter.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedHttps: HttpsConfiguration?
+        get() = https.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedGracefulRestartTimeoutInMilliseconds: Long?
+        get() = gracefulRestartTimeoutInMilliseconds.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedBaseUrl: String?
+        get() = baseUrl.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedCustomImplicitStubBase: String?
+        get() = customImplicitStubBase.resolveOrNull()
+
+    @JsonIgnore
     fun getLenientMode(): Boolean? {
-        return lenientMode
+        return resolvedLenientMode
     }
 
+    @JsonIgnore
     fun getGenerative(): Boolean? {
-        return generative
+        return resolvedGenerative
     }
 
+    @JsonIgnore
     fun getDelayInMilliseconds(): Long? {
-        return delayInMilliseconds ?: getLongValue(SPECMATIC_STUB_DELAY)
+        return resolvedDelayInMilliseconds
     }
 
+    @JsonIgnore
     fun getDictionary(): String? {
-        return dictionary ?: getStringValue(SPECMATIC_STUB_DICTIONARY)
+        return resolvedDictionary
     }
 
+    @JsonIgnore
     fun getIncludeMandatoryAndRequestedKeysInResponse(): Boolean? {
-        return includeMandatoryAndRequestedKeysInResponse
+        return resolvedIncludeMandatoryAndRequestedKeysInResponse
     }
 
+    @JsonIgnore
     fun getStartTimeoutInMilliseconds(): Long? {
-        return startTimeoutInMilliseconds
+        return resolvedStartTimeoutInMilliseconds
     }
 
+    @JsonIgnore
     fun getHotReload(): Switch? {
-        return hotReload
+        return resolvedHotReload
     }
 
+    @JsonIgnore
     fun getStrictMode(): Boolean? {
-        return strictMode ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
+        return resolvedStrictMode
     }
 
+    @JsonIgnore
     fun getFilter(): String? {
-        return filter
+        return resolvedFilter
     }
 
+    @JsonIgnore
     fun getHttps(): HttpsConfiguration? {
-        return https
+        return resolvedHttps
     }
 
+    @JsonIgnore
     fun getGracefulRestartTimeoutInMilliseconds(): Long? {
-        return gracefulRestartTimeoutInMilliseconds
+        return resolvedGracefulRestartTimeoutInMilliseconds
     }
 
+    @JsonIgnore
     fun getBaseUrl(): String? {
-        return baseUrl
+        return resolvedBaseUrl
     }
 
+    @JsonIgnore
     fun getCustomImplicitStubBase(): String? {
-        return customImplicitStubBase
+        return resolvedCustomImplicitStubBase
     }
 }
 
@@ -1373,18 +1438,18 @@ data class SpecmaticConfigV1V2Common(
     override fun withStubModes(strictMode: Boolean?): SpecmaticConfigV1V2Common {
         if (strictMode == null) return this
         val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(strictMode = strictMode))
+        return this.copy(stub = stubConfig.copy(strictMode = strictMode.wrap()))
     }
 
     override fun withStubFilter(filter: String?): SpecmaticConfigV1V2Common {
         if (filter == null) return this
         val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(filter = filter))
+        return this.copy(stub = stubConfig.copy(filter = filter.wrap()))
     }
 
     override fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfigV1V2Common {
         val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds))
+        return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds.wrap()))
     }
 
     override fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig {
