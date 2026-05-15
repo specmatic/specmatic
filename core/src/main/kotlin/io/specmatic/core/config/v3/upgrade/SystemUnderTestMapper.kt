@@ -56,6 +56,7 @@ class SystemUnderTestMapper {
                 exampleDirectories = view.globalExamples + openApiConfigExamples,
                 dictionaryPath = view.stubConfig?.getDictionary()
             ),
+            settings = RefOrValue.Value(buildSettings(view)),
         )
 
         return TestServiceConfig(service = RefOrValue.Value(service))
@@ -138,6 +139,41 @@ class SystemUnderTestMapper {
 
     private fun extractExamplesFromTestConfig(configValue: SpecExecutionConfig.ConfigValue): List<String> {
         return runCatching { LegacyOpenAPITestConfig.from(configValue.config).examples.orEmpty() }.getOrDefault(emptyList())
+    }
+
+    private fun buildSettings(view: LegacyConfigView): TestSettings {
+        return TestSettings(
+            strictMode = view.testConfig?.strictMode,
+            lenientMode = view.testConfig?.lenientMode,
+            parallelism = view.testConfig?.parallelism,
+            maxTestCount = view.testConfig?.maxTestCount,
+            junitReportDir = view.testConfig?.junitReportDir ?: view.reportDirPath?.toUnixPath(),
+            timeoutInMilliseconds = view.testConfig?.timeoutInMilliseconds,
+            validateResponseValues = view.testConfig?.validateResponseValues,
+            maxTestRequestCombinations = view.testConfig?.maxTestRequestCombinations,
+            schemaResiliencyTests = view.testConfig?.resiliencyTests?.enable ?: schemaResiliencyTestsFromSources(view),
+        )
+    }
+
+    private fun schemaResiliencyTestsFromSources(view: LegacyConfigView): io.specmatic.core.ResiliencyTestSuite? {
+        val testConfigs = view.sources.flatMap { it.test.orEmpty() }
+        return extractSchemaResiliencyTestsFromProvides(testConfigs) ?: extractSchemaResiliencyTestsFromConfigValue(testConfigs)
+    }
+
+    private fun extractSchemaResiliencyTestsFromProvides(testConfigs: List<SpecExecutionConfig>): io.specmatic.core.ResiliencyTestSuite? {
+        return testConfigs.asReversed().firstNotNullOfOrNull { config ->
+            (config as? SpecExecutionConfig.ObjectValue)?.resiliencyTests?.enable
+        }
+    }
+
+    private fun extractSchemaResiliencyTestsFromConfigValue(testConfigs: List<SpecExecutionConfig>): io.specmatic.core.ResiliencyTestSuite? {
+        return testConfigs.asConfigValues().firstNotNullOfOrNull { configValue ->
+            runCatching { LegacyOpenAPITestConfig.from(configValue.config).resiliencyTests?.enable }.getOrNull()
+        }
+    }
+
+    private fun java.nio.file.Path.toUnixPath(): String {
+        return toString().replace('\\', '/')
     }
 }
 

@@ -64,9 +64,10 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         ): FieldTemplate {
             return FieldTemplate(
                 rawText = rawText,
-                resolvedText = resolvedText,
+                resolvedText = targetResolvedTextFor(path, sourceFieldName, resolvedText),
                 targetFieldNames = targetFieldNamesFor(path, sourceFieldName),
                 targetContainers = targetContainersFor(path, sourceFieldName),
+                targetParentPathSuffix = targetParentPathSuffixFor(path),
             )
         }
 
@@ -77,13 +78,14 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                 "swaggerUIBaseURL" -> setOf("swaggerUiBaseUrl")
                 "disable_telemetry" -> setOf("disableTelemetry")
                 "fuzzy" -> setOf("fuzzyMatcherForPayloads")
-                "license_path" -> setOf("path")
-                "report_dir_path" -> setOf("outputDirectory")
+                "license_path", "licensePath" -> setOf("path")
+                "report_dir_path", "reportDirPath" -> setOf("junitReportDir")
                 "dictionary" -> setOf("path")
                 "targetUrl" -> setOf("target")
                 "outputDirectory" -> setOf("recordingsDirectory", "outputDirectory")
                 "minThresholdPercentage" -> setOf("minCoveragePercentage")
                 "maxMissedEndpointsInSpec" -> setOf("maxMissedOperationsInSpec")
+                "basePath" -> setOf("urlPathPrefix")
                 "pre_specmatic_request_processor" -> setOf("preSpecmaticRequestProcessor")
                 "post_specmatic_response_processor" -> setOf("postSpecmaticResponseProcessor")
                 "pre_specmatic_response_processor" -> setOf("preSpecmaticResponseProcessor")
@@ -118,10 +120,10 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     setOf(TargetContainer.MCP)
                 root == "report" ->
                     setOf(TargetContainer.GOVERNANCE)
-                root == "license_path" ->
+                root == "license_path" || root == "licensePath" ->
                     setOf(TargetContainer.LICENSE)
-                root == "report_dir_path" ->
-                    setOf(TargetContainer.GOVERNANCE_REPORT)
+                root == "report_dir_path" || root == "reportDirPath" ->
+                    setOf(TargetContainer.TEST_SETTINGS)
                 root == "hooks" ->
                     setOf(TargetContainer.ADAPTERS)
                 root == "security" ->
@@ -138,17 +140,34 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     setOf(TargetContainer.GENERAL_FEATURE_FLAGS)
                 root in generalSettingsFields ->
                     setOf(TargetContainer.GENERAL_SETTINGS)
+                root == "globalSettings" ->
+                    setOf(TargetContainer.GENERAL_SETTINGS)
                 root == "contracts" && "provides" in path ->
                     setOf(TargetContainer.TEST_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
                 root == "contracts" && "consumes" in path ->
                     setOf(TargetContainer.MOCK_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
                 root == "default_pattern_values" ->
                     setOf(TargetContainer.DATA_DICTIONARY)
-                root == "virtual_service" || root == "virtualService" ->
-                    setOf(TargetContainer.MOCK_RUN_OPTIONS)
                 else ->
                     null
             }
+        }
+
+        private fun targetResolvedTextFor(path: List<String>, sourceFieldName: String, resolvedText: String): String {
+            return when {
+                path.firstOrNull() == "stub" && sourceFieldName == "hotReload" ->
+                    when (resolvedText) {
+                        "enabled" -> "true"
+                        "disabled" -> "false"
+                        else -> resolvedText
+                    }
+                else -> resolvedText
+            }
+        }
+
+        private fun targetParentPathSuffixFor(path: List<String>): List<String>? {
+            if (path.firstOrNull() != "workflow") return null
+            return path.dropLast(1)
         }
 
         private fun List<ValueTemplate>.toUniqueResolvedValueTemplates(): List<ValueTemplate> {
@@ -160,7 +179,12 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
 
         private fun List<FieldTemplate>.toUnambiguousTemplates(): List<FieldTemplate> {
             return groupBy { template ->
-                FieldTemplateIdentity(template.targetFieldNames, template.targetContainers, template.resolvedText)
+                FieldTemplateIdentity(
+                    targetFieldNames = template.targetFieldNames,
+                    targetContainers = template.targetContainers,
+                    targetParentPathSuffix = template.targetParentPathSuffix,
+                    resolvedText = template.resolvedText,
+                )
             }.filterValues { templates ->
                 templates.map(FieldTemplate::rawText).distinct().size == 1
             }.values.map { templates ->
@@ -233,11 +257,13 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         val resolvedText: String,
         val targetFieldNames: Set<String>,
         val targetContainers: Set<TargetContainer>?,
+        val targetParentPathSuffix: List<String>?,
     ) {
         fun matches(fieldName: String, value: JsonNode, parentPath: List<String>): Boolean {
             val targetContainer = targetContainerFor(parentPath)
             val containerMatches = targetContainers?.let { targetContainer in it } ?: (targetContainer == null)
-            return fieldName in targetFieldNames && containerMatches && value.scalarValueText() == resolvedText
+            val pathMatches = targetParentPathSuffix?.let { parentPath.endsWith(it) } ?: true
+            return fieldName in targetFieldNames && containerMatches && pathMatches && value.scalarValueText() == resolvedText
         }
     }
 
@@ -246,6 +272,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
     private data class FieldTemplateIdentity(
         val targetFieldNames: Set<String>,
         val targetContainers: Set<TargetContainer>?,
+        val targetParentPathSuffix: List<String>?,
         val resolvedText: String,
     )
 
@@ -296,6 +323,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
             "ignoreInlineExampleWarnings",
             "prettyPrint",
             "disable_telemetry",
+            "disableTelemetry",
         )
 
         val arrayValueTargetFieldNames = setOf("path")
@@ -314,6 +342,8 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     TargetContainer.GENERAL_FEATURE_FLAGS
                 path.endsWith("dictionary") ->
                     TargetContainer.DATA_DICTIONARY
+                path.lastOrNull() == "settings" && "systemUnderTest" in path ->
+                    TargetContainer.TEST_SETTINGS
                 path.any { it == "adapters" } ->
                     TargetContainer.ADAPTERS
                 path.any { it == "proxies" } ->
@@ -332,6 +362,10 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     TargetContainer.AUTH
                 path.any { it == "backwardCompatibility" } ->
                     TargetContainer.BACKWARD_COMPATIBILITY
+                "systemUnderTest" in path && "definitions" in path && "specs" in path ->
+                    TargetContainer.TEST_RUN_OPTIONS
+                "dependencies" in path && "definitions" in path && "specs" in path ->
+                    TargetContainer.MOCK_RUN_OPTIONS
                 "systemUnderTest" in path && "runOptions" in path ->
                     TargetContainer.TEST_RUN_OPTIONS
                 "dependencies" in path && "runOptions" in path ->
@@ -345,6 +379,11 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         fun List<String>.endsWith(vararg values: String): Boolean {
             if (size < values.size) return false
             return takeLast(values.size) == values.toList()
+        }
+
+        fun List<String>.endsWith(values: List<String>): Boolean {
+            if (size < values.size) return false
+            return takeLast(values.size) == values
         }
 
         fun List<String>.sourceFieldName(): String? {

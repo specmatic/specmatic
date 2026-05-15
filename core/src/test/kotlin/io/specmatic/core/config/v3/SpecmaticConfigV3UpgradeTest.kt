@@ -125,10 +125,6 @@ class SpecmaticConfigV3UpgradeTest {
                     """.trimIndent()),
                     after = InputSource.RawInput("""
                     version: 3
-                    specmatic:
-                      settings:
-                        test:
-                          schemaResiliencyTests: all
                     systemUnderTest:
                       service:
                         definitions:
@@ -146,6 +142,8 @@ class SpecmaticConfigV3UpgradeTest {
                               - spec:
                                   id: resilient
                                   baseUrl: http://resilient.example
+                        settings:
+                          schemaResiliencyTests: all
                     """.trimIndent())
                 ),
                 UpgradeTestCase(
@@ -166,10 +164,6 @@ class SpecmaticConfigV3UpgradeTest {
                     """.trimIndent()),
                     after = InputSource.RawInput("""
                     version: 3
-                    specmatic:
-                      settings:
-                        test:
-                          schemaResiliencyTests: all
                     systemUnderTest:
                       service:
                         definitions:
@@ -187,6 +181,8 @@ class SpecmaticConfigV3UpgradeTest {
                               - spec:
                                   id: resilient-config
                                   baseUrl: http://resilient.example
+                        settings:
+                          schemaResiliencyTests: all
                     """.trimIndent())
                 )
             )
@@ -455,6 +451,46 @@ class SpecmaticConfigV3UpgradeTest {
                                   keyStorePassword: password
                     """.trimIndent())
                 ),
+                UpgradeTestCase(
+                    name = "v2 dependency hotReload disabled upgrades to dependencies settings",
+                    before = InputSource.RawInput("""
+                    version: 2
+                    contracts:
+                      - filesystem:
+                          directory: ./src/test/resources/openapi
+                        consumes:
+                          - specs:
+                              - hello.yaml
+                            host: mock.internal
+                            port: 9000
+                    stub:
+                      hotReload: disabled
+                    """.trimIndent()),
+                    after = InputSource.RawInput("""
+                    version: 3
+                    dependencies:
+                      services:
+                        - service:
+                            definitions:
+                              - definition:
+                                  source:
+                                    filesystem:
+                                      directory: ./src/test/resources/openapi
+                                  specs:
+                                    - spec:
+                                        id: hello
+                                        path: hello.yaml
+                            runOptions:
+                              openapi:
+                                specs:
+                                  - spec:
+                                      id: hello
+                                      host: mock.internal
+                                      port: 9000
+                      settings:
+                        hotReload: false
+                    """.trimIndent())
+                ),
             )
         }
     }
@@ -501,10 +537,9 @@ class SpecmaticConfigV3UpgradeTest {
                     specmatic:
                       license:
                         path: ./license-v2.txt
-                      governance:
-                        report:
-                          outputDirectory: ./reports/v2
                       settings:
+                        test:
+                          junitReportDir: ./reports/v2
                         general:
                           featureFlags:
                             escapeSoapAction: true
@@ -514,6 +549,27 @@ class SpecmaticConfigV3UpgradeTest {
                           disableTelemetry: true
                           ignoreInlineExamples: true
                           ignoreInlineExampleWarnings: true
+                    """.trimIndent())
+                ),
+                UpgradeTestCase(
+                    name = "camel case top level fields from v2 upgrade to v3",
+                    before = InputSource.RawInput("""
+                    version: 2
+                    licensePath: ./license-camel.txt
+                    reportDirPath: ./reports/camel
+                    globalSettings:
+                      specExamplesDirectoryTemplate: specs/%s
+                    """.trimIndent()),
+                    after = InputSource.RawInput("""
+                    version: 3
+                    specmatic:
+                      license:
+                        path: ./license-camel.txt
+                      settings:
+                        test:
+                          junitReportDir: ./reports/camel
+                        general:
+                          specExamplesDirectoryTemplate: specs/%s
                     """.trimIndent())
                 )
             )
@@ -642,6 +698,26 @@ class SpecmaticConfigV3UpgradeTest {
                 SpecExecutionScenario(
                     name = "object partial basePath maps to urlPathPrefix",
                     versions = listOf(1),
+                    beforeSpecs = """
+                    - specs:
+                        - basepath.yaml
+                      host: basepath.example
+                      port: 8088
+                      basePath: /api/v1
+                    """.trimIndent(),
+                    expectedRunOptions = """
+                    openapi:
+                      specs:
+                        - spec:
+                            id: basepath
+                            host: basepath.example
+                            port: 8088
+                    """.trimIndent()
+                ),
+                SpecExecutionScenario(
+                    name = "object partial basePath maps to dependency urlPathPrefix",
+                    versions = listOf(2),
+                    sides = listOf(Side.Dependencies),
                     beforeSpecs = """
                     - specs:
                         - basepath.yaml
@@ -1634,10 +1710,11 @@ class SpecmaticConfigV3UpgradeTest {
                       license:
                         path: ./license.txt
                       governance:
-                        report:
-                          outputDirectory: ./reports
                         successCriteria:
                           minCoveragePercentage: 95
+                      settings:
+                        test:
+                          junitReportDir: ./reports
                     """.trimIndent()
                 )
             )

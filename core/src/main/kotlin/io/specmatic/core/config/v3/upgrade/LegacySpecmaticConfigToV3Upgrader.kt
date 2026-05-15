@@ -24,7 +24,7 @@ class LegacySpecmaticConfigToV3Upgrader {
     }
 
     private fun ProxyConfig.toV3(hooks: Map<String, String>): ProxyConfigV3 {
-        val mergedAdapters = adapters?.hooks.orEmpty().plus(hooks).takeUnless { it.isEmpty() }
+        val mergedAdapters = hooks.plus(adapters?.hooks.orEmpty()).takeUnless { it.isEmpty() }
         return ProxyConfigV3(
             mock = consumes,
             baseUrl = baseUrl,

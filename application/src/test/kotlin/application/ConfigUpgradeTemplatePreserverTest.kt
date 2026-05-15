@@ -116,6 +116,8 @@ class ConfigUpgradeTemplatePreserverTest {
                     - directories:
                         - fixed_examples
                         - templated_examples
+                settings:
+                  junitReportDir: build/reports/specmatic
             dependencies:
               settings:
                 delayInMilliseconds: 250
@@ -163,6 +165,8 @@ class ConfigUpgradeTemplatePreserverTest {
     fun `preserves scalar templates inside contract execution array objects`() {
         val providerBaseUrl = "\${BASE_URL:http://localhost:8080}"
         val dependencyBaseUrl = "\${DEPENDENCY_BASE_URL:http://localhost:7070}"
+        val dependencyHost = "\${CONSUMES_PARTIAL_HOST:127.0.0.1}"
+        val dependencyBasePath = "\${CONSUMES_PARTIAL_BASE_PATH:/api}"
 
         val upgraded = preserveTemplates(
             originalConfigYaml =
@@ -186,6 +190,11 @@ class ConfigUpgradeTemplatePreserverTest {
                     specType: openapi
                     config:
                       baseUrl: $dependencyBaseUrl
+                  - host: $dependencyHost
+                    port: 9091
+                    basePath: $dependencyBasePath
+                    specs:
+                      - dependency-partial.yaml
             """.trimIndent(),
             upgradedConfigYaml =
             """
@@ -207,6 +216,19 @@ class ConfigUpgradeTemplatePreserverTest {
                         specs:
                           - spec:
                               baseUrl: http://localhost:7070
+                - service:
+                    definitions:
+                      - definition:
+                          specs:
+                            - spec:
+                                path: dependency-partial.yaml
+                                urlPathPrefix: /api
+                    runOptions:
+                      openapi:
+                        specs:
+                          - spec:
+                              host: 127.0.0.1
+                              port: 9091
             components:
               runOptions:
                 provider:
@@ -223,6 +245,10 @@ class ConfigUpgradeTemplatePreserverTest {
             .isEqualTo("http://localhost:9090")
         assertThat(upgraded.at("/dependencies/services/0/service/runOptions/openapi/specs/0/spec/baseUrl").asText())
             .isEqualTo(dependencyBaseUrl)
+        assertThat(upgraded.at("/dependencies/services/1/service/definitions/0/definition/specs/0/spec/urlPathPrefix").asText())
+            .isEqualTo(dependencyBasePath)
+        assertThat(upgraded.at("/dependencies/services/1/service/runOptions/openapi/specs/0/spec/host").asText())
+            .isEqualTo(dependencyHost)
         assertThat(upgraded.at("/components/runOptions/provider/openapi/specs/0/spec/baseUrl").asText())
             .isEqualTo(providerBaseUrl)
     }
@@ -254,6 +280,103 @@ class ConfigUpgradeTemplatePreserverTest {
         )
 
         assertThat(upgraded.allTextValues()).contains(resiliencyTests)
+    }
+
+    @Test
+    fun `preserves workflow templates using matching workflow path`() {
+        val operationExtract = "\${WORKFLOW_OPERATION_EXTRACT:$.id}"
+        val operationUse = "\${WORKFLOW_OPERATION_USE:$.id}"
+        val defaultExtract = "\${WORKFLOW_DEFAULT_EXTRACT:$.id}"
+        val defaultUse = "\${WORKFLOW_DEFAULT_USE:$.id}"
+
+        val upgraded = preserveTemplates(
+            originalConfigYaml =
+            """
+            version: 2
+            workflow:
+              ids:
+                operationId:
+                  extract: '$operationExtract'
+                  use: '$operationUse'
+                '*':
+                  extract: '$defaultExtract'
+                  use: '$defaultUse'
+            """.trimIndent(),
+            upgradedConfigYaml =
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                runOptions:
+                  openapi:
+                    workflow:
+                      ids:
+                        operationId:
+                          extract: $.id
+                          use: $.id
+                        '*':
+                          extract: $.id
+                          use: $.id
+            """.trimIndent(),
+        )
+
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/workflow/ids/operationId/extract").asText())
+            .isEqualTo(operationExtract)
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/workflow/ids/operationId/use").asText())
+            .isEqualTo(operationUse)
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/workflow/ids/*/extract").asText())
+            .isEqualTo(defaultExtract)
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/workflow/ids/*/use").asText())
+            .isEqualTo(defaultUse)
+    }
+
+    @Test
+    fun `preserves camel case top level templates in their v3 locations`() {
+        val disableTelemetry = "\${DISABLE_TELEMETRY:false}"
+        val licensePath = "\${LICENSE_PATH:licenses/specmatic.lic}"
+        val reportDirPath = "\${REPORT_DIR_PATH:build/reports/specmatic}"
+        val specExamplesDirectoryTemplate = "\${SPEC_EXAMPLES_DIRECTORY_TEMPLATE:<SPEC_FILE_NAME>_examples}"
+        val hotReload = "\${STUB_HOT_RELOAD:enabled}"
+
+        val upgraded = preserveTemplates(
+            originalConfigYaml =
+            """
+            version: 2
+            disableTelemetry: '$disableTelemetry'
+            licensePath: '$licensePath'
+            reportDirPath: '$reportDirPath'
+            globalSettings:
+              specExamplesDirectoryTemplate: '$specExamplesDirectoryTemplate'
+            stub:
+              hotReload: '$hotReload'
+            """.trimIndent(),
+            upgradedConfigYaml =
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                settings:
+                  junitReportDir: build/reports/specmatic
+            dependencies:
+              settings:
+                hotReload: true
+            specmatic:
+              license:
+                path: licenses/specmatic.lic
+              settings:
+                general:
+                  disableTelemetry: false
+                  specExamplesDirectoryTemplate: <SPEC_FILE_NAME>_examples
+            """.trimIndent(),
+        )
+
+        assertThat(upgraded.allTextValues()).contains(
+            disableTelemetry,
+            licensePath,
+            reportDirPath,
+            specExamplesDirectoryTemplate,
+            hotReload,
+        )
     }
 
     @Test
