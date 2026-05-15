@@ -8,6 +8,8 @@ import io.specmatic.core.SecurityConfiguration
 import io.specmatic.core.SecuritySchemeConfiguration
 import io.specmatic.core.config.OpenAPITestConfig as LegacyOpenAPITestConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.resolveFully
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import io.specmatic.core.config.v3.components.SecuritySchemeType
@@ -25,6 +27,8 @@ import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.TestSettings
+import io.specmatic.core.config.wrap
+import io.specmatic.core.config.wrapFully
 import io.specmatic.reporter.model.SpecType
 
 class SystemUnderTestMapper {
@@ -36,10 +40,10 @@ class SystemUnderTestMapper {
 
         val runOptionsMapper = RunOptionsMapper(defaultHostForPortOnly = "localhost", specIdsByPath = specIdsByPath, specTypesByPath = specTypesByPath)
         val runOptionsOverrides = view.sources
-            .flatMap { it.test.orEmpty() }
+            .flatMap { it.test?.resolveFully().orEmpty() }
             .fold(runOptionsMapper) { acc, config -> acc.mergeConfig(config) }
             .mergeGlobalOpenApi(
-                overlayFilePath = view.testConfig?.overlayFilePath,
+                overlayFilePath = view.testConfig?.overlayFilePath?.resolve(),
                 securitySchemes = view.security?.toSecuritySchemesV3(),
             )
 
@@ -50,15 +54,15 @@ class SystemUnderTestMapper {
         }
 
         val service = CommonServiceConfig<TestRunOptions, TestSettings>(
-            definitions = definitions,
-            runOptions = RefOrValue.Value(runOptions),
+            definitions = definitions.wrapFully(),
+            runOptions = TemplateOrValue.Value(RefOrValue.Value(runOptions)),
             data = DataSectionMapper().mapFrom(
                 exampleDirectories = view.globalExamples + openApiConfigExamples,
                 dictionaryPath = view.stubConfig?.getDictionary()
             ),
         )
 
-        return TestServiceConfig(service = RefOrValue.Value(service))
+        return TestServiceConfig(service = TemplateOrValue.Value(RefOrValue.Value(service)))
     }
 
     private fun List<SourceMigration.TestSourceMigration>.mergeAllSpecTypesByPath(): Map<String, SpecType> {
@@ -75,25 +79,25 @@ class SystemUnderTestMapper {
 
     private fun buildRunOptions(view: LegacyConfigView, migrations: List<SourceMigration.TestSourceMigration>, overrides: RunOptionsMapper): TestRunOptions {
         return TestRunOptions(
-            wsdl = buildWsdlTestConfig(view, migrations, overrides),
-            openapi = buildOpenApiTestConfig(view, migrations, overrides),
-            asyncapi = AsyncApiTestConfig(specs = overrides.asyncApi.values.map(::RunOptionsSpecifications)),
-            protobuf = ProtobufTestConfig(specs = overrides.protobuf.values.map(::RunOptionsSpecifications)),
-            graphqlsdl = GraphQLSdlTestConfig(specs = overrides.graphQl.values.map(::RunOptionsSpecifications)),
+            wsdl = TemplateOrValue.Value(buildWsdlTestConfig(view, migrations, overrides)),
+            openapi = TemplateOrValue.Value(buildOpenApiTestConfig(view, migrations, overrides)),
+            asyncapi = TemplateOrValue.Value(AsyncApiTestConfig(specs = overrides.asyncApi.values.map { RunOptionsSpecifications(TemplateOrValue.Value(it)) }.wrapFully())),
+            protobuf = TemplateOrValue.Value(ProtobufTestConfig(specs = overrides.protobuf.values.map { RunOptionsSpecifications(TemplateOrValue.Value(it)) }.wrapFully())),
+            graphqlsdl = TemplateOrValue.Value(GraphQLSdlTestConfig(specs = overrides.graphQl.values.map { RunOptionsSpecifications(TemplateOrValue.Value(it)) }.wrapFully())),
         )
     }
 
     private fun buildOpenApiTestConfig(view: LegacyConfigView, migrations: List<SourceMigration.TestSourceMigration>, overrides: RunOptionsMapper): OpenApiTestConfig {
         if (migrations.none { it.hasSpecType(SpecType.OPENAPI) }) return OpenApiTestConfig()
         return OpenApiTestConfig(
-            workflow = view.workflow,
+            workflow = view.workflow?.let { TemplateOrValue.Value(it) },
             filter = view.testConfig?.filter,
             baseUrl = view.testConfig?.baseUrl,
             swaggerUrl = view.testConfig?.swaggerUrl,
             actuatorUrl = view.testConfig?.actuatorUrl,
             swaggerUiBaseUrl = view.testConfig?.swaggerUIBaseURL,
-            cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
-            specs = overrides.openApi.values.map(::OpenApiRunOptionsSpecifications),
+            cert = view.testConfig?.https?.let { TemplateOrValue.Value(RefOrValue.Value(it)) },
+            specs = overrides.openApi.values.map { OpenApiRunOptionsSpecifications(TemplateOrValue.Value(it)) }.wrapFully(),
         )
     }
 
@@ -101,8 +105,8 @@ class SystemUnderTestMapper {
         if (migrations.none { it.hasSpecType(SpecType.WSDL) }) return WsdlTestConfig()
         return WsdlTestConfig(
             baseUrl = view.testConfig?.baseUrl,
-            cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
-            specs = overrides.wsdl.values.map(::WsdlRunOptionsSpecifications)
+            cert = view.testConfig?.https?.let { TemplateOrValue.Value(RefOrValue.Value(it)) },
+            specs = overrides.wsdl.values.map { WsdlRunOptionsSpecifications(TemplateOrValue.Value(it)) }.wrapFully()
         )
     }
 
@@ -113,13 +117,13 @@ class SystemUnderTestMapper {
     private fun SecuritySchemeConfiguration.toSecuritySchemeV3(): SecuritySchemeConfigurationV3 {
         return when (this) {
             is OAuth2SecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.OAUTH2, token)
+                SecuritySchemeConfigurationV3(type = TemplateOrValue.Value(SecuritySchemeType.OAUTH2), token = TemplateOrValue.Value(token))
             is BasicAuthSecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.BASIC_AUTH, token)
+                SecuritySchemeConfigurationV3(type = TemplateOrValue.Value(SecuritySchemeType.BASIC_AUTH), token = TemplateOrValue.Value(token))
             is BearerSecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.BEARER, token)
+                SecuritySchemeConfigurationV3(type = TemplateOrValue.Value(SecuritySchemeType.BEARER), token = TemplateOrValue.Value(token))
             is APIKeySecuritySchemeConfiguration ->
-                SecuritySchemeConfigurationV3(SecuritySchemeType.API_KEY, value)
+                SecuritySchemeConfigurationV3(type = TemplateOrValue.Value(SecuritySchemeType.API_KEY), token = TemplateOrValue.Value(value))
         }
     }
 
@@ -137,7 +141,7 @@ class SystemUnderTestMapper {
     }
 
     private fun extractExamplesFromTestConfig(configValue: SpecExecutionConfig.ConfigValue): List<String> {
-        return runCatching { LegacyOpenAPITestConfig.from(configValue.config).examples.orEmpty() }.getOrDefault(emptyList())
+        return runCatching { LegacyOpenAPITestConfig.from(configValue.config.resolve()).examples.orEmpty() }.getOrDefault(emptyList())
     }
 }
 

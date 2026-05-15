@@ -3,6 +3,9 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
+import io.specmatic.core.config.resolveFully
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import kotlin.String
 
@@ -15,31 +18,40 @@ interface IRunOptionSpecification {
 
     fun extractBaseUrlFromMap(map: Map<*, *>?, defaultHost: String): String? {
         if (map.isNullOrEmpty()) return null
-        val host = map["host"]?.toString() ?: defaultHost
-        val port = map["port"]?.toString()?.toIntOrNull() ?: return null
+        val host = map["host"]?.resolveIfTemplateOrValue()?.toString() ?: defaultHost
+        val port = map["port"]?.resolveIfTemplateOrValue()?.toString()?.toIntOrNull() ?: return null
         return "$host:$port"
+    }
+
+    private fun Any.resolveIfTemplateOrValue(): Any {
+        return when (this) {
+            is TemplateOrValue<*> -> this.resolve()
+            else -> this
+        }
     }
 }
 
-data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
+data class RunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRunOptionSpecification {
     @JsonIgnore
     override fun getId(): String? {
-        return spec.id
+        return spec.resolve().id?.resolve()
     }
 
     @JsonIgnore
     override fun getOverlayFilePath(): String? {
-        return spec.overlayFilePath
+        return spec.resolve().overlayFilePath?.resolve()
     }
 
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
+        val spec = spec.resolve()
         if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, "localhost")
-        return "${spec.host ?: defaultHost}:${spec.port}"
+        return "${spec.host?.resolve() ?: defaultHost}:${spec.port.resolve()}"
     }
 
     @JsonIgnore
     override fun getConfig(): Map<String, TemplateOrValue<Any>> {
+        val spec = spec.resolve()
         return buildMap {
             putAll(spec.config)
             spec.host?.let { put("host", it) }
@@ -49,6 +61,7 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
 
     @JsonIgnore
     override fun isNoOpOverride(): Boolean {
+        val spec = spec.resolve()
         return spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.config.isEmpty()
     }
 
@@ -75,7 +88,7 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
 data class WsdlRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRunOptionSpecification {
     @JsonIgnore
     override fun getId(): String? {
-        return spec.id
+        return spec.resolve().id?.resolve()
     }
 
     @JsonIgnore
@@ -90,14 +103,20 @@ data class WsdlRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRun
 
     @JsonIgnore
     override fun isNoOpOverride(): Boolean {
+        val spec = spec.resolve()
         return spec.baseUrl == null && spec.host == null && spec.port == null
     }
 
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.baseUrl != null) return spec.baseUrl
-        if (spec.port == null) return null
-        return "http://${spec.host ?: defaultHost}:${spec.port}"
+        val spec = spec.resolve()
+        val baseUrl = spec.baseUrl?.resolve()
+        val host = spec.host?.resolve()
+        val port = spec.port?.resolve()
+
+        if (baseUrl != null) return baseUrl
+        if (port == null) return null
+        return "http://${host ?: defaultHost}:${port}"
     }
 
     data class Value(
@@ -111,12 +130,12 @@ data class WsdlRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRun
 data class OpenApiRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : IRunOptionSpecification {
     @JsonIgnore
     override fun getId(): String? {
-        return spec.id
+        return spec.resolve().id?.resolve()
     }
 
     @JsonIgnore
     override fun getOverlayFilePath(): String? {
-        return spec.overlayFilePath
+        return spec.resolve().overlayFilePath?.resolve()
     }
 
     @JsonIgnore
@@ -126,19 +145,24 @@ data class OpenApiRunOptionsSpecifications(val spec: TemplateOrValue<Value>) : I
 
     @JsonIgnore
     override fun isNoOpOverride(): Boolean {
+        val spec = spec.resolve()
         return spec.baseUrl == null && spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.securitySchemes == null
     }
 
     @JsonIgnore
     fun getSecuritySchemes(): Map<String, SecuritySchemeConfigurationV3>? {
-        return spec.securitySchemes
+        return spec.resolve().securitySchemes?.resolveFully()
     }
 
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.baseUrl != null) return spec.baseUrl
-        if (spec.port == null) return null
-        return "http://${spec.host ?: defaultHost}:${spec.port}"
+        val spec = spec.resolve()
+        val baseUrl = spec.baseUrl?.resolve()
+        if (baseUrl != null) return baseUrl
+
+        val host = spec.host?.resolve()
+        val port = spec.port?.resolve() ?: return null
+        return "http://${host ?: defaultHost}:${port}"
     }
 
     data class Value(

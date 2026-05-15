@@ -9,6 +9,16 @@ import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 
 data class Governance(val report: TemplateOrValue<Report>? = null, @field:JsonProperty("successCriteria") val successCriterion: TemplateOrValue<SuccessCriterion>? = null) : ReportConfiguration {
     @JsonIgnore
+    fun getReport(): Report? {
+        return report?.resolve()
+    }
+
+    @JsonIgnore
+    fun getSuccessCriterion(): SuccessCriterion? {
+        return successCriterion?.resolve()
+    }
+
+    @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
         return this.successCriterion?.resolve()?.toSuccessCriteria() ?: SuccessCriteria.default
     }

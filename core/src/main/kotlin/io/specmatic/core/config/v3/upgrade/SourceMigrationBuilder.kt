@@ -3,11 +3,14 @@ package io.specmatic.core.config.v3.upgrade
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.resolveFully
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.sources.GitAuthentication
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.wrapFully
 import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.reporter.model.SpecType
 import java.io.File
@@ -39,14 +42,15 @@ sealed interface SourceMigration {
 class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     fun buildTestMigrations(sources: List<Source>): List<SourceMigration.TestSourceMigration> {
         return sources.mapNotNull { source ->
-            createTestMigration(source, source.test.orEmpty())
+            createTestMigration(source, source.test?.resolveFully().orEmpty())
         }
     }
 
     fun buildMockMigrations(sources: List<Source>): List<SourceMigration.MockSourceMigration> {
         return sources.flatMap { source ->
-            if (source.stub.isNullOrEmpty()) return@flatMap emptyList()
-            source.stub.map { config -> createMockMigration(source, config) }
+            val configs = source.stub?.resolveFully().orEmpty()
+            if (configs.isEmpty()) return@flatMap emptyList()
+            configs.map { config -> createMockMigration(source, config) }
         }
     }
 
@@ -68,9 +72,11 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
 
     private fun createDefinition(source: Source, configs: List<SpecExecutionConfig>, specTypesByPath: Map<String, SpecType>, specIdsByPath: Map<String, String>): Definition {
         return Definition(
-            Definition.Value(
-                source = RefOrValue.Value(source.toSourceV3(gitAuth)),
-                specs = specTypesByPath.keys.map { specPath -> toSpecificationDefinition(specPath, specIdsByPath, configs) },
+            TemplateOrValue.Value(
+                Definition.Value(
+                    source = TemplateOrValue.Value(RefOrValue.Value(source.toSourceV3(gitAuth))),
+                    specs = specTypesByPath.keys.map { specPath -> toSpecificationDefinition(specPath, specIdsByPath, configs) }.wrapFully(),
+                )
             )
         )
     }
@@ -87,11 +93,17 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     private fun toSpecificationDefinition(specPath: String, specIdsByPath: Map<String, String>, configs: List<SpecExecutionConfig>): SpecificationDefinition {
         val urlPathPrefix = configs.asReversed().firstNotNullOfOrNull { config ->
             val objectValue = config as? SpecExecutionConfig.ObjectValue.PartialUrl ?: return@firstNotNullOfOrNull null
-            if (specPath in objectValue.specs) objectValue.basePath else null
+            if (specPath in objectValue.specs.resolveFully()) objectValue.basePath?.resolve() else null
         }
 
         return SpecificationDefinition.ObjectValue(
-            SpecificationDefinition.Specification(id = specIdsByPath[specPath], path = specPath, urlPathPrefix = urlPathPrefix)
+            TemplateOrValue.Value(
+                SpecificationDefinition.Specification(
+                    id = specIdsByPath[specPath]?.let(::TemplateOrValue.Value),
+                    path = TemplateOrValue.Value(specPath),
+                    urlPathPrefix = urlPathPrefix?.let(::TemplateOrValue.Value)
+                )
+            )
         )
     }
 
@@ -106,21 +118,21 @@ class SourceMigrationBuilder(private val gitAuth: GitAuthentication?) {
     private fun Source.toSourceV3(gitAuth: GitAuthentication?): SourceV3 {
         return when (provider) {
             SourceProvider.git -> SourceV3(
-                git = SourceV3.Git(url = repository, branch = branch, matchBranch = matchBranch, auth = gitAuth),
+                git = TemplateOrValue.Value(SourceV3.Git(url = repository, branch = branch, matchBranch = matchBranch, auth = gitAuth?.let { TemplateOrValue.Value(it) })),
                 fileSystem = null,
                 web = null
             )
 
             SourceProvider.filesystem -> SourceV3(
                 git = null,
-                fileSystem = SourceV3.FileSystem(directory = directory ?: "."),
+                fileSystem = TemplateOrValue.Value(SourceV3.FileSystem(directory = directory)),
                 web = null
             )
 
             SourceProvider.web -> SourceV3(
                 git = null,
                 fileSystem = null,
-                web = SourceV3.Web(url = webBaseUrl)
+                web = TemplateOrValue.Value(SourceV3.Web(url = webBaseUrl))
             )
         }
     }

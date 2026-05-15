@@ -9,6 +9,7 @@ import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
 import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
@@ -185,10 +186,10 @@ data class MockServiceConfig(val services: List<TemplateOrValue<Value>>, val dat
                 val service = value.service.resolveElseThrow(resolver)
                 val updatedDefinitions = service.definitions.map { wrappedDefinition ->
                     val definition = wrappedDefinition.definition
-                    val source = definition.source.resolveElseThrow(resolver).withMatchBranch(matchBranch)
-                    wrappedDefinition.copy(definition = definition.copy(source = RefOrValue.Value(source)))
+                    val source = definition.resolve().getSource(resolver).withMatchBranch(matchBranch)
+                    wrappedDefinition.copy(definition = TemplateOrValue.Value(definition.resolve().copy(source = TemplateOrValue.Value(RefOrValue.Value(source)))))
                 }
-                value.copy(service = RefOrValue.Value(service.copy(definitions = updatedDefinitions)))
+                value.copy(service = TemplateOrValue.Value(RefOrValue.Value(service.copy(definitions = TemplateOrValue.Value(updatedDefinitions.map { TemplateOrValue.Value(it) }))))))
             }
         )
     }
@@ -200,7 +201,7 @@ data class MockServiceConfig(val services: List<TemplateOrValue<Value>>, val dat
                 val existingData = service.data ?: Data()
                 val existingExamples = existingData.examples?.resolveElseThrow(resolver).orEmpty()
                 val updatedExamples = existingExamples + RefOrValue.Value(ExampleDirectories(directories = exampleDirectories))
-                value.copy(service = RefOrValue.Value(service.copy(data = existingData.copy(examples = RefOrValue.Value(updatedExamples)))))
+                value.copy(service = TemplateOrValue.Value(RefOrValue.Value(service.copy(data = TemplateOrValue.Value(existingData.copy(examples = TemplateOrValue.Value(RefOrValue.Value(updatedExamples))))))))
             }
         )
     }

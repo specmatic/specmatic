@@ -56,6 +56,8 @@ import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.resolveFully
+import io.specmatic.core.config.wrap
+import io.specmatic.core.config.wrapFully
 import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiRunOptions
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlRunOptions
@@ -66,6 +68,7 @@ import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufRunOptions
+import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
@@ -111,34 +114,34 @@ import kotlin.collections.orEmpty
 
 data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: SpecmaticConfigV3) : SpecmaticConfig {
     private val effectiveWorkingFile: File = file?.canonicalFile ?: File(".").canonicalFile
-    private val resolver = SpecmaticConfigV3Resolver(specmaticConfig.components ?: Components(), effectiveWorkingFile.toPath())
-    private fun emptyTestServiceConfig() = TestServiceConfig(service = RefOrValue.Value(CommonServiceConfig(definitions = emptyList())))
+    private val resolver = SpecmaticConfigV3Resolver(specmaticConfig.components?.let { it.resolve() } ?: Components(), effectiveWorkingFile.toPath())
+    private fun emptyTestServiceConfig() = TestServiceConfig(service = wrap(RefOrValue.Value(CommonServiceConfig<TestRunOptions, TestSettings>(definitions = emptyList<Definition>().wrapFully()))))
     private fun emptyMockServiceConfig() = MockServiceConfig(services = emptyList())
 
     private val specmaticSettings: ConcreteSettings by lazy(LazyThreadSafetyMode.NONE) {
-        val settingsOrRef = specmaticConfig.specmatic?.settings ?: return@lazy ConcreteSettings()
+        val settingsOrRef = specmaticConfig.specmatic?.let { it.resolve() }?.settings ?: return@lazy ConcreteSettings()
         settingsOrRef.resolveElseThrow(resolver)
     }
 
     private val testSettings: TestSettings by lazy(LazyThreadSafetyMode.NONE) {
-        val globalTestSettings = specmaticConfig.specmatic?.settings?.resolveElseThrow(resolver)?.test
-        specmaticConfig.systemUnderTest?.getSettings(globalTestSettings, resolver) ?: globalTestSettings ?: TestSettings()
+        val globalTestSettings = specmaticConfig.specmatic?.let { it.resolve() }?.settings?.resolveElseThrow(resolver)?.test
+        specmaticConfig.systemUnderTest?.let { it.resolve() }?.getSettings(globalTestSettings, resolver) ?: globalTestSettings ?: TestSettings()
     }
 
     private fun getMockService(specFile: File): CommonServiceConfig<MockRunOptions, MockSettings>? {
-        return specmaticConfig.dependencies?.getService(specFile, resolver)
+        return specmaticConfig.dependencies?.let { it.resolve() }?.getService(specFile, resolver)
     }
 
     private fun getMockRunOptions(specFile: File, @Suppress("SameParameterValue") specType: SpecType): IRunOptions? {
         val service = getMockService(specFile) ?: return null
-        return specmaticConfig.dependencies?.getRunOptions(service, resolver, specType)
+        return specmaticConfig.dependencies?.let { it.resolve() }?.getRunOptions(service, resolver, specType)
     }
 
     private fun getMockSettingsFor(specFile: File): MockSettings {
         val globalMockSettings = specmaticSettings.mock ?: MockSettings()
-        val dependencyMockSettings = specmaticConfig.dependencies?.settings?.resolveElseThrow(resolver)?.merge(globalMockSettings) ?: globalMockSettings
+        val dependencyMockSettings = specmaticConfig.dependencies?.let { it.resolve() }?.settings?.resolveElseThrow(resolver)?.merge(globalMockSettings) ?: globalMockSettings
         val service = getMockService(specFile) ?: return dependencyMockSettings
-        return specmaticConfig.dependencies?.getSettings(service, globalMockSettings, resolver) ?: dependencyMockSettings
+        return specmaticConfig.dependencies?.let { it.resolve() }?.getSettings(service, globalMockSettings, resolver) ?: dependencyMockSettings
     }
 
     private fun exampleFromSysProp(): List<String> = getStringValue(EXAMPLE_DIRECTORIES)?.split(",")?.map { it.trim() }.orEmpty()
@@ -149,12 +152,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getTestDictionary(): String? {
         val fromSysProp = getStringValue(SPECMATIC_STUB_DICTIONARY)
-        return specmaticConfig.systemUnderTest?.getDictionaryPath(resolver) ?: fromSysProp
+        return specmaticConfig.systemUnderTest?.let { it.resolve() }?.getDictionaryPath(resolver) ?: fromSysProp
     }
 
     private fun getMockSettings(): MockSettings {
         val globalMockSettings = specmaticSettings.mock ?: MockSettings()
-        val mockSettings = specmaticConfig.dependencies?.settings?.resolveElseThrow(resolver)  ?: MockSettings()
+        val mockSettings = specmaticConfig.dependencies?.let { it.resolve() }?.settings?.resolveElseThrow(resolver)  ?: MockSettings()
         return mockSettings.merge(globalMockSettings)
     }
 
@@ -168,8 +171,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getSpecificationSources(): List<SpecificationSource> {
-        val testSources = specmaticConfig.systemUnderTest?.getSpecificationSources(resolver, testSettings).orEmpty()
-        val mockSources = specmaticConfig.dependencies?.getSpecificationSources(resolver).orEmpty()
+        val testSources = specmaticConfig.systemUnderTest?.resolve()?.getSpecificationSources(resolver, testSettings).orEmpty()
+        val mockSources = specmaticConfig.dependencies?.resolve()?.getSpecificationSources(resolver).orEmpty()
         val allSources = (testSources.keys + mockSources.keys).distinct()
         return allSources.mapNotNull { source ->
             val sourceEntry = testSources[source]?.firstOrNull() ?: mockSources[source]?.firstOrNull() ?: return@mapNotNull null
@@ -182,12 +185,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
-        val mockSources = specmaticConfig.dependencies?.getSpecificationSources(resolver).orEmpty()
+        val mockSources = specmaticConfig.dependencies?.resolve()?.getSpecificationSources(resolver).orEmpty()
         return mockSources.values.flatten().firstOrNull(predicate)
     }
 
     override fun getFirstTestSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
-        val testSources = specmaticConfig.systemUnderTest?.getSpecificationSources(resolver, testSettings).orEmpty()
+        val testSources = specmaticConfig.systemUnderTest?.resolve()?.getSpecificationSources(resolver, testSettings).orEmpty()
         return testSources.values.flatten().firstOrNull(predicate)
     }
 
@@ -203,8 +206,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun testConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
-        val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(file, resolver)?.getSpecificationId()
-        return when (val runOptions = specmaticConfig.systemUnderTest?.getRunOptions(resolver, specType)) {
+        val specId = specmaticConfig.systemUnderTest?.resolve()?.getSpecDefinitionFor(file, resolver)?.getSpecificationId()
+        return when (val runOptions = specmaticConfig.systemUnderTest?.resolve()?.getRunOptions(resolver, specType)) {
             is AsyncApiRunOptions -> runOptions
             is GraphQLSdlRunOptions -> runOptions
             is ProtobufRunOptions -> runOptions
@@ -213,9 +216,9 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
-        val service = specmaticConfig.dependencies?.getService(file, resolver) ?: return null
-        val specId = specmaticConfig.dependencies.getSpecDefinitionFor(file, service, resolver)?.getSpecificationId()
-        return when (val runOptions = specmaticConfig.dependencies.getRunOptions(service, resolver, specType)) {
+        val service = specmaticConfig.dependencies?.resolve()?.getService(file, resolver) ?: return null
+        val specId = specmaticConfig.dependencies?.resolve()?.getSpecDefinitionFor(file, service, resolver)?.getSpecificationId()
+        return when (val runOptions = specmaticConfig.dependencies?.resolve()?.getRunOptions(service, resolver, specType)) {
             is AsyncApiRunOptions -> runOptions
             is GraphQLSdlRunOptions -> runOptions
             is ProtobufRunOptions -> runOptions
@@ -230,8 +233,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getCtrfSpecConfig(specFile: File, testType: String, protocol: String, specType: String): CtrfSpecConfig {
         val source = when (testType) {
-            CONTRACT_TEST_TEST_TYPE -> specmaticConfig.systemUnderTest?.getSourcesContaining(specFile, resolver)
-            else -> specmaticConfig.dependencies?.getSourcesContaining(specFile, resolver)
+            CONTRACT_TEST_TEST_TYPE -> specmaticConfig.systemUnderTest?.resolve()?.getSourcesContaining(specFile, resolver)
+            else -> specmaticConfig.dependencies?.resolve()?.getSourcesContaining(specFile, resolver)
         }
 
         val specPathFromConfig = when(testType) {

@@ -10,19 +10,23 @@ data class BackwardCompatibilityConfig(
     val repoDirectory: TemplateOrValue<String>? = null,
     val strictMode: TemplateOrValue<Boolean>? = null
 ) {
-    @get:JsonIgnore
-    val baseBranchValue: String?
-        get() = baseBranch?.resolve()
+    @JsonIgnore
+    fun getBaseBranchValue(): String? {
+        return baseBranch?.resolve()
+    }
 
-    @get:JsonIgnore
-    val targetPathValue: String?
-        get() = targetPath?.resolve()
+    @JsonIgnore
+    fun getTargetPathValue(): String? {
+        return targetPath?.resolve()
+    }
 
-    @get:JsonIgnore
-    val repoDirectoryValue: String?
-        get() = repoDirectory?.resolve()
+    @JsonIgnore
+    fun getRepoDirectoryValue(): String? {
+        return repoDirectory?.resolve()
+    }
 
-    @get:JsonIgnore
-    val strictModeValue: Boolean?
-        get() = strictMode?.resolve()
+    @JsonIgnore
+    fun getStrictModeValue(): Boolean? {
+        return strictMode?.resolve()
+    }
 }

@@ -7,6 +7,7 @@ import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 
 interface ConfigWithCert { val cert: TemplateOrValue<RefOrValue<HttpsConfiguration>>? }
 
@@ -32,9 +33,9 @@ data class OpenApiTestConfig(
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
+        if (baseUrl != null) return baseUrl.resolve()
         if (port == null) return null
-        return "http://${host ?: "localhost"}:$port"
+        return "http://${host?.resolve() ?: "localhost"}:${port.resolve()}"
     }
 
     init {
@@ -46,7 +47,7 @@ data class OpenApiTestConfig(
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class OpenApiMockConfig(
-    override val type: TemplateOrValue<RunOptionType>? = null,
+    override val type: RunOptionType? = null,
     val baseUrl: TemplateOrValue<String>? = null,
     val host: TemplateOrValue<String>? = null,
     val port: TemplateOrValue<Int>? = null,
@@ -60,10 +61,10 @@ data class OpenApiMockConfig(
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
+        if (baseUrl != null) return baseUrl.resolve()
         if (port == null) return null
         val scheme = if (cert == null) "http" else "https"
-        return "$scheme://${host ?: "0.0.0.0"}:$port"
+        return "$scheme://${host?.resolve() ?: "0.0.0.0"}:${port.resolve()}"
     }
 
     init {

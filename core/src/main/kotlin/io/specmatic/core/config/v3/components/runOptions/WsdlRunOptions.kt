@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.*
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"))
@@ -21,8 +22,8 @@ data class WsdlTestConfig(
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
-        if (port != null) return "http://${host ?: "localhost"}:$port"
+        if (baseUrl != null) return baseUrl.resolve()
+        if (port != null) return "http://${host?.resolve() ?: "localhost"}:${port.resolve()}"
         return null
     }
 
@@ -57,10 +58,10 @@ data class WsdlMockConfig(
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
+        if (baseUrl != null) return baseUrl.resolve()
         if (port == null) return null
         val scheme = if (cert == null) "http" else "https"
-        return "$scheme://${host ?: "0.0.0.0"}:$port"
+        return "$scheme://${host?.resolve() ?: "0.0.0.0"}:${port.resolve()}"
     }
 
     @JsonIgnore

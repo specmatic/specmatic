@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.JsonDeserializer
@@ -13,6 +14,7 @@ import io.specmatic.core.config.v3.components.settings.GeneralSettings
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.ProxySettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
 
 @JsonDeserialize(using = Settings.Companion.SettingsDeserializer::class)
 sealed interface Settings {
@@ -48,4 +50,29 @@ data class ConcreteSettings(
     val mock: TemplateOrValue<MockSettings>? = null,
     val proxy: TemplateOrValue<ProxySettings>? = null,
     val backwardCompatibility: TemplateOrValue<BackwardCompatibilityConfig>? = null,
-): Settings
+) : Settings {
+    @JsonIgnore
+    fun getGeneral(): GeneralSettings? {
+        return general?.resolve()
+    }
+
+    @JsonIgnore
+    fun getTest(): TestSettings? {
+        return test?.resolve()
+    }
+
+    @JsonIgnore
+    fun getMock(): MockSettings? {
+        return mock?.resolve()
+    }
+
+    @JsonIgnore
+    fun getProxy(): ProxySettings? {
+        return proxy?.resolve()
+    }
+
+    @JsonIgnore
+    fun getBackwardCompatibility(): BackwardCompatibilityConfig? {
+        return backwardCompatibility?.resolve()
+    }
+}

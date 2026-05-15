@@ -17,7 +17,7 @@ sealed interface GitAuthentication {
 
     fun toCommonAuth(): Auth {
         return Auth(
-            bearerFile = (this as? BearerFile)?.bearerFile ?: "bearer.txt",
+            bearerFile = (this as? BearerFile)?.bearerFile ?: TemplateOrValue.Value("bearer.txt"),
             bearerEnvironmentVariable = (this as? BearerEnv)?.bearerEnvironmentVariable,
             personalAccessToken = (this as? PersonalAccessToken)?.personalAccessToken
         )
@@ -44,9 +44,9 @@ sealed interface GitAuthentication {
                 }
 
                 return when (fields.single().first) {
-                    "bearerFile" -> BearerFile(fields.single().second.asText())
-                    "bearerEnvironmentVariable" -> BearerEnv(fields.single().second.asText())
-                    "personalAccessToken" -> PersonalAccessToken(fields.single().second.asText())
+                    "bearerFile" -> BearerFile(TemplateOrValue.Value(fields.single().second.asText()))
+                    "bearerEnvironmentVariable" -> BearerEnv(TemplateOrValue.Value(fields.single().second.asText()))
+                    "personalAccessToken" -> PersonalAccessToken(TemplateOrValue.Value(fields.single().second.asText()))
                     else -> error("unreachable")
                 }
             }

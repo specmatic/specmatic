@@ -5,11 +5,15 @@ import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.SpecmaticSpecConfig
+import io.specmatic.core.config.resolveFully
 import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.TemplateOrValue.Companion.resolve
+import io.specmatic.core.config.wrap
+import io.specmatic.core.config.wrapFully
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
-    val specs: List<IRunOptionSpecification>?
+    val specs: TemplateOrValue<List<TemplateOrValue<IRunOptionSpecification>>>?
     val config: Map<String, TemplateOrValue<Any>>
 
     @JsonIgnore
@@ -17,7 +21,12 @@ interface IRunOptions {
 
     @JsonIgnore
     fun getMatchingSpecification(id: String): IRunOptionSpecification? {
-        return specs?.firstOrNull { it.getId() == id }
+        return specs?.resolveFully()?.firstOrNull { it.getId() == id }
+    }
+
+    @JsonIgnore
+    fun getSpecs(): List<IRunOptionSpecification>? {
+        return specs?.resolveFully()
     }
 
     fun toSpecmaticSpecConfig(specId: String?): SpecmaticSpecConfig {
@@ -26,9 +35,16 @@ interface IRunOptions {
     }
 
     fun extractBaseUrlFromMap(map: Map<*, *>, defaultHost: String): String? {
-        val host = map["host"]?.toString() ?: defaultHost
-        val port = map["port"]?.toString()?.toIntOrNull() ?: return null
+        val host = map["host"]?.resolveIfTemplateOrValue()?.toString() ?: defaultHost
+        val port = map["port"]?.resolveIfTemplateOrValue()?.toString()?.toIntOrNull() ?: return null
         return "$host:$port"
+    }
+
+    private fun Any.resolveIfTemplateOrValue(): Any {
+        return when (this) {
+            is TemplateOrValue<*> -> this.resolve()
+            else -> this
+        }
     }
 }
 
@@ -55,33 +71,33 @@ data class TestRunOptions(
     @JsonIgnore
     fun dropNoOpSpecificationOverrides(): TestRunOptions {
         return copy(
-            wsdl = wsdl?.copy(specs = wsdl.specs.filterOverrides()),
-            openapi = openapi?.copy(specs = openapi.specs.filterOverrides()),
-            protobuf = protobuf?.copy(specs = protobuf.specs.filterOverrides()),
-            asyncapi = asyncapi?.copy(specs = asyncapi.specs.filterOverrides()),
-            graphqlsdl = graphqlsdl?.copy(specs = graphqlsdl.specs.filterOverrides()),
+            wsdl = wsdl?.resolve()?.copy(specs = wsdl.resolve().specs?.resolveFully()?.filterOverrides()?.wrapFully())?.let(::wrap),
+            openapi = openapi?.resolve()?.copy(specs = openapi.resolve().specs?.resolveFully()?.filterOverrides()?.wrapFully())?.let(::wrap),
+            protobuf = protobuf?.resolve()?.copy(specs = protobuf.resolve().specs?.resolveFully()?.filterOverrides()?.wrapFully())?.let(::wrap),
+            asyncapi = asyncapi?.resolve()?.copy(specs = asyncapi.resolve().specs?.resolveFully()?.filterOverrides()?.wrapFully())?.let(::wrap),
+            graphqlsdl = graphqlsdl?.resolve()?.copy(specs = graphqlsdl.resolve().specs?.resolveFully()?.filterOverrides()?.wrapFully())?.let(::wrap),
         )
     }
 
     @JsonIgnore
     private fun collectOverriddenSpecIds(): Set<String> {
         return buildSet {
-            addAll(wsdl?.specs.collectSpecIds())
-            addAll(openapi?.specs.collectSpecIds())
-            addAll(asyncapi?.specs.collectSpecIds())
-            addAll(protobuf?.specs.collectSpecIds())
-            addAll(graphqlsdl?.specs.collectSpecIds())
+            addAll(wsdl?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(openapi?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(asyncapi?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(protobuf?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(graphqlsdl?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
         }
     }
 
     @JsonIgnore
     fun getRunOptionsFor(specType: SpecType): IRunOptions? {
         return when(specType) {
-            SpecType.WSDL -> wsdl
-            SpecType.OPENAPI -> openapi
-            SpecType.ASYNCAPI -> asyncapi
-            SpecType.PROTOBUF -> protobuf
-            SpecType.GRAPHQL -> graphqlsdl
+            SpecType.WSDL -> wsdl?.resolve()
+            SpecType.OPENAPI -> openapi?.resolve()
+            SpecType.ASYNCAPI -> asyncapi?.resolve()
+            SpecType.PROTOBUF -> protobuf?.resolve()
+            SpecType.GRAPHQL -> graphqlsdl?.resolve()
         }
     }
 }
@@ -101,33 +117,33 @@ data class MockRunOptions(
     @JsonIgnore
     fun dropNoOpSpecificationOverrides(): MockRunOptions {
         return copy(
-            wsdl = wsdl?.copy(specs = wsdl.specs.filterOverrides()),
-            openapi = openapi?.copy(specs = openapi.specs.filterOverrides()),
-            protobuf = protobuf?.copy(specs = protobuf.specs.filterOverrides()),
-            asyncapi = asyncapi?.copy(specs = asyncapi.specs.filterOverrides()),
-            graphqlsdl = graphqlsdl?.copy(specs = graphqlsdl.specs.filterOverrides()),
+            wsdl = wsdl?.resolve()?.let { it.copy(specs = it.specs?.resolveFully()?.filterOverrides()?.wrapFully()) }?.let(::wrap),
+            openapi = openapi?.resolve()?.let { it.copy(specs = it.specs?.resolveFully()?.filterOverrides()?.wrapFully()) }?.let(::wrap),
+            protobuf = protobuf?.resolve()?.let { it.copy(specs = it.specs?.resolveFully()?.filterOverrides()?.wrapFully()) }?.let(::wrap),
+            asyncapi = asyncapi?.resolve()?.let { it.copy(specs = it.specs?.resolveFully()?.filterOverrides()?.wrapFully()) }?.let(::wrap),
+            graphqlsdl = graphqlsdl?.resolve()?.let { it.copy(specs = it.specs?.resolveFully()?.filterOverrides()?.wrapFully()) }?.let(::wrap),
         )
     }
 
     @JsonIgnore
     private fun collectOverriddenSpecIds(): Set<String> {
         return buildSet {
-            addAll(wsdl?.specs.collectSpecIds())
-            addAll(openapi?.specs.collectSpecIds())
-            addAll(asyncapi?.specs.collectSpecIds())
-            addAll(protobuf?.specs.collectSpecIds())
-            addAll(graphqlsdl?.specs.collectSpecIds())
+            addAll(wsdl?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(openapi?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(asyncapi?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(protobuf?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
+            addAll(graphqlsdl?.resolve()?.specs?.resolveFully()?.collectSpecIds().orEmpty())
         }
     }
 
     @JsonIgnore
     fun getRunOptionsFor(specType: SpecType): IRunOptions? {
         return when(specType) {
-            SpecType.WSDL -> wsdl
-            SpecType.OPENAPI -> openapi
-            SpecType.ASYNCAPI -> asyncapi
-            SpecType.PROTOBUF -> protobuf
-            SpecType.GRAPHQL -> graphqlsdl
+            SpecType.WSDL -> wsdl?.resolve()
+            SpecType.OPENAPI -> openapi?.resolve()
+            SpecType.ASYNCAPI -> asyncapi?.resolve()
+            SpecType.PROTOBUF -> protobuf?.resolve()
+            SpecType.GRAPHQL -> graphqlsdl?.resolve()
         }
     }
 }
