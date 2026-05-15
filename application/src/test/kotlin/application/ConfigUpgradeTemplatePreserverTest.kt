@@ -4,8 +4,16 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.loadSpecmaticConfig
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.io.TempDir
+import picocli.CommandLine
+import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.readText
 
 class ConfigUpgradeTemplatePreserverTest {
     private val yamlMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
@@ -337,6 +345,7 @@ class ConfigUpgradeTemplatePreserverTest {
         val reportDirPath = "\${REPORT_DIR_PATH:build/reports/specmatic}"
         val specExamplesDirectoryTemplate = "\${SPEC_EXAMPLES_DIRECTORY_TEMPLATE:<SPEC_FILE_NAME>_examples}"
         val hotReload = "\${STUB_HOT_RELOAD:enabled}"
+        val migratedHotReload = "\${STUB_HOT_RELOAD:true}"
 
         val upgraded = preserveTemplates(
             originalConfigYaml =
@@ -375,7 +384,7 @@ class ConfigUpgradeTemplatePreserverTest {
             licensePath,
             reportDirPath,
             specExamplesDirectoryTemplate,
-            hotReload,
+            migratedHotReload,
         )
     }
 
@@ -408,6 +417,32 @@ class ConfigUpgradeTemplatePreserverTest {
         )
 
         assertThat(upgraded.allTextValues()).doesNotContain(stubConfig, examples)
+    }
+
+    @Test
+    fun `upgrades complete template fixture to expected v3 config and loads it`(@TempDir tempDir: Path) {
+        val v2Config = tempFixture("specmatic-v2-complete-template.yaml")
+        val expectedV3Config = tempFixture("specmatic-v3-complete-template.yaml")
+        assumeTrue(v2Config.exists(), "Missing local fixture: $v2Config")
+        assumeTrue(expectedV3Config.exists(), "Missing local fixture: $expectedV3Config")
+
+        val generatedV3Config = tempDir.resolve("specmatic-v3-complete-template.yaml")
+        val exitCode = CommandLine(ConfigCommand.Upgrade()).execute(
+            "--input", v2Config.toString(),
+            "--output", generatedV3Config.toString(),
+        )
+
+        assertThat(exitCode).isEqualTo(0)
+        assertThat(generatedV3Config.readText().trim()).isEqualTo(expectedV3Config.readText().trim())
+        assertDoesNotThrow { loadSpecmaticConfig(generatedV3Config.toString()) }
+    }
+
+    private fun tempFixture(fileName: String): Path {
+        val workingDirectory = Path.of("").toAbsolutePath()
+        return generateSequence(workingDirectory, Path::getParent)
+            .map { directory -> directory.resolve("temp").resolve(fileName) }
+            .firstOrNull(Path::exists)
+            ?: workingDirectory.resolve("temp").resolve(fileName)
     }
 
     private fun preserveTemplates(originalConfigYaml: String, upgradedConfigYaml: String): JsonNode {

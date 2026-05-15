@@ -63,12 +63,20 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
             resolvedText: String,
         ): FieldTemplate {
             return FieldTemplate(
-                rawText = rawText,
+                rawText = targetRawTextFor(path, sourceFieldName, rawText),
                 resolvedText = targetResolvedTextFor(path, sourceFieldName, resolvedText),
                 targetFieldNames = targetFieldNamesFor(path, sourceFieldName),
                 targetContainers = targetContainersFor(path, sourceFieldName),
                 targetParentPathSuffix = targetParentPathSuffixFor(path),
             )
+        }
+
+        private fun targetRawTextFor(path: List<String>, sourceFieldName: String, rawText: String): String {
+            return when {
+                path.firstOrNull() == "stub" && sourceFieldName == "hotReload" ->
+                    rewriteSwitchTemplateDefault(rawText)
+                else -> rawText
+            }
         }
 
         private fun targetFieldNamesFor(path: List<String>, sourceFieldName: String): Set<String> {
@@ -162,6 +170,23 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                         else -> resolvedText
                     }
                 else -> resolvedText
+            }
+        }
+
+        private fun rewriteSwitchTemplateDefault(rawText: String): String {
+            return ConfigTemplateUtils.findVariableTokens(rawText).asReversed().fold(rawText) { text, token ->
+                val booleanDefault = when (token.default) {
+                    "enabled" -> "true"
+                    "disabled" -> "false"
+                    else -> token.default
+                }
+
+                if (booleanDefault == token.default) return@fold text
+                text.replaceRange(
+                    startIndex = token.startIndex,
+                    endIndex = token.endIndex + 1,
+                    replacement = ConfigTemplateUtils.createTemplate(token.names, booleanDefault),
+                )
             }
         }
 
