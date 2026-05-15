@@ -288,33 +288,54 @@ data class VirtualServiceConfiguration(
         REQUEST_RESPONSE
     }
 
-    fun getHost(): String? {
-        return host.resolveOrNull()
-    }
+    @get:JsonIgnore
+    val resolvedHost: String?
+        get() = host.resolveOrNull()
 
-    fun getPort(): Int? {
-        return port.resolveOrNull()
-    }
+    @get:JsonIgnore
+    val resolvedPort: Int?
+        get() = port.resolveOrNull()
 
-    fun getSpecs(): List<String>? {
-        return specs.resolveFullyOrNull()
-    }
+    @get:JsonIgnore
+    val resolvedSpecs: List<String>?
+        get() = specs.resolveFullyOrNull()
 
-    fun getSpecsDirPath(): String? {
-        return specsDirPath.resolveOrNull()
-    }
+    @get:JsonIgnore
+    val resolvedSpecsDirPath: String?
+        get() = specsDirPath.resolveOrNull()
 
-    fun getLogsDirPath(): String? {
-        return logsDirPath.resolveOrNull()
-    }
+    @get:JsonIgnore
+    val resolvedLogsDirPath: String?
+        get() = logsDirPath.resolveOrNull()
 
-    fun getLogMode(): VSLogMode? {
-        return logMode.resolveOrNull()
-    }
+    @get:JsonIgnore
+    val resolvedLogMode: VSLogMode?
+        get() = logMode.resolveOrNull()
 
-    fun getNonPatchableKeys(): Set<String> {
-        return nonPatchableKeys.resolveOrNull()?.mapTo(mutableSetOf()) { it.resolve() } ?: emptySet()
-    }
+    @get:JsonIgnore
+    val resolvedNonPatchableKeys: Set<String>
+        get() = nonPatchableKeys.resolveOrNull()?.mapTo(mutableSetOf()) { it.resolve() } ?: emptySet()
+
+    @JsonIgnore
+    fun getHost(): String? = resolvedHost
+
+    @JsonIgnore
+    fun getPort(): Int? = resolvedPort
+
+    @JsonIgnore
+    fun getSpecs(): List<String>? = resolvedSpecs
+
+    @JsonIgnore
+    fun getSpecsDirPath(): String? = resolvedSpecsDirPath
+
+    @JsonIgnore
+    fun getLogsDirPath(): String? = resolvedLogsDirPath
+
+    @JsonIgnore
+    fun getLogMode(): VSLogMode? = resolvedLogMode
+
+    @JsonIgnore
+    fun getNonPatchableKeys(): Set<String> = resolvedNonPatchableKeys
 }
 
 data class WorkflowIDOperation(
