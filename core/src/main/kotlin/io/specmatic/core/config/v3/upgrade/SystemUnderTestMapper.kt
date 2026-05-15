@@ -107,7 +107,7 @@ class SystemUnderTestMapper {
     }
 
     private fun SecurityConfiguration.toSecuritySchemesV3(): Map<String, SecuritySchemeConfigurationV3>? {
-        return resolvedOpenAPI?.securitySchemes?.mapValues { (_, scheme) -> scheme.toSecuritySchemeV3() }
+        return resolvedOpenAPI?.resolvedSecuritySchemes?.mapValues { (_, scheme) -> scheme.toSecuritySchemeV3() }
     }
 
     private fun SecuritySchemeConfiguration.toSecuritySchemeV3(): SecuritySchemeConfigurationV3 {

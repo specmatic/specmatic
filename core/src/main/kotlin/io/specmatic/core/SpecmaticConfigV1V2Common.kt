@@ -19,6 +19,7 @@ import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.resolveOrDefault
 import io.specmatic.core.config.v3.resolveFullyOrEmpty
 import io.specmatic.core.config.v3.resolveFullyOrNull
+import io.specmatic.core.config.v3.resolveMapValuesOrEmpty
 import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v3.wrapFullyOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
@@ -1858,13 +1859,17 @@ data class SecurityConfiguration(
         get() = openAPI.resolveOrNull()
 
     fun getOpenAPISecurityScheme(scheme: String): SecuritySchemeConfiguration? {
-        return resolvedOpenAPI?.securitySchemes?.get(scheme)
+        return resolvedOpenAPI?.resolvedSecuritySchemes?.get(scheme)
     }
 }
 
 data class OpenAPISecurityConfiguration(
-    val securitySchemes: Map<String, SecuritySchemeConfiguration> = emptyMap()
-)
+    val securitySchemes: TemplateOrValue<Map<String, TemplateOrValue<SecuritySchemeConfiguration>>>? = null
+) {
+    @get:JsonIgnore
+    val resolvedSecuritySchemes: Map<String, SecuritySchemeConfiguration>
+        get() = securitySchemes.resolveMapValuesOrEmpty()
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
