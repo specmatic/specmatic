@@ -1935,46 +1935,51 @@ interface ReportConfiguration {
 
     companion object {
         val default = ReportConfigurationDetails(
-           types = ReportTypes()
+           types = ReportTypes().wrap()
         )
     }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class ReportConfigurationDetails(
-    val types: ReportTypes? = null
+    val types: TemplateOrValue<ReportTypes>? = null
 ) : ReportConfiguration {
+
+    @get:JsonIgnore
+    val resolvedTypes: ReportTypes?
+        get() = types.resolveOrNull()
 
     fun validatePresenceOfExcludedEndpoints(currentVersion: SpecmaticConfigVersion): ReportConfigurationDetails {
         if(currentVersion.isLessThanOrEqualTo(VERSION_1))
             return this
 
-        if (types?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
+        if (resolvedTypes?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedExcludedEndpoints.orEmpty().isNotEmpty()) {
             throw UnsupportedOperationException(excludedEndpointsWarning)
         }
         return this
     }
 
     fun clearPresenceOfExcludedEndpoints(): ReportConfigurationDetails {
+        val currentTypes = resolvedTypes
         return this.copy(
-            types = types?.copy(
-                apiCoverage = types.resolvedApiCoverage?.copy(
-                    openAPI = types.resolvedApiCoverage?.resolvedOpenAPI?.copy(
+            types = currentTypes?.copy(
+                apiCoverage = currentTypes.resolvedApiCoverage?.copy(
+                    openAPI = currentTypes.resolvedApiCoverage?.resolvedOpenAPI?.copy(
                         excludedEndpoints = emptyList<String>().wrapFullyOrNull()
                     )?.wrapOrNull()
                 )?.wrapOrNull()
-            )
+            )?.wrapOrNull()
         )
     }
 
     @JsonIgnore
     override fun getSuccessCriteria(): SuccessCriteria {
-        return types?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
+        return resolvedTypes?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedSuccessCriteria ?: SuccessCriteria.default
     }
 
     @JsonIgnore
     override fun excludedOpenAPIEndpoints(): List<String> {
-        return types?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedExcludedEndpoints ?: emptyList()
+        return resolvedTypes?.resolvedApiCoverage?.resolvedOpenAPI?.resolvedExcludedEndpoints ?: emptyList()
     }
 }
 
