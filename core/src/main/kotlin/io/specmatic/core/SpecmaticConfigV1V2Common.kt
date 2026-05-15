@@ -620,7 +620,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getSpecificationSources(): List<SpecificationSource> {
-        val resiliencyTestSuite = test?.resiliencyTests?.resolvedEnable
+        val resiliencyTestSuite = test?.resolvedResiliencyTests?.resolvedEnable
         return this.sources.map { source ->
             val specificationSource = SpecificationSource(source.provider, source.repository, source.directory, source.branch, source.matchBranch)
             val sourceBaseDir = source.getBaseDirectory()
@@ -639,7 +639,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
-        val resiliencyTestSuite = test?.resiliencyTests?.resolvedEnable
+        val resiliencyTestSuite = test?.resolvedResiliencyTests?.resolvedEnable
         return this.sources.firstNotNullOfOrNull { source ->
             val sourceBaseDir = source.getBaseDirectory()
             source.stub.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
@@ -886,7 +886,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun isExtensibleSchemaEnabled(): Boolean {
-        return test?.allowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
+        return test?.resolvedAllowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
     }
 
     @JsonIgnore
@@ -901,7 +901,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun isResponseValueValidationEnabled(): Boolean {
-        return test?.validateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
+        return test?.resolvedValidateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
     }
 
     @JsonIgnore
@@ -911,67 +911,67 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getResiliencyTestsEnabled(): ResiliencyTestSuite {
-        return (test?.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).resolvedEnable ?: ResiliencyTestSuite.none
+        return (test?.resolvedResiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).resolvedEnable ?: ResiliencyTestSuite.none
     }
 
     @JsonIgnore
     override fun getTestTimeoutInMilliseconds(): Long? {
-        return test?.timeoutInMilliseconds ?: getLongValue(SPECMATIC_TEST_TIMEOUT)
+        return test?.resolvedTimeoutInMilliseconds ?: getLongValue(SPECMATIC_TEST_TIMEOUT)
     }
 
     @JsonIgnore
     override fun getMaxTestRequestCombinations(): Int? {
-        val configValue = if (getVersion() == VERSION_2) test?.maxTestRequestCombinations else null
+        val configValue = if (getVersion() == VERSION_2) test?.resolvedMaxTestRequestCombinations else null
         return configValue ?: getIntValue(MAX_TEST_REQUEST_COMBINATIONS)
     }
 
     @JsonIgnore
     override fun getTestStrictMode(): Boolean? {
-        return test?.strictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
+        return test?.resolvedStrictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
     }
 
     @JsonIgnore
     override fun getTestLenientMode(): Boolean? {
-        return test?.lenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
+        return test?.resolvedLenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
     }
 
     @JsonIgnore
     override fun getTestParallelism(): String? {
-        return test?.parallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
+        return test?.resolvedParallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
     }
 
     @JsonIgnore
     override fun getTestsDirectory(): String? {
-        return test?.testsDirectory
+        return test?.resolvedTestsDirectory
             ?: readEnvVarOrProperty(TESTS_DIRECTORY_ENV_VAR, TESTS_DIRECTORY_PROPERTY)
     }
 
     @JsonIgnore
     override fun getMaxTestCount(): Int? {
-        return test?.maxTestCount ?: getIntValue(MAX_TEST_COUNT)
+        return test?.resolvedMaxTestCount ?: getIntValue(MAX_TEST_COUNT)
     }
 
     @JsonIgnore
     override fun getTestFilter(): String? {
-        return getTestConfiguration(this)?.filter
+        return getTestConfiguration(this)?.resolvedFilter
             ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestFilterName(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.filterName else null
+        val configValue = if (getVersion() == VERSION_2) test?.resolvedFilterName else null
         return configValue ?: readEnvVarOrProperty(TEST_FILTER_NAME_ENV_VAR, TEST_FILTER_NAME_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestFilterNotName(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.filterNotName else null
+        val configValue = if (getVersion() == VERSION_2) test?.resolvedFilterNotName else null
         return configValue ?: readEnvVarOrProperty(TEST_FILTER_NOT_NAME_ENV_VAR, TEST_FILTER_NOT_NAME_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestOverlayFilePath(specFile: File, specType: SpecType): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.overlayFilePath else null
+        val configValue = if (getVersion() == VERSION_2) test?.resolvedOverlayFilePath else null
         return configValue ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
     }
 
@@ -1016,29 +1016,29 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     private fun getExplicitTestBaseUrl(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.baseUrl else null
+        val configValue = if (getVersion() == VERSION_2) test?.resolvedBaseUrl else null
         return configValue ?: readEnvVarOrProperty(TEST_BASE_URL_ENV_VAR, TEST_BASE_URL_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestSwaggerUrl(): String? {
-        return getTestConfiguration(this)?.swaggerUrl
+        return getTestConfiguration(this)?.resolvedSwaggerUrl
     }
 
     @JsonIgnore
     override fun getTestSwaggerUIBaseUrl(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.swaggerUIBaseURL else null
+        val configValue = if (getVersion() == VERSION_2) test?.resolvedSwaggerUIBaseURL else null
         return configValue ?: readEnvVarOrProperty(TEST_SWAGGER_UI_BASEURL_ENV_VAR, TEST_SWAGGER_UI_BASEURL_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestJunitReportDir(): String? {
-        return if (getVersion() == VERSION_2) test?.junitReportDir else null
+        return if (getVersion() == VERSION_2) test?.resolvedJunitReportDir else null
     }
 
     @JsonIgnore
     override fun getActuatorUrl(): String? {
-        return getTestConfiguration(this)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
+        return getTestConfiguration(this)?.resolvedActuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
     }
 
     @JsonIgnore
@@ -1046,9 +1046,9 @@ data class SpecmaticConfigV1V2Common(
         val testConfig = test ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
-                resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
+                resiliencyTests = (testConfig.resolvedResiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
                     enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly.wrapOrNull() else ResiliencyTestSuite.all.wrapOrNull()
-                )
+                ).wrapOrNull()
             )
         )
     }
@@ -1056,7 +1056,7 @@ data class SpecmaticConfigV1V2Common(
     override fun disableResiliencyTests(): SpecmaticConfig {
         val testConfig = test ?: TestConfiguration()
         val resiliencyTestsConfig = ResiliencyTestsConfig(enable = ResiliencyTestSuite.none.wrapOrNull())
-        return this.copy(test = testConfig.copy(resiliencyTests = resiliencyTestsConfig))
+        return this.copy(test = testConfig.copy(resiliencyTests = resiliencyTestsConfig.wrapOrNull()))
     }
 
     @JsonIgnore
@@ -1108,7 +1108,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun getTestHttpsConfiguration(): CertRegistry {
         val registry = CertRegistry.empty()
-        val httpsConfiguration = test?.https ?: return registry
+        val httpsConfiguration = test?.resolvedHttps ?: return registry
         return registry.plusWildCard(httpsConfiguration)
     }
 
@@ -1432,9 +1432,9 @@ data class SpecmaticConfigV1V2Common(
         val testConfig = test ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
-                resiliencyTests = (testConfig.resiliencyTests ?: ResiliencyTestsConfig()).copy(
+                resiliencyTests = (testConfig.resolvedResiliencyTests ?: ResiliencyTestsConfig()).copy(
                     enable = ResiliencyTestSuite.all.wrapOrNull(),
-                ),
+                ).wrapOrNull(),
             ),
         )
     }
@@ -1443,27 +1443,27 @@ data class SpecmaticConfigV1V2Common(
         val testConfig = test ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
-                strictMode = strictMode ?: testConfig.strictMode,
-                lenientMode = lenientMode ?: testConfig.lenientMode,
+                strictMode = (strictMode ?: testConfig.resolvedStrictMode).wrapOrNull(),
+                lenientMode = (lenientMode ?: testConfig.resolvedLenientMode).wrapOrNull(),
             ),
         )
     }
 
     override fun withTestBaseURL(testBaseURL: String): SpecmaticConfig {
         val testConfig = test ?: TestConfiguration()
-        return this.copy(test = testConfig.copy(baseUrl = testBaseURL))
+        return this.copy(test = testConfig.copy(baseUrl = testBaseURL.wrap()))
     }
 
     override fun withTestFilter(filter: String?): SpecmaticConfigV1V2Common {
         if (filter == null) return this
         val testConfig = this.test ?: TestConfiguration()
-        return this.copy(test = testConfig.copy(filter = filter))
+        return this.copy(test = testConfig.copy(filter = filter.wrap()))
     }
 
     override fun withTestTimeout(timeoutInMilliseconds: Long?): SpecmaticConfigV1V2Common {
         if (timeoutInMilliseconds == null) return this
         val testConfig = this.test ?: TestConfiguration()
-        return this.copy(test = testConfig.copy(timeoutInMilliseconds = timeoutInMilliseconds))
+        return this.copy(test = testConfig.copy(timeoutInMilliseconds = timeoutInMilliseconds.wrap()))
     }
 
     override fun withStubModes(strictMode: Boolean?): SpecmaticConfigV1V2Common {
@@ -1562,27 +1562,108 @@ data class SpecmaticConfigV1V2Common(
 }
 
 data class TestConfiguration(
-    val resiliencyTests: ResiliencyTestsConfig? = null,
-    val validateResponseValues: Boolean? = null,
-    val allowExtensibleSchema: Boolean? = null,
-    val timeoutInMilliseconds: Long? = null,
-    val strictMode: Boolean? = null,
-    val lenientMode: Boolean? = null,
-    val parallelism: String? = null,
-    val maxTestRequestCombinations: Int? = null,
-    val maxTestCount: Int? = null,
-    val testsDirectory: String? = null,
-    val swaggerUrl: String? = null,
-    val swaggerUIBaseURL: String? = null,
-    val actuatorUrl: String? = null,
-    val filter: String? = null,
-    val baseUrl: String? = null,
-    val filterName: String? = null,
-    val filterNotName: String? = null,
-    val overlayFilePath: String? = null,
-    val junitReportDir: String? = null,
-    val https: HttpsConfiguration? = null,
-)
+    val resiliencyTests: TemplateOrValue<ResiliencyTestsConfig>? = null,
+    val validateResponseValues: TemplateOrValue<Boolean>? = null,
+    val allowExtensibleSchema: TemplateOrValue<Boolean>? = null,
+    val timeoutInMilliseconds: TemplateOrValue<Long>? = null,
+    val strictMode: TemplateOrValue<Boolean>? = null,
+    val lenientMode: TemplateOrValue<Boolean>? = null,
+    val parallelism: TemplateOrValue<String>? = null,
+    val maxTestRequestCombinations: TemplateOrValue<Int>? = null,
+    val maxTestCount: TemplateOrValue<Int>? = null,
+    val testsDirectory: TemplateOrValue<String>? = null,
+    val swaggerUrl: TemplateOrValue<String>? = null,
+    val swaggerUIBaseURL: TemplateOrValue<String>? = null,
+    val actuatorUrl: TemplateOrValue<String>? = null,
+    val filter: TemplateOrValue<String>? = null,
+    val baseUrl: TemplateOrValue<String>? = null,
+    val filterName: TemplateOrValue<String>? = null,
+    val filterNotName: TemplateOrValue<String>? = null,
+    val overlayFilePath: TemplateOrValue<String>? = null,
+    val junitReportDir: TemplateOrValue<String>? = null,
+    val https: TemplateOrValue<HttpsConfiguration>? = null,
+) 
+{
+    @get:JsonIgnore
+    val resolvedResiliencyTests: ResiliencyTestsConfig?
+        get() = resiliencyTests.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedValidateResponseValues: Boolean?
+        get() = validateResponseValues.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedAllowExtensibleSchema: Boolean?
+        get() = allowExtensibleSchema.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedTimeoutInMilliseconds: Long?
+        get() = timeoutInMilliseconds.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedStrictMode: Boolean?
+        get() = strictMode.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedLenientMode: Boolean?
+        get() = lenientMode.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedParallelism: String?
+        get() = parallelism.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedMaxTestRequestCombinations: Int?
+        get() = maxTestRequestCombinations.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedMaxTestCount: Int?
+        get() = maxTestCount.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedTestsDirectory: String?
+        get() = testsDirectory.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedSwaggerUrl: String?
+        get() = swaggerUrl.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedSwaggerUIBaseURL: String?
+        get() = swaggerUIBaseURL.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedActuatorUrl: String?
+        get() = actuatorUrl.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedFilter: String?
+        get() = filter.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedBaseUrl: String?
+        get() = baseUrl.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedFilterName: String?
+        get() = filterName.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedFilterNotName: String?
+        get() = filterNotName.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedOverlayFilePath: String?
+        get() = overlayFilePath.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedJunitReportDir: String?
+        get() = junitReportDir.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedHttps: HttpsConfiguration?
+        get() = https.resolveOrNull()
+}
 
 enum class ResiliencyTestSuite {
     all, positiveOnly, none

@@ -41,7 +41,7 @@ class SystemUnderTestMapper {
             .flatMap { it.test.orEmpty() }
             .fold(runOptionsMapper) { acc, config -> acc.mergeConfig(config) }
             .mergeGlobalOpenApi(
-                overlayFilePath = view.testConfig?.overlayFilePath,
+                overlayFilePath = view.testConfig?.resolvedOverlayFilePath,
                 securitySchemes = view.security?.toSecuritySchemesV3(),
             )
 
@@ -89,12 +89,12 @@ class SystemUnderTestMapper {
         if (migrations.none { it.hasSpecType(SpecType.OPENAPI) }) return OpenApiTestConfig()
         return OpenApiTestConfig(
             workflow = view.workflow,
-            filter = view.testConfig?.filter,
-            baseUrl = view.testConfig?.baseUrl,
-            swaggerUrl = view.testConfig?.swaggerUrl,
-            actuatorUrl = view.testConfig?.actuatorUrl,
-            swaggerUiBaseUrl = view.testConfig?.swaggerUIBaseURL,
-            cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
+            filter = view.testConfig?.resolvedFilter,
+            baseUrl = view.testConfig?.resolvedBaseUrl,
+            swaggerUrl = view.testConfig?.resolvedSwaggerUrl,
+            actuatorUrl = view.testConfig?.resolvedActuatorUrl,
+            swaggerUiBaseUrl = view.testConfig?.resolvedSwaggerUIBaseURL,
+            cert = view.testConfig?.resolvedHttps?.let { RefOrValue.Value(it) },
             specs = overrides.openApi.values.map(::OpenApiRunOptionsSpecifications),
         )
     }
@@ -102,8 +102,8 @@ class SystemUnderTestMapper {
     private fun buildWsdlTestConfig(view: LegacyConfigView, migrations: List<SourceMigration.TestSourceMigration>, overrides: RunOptionsMapper): WsdlTestConfig {
         if (migrations.none { it.hasSpecType(SpecType.WSDL) }) return WsdlTestConfig()
         return WsdlTestConfig(
-            baseUrl = view.testConfig?.baseUrl,
-            cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
+            baseUrl = view.testConfig?.resolvedBaseUrl,
+            cert = view.testConfig?.resolvedHttps?.let { RefOrValue.Value(it) },
             specs = overrides.wsdl.values.map(::WsdlRunOptionsSpecifications)
         )
     }

@@ -71,15 +71,15 @@ class SpecmaticMetadataMapper {
         val schemaResiliencyTestsFromProvides = extractSchemaResiliencyTestsFromProvides(testConfigs) ?: extractSchemaResiliencyTestsFromConfigValue(testConfigs)
 
         return TestSettings(
-            strictMode = view.testConfig?.strictMode,
-            lenientMode = view.testConfig?.lenientMode,
-            parallelism = view.testConfig?.parallelism,
-            maxTestCount = view.testConfig?.maxTestCount,
-            junitReportDir = view.testConfig?.junitReportDir,
-            timeoutInMilliseconds = view.testConfig?.timeoutInMilliseconds,
-            validateResponseValues = view.testConfig?.validateResponseValues,
-            maxTestRequestCombinations = view.testConfig?.maxTestRequestCombinations,
-            schemaResiliencyTests = view.testConfig?.resiliencyTests?.resolvedEnable ?: schemaResiliencyTestsFromProvides,
+            strictMode = view.testConfig?.resolvedStrictMode,
+            lenientMode = view.testConfig?.resolvedLenientMode,
+            parallelism = view.testConfig?.resolvedParallelism,
+            maxTestCount = view.testConfig?.resolvedMaxTestCount,
+            junitReportDir = view.testConfig?.resolvedJunitReportDir,
+            timeoutInMilliseconds = view.testConfig?.resolvedTimeoutInMilliseconds,
+            validateResponseValues = view.testConfig?.resolvedValidateResponseValues,
+            maxTestRequestCombinations = view.testConfig?.resolvedMaxTestRequestCombinations,
+            schemaResiliencyTests = view.testConfig?.resolvedResiliencyTests?.resolvedEnable ?: schemaResiliencyTestsFromProvides,
         )
     }
 
