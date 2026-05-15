@@ -62,6 +62,9 @@ data class LegacyConfigView(
         }
 
         private fun Auth.toGitAuthentication(): GitAuthentication? {
+            val personalAccessToken = resolvedPersonalAccessToken
+            val bearerEnvironmentVariable = resolvedBearerEnvironmentVariable
+            val bearerFile = resolvedBearerFile
             return when {
                 !personalAccessToken.isNullOrBlank() -> GitAuthentication.PersonalAccessToken(personalAccessToken)
                 !bearerEnvironmentVariable.isNullOrBlank() -> GitAuthentication.BearerEnv(bearerEnvironmentVariable)

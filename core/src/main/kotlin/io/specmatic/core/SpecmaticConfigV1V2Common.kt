@@ -1104,17 +1104,17 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getAuthBearerFile(repositoryUrl: String): String? {
-        return auth?.bearerFile
+        return auth?.resolvedBearerFile
     }
 
     @JsonIgnore
     override fun getAuthBearerEnvironmentVariable(repositoryUrl: String): String? {
-        return auth?.bearerEnvironmentVariable
+        return auth?.resolvedBearerEnvironmentVariable
     }
 
     @JsonIgnore
     override fun getAuthPersonalAccessToken(repositoryUrl: String): String? {
-        val tokenFromConfig = auth?.personalAccessToken?.takeIf { it.isNotBlank() }
+        val tokenFromConfig = auth?.resolvedPersonalAccessToken?.takeIf { it.isNotBlank() }
         if (tokenFromConfig != null) return tokenFromConfig
 
         val tokenFromEnv = System.getenv("PERSONAL_ACCESS_TOKEN")?.takeIf { it.isNotBlank() }
@@ -1505,10 +1505,22 @@ data class ResiliencyTestsConfig(
 }
 
 data class Auth(
-    @param:JsonProperty("bearer-file") val bearerFile: String = "bearer.txt",
-    @param:JsonProperty("bearer-environment-variable") val bearerEnvironmentVariable: String? = null,
-    @param:JsonProperty("personal-access-token") @JsonAlias("personalAccessToken") val personalAccessToken: String? = null
-)
+    @param:JsonProperty("bearer-file") val bearerFile: TemplateOrValue<String>? = null,
+    @param:JsonProperty("bearer-environment-variable") val bearerEnvironmentVariable: TemplateOrValue<String>? = null,
+    @param:JsonProperty("personal-access-token") @JsonAlias("personalAccessToken") val personalAccessToken: TemplateOrValue<String>? = null
+) {
+    @get:JsonIgnore
+    val resolvedBearerFile: String
+        get() = bearerFile.resolveOrNull() ?: "bearer.txt"
+
+    @get:JsonIgnore
+    val resolvedBearerEnvironmentVariable: String?
+        get() = bearerEnvironmentVariable.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedPersonalAccessToken: String?
+        get() = personalAccessToken.resolveOrNull()
+}
 
 enum class PipelineProvider { azure }
 
