@@ -9,6 +9,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ObjectNode
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
 import io.specmatic.core.log.logger
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrapOrNull
 import java.io.File
 
 @JsonDeserialize(using = KeyStoreConfiguration.Companion.KeyStoreConfigurationDeserializer::class)
@@ -96,21 +99,29 @@ sealed interface KeyStoreConfiguration {
 
 data class HttpsConfiguration(
     val keyStore: KeyStoreConfiguration? = null,
-    val keyStorePassword: String? = null,
-    val mtlsEnabled: Boolean? = null
+    val keyStorePassword: TemplateOrValue<String>? = null,
+    val mtlsEnabled: TemplateOrValue<Boolean>? = null
 ) {
+    @get:JsonIgnore
+    val resolvedKeyStorePassword: String?
+        get() = keyStorePassword.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedMtlsEnabled: Boolean?
+        get() = mtlsEnabled.resolveOrNull()
+
     fun keyStoreFile(): String? = keyStore?.getFilePath()
 
     fun keyStoreDir(): String? = keyStore?.getDirectoryPath()
 
-    fun keyStorePasswordOrDefault(): String = keyStorePassword ?: "forgotten"
+    fun keyStorePasswordOrDefault(): String = resolvedKeyStorePassword ?: "forgotten"
 
     fun keyStoreAliasOrDefault(defaultSuffix: String): String = keyStore?.alias ?: "${APPLICATION_NAME_LOWER_CASE}$defaultSuffix"
 
     fun keyPasswordOrDefault(): String = keyStore?.password ?: "forgotten"
 
     @JsonIgnore
-    fun isMtlsEnabled(): Boolean = mtlsEnabled == true
+    fun isMtlsEnabled(): Boolean = resolvedMtlsEnabled == true
 
     fun overrideWith(other: HttpsConfiguration?): HttpsConfiguration {
         if (other == null) return this
@@ -134,7 +145,7 @@ data class HttpsConfiguration(
 
         fun from(opts: HttpsFromOpts): HttpsConfiguration {
             return HttpsConfiguration(
-                keyStorePassword = opts.keyStorePassword,
+                keyStorePassword = opts.keyStorePassword.wrapOrNull(),
                 keyStore = when {
                     opts.keyStoreFile != null -> KeyStoreConfiguration.FileBasedConfig(file = opts.keyStoreFile, password = opts.keyPassword, alias = opts.keyStoreAlias)
                     opts.keyStoreDir != null -> KeyStoreConfiguration.DirectoryBasedConfig(directory = opts.keyStoreDir, password = opts.keyPassword, alias = opts.keyStoreAlias)
