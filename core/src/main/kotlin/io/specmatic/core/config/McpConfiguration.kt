@@ -3,6 +3,11 @@ package io.specmatic.core.config
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.config.v3.TemplateOrValue
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
+import io.specmatic.core.config.v3.resolveOrNull
+import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
 import java.io.File
 
 enum class McpTransport(private val value: String) {
@@ -19,16 +24,44 @@ enum class McpTransport(private val value: String) {
 }
 
 data class McpTestConfiguration(
-    val baseUrl: String,
-    val transportKind: McpTransport? = null,
-    val enableResiliencyTests: Boolean = false,
-    val dictionaryFile: String? = null,
-    val bearerToken: String? = null,
-    val filterTools: List<String>? = null,
-    val skipTools: List<String>? = null,
+    val baseUrl: TemplateOrValue<String>,
+    val transportKind: TemplateOrValue<McpTransport>? = null,
+    val enableResiliencyTests: TemplateOrValue<Boolean>? = null,
+    val dictionaryFile: TemplateOrValue<String>? = null,
+    val bearerToken: TemplateOrValue<String>? = null,
+    val filterTools: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+    val skipTools: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
 ) {
+    @get:JsonIgnore
+    val resolvedBaseUrl: String
+        get() = baseUrl.resolveOrNull().orEmpty()
+
+    @get:JsonIgnore
+    val resolvedTransportKind: McpTransport?
+        get() = transportKind.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedEnableResiliencyTests: Boolean
+        get() = enableResiliencyTests.resolveOrNull() ?: false
+
+    @get:JsonIgnore
+    val resolvedDictionaryFile: String?
+        get() = dictionaryFile.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedBearerToken: String?
+        get() = bearerToken.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedFilterTools: List<String>
+        get() = filterTools.resolveFullyOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedSkipTools: List<String>
+        get() = skipTools.resolveFullyOrEmpty()
+
     @JsonIgnore
-    fun getDictionaryIfExists(): File? = dictionaryFile?.let(::File)
+    fun getDictionaryIfExists(): File? = resolvedDictionaryFile?.let(::File)
 }
 
 data class McpConfiguration(val test: McpTestConfiguration)
