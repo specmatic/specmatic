@@ -17,6 +17,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.resolveOrDefault
+import io.specmatic.core.config.v3.resolveFullyOrEmpty
 import io.specmatic.core.config.v3.resolveFullyOrNull
 import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
@@ -298,23 +299,35 @@ interface AttributeSelectionPatternDetails {
 data class AttributeSelectionPattern(
     @param:JsonAlias("default_fields")
     @field:JsonAlias("default_fields")
-    private val defaultFields: List<String>? = null,
+    val defaultFields: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
     @param:JsonAlias("query_param_key")
     @field:JsonAlias("query_param_key")
-    private val queryParamKey: String? = null
+    val queryParamKey: TemplateOrValue<String>? = null
 ) : AttributeSelectionPatternDetails {
+    @get:JsonIgnore
+    val resolvedDefaultFields: List<String>
+        get() = defaultFields.resolveFullyOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedQueryParamKey: String
+        get() = queryParamKey.resolveOrDefault(
+            readEnvVarOrProperty(
+                ATTRIBUTE_SELECTION_QUERY_PARAM_KEY,
+                ATTRIBUTE_SELECTION_QUERY_PARAM_KEY
+            ).orEmpty()
+        )
+
     override fun getDefaultFields(): List<String> {
-        return defaultFields ?: readEnvVarOrProperty(
+        return resolvedDefaultFields.ifEmpty {
+            readEnvVarOrProperty(
             ATTRIBUTE_SELECTION_DEFAULT_FIELDS,
             ATTRIBUTE_SELECTION_DEFAULT_FIELDS
-        ).orEmpty().split(",").filter { it.isNotBlank() }
+            ).orEmpty().split(",").filter { it.isNotBlank() }
+        }
     }
 
     override fun getQueryParamKey(): String {
-        return queryParamKey ?: readEnvVarOrProperty(
-            ATTRIBUTE_SELECTION_QUERY_PARAM_KEY,
-            ATTRIBUTE_SELECTION_QUERY_PARAM_KEY
-        ).orEmpty()
+        return resolvedQueryParamKey
     }
 }
 
