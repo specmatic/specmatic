@@ -17,6 +17,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion.VERSION_2
 import io.specmatic.core.config.v3.TemplateOrValue
 import io.specmatic.core.config.v3.resolveOrNull
 import io.specmatic.core.config.v3.resolveOrDefault
+import io.specmatic.core.config.v3.resolveFullyOrNull
 import io.specmatic.core.config.v3.wrapOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
@@ -204,13 +205,13 @@ data class StubConfiguration(
 }
 
 data class VirtualServiceConfiguration(
-    private val host: String? = null,
-    private val port: Int? = null,
-    private val specs: List<String>? = null,
-    private val specsDirPath: String? = null,
-    private val logsDirPath: String? = null,
-    private val logMode: VSLogMode? = null,
-    private val nonPatchableKeys: Set<String> = emptySet()
+    val host: TemplateOrValue<String>? = null,
+    val port: TemplateOrValue<Int>? = null,
+    val specs: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+    val specsDirPath: TemplateOrValue<String>? = null,
+    val logsDirPath: TemplateOrValue<String>? = null,
+    val logMode: TemplateOrValue<VSLogMode>? = null,
+    val nonPatchableKeys: TemplateOrValue<Set<TemplateOrValue<String>>>? = null
 ) {
 
     enum class VSLogMode {
@@ -219,31 +220,31 @@ data class VirtualServiceConfiguration(
     }
 
     fun getHost(): String? {
-        return host
+        return host.resolveOrNull()
     }
 
     fun getPort(): Int? {
-        return port
+        return port.resolveOrNull()
     }
 
     fun getSpecs(): List<String>? {
-        return specs
+        return specs.resolveFullyOrNull()
     }
 
     fun getSpecsDirPath(): String? {
-        return specsDirPath
+        return specsDirPath.resolveOrNull()
     }
 
     fun getLogsDirPath(): String? {
-        return logsDirPath
+        return logsDirPath.resolveOrNull()
     }
 
     fun getLogMode(): VSLogMode? {
-        return logMode
+        return logMode.resolveOrNull()
     }
 
     fun getNonPatchableKeys(): Set<String> {
-        return nonPatchableKeys
+        return nonPatchableKeys.resolveOrNull()?.mapTo(mutableSetOf()) { it.resolve() } ?: emptySet()
     }
 }
 
