@@ -25,6 +25,7 @@ import io.specmatic.core.config.v3.wrapFullyOrNull
 import io.specmatic.core.config.v2.ConsumesDeserializer
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.resolve
+import io.specmatic.core.config.v3.resolveMapValuesOrNull
 import io.specmatic.core.config.v3.wrap
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
@@ -430,40 +431,172 @@ data class AttributeSelectionPattern(
 }
 
 data class SpecmaticConfigV1V2Common(
-    private val sources: List<Source> = emptyList(),
-    private val auth: Auth? = null,
-    private val pipeline: Pipeline? = null,
-    private val environments: Map<String, Environment>? = null,
-    private val hooks: Map<String, String> = emptyMap(),
-    private val proxy: ProxyConfig? = null,
-    private val repository: RepositoryInfo? = null,
-    private val report: ReportConfigurationDetails? = null,
-    private val security: SecurityConfiguration? = null,
-    private val test: TestConfiguration? = null,
-    private val stub: StubConfiguration? = null,
-    private val backwardCompatibility: BackwardCompatibilityConfig? = null,
-    private val virtualService: VirtualServiceConfiguration? = null,
-    private val examples: List<String>? = null,
-    private val workflow: WorkflowConfiguration? = null,
-    private val ignoreInlineExamples: Boolean? = null,
-    private val ignoreInlineExampleWarnings: Boolean? = null,
-    private val schemaExampleDefault: Boolean? = null,
-    private val fuzzy: Boolean? = null,
-    private val extensibleQueryParams: Boolean? = null,
-    private val escapeSoapAction: Boolean? = null,
-    private val prettyPrint: Boolean? = null,
-    private val additionalExampleParamsFilePath: String? = null,
-    private val attributeSelectionPattern: AttributeSelectionPattern? = null,
-    private val allPatternsMandatory: Boolean? = null,
-    private val defaultPatternValues: Map<String, Any> = emptyMap(),
-    private val version: SpecmaticConfigVersion? = null,
-    private val disableTelemetry: Boolean? = null,
-    private val logging: LoggingConfiguration? = null,
-    private val mcp: McpConfiguration? = null,
-    private val licensePath: Path? = null,
-    private val reportDirPath: Path? = null,
-    private val globalSettings: SpecmaticGlobalSettings? = null,
+    val sources: TemplateOrValue<List<TemplateOrValue<Source>>>? = null,
+    val auth: TemplateOrValue<Auth>? = null,
+    val pipeline: TemplateOrValue<Pipeline>? = null,
+    val environments: TemplateOrValue<Map<String, TemplateOrValue<Environment>>>? = null,
+    val hooks: TemplateOrValue<Map<String, TemplateOrValue<String>>>? = null,
+    val proxy: TemplateOrValue<ProxyConfig>? = null,
+    val repository: TemplateOrValue<RepositoryInfo>? = null,
+    val report: TemplateOrValue<ReportConfigurationDetails>? = null,
+    val security: TemplateOrValue<SecurityConfiguration>? = null,
+    val test: TemplateOrValue<TestConfiguration>? = null,
+    val stub: TemplateOrValue<StubConfiguration>? = null,
+    val backwardCompatibility: TemplateOrValue<BackwardCompatibilityConfig>? = null,
+    val virtualService: TemplateOrValue<VirtualServiceConfiguration>? = null,
+    val examples: TemplateOrValue<List<TemplateOrValue<String>>>? = null,
+    val workflow: TemplateOrValue<WorkflowConfiguration>? = null,
+    val ignoreInlineExamples: TemplateOrValue<Boolean>? = null,
+    val ignoreInlineExampleWarnings: TemplateOrValue<Boolean>? = null,
+    val schemaExampleDefault: TemplateOrValue<Boolean>? = null,
+    val fuzzy: TemplateOrValue<Boolean>? = null,
+    val extensibleQueryParams: TemplateOrValue<Boolean>? = null,
+    val escapeSoapAction: TemplateOrValue<Boolean>? = null,
+    val prettyPrint: TemplateOrValue<Boolean>? = null,
+    val additionalExampleParamsFilePath: TemplateOrValue<String>? = null,
+    val attributeSelectionPattern: TemplateOrValue<AttributeSelectionPattern>? = null,
+    val allPatternsMandatory: TemplateOrValue<Boolean>? = null,
+    val defaultPatternValues: TemplateOrValue<Map<String, TemplateOrValue<Any>>>? = null,
+    val version: TemplateOrValue<SpecmaticConfigVersion>? = null,
+    val disableTelemetry: TemplateOrValue<Boolean>? = null,
+    val logging: TemplateOrValue<LoggingConfiguration>? = null,
+    val mcp: TemplateOrValue<McpConfiguration>? = null,
+    val licensePath: TemplateOrValue<Path>? = null,
+    val reportDirPath: TemplateOrValue<Path>? = null,
+    val globalSettings: TemplateOrValue<SpecmaticGlobalSettings>? = null,
 ) : SpecmaticConfig {
+    @get:JsonIgnore
+    val resolvedSources: List<Source>
+        get() = sources.resolveFullyOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedAuth: Auth?
+        get() = auth.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedPipeline: Pipeline?
+        get() = pipeline.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedEnvironments: Map<String, Environment>?
+        get() = environments.resolveMapValuesOrNull()
+
+    @get:JsonIgnore
+    val resolvedHooks: Map<String, String>
+        get() = hooks.resolveMapValuesOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedProxy: ProxyConfig?
+        get() = proxy.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedRepository: RepositoryInfo?
+        get() = repository.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedReport: ReportConfigurationDetails?
+        get() = report.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedSecurity: SecurityConfiguration?
+        get() = security.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedTest: TestConfiguration?
+        get() = test.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedStub: StubConfiguration?
+        get() = stub.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedBackwardCompatibility: BackwardCompatibilityConfig?
+        get() = backwardCompatibility.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedVirtualService: VirtualServiceConfiguration?
+        get() = virtualService.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedExamples: List<String>
+        get() = examples.resolveFullyOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedWorkflow: WorkflowConfiguration?
+        get() = workflow.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedIgnoreInlineExamples: Boolean?
+        get() = ignoreInlineExamples.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedIgnoreInlineExampleWarnings: Boolean?
+        get() = ignoreInlineExampleWarnings.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedSchemaExampleDefault: Boolean?
+        get() = schemaExampleDefault.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedFuzzy: Boolean?
+        get() = fuzzy.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedExtensibleQueryParams: Boolean?
+        get() = extensibleQueryParams.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedEscapeSoapAction: Boolean?
+        get() = escapeSoapAction.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedPrettyPrint: Boolean?
+        get() = prettyPrint.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedAdditionalExampleParamsFilePath: String?
+        get() = additionalExampleParamsFilePath.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedAttributeSelectionPattern: AttributeSelectionPattern?
+        get() = attributeSelectionPattern.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedAllPatternsMandatory: Boolean?
+        get() = allPatternsMandatory.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedDefaultPatternValues: Map<String, Any>
+        get() = defaultPatternValues.resolveMapValuesOrEmpty()
+
+    @get:JsonIgnore
+    val resolvedVersion: SpecmaticConfigVersion
+        get() = version.resolveOrDefault(VERSION_1)
+
+    @get:JsonIgnore
+    val resolvedDisableTelemetry: Boolean?
+        get() = disableTelemetry.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedLogging: LoggingConfiguration?
+        get() = logging.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedMcp: McpConfiguration?
+        get() = mcp.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedLicensePath: Path?
+        get() = licensePath.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedReportDirPath: Path?
+        get() = reportDirPath.resolveOrNull()
+
+    @get:JsonIgnore
+    val resolvedGlobalSettings: SpecmaticGlobalSettings
+        get() = globalSettings.resolveOrDefault(SpecmaticGlobalSettings())
+
     companion object {
         fun getEffectiveBranchForSource(
             configuredBranch: String?,
@@ -491,137 +624,137 @@ data class SpecmaticConfigV1V2Common(
         }
 
         fun getReport(specmaticConfig: SpecmaticConfigV1V2Common): ReportConfigurationDetails? {
-            return specmaticConfig.report
+            return specmaticConfig.resolvedReport
         }
 
         @JsonIgnore
         fun getSources(specmaticConfig: SpecmaticConfigV1V2Common): List<Source> {
-            return specmaticConfig.sources
+            return specmaticConfig.resolvedSources
         }
 
         @JsonIgnore
         fun getRepository(specmaticConfig: SpecmaticConfigV1V2Common): RepositoryInfo? {
-            return specmaticConfig.repository
+            return specmaticConfig.resolvedRepository
         }
 
         @JsonIgnore
         fun getPipeline(specmaticConfig: SpecmaticConfigV1V2Common): Pipeline? {
-            return specmaticConfig.pipeline
+            return specmaticConfig.resolvedPipeline
         }
 
         @JsonIgnore
         fun getSecurityConfiguration(specmaticConfig: SpecmaticConfigV1V2Common?): SecurityConfiguration? {
-            return specmaticConfig?.security
+            return specmaticConfig?.resolvedSecurity
         }
 
         @JsonIgnore
         fun getWorkflowConfiguration(specmaticConfig: SpecmaticConfigV1V2Common): WorkflowConfiguration? {
-            return specmaticConfig.workflow
+            return specmaticConfig.resolvedWorkflow
         }
 
         @JsonIgnore
         fun getTestConfiguration(specmaticConfig: SpecmaticConfigV1V2Common): TestConfiguration? {
-            return specmaticConfig.test
+            return specmaticConfig.resolvedTest
         }
 
         @JsonIgnore
         fun getVirtualServiceConfiguration(specmaticConfig: SpecmaticConfigV1V2Common): VirtualServiceConfiguration {
-            return specmaticConfig.virtualService ?: VirtualServiceConfiguration()
+            return specmaticConfig.resolvedVirtualService ?: VirtualServiceConfiguration()
         }
 
         @JsonIgnore
         fun getAllPatternsMandatory(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? {
-            return specmaticConfig.allPatternsMandatory
+            return specmaticConfig.resolvedAllPatternsMandatory
         }
 
         @JsonIgnore
         fun getIgnoreInlineExamples(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? {
-            return specmaticConfig.ignoreInlineExamples
+            return specmaticConfig.resolvedIgnoreInlineExamples
         }
 
         @JsonIgnore
         fun getAttributeSelectionPattern(specmaticConfig: SpecmaticConfigV1V2Common): AttributeSelectionPattern {
-            return specmaticConfig.attributeSelectionPattern ?: AttributeSelectionPattern()
+            return specmaticConfig.resolvedAttributeSelectionPattern ?: AttributeSelectionPattern()
         }
 
         @JsonIgnore
         fun getStubConfiguration(specmaticConfig: SpecmaticConfigV1V2Common): StubConfiguration {
-            return specmaticConfig.stub ?: StubConfiguration()
+            return specmaticConfig.resolvedStub ?: StubConfiguration()
         }
 
         @JsonIgnore
         fun getTestConfigOrNull(specmaticConfig: SpecmaticConfigV1V2Common): TestConfiguration? {
-            return specmaticConfig.test
+            return specmaticConfig.resolvedTest
         }
 
         @JsonIgnore
         fun getStubConfigOrNull(specmaticConfig: SpecmaticConfigV1V2Common): StubConfiguration? {
-            return specmaticConfig.stub
+            return specmaticConfig.resolvedStub
         }
 
         @JsonIgnore
-        fun getIgnoreInlineExampleWarningsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.ignoreInlineExampleWarnings
+        fun getIgnoreInlineExampleWarningsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedIgnoreInlineExampleWarnings
 
         @JsonIgnore
-        fun getEscapeSoapActionOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.escapeSoapAction
+        fun getEscapeSoapActionOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedEscapeSoapAction
 
         @JsonIgnore
-        fun getSchemaExampleDefaultOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.schemaExampleDefault
+        fun getSchemaExampleDefaultOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedSchemaExampleDefault
 
         @JsonIgnore
-        fun getExtensibleQueryParamsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.extensibleQueryParams
+        fun getExtensibleQueryParamsOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedExtensibleQueryParams
 
         @JsonIgnore
-        fun getFuzzyMatchingEnabledOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.fuzzy
+        fun getFuzzyMatchingEnabledOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedFuzzy
 
         @JsonIgnore
-        fun getPrettyPrintOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.prettyPrint
+        fun getPrettyPrintOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedPrettyPrint
 
         @JsonIgnore
-        fun isTelemetryDisabledOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.disableTelemetry
+        fun isTelemetryDisabledOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Boolean? = specmaticConfig.resolvedDisableTelemetry
 
         @JsonIgnore
-        fun getReportDirPathOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Path? = specmaticConfig.reportDirPath
+        fun getReportDirPathOrNull(specmaticConfig: SpecmaticConfigV1V2Common): Path? = specmaticConfig.resolvedReportDirPath
 
         @JsonIgnore
         fun getVirtualServiceConfigOrNull(specmaticConfig: SpecmaticConfigV1V2Common): VirtualServiceConfiguration? {
-            return specmaticConfig.virtualService
+            return specmaticConfig.resolvedVirtualService
         }
 
         @JsonIgnore
         fun getAttributeSelectionConfigOrNull(specmaticConfig: SpecmaticConfigV1V2Common): AttributeSelectionPattern? {
-            return specmaticConfig.attributeSelectionPattern
+            return specmaticConfig.resolvedAttributeSelectionPattern
         }
 
         fun getEnvironments(specmaticConfig: SpecmaticConfigV1V2Common): Map<String, Environment>? {
-            return specmaticConfig.environments
+            return specmaticConfig.resolvedEnvironments
         }
 
         @JsonIgnore
         fun getHooks(specmaticConfig: SpecmaticConfigV1V2Common): Map<String, String> {
-            return specmaticConfig.hooks
+            return specmaticConfig.resolvedHooks
         }
 
         @JsonIgnore
         fun getProxyConfig(specmaticConfig: SpecmaticConfigV1V2Common): ProxyConfig? {
-            return specmaticConfig.proxy
+            return specmaticConfig.resolvedProxy
         }
 
         @JsonIgnore
         fun getLogConfigurationOrNull(specmaticConfig: SpecmaticConfigV1V2Common): LoggingConfiguration? {
-            return specmaticConfig.logging
+            return specmaticConfig.resolvedLogging
         }
     }
 
     @JsonIgnore
     override fun getLogConfigurationOrDefault(): LoggingConfiguration {
-        return this.logging ?: LoggingConfiguration.default()
+        return this.resolvedLogging ?: LoggingConfiguration.default()
     }
 
     @JsonIgnore
     override fun getSpecificationSources(): List<SpecificationSource> {
-        val resiliencyTestSuite = test?.resolvedResiliencyTests?.resolvedEnable
-        return this.sources.map { source ->
+        val resiliencyTestSuite = resolvedTest?.resolvedResiliencyTests?.resolvedEnable
+        return this.resolvedSources.map { source ->
             val specificationSource = SpecificationSource(
                 source.resolvedProvider,
                 source.resolvedRepository,
@@ -645,8 +778,8 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getFirstMockSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
-        val resiliencyTestSuite = test?.resolvedResiliencyTests?.resolvedEnable
-        return this.sources.firstNotNullOfOrNull { source ->
+        val resiliencyTestSuite = resolvedTest?.resolvedResiliencyTests?.resolvedEnable
+        return this.resolvedSources.firstNotNullOfOrNull { source ->
             val sourceBaseDir = source.getBaseDirectory()
             source.resolvedStub.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
                 val entries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir, resiliencyTestSuite)
@@ -657,7 +790,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getFirstTestSourceMatching(predicate: (SpecificationSourceEntry) -> Boolean): SpecificationSourceEntry? {
-        return this.sources.firstNotNullOfOrNull { source ->
+        return this.resolvedSources.firstNotNullOfOrNull { source ->
             val sourceBaseDir = source.getBaseDirectory()
             source.resolvedTest.orEmpty().firstNotNullOfOrNull { testExecutionConfig ->
                 val entries = testExecutionConfig.createSpecificationEntriesFrom(source, sourceBaseDir)
@@ -673,17 +806,17 @@ data class SpecmaticConfigV1V2Common(
         )
 
         return disableTelemetryFromEnvVarOrSystemProp?.toBoolean()
-            ?: (disableTelemetry == true)
+            ?: (resolvedDisableTelemetry == true)
     }
 
     @JsonIgnore
     override fun testConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
-        return sources.flatMap { it.resolvedTest.orEmpty() }.configWith(specPath, specType)
+        return resolvedSources.flatMap { it.resolvedTest.orEmpty() }.configWith(specPath, specType)
     }
 
     @JsonIgnore
     override fun testConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
-        val resolvedTestConfig = this.sources.flatMap { it.getCanonicalTestConfigs() }
+        val resolvedTestConfig = this.resolvedSources.flatMap { it.getCanonicalTestConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
             if (config.resolvedSpecType != specType.value) return@firstOrNull false
             config.resolvedSpecs.any { specPath -> File(specPath).sameAs(file) }
@@ -692,7 +825,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun stubConfigFor(file: File, specType: SpecType): SpecmaticSpecConfig? {
-        val resolvedTestConfig = this.sources.flatMap { it.getCanonicalStubConfigs() }
+        val resolvedTestConfig = this.resolvedSources.flatMap { it.getCanonicalStubConfigs() }
         return resolvedTestConfig.filterIsInstance<SpecExecutionConfig.ConfigValue>().firstOrNull { config ->
             if (config.resolvedSpecType != specType.value) return@firstOrNull false
             config.resolvedSpecs.any { specPath -> File(specPath).sameAs(file) }
@@ -701,7 +834,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun stubConfigFor(specPath: String, specType: String): SpecmaticSpecConfig? {
-        return sources.flatMap { it.resolvedStub.orEmpty() }.configWith(specPath, specType)
+        return resolvedSources.flatMap { it.resolvedStub.orEmpty() }.configWith(specPath, specType)
     }
 
     @JsonIgnore
@@ -746,18 +879,18 @@ data class SpecmaticConfigV1V2Common(
         logger.log("\n$excludedEndpointsWarning\n")
 
         return this.copy(
-            report = report?.clearPresenceOfExcludedEndpoints()
+            report = resolvedReport?.clearPresenceOfExcludedEndpoints().wrapOrNull()
         )
     }
 
     @JsonIgnore
     override fun getReport(): ReportConfiguration? {
-        return report
+        return resolvedReport
     }
 
     @JsonIgnore
     override fun getWorkflowDetails(): WorkflowDetails? {
-        return workflow
+        return resolvedWorkflow
     }
 
     @JsonIgnore
@@ -767,12 +900,12 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getGlobalSettingsOrDefault(): SpecmaticGlobalSettings {
-        return this.globalSettings ?: SpecmaticGlobalSettings()
+        return this.resolvedGlobalSettings
     }
 
     @JsonIgnore
     override fun stubBaseUrls(defaultBaseUrl: String): List<String> =
-        sources
+        resolvedSources
             .flatMap { source ->
                 source.resolvedStub.orEmpty().map { consumes ->
                     baseUrlFrom(consumes, defaultBaseUrl)
@@ -781,7 +914,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun stubToBaseUrlList(defaultBaseUrl: String): List<Pair<String, String>> {
-        return sources.flatMap { source ->
+        return resolvedSources.flatMap { source ->
             source.resolvedStub.orEmpty().flatMap { consumes ->
                 when (consumes) {
                     is SpecExecutionConfig.StringValue -> listOf(consumes.resolvedValue to defaultBaseUrl)
@@ -815,7 +948,7 @@ data class SpecmaticConfigV1V2Common(
         logger.log("Dependency projects")
         logger.log("-------------------")
 
-        sources.forEach { source ->
+        resolvedSources.forEach { source ->
             logger.log("In central repo ${source.resolvedRepository}")
 
             source.specsUsedAsTest().forEach { relativeContractPath ->
@@ -845,7 +978,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun loadSources(useCurrentBranchForCentralRepo: Boolean): List<ContractSource> {
-        return sources.map { source ->
+        return resolvedSources.map { source ->
             val defaultBaseUrl = getStubConfiguration(this).getBaseUrl() ?: getStringValue(SPECMATIC_BASE_URL) ?: Configuration.DEFAULT_BASE_URL
             val stubExamplesMap = source.specToStubExamplesMap()
             val stubPaths = source.specToStubBaseUrlMap(defaultBaseUrl).entries.map { ContractSourceEntry(it.key, it.value, exampleDirPaths = stubExamplesMap[it.key]) }
@@ -894,7 +1027,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun isExtensibleSchemaEnabled(): Boolean {
-        return test?.resolvedAllowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
+        return resolvedTest?.resolvedAllowExtensibleSchema ?: getBooleanValue(EXTENSIBLE_SCHEMA)
     }
 
     @JsonIgnore
@@ -909,7 +1042,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun isResponseValueValidationEnabled(): Boolean {
-        return test?.resolvedValidateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
+        return resolvedTest?.resolvedValidateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
     }
 
     @JsonIgnore
@@ -919,44 +1052,44 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getResiliencyTestsEnabled(): ResiliencyTestSuite {
-        return (test?.resolvedResiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).resolvedEnable ?: ResiliencyTestSuite.none
+        return (resolvedTest?.resolvedResiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).resolvedEnable ?: ResiliencyTestSuite.none
     }
 
     @JsonIgnore
     override fun getTestTimeoutInMilliseconds(): Long? {
-        return test?.resolvedTimeoutInMilliseconds ?: getLongValue(SPECMATIC_TEST_TIMEOUT)
+        return resolvedTest?.resolvedTimeoutInMilliseconds ?: getLongValue(SPECMATIC_TEST_TIMEOUT)
     }
 
     @JsonIgnore
     override fun getMaxTestRequestCombinations(): Int? {
-        val configValue = if (getVersion() == VERSION_2) test?.resolvedMaxTestRequestCombinations else null
+        val configValue = if (getVersion() == VERSION_2) resolvedTest?.resolvedMaxTestRequestCombinations else null
         return configValue ?: getIntValue(MAX_TEST_REQUEST_COMBINATIONS)
     }
 
     @JsonIgnore
     override fun getTestStrictMode(): Boolean? {
-        return test?.resolvedStrictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
+        return resolvedTest?.resolvedStrictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
     }
 
     @JsonIgnore
     override fun getTestLenientMode(): Boolean? {
-        return test?.resolvedLenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
+        return resolvedTest?.resolvedLenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
     }
 
     @JsonIgnore
     override fun getTestParallelism(): String? {
-        return test?.resolvedParallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
+        return resolvedTest?.resolvedParallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
     }
 
     @JsonIgnore
     override fun getTestsDirectory(): String? {
-        return test?.resolvedTestsDirectory
+        return resolvedTest?.resolvedTestsDirectory
             ?: readEnvVarOrProperty(TESTS_DIRECTORY_ENV_VAR, TESTS_DIRECTORY_PROPERTY)
     }
 
     @JsonIgnore
     override fun getMaxTestCount(): Int? {
-        return test?.resolvedMaxTestCount ?: getIntValue(MAX_TEST_COUNT)
+        return resolvedTest?.resolvedMaxTestCount ?: getIntValue(MAX_TEST_COUNT)
     }
 
     @JsonIgnore
@@ -967,19 +1100,19 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getTestFilterName(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.resolvedFilterName else null
+        val configValue = if (getVersion() == VERSION_2) resolvedTest?.resolvedFilterName else null
         return configValue ?: readEnvVarOrProperty(TEST_FILTER_NAME_ENV_VAR, TEST_FILTER_NAME_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestFilterNotName(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.resolvedFilterNotName else null
+        val configValue = if (getVersion() == VERSION_2) resolvedTest?.resolvedFilterNotName else null
         return configValue ?: readEnvVarOrProperty(TEST_FILTER_NOT_NAME_ENV_VAR, TEST_FILTER_NOT_NAME_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestOverlayFilePath(specFile: File, specType: SpecType): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.resolvedOverlayFilePath else null
+        val configValue = if (getVersion() == VERSION_2) resolvedTest?.resolvedOverlayFilePath else null
         return configValue ?: readEnvVarOrProperty(TEST_OVERLAY_FILE_PATH_ENV_VAR, TEST_OVERLAY_FILE_PATH_PROPERTY)
     }
 
@@ -1024,7 +1157,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     private fun getExplicitTestBaseUrl(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.resolvedBaseUrl else null
+        val configValue = if (getVersion() == VERSION_2) resolvedTest?.resolvedBaseUrl else null
         return configValue ?: readEnvVarOrProperty(TEST_BASE_URL_ENV_VAR, TEST_BASE_URL_PROPERTY)
     }
 
@@ -1035,13 +1168,13 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getTestSwaggerUIBaseUrl(): String? {
-        val configValue = if (getVersion() == VERSION_2) test?.resolvedSwaggerUIBaseURL else null
+        val configValue = if (getVersion() == VERSION_2) resolvedTest?.resolvedSwaggerUIBaseURL else null
         return configValue ?: readEnvVarOrProperty(TEST_SWAGGER_UI_BASEURL_ENV_VAR, TEST_SWAGGER_UI_BASEURL_PROPERTY)
     }
 
     @JsonIgnore
     override fun getTestJunitReportDir(): String? {
-        return if (getVersion() == VERSION_2) test?.resolvedJunitReportDir else null
+        return if (getVersion() == VERSION_2) resolvedTest?.resolvedJunitReportDir else null
     }
 
     @JsonIgnore
@@ -1051,20 +1184,20 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfigV1V2Common {
-        val testConfig = test ?: TestConfiguration()
+        val testConfig = resolvedTest ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
                 resiliencyTests = (testConfig.resolvedResiliencyTests ?: ResiliencyTestsConfig.fromSystemProperties()).copy(
                     enable = if (onlyPositive) ResiliencyTestSuite.positiveOnly.wrapOrNull() else ResiliencyTestSuite.all.wrapOrNull()
                 ).wrapOrNull()
-            )
+            ).wrapOrNull()
         )
     }
 
     override fun disableResiliencyTests(): SpecmaticConfig {
-        val testConfig = test ?: TestConfiguration()
+        val testConfig = resolvedTest ?: TestConfiguration()
         val resiliencyTestsConfig = ResiliencyTestsConfig(enable = ResiliencyTestSuite.none.wrapOrNull())
-        return this.copy(test = testConfig.copy(resiliencyTests = resiliencyTestsConfig.wrapOrNull()))
+        return this.copy(test = testConfig.copy(resiliencyTests = resiliencyTestsConfig.wrapOrNull()).wrapOrNull())
     }
 
     @JsonIgnore
@@ -1116,7 +1249,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun getTestHttpsConfiguration(): CertRegistry {
         val registry = CertRegistry.empty()
-        val httpsConfiguration = test?.resolvedHttps ?: return registry
+        val httpsConfiguration = resolvedTest?.resolvedHttps ?: return registry
         return registry.plusWildCard(httpsConfiguration)
     }
 
@@ -1140,103 +1273,103 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getIgnoreInlineExamples(): Boolean {
-        return ignoreInlineExamples ?: getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES)
+        return resolvedIgnoreInlineExamples ?: getBooleanValue(Flags.IGNORE_INLINE_EXAMPLES)
     }
 
     @JsonIgnore
     override fun getIgnoreInlineExampleWarnings(): Boolean {
-        return ignoreInlineExampleWarnings ?: getBooleanValue(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS)
+        return resolvedIgnoreInlineExampleWarnings ?: getBooleanValue(Flags.IGNORE_INLINE_EXAMPLE_WARNINGS)
     }
 
     @JsonIgnore
     override fun getAllPatternsMandatory(): Boolean {
-        return allPatternsMandatory ?: getBooleanValue(Flags.ALL_PATTERNS_MANDATORY)
+        return resolvedAllPatternsMandatory ?: getBooleanValue(Flags.ALL_PATTERNS_MANDATORY)
     }
 
     @JsonIgnore
     override fun getSchemaExampleDefault(): Boolean {
-        val configValue = if (getVersion() == VERSION_2) schemaExampleDefault else null
+        val configValue = if (getVersion() == VERSION_2) resolvedSchemaExampleDefault else null
         return configValue ?: getBooleanValue(Flags.SCHEMA_EXAMPLE_DEFAULT)
     }
 
     @JsonIgnore
     override fun getFuzzyMatchingEnabled(): Boolean {
-        val configValue = if (getVersion() == VERSION_2) fuzzy else null
+        val configValue = if (getVersion() == VERSION_2) resolvedFuzzy else null
         return configValue ?: getBooleanValue(Flags.SPECMATIC_FUZZY)
     }
 
     @JsonIgnore
     override fun getExtensibleQueryParams(): Boolean {
-        val configValue = if (getVersion() == VERSION_2) extensibleQueryParams else null
+        val configValue = if (getVersion() == VERSION_2) resolvedExtensibleQueryParams else null
         return configValue ?: getBooleanValue(EXTENSIBLE_QUERY_PARAMS)
     }
 
     @JsonIgnore
     override fun getEscapeSoapAction(): Boolean {
-        val configValue = if (getVersion() == VERSION_2) escapeSoapAction else null
+        val configValue = if (getVersion() == VERSION_2) resolvedEscapeSoapAction else null
         return configValue ?: getBooleanValue(SPECMATIC_ESCAPE_SOAP_ACTION)
     }
 
     @JsonIgnore
     override fun getPrettyPrint(): Boolean {
-        val configValue = if (getVersion() == VERSION_2) prettyPrint else null
+        val configValue = if (getVersion() == VERSION_2) resolvedPrettyPrint else null
         return configValue ?: getBooleanValue(SPECMATIC_PRETTY_PRINT, true)
     }
 
     @JsonIgnore
     override fun getAdditionalExampleParamsFilePath(): String? {
-        return additionalExampleParamsFilePath ?: getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE)
+        return resolvedAdditionalExampleParamsFilePath ?: getStringValue(Flags.ADDITIONAL_EXAMPLE_PARAMS_FILE)
     }
 
     @JsonIgnore
     override fun getHooks(): Map<String, String> {
-        return hooks
+        return resolvedHooks
     }
 
     override fun getStubHooks(): List<FileAssociation<Map<String, String>>> {
-        return listOf(FileAssociation.Global(this.hooks))
+        return listOf(FileAssociation.Global(this.resolvedHooks))
     }
 
     @JsonIgnore
     override fun getProxyConfig(): ProxyConfig? {
-        return proxy
+        return resolvedProxy
     }
 
     @JsonIgnore
     override fun getDefaultPatternValues(): Map<String, Any> {
-        return defaultPatternValues
+        return resolvedDefaultPatternValues
     }
 
     override fun getVersion(): SpecmaticConfigVersion {
-        return this.version ?: VERSION_1
+        return this.resolvedVersion ?: VERSION_1
     }
 
     @JsonIgnore
     override fun getMatchBranchEnabled(): Boolean {
-        return sources.any { it.resolvedMatchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
+        return resolvedSources.any { it.resolvedMatchBranch == true } || getBooleanValue(Flags.MATCH_BRANCH)
     }
 
     @JsonIgnore
     override fun getAuth(repositoryUrl: String): Auth? {
-        return auth
+        return resolvedAuth
     }
 
     @JsonIgnore
-    fun getAuth(): Auth? = auth
+    fun getAuth(): Auth? = resolvedAuth
 
     @JsonIgnore
     override fun getAuthBearerFile(repositoryUrl: String): String? {
-        return auth?.resolvedBearerFile
+        return resolvedAuth?.resolvedBearerFile
     }
 
     @JsonIgnore
     override fun getAuthBearerEnvironmentVariable(repositoryUrl: String): String? {
-        return auth?.resolvedBearerEnvironmentVariable
+        return resolvedAuth?.resolvedBearerEnvironmentVariable
     }
 
     @JsonIgnore
     override fun getAuthPersonalAccessToken(repositoryUrl: String): String? {
-        val tokenFromConfig = auth?.resolvedPersonalAccessToken?.takeIf { it.isNotBlank() }
+        val tokenFromConfig = resolvedAuth?.resolvedPersonalAccessToken?.takeIf { it.isNotBlank() }
         if (tokenFromConfig != null) return tokenFromConfig
 
         val tokenFromEnv = System.getenv("PERSONAL_ACCESS_TOKEN")?.takeIf { it.isNotBlank() }
@@ -1278,62 +1411,62 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getTestExampleDirs(specFile: File): List<String> {
-        return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
+        return resolvedExamples.ifEmpty { getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList() }
     }
 
     @JsonIgnore
     override fun getStubExampleDirs(specFile: File): List<String> {
-        return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
+        return resolvedExamples.ifEmpty { getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList() }
     }
 
     @JsonIgnore
     override fun getExamples(): List<String> {
-        return examples ?: getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList()
+        return resolvedExamples.ifEmpty { getStringValue(EXAMPLE_DIRECTORIES)?.split(",") ?: emptyList() }
     }
 
     @JsonIgnore
     override fun getRepositoryProvider(): String? {
-        return repository?.getProvider()
+        return resolvedRepository?.getProvider()
     }
 
     @JsonIgnore
     override fun getRepositoryCollectionName(): String? {
-        return repository?.getCollectionName()
+        return resolvedRepository?.getCollectionName()
     }
 
     @JsonIgnore
     override fun getBackwardCompatibilityConfig(): BackwardCompatibilityConfig? {
-        return this.backwardCompatibility
+        return this.resolvedBackwardCompatibility
     }
 
     @JsonIgnore
     override fun getMcpConfiguration(): McpConfiguration? {
-        return this.mcp
+        return this.resolvedMcp
     }
 
     @JsonIgnore
     override fun getPipelineProvider(): PipelineProvider? {
-        return pipeline?.getProvider()
+        return resolvedPipeline?.getProvider()
     }
 
     @JsonIgnore
     override fun getPipelineDefinitionId(): Int? {
-        return pipeline?.getDefinitionId()
+        return resolvedPipeline?.getDefinitionId()
     }
 
     @JsonIgnore
     override fun getPipelineOrganization(): String? {
-        return pipeline?.getOrganization()
+        return resolvedPipeline?.getOrganization()
     }
 
     @JsonIgnore
     override fun getPipelineProject(): String? {
-        return pipeline?.getProject()
+        return resolvedPipeline?.getProject()
     }
 
     @JsonIgnore
     override fun getOpenAPISecurityConfigurationScheme(specFile: File, scheme: String): SecuritySchemeConfiguration? {
-        return security?.getOpenAPISecurityScheme(scheme)
+        return resolvedSecurity?.getOpenAPISecurityScheme(scheme)
     }
 
     @JsonIgnore
@@ -1411,7 +1544,7 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun stubContracts(relativeTo: File): List<String> {
-        return sources.flatMap { source ->
+        return resolvedSources.flatMap { source ->
             source.resolvedStub.orEmpty().flatMap { stub ->
                 stub.specs()
             }.map { spec ->
@@ -1423,11 +1556,11 @@ data class SpecmaticConfigV1V2Common(
 
     override fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfigV1V2Common {
         val reportConfigurationDetails = reportConfiguration as? ReportConfigurationDetails ?: return this
-        return this.copy(report = reportConfigurationDetails)
+        return this.copy(report = reportConfigurationDetails.wrapOrNull())
     }
 
     override fun getEnvironment(envName: String): JSONObjectValue {
-        val envConfigFromFile = environments?.get(envName) ?: return JSONObjectValue()
+        val envConfigFromFile = resolvedEnvironments?.get(envName) ?: return JSONObjectValue()
 
         try {
             return parsedJSONObject(content = ObjectMapper().writeValueAsString(envConfigFromFile))
@@ -1437,63 +1570,63 @@ data class SpecmaticConfigV1V2Common(
     }
 
     override fun enableResiliencyTests(): SpecmaticConfigV1V2Common {
-        val testConfig = test ?: TestConfiguration()
+        val testConfig = resolvedTest ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
                 resiliencyTests = (testConfig.resolvedResiliencyTests ?: ResiliencyTestsConfig()).copy(
                     enable = ResiliencyTestSuite.all.wrapOrNull(),
                 ).wrapOrNull(),
-            ),
+            ).wrapOrNull(),
         )
     }
 
     override fun withTestModes(strictMode: Boolean?, lenientMode: Boolean?): SpecmaticConfigV1V2Common {
-        val testConfig = test ?: TestConfiguration()
+        val testConfig = resolvedTest ?: TestConfiguration()
         return this.copy(
             test = testConfig.copy(
                 strictMode = (strictMode ?: testConfig.resolvedStrictMode).wrapOrNull(),
                 lenientMode = (lenientMode ?: testConfig.resolvedLenientMode).wrapOrNull(),
-            ),
+            ).wrapOrNull(),
         )
     }
 
     override fun withTestBaseURL(testBaseURL: String): SpecmaticConfig {
-        val testConfig = test ?: TestConfiguration()
-        return this.copy(test = testConfig.copy(baseUrl = testBaseURL.wrap()))
+        val testConfig = resolvedTest ?: TestConfiguration()
+        return this.copy(test = testConfig.copy(baseUrl = testBaseURL.wrap()).wrapOrNull())
     }
 
     override fun withTestFilter(filter: String?): SpecmaticConfigV1V2Common {
         if (filter == null) return this
-        val testConfig = this.test ?: TestConfiguration()
-        return this.copy(test = testConfig.copy(filter = filter.wrap()))
+        val testConfig = this.resolvedTest ?: TestConfiguration()
+        return this.copy(test = testConfig.copy(filter = filter.wrap()).wrapOrNull())
     }
 
     override fun withTestTimeout(timeoutInMilliseconds: Long?): SpecmaticConfigV1V2Common {
         if (timeoutInMilliseconds == null) return this
-        val testConfig = this.test ?: TestConfiguration()
-        return this.copy(test = testConfig.copy(timeoutInMilliseconds = timeoutInMilliseconds.wrap()))
+        val testConfig = this.resolvedTest ?: TestConfiguration()
+        return this.copy(test = testConfig.copy(timeoutInMilliseconds = timeoutInMilliseconds.wrap()).wrapOrNull())
     }
 
     override fun withStubModes(strictMode: Boolean?): SpecmaticConfigV1V2Common {
         if (strictMode == null) return this
-        val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(strictMode = strictMode.wrap()))
+        val stubConfig = this.resolvedStub ?: StubConfiguration()
+        return this.copy(stub = stubConfig.copy(strictMode = strictMode.wrap()).wrapOrNull())
     }
 
     override fun withStubFilter(filter: String?): SpecmaticConfigV1V2Common {
         if (filter == null) return this
-        val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(filter = filter.wrap()))
+        val stubConfig = this.resolvedStub ?: StubConfiguration()
+        return this.copy(stub = stubConfig.copy(filter = filter.wrap()).wrapOrNull())
     }
 
     override fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfigV1V2Common {
-        val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds.wrap()))
+        val stubConfig = this.resolvedStub ?: StubConfiguration()
+        return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds.wrap()).wrapOrNull())
     }
 
     override fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig {
-        val transformedSources = this.sources.map { source -> source.copy(matchBranch = matchBranch.wrap()) }
-        return this.copy(sources = transformedSources)
+        val transformedSources = this.resolvedSources.map { source -> source.copy(matchBranch = matchBranch.wrap()) }
+        return this.copy(sources = transformedSources.wrapFullyOrNull())
     }
 
     @JsonIgnore
@@ -1510,14 +1643,14 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     private fun testSourceFromConfig(specFile: File): Source? {
-        return sources.firstOrNull { source ->
+        return resolvedSources.firstOrNull { source ->
             source.firstTestSpecMatching(specFile) != null
         }
     }
 
     @JsonIgnore
     private fun stubSourceFromConfig(specFile: File): Source? {
-        return sources.firstOrNull { source ->
+        return resolvedSources.firstOrNull { source ->
             source.firstStubSpecMatching(specFile) != null
         }
     }
@@ -1529,23 +1662,23 @@ data class SpecmaticConfigV1V2Common(
 
     @JsonIgnore
     override fun getLicensePath(): Path? {
-        return licensePath
+        return resolvedLicensePath
     }
 
     @JsonIgnore
     override fun getReportDirPath(suffix: String?): Path {
-        val reportDirPath = reportDirPath ?: defaultReportDirPath
+        val reportDirPath = resolvedReportDirPath ?: defaultReportDirPath
         return if (suffix == null) reportDirPath
         else reportDirPath.resolve(suffix)
     }
 
     override fun plusExamples(exampleDirectories: List<String>): SpecmaticConfig {
-        return copy(examples = examples.orEmpty().plus(exampleDirectories))
+        return copy(examples = resolvedExamples.plus(exampleDirectories).wrapFullyOrNull())
     }
 
     @JsonIgnore
     override fun getSecurityConfiguration(specFile: File): SecurityConfiguration? {
-        return security
+        return resolvedSecurity
     }
 
     private fun File.sameAs(other: File): Boolean {

@@ -19,6 +19,10 @@ import io.specmatic.core.config.SpecmaticGlobalSettings
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.config.v3.wrap
+import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
+import io.specmatic.core.config.v3.wrapValuesFullyOrNull
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
@@ -69,39 +73,39 @@ data class SpecmaticConfigV2(
 ) : SpecmaticVersionedConfig {
     override fun transform(file: File?): SpecmaticConfigV1V2Common {
         return SpecmaticConfigV1V2Common(
-            version = currentConfigVersion(),
-            sources = this.contracts.map { contract -> contract.transform() },
-            auth = this.auth,
-            pipeline = this.pipeline,
-            environments = this.environments,
-            hooks = this.hooks,
-            proxy = this.proxy,
-            repository = this.repository,
-            report = this.report?.validatePresenceOfExcludedEndpoints(version),
-            security = this.security,
-            test = this.test,
-            stub = this.stub,
-            backwardCompatibility = this.backwardCompatibility,
-            virtualService = this.virtualService,
-            examples = this.examples,
-            workflow = this.workflow,
-            ignoreInlineExamples = this.ignoreInlineExamples,
-            ignoreInlineExampleWarnings = this.ignoreInlineExampleWarnings,
-            schemaExampleDefault = this.schemaExampleDefault,
-            fuzzy = this.fuzzy,
-            extensibleQueryParams = this.extensibleQueryParams,
-            escapeSoapAction = this.escapeSoapAction,
-            prettyPrint = this.prettyPrint,
-            additionalExampleParamsFilePath = this.additionalExampleParamsFilePath,
-            attributeSelectionPattern = this.attributeSelectionPattern,
-            allPatternsMandatory = this.allPatternsMandatory,
-            defaultPatternValues = this.defaultPatternValues,
-            disableTelemetry = this.disableTelemetry,
-            logging = this.logging,
-            mcp = this.mcp,
-            licensePath = this.licensePath,
-            reportDirPath = this.reportDirPath,
-            globalSettings = this.globalSettings
+            version = currentConfigVersion().wrap(),
+            sources = this.contracts.map { contract -> contract.transform() }.wrapFullyOrNull(),
+            auth = this.auth.wrapOrNull(),
+            pipeline = this.pipeline.wrapOrNull(),
+            environments = this.environments.wrapValuesFullyOrNull(),
+            hooks = this.hooks.wrapValuesFullyOrNull(),
+            proxy = this.proxy.wrapOrNull(),
+            repository = this.repository.wrapOrNull(),
+            report = this.report?.validatePresenceOfExcludedEndpoints(version).wrapOrNull(),
+            security = this.security.wrapOrNull(),
+            test = this.test.wrapOrNull(),
+            stub = this.stub.wrapOrNull(),
+            backwardCompatibility = this.backwardCompatibility.wrapOrNull(),
+            virtualService = this.virtualService.wrapOrNull(),
+            examples = this.examples.wrapFullyOrNull(),
+            workflow = this.workflow.wrapOrNull(),
+            ignoreInlineExamples = this.ignoreInlineExamples.wrapOrNull(),
+            ignoreInlineExampleWarnings = this.ignoreInlineExampleWarnings.wrapOrNull(),
+            schemaExampleDefault = this.schemaExampleDefault.wrapOrNull(),
+            fuzzy = this.fuzzy.wrapOrNull(),
+            extensibleQueryParams = this.extensibleQueryParams.wrapOrNull(),
+            escapeSoapAction = this.escapeSoapAction.wrapOrNull(),
+            prettyPrint = this.prettyPrint.wrapOrNull(),
+            additionalExampleParamsFilePath = this.additionalExampleParamsFilePath.wrapOrNull(),
+            attributeSelectionPattern = this.attributeSelectionPattern.wrapOrNull(),
+            allPatternsMandatory = this.allPatternsMandatory.wrapOrNull(),
+            defaultPatternValues = this.defaultPatternValues.wrapValuesFullyOrNull(),
+            disableTelemetry = this.disableTelemetry.wrapOrNull(),
+            logging = this.logging.wrapOrNull(),
+            mcp = this.mcp.wrapOrNull(),
+            licensePath = this.licensePath.wrapOrNull(),
+            reportDirPath = this.reportDirPath.wrapOrNull(),
+            globalSettings = this.globalSettings.wrapOrNull()
         )
     }
 

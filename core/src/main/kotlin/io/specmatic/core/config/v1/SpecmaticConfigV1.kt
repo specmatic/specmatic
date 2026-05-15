@@ -5,6 +5,10 @@ import io.specmatic.core.*
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
+import io.specmatic.core.config.v3.wrap
+import io.specmatic.core.config.v3.wrapFullyOrNull
+import io.specmatic.core.config.v3.wrapOrNull
+import io.specmatic.core.config.v3.wrapValuesFullyOrNull
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
@@ -40,26 +44,26 @@ data class SpecmaticConfigV1 (
 ): SpecmaticVersionedConfig {
 	override fun transform(file: File?): SpecmaticConfigV1V2Common {
 		return SpecmaticConfigV1V2Common(
-			sources = this.sources,
-			auth = this.auth,
-			pipeline = this.pipeline,
-			environments = this.environments,
-			hooks = this.hooks,
-			repository = this.repository,
-			report = this.report,
-			security = this.security,
-			test = this.test,
-			stub = this.stub,
-			virtualService = this.virtualService,
-			examples = this.examples,
-			workflow = this.workflow,
-			ignoreInlineExamples = this.ignoreInlineExamples,
-			additionalExampleParamsFilePath = this.additionalExampleParamsFilePath,
-			attributeSelectionPattern = this.attributeSelectionPattern,
-			allPatternsMandatory = this.allPatternsMandatory,
-			defaultPatternValues = this.defaultPatternValues,
-			version = SpecmaticConfigVersion.VERSION_1,
-			disableTelemetry = this.disableTelemetry,
+			sources = this.sources.wrapFullyOrNull(),
+			auth = this.auth.wrapOrNull(),
+			pipeline = this.pipeline.wrapOrNull(),
+			environments = this.environments.wrapValuesFullyOrNull(),
+			hooks = this.hooks.wrapValuesFullyOrNull(),
+			repository = this.repository.wrapOrNull(),
+			report = this.report.wrapOrNull(),
+			security = this.security.wrapOrNull(),
+			test = this.test.wrapOrNull(),
+			stub = this.stub.wrapOrNull(),
+			virtualService = this.virtualService.wrapOrNull(),
+			examples = this.examples.wrapFullyOrNull(),
+			workflow = this.workflow.wrapOrNull(),
+			ignoreInlineExamples = this.ignoreInlineExamples.wrapOrNull(),
+			additionalExampleParamsFilePath = this.additionalExampleParamsFilePath.wrapOrNull(),
+			attributeSelectionPattern = this.attributeSelectionPattern.wrapOrNull(),
+			allPatternsMandatory = this.allPatternsMandatory.wrapOrNull(),
+			defaultPatternValues = this.defaultPatternValues.wrapValuesFullyOrNull(),
+			version = SpecmaticConfigVersion.VERSION_1.wrap(),
+			disableTelemetry = this.disableTelemetry.wrapOrNull(),
 		)
 	}
 
