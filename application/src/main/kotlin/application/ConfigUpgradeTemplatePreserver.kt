@@ -256,39 +256,68 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         private fun applyToObject(objectNode: ObjectNode, path: List<String>) {
             objectNode.properties().toList().forEach { entry ->
                 val childPath = path + entry.key
-                val rawFieldReplacement = templates.fieldTemplates.asSequence()
-                    .filter { template -> template.matches(entry.key, entry.value, path) }
-                    .map(FieldTemplate::rawText)
-                    .distinct()
-                    .singleOrNull()
 
-                when {
-                    rawFieldReplacement != null ->
-                        objectNode.put(entry.key, rawFieldReplacement)
+                if (replaceTemplateForFieldMatchedByPathHints(objectNode, entry, path)) return@forEach
+                if (replaceTemplateForScalarFieldPromotedFromArrayValue(objectNode, entry)) return@forEach
 
-                    entry.key in arrayValueTargetFieldNames && entry.value.isScalarValue() ->
-                        templates.valueTemplates.firstOrNull { template ->
-                            template.resolvedText == entry.value.scalarValueText()
-                        }?.let { template -> objectNode.put(entry.key, template.rawText) }
-
-                    else ->
-                        applyTo(entry.value, childPath)
-                }
+                applyTo(entry.value, childPath)
             }
         }
 
         private fun applyToArray(arrayNode: ArrayNode, path: List<String>) {
             arrayNode.elements().asSequence().toList().forEachIndexed { index, element ->
-                val replacement = templates.valueTemplates.firstOrNull { template ->
-                    template.resolvedText == element.scalarValueText()
-                }
+                if (replaceTemplateForScalarArrayElement(arrayNode, index, element)) return@forEachIndexed
 
-                when {
-                    replacement != null ->
-                        arrayNode.set(index, arrayNode.textNode(replacement.rawText))
-                    else ->
-                        applyTo(element, path + index.toString())
-                }
+                applyTo(element, path + index.toString())
+            }
+        }
+
+        private fun replaceTemplateForFieldMatchedByPathHints(
+            objectNode: ObjectNode,
+            entry: MutableMap.MutableEntry<String, JsonNode>,
+            parentPath: List<String>,
+        ): Boolean {
+            val replacement = unambiguousFieldTemplateReplacementFor(entry.key, entry.value, parentPath) ?: return false
+            objectNode.put(entry.key, replacement)
+            return true
+        }
+
+        private fun unambiguousFieldTemplateReplacementFor(
+            fieldName: String,
+            value: JsonNode,
+            parentPath: List<String>,
+        ): String? {
+            return templates.fieldTemplates.asSequence()
+                .filter { template -> template.matches(fieldName, value, parentPath) }
+                .map(FieldTemplate::rawText)
+                .distinct()
+                .singleOrNull()
+        }
+
+        private fun replaceTemplateForScalarFieldPromotedFromArrayValue(
+            objectNode: ObjectNode,
+            entry: MutableMap.MutableEntry<String, JsonNode>,
+        ): Boolean {
+            if (!entry.isScalarFieldCreatedFromV2ArrayValue()) return false
+
+            val replacement = valueTemplateReplacementFor(entry.value) ?: return false
+            objectNode.put(entry.key, replacement.rawText)
+            return true
+        }
+
+        private fun replaceTemplateForScalarArrayElement(arrayNode: ArrayNode, index: Int, element: JsonNode): Boolean {
+            val replacement = valueTemplateReplacementFor(element) ?: return false
+            arrayNode.set(index, arrayNode.textNode(replacement.rawText))
+            return true
+        }
+
+        private fun MutableMap.MutableEntry<String, JsonNode>.isScalarFieldCreatedFromV2ArrayValue(): Boolean {
+            return key in arrayValueTargetFieldNames && value.isScalarValue()
+        }
+
+        private fun valueTemplateReplacementFor(value: JsonNode): ValueTemplate? {
+            return templates.valueTemplates.firstOrNull { template ->
+                template.resolvedText == value.scalarValueText()
             }
         }
     }
@@ -308,10 +337,29 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         val targetParentPathSuffix: List<String>?,
     ) {
         fun matches(fieldName: String, value: JsonNode, parentPath: List<String>): Boolean {
-            val targetContainer = targetContainerFor(parentPath)
-            val containerMatches = targetContainers?.let { targetContainer in it } ?: (targetContainer == null)
-            val pathMatches = targetParentPathSuffix?.let { parentPath.endsWith(it) } ?: true
-            return fieldName in targetFieldNames && containerMatches && pathMatches && value.scalarValueText() == resolvedText
+            return matchesTargetFieldName(fieldName) &&
+                matchesTargetContainerHint(parentPath) &&
+                matchesParentPathSuffixHint(parentPath) &&
+                matchesResolvedScalarValue(value)
+        }
+
+        private fun matchesTargetFieldName(fieldName: String): Boolean {
+            return fieldName in targetFieldNames
+        }
+
+        private fun matchesTargetContainerHint(parentPath: List<String>): Boolean {
+            val actualContainer = targetContainerFor(parentPath)
+            return targetContainers?.let { allowedContainers ->
+                actualContainer in allowedContainers
+            } ?: (actualContainer == null)
+        }
+
+        private fun matchesParentPathSuffixHint(parentPath: List<String>): Boolean {
+            return targetParentPathSuffix?.let { suffix -> parentPath.endsWith(suffix) } ?: true
+        }
+
+        private fun matchesResolvedScalarValue(value: JsonNode): Boolean {
+            return value.scalarValueText() == resolvedText
         }
     }
 
