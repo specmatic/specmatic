@@ -97,7 +97,8 @@ class OpenApiSpecification(
     private val dictionary: Dictionary = loadDictionary(openApiFilePath, specmaticConfig.getDictionary(), strictMode),
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
-    private val exampleDirPaths: List<String> = emptyList()
+    private val exampleDirPaths: List<String> = emptyList(),
+    private val changeTrackingSource: OpenApiChangeTrackingSource? = null,
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
@@ -335,7 +336,40 @@ class OpenApiSpecification(
                 lenientMode = lenientMode,
                 logger = logger,
                 parseCollectorContext = collectorContext,
-                exampleDirPaths = exampleDirPaths
+                exampleDirPaths = exampleDirPaths,
+                changeTrackingSource = OpenApiChangeTrackingSource(
+                    yamlContent = preprocessedYaml,
+                    openApiFilePath = openApiFilePath.replace("\\", "/"),
+                    lenientMode = lenientMode,
+                ),
+            )
+        }
+
+        internal fun fromYAMLForChangeTracking(
+            yamlContent: String,
+            openApiFilePath: String,
+            specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+            strictMode: Boolean = false,
+            lenientMode: Boolean = false,
+            exampleDirPaths: List<String> = emptyList(),
+        ): OpenApiSpecification {
+            val parseResult: SwaggerParseResult =
+                OpenAPIV3Parser().readContents(
+                    yamlContent,
+                    null,
+                    resolveFullyReferences(),
+                    openApiFilePath.replace("\\", "/")
+                )
+            val parsedOpenApi: OpenAPI = parseResult.openAPI
+                ?: throw ContractException("Could not parse contract $openApiFilePath for change tracking, please validate the syntax using https://editor.swagger.io")
+
+            return OpenApiSpecification(
+                openApiFilePath,
+                parsedOpenApi,
+                specmaticConfig = specmaticConfig,
+                strictMode = strictMode,
+                lenientMode = lenientMode,
+                exampleDirPaths = exampleDirPaths,
             )
         }
 
@@ -367,6 +401,12 @@ class OpenApiSpecification(
                 it.isResolve = true
                 it.isResolveRequestBody = true
                 it.isResolveResponses = true
+            }
+        }
+
+        private fun resolveFullyReferences(): ParseOptions {
+            return resolveExternalReferences().also {
+                it.isResolveFully = true
             }
         }
 
@@ -526,7 +566,8 @@ class OpenApiSpecification(
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,
             protocol = protocol,
-            exampleDirPaths = exampleDirPaths
+            exampleDirPaths = exampleDirPaths,
+            changeTrackingSource = changeTrackingSource,
         )
 
         return Pair(feature, rootContext.toCollector().toResult())

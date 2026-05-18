@@ -185,8 +185,17 @@ data class Feature(
     val strictMode: Boolean = false,
     val exampleStore: ExampleStore = ExampleStore.empty(),
     val protocol: SpecmaticProtocol,
-    val exampleDirPaths: List<String> = emptyList()
+    val exampleDirPaths: List<String> = emptyList(),
+    val changeTrackingSource: OpenApiChangeTrackingSource? = null,
 ): IFeature {
+    fun scenariosForChangeTracking(): List<Scenario> {
+        return changeTrackingSource?.scenarios(
+            specmaticConfig = specmaticConfig,
+            strictMode = strictMode,
+            exampleDirPaths = exampleDirPaths,
+        ) ?: scenarios
+    }
+
     val inlineNamedStubs: List<NamedStub>
         get() = exampleStore.examples
             .asSequence()
@@ -2549,7 +2558,8 @@ data class Feature(
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
             protocol: SpecmaticProtocol,
-            exampleDirPaths: List<String> = emptyList()
+            exampleDirPaths: List<String> = emptyList(),
+            changeTrackingSource: OpenApiChangeTrackingSource? = null,
         ): Feature {
             val inlineExamples = stubsFromExamples.flatMap { (exampleName, stubs) ->
                 stubs.map { (request, response) ->
@@ -2572,7 +2582,8 @@ data class Feature(
                 flagsBased = flagsBased,
                 strictMode = strictMode,
                 protocol = protocol,
-                exampleDirPaths = exampleDirPaths
+                exampleDirPaths = exampleDirPaths,
+                changeTrackingSource = changeTrackingSource,
             )
         }
 
@@ -2592,7 +2603,8 @@ data class Feature(
             flagsBased: FlagsBased = strategiesFromFlags(specmaticConfig),
             strictMode: Boolean = false,
             protocol: SpecmaticProtocol,
-            exampleDirPaths: List<String> = emptyList()
+            exampleDirPaths: List<String> = emptyList(),
+            changeTrackingSource: OpenApiChangeTrackingSource? = null,
         ): Feature {
             return Feature(
                 scenarios = scenarios,
@@ -2610,7 +2622,8 @@ data class Feature(
                 strictMode = strictMode,
                 exampleStore = ExampleStore.from(inlineExamples, type = ExampleType.INLINE),
                 protocol = protocol,
-                exampleDirPaths = exampleDirPaths
+                exampleDirPaths = exampleDirPaths,
+                changeTrackingSource = changeTrackingSource,
             )
         }
     }

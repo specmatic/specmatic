@@ -33,6 +33,33 @@ class ScenarioFingerprintTest {
                   description: created
     """.trimIndent()
 
+    private val componentRefSpec = """
+        openapi: 3.0.0
+        info:
+          title: Orders API
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      ${'$'}ref: '#/components/schemas/Order'
+              responses:
+                '201':
+                  description: created
+        components:
+          schemas:
+            Order:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+    """.trimIndent()
+
     @Test
     fun `from copies identifying fields and patterns off the scenario`() {
         val scenario = singleScenarioFrom(baseSpec)
@@ -116,6 +143,39 @@ class ScenarioFingerprintTest {
     }
 
     @Test
+    fun `changeStatusBetween returns CHANGED when a referenced component schema changes`() {
+        val old = scenariosFrom(componentRefSpec)
+        val new = scenariosFrom(componentRefSpec.applyJsonPatch("""
+            - op: replace
+              path: /components/schemas/Order/properties/id/type
+              value: integer
+        """.trimIndent()))
+
+        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.CHANGED)
+    }
+
+    @Test
+    fun `changeStatusBetween returns UNCHANGED when an unused component schema changes`() {
+        val specWithUnusedComponent = componentRefSpec.applyJsonPatch("""
+            - op: add
+              path: /components/schemas/Unused
+              value:
+                type: object
+                properties:
+                  name:
+                    type: string
+        """.trimIndent())
+        val old = scenariosFrom(specWithUnusedComponent)
+        val new = scenariosFrom(specWithUnusedComponent.applyJsonPatch("""
+            - op: replace
+              path: /components/schemas/Unused/properties/name/type
+              value: integer
+        """.trimIndent()))
+
+        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.UNCHANGED)
+    }
+
+    @Test
     fun `changeStatusBetween returns CHANGED when a scenario is added`() {
         val old = scenariosFrom(baseSpec)
         val new = scenariosFrom(baseSpec.applyJsonPatch("""
@@ -158,7 +218,7 @@ class ScenarioFingerprintTest {
     }
 
     private fun scenariosFrom(yaml: String): List<Scenario> =
-        OpenApiSpecification.fromYAML(yaml, "test.yaml").toFeature().scenarios
+        OpenApiSpecification.fromYAML(yaml, "test.yaml").toFeature().scenariosForChangeTracking()
 
     private fun singleScenarioFrom(yaml: String): Scenario = scenariosFrom(yaml).single()
 
