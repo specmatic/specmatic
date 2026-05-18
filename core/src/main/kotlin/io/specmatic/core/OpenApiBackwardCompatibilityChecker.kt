@@ -26,18 +26,8 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun operationChangeStatus(requestFamily: RequestFamily): ChangeStatus {
         val newScenariosForOperation = newScenariosByPathAndMethod[requestFamily.path to requestFamily.method].orEmpty()
-        val oldFingerprints = requestFamily.scenarios.map { it.changeFingerprint() }.toSet()
-        val newFingerprints = newScenariosForOperation.map { it.changeFingerprint() }.toSet()
-        return if (oldFingerprints == newFingerprints) ChangeStatus.UNCHANGED else ChangeStatus.CHANGED
+        return ScenarioFingerprint.changeStatusBetween(requestFamily.scenarios, newScenariosForOperation)
     }
-
-    private fun Scenario.changeFingerprint(): ScenarioFingerprint = ScenarioFingerprint(
-        status = status,
-        requestContentType = requestContentType,
-        responseContentType = responseContentType,
-        httpRequestPattern = httpRequestPattern,
-        httpResponsePattern = httpResponsePattern,
-    )
 
     private fun groupScenariosByPathAndMethod(feature: Feature): List<RequestFamily> {
         return feature.scenarios
@@ -198,14 +188,6 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         private val backwardCompatibilityStrategies = DefaultStrategies.copy(randomArraySize = BACKWARD_COMPATIBILITY_RANDOM_ARRAY_SIZE)
     }
 }
-
-private data class ScenarioFingerprint(
-    val status: Int,
-    val requestContentType: String?,
-    val responseContentType: String?,
-    val httpRequestPattern: HttpRequestPattern,
-    val httpResponsePattern: HttpResponsePattern,
-)
 
 private data class RequestFamily(val scenarios: List<Scenario>) {
     private val representativeScenario: Scenario = scenarios.first()
