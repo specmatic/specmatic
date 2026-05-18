@@ -254,7 +254,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         }
 
         private fun applyToObject(objectNode: ObjectNode, path: List<String>) {
-            objectNode.properties().asSequence().toList().forEach { entry ->
+            objectNode.properties().toList().forEach { entry ->
                 val childPath = path + entry.key
                 val rawFieldReplacement = templates.fieldTemplates.asSequence()
                     .filter { template -> template.matches(entry.key, entry.value, path) }
