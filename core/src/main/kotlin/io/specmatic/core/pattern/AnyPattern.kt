@@ -42,6 +42,10 @@ data class AnyPattern(
         emptyMap()
     ), pattern.extractCombinedExtensions())
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pattern)
+    }
+
     data class AnyPatternMatch(val pattern: Pattern, val result: Result)
 
     private fun extractDiscriminatorValue(value: Value): String? {

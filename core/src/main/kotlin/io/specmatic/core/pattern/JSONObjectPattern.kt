@@ -137,6 +137,13 @@ data class JSONObjectPattern(
         )
     }
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pattern.values)
+        if (additionalProperties is AdditionalProperties.PatternConstrained) {
+            references.add(additionalProperties.pattern)
+        }
+    }
+
     override fun fillInTheBlanks(value: Value, resolver: Resolver, removeExtraKeys: Boolean): ReturnValue<Value> {
         val patternToConsider = when (val resolvedPattern = resolveToPattern(value, resolver, this)) {
             is ReturnFailure -> return resolvedPattern.cast()

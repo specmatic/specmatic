@@ -91,6 +91,12 @@ data class XMLPattern(
         isSOAPHeader: Boolean = false
     ) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP, isSOAPHeader)
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        referredType?.let { references.addReference(withPatternDelimiters(it)) }
+        references.addAll(pattern.attributes.values)
+        references.addAll(pattern.nodes)
+    }
+
     fun toPrettyString(): String {
         return pattern.toGherkinishNode().toPrettyStringValue()
     }

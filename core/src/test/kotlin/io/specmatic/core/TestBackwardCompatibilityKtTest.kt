@@ -5225,7 +5225,47 @@ paths:
                 """,
             ),
             ChangeStatusCase(
-                name = "31. required array and properties reordered",
+                name = "31. schema referenced via same \$ref has component schema changed",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Order:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Order'
+                """,
+                newPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Order:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Order'
+                    - op: replace
+                      path: /components/schemas/Order/properties/id/type
+                      value: integer
+                """,
+            ),
+            ChangeStatusCase(
+                name = "32. required array and properties reordered",
                 path = "/orders", method = "POST",
                 expected = ChangeStatus.UNCHANGED,
                 oldPatch = """

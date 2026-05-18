@@ -25,6 +25,11 @@ data class HttpQueryParamPattern(
 
     val queryKeyNames = queryPatterns.keys
 
+    fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(queryPatterns.values)
+        additionalProperties?.let(references::add)
+    }
+
     fun generate(resolver: Resolver): List<Pair<String, String>> {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {

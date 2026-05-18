@@ -11,6 +11,10 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 data class QueryParameterArrayPattern(override val pattern: List<Pattern>, val parameterName: String): Pattern {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is ListValue) return dataTypeMismatchResult("list of ${pattern.first().typeName}", sampleData)
         val requestValues = sampleData.list.map { it.toString() }

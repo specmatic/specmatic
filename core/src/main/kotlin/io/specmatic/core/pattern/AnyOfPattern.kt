@@ -29,6 +29,10 @@ data class AnyOfPattern(
     HasDefaultExample by delegate,
     PossibleJsonObjectPatternContainer by delegate,
     SubSchemaCompositePattern by delegate {
+    override fun collectReferences(references: ReferencedPatterns) {
+        delegate.collectReferences(references)
+    }
+
     override fun matches(
         sampleData: Value?,
         resolver: Resolver,

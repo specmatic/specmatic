@@ -134,6 +134,10 @@ data class DeferredPattern(
         return resolvePattern(resolver).patternFrom(value, resolver, parseValueToType)
     }
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addReference(pattern)
+    }
+
     override fun toString() = pattern
 }
 

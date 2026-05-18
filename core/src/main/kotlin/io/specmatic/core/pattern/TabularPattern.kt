@@ -35,6 +35,10 @@ data class TabularPattern(
     private val unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys,
     override val typeAlias: String? = null
 ) : Pattern {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pattern.values)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is JSONObjectValue) return dataTypeMismatchResult("JSON object", sampleData, resolver.mismatchMessages)
 

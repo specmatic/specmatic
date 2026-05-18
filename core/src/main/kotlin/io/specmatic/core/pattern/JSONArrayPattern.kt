@@ -32,6 +32,10 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
 
     constructor(jsonString: String, typeAlias: String?) : this(stringTooPatternArray(jsonString), typeAlias = typeAlias)
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pattern)
+    }
+
     @Throws(Exception::class)
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is JSONArrayValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)

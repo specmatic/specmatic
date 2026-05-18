@@ -10,6 +10,10 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 data class PatternInStringPattern(override val pattern: Pattern = StringPattern(), override val typeAlias: String? = null): Pattern {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is StringValue) return dataTypeMismatchResult(pattern, sampleData, resolver.mismatchMessages)
         return resultOf(ruleViolation = StandardRuleViolation.VALUE_MISMATCH) {

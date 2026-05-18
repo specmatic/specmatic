@@ -19,6 +19,7 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.QueryParameterArrayPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.REQUEST_BODY_FIELD
+import io.specmatic.core.pattern.ReferencedPatterns
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.ValueDetails
@@ -62,6 +63,15 @@ data class HttpRequestPattern(
     val multiPartFormDataPattern: List<MultiPartFormDataPattern> = emptyList(),
     val securitySchemes: List<OpenAPISecurityScheme> = listOf(NoSecurityScheme())
 ) {
+    fun collectReferences(references: ReferencedPatterns) {
+        headersPattern.collectReferences(references)
+        httpPathPattern?.collectReferences(references)
+        httpQueryParamPattern.collectReferences(references)
+        references.add(body)
+        references.addAll(formFieldsPattern.values)
+        multiPartFormDataPattern.forEach { it.collectReferences(references) }
+    }
+
     fun getHeaderKeys() = headersPattern.headerNames
 
     fun getQueryParamKeys() = httpQueryParamPattern.queryKeyNames

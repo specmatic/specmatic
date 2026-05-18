@@ -33,6 +33,8 @@ interface Pattern {
 
     fun patternSet(resolver: Resolver): List<Pattern> = listOf(this)
 
+    fun collectReferences(references: ReferencedPatterns) {}
+
     fun parseToType(valueString: String, resolver: Resolver): Pattern {
         return parse(valueString, resolver).exactMatchElseType()
     }

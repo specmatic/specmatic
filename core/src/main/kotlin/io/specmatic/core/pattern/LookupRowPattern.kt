@@ -10,6 +10,10 @@ data class LookupRowPattern(override val pattern: Pattern, override val key: Str
     override fun equals(other: Any?): Boolean = other is LookupRowPattern && resolvedHop(other.pattern, Resolver()) == resolvedHop(pattern, Resolver())
     override fun hashCode(): Int = pattern.hashCode()
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun addTypeAliasesToConcretePattern(concretePattern: Pattern, resolver: Resolver, typeAlias: String?): Pattern {
         return pattern.addTypeAliasesToConcretePattern(concretePattern, resolver, typeAlias)
     }

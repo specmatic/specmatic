@@ -9,6 +9,10 @@ import io.specmatic.core.value.Value
 data class RestPattern(override val pattern: Pattern, override val typeAlias: String? = null) : Pattern {
     private val listPattern = ListPattern(pattern)
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result =
             listPattern.matches(sampleData, resolver)
 

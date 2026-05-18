@@ -18,6 +18,10 @@ data class RegexConstrainedPattern(
         if (eagerRegexValidation) this.validateRegexAgainstBasePattern()
     }
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(basePattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData?.hasSupportedTemplate() == true) return Result.Success()
         val baseResult = basePattern.matches(sampleData, resolver)

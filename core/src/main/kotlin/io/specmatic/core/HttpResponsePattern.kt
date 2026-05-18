@@ -19,6 +19,12 @@ data class HttpResponsePattern(
 ) {
     constructor(response: HttpResponse) : this(HttpHeadersPattern(response.headers.mapValues { stringToPattern(it.value, it.key) }), response.status, response.body.exactMatchElseType())
 
+    fun collectReferences(references: ReferencedPatterns) {
+        headersPattern.collectReferences(references)
+        references.add(body)
+        responseValueAssertion.collectReferences(references)
+    }
+
     fun fillInTheBlanks(resolver: Resolver, resultHeaderValue: String = "success"): HttpResponse {
         return generateResponseWith(
             value = resolver.withCyclePrevention(body, body::generate),

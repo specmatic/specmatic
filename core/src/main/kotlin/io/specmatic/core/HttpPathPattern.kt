@@ -25,6 +25,10 @@ data class HttpPathPattern(
         .map { SegmentCounts.segmentCounts(it, internalPathRegex) }
         .fold(SegmentCounts()) { acc, counts -> acc + counts }
 
+    fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pathSegmentPatterns)
+    }
+
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
             return Success()

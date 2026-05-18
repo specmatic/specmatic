@@ -26,6 +26,11 @@ data class XMLChoiceGroupPattern(
     override val memberList: MemberList
         get() = MemberList(concreteSequence?.flatten() ?: choices.firstOrNull() ?: emptyList(), null)
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(choices.flatten())
+        concreteSequence?.flatten()?.let(references::addAll)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
             is XMLNode -> matches(sampleData.childNodes, resolver).result

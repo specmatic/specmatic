@@ -50,6 +50,10 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
         multiType: Boolean = false
     ) : this (validEnumValues(values, key, typeAlias, example, nullable, multiType), nullable)
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun resolveSubstitutions(
         substitution: Substitution,
         value: Value,

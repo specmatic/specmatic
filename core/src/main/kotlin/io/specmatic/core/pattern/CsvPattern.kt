@@ -10,6 +10,10 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 class CsvPattern(override val pattern: Pattern) : Pattern {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData !is StringValue) return dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         val results: List<Result> = sampleData.string.split(",").mapIndexed { index, value ->

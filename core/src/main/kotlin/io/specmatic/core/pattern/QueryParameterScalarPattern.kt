@@ -8,6 +8,10 @@ import io.specmatic.core.dataTypeMismatchResult
 import io.specmatic.core.value.*
 
 data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern by pattern, ScalarType {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun resolveSubstitutions(
         substitution: Substitution,
         value: Value,

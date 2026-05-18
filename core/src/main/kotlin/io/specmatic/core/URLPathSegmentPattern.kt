@@ -8,6 +8,10 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 data class URLPathSegmentPattern(override val pattern: Pattern, override val key: String? = null, override val typeAlias: String? = null) : Pattern, Keyed {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return resolver.matchesPattern(key, pattern, sampleData ?: NullValue)
     }

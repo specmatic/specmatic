@@ -7,6 +7,7 @@ import io.specmatic.core.value.StringValue
 import java.io.File
 
 sealed class MultiPartFormDataPattern(open val name: String, open val contentType: String?) {
+    abstract fun collectReferences(references: ReferencedPatterns)
     abstract fun newBasedOn(row: Row, resolver: Resolver): Sequence<MultiPartFormDataPattern?>
     abstract fun generate(resolver: Resolver): MultiPartFormDataValue
     abstract fun matches(value: MultiPartFormDataValue, resolver: Resolver): Result
@@ -14,6 +15,10 @@ sealed class MultiPartFormDataPattern(open val name: String, open val contentTyp
 }
 
 data class MultiPartContentPattern(override val name: String, val content: Pattern, override val contentType: String? = null) : MultiPartFormDataPattern(name, contentType) {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(content)
+    }
+
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<MultiPartContentPattern?> =
         newPatternsBasedOn(row, withoutOptionality(name), content, resolver).map { it.value }.map { newContent: Pattern ->
             MultiPartContentPattern(
@@ -84,6 +89,10 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
 }
 
 data class MultiPartFilePattern(override val name: String, val filename: Pattern, override val contentType: String? = null, val contentEncoding: String? = null) : MultiPartFormDataPattern(name, contentType) {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(filename)
+    }
+
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<MultiPartFormDataPattern?> {
         val rowKey = "${name}_filename"
         return sequenceOf(this.copy(filename = if(row.containsField(rowKey)) ExactValuePattern(StringValue(row.getField(rowKey))) else filename))

@@ -9,6 +9,10 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.valueMismatchResult
 
 data class AnyNonNullJSONValue(override val pattern: Pattern = AnythingPattern): Pattern by pattern{
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         if (sampleData is NullValue) return valueMismatchResult("non-null value", sampleData, resolver.mismatchMessages)
         return Result.Success()

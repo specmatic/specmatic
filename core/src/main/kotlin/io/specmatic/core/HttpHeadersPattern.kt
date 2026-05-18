@@ -25,6 +25,11 @@ data class HttpHeadersPattern(
 
     val headerNames = pattern.keys
 
+    fun collectReferences(references: ReferencedPatterns) {
+        references.addAll(pattern.values)
+        ancestorHeaders?.values?.let(references::addAll)
+    }
+
     fun isEmpty(): Boolean {
         return pattern.isEmpty()
     }

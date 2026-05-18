@@ -8,6 +8,10 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 data class DictionaryPattern(val keyPattern: Pattern, val valuePattern: Pattern, override val typeAlias: String? = null) : Pattern {
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(keyPattern)
+        references.add(valuePattern)
+    }
 
     override fun eliminateOptionalKey(value: Value, resolver: Resolver): Value {
         return JSONObjectValue()

@@ -15,6 +15,10 @@ data class ListPattern(
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
+    override fun collectReferences(references: ReferencedPatterns) {
+        references.add(pattern)
+    }
+
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(null, this, value).isSuccess()) return value
         val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPath(this, this.pattern)
