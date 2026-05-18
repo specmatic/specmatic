@@ -107,57 +107,80 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
 
         private fun targetContainersFor(path: List<String>, sourceFieldName: String): Set<TargetContainer>? {
             val root = path.firstOrNull()
-            return when {
-                root == "test" && sourceFieldName in testSettingsFields ->
+            return when (root) {
+                "test" if sourceFieldName in testSettingsFields ->
                     setOf(TargetContainer.TEST_SETTINGS)
-                root == "test" && path.endsWith("resiliencyTests", "enable") ->
+
+                "test" if path.endsWith("resiliencyTests", "enable") ->
                     setOf(TargetContainer.TEST_SETTINGS)
-                root == "contracts" && "provides" in path && path.endsWith("resiliencyTests", "enable") ->
+
+                "contracts" if "provides" in path && path.endsWith("resiliencyTests", "enable") ->
                     setOf(TargetContainer.TEST_SETTINGS)
-                root == "test" ->
+
+                "test" ->
                     setOf(TargetContainer.TEST_RUN_OPTIONS)
-                root == "stub" && sourceFieldName in mockSettingsFields ->
+
+                "stub" if sourceFieldName in mockSettingsFields ->
                     setOf(TargetContainer.MOCK_SETTINGS)
-                root == "stub" && sourceFieldName == "dictionary" ->
+
+                "stub" if sourceFieldName == "dictionary" ->
                     setOf(TargetContainer.DATA_DICTIONARY)
-                root == "stub" ->
+
+                "stub" ->
                     setOf(TargetContainer.MOCK_RUN_OPTIONS)
-                root == "proxy" ->
+
+                "proxy" ->
                     setOf(TargetContainer.PROXY)
-                root == "mcp" ->
+
+                "mcp" ->
                     setOf(TargetContainer.MCP)
-                root == "report" ->
+
+                "report" ->
                     setOf(TargetContainer.GOVERNANCE)
-                root == "license_path" || root == "licensePath" ->
+
+                "license_path", "licensePath" ->
                     setOf(TargetContainer.LICENSE)
-                root == "report_dir_path" || root == "reportDirPath" ->
+
+                "report_dir_path", "reportDirPath" ->
                     setOf(TargetContainer.TEST_SETTINGS)
-                root == "hooks" ->
+
+                "hooks" ->
                     setOf(TargetContainer.ADAPTERS)
-                root == "security" ->
+
+                "security" ->
                     setOf(TargetContainer.SECURITY)
-                root == "workflow" ->
+
+                "workflow" ->
                     setOf(TargetContainer.TEST_RUN_OPTIONS)
-                root == "auth" ->
+
+                "auth" ->
                     setOf(TargetContainer.AUTH)
-                root == "backwardCompatibility" ->
+
+                "backwardCompatibility" ->
                     setOf(TargetContainer.BACKWARD_COMPATIBILITY)
-                root == "logging" ->
+
+                "logging" ->
                     setOf(TargetContainer.GENERAL_SETTINGS)
-                root == "schemaExampleDefault" || root == "fuzzy" || root == "escapeSoapAction" ->
+
+                "schemaExampleDefault", "fuzzy", "escapeSoapAction" ->
                     setOf(TargetContainer.GENERAL_FEATURE_FLAGS)
-                root in generalSettingsFields ->
+
+                in generalSettingsFields ->
                     setOf(TargetContainer.GENERAL_SETTINGS)
-                root == "globalSettings" ->
+
+                "globalSettings" ->
                     setOf(TargetContainer.GENERAL_SETTINGS)
-                root == "contracts" && "provides" in path ->
+
+                "contracts" if "provides" in path ->
                     setOf(TargetContainer.TEST_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
-                root == "contracts" && "consumes" in path ->
+
+                "contracts" if "consumes" in path ->
                     setOf(TargetContainer.MOCK_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
-                root == "default_pattern_values" ->
+
+                "default_pattern_values" ->
                     setOf(TargetContainer.DATA_DICTIONARY)
-                else ->
-                    null
+
+                else -> null
             }
         }
 
