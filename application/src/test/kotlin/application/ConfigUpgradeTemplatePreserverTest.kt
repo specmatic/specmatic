@@ -17,6 +17,7 @@ import kotlin.io.path.readText
 
 class ConfigUpgradeTemplatePreserverTest {
     private val yamlMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+    private val jsonMapper = ObjectMapper().registerKotlinModule()
 
     @Test
     fun `preserves scalar template expressions across migrated config sections`() {
@@ -437,12 +438,41 @@ class ConfigUpgradeTemplatePreserverTest {
         assertDoesNotThrow { loadSpecmaticConfig(generatedV3Config.toString()) }
     }
 
+    @Test
+    fun `complete template fixtures cover official config schema paths exactly`() {
+        val v2Config = testResource("specmaticConfigFiles/schemaCoverage/specmatic-v2-schema-coverage.yaml")
+        val v3Config = testResource("specmaticConfigFiles/schemaCoverage/specmatic-v3-schema-coverage.yaml")
+        val v3RefConfig = testResource("specmaticConfigFiles/schemaCoverage/specmatic-v3-ref-schema-coverage.yaml")
+
+        val schemaPaths = JsonSchemaPathExtractor(jsonMapper.readTree(testResource("specmatic-config-schema.json").toFile()))
+            .paths()
+        val configPaths = listOf(v2Config, v3Config, v3RefConfig)
+            .flatMap { configFile -> yamlMapper.readTree(configFile.toFile()).configLeafPaths() }
+            .toSet()
+
+        val missingConfigCoverage = schemaPaths
+            .filter { schemaPath -> configPaths.none { configPath -> schemaPath.matches(configPath) } }
+            .sortedBy(ConfigPath::toString)
+        val extraConfigPaths = configPaths
+            .filter { configPath -> schemaPaths.none { schemaPath -> schemaPath.matches(configPath) } }
+            .sortedBy(ConfigPath::toString)
+
+        assertThat(schemaCoverageFailure(missingConfigCoverage, extraConfigPaths)).isEmpty()
+    }
+
     private fun tempFixture(fileName: String): Path {
         val workingDirectory = Path.of("").toAbsolutePath()
         return generateSequence(workingDirectory, Path::getParent)
             .map { directory -> directory.resolve("temp").resolve(fileName) }
             .firstOrNull(Path::exists)
             ?: workingDirectory.resolve("temp").resolve(fileName)
+    }
+
+    private fun testResource(fileName: String): Path {
+        val resource = requireNotNull(javaClass.getResource("/$fileName")) {
+            "Missing test resource: $fileName"
+        }
+        return Path.of(resource.toURI())
     }
 
     private fun preserveTemplates(originalConfigYaml: String, upgradedConfigYaml: String): JsonNode {
@@ -458,5 +488,133 @@ class ConfigUpgradeTemplatePreserverTest {
             isArray -> elements().asSequence().flatMap { it.allTextValues().asSequence() }.toList()
             else -> emptyList()
         }
+    }
+
+    private fun JsonNode.configLeafPaths(path: List<String> = emptyList()): Set<ConfigPath> {
+        return when {
+            isObject -> properties().asSequence()
+                .flatMap { entry -> entry.value.configLeafPaths(path + entry.key).asSequence() }
+                .toSet()
+            isArray -> elements().asSequence()
+                .flatMap { element -> element.configLeafPaths(path + ARRAY_SEGMENT).asSequence() }
+                .toSet()
+            else -> setOf(ConfigPath(path))
+        }
+    }
+
+    private fun schemaCoverageFailure(missingConfigCoverage: List<ConfigPath>, extraConfigPaths: List<ConfigPath>): String {
+        return buildString {
+            if (missingConfigCoverage.isNotEmpty()) {
+                appendLine("Missing config fixture coverage for schema paths:")
+                missingConfigCoverage.forEach { path -> appendLine("- $path") }
+            }
+
+            if (extraConfigPaths.isNotEmpty()) {
+                if (isNotEmpty()) appendLine()
+                appendLine("Config fixture paths not present in the schema:")
+                extraConfigPaths.forEach { path -> appendLine("- $path") }
+            }
+        }
+    }
+
+    private data class ConfigPath(val segments: List<String>) {
+        fun matches(configPath: ConfigPath): Boolean {
+            if (segments.size != configPath.segments.size) return false
+            return segments.zip(configPath.segments).all { (schemaSegment, configSegment) ->
+                schemaSegment == WILDCARD_SEGMENT || schemaSegment == configSegment
+            }
+        }
+
+        override fun toString(): String {
+            return segments.fold("") { currentPath, segment ->
+                when {
+                    currentPath.isEmpty() -> segment
+                    segment == ARRAY_SEGMENT -> "$currentPath$ARRAY_SEGMENT"
+                    else -> "$currentPath.$segment"
+                }
+            }
+        }
+    }
+
+    private class JsonSchemaPathExtractor(private val rootSchema: JsonNode) {
+        fun paths(): Set<ConfigPath> {
+            return collect(rootSchema, emptyList(), emptySet())
+        }
+
+        private fun collect(schema: JsonNode, path: List<String>, visitedRefs: Set<String>): Set<ConfigPath> {
+            schema.localRef()?.let { ref ->
+                if (ref in visitedRefs) return emptySet()
+                return collect(rootSchema.at(ref.removePrefix("#")), path, visitedRefs + ref)
+            }
+
+            val paths = mutableSetOf<ConfigPath>()
+            schema.compositionBranches().forEach { branch ->
+                paths += collect(branch, path, visitedRefs)
+            }
+            schema.conditionalSchemaBranches().forEach { branch ->
+                paths += collect(branch, path, visitedRefs)
+            }
+
+            schema.get("properties")?.takeIf(JsonNode::isObject)?.properties()?.asSequence()?.forEach { entry ->
+                if (!entry.value.isEmptyObjectSchema()) {
+                    paths += collect(entry.value, path + entry.key, visitedRefs)
+                }
+            }
+
+            schema.get("items")?.takeUnless { it.isBoolean }?.let { items ->
+                paths += collect(items, path + ARRAY_SEGMENT, visitedRefs)
+            }
+
+            schema.get("additionalProperties")?.takeIf(JsonNode::isObject)?.let { additionalProperties ->
+                paths += when {
+                    additionalProperties.isEmptyObjectSchema() -> setOf(ConfigPath(path + WILDCARD_SEGMENT))
+                    else -> collect(additionalProperties, path + WILDCARD_SEGMENT, visitedRefs)
+                }
+            }
+
+            schema.get("patternProperties")?.takeIf(JsonNode::isObject)?.properties()?.asSequence()?.forEach { entry ->
+                paths += collect(entry.value, path + WILDCARD_SEGMENT, visitedRefs)
+            }
+
+            if (paths.isEmpty() && schema.isLeafSchema()) paths += ConfigPath(path)
+            return paths
+        }
+
+        private fun JsonNode.localRef(): String? {
+            return get("\$ref")?.asText()?.takeIf { ref -> ref.startsWith("#/") }
+        }
+
+        private fun JsonNode.compositionBranches(): Sequence<JsonNode> {
+            return sequenceOf("allOf", "anyOf", "oneOf")
+                .mapNotNull { keyword -> get(keyword)?.takeIf(JsonNode::isArray) }
+                .flatMap { branches -> branches.elements().asSequence() }
+        }
+
+        private fun JsonNode.conditionalSchemaBranches(): Sequence<JsonNode> {
+            return sequenceOf("then", "else").mapNotNull { keyword -> get(keyword)?.takeIf(JsonNode::isObject) }
+        }
+
+        private fun JsonNode.isLeafSchema(): Boolean {
+            return !isObject ||
+                size() > 0 &&
+                !has("properties") &&
+                !has("items") &&
+                !has("additionalProperties") &&
+                !has("patternProperties") &&
+                !has("allOf") &&
+                !has("anyOf") &&
+                !has("oneOf") &&
+                !has("then") &&
+                !has("else")
+        }
+
+        private fun JsonNode.isEmptyObjectSchema(): Boolean {
+            return isObject && size() == 0
+        }
+    }
+
+    private companion object {
+        const val ARRAY_SEGMENT = "[]"
+        const val WILDCARD_SEGMENT = "*"
     }
 }
