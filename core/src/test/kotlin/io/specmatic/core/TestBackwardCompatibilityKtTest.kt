@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
@@ -16,8 +17,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.util.stream.Stream
 
 internal class TestBackwardCompatibilityKtTest {
     private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
@@ -4723,6 +4728,7 @@ paths:
     }
 
     @Nested
+    @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     inner class OperationChangeStatus {
         private val baseSpec = """
             openapi: 3.0.0
@@ -4734,7 +4740,7 @@ paths:
                 get:
                   responses:
                     '200':
-                      description: List orders
+                      description: ok
                       content:
                         application/json:
                           schema:
@@ -4758,39 +4764,75 @@ paths:
                               type: string
                   responses:
                     '201':
-                      description: Created
+                      description: created
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
         """.trimIndent()
 
-        @Test
-        fun `only the patched POST operation is CHANGED, the untouched GET stays UNCHANGED`(@TempDir tempDir: File) {
-            val newerSpecPatch = """
-                - op: add
-                  path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
-                  value:
-                    type: string
-            """.trimIndent()
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("changeStatusCases")
+        fun `change status detection`(case: ChangeStatusCase, @TempDir tempDir: File) {
+            val oldSpec = case.oldPatch?.let { baseSpec.applyJsonPatch(it) } ?: baseSpec
+            val newSpec = case.newPatch?.let { baseSpec.applyJsonPatch(it) } ?: baseSpec
 
-            val operations = runBccAndGetOperations(tempDir, baseSpec, newerSpecPatch)
+            val operations = runBccAndGetOperations(tempDir, oldSpec, newSpec)
+            val op = operations.first {
+                it.path("path").asText() == case.path && it.path("method").asText() == case.method
+            }
 
-            val getOp = operations.first { it.path("method").asText() == "GET" }
-            val postOp = operations.first { it.path("method").asText() == "POST" }
-
-            assertThat(getOp.path("compatibility").path("changeStatus").asText()).isEqualTo("UNCHANGED")
-            assertThat(postOp.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
+            assertThat(op.path("compatibility").path("changeStatus").asText())
+                .isEqualTo(case.expected.name)
         }
 
-        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpecPatch: String): JsonNode {
+        // TODO(product): decide whether new-only operations should surface as CHANGED in the BCC report.
+        // Today OpenApiBackwardCompatibilityChecker iterates over old scenarios only, so an operation
+        // present in the new spec but absent in the old spec produces no record and is not reported.
+        // If we want it to appear (likely as CHANGED + Incompatible "added in new"), the checker must
+        // iterate over the union of (path, method) pairs from old and new.
+        @Test
+        fun `new-only operations are absent from the report today`(@TempDir tempDir: File) {
+            val newSpec = baseSpec.applyJsonPatch("""
+                - op: add
+                  path: /paths/~1health
+                  value:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(tempDir, baseSpec, newSpec).toList()
+
+            val operationKeys = operations.map { "${it.path("method").asText()} ${it.path("path").asText()}" }
+            assertThat(operationKeys).doesNotContain("GET /health")
+        }
+
+        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpec: String): JsonNode {
             val configFile = tempDir.resolve("specmatic.yaml").apply {
                 writeText("""
                 version: 2
                 reportDirPath: ${tempDir.canonicalPath}/reports
                 """.trimIndent())
             }
-            val oldSpecFile = tempDir.resolve("old.yaml").apply { writeText(oldSpec) }
-            val newSpecFile = tempDir.resolve("new.yaml").apply { writeText(oldSpec.applyJsonPatch(newSpecPatch)) }
-
-            val oldFeature = OpenApiSpecification.fromFile(oldSpecFile.canonicalPath).toFeature()
-            val newFeature = OpenApiSpecification.fromFile(newSpecFile.canonicalPath).toFeature()
+            val oldFeature = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+            val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
             return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
                 val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
@@ -4801,13 +4843,332 @@ paths:
 
         private fun String.applyJsonPatch(patch: String): String {
             val specNode = yamlMapper.readTree(this)
-            val patchNode = yamlMapper.readTree(patch)
-            val patched = JsonPatch.apply(patchNode, specNode)
-            return yamlMapper.writeValueAsString(patched)
+            val patchNode = yamlMapper.readTree(patch.trimIndent())
+            return yamlMapper.writeValueAsString(JsonPatch.apply(patchNode, specNode)).trim()
         }
 
         private val yamlMapper = ObjectMapper(YAMLFactory())
+
+        private fun changeStatusCases(): Stream<ChangeStatusCase> = Stream.of(
+            ChangeStatusCase(
+                name = "1. identical specs are UNCHANGED",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.UNCHANGED,
+            ),
+            ChangeStatusCase(
+                name = "2. add optional request body field",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "3. add required request body field",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/required/-
+                      value: note
+                """,
+            ),
+            ChangeStatusCase(
+                name = "4. remove optional request body field",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "5. remove required request body field",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/required/-
+                      value: note
+                """,
+            ),
+            ChangeStatusCase(
+                name = "6. required request field becomes optional",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/required/-
+                      value: note
+                """,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "7. optional request field becomes required",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                """,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                      value:
+                        type: string
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/required/-
+                      value: note
+                """,
+            ),
+            ChangeStatusCase(
+                name = "8. change request field type",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/id/type
+                      value: integer
+                """,
+            ),
+            ChangeStatusCase(
+                name = "9. add optional query parameter",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/parameters
+                      value:
+                        - name: limit
+                          in: query
+                          required: false
+                          schema:
+                            type: integer
+                """,
+            ),
+            ChangeStatusCase(
+                name = "10. add required query parameter",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/parameters
+                      value:
+                        - name: limit
+                          in: query
+                          required: true
+                          schema:
+                            type: integer
+                """,
+            ),
+            ChangeStatusCase(
+                name = "11. add optional request header",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/parameters
+                      value:
+                        - name: X-Trace-Id
+                          in: header
+                          required: false
+                          schema:
+                            type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "12. add required request header",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/parameters
+                      value:
+                        - name: X-Trace-Id
+                          in: header
+                          required: true
+                          schema:
+                            type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "13. add optional response field",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/responses/200/content/application~1json/schema/items/properties/note
+                      value:
+                        type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "14. remove response field that old promised",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/responses/200/content/application~1json/schema/items/properties/note
+                      value:
+                        type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "15. change response field type",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: replace
+                      path: /paths/~1orders/get/responses/200/content/application~1json/schema/items/properties/id/type
+                      value: integer
+                """,
+            ),
+            ChangeStatusCase(
+                name = "16. add a new response status code",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/responses/400
+                      value:
+                        description: bad request
+                """,
+            ),
+            ChangeStatusCase(
+                name = "17. remove a response status code that existed in old",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/responses/400
+                      value:
+                        description: bad request
+                """,
+            ),
+            ChangeStatusCase(
+                name = "18. add a new request content type",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/text~1plain
+                      value:
+                        schema:
+                          type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "19. remove a request content type from old",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/text~1plain
+                      value:
+                        schema:
+                          type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "20. add a new response content type",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/responses/200/content/text~1plain
+                      value:
+                        schema:
+                          type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "21. remove a response content type from old",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/responses/200/content/text~1plain
+                      value:
+                        schema:
+                          type: string
+                """,
+            ),
+            ChangeStatusCase(
+                name = "22. change path parameter type",
+                path = "/orders/{id}", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: replace
+                      path: /paths/~1orders~1{id}/get/parameters/0/schema/type
+                      value: integer
+                """,
+            ),
+            ChangeStatusCase(
+                name = "23. add a security scheme requirement",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        securitySchemes:
+                          apiKey:
+                            type: apiKey
+                            in: header
+                            name: X-API-Key
+                    - op: add
+                      path: /paths/~1orders/post/security
+                      value:
+                        - apiKey: []
+                """,
+            ),
+            ChangeStatusCase(
+                name = "24. operation present in old, removed in new",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                    - op: remove
+                      path: /paths/~1orders/post
+                """,
+            ),
+        )
+
     }
+}
+
+internal data class ChangeStatusCase(
+    val name: String,
+    val path: String,
+    val method: String,
+    val expected: ChangeStatus,
+    val oldPatch: String? = null,
+    val newPatch: String? = null,
+) {
+    override fun toString(): String = name
 }
 
 private fun String.openAPIToContract(): Feature {
