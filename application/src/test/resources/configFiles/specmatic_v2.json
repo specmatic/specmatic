@@ -1,0 +1,831 @@
+{
+  "version": "2",
+  "contracts": [
+    {
+      "git": {
+        "url": "${POLY_GIT_URL:https://github.com/acme/contracts2.git}",
+        "branch": "${POLY_GIT_BRANCH:develop}",
+        "matchBranch": "${POLY_GIT_MATCH:false}"
+      },
+      "provides": [
+        "${PROVIDE_SPEC_1:specs/git/provide-string.yaml}",
+        {
+          "specs": [
+            "${PROVIDE_SPEC_2:specs/git/provide-full-url.yaml}"
+          ],
+          "baseUrl": "${PROVIDE_BASE_URL:https://provider.example.com}",
+          "resiliencyTests": {
+            "enable": "${PROVIDE_RESILIENCY_1:all}"
+          }
+        },
+        {
+          "host": "${PROVIDE_HOST:provider-host}",
+          "port": "${PROVIDE_PORT:9001}",
+          "specs": [
+            "${PROVIDE_SPEC_3:specs/git/provide-partial-url.yaml}"
+          ],
+          "resiliencyTests": {
+            "enable": "${PROVIDE_RESILIENCY_2:positiveOnly}"
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_SPEC_4:specs/git/provide-config-value.yaml}"
+          ],
+          "specType": "${PROVIDE_SPEC_4_TYPE:OpenAPI}",
+          "config": {
+            "baseUrl": "${PROVIDE_CFG_BASE_URL:https://openapi-test.example.com}",
+            "examples": [
+              "${PROVIDE_EX_1:examples/a}"
+            ],
+            "resiliencyTests": {
+              "enable": "${PROVIDE_CFG_RESILIENCY:none}"
+            }
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_SPEC_5:specs/git/provide-config-value-asyncapi.yaml}"
+          ],
+          "specType": "${PROVIDE_ASYNCAPI_SPEC_TYPE:AsyncAPI}",
+          "config": {
+            "replyTimeout": "${PROVIDE_REPLY_TIMEOUT:5000}",
+            "subscriberReadinessWaitTime": "${PROVIDE_SUBSCRIBER_READINESS_WAIT_TIME:2000}",
+            "servers": [
+              {
+                "host": "${PROVIDE_ASYNC_SERVER_HOST:localhost}",
+                "protocol": "${PROVIDE_ASYNC_SERVER_PROTOCOL:mqtt}",
+                "client": {
+                  "consumer": {
+                    "key1": "${PROVIDE_ASYNC_CONSUMER_PROP_KEY1:value1}",
+                    "key2": [ "${PROVIDE_ASYNC_CONSUMER_PROP_KEY2:value2}" ],
+                    "key3": { "subKey": "${PROVIDE_ASYNC_CONSUMER_PROP_SUBKEY:value3}" }
+                  },
+                  "producer": {
+                    "key1": "${PROVIDE_ASYNC_PRODUCER_PROP_KEY1:value1}",
+                    "key2": [ "${PROVIDE_ASYNC_PRODUCER_PROP_KEY2:value2}" ],
+                    "key3": { "subKey": "${PROVIDE_ASYNC_PRODUCER_PROP_SUBKEY:value3}" }
+                  }
+                },
+                "adminCredentials": {
+                  "key1": "${PROVIDE_ASYNC_ADMIN_PROP_KEY1:value1}",
+                  "key2": [ "${PROVIDE_ASYNC_ADMIN_PROP_KEY2:value2}" ],
+                  "key3": { "subKey": "${PROVIDE_ASYNC_ADMIN_PROP_SUBKEY:value3}" }
+                }
+              }
+            ],
+            "schemaRegistryProps": {
+              "kind": "${PROVIDE_SCHEMA_REGISTRY_KIND:confluent}",
+              "url": "${PROVIDE_SCHEMA_REGISTRY_URL:http://localhost:8081}",
+              "username": "${PROVIDE_SCHEMA_REGISTRY_USERNAME:user}",
+              "password": "${PROVIDE_SCHEMA_REGISTRY_PASSWORD:password}"
+            }
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_GRPC_SPEC_PATH:specs/git/provide-config-value-grpc.proto}"
+          ],
+          "specType": "${PROVIDE_GRPC_SPEC_TYPE:protobuf}",
+          "config": {
+            "host": "${PROVIDE_GRPC_HOST:localhost}",
+            "port": "${PROVIDE_GRPC_PORT:50051}",
+            "protocVersion": "${PROVIDE_GRPC_PROTOC_VERSION:25.1}",
+            "requestTimeout": "${PROVIDE_GRPC_REQUEST_TIMEOUT:5000}",
+            "importPaths": [
+              "${PROVIDE_GRPC_IMPORT_PATH_PRIMARY:proto}",
+              "${PROVIDE_GRPC_IMPORT_PATH_SECONDARY:proto2}"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_GRAPHQL_SPEC_PATH:specs/git/provide-config-value-graphql.graphql}"
+          ],
+          "specType": "${PROVIDE_GRAPHQL_SPEC_TYPE:graphqlsdl}",
+          "config": {
+            "host": "${PROVIDE_GRPC_HOST__2:localhost}",
+            "port": "${PROVIDE_GRPC_PORT__2:50051}"
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_SPEC_6:specs/git/provide-config-value-openapi-v2.yaml}"
+          ],
+          "specType": "${PROVIDE_SPEC_6_TYPE:OpenAPI}",
+          "config": {
+            "baseUrl": "${PROVIDE_CFG_BASE_URL_V2:https://openapi-provider-v2.example.com}",
+            "examples": [
+              "${PROVIDE_EX_2:examples/provider-b}"
+            ],
+            "resiliencyTests": {
+              "enable": "${PROVIDE_CFG_RESILIENCY_V2:all}"
+            }
+          }
+        },
+        {
+          "specs": [
+            "specs/git/provide-config-value-openapi-direct.yaml"
+          ],
+          "specType": "OpenAPI",
+          "config": {
+            "baseUrl": "https://openapi-test.example.com",
+            "examples": [
+              "examples/provider-b"
+            ],
+            "resiliencyTests": {
+              "enable": "all"
+            }
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_SPEC_7:specs/git/provide-config-value-asyncapi-v2.yaml}"
+          ],
+          "specType": "${PROVIDE_ASYNCAPI_SPEC_TYPE_V2:AsyncAPI}",
+          "config": {
+            "replyTimeout": "${PROVIDE_REPLY_TIMEOUT_V2:7000}",
+            "subscriberReadinessWaitTime": "${PROVIDE_SUBSCRIBER_READINESS_WAIT_TIME_V2:3000}",
+            "servers": [
+              {
+                "host": "${PROVIDE_ASYNC_SERVER_HOST_V2:provider-async-host}",
+                "protocol": "${PROVIDE_ASYNC_SERVER_PROTOCOL_V2:kafka}",
+                "client": {
+                  "consumer": {
+                    "key1": "${PROVIDE_ASYNC_CONSUMER_PROP_KEY1_V2:consumer-value-a}",
+                    "key2": [
+                      "${PROVIDE_ASYNC_CONSUMER_PROP_KEY2_V2:consumer-value-b}"
+                    ],
+                    "key3": {
+                      "subKey": "${PROVIDE_ASYNC_CONSUMER_PROP_SUBKEY_V2:consumer-value-c}"
+                    }
+                  },
+                  "producer": {
+                    "key1": "${PROVIDE_ASYNC_PRODUCER_PROP_KEY1_V2:producer-value-a}",
+                    "key2": [
+                      "${PROVIDE_ASYNC_PRODUCER_PROP_KEY2_V2:producer-value-b}"
+                    ],
+                    "key3": {
+                      "subKey": "${PROVIDE_ASYNC_PRODUCER_PROP_SUBKEY_V2:producer-value-c}"
+                    }
+                  }
+                },
+                "adminCredentials": {
+                  "key1": "${PROVIDE_ASYNC_ADMIN_PROP_KEY1_V2:admin-value-a}",
+                  "key2": [
+                    "${PROVIDE_ASYNC_ADMIN_PROP_KEY2_V2:admin-value-b}"
+                  ],
+                  "key3": {
+                    "subKey": "${PROVIDE_ASYNC_ADMIN_PROP_SUBKEY_V2:admin-value-c}"
+                  }
+                }
+              }
+            ],
+            "schemaRegistryProps": {
+              "kind": "${PROVIDE_SCHEMA_REGISTRY_KIND_V2:apicurio}",
+              "url": "${PROVIDE_SCHEMA_REGISTRY_URL_V2:http://localhost:8082}",
+              "username": "${PROVIDE_SCHEMA_REGISTRY_USERNAME_V2:provider-user-v2}",
+              "password": "${PROVIDE_SCHEMA_REGISTRY_PASSWORD_V2:provider-password-v2}"
+            }
+          }
+        },
+        {
+          "specs": [
+            "specs/git/provide-config-value-asyncapi-direct.yaml"
+          ],
+          "specType": "AsyncAPI",
+          "config": {
+            "replyTimeout": 5000,
+            "subscriberReadinessWaitTime": 3000,
+            "servers": [
+              {
+                "host": "localhost",
+                "protocol": "kafka",
+                "client": {
+                  "consumer": {
+                    "key1": "value1",
+                    "key2": [
+                      "consumer-value-b"
+                    ],
+                    "key3": {
+                      "subKey": "value3"
+                    }
+                  },
+                  "producer": {
+                    "key1": "producer-value-a",
+                    "key2": [
+                      "value2"
+                    ],
+                    "key3": {
+                      "subKey": "producer-value-c"
+                    }
+                  }
+                },
+                "adminCredentials": {
+                  "key1": "value1",
+                  "key2": [
+                    "admin-value-b"
+                  ],
+                  "key3": {
+                    "subKey": "value3"
+                  }
+                }
+              }
+            ],
+            "schemaRegistryProps": {
+              "kind": "confluent",
+              "url": "http://localhost:8082",
+              "username": "user",
+              "password": "provider-password-v2"
+            }
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_GRPC_SPEC_PATH_V2:specs/git/provide-config-value-grpc-v2.proto}"
+          ],
+          "specType": "${PROVIDE_GRPC_SPEC_TYPE_V2:protobuf}",
+          "config": {
+            "host": "${PROVIDE_GRPC_HOST_V2:provider-grpc-host}",
+            "port": "${PROVIDE_GRPC_PORT_V2:50052}",
+            "protocVersion": "${PROVIDE_GRPC_PROTOC_VERSION_V2:26.0}",
+            "requestTimeout": "${PROVIDE_GRPC_REQUEST_TIMEOUT_V2:7000}",
+            "importPaths": [
+              "${PROVIDE_GRPC_IMPORT_PATH_PRIMARY_V2:proto-v2}",
+              "${PROVIDE_GRPC_IMPORT_PATH_SECONDARY_V2:proto-shared-v2}"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "specs/git/provide-config-value-grpc-direct.proto"
+          ],
+          "specType": "protobuf",
+          "config": {
+            "host": "localhost",
+            "port": 50052,
+            "protocVersion": "25.1",
+            "requestTimeout": 7000,
+            "importPaths": [
+              "proto",
+              "proto-shared-v2"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_GRAPHQL_SPEC_PATH_V2:specs/git/provide-config-value-graphql-v2.graphql}"
+          ],
+          "specType": "${PROVIDE_GRAPHQL_SPEC_TYPE_V2:graphqlsdl}",
+          "config": {
+            "host": "${PROVIDE_GRAPHQL_HOST_V2:provider-graphql-host}",
+            "port": "${PROVIDE_GRAPHQL_PORT_V2:9091}"
+          }
+        },
+        {
+          "specs": [
+            "specs/git/provide-config-value-graphql-direct.graphql"
+          ],
+          "specType": "graphqlsdl",
+          "config": {
+            "host": "localhost",
+            "port": 9091
+          }
+        }
+      ],
+      "consumes": [
+        "${CONSUME_SPEC_1:specs/git/consume-string.yaml}",
+        {
+          "specs": [
+            "${CONSUME_SPEC_2:specs/git/consume-full-url.yaml}"
+          ],
+          "baseUrl": "${CONSUME_BASE_URL:https://consumer.example.com}"
+        },
+        {
+          "host": "${CONSUME_HOST:consumer-host}",
+          "port": "${CONSUME_PORT:9002}",
+          "basePath": "${CONSUME_BASE_PATH:/stub}",
+          "specs": [
+            "${CONSUME_SPEC_3:specs/git/consume-partial-url.yaml}"
+          ]
+        },
+        {
+          "specs": [
+            "${CONSUME_SPEC_4:specs/git/consume-config-value.yaml}"
+          ],
+          "specType": "${CONSUME_SPEC_TYPE:OpenAPI}",
+          "config": {
+            "baseUrl": "${CONSUME_CFG_BASE_URL:https://openapi-mock.example.com}",
+            "examples": [
+              "${CONSUME_EX_1:examples/mock-a}"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "${CONSUME_SPEC_5:specs/git/consumes-config-value-asyncapi.yaml}"
+          ],
+          "specType": "${CONSUME_ASYNCAPI_SPEC_TYPE:AsyncAPI}",
+          "config": {
+            "inMemoryBroker": {
+              "logDir": "${ASYNC_MOCK_LOG_DIR:./async-mock-logs}",
+              "host": "${ASYNC_MOCK_HOST:localhost}",
+              "port": "${ASYNC_MOCK_PORT:1883}"
+            },
+            "servers": [
+              {
+                "host": "${PROVIDE_ASYNC_SERVER_HOST__2:localhost}",
+                "protocol": "${PROVIDE_ASYNC_SERVER_PROTOCOL__2:mqtt}",
+                "client": {
+                  "consumer": {
+                    "key1": "${PROVIDE_ASYNC_CONSUMER_PROP_KEY1__2:value1}",
+                    "key2": [ "${PROVIDE_ASYNC_CONSUMER_PROP_KEY2__2:value2}" ],
+                    "key3": { "subKey": "${PROVIDE_ASYNC_CONSUMER_PROP_SUBKEY__2:value3}" }
+                  },
+                  "producer": {
+                    "key1": "${PROVIDE_ASYNC_PRODUCER_PROP_KEY1__2:value1}",
+                    "key2": [ "${PROVIDE_ASYNC_PRODUCER_PROP_KEY2__2:value2}" ],
+                    "key3": { "subKey": "${PROVIDE_ASYNC_PRODUCER_PROP_SUBKEY__2:value3}" }
+                  }
+                },
+                "adminCredentials": {
+                  "key1": "${PROVIDE_ASYNC_ADMIN_PROP_KEY1__2:value1}",
+                  "key2": [ "${PROVIDE_ASYNC_ADMIN_PROP_KEY2__2:value2}" ],
+                  "key3": { "subKey": "${PROVIDE_ASYNC_ADMIN_PROP_SUBKEY__2:value3}" }
+                }
+              }
+            ],
+            "schemaRegistryProps": {
+              "kind": "${PROVIDE_SCHEMA_REGISTRY_KIND__2:confluent}",
+              "url": "${PROVIDE_SCHEMA_REGISTRY_URL__2:http://localhost:8081}",
+              "username": "${PROVIDE_SCHEMA_REGISTRY_USERNAME__2:user}",
+              "password": "${PROVIDE_SCHEMA_REGISTRY_PASSWORD__2:password}"
+            }
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_GRPC_SPEC_PATH__2:specs/git/provide-config-value-grpc.proto}"
+          ],
+          "specType": "${PROVIDE_GRPC_SPEC_TYPE__2:protobuf}",
+          "config": {
+            "host": "${PROVIDE_GRPC_HOST__3:localhost}",
+            "port": "${PROVIDE_GRPC_PORT__3:50051}",
+            "protocVersion": "${PROVIDE_GRPC_PROTOC_VERSION__2:25.1}",
+            "importPaths": [
+              "${PROVIDE_GRPC_IMPORT_PATH_PRIMARY__2:proto}",
+              "${PROVIDE_GRPC_IMPORT_PATH_SECONDARY__2:proto2}"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "${PROVIDE_GRAPHQL_SPEC_PATH__2:specs/git/provide-config-value-graphql.graphql}"
+          ],
+          "specType": "${PROVIDE_GRAPHQL_SPEC_TYPE__2:graphqlsdl}",
+          "config": {
+            "host": "${PROVIDE_GRPC_HOST__4:localhost}",
+            "port": "${PROVIDE_GRPC_PORT__4:50051}"
+          }
+        },
+        {
+          "specs": [
+            "${CONSUME_SPEC_6:specs/git/consume-config-value-openapi-v2.yaml}"
+          ],
+          "specType": "${CONSUME_SPEC_TYPE_V2:OpenAPI}",
+          "config": {
+            "baseUrl": "${CONSUME_CFG_BASE_URL_V2:https://openapi-consumer-v2.example.com}",
+            "examples": [
+              "${CONSUME_EX_2:examples/mock-b}"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "specs/git/consume-config-value-openapi-direct.yaml"
+          ],
+          "specType": "OpenAPI",
+          "config": {
+            "baseUrl": "https://openapi-mock.example.com",
+            "examples": [
+              "examples/mock-b"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "${CONSUME_SPEC_7:specs/git/consume-config-value-asyncapi-v2.yaml}"
+          ],
+          "specType": "${CONSUME_ASYNCAPI_SPEC_TYPE_V2:AsyncAPI}",
+          "config": {
+            "inMemoryBroker": {
+              "logDir": "${ASYNC_MOCK_LOG_DIR_V2:./async-mock-logs-v2}",
+              "host": "${ASYNC_MOCK_HOST_V2:consumer-async-host}",
+              "port": "${ASYNC_MOCK_PORT_V2:1884}"
+            },
+            "servers": [
+              {
+                "host": "${CONSUME_ASYNC_SERVER_HOST_V2:consumer-server-host}",
+                "protocol": "${CONSUME_ASYNC_SERVER_PROTOCOL_V2:kafka}",
+                "client": {
+                  "consumer": {
+                    "key1": "${CONSUME_ASYNC_CONSUMER_PROP_KEY1_V2:consumer-value-a}",
+                    "key2": [
+                      "${CONSUME_ASYNC_CONSUMER_PROP_KEY2_V2:consumer-value-b}"
+                    ],
+                    "key3": {
+                      "subKey": "${CONSUME_ASYNC_CONSUMER_PROP_SUBKEY_V2:consumer-value-c}"
+                    }
+                  },
+                  "producer": {
+                    "key1": "${CONSUME_ASYNC_PRODUCER_PROP_KEY1_V2:producer-value-a}",
+                    "key2": [
+                      "${CONSUME_ASYNC_PRODUCER_PROP_KEY2_V2:producer-value-b}"
+                    ],
+                    "key3": {
+                      "subKey": "${CONSUME_ASYNC_PRODUCER_PROP_SUBKEY_V2:producer-value-c}"
+                    }
+                  }
+                },
+                "adminCredentials": {
+                  "key1": "${CONSUME_ASYNC_ADMIN_PROP_KEY1_V2:admin-value-a}",
+                  "key2": [
+                    "${CONSUME_ASYNC_ADMIN_PROP_KEY2_V2:admin-value-b}"
+                  ],
+                  "key3": {
+                    "subKey": "${CONSUME_ASYNC_ADMIN_PROP_SUBKEY_V2:admin-value-c}"
+                  }
+                }
+              }
+            ],
+            "schemaRegistryProps": {
+              "kind": "${CONSUME_SCHEMA_REGISTRY_KIND_V2:apicurio}",
+              "url": "${CONSUME_SCHEMA_REGISTRY_URL_V2:http://localhost:8083}",
+              "username": "${CONSUME_SCHEMA_REGISTRY_USERNAME_V2:consumer-user-v2}",
+              "password": "${CONSUME_SCHEMA_REGISTRY_PASSWORD_V2:consumer-password-v2}"
+            }
+          }
+        },
+        {
+          "specs": [
+            "specs/git/consume-config-value-asyncapi-direct.yaml"
+          ],
+          "specType": "AsyncAPI",
+          "config": {
+            "inMemoryBroker": {
+              "logDir": "./async-mock-logs",
+              "host": "consumer-async-host",
+              "port": 1883
+            },
+            "servers": [
+              {
+                "host": "localhost",
+                "protocol": "kafka",
+                "client": {
+                  "consumer": {
+                    "key1": "value1",
+                    "key2": [
+                      "consumer-value-b"
+                    ],
+                    "key3": {
+                      "subKey": "value3"
+                    }
+                  },
+                  "producer": {
+                    "key1": "producer-value-a",
+                    "key2": [
+                      "value2"
+                    ],
+                    "key3": {
+                      "subKey": "producer-value-c"
+                    }
+                  }
+                },
+                "adminCredentials": {
+                  "key1": "value1",
+                  "key2": [
+                    "admin-value-b"
+                  ],
+                  "key3": {
+                    "subKey": "value3"
+                  }
+                }
+              }
+            ],
+            "schemaRegistryProps": {
+              "kind": "confluent",
+              "url": "http://localhost:8083",
+              "username": "user",
+              "password": "consumer-password-v2"
+            }
+          }
+        },
+        {
+          "specs": [
+            "${CONSUME_GRPC_SPEC_PATH_V2:specs/git/consume-config-value-grpc-v2.proto}"
+          ],
+          "specType": "${CONSUME_GRPC_SPEC_TYPE_V2:protobuf}",
+          "config": {
+            "host": "${CONSUME_GRPC_HOST_V2:consumer-grpc-host}",
+            "port": "${CONSUME_GRPC_PORT_V2:50053}",
+            "protocVersion": "${CONSUME_GRPC_PROTOC_VERSION_V2:26.0}",
+            "importPaths": [
+              "${CONSUME_GRPC_IMPORT_PATH_PRIMARY_V2:consumer-proto-v2}",
+              "${CONSUME_GRPC_IMPORT_PATH_SECONDARY_V2:consumer-proto-shared-v2}"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "specs/git/consume-config-value-grpc-direct.proto"
+          ],
+          "specType": "protobuf",
+          "config": {
+            "host": "localhost",
+            "port": 50053,
+            "protocVersion": "25.1",
+            "importPaths": [
+              "proto",
+              "consumer-proto-shared-v2"
+            ]
+          }
+        },
+        {
+          "specs": [
+            "${CONSUME_GRAPHQL_SPEC_PATH_V2:specs/git/consume-config-value-graphql-v2.graphql}"
+          ],
+          "specType": "${CONSUME_GRAPHQL_SPEC_TYPE_V2:graphqlsdl}",
+          "config": {
+            "host": "${CONSUME_GRAPHQL_HOST_V2:consumer-graphql-host}",
+            "port": "${CONSUME_GRAPHQL_PORT_V2:9092}"
+          }
+        },
+        {
+          "specs": [
+            "specs/git/consume-config-value-graphql-direct.graphql"
+          ],
+          "specType": "graphqlsdl",
+          "config": {
+            "host": "localhost",
+            "port": 9092
+          }
+        }
+      ]
+    },
+    {
+      "filesystem": {
+        "directory": "${FS_DIR:contracts/local}"
+      },
+      "provides": [
+        "${FS_PROVIDE:specs/fs/filesystem-provide.yaml}"
+      ],
+      "consumes": [
+        "${FS_CONSUME:specs/fs/filesystem-consume.yaml}"
+      ]
+    },
+    {
+      "web": {
+        "url": "${WEB_URL:https://raw.githubusercontent.com/acme/contracts/main}"
+      },
+      "provides": [
+        "${WEB_PROVIDE:specs/web/web-provide.yaml}"
+      ],
+      "consumes": [
+        "${WEB_CONSUME:specs/web/web-consume.yaml}"
+      ]
+    }
+  ],
+  "auth": {
+    "bearer-file": "${AUTH_BEARER_FILE:bearer.txt}",
+    "bearer-environment-variable": "${AUTH_BEARER_ENV:BEARER_TOKEN}",
+    "personal-access-token": "${AUTH_PAT:pat_value}"
+  },
+  "pipeline": {
+    "provider": "${PIPELINE_PROVIDER:azure}",
+    "organization": "${PIPELINE_ORG:acme-org}",
+    "project": "${PIPELINE_PROJECT:acme-proj}",
+    "definitionId": "${PIPELINE_DEFINITION_ID:42}"
+  },
+  "environments": {
+    "${ENV_NAME:dev}": {
+      "baseurls": {
+        "${ENV_SERVICE:svc1}": "${ENV_BASEURL:http://localhost:8080}"
+      },
+      "variables": {
+        "${ENV_VAR_NAME:env}": "${ENV_VAR_VAL:dev}"
+      }
+    }
+  },
+  "hooks": {
+    "${HOOK_NAME:hook1}": "${HOOK_PATH:scripts/hook1.sh}"
+  },
+  "proxy": {
+    "host": "${PROXY_HOST:localhost}",
+    "port": "${PROXY_PORT:9009}",
+    "targetUrl": "${PROXY_TARGET:http://upstream:8080}",
+    "baseUrl": "${PROXY_BASE:http://localhost:9009}",
+    "timeoutInMilliseconds": "${PROXY_TIMEOUT_MS:30000}",
+    "consumes": [
+      "${PROXY_CONSUME_1:specs/proxy.yaml}"
+    ],
+    "https": {
+      "keyStore": {
+        "file": "${PROXY_KEYSTORE_FILE:certs/proxy.p12}",
+        "password": "${PROXY_KEY_PASS:kp3}",
+        "alias": "${PROXY_KEY_ALIAS:alias3}"
+      },
+      "keyStorePassword": "${PROXY_KEYSTORE_PASS:ksp3}",
+      "mtlsEnabled": "${PROXY_MTLS:true}"
+    },
+    "outputDirectory": "${PROXY_OUTPUT_DIR:proxy-recordings}"
+  },
+  "repository": {
+    "provider": "${REPOSITORY_PROVIDER:github}",
+    "collectionName": "${REPOSITORY_COLLECTION:acme/contracts}"
+  },
+  "report": {
+    "types": {
+      "APICoverage": {
+        "OpenAPI": {
+          "successCriteria": {
+            "minThresholdPercentage": "${REPORT_MIN_THRESHOLD:80}",
+            "maxMissedEndpointsInSpec": "${REPORT_MAX_MISSED:3}",
+            "enforce": "${REPORT_ENFORCE:true}"
+          }
+        }
+      }
+    }
+  },
+  "security": {
+    "OpenAPI": {
+      "securitySchemes": {
+        "oauthScheme": {
+          "type": "${SEC_TYPE_OAUTH:oauth2}",
+          "token": "${SEC_TOKEN_OAUTH:oauth-token}"
+        },
+        "basicScheme": {
+          "type": "${SEC_TYPE_BASIC:basicAuth}",
+          "token": "${SEC_TOKEN_BASIC:basic-token}"
+        },
+        "bearerScheme": {
+          "type": "${SEC_TYPE_BEARER:bearer}",
+          "token": "${SEC_TOKEN_BEARER:bearer-token}"
+        },
+        "apiKeyScheme": {
+          "type": "${SEC_TYPE_APIKEY:apiKey}",
+          "value": "${SEC_VALUE_APIKEY:x-api-key-value}"
+        }
+      }
+    }
+  },
+  "test": {
+    "resiliencyTests": {
+      "enable": "${TEST_RESILIENCY:all}"
+    },
+    "validateResponseValues": "${TEST_VALIDATE_RESPONSE:true}",
+    "allowExtensibleSchema": "${TEST_ALLOW_EXTENSIBLE:true}",
+    "timeoutInMilliseconds": "${TEST_TIMEOUT_MS:120000}",
+    "strictMode": "${TEST_STRICT:true}",
+    "lenientMode": "${TEST_LENIENT:false}",
+    "parallelism": "${TEST_PARALLELISM:4}",
+    "maxTestRequestCombinations": "${TEST_MAX_COMBINATIONS:40}",
+    "maxTestCount": "${TEST_MAX_COUNT:200}",
+    "testsDirectory": "${TESTS_DIR:tests/contracts}",
+    "swaggerUrl": "${SWAGGER_URL:http://localhost:9999/v3/api-docs}",
+    "swaggerUIBaseURL": "${SWAGGER_UI_URL:http://localhost:9999/swagger-ui}",
+    "actuatorUrl": "${ACTUATOR_URL:http://localhost:9999/actuator}",
+    "filter": "${TEST_FILTER:GET /orders}",
+    "baseUrl": "${TEST_BASE_URL:http://localhost:8080}",
+    "filterName": "${TEST_FILTER_NAME:onlyCritical}",
+    "filterNotName": "${TEST_FILTER_NOT_NAME:excludeSlow}",
+    "overlayFilePath": "${TEST_OVERLAY:overlays/overlay.yaml}",
+    "junitReportDir": "${TEST_JUNIT_DIR:reports/junit}",
+    "https": {
+      "keyStore": {
+        "directory": "${TEST_KEYSTORE_DIR:certs/test}",
+        "password": "${TEST_KEY_PASSWORD:kp4}",
+        "alias": "${TEST_KEY_ALIAS:alias4}"
+      },
+      "keyStorePassword": "${TEST_KEYSTORE_PASSWORD:ksp4}",
+      "mtlsEnabled": "${TEST_MTLS_ENABLED:false}"
+    }
+  },
+  "stub": {
+    "generative": "${STUB_GENERATIVE:true}",
+    "delayInMilliseconds": "${STUB_DELAY_MS:10}",
+    "dictionary": "${STUB_DICTIONARY:dictionaries/stub.dict}",
+    "includeMandatoryAndRequestedKeysInResponse": "${STUB_INCLUDE_KEYS:true}",
+    "startTimeoutInMilliseconds": "${STUB_START_TIMEOUT_MS:60000}",
+    "hotReload": "${STUB_HOT_RELOAD:enabled}",
+    "strictMode": "${STUB_STRICT:false}",
+    "baseUrl": "${STUB_BASE_URL:http://localhost:9000}",
+    "customImplicitStubBase": "${STUB_IMPLICIT_BASE:http://localhost:9000/implicit}",
+    "filter": "${STUB_FILTER:POST /orders}",
+    "gracefulRestartTimeoutInMilliseconds": "${STUB_GRACEFUL_TIMEOUT_MS:15000}",
+    "https": {
+      "keyStore": {
+        "file": "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}",
+        "password": "${STUB_KEY_PASSWORD:kp5}",
+        "alias": "${STUB_KEY_ALIAS:alias5}"
+      },
+      "keyStorePassword": "${STUB_KEYSTORE_PASSWORD:ksp5}",
+      "mtlsEnabled": "${STUB_MTLS_ENABLED:true}"
+    },
+    "lenientMode": "${STUB_LENIENT:true}"
+  },
+  "backwardCompatibility": {
+    "baseBranch": "${BC_BASE_BRANCH:main}",
+    "targetPath": "${BC_TARGET_PATH:contracts/openapi}",
+    "repoDirectory": "${BC_REPO_DIR:.specmatic/repos/contracts}",
+    "strictMode": "${BC_STRICT:true}"
+  },
+  "virtual_service": {
+    "host": "${VS_HOST:127.0.0.1}",
+    "port": "${VS_PORT:8089}",
+    "specs": [
+      "${VS_SPEC_1:vs/spec1.yaml}"
+    ],
+    "specsDirPath": "${VS_SPECS_DIR:vs/specs}",
+    "logsDirPath": "${VS_LOGS_DIR:vs/logs}",
+    "logMode": "${VS_LOG_MODE:REQUEST_RESPONSE}",
+    "nonPatchableKeys": [
+      "${VS_NON_PATCHABLE_1:id}",
+      "${VS_NON_PATCHABLE_2:createdAt}"
+    ]
+  },
+  "examples": [
+    "${EXAMPLE_DIR_1:examples/global}",
+    "${EXAMPLE_DIR_2:examples/more}"
+  ],
+  "workflow": {
+    "ids": {
+      "key1": {
+        "extract": "${WF_EXTRACT_1:$.id}",
+        "use": "${WF_USE_1:$.orderId}"
+      },
+      "key2": {
+        "extract": "${WF_EXTRACT_2:$.token}",
+        "use": "${WF_USE_2:$.token}"
+      }
+    }
+  },
+  "ignoreInlineExamples": "${IGNORE_INLINE_EXAMPLES:false}",
+  "ignoreInlineExampleWarnings": "${IGNORE_INLINE_EXAMPLE_WARNINGS:true}",
+  "schemaExampleDefault": "${SCHEMA_EXAMPLE_DEFAULT:true}",
+  "fuzzy": "${FUZZY:true}",
+  "extensibleQueryParams": "${EXTENSIBLE_QUERY_PARAMS:true}",
+  "escapeSoapAction": "${ESCAPE_SOAP_ACTION:true}",
+  "prettyPrint": "${PRETTY_PRINT:true}",
+  "additionalExampleParamsFilePath": "${ADDITIONAL_EXAMPLE_PARAMS:examples/params.json}",
+  "attribute_selection_pattern": {
+    "default_fields": [
+      "${ATTR_DEFAULT_1:id}",
+      "${ATTR_DEFAULT_2:name}"
+    ],
+    "query_param_key": "${ATTR_QUERY_PARAM:fields}"
+  },
+  "all_patterns_mandatory": "${ALL_PATTERNS_MANDATORY:true}",
+  "default_pattern_values": {
+    "${DEFAULT_PATTERN_KEY_1:(number)}": "${DEFAULT_PATTERN_VALUE_1:10}",
+    "${DEFAULT_PATTERN_KEY_2:(string)}": "${DEFAULT_PATTERN_VALUE_2:sample}"
+  },
+  "disable_telemetry": "${DISABLE_TELEMETRY:true}",
+  "logging": {
+    "level": "${LOG_LEVEL:DEBUG}",
+    "json": {
+      "directory": "${LOG_JSON_DIR:logs/json}",
+      "console": "${LOG_JSON_CONSOLE:true}",
+      "logPrefix": "${LOG_JSON_PREFIX:specmatic-json}"
+    },
+    "text": {
+      "directory": "${LOG_TEXT_DIR:logs/text}",
+      "console": "${LOG_TEXT_CONSOLE:false}",
+      "logPrefix": "${LOG_TEXT_PREFIX:specmatic-text}"
+    }
+  },
+  "mcp": {
+    "test": {
+      "baseUrl": "${MCP_BASE_URL:http://localhost:7071}",
+      "transportKind": "${MCP_TRANSPORT:STREAMABLE_HTTP}",
+      "enableResiliencyTests": "${MCP_RESILIENCY:true}",
+      "dictionaryFile": "${MCP_DICTIONARY:dictionaries/mcp.dict}",
+      "bearerToken": "${MCP_BEARER:mcp-bearer-token}",
+      "filterTools": [
+        "${MCP_FILTER_TOOL_1:search}",
+        "${MCP_FILTER_TOOL_2:ping}"
+      ],
+      "skipTools": [
+        "${MCP_SKIP_TOOL_1:dangerous-tool}"
+      ]
+    }
+  },
+  "license_path": "${LICENCE|LICENSE|LICENCE_PATH|LICENSE_PATH:~/.home/specmatic-license.txt}",
+  "report_dir_path": "${REPORT_DIR_PATH:reports/specmatic}",
+  "globalSettings": {
+    "specExamplesDirectoryTemplate": "${SPEC_EXAMPLE_TEMPLATE:<SPEC_FILE_NAME>_examples}",
+    "sharedExamplesDirectoryTemplate": [
+      "${SHARED_EX_TEMPLATE_1:<SPEC_EACH_PARENT>_common}",
+      "${SHARED_EX_TEMPLATE_2:common}"
+    ]
+  }
+}
