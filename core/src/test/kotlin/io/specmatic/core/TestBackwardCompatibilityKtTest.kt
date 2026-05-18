@@ -1,6 +1,9 @@
 package io.specmatic.core
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
@@ -4717,6 +4720,93 @@ paths:
             assertThat(getOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
             assertThat(getOperation.path("compatibility").path("result").asText()).isEqualTo("Compatible")
         }
+    }
+
+    @Nested
+    inner class OperationChangeStatus {
+        private val baseSpec = """
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: List orders
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: object
+                              required: [id]
+                              properties:
+                                id:
+                                  type: string
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [id]
+                          properties:
+                            id:
+                              type: string
+                  responses:
+                    '201':
+                      description: Created
+        """.trimIndent()
+
+        @Test
+        fun `only the patched POST operation is CHANGED, the untouched GET stays UNCHANGED`(@TempDir tempDir: File) {
+            val newerSpecPatch = """
+                - op: add
+                  path: /paths/~1orders/post/requestBody/content/application~1json/schema/properties/note
+                  value:
+                    type: string
+            """.trimIndent()
+
+            val operations = runBccAndGetOperations(tempDir, baseSpec, newerSpecPatch)
+
+            val getOp = operations.first { it.path("method").asText() == "GET" }
+            val postOp = operations.first { it.path("method").asText() == "POST" }
+
+            assertThat(getOp.path("compatibility").path("changeStatus").asText()).isEqualTo("UNCHANGED")
+            assertThat(postOp.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
+        }
+
+        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpecPatch: String): JsonNode {
+            val configFile = tempDir.resolve("specmatic.yaml").apply {
+                writeText("""
+                version: 2
+                reportDirPath: ${tempDir.canonicalPath}/reports
+                """.trimIndent())
+            }
+            val oldSpecFile = tempDir.resolve("old.yaml").apply { writeText(oldSpec) }
+            val newSpecFile = tempDir.resolve("new.yaml").apply { writeText(oldSpec.applyJsonPatch(newSpecPatch)) }
+
+            val oldFeature = OpenApiSpecification.fromFile(oldSpecFile.canonicalPath).toFeature()
+            val newFeature = OpenApiSpecification.fromFile(newSpecFile.canonicalPath).toFeature()
+
+            return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
+                val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
+                json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
+            }
+        }
+
+        private fun String.applyJsonPatch(patch: String): String {
+            val specNode = yamlMapper.readTree(this)
+            val patchNode = yamlMapper.readTree(patch)
+            val patched = JsonPatch.apply(patchNode, specNode)
+            return yamlMapper.writeValueAsString(patched)
+        }
+
+        private val yamlMapper = ObjectMapper(YAMLFactory())
     }
 }
 

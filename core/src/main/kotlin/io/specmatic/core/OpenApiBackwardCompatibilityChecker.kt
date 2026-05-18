@@ -3,23 +3,41 @@ package io.specmatic.core
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
+import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.test.asserts.toFailure
 import java.util.Collections
 import java.util.IdentityHashMap
 
 class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
+    private val newScenariosByPathAndMethod = newFeature.scenarios.groupBy { it.path to it.method }
 
     fun run(): List<OpenApiBackwardCompatibilityCheckRecord> {
         val requestFamilies = groupScenariosByPathAndMethod(oldFeature)
         return buildList {
             requestFamilies.forEach { requestFamily ->
-                val requestResults = validateRequestCompatibility(requestFamily).also(::addAll)
-                val responseResults = validateResponseCompatibility(requestFamily, requestResults).also(::addAll)
+                val changeStatus = operationChangeStatus(requestFamily)
+                val requestResults = validateRequestCompatibility(requestFamily, changeStatus).also(::addAll)
+                val responseResults = validateResponseCompatibility(requestFamily, requestResults, changeStatus).also(::addAll)
                 logOperationResult(requestResults.plus(responseResults))
             }
         }
     }
+
+    private fun operationChangeStatus(requestFamily: RequestFamily): ChangeStatus {
+        val newScenariosForOperation = newScenariosByPathAndMethod[requestFamily.path to requestFamily.method].orEmpty()
+        val oldFingerprints = requestFamily.scenarios.map { it.changeFingerprint() }.toSet()
+        val newFingerprints = newScenariosForOperation.map { it.changeFingerprint() }.toSet()
+        return if (oldFingerprints == newFingerprints) ChangeStatus.UNCHANGED else ChangeStatus.CHANGED
+    }
+
+    private fun Scenario.changeFingerprint(): ScenarioFingerprint = ScenarioFingerprint(
+        status = status,
+        requestContentType = requestContentType,
+        responseContentType = responseContentType,
+        httpRequestPattern = httpRequestPattern,
+        httpResponsePattern = httpResponsePattern,
+    )
 
     private fun groupScenariosByPathAndMethod(feature: Feature): List<RequestFamily> {
         return feature.scenarios
@@ -28,7 +46,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
             .map(::RequestFamily)
     }
 
-    private fun validateRequestCompatibility(requestFamily: RequestFamily): List<OpenApiBackwardCompatibilityCheckRecord> {
+    private fun validateRequestCompatibility(requestFamily: RequestFamily, changeStatus: ChangeStatus): List<OpenApiBackwardCompatibilityCheckRecord> {
         val scenarioPerReqIdentifier = requestFamily.oneScenarioPerReqIdentifiers()
         val positiveVariations = generatePositiveVariations(scenarioPerReqIdentifier)
         val totalPositiveVariations = positiveVariations.size
@@ -36,7 +54,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         logger.boundary()
         logger.log(initialLogMessage(requestFamily, totalPositiveVariations))
         return positiveVariations.withIndex().flatMap { (index, variation) ->
-            evaluateVariation(variation).also {
+            evaluateVariation(variation, changeStatus).also {
                 logProgress(index.inc(), totalPositiveVariations)
             }
         }
@@ -63,27 +81,27 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         logger.log("[Compatibility Check] Verdict: $verdict")
     }
 
-    private fun evaluateVariation(variationFromOldScenario: Scenario): List<OpenApiBackwardCompatibilityCheckRecord> {
+    private fun evaluateVariation(variationFromOldScenario: Scenario, changeStatus: ChangeStatus): List<OpenApiBackwardCompatibilityCheckRecord> {
         return try {
             val request = variationFromOldScenario.generateHttpRequest(backwardCompatibilityStrategies)
-            requestMatches(request, variationFromOldScenario)
+            requestMatches(request, variationFromOldScenario, changeStatus)
         } catch (contractException: ContractException) {
             val result = contractException.failure()
-            listOf(newRecord(variationFromOldScenario, result))
+            listOf(newRecord(variationFromOldScenario, result, changeStatus))
         } catch (_: StackOverflowError) {
             val result = Result.Failure(STACK_OVERFLOW_MESSAGE)
-            listOf(newRecord(variationFromOldScenario, result))
+            listOf(newRecord(variationFromOldScenario, result, changeStatus))
         } catch (_: EmptyContract) {
             val newFilePath = if (newFeature.path.isNotEmpty()) " at ${newFeature.path}" else ""
             val result = Result.Failure("The contract$newFilePath had no operations")
-            listOf(newRecord(variationFromOldScenario, result))
+            listOf(newRecord(variationFromOldScenario, result, changeStatus))
         } catch (throwable: Throwable) {
             val result = Result.Failure("Exception: ${throwable.localizedMessage}")
-            listOf(newRecord(variationFromOldScenario, result))
+            listOf(newRecord(variationFromOldScenario, result, changeStatus))
         }
     }
 
-    private fun requestMatches(request: HttpRequest, variationFromOldScenario: Scenario): List<OpenApiBackwardCompatibilityCheckRecord> {
+    private fun requestMatches(request: HttpRequest, variationFromOldScenario: Scenario, changeStatus: ChangeStatus): List<OpenApiBackwardCompatibilityCheckRecord> {
         if (newFeature.scenarios.isEmpty()) throw EmptyContract()
         val identifierMatches = newScenariosByMethodAndReqContentType.findExactOrSingle(
             first = variationFromOldScenario.method,
@@ -93,7 +111,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
-            return listOf(newRecord(variationFromOldScenario, result))
+            return listOf(newRecord(variationFromOldScenario, result, changeStatus))
         }
 
         // This is a performance optimization: If Path + Method + RequestContentType has many scenarios,
@@ -108,11 +126,11 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         // This is a performance optimization: As there can be multiple scenarios with responseCode and contentTypes,
         // we can associate first result with remaining avoiding re-valuation as they will share the same request schema as per OAS
         return identifierMatches.map { newScenario ->
-            newRecord(newScenario, matchResult)
+            newRecord(newScenario, matchResult, changeStatus)
         }
     }
 
-    private fun validateResponseCompatibility(requestFamily: RequestFamily, requestResults: List<OpenApiBackwardCompatibilityCheckRecord>): List<OpenApiBackwardCompatibilityCheckRecord> {
+    private fun validateResponseCompatibility(requestFamily: RequestFamily, requestResults: List<OpenApiBackwardCompatibilityCheckRecord>, changeStatus: ChangeStatus): List<OpenApiBackwardCompatibilityCheckRecord> {
         val oldScenarios = requestFamily.oneScenarioPerResIdentifiers()
         val newScenarios = dedupeNewScenariosByIdentity(requestResults)
         val newScenariosByStatusAndResContentType = newScenarios.groupBy { it.status to it.responseContentType }
@@ -121,10 +139,10 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
             val identifierMatches = newScenariosByStatusAndResContentType.findExactOrSingle(oldScenario.status, oldScenario.responseContentType)
             if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
-                return@flatMap listOf(newRecord(oldScenario, result))
+                return@flatMap listOf(newRecord(oldScenario, result, changeStatus))
             }
 
-            identifierMatches.map { newScenario -> checkResponseEncompasses(oldScenario, newScenario) }
+            identifierMatches.map { newScenario -> checkResponseEncompasses(oldScenario, newScenario, changeStatus) }
         }
     }
 
@@ -133,7 +151,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         return requestResults.asSequence().map { it.scenario }.filter(seenScenarios::add).toList()
     }
 
-    private fun checkResponseEncompasses(oldScenario: Scenario, newScenario: Scenario): OpenApiBackwardCompatibilityCheckRecord {
+    private fun checkResponseEncompasses(oldScenario: Scenario, newScenario: Scenario, changeStatus: ChangeStatus): OpenApiBackwardCompatibilityCheckRecord {
         return try {
             newRecord(
                 scenario = newScenario,
@@ -141,20 +159,22 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
                     other = newScenario.httpResponsePattern,
                     olderResolver = oldScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
                     newerResolver = newScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
-                )
+                ),
+                changeStatus = changeStatus,
             )
         } catch (_: StackOverflowError) {
-            newRecord(newScenario, Result.Failure(STACK_OVERFLOW_MESSAGE))
+            newRecord(newScenario, Result.Failure(STACK_OVERFLOW_MESSAGE), changeStatus)
         } catch (throwable: Throwable) {
-            newRecord(newScenario, throwable.toFailure())
+            newRecord(newScenario, throwable.toFailure(), changeStatus)
         }
     }
 
-    private fun newRecord(scenario: Scenario, result: Result): OpenApiBackwardCompatibilityCheckRecord {
+    private fun newRecord(scenario: Scenario, result: Result, changeStatus: ChangeStatus): OpenApiBackwardCompatibilityCheckRecord {
         return OpenApiBackwardCompatibilityCheckRecord(
             feature = newFeature,
             scenario = scenario,
-            compatResult = result.updateScenario(scenario).withoutFailureReasons()
+            compatResult = result.updateScenario(scenario).withoutFailureReasons(),
+            changeStatus = changeStatus,
         )
     }
 
@@ -179,10 +199,21 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 }
 
+private data class ScenarioFingerprint(
+    val status: Int,
+    val requestContentType: String?,
+    val responseContentType: String?,
+    val httpRequestPattern: HttpRequestPattern,
+    val httpResponsePattern: HttpResponsePattern,
+)
+
 private data class RequestFamily(val scenarios: List<Scenario>) {
     private val representativeScenario: Scenario = scenarios.first()
     private val groupedByRequestIdentifiers = scenarios.groupBy { Triple(it.path, it.method, it.requestContentType) }
     private val groupedByResponseIdentifiers = scenarios.groupBy { Pair(it.status, it.responseContentType) }
+
+    val path: String get() = representativeScenario.path
+    val method: String get() = representativeScenario.method
 
     fun oneScenarioPerReqIdentifiers(): List<Scenario> {
         return groupedByRequestIdentifiers.values.mapNotNull { scenarios -> scenarios.firstOrNull() }
