@@ -5155,6 +5155,104 @@ paths:
                       path: /paths/~1orders/post
                 """,
             ),
+            ChangeStatusCase(
+                name = "26. only operation description text changed",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.UNCHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/description
+                      value: List all orders
+                """,
+            ),
+            ChangeStatusCase(
+                name = "27. only operationId renamed",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.UNCHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/operationId
+                      value: listOrders
+                """,
+            ),
+            ChangeStatusCase(
+                name = "28. only tags changed",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.UNCHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/get/tags
+                      value: [orders]
+                """,
+            ),
+            ChangeStatusCase(
+                name = "29. only request body example added",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.UNCHANGED,
+                newPatch = """
+                    - op: add
+                      path: /paths/~1orders/post/requestBody/content/application~1json/examples
+                      value:
+                        sample:
+                          value:
+                            id: "abc"
+                """,
+            ),
+            // TODO(product): refactoring an inline schema into a \$ref (or back) currently registers
+            // as CHANGED because Specmatic's resolved patterns carry a typeAlias derived from the
+            // \$ref name, which the inline form lacks. From a backwards-compatibility standpoint the
+            // schemas are equivalent — consider normalising the fingerprint to drop typeAlias if we
+            // want refactoring-only diffs to surface as UNCHANGED.
+            ChangeStatusCase(
+                name = "30. schema referenced via \$ref in old, inlined in new — currently CHANGED",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Order:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Order'
+                """,
+            ),
+            ChangeStatusCase(
+                name = "31. required array and properties reordered",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.UNCHANGED,
+                oldPatch = """
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        type: object
+                        required: [id, note]
+                        properties:
+                          id:
+                            type: string
+                          note:
+                            type: string
+                """,
+                newPatch = """
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        type: object
+                        required: [note, id]
+                        properties:
+                          note:
+                            type: string
+                          id:
+                            type: string
+                """,
+            ),
         )
 
     }
