@@ -263,6 +263,46 @@ class ConfigUpgradeTemplatePreserverTest {
     }
 
     @Test
+    fun `does not copy a contract entry template to another entry with the same resolved value`() {
+        val providerBaseUrl = "\${BASE_URL:http://localhost:8080}"
+
+        val upgraded = preserveTemplates(
+            originalConfigYaml =
+            """
+            version: 2
+            contracts:
+              - provides:
+                  - specs:
+                      - spec1.yaml
+                    config:
+                      baseUrl: $providerBaseUrl
+                  - specs:
+                      - spec2.yaml
+                    config:
+                      baseUrl: http://localhost:8080
+            """.trimIndent(),
+            upgradedConfigYaml =
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                runOptions:
+                  openapi:
+                    specs:
+                      - spec:
+                          baseUrl: http://localhost:8080
+                      - spec:
+                          baseUrl: http://localhost:8080
+            """.trimIndent(),
+        )
+
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/0/spec/baseUrl").asText())
+            .isEqualTo(providerBaseUrl)
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/1/spec/baseUrl").asText())
+            .isEqualTo("http://localhost:8080")
+    }
+
+    @Test
     fun `preserves resiliency test template when the field is renamed and moved`() {
         val resiliencyTests = "\${RESILIENCY_TESTS:all}"
 

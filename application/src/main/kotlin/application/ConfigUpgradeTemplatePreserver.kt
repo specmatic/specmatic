@@ -21,7 +21,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         fun collect(node: JsonNode): TemplateSet {
             val fieldTemplates = mutableListOf<FieldTemplate>()
             val valueTemplates = mutableListOf<ValueTemplate>()
-            collectFrom(node, emptyList(), fieldTemplates, valueTemplates)
+            collectFrom(node, node, emptyList(), fieldTemplates, valueTemplates)
             return TemplateSet(
                 fieldTemplates = fieldTemplates.toUnambiguousTemplates().sortedBy { it.targetContainers == null },
                 valueTemplates = valueTemplates.toUniqueResolvedValueTemplates(),
@@ -29,6 +29,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         }
 
         private fun collectFrom(
+            root: JsonNode,
             node: JsonNode,
             path: List<String>,
             fieldTemplates: MutableList<FieldTemplate>,
@@ -36,11 +37,11 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         ) {
             when {
                 node.isObject -> node.properties().asSequence().forEach { entry ->
-                    collectFrom(entry.value, path + entry.key, fieldTemplates, valueTemplates)
+                    collectFrom(root, entry.value, path + entry.key, fieldTemplates, valueTemplates)
                 }
 
                 node.isArray -> node.elements().asSequence().forEachIndexed { index, element ->
-                    collectFrom(element, path + index.toString(), fieldTemplates, valueTemplates)
+                    collectFrom(root, element, path + index.toString(), fieldTemplates, valueTemplates)
                 }
 
                 node.isTextual && ConfigTemplateUtils.isConfigTemplate(node.asText()) -> {
@@ -48,7 +49,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     val resolvedText = ConfigTemplateUtils.resolveTemplateValue(node).scalarValueText() ?: return
                     val sourceFieldName = path.sourceFieldName()
                     if (sourceFieldName != null) {
-                        fieldTemplates.add(fieldTemplateFor(path, sourceFieldName, rawText, resolvedText))
+                        fieldTemplates.add(fieldTemplateFor(root, path, sourceFieldName, rawText, resolvedText))
                     } else {
                         valueTemplates.add(ValueTemplate(rawText, resolvedText))
                     }
@@ -57,17 +58,20 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         }
 
         private fun fieldTemplateFor(
+            root: JsonNode,
             path: List<String>,
             sourceFieldName: String,
             rawText: String,
             resolvedText: String,
         ): FieldTemplate {
+            val targetContainers = targetContainersFor(path, sourceFieldName)
             return FieldTemplate(
                 rawText = targetRawTextFor(path, sourceFieldName, rawText),
                 resolvedText = targetResolvedTextFor(path, sourceFieldName, resolvedText),
                 targetFieldNames = targetFieldNamesFor(path, sourceFieldName),
-                targetContainers = targetContainersFor(path, sourceFieldName),
+                targetContainers = targetContainers,
                 targetParentPathSuffix = targetParentPathSuffixFor(path),
+                contractEntryIndexHint = contractEntryIndexHintFor(root, path, targetContainers),
             )
         }
 
@@ -218,6 +222,40 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
             return path.dropLast(1)
         }
 
+        private fun contractEntryIndexHintFor(
+            root: JsonNode,
+            path: List<String>,
+            targetContainers: Set<TargetContainer>?,
+        ): ContractEntryIndexHint? {
+            if (path.firstOrNull() != "contracts") return null
+            if (targetContainers?.any { container -> container.isRunOptionsContainer() } != true) return null
+
+            return when {
+                "provides" in path -> providerContractEntryIndexHintFor(root, path)
+                "consumes" in path -> contractEntryIndexHintFor(path, ContractEntryKind.CONSUMES)
+                else -> null
+            }
+        }
+
+        private fun providerContractEntryIndexHintFor(root: JsonNode, path: List<String>): ContractEntryIndexHint? {
+            val providesIndex = path.indexOf(ContractEntryKind.PROVIDES.v2FieldName)
+            val entryIndex = path.getOrNull(providesIndex + 1)?.toIntOrNull() ?: return null
+            val providesArray = root.nodeAt(path.take(providesIndex + 1))
+                ?.takeIf(JsonNode::isArray)
+                ?: return null
+            providesArray.get(entryIndex)?.takeIf { entry -> entry.isProviderRunOptionsEntry() } ?: return null
+
+            val precedingRunOptionEntries = (0 until entryIndex)
+                .count { index -> providesArray.get(index)?.isProviderRunOptionsEntry() == true }
+            return ContractEntryIndexHint(ContractEntryKind.PROVIDES, precedingRunOptionEntries)
+        }
+
+        private fun contractEntryIndexHintFor(path: List<String>, kind: ContractEntryKind): ContractEntryIndexHint? {
+            val kindIndex = path.indexOf(kind.v2FieldName)
+            val contractEntryIndex = path.getOrNull(kindIndex + 1)?.toIntOrNull() ?: return null
+            return ContractEntryIndexHint(kind, contractEntryIndex)
+        }
+
         private fun List<ValueTemplate>.toUniqueResolvedValueTemplates(): List<ValueTemplate> {
             return groupBy(ValueTemplate::resolvedText)
                 .filterValues { templates -> templates.map(ValueTemplate::rawText).distinct().size == 1 }
@@ -231,6 +269,7 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
                     targetFieldNames = template.targetFieldNames,
                     targetContainers = template.targetContainers,
                     targetParentPathSuffix = template.targetParentPathSuffix,
+                    contractEntryIndexHint = template.contractEntryIndexHint,
                     resolvedText = template.resolvedText,
                 )
             }.filterValues { templates ->
@@ -335,11 +374,13 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         val targetFieldNames: Set<String>,
         val targetContainers: Set<TargetContainer>?,
         val targetParentPathSuffix: List<String>?,
+        val contractEntryIndexHint: ContractEntryIndexHint?,
     ) {
         fun matches(fieldName: String, value: JsonNode, parentPath: List<String>): Boolean {
             return matchesTargetFieldName(fieldName) &&
                 matchesTargetContainerHint(parentPath) &&
                 matchesParentPathSuffixHint(parentPath) &&
+                matchesContractEntryIndexHint(parentPath) &&
                 matchesResolvedScalarValue(value)
         }
 
@@ -358,6 +399,10 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
             return targetParentPathSuffix?.let { suffix -> parentPath.endsWith(suffix) } ?: true
         }
 
+        private fun matchesContractEntryIndexHint(parentPath: List<String>): Boolean {
+            return contractEntryIndexHint?.matches(parentPath) ?: true
+        }
+
         private fun matchesResolvedScalarValue(value: JsonNode): Boolean {
             return value.scalarValueText() == resolvedText
         }
@@ -369,8 +414,25 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
         val targetFieldNames: Set<String>,
         val targetContainers: Set<TargetContainer>?,
         val targetParentPathSuffix: List<String>?,
+        val contractEntryIndexHint: ContractEntryIndexHint?,
         val resolvedText: String,
     )
+
+    private data class ContractEntryIndexHint(val kind: ContractEntryKind, val index: Int) {
+        fun matches(parentPath: List<String>): Boolean {
+            return when (kind) {
+                ContractEntryKind.PROVIDES ->
+                    parentPath.isProviderContractEntryAt(index)
+                ContractEntryKind.CONSUMES ->
+                    parentPath.isConsumerContractEntryAt(index)
+            }
+        }
+    }
+
+    private enum class ContractEntryKind(val v2FieldName: String) {
+        PROVIDES("provides"),
+        CONSUMES("consumes"),
+    }
 
     private enum class TargetContainer {
         TEST_SETTINGS,
@@ -484,6 +546,43 @@ internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMa
 
         fun List<String>.sourceFieldName(): String? {
             return lastOrNull()?.takeUnless { it.toIntOrNull() != null }
+        }
+
+        fun List<String>.isProviderContractEntryAt(index: Int): Boolean {
+            return when {
+                firstOrNull() == "systemUnderTest" ->
+                    arrayIndexAfter("specs") == index
+                firstOrNull() == "components" && "runOptions" in this ->
+                    arrayIndexAfter("specs") == index
+                else -> false
+            }
+        }
+
+        fun List<String>.isConsumerContractEntryAt(index: Int): Boolean {
+            return firstOrNull() == "dependencies" && arrayIndexAfter("services") == index
+        }
+
+        fun List<String>.arrayIndexAfter(fieldName: String): Int? {
+            val fieldIndex = indexOf(fieldName)
+            return getOrNull(fieldIndex + 1)?.toIntOrNull()
+        }
+
+        fun TargetContainer.isRunOptionsContainer(): Boolean {
+            return this in setOf(TargetContainer.TEST_RUN_OPTIONS, TargetContainer.MOCK_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
+        }
+
+        fun JsonNode.nodeAt(path: List<String>): JsonNode? {
+            return path.fold(this as JsonNode?) { node, segment ->
+                when {
+                    node == null -> null
+                    node.isArray -> segment.toIntOrNull()?.let(node::get)
+                    else -> node.get(segment)
+                }
+            }
+        }
+
+        fun JsonNode.isProviderRunOptionsEntry(): Boolean {
+            return isObject && (has("config") || has("baseUrl") || has("host") || has("port") || has("basePath"))
         }
 
         fun JsonNode.isScalarValue(): Boolean {
