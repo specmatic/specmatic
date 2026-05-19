@@ -5198,15 +5198,10 @@ paths:
                             id: "abc"
                 """,
             ),
-            // TODO(product): refactoring an inline schema into a \$ref (or back) currently registers
-            // as CHANGED because Specmatic's resolved patterns carry a typeAlias derived from the
-            // \$ref name, which the inline form lacks. From a backwards-compatibility standpoint the
-            // schemas are equivalent — consider normalising the fingerprint to drop typeAlias if we
-            // want refactoring-only diffs to surface as UNCHANGED.
             ChangeStatusCase(
-                name = "30. schema referenced via \$ref in old, inlined in new — currently CHANGED",
+                name = "30. schema referenced via \$ref in old, inlined in new",
                 path = "/orders", method = "POST",
-                expected = ChangeStatus.CHANGED,
+                expected = ChangeStatus.UNCHANGED,
                 oldPatch = """
                     - op: add
                       path: /components

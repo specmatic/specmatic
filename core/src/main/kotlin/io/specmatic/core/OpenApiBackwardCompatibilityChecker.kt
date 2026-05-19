@@ -11,6 +11,11 @@ import java.util.IdentityHashMap
 class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
     private val newScenariosByPathAndMethod = newFeature.scenarios.groupBy { it.path to it.method }
+    private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
+        .filter { !it.ignoreFailure }
+        .groupBy { it.path to it.method }
+    private val newChangeTrackingScenariosByPathAndMethod = newFeature.scenariosForChangeTracking()
+        .groupBy { it.path to it.method }
 
     fun run(): List<OpenApiBackwardCompatibilityCheckRecord> {
         val requestFamilies = groupScenariosByPathAndMethod(oldFeature)
@@ -25,8 +30,10 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 
     private fun operationChangeStatus(requestFamily: RequestFamily): ChangeStatus {
-        val newScenariosForOperation = newScenariosByPathAndMethod[requestFamily.path to requestFamily.method].orEmpty()
-        return ScenarioFingerprint.changeStatusBetween(requestFamily.scenarios, newScenariosForOperation)
+        val operationIdentifier = requestFamily.path to requestFamily.method
+        val oldScenariosForOperation = oldChangeTrackingScenariosByPathAndMethod[operationIdentifier] ?: requestFamily.scenarios
+        val newScenariosForOperation = newChangeTrackingScenariosByPathAndMethod[operationIdentifier].orEmpty()
+        return ScenarioFingerprint.changeStatusBetween(oldScenariosForOperation, newScenariosForOperation)
     }
 
     private fun groupScenariosByPathAndMethod(feature: Feature): List<RequestFamily> {
