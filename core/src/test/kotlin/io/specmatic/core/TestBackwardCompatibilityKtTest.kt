@@ -5260,6 +5260,198 @@ paths:
                 """,
             ),
             ChangeStatusCase(
+                name = "33. self-recursive schema - leaf type changes",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          TreeNode:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                              children:
+                                type: array
+                                items:
+                                  ${'$'}ref: '#/components/schemas/TreeNode'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/TreeNode'
+                """,
+                newPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          TreeNode:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: integer
+                              children:
+                                type: array
+                                items:
+                                  ${'$'}ref: '#/components/schemas/TreeNode'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/TreeNode'
+                """,
+            ),
+            ChangeStatusCase(
+                name = "34. mutually recursive schemas - leaf changes on File",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Folder:
+                            type: object
+                            required: [name]
+                            properties:
+                              name:
+                                type: string
+                              files:
+                                type: array
+                                items:
+                                  ${'$'}ref: '#/components/schemas/File'
+                          File:
+                            type: object
+                            required: [name]
+                            properties:
+                              name:
+                                type: string
+                              folder:
+                                ${'$'}ref: '#/components/schemas/Folder'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Folder'
+                """,
+                newPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Folder:
+                            type: object
+                            required: [name]
+                            properties:
+                              name:
+                                type: string
+                              files:
+                                type: array
+                                items:
+                                  ${'$'}ref: '#/components/schemas/File'
+                          File:
+                            type: object
+                            required: [name]
+                            properties:
+                              name:
+                                type: integer
+                              folder:
+                                ${'$'}ref: '#/components/schemas/Folder'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Folder'
+                """,
+            ),
+            ChangeStatusCase(
+                name = "35. optional self-recursive parent ref becomes required",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.CHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Node:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                              parent:
+                                ${'$'}ref: '#/components/schemas/Node'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Node'
+                """,
+                newPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          Node:
+                            type: object
+                            required: [id, parent]
+                            properties:
+                              id:
+                                type: string
+                              parent:
+                                ${'$'}ref: '#/components/schemas/Node'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/Node'
+                """,
+            ),
+            ChangeStatusCase(
+                name = "36. self-recursive schema identical is UNCHANGED",
+                path = "/orders", method = "POST",
+                expected = ChangeStatus.UNCHANGED,
+                oldPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          TreeNode:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                              children:
+                                type: array
+                                items:
+                                  ${'$'}ref: '#/components/schemas/TreeNode'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/TreeNode'
+                """,
+                newPatch = """
+                    - op: add
+                      path: /components
+                      value:
+                        schemas:
+                          TreeNode:
+                            type: object
+                            required: [id]
+                            properties:
+                              id:
+                                type: string
+                              children:
+                                type: array
+                                items:
+                                  ${'$'}ref: '#/components/schemas/TreeNode'
+                    - op: replace
+                      path: /paths/~1orders/post/requestBody/content/application~1json/schema
+                      value:
+                        ${'$'}ref: '#/components/schemas/TreeNode'
+                """,
+            ),
+            ChangeStatusCase(
                 name = "32. required array and properties reordered",
                 path = "/orders", method = "POST",
                 expected = ChangeStatus.UNCHANGED,
