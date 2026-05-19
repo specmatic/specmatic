@@ -133,7 +133,7 @@ object TemplatePreservingConfigUpgrade {
         }
 
         fun patchContracts() {
-            val contracts = rawConfig["contracts"]?.takeIf(JsonNode::isArray) ?: return
+            val contracts = rawConfig["contracts"]?.asContractSections().orEmpty()
             contracts.forEach { contract ->
                 val sourceTemplates = contract.sourceTemplates()
                 listOf("/systemUnderTest/service/definitions", "/dependencies/services")
@@ -142,6 +142,14 @@ object TemplatePreservingConfigUpgrade {
 
                 patchContractSide(contract, "provides", "/systemUnderTest/service")
                 patchContractSide(contract, "consumes", "/dependencies/services")
+            }
+        }
+
+        private fun JsonNode.asContractSections(): List<JsonNode> {
+            return when {
+                isArray -> elements().asSequence().toList()
+                isObject -> listOf(this)
+                else -> emptyList()
             }
         }
 

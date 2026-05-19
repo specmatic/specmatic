@@ -166,6 +166,72 @@ class TemplatePreservingConfigUpgradeTest {
             .isEqualTo("{KAFKA_SERVER:localhost:9092}")
     }
 
+    @Test
+    fun `preserves provider base url template only for the matching contract entry`() {
+        val upgraded = upgradePreservingTemplates(
+            """
+            version: 2
+            contracts:
+              - provides:
+                  - specs:
+                      - spec1.yaml
+                    specType: openapi
+                    config:
+                      baseUrl: "{BASE_URL:http://localhost:8080}"
+                  - specs:
+                      - spec2.yaml
+                    specType: openapi
+                    config:
+                      baseUrl: http://localhost:8080
+            """.trimIndent()
+        )
+
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/0/spec/baseUrl").asText())
+            .isEqualTo("{BASE_URL:http://localhost:8080}")
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/1/spec/baseUrl").asText())
+            .isEqualTo("http://localhost:8080")
+    }
+
+    @Test
+    fun `preserves provider base url template only for matching entry when raw contracts is an object`() {
+        val upgraded = TemplatePreservingConfigUpgrade.preserveTemplates(
+            rawLegacyConfig = mapper.readTree(
+                """
+                version: 2
+                contracts:
+                  provides:
+                  - specs:
+                    - spec1.yaml
+                    config:
+                      baseUrl: ${'$'}{BASE_URL:http://localhost:8080}
+                  - specs:
+                    - spec2.yaml
+                    config:
+                      baseUrl: http://localhost:8080
+                """.trimIndent()
+            ),
+            upgradedConfig = mapper.readTree(
+                """
+                version: 3
+                systemUnderTest:
+                  service:
+                    runOptions:
+                      openapi:
+                        specs:
+                          - spec:
+                              baseUrl: http://localhost:8080
+                          - spec:
+                              baseUrl: http://localhost:8080
+                """.trimIndent()
+            )
+        )
+
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/0/spec/baseUrl").asText())
+            .isEqualTo("${'$'}{BASE_URL:http://localhost:8080}")
+        assertThat(upgraded.at("/systemUnderTest/service/runOptions/openapi/specs/1/spec/baseUrl").asText())
+            .isEqualTo("http://localhost:8080")
+    }
+
     private fun upgradePreservingTemplates(yaml: String): JsonNode {
         val rawTree = mapper.readTree(yaml)
         val resolvedTree = resolveTemplates(mapper.readTree(yaml))
