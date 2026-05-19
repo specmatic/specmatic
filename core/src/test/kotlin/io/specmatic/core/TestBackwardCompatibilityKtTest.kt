@@ -4735,39 +4735,61 @@ paths:
             val newSpec = readFixture("orders_new.yaml")
 
             val operations = runBccAndGetOperations(tempDir, oldSpec, newSpec)
+            val json = "application/json"
 
-            // Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
-            operations.assertRow(method = "GET", path = "/orders", responseCode = 200, changeStatus = "CHANGED", result = "Compatible")
-            operations.assertRow(method = "POST", path = "/orders", responseCode = 201, changeStatus = "CHANGED", result = "Compatible")
-            operations.assertRow(method = "GET", path = "/orders/{id}", responseCode = 200, changeStatus = "CHANGED", result = "Compatible")
+            // NEW-SIDE N1: Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
+            operations.assertRow(OperationKey("GET", "/orders", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("POST", "/orders", json, 201, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
 
-            // ErrorBrief.code string -> integer is reachable ONLY from GET /orders 400
-            operations.assertRow(method = "GET", path = "/orders", responseCode = 400, changeStatus = "CHANGED", result = "Incompatible")
+            // NEW-SIDE N2: ErrorBrief.code string -> integer (reachable ONLY from GET /orders 400)
+            operations.assertRow(OperationKey("GET", "/orders", null, 400, json), changeStatus = "CHANGED", result = "Incompatible")
 
-            // GET /orders/{id} 404 uses ErrorDetailed (untouched) - proves per-5-tuple isolation
-            // even though GET /orders 400 under the same kind of error response did change
-            operations.assertRow(method = "GET", path = "/orders/{id}", responseCode = 404, changeStatus = "UNCHANGED", result = "Compatible")
+            // NEW-SIDE N3: Self-recursive Category gains optional `description`
+            operations.assertRow(OperationKey("GET", "/categories", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
 
-            // Self-recursive Category gains optional `description`
-            operations.assertRow(method = "GET", path = "/categories", responseCode = 200, changeStatus = "CHANGED", result = "Compatible")
+            // OLD-SIDE O1 (non-breaking): ErrorDetailed loses optional `traceId`
+            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "Compatible")
+
+            // OLD-SIDE O2 (breaking): DELETE /orders/{id} removed from new (no request/response body)
+            operations.assertRow(OperationKey("DELETE", "/orders/{id}", null, 204, null), changeStatus = "CHANGED", result = "Incompatible")
+
+            // OLD-SIDE O3 (breaking): GET /orders 500 response removed from new
+            operations.assertRow(OperationKey("GET", "/orders", null, 500, json), changeStatus = "CHANGED", result = "Incompatible")
+
+            // UNCHANGED 5-tuple sharing a (path, method) with a CHANGED row -
+            // POST /orders 400 uses OrderInput (untouched) for request and ValidationError
+            // (untouched) for response, while POST /orders 201 uses Order (changed) for response.
+            operations.assertRow(OperationKey("POST", "/orders", json, 400, json), changeStatus = "UNCHANGED", result = "Compatible")
+
+            // UNCHANGED standalone operation - GET /health is identical in both specs
+            operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "Compatible")
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 6 operation rows in the report")
-                .hasSize(6)
+                .describedAs("expected 10 operation rows in the report")
+                .hasSize(10)
         }
 
-        private fun JsonNode.assertRow(method: String, path: String, responseCode: Int, changeStatus: String, result: String) {
-            val row = firstOrNull {
-                it.path("method").asText() == method &&
-                it.path("path").asText() == path &&
-                it.path("responseCode").asInt() == responseCode
-            } ?: throw AssertionError("No operation row for $method $path $responseCode. Rows present: ${this.joinToString { "${it.path("method").asText()} ${it.path("path").asText()} ${it.path("responseCode").asInt()}" }}")
+        private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String) {
+            val row = firstOrNull { node ->
+                node.path("method").asText() == key.method &&
+                node.path("path").asText() == key.path &&
+                node.path("responseCode").asInt() == key.responseCode &&
+                node.path("contentType").asText().ifEmpty { null } == key.requestContentType &&
+                node.path("responseContentType").asText().ifEmpty { null } == key.responseContentType
+            } ?: throw AssertionError("No operation row matching $key. Rows present:\n" +
+                joinToString("\n") { node ->
+                    "  - method=${node.path("method").asText()} path=${node.path("path").asText()} " +
+                        "reqCT=${node.path("contentType").asText().ifEmpty { "null" }} " +
+                        "status=${node.path("responseCode").asInt()} " +
+                        "resCT=${node.path("responseContentType").asText().ifEmpty { "null" }}"
+                })
             assertThat(row.path("compatibility").path("changeStatus").asText())
-                .describedAs("changeStatus for $method $path $responseCode")
+                .describedAs("changeStatus for $key")
                 .isEqualTo(changeStatus)
             assertThat(row.path("compatibility").path("result").asText())
-                .describedAs("result for $method $path $responseCode")
+                .describedAs("result for $key")
                 .isEqualTo(result)
         }
 
@@ -5695,6 +5717,14 @@ paths:
 
     }
 }
+
+internal data class OperationKey(
+    val method: String,
+    val path: String,
+    val requestContentType: String?,
+    val responseCode: Int,
+    val responseContentType: String?,
+)
 
 internal data class ChangeStatusCase(
     val name: String,

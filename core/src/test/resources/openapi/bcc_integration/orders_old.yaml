@@ -20,13 +20,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBrief'
+        # OLD-SIDE CHANGE O3 (breaking): old declares a 500 response on GET /orders;
+        # new removes it entirely.
+        # Expected: GET /orders 500 row CHANGED + Incompatible
+        # (BCC iterates old scenarios, finds no matching status in new, emits
+        # "exists in old but not in new").
+        '500':
+          description: server error
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
     post:
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/OrderInput'
       responses:
         '201':
           description: created
@@ -34,6 +49,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        # UNCHANGED 5-tuple under a CHANGED (path, method): POST /orders 400
+        # uses OrderInput (untouched) for request and ValidationError (untouched)
+        # for response. Sits alongside POST /orders 201 (CHANGED because Order
+        # in the response gained `notes`). The clearest per-5-tuple demonstration.
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
   /orders/{id}:
     get:
       parameters:
@@ -55,6 +80,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDetailed'
+    # OLD-SIDE CHANGE O2 (breaking): old declares DELETE /orders/{id}; new removes
+    # the operation entirely.
+    # Expected: DELETE /orders/{id} 204 row CHANGED + Incompatible
+    # (operation removal is the canonical breaking change).
+    delete:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: deleted
+  # UNCHANGED operation: identical in both specs, returns UNCHANGED + Compatible.
+  /health:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
   /categories:
     get:
       responses:
@@ -69,6 +122,20 @@ paths:
 components:
   schemas:
     Order:
+      type: object
+      required: [id, total, customer]
+      properties:
+        id:
+          type: string
+        total:
+          type: number
+        customer:
+          $ref: '#/components/schemas/Customer'
+    # UNCHANGED component: dedicated request-side schema kept separate from
+    # `Order` so that NEW-SIDE CHANGE N1 (adding `notes` to Order) doesn't
+    # propagate into POST /orders' request fingerprint. This is what lets
+    # POST /orders 400 stay UNCHANGED while POST /orders 201 turns CHANGED.
+    OrderInput:
       type: object
       required: [id, total, customer]
       properties:
@@ -94,6 +161,15 @@ components:
           type: string
         message:
           type: string
+    # UNCHANGED component: referenced only by POST /orders 400.
+    ValidationError:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+        reason:
+          type: string
     ErrorDetailed:
       type: object
       required: [code, message]
@@ -102,6 +178,11 @@ components:
           type: string
         message:
           type: string
+        # OLD-SIDE CHANGE O1 (non-breaking): old declares optional `traceId` on
+        # ErrorDetailed; new removes the field.
+        # Expected: GET /orders/{id} 404 row CHANGED + Compatible
+        # (dropping an optional response field is non-breaking - old clients
+        # never required it to be present).
         traceId:
           type: string
     Category:

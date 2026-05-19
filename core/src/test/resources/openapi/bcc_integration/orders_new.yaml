@@ -26,7 +26,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/OrderInput'
       responses:
         '201':
           description: created
@@ -34,6 +34,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
+        # UNCHANGED 5-tuple - request uses OrderInput (untouched), response
+        # uses ValidationError (untouched). See orders_old.yaml for rationale.
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
   /orders/{id}:
     get:
       parameters:
@@ -55,6 +63,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorDetailed'
+  # UNCHANGED operation - identical to old.
+  /health:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
   /categories:
     get:
       responses:
@@ -78,11 +100,24 @@ components:
           type: number
         customer:
           $ref: '#/components/schemas/Customer'
-        # CHANGE 1: Order gains optional `notes` field.
-        # Reachable from: GET /orders 200, POST /orders request + 201, GET /orders/{id} 200.
-        # Expected: CHANGED + Compatible on every Order-using 5-tuple.
+        # NEW-SIDE CHANGE N1: Order gains optional `notes` field.
+        # Reachable only from RESPONSE bodies (POST uses OrderInput for request).
+        # Expected: CHANGED + Compatible on GET /orders 200, POST /orders 201,
+        # GET /orders/{id} 200.
         notes:
           type: string
+    # OrderInput stays untouched - this is what isolates POST /orders 400 as
+    # UNCHANGED even though POST /orders 201 is CHANGED.
+    OrderInput:
+      type: object
+      required: [id, total, customer]
+      properties:
+        id:
+          type: string
+        total:
+          type: number
+        customer:
+          $ref: '#/components/schemas/Customer'
     Customer:
       # UNCHANGED on purpose - Customer is referenced by Order but not modified itself.
       # Order-using rows are still CHANGED (because Order changed), but this confirms
@@ -107,16 +142,24 @@ components:
           type: integer
         message:
           type: string
+    # UNCHANGED component - identical to old.
+    ValidationError:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+        reason:
+          type: string
     ErrorDetailed:
-      # UNCHANGED on purpose - proves per-5-tuple isolation from ErrorBrief change.
+      # Mirrors OLD-SIDE CHANGE O1: the `traceId` field that old declared as
+      # optional is gone here. See orders_old.yaml for the change rationale.
       type: object
       required: [code, message]
       properties:
         code:
           type: string
         message:
-          type: string
-        traceId:
           type: string
     Category:
       type: object
