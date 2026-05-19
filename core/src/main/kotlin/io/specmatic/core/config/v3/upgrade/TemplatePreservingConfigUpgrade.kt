@@ -135,14 +135,16 @@ object TemplatePreservingConfigUpgrade {
         fun patchContracts() {
             val contracts = rawConfig["contracts"]?.asContractSections().orEmpty()
             contracts.forEach { contract ->
-                val sourceTemplates = contract.sourceTemplates()
-                listOf("/systemUnderTest/service/definitions", "/dependencies/services")
-                    .mapNotNull { root.at(it).takeUnless(JsonNode::isMissingNode) }
-                    .forEach { target -> target.replaceMatchingLeaves(sourceTemplates) }
-
-                patchContractSide(contract, "provides", "/systemUnderTest/service")
-                patchContractSide(contract, "consumes", "/dependencies/services")
+                patchContractSourceTemplates(contract)
+                ContractSide.entries.forEach { side -> patchContractSide(contract, side) }
             }
+        }
+
+        private fun patchContractSourceTemplates(contract: JsonNode) {
+            val sourceTemplates = contract.sourceTemplates()
+            listOf("/systemUnderTest/service/definitions", "/dependencies/services")
+                .mapNotNull { root.at(it).takeUnless(JsonNode::isMissingNode) }
+                .forEach { target -> target.replaceMatchingLeaves(sourceTemplates) }
         }
 
         private fun JsonNode.asContractSections(): List<JsonNode> {
@@ -153,28 +155,27 @@ object TemplatePreservingConfigUpgrade {
             }
         }
 
-        private fun patchContractSide(contract: JsonNode, key: String, targetPointer: String) {
-            val rawEntries = contract[key]?.takeIf(JsonNode::isArray) ?: return
-            val targets = buildList {
-                root.at(targetPointer).takeUnless(JsonNode::isMissingNode)?.let(::add)
-                if (key == "provides") root.at("/components/runOptions").takeUnless(JsonNode::isMissingNode)?.let(::add)
-            }
+        private fun patchContractSide(contract: JsonNode, side: ContractSide) {
+            val rawEntries = contract[side.legacyKey]?.takeIf(JsonNode::isArray) ?: return
+            val targets = side.targetPointers
+                .mapNotNull { targetPointer -> root.at(targetPointer).takeUnless(JsonNode::isMissingNode) }
+
             rawEntries.forEachIndexed { index, entry ->
-                targets.forEach { target -> target.patchContractEntry(entry, index) }
+                targets.forEach { target -> target.patchContractEntryTemplates(entry, index) }
             }
-            targets.forEach { target -> patchGenericConfigTemplates(rawEntries, target) }
+            targets.forEach { target -> patchGenericRunOptionConfigTemplates(rawEntries, target) }
             targets.forEach { target -> patchGenericBaseUrlTemplates(rawEntries, target) }
         }
 
-        private fun JsonNode.patchContractEntry(entry: JsonNode, index: Int) {
+        private fun JsonNode.patchContractEntryTemplates(entry: JsonNode, index: Int) {
             when {
                 entry.isTextual -> patchSpecPathTemplate(entry)
                 entry.isObject -> {
                     entry["specs"]?.takeIf(JsonNode::isArray)?.forEach { spec -> patchSpecPathTemplate(spec) }
-                    patchExecutionUrlTemplate(entry, "/baseUrl", index, "baseUrl")
-                    patchExecutionUrlTemplate(entry, "/config/baseUrl", index, "baseUrl")
-                    patchExecutionUrlTemplate(entry, "/host", index, "host")
-                    patchExecutionUrlTemplate(entry, "/port", index, "port")
+                    patchOpenApiRunOptionTemplate(entry, "/baseUrl", index, "baseUrl")
+                    patchOpenApiRunOptionTemplate(entry, "/config/baseUrl", index, "baseUrl")
+                    patchOpenApiRunOptionTemplate(entry, "/host", index, "host")
+                    patchOpenApiRunOptionTemplate(entry, "/port", index, "port")
                     patchDefinitionTemplate(entry, "/basePath", "urlPathPrefix")
                     patchDefinitionTemplate(entry, "/resiliencyTests/enable", "schemaResiliencyTests")
                 }
@@ -186,7 +187,7 @@ object TemplatePreservingConfigUpgrade {
             replaceMatchingLeaf(template, setOf("path"), includeArrayValues = true)
         }
 
-        private fun JsonNode.patchExecutionUrlTemplate(entry: JsonNode, rawPointer: String, index: Int, targetField: String) {
+        private fun JsonNode.patchOpenApiRunOptionTemplate(entry: JsonNode, rawPointer: String, index: Int, targetField: String) {
             val template = entry.at(rawPointer).toTemplateValue(targetField) ?: return
             findRunOptionsSections("openapi").forEach { runOptions ->
                 val specs = runOptions["specs"]?.takeIf(JsonNode::isArray) ?: return@forEach
@@ -216,9 +217,8 @@ object TemplatePreservingConfigUpgrade {
                     .takeIf { it.isTextual && ConfigTemplateUtils.isConfigTemplate(it.asText()) }
                     ?: return@forEach
 
-                val specPaths = entry["specs"]?.takeIf(JsonNode::isArray)?.map(JsonNode::asText).orEmpty()
-                specPaths.forEach { specPath ->
-                    target.findSpecOverrides(runOptionsName, specPath).forEach { spec ->
+                entry.specPaths().forEach { specPath ->
+                    target.findGenericSpecOverrides(runOptionsName, specPath).forEach { spec ->
                         spec.set<JsonNode>("baseUrl", TextNode.valueOf(baseUrl.asText()))
                         spec.remove("host")
                         spec.remove("port")
@@ -227,19 +227,22 @@ object TemplatePreservingConfigUpgrade {
             }
         }
 
-        private fun patchGenericConfigTemplates(rawEntries: JsonNode, target: JsonNode) {
+        private fun patchGenericRunOptionConfigTemplates(rawEntries: JsonNode, target: JsonNode) {
             rawEntries.filter(JsonNode::isObject).forEach { entry ->
                 val runOptionsName = entry.genericRunOptionsName() ?: return@forEach
                 val configTemplates = entry["config"]?.collectTemplateValues().orEmpty()
                 if (configTemplates.isEmpty()) return@forEach
 
-                val specPaths = entry["specs"]?.takeIf(JsonNode::isArray)?.map(JsonNode::asText).orEmpty()
-                specPaths.forEach { specPath ->
-                    target.findSpecOverrides(runOptionsName, specPath).forEach { spec ->
+                entry.specPaths().forEach { specPath ->
+                    target.findGenericSpecOverrides(runOptionsName, specPath).forEach { spec ->
                         spec.replaceMatchingLeaves(configTemplates)
                     }
                 }
             }
+        }
+
+        private fun JsonNode.specPaths(): List<String> {
+            return this["specs"]?.takeIf(JsonNode::isArray)?.map(JsonNode::asText).orEmpty()
         }
 
         private fun JsonNode.genericRunOptionsName(): String? {
@@ -251,7 +254,7 @@ object TemplatePreservingConfigUpgrade {
             }
         }
 
-        private fun JsonNode.findSpecOverrides(runOptionsName: String, specPath: String): List<ObjectNode> {
+        private fun JsonNode.findGenericSpecOverrides(runOptionsName: String, specPath: String): List<ObjectNode> {
             val specId = findSpecificationIdForPath(specPath) ?: return emptyList()
             return findRunOptionsSections(runOptionsName).flatMap { runOptions ->
                 runOptions["specs"]
@@ -320,6 +323,17 @@ object TemplatePreservingConfigUpgrade {
     )
 
     private data class TemplateDefaultRewrite(val legacyDefault: String, val upgradedDefault: String)
+
+    private enum class ContractSide(val legacyKey: String, val targetPointers: List<String>) {
+        PROVIDES(
+            legacyKey = "provides",
+            targetPointers = listOf("/systemUnderTest/service", "/components/runOptions")
+        ),
+        CONSUMES(
+            legacyKey = "consumes",
+            targetPointers = listOf("/dependencies/services")
+        )
+    }
 
     private data class TemplateValue(val rawText: String, val resolved: JsonNode, val fieldName: String?, val path: List<String>)
 
