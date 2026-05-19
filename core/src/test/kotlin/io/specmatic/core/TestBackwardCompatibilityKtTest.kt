@@ -4794,11 +4794,146 @@ paths:
 
             val operations = runBccAndGetOperations(tempDir, oldSpec, newSpec)
             val op = operations.first {
-                it.path("path").asText() == case.path && it.path("method").asText() == case.method
+                it.path("path").asText() == case.path &&
+                it.path("method").asText() == case.method &&
+                (case.responseCode == null || it.path("responseCode").asInt() == case.responseCode) &&
+                (case.requestContentType == null || it.path("contentType").asText() == case.requestContentType) &&
+                (case.responseContentType == null || it.path("responseContentType").asText() == case.responseContentType)
             }
 
             assertThat(op.path("compatibility").path("changeStatus").asText())
                 .isEqualTo(case.expected.name)
+        }
+
+        @Test
+        fun `when only one response status changes, other response statuses stay UNCHANGED`(@TempDir tempDir: File) {
+            val twoStatusSpec = """
+                openapi: 3.0.0
+                info: { title: Orders API, version: 1.0.0 }
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [id]
+                                properties: { id: { type: string } }
+                        '400':
+                          description: bad
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [message]
+                                properties: { message: { type: string } }
+            """.trimIndent()
+
+            val newSpec = twoStatusSpec.applyJsonPatch("""
+                - op: replace
+                  path: /paths/~1orders/get/responses/400/content/application~1json/schema/properties/message/type
+                  value: integer
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(tempDir, twoStatusSpec, newSpec)
+
+            assertThat(operations.changeStatusFor(method = "GET", responseCode = 200)).isEqualTo("UNCHANGED")
+            assertThat(operations.changeStatusFor(method = "GET", responseCode = 400)).isEqualTo("CHANGED")
+        }
+
+        @Test
+        fun `when only one response content type changes, other response content types stay UNCHANGED`(@TempDir tempDir: File) {
+            val twoContentTypeSpec = """
+                openapi: 3.0.0
+                info: { title: Orders API, version: 1.0.0 }
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [id]
+                                properties: { id: { type: string } }
+                            application/vnd.orders.v2+json:
+                              schema:
+                                type: object
+                                required: [id]
+                                properties: { id: { type: string } }
+            """.trimIndent()
+
+            val newSpec = twoContentTypeSpec.applyJsonPatch("""
+                - op: replace
+                  path: /paths/~1orders/get/responses/200/content/application~1vnd.orders.v2+json/schema/properties/id/type
+                  value: integer
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(tempDir, twoContentTypeSpec, newSpec)
+
+            assertThat(operations.changeStatusFor(method = "GET", responseCode = 200, responseContentType = "application/json"))
+                .isEqualTo("UNCHANGED")
+            assertThat(operations.changeStatusFor(method = "GET", responseCode = 200, responseContentType = "application/vnd.orders.v2+json"))
+                .isEqualTo("CHANGED")
+        }
+
+        @Test
+        fun `when only one request content type changes, other request content types stay UNCHANGED`(@TempDir tempDir: File) {
+            val twoRequestContentTypeSpec = """
+                openapi: 3.0.0
+                info: { title: Orders API, version: 1.0.0 }
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required: [id]
+                              properties: { id: { type: string } }
+                          application/vnd.orders.v2+json:
+                            schema:
+                              type: object
+                              required: [id]
+                              properties: { id: { type: string } }
+                      responses:
+                        '201': { description: created }
+            """.trimIndent()
+
+            val newSpec = twoRequestContentTypeSpec.applyJsonPatch("""
+                - op: replace
+                  path: /paths/~1orders/post/requestBody/content/application~1vnd.orders.v2+json/schema/properties/id/type
+                  value: integer
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(tempDir, twoRequestContentTypeSpec, newSpec)
+
+            assertThat(operations.changeStatusFor(method = "POST", contentType = "application/json")).isEqualTo("UNCHANGED")
+            assertThat(operations.changeStatusFor(method = "POST", contentType = "application/vnd.orders.v2+json")).isEqualTo("CHANGED")
+        }
+
+        private fun JsonNode.changeStatusFor(
+            method: String,
+            path: String = "/orders",
+            responseCode: Int? = null,
+            contentType: String? = null,
+            responseContentType: String? = null,
+        ): String {
+            val operation = first {
+                it.path("path").asText() == path &&
+                it.path("method").asText() == method &&
+                (responseCode == null || it.path("responseCode").asInt() == responseCode) &&
+                (contentType == null || it.path("contentType").asText() == contentType) &&
+                (responseContentType == null || it.path("responseContentType").asText() == responseContentType)
+            }
+            return operation.path("compatibility").path("changeStatus").asText()
         }
 
         // TODO(product): decide whether new-only operations should surface as CHANGED in the BCC report.
@@ -5047,10 +5182,13 @@ paths:
                       value: integer
                 """,
             ),
+            // The newly-added 400 row does not appear in today's report (checker iterates old scenarios
+            // only - see `new-only operations are absent from the report today`). The existing 200 row
+            // is identical between old and new, so per-5-tuple it stays UNCHANGED.
             ChangeStatusCase(
-                name = "16. add a new response status code",
-                path = "/orders", method = "GET",
-                expected = ChangeStatus.CHANGED,
+                name = "16. add a new response status code - existing 200 row stays UNCHANGED",
+                path = "/orders", method = "GET", responseCode = 200,
+                expected = ChangeStatus.UNCHANGED,
                 newPatch = """
                     - op: add
                       path: /paths/~1orders/get/responses/400
@@ -5060,7 +5198,7 @@ paths:
             ),
             ChangeStatusCase(
                 name = "17. remove a response status code that existed in old",
-                path = "/orders", method = "GET",
+                path = "/orders", method = "GET", responseCode = 400,
                 expected = ChangeStatus.CHANGED,
                 oldPatch = """
                     - op: add
@@ -5069,10 +5207,12 @@ paths:
                         description: bad request
                 """,
             ),
+            // Newly-added text/plain request row does not appear in today's report; the existing
+            // application/json row is unchanged between old and new.
             ChangeStatusCase(
-                name = "18. add a new request content type",
-                path = "/orders", method = "POST",
-                expected = ChangeStatus.CHANGED,
+                name = "18. add a new request content type - existing json row stays UNCHANGED",
+                path = "/orders", method = "POST", requestContentType = "application/json",
+                expected = ChangeStatus.UNCHANGED,
                 newPatch = """
                     - op: add
                       path: /paths/~1orders/post/requestBody/content/text~1plain
@@ -5081,10 +5221,13 @@ paths:
                           type: string
                 """,
             ),
+            // The removed text/plain row is collapsed into the surviving json row by the checker's
+            // content-type fallback in `findExactOrSingle`, so it never gets its own report row.
+            // The surviving json row is semantically unchanged.
             ChangeStatusCase(
-                name = "19. remove a request content type from old",
-                path = "/orders", method = "POST",
-                expected = ChangeStatus.CHANGED,
+                name = "19. remove a request content type from old - surviving json row stays UNCHANGED",
+                path = "/orders", method = "POST", requestContentType = "application/json",
+                expected = ChangeStatus.UNCHANGED,
                 oldPatch = """
                     - op: add
                       path: /paths/~1orders/post/requestBody/content/text~1plain
@@ -5093,10 +5236,12 @@ paths:
                           type: string
                 """,
             ),
+            // Newly-added text/plain response row does not appear in today's report; the existing
+            // application/json row is unchanged between old and new.
             ChangeStatusCase(
-                name = "20. add a new response content type",
-                path = "/orders", method = "GET",
-                expected = ChangeStatus.CHANGED,
+                name = "20. add a new response content type - existing json row stays UNCHANGED",
+                path = "/orders", method = "GET", responseCode = 200, responseContentType = "application/json",
+                expected = ChangeStatus.UNCHANGED,
                 newPatch = """
                     - op: add
                       path: /paths/~1orders/get/responses/200/content/text~1plain
@@ -5105,10 +5250,11 @@ paths:
                           type: string
                 """,
             ),
+            // Same as #19: the removed text/plain row is collapsed into the surviving json row.
             ChangeStatusCase(
-                name = "21. remove a response content type from old",
-                path = "/orders", method = "GET",
-                expected = ChangeStatus.CHANGED,
+                name = "21. remove a response content type from old - surviving json row stays UNCHANGED",
+                path = "/orders", method = "GET", responseCode = 200, responseContentType = "application/json",
+                expected = ChangeStatus.UNCHANGED,
                 oldPatch = """
                     - op: add
                       path: /paths/~1orders/get/responses/200/content/text~1plain
@@ -5492,6 +5638,9 @@ internal data class ChangeStatusCase(
     val expected: ChangeStatus,
     val oldPatch: String? = null,
     val newPatch: String? = null,
+    val responseCode: Int? = null,
+    val requestContentType: String? = null,
+    val responseContentType: String? = null,
 ) {
     override fun toString(): String = name
 }

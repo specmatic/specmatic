@@ -126,7 +126,7 @@ class ScenarioFingerprintTest {
         val old = scenariosFrom(baseSpec)
         val new = scenariosFrom(baseSpec)
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.UNCHANGED)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.UNCHANGED)
     }
 
     @Test
@@ -139,7 +139,7 @@ class ScenarioFingerprintTest {
                 type: string
         """.trimIndent()))
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.CHANGED)
     }
 
     @Test
@@ -151,7 +151,7 @@ class ScenarioFingerprintTest {
               value: integer
         """.trimIndent()))
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.CHANGED)
     }
 
     @Test
@@ -172,7 +172,7 @@ class ScenarioFingerprintTest {
               value: integer
         """.trimIndent()))
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.UNCHANGED)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.UNCHANGED)
     }
 
     @Test
@@ -185,7 +185,7 @@ class ScenarioFingerprintTest {
                 description: bad request
         """.trimIndent()))
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.CHANGED)
     }
 
     @Test
@@ -198,12 +198,12 @@ class ScenarioFingerprintTest {
         """.trimIndent()))
         val new = scenariosFrom(baseSpec)
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(old, new)).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.CHANGED)
     }
 
     @Test
     fun `changeStatusBetween returns UNCHANGED when both sides are empty`() {
-        assertThat(ScenarioFingerprint.changeStatusBetween(emptyList(), emptyList()))
+        assertThat(aggregateChangeStatus(emptyList(), emptyList()))
             .isEqualTo(ChangeStatus.UNCHANGED)
     }
 
@@ -211,10 +211,18 @@ class ScenarioFingerprintTest {
     fun `changeStatusBetween returns CHANGED when an operation appears only on one side`() {
         val onlyOnNew = scenariosFrom(baseSpec)
 
-        assertThat(ScenarioFingerprint.changeStatusBetween(emptyList(), onlyOnNew))
+        assertThat(aggregateChangeStatus(emptyList(), onlyOnNew))
             .isEqualTo(ChangeStatus.CHANGED)
-        assertThat(ScenarioFingerprint.changeStatusBetween(onlyOnNew, emptyList()))
+        assertThat(aggregateChangeStatus(onlyOnNew, emptyList()))
             .isEqualTo(ChangeStatus.CHANGED)
+    }
+
+    private fun aggregateChangeStatus(old: Collection<Scenario>, new: Collection<Scenario>): ChangeStatus {
+        val statusFor = ScenarioFingerprint.changeStatusBetween(old, new)
+        val allScenarios = (old + new).distinctBy(ScenarioFingerprint.Companion::keyOf)
+        if (allScenarios.isEmpty()) return ChangeStatus.UNCHANGED
+        return if (allScenarios.any { statusFor(it) == ChangeStatus.CHANGED }) ChangeStatus.CHANGED
+        else ChangeStatus.UNCHANGED
     }
 
     private fun scenariosFrom(yaml: String): List<Scenario> =
