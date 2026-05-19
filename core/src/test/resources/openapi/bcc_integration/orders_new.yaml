@@ -1,0 +1,138 @@
+openapi: 3.0.0
+info:
+  title: Orders API
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBrief'
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /orders/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDetailed'
+  /categories:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, total, customer]
+      properties:
+        id:
+          type: string
+        total:
+          type: number
+        customer:
+          $ref: '#/components/schemas/Customer'
+        # CHANGE 1: Order gains optional `notes` field.
+        # Reachable from: GET /orders 200, POST /orders request + 201, GET /orders/{id} 200.
+        # Expected: CHANGED + Compatible on every Order-using 5-tuple.
+        notes:
+          type: string
+    Customer:
+      # UNCHANGED on purpose - Customer is referenced by Order but not modified itself.
+      # Order-using rows are still CHANGED (because Order changed), but this confirms
+      # we don't spuriously flag Customer-only specs.
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+    ErrorBrief:
+      type: object
+      required: [code, message]
+      properties:
+        # CHANGE 2: ErrorBrief.code type changes from string -> integer.
+        # Reachable from: GET /orders 400 only (ErrorDetailed is a separate schema).
+        # Expected: CHANGED + Incompatible on GET /orders 400.
+        # Expected: GET /orders/{id} 404 (uses ErrorDetailed) stays UNCHANGED -
+        #   this proves changeStatus is keyed per 5-tuple, not per (path, method).
+        code:
+          type: integer
+        message:
+          type: string
+    ErrorDetailed:
+      # UNCHANGED on purpose - proves per-5-tuple isolation from ErrorBrief change.
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+    Category:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        # CHANGE 3: Category gains optional `description` field on a self-recursive schema.
+        # Reachable from: GET /categories 200 (Category[] with children: [Category]).
+        # Expected: CHANGED + Compatible on GET /categories 200.
+        # Verifies the fingerprint detects changes through a self-recursive $ref cycle.
+        description:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'

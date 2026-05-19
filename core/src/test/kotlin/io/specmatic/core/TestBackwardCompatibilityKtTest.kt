@@ -4728,6 +4728,71 @@ paths:
     }
 
     @Nested
+    inner class BccIntegrationFromFixtures {
+        @Test
+        fun `report reflects per-5-tuple change status and compatibility result across refs, components, and recursion`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("orders_old.yaml")
+            val newSpec = readFixture("orders_new.yaml")
+
+            val operations = runBccAndGetOperations(tempDir, oldSpec, newSpec)
+
+            // Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
+            operations.assertRow(method = "GET", path = "/orders", responseCode = 200, changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(method = "POST", path = "/orders", responseCode = 201, changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(method = "GET", path = "/orders/{id}", responseCode = 200, changeStatus = "CHANGED", result = "Compatible")
+
+            // ErrorBrief.code string -> integer is reachable ONLY from GET /orders 400
+            operations.assertRow(method = "GET", path = "/orders", responseCode = 400, changeStatus = "CHANGED", result = "Incompatible")
+
+            // GET /orders/{id} 404 uses ErrorDetailed (untouched) - proves per-5-tuple isolation
+            // even though GET /orders 400 under the same kind of error response did change
+            operations.assertRow(method = "GET", path = "/orders/{id}", responseCode = 404, changeStatus = "UNCHANGED", result = "Compatible")
+
+            // Self-recursive Category gains optional `description`
+            operations.assertRow(method = "GET", path = "/categories", responseCode = 200, changeStatus = "CHANGED", result = "Compatible")
+
+            // Sanity: the report has exactly the rows we asserted above and no more
+            assertThat(operations.toList())
+                .describedAs("expected 6 operation rows in the report")
+                .hasSize(6)
+        }
+
+        private fun JsonNode.assertRow(method: String, path: String, responseCode: Int, changeStatus: String, result: String) {
+            val row = firstOrNull {
+                it.path("method").asText() == method &&
+                it.path("path").asText() == path &&
+                it.path("responseCode").asInt() == responseCode
+            } ?: throw AssertionError("No operation row for $method $path $responseCode. Rows present: ${this.joinToString { "${it.path("method").asText()} ${it.path("path").asText()} ${it.path("responseCode").asInt()}" }}")
+            assertThat(row.path("compatibility").path("changeStatus").asText())
+                .describedAs("changeStatus for $method $path $responseCode")
+                .isEqualTo(changeStatus)
+            assertThat(row.path("compatibility").path("result").asText())
+                .describedAs("result for $method $path $responseCode")
+                .isEqualTo(result)
+        }
+
+        private fun readFixture(name: String): String =
+            javaClass.getResource("/openapi/bcc_integration/$name")!!.readText()
+
+        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpec: String): JsonNode {
+            val configFile = tempDir.resolve("specmatic.yaml").apply {
+                writeText("""
+                version: 2
+                reportDirPath: ${tempDir.canonicalPath}/reports
+                """.trimIndent())
+            }
+            val oldFeature = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+            val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+
+            return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
+                val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
+                json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
+            }
+        }
+    }
+
+    @Nested
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     inner class OperationChangeStatus {
         private val baseSpec = """
