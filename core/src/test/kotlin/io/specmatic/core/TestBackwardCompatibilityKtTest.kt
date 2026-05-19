@@ -4708,7 +4708,7 @@ paths:
             assertThat(postOperation.path("method").asText()).isEqualTo("POST")
             assertThat(postOperation.path("contentType").asText()).isEqualTo("application/json")
             assertThat(postOperation.path("responseCode").asInt()).isEqualTo(201)
-            assertThat(postOperation.path("qualifiers").size()).isEqualTo(0)
+            assertThat(postOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(postOperation.path("testIds").isArray).isTrue()
             assertThat(postOperation.path("testIds").size()).isGreaterThan(0)
             assertThat(postOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
@@ -4719,7 +4719,7 @@ paths:
             assertThat(getOperation.path("method").asText()).isEqualTo("GET")
             assertThat(getOperation.path("responseCode").asInt()).isEqualTo(200)
             assertThat(getOperation.path("responseContentType").asText()).isEqualTo("application/json")
-            assertThat(getOperation.path("qualifiers").size()).isEqualTo(0)
+            assertThat(getOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(getOperation.path("testIds").isArray).isTrue()
             assertThat(getOperation.path("testIds").size()).isGreaterThan(0)
             assertThat(getOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
@@ -4791,6 +4791,12 @@ paths:
             assertThat(row.path("compatibility").path("result").asText())
                 .describedAs("result for $key")
                 .isEqualTo(result)
+            val qualifiers = row.path("qualifiers").map { it.asText() }
+            if (changeStatus == "CHANGED") {
+                assertThat(qualifiers).describedAs("qualifiers for $key").contains("changed")
+            } else {
+                assertThat(qualifiers).describedAs("qualifiers for $key").doesNotContain("changed")
+            }
         }
 
         private fun readFixture(name: String): String =

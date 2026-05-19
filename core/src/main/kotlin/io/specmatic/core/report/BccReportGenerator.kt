@@ -19,20 +19,28 @@ class BccReportGenerator {
 
     private fun reportOperationFrom(groupKey: BccOperationGroupKey, sources: List<BccOperationSource>): BaseBccReportOperation {
         val tests = sources.map { it.test }
+        val changeStatus = operationChangeStatus(tests)
         return BccReportOperation(
             tests = tests,
             operation = groupKey.operation,
             specConfig = groupKey.specConfig,
-            qualifiers = operationQualifiersFrom(tests),
+            qualifiers = operationQualifiersFrom(tests, changeStatus),
             compatibility = CtrfOperationCompatibility(
-                changeStatus = operationChangeStatus(tests),
+                changeStatus = changeStatus,
                 result = backwardCompatibilityResultFrom(tests),
             ),
         )
     }
 
-    private fun operationQualifiersFrom(tests: List<CtrfBackwardCompatibilityRecord>): List<CtrfOperationQualifiers> {
-        return tests.flatMap { it.operationQualifiers }.distinct()
+    private fun operationQualifiersFrom(
+        tests: List<CtrfBackwardCompatibilityRecord>,
+        changeStatus: ChangeStatus,
+    ): List<CtrfOperationQualifiers> {
+        val testQualifiers = tests.flatMap { it.operationQualifiers }
+        val changeQualifier = listOfNotNull(
+            CtrfOperationQualifiers.CHANGED.takeIf { changeStatus == ChangeStatus.CHANGED }
+        )
+        return (testQualifiers + changeQualifier).distinct()
     }
 
     private fun operationChangeStatus(tests: List<CtrfBackwardCompatibilityRecord>): ChangeStatus {
