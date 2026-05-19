@@ -188,13 +188,15 @@ data class Feature(
     val exampleDirPaths: List<String> = emptyList(),
     val changeTrackingSource: OpenApiChangeTrackingSource? = null,
 ): IFeature {
-    fun scenariosForChangeTracking(): List<Scenario> {
-        return changeTrackingSource?.scenarios(
+    private val cachedScenariosForChangeTracking: List<Scenario> by lazy {
+        changeTrackingSource?.scenarios(
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,
             exampleDirPaths = exampleDirPaths,
         ) ?: scenarios
     }
+
+    fun scenariosForChangeTracking(): List<Scenario> = cachedScenariosForChangeTracking
 
     val inlineNamedStubs: List<NamedStub>
         get() = exampleStore.examples

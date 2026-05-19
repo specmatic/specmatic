@@ -10,11 +10,11 @@ import java.util.IdentityHashMap
 
 class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
-    private val newScenariosByPathAndMethod = newFeature.scenarios.groupBy { it.path to it.method }
     private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
         .filter { !it.ignoreFailure }
         .groupBy { it.path to it.method }
     private val newChangeTrackingScenariosByPathAndMethod = newFeature.scenariosForChangeTracking()
+        .filter { !it.ignoreFailure }
         .groupBy { it.path to it.method }
 
     fun run(): List<OpenApiBackwardCompatibilityCheckRecord> {
@@ -31,7 +31,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun operationChangeStatus(requestFamily: RequestFamily): (Scenario) -> ChangeStatus {
         val operationIdentifier = requestFamily.path to requestFamily.method
-        val oldScenariosForOperation = oldChangeTrackingScenariosByPathAndMethod[operationIdentifier] ?: requestFamily.scenarios
+        val oldScenariosForOperation = oldChangeTrackingScenariosByPathAndMethod[operationIdentifier].orEmpty()
         val newScenariosForOperation = newChangeTrackingScenariosByPathAndMethod[operationIdentifier].orEmpty()
         return ScenarioFingerprint.changeStatusBetween(oldScenariosForOperation, newScenariosForOperation)
     }
