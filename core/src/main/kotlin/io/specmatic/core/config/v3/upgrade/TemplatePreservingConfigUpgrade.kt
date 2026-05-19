@@ -9,78 +9,80 @@ import io.specmatic.core.config.ConfigTemplateUtils
 import java.util.Locale
 
 object TemplatePreservingConfigUpgrade {
-    private val sectionsWhoseStructureChanged = listOf(
-        SectionMigration("/test", listOf("/systemUnderTest/service/runOptions", "/specmatic/settings/test")),
-        SectionMigration("/stub", listOf("/dependencies", "/systemUnderTest/service/data", "/specmatic/settings/mock")),
-        SectionMigration("/hooks", listOf("/dependencies/data/adapters", "/proxies")),
-        SectionMigration("/auth", listOf("/systemUnderTest/service/definitions", "/dependencies/services")),
-        SectionMigration("/security", listOf("/systemUnderTest/service/runOptions/openapi")),
-        SectionMigration("/workflow", listOf("/systemUnderTest/service/runOptions/openapi/workflow"), allowFieldFallback = false),
-        SectionMigration("/license_path", listOf("/specmatic/license")),
-        SectionMigration("/report_dir_path", listOf("/specmatic/governance/report")),
-        SectionMigration("/report", listOf("/specmatic/governance")),
-        SectionMigration("/mcp", listOf("/mcp")),
-        SectionMigration("/logging", listOf("/specmatic/settings/general/logging")),
-        SectionMigration("/backwardCompatibility", listOf("/specmatic/settings/backwardCompatibility")),
-        SectionMigration("/globalSettings", listOf("/specmatic/settings/general")),
-    )
+    private object MigrationCases {
+        val structureChanged = listOf(
+            SectionMigration("/test", listOf("/systemUnderTest/service/runOptions", "/specmatic/settings/test")),
+            SectionMigration("/stub", listOf("/dependencies", "/systemUnderTest/service/data", "/specmatic/settings/mock")),
+            SectionMigration("/hooks", listOf("/dependencies/data/adapters", "/proxies")),
+            SectionMigration("/auth", listOf("/systemUnderTest/service/definitions", "/dependencies/services")),
+            SectionMigration("/security", listOf("/systemUnderTest/service/runOptions/openapi")),
+            SectionMigration("/workflow", listOf("/systemUnderTest/service/runOptions/openapi/workflow"), allowFieldFallback = false),
+            SectionMigration("/license_path", listOf("/specmatic/license")),
+            SectionMigration("/report_dir_path", listOf("/specmatic/governance/report")),
+            SectionMigration("/report", listOf("/specmatic/governance")),
+            SectionMigration("/mcp", listOf("/mcp")),
+            SectionMigration("/logging", listOf("/specmatic/settings/general/logging")),
+            SectionMigration("/backwardCompatibility", listOf("/specmatic/settings/backwardCompatibility")),
+            SectionMigration("/globalSettings", listOf("/specmatic/settings/general")),
+        )
 
-    private val sectionsWhoseLeadNodeNameChanged = listOf(
-        SectionMigration("/proxy", listOf("/proxies")),
-        SectionMigration("/examples", listOf("/systemUnderTest/service/data/examples", "/dependencies/data/examples")),
-    )
+        val leadNodeRenamed = listOf(
+            SectionMigration("/proxy", listOf("/proxies")),
+            SectionMigration("/examples", listOf("/systemUnderTest/service/data/examples", "/dependencies/data/examples")),
+        )
 
-    private val nodeNameChangedMigrations = listOf(
-        NodeNameChangedMigration(legacyNodeName = "examples", upgradedNodeName = "directories"),
-        NodeNameChangedMigration(legacyNodeName = "basePath", upgradedNodeName = "urlPathPrefix"),
-        NodeNameChangedMigration(legacyNodeName = "bearer-environment-variable", upgradedNodeName = "bearerEnvironmentVariable"),
-        NodeNameChangedMigration(legacyNodeName = "personal-access-token", upgradedNodeName = "personalAccessToken"),
-        NodeNameChangedMigration(legacyNodeName = "bearer-file", upgradedNodeName = "bearerFile"),
-    )
+        val leafNodeRenamed = listOf(
+            NodeNameChangedMigration(legacyNodeName = "examples", upgradedNodeName = "directories"),
+            NodeNameChangedMigration(legacyNodeName = "basePath", upgradedNodeName = "urlPathPrefix"),
+            NodeNameChangedMigration(legacyNodeName = "bearer-environment-variable", upgradedNodeName = "bearerEnvironmentVariable"),
+            NodeNameChangedMigration(legacyNodeName = "personal-access-token", upgradedNodeName = "personalAccessToken"),
+            NodeNameChangedMigration(legacyNodeName = "bearer-file", upgradedNodeName = "bearerFile"),
+        )
 
-    private val exactNodeMigrations = listOf(
-        ExactNodeMigration("/license_path", "/specmatic/license/path"),
-        ExactNodeMigration("/licensePath", "/specmatic/license/path"),
-        ExactNodeMigration("/report_dir_path", "/specmatic/governance/report/outputDirectory"),
-        ExactNodeMigration("/reportDirPath", "/specmatic/governance/report/outputDirectory"),
-        ExactNodeMigration("/stub/dictionary", "/systemUnderTest/service/data/dictionary/path"),
-        ExactNodeMigration("/stub/dictionary", "/dependencies/data/dictionary/path"),
-        ExactNodeMigration("/test/resiliencyTests/enable", "/specmatic/settings/test/schemaResiliencyTests"),
-        ExactNodeMigration(
-            "/report/types/APICoverage/OpenAPI/successCriteria/minThresholdPercentage",
-            "/specmatic/governance/successCriteria/minCoveragePercentage"
-        ),
-        ExactNodeMigration(
-            "/report/types/APICoverage/OpenAPI/successCriteria/maxMissedEndpointsInSpec",
-            "/specmatic/governance/successCriteria/maxMissedOperationsInSpec"
-        ),
-        ExactNodeMigration("/schemaExampleDefault", "/specmatic/settings/general/featureFlags/schemaExampleDefault"),
-        ExactNodeMigration("/fuzzy", "/specmatic/settings/general/featureFlags/fuzzyMatcherForPayloads"),
-        ExactNodeMigration("/escapeSoapAction", "/specmatic/settings/general/featureFlags/escapeSoapAction"),
-        ExactNodeMigration("/disable_telemetry", "/specmatic/settings/general/disableTelemetry"),
-        ExactNodeMigration("/disableTelemetry", "/specmatic/settings/general/disableTelemetry"),
-    )
+        val exactNodeMoved = listOf(
+            ExactNodeMigration("/license_path", "/specmatic/license/path"),
+            ExactNodeMigration("/licensePath", "/specmatic/license/path"),
+            ExactNodeMigration("/report_dir_path", "/specmatic/governance/report/outputDirectory"),
+            ExactNodeMigration("/reportDirPath", "/specmatic/governance/report/outputDirectory"),
+            ExactNodeMigration("/stub/dictionary", "/systemUnderTest/service/data/dictionary/path"),
+            ExactNodeMigration("/stub/dictionary", "/dependencies/data/dictionary/path"),
+            ExactNodeMigration("/test/resiliencyTests/enable", "/specmatic/settings/test/schemaResiliencyTests"),
+            ExactNodeMigration(
+                "/report/types/APICoverage/OpenAPI/successCriteria/minThresholdPercentage",
+                "/specmatic/governance/successCriteria/minCoveragePercentage"
+            ),
+            ExactNodeMigration(
+                "/report/types/APICoverage/OpenAPI/successCriteria/maxMissedEndpointsInSpec",
+                "/specmatic/governance/successCriteria/maxMissedOperationsInSpec"
+            ),
+            ExactNodeMigration("/schemaExampleDefault", "/specmatic/settings/general/featureFlags/schemaExampleDefault"),
+            ExactNodeMigration("/fuzzy", "/specmatic/settings/general/featureFlags/fuzzyMatcherForPayloads"),
+            ExactNodeMigration("/escapeSoapAction", "/specmatic/settings/general/featureFlags/escapeSoapAction"),
+            ExactNodeMigration("/disable_telemetry", "/specmatic/settings/general/disableTelemetry"),
+            ExactNodeMigration("/disableTelemetry", "/specmatic/settings/general/disableTelemetry"),
+        )
 
-    private val valueShapeChangedMigrations = listOf(
-        ValueShapeChangedMigration(
-            rawPointer = "/stub/hotReload",
-            targetPointers = listOf("/dependencies/settings/hotReload", "/specmatic/settings/mock/hotReload"),
-            defaultValueRewrites = listOf(
-                TemplateDefaultRewrite(legacyDefault = "enabled", upgradedDefault = "true"),
-                TemplateDefaultRewrite(legacyDefault = "disabled", upgradedDefault = "false"),
+        val valueShapeChanged = listOf(
+            ValueShapeChangedMigration(
+                rawPointer = "/stub/hotReload",
+                targetPointers = listOf("/dependencies/settings/hotReload", "/specmatic/settings/mock/hotReload"),
+                defaultValueRewrites = listOf(
+                    TemplateDefaultRewrite(legacyDefault = "enabled", upgradedDefault = "true"),
+                    TemplateDefaultRewrite(legacyDefault = "disabled", upgradedDefault = "false"),
+                )
             )
         )
-    )
+    }
 
     fun preserveTemplates(rawLegacyConfig: JsonNode, upgradedConfig: JsonNode): JsonNode {
         val patchedConfig = upgradedConfig.deepCopy<JsonNode>()
         if (rawLegacyConfig["version"]?.asInt() != 2) return patchedConfig
 
         val patcher = TemplatePatcher(rawLegacyConfig, patchedConfig)
-        sectionsWhoseStructureChanged.forEach(patcher::patchSectionWhoseStructureChanged)
-        sectionsWhoseLeadNodeNameChanged.forEach(patcher::patchSectionWhoseLeadNodeNameChanged)
-        exactNodeMigrations.forEach(patcher::patchExactNodeMigration)
-        valueShapeChangedMigrations.forEach(patcher::patchValueShapeChangedMigration)
+        patcher.patchSectionsWhoseStructureChanged()
+        patcher.patchSectionsWhoseLeadNodeNameChanged()
+        patcher.patchExactNodeMigrations()
+        patcher.patchValueShapeChangedMigrations()
         patcher.patchTopLevelFlags()
         patcher.patchContracts()
 
@@ -88,12 +90,12 @@ object TemplatePreservingConfigUpgrade {
     }
 
     private class TemplatePatcher(private val rawConfig: JsonNode, private val root: JsonNode) {
-        fun patchSectionWhoseStructureChanged(migration: SectionMigration) {
-            patchSection(migration)
+        fun patchSectionsWhoseStructureChanged() {
+            MigrationCases.structureChanged.forEach(::patchSection)
         }
 
-        fun patchSectionWhoseLeadNodeNameChanged(migration: SectionMigration) {
-            patchSection(migration)
+        fun patchSectionsWhoseLeadNodeNameChanged() {
+            MigrationCases.leadNodeRenamed.forEach(::patchSection)
         }
 
         private fun patchSection(migration: SectionMigration) {
@@ -124,12 +126,12 @@ object TemplatePreservingConfigUpgrade {
                 ?.replaceMatchingLeaves(templates)
         }
 
-        fun patchExactNodeMigration(migration: ExactNodeMigration) {
-            patchRawTemplate(migration.rawPointer, migration.targetPointer)
+        fun patchExactNodeMigrations() {
+            MigrationCases.exactNodeMoved.forEach { patchRawTemplate(it.rawPointer, it.targetPointer) }
         }
 
-        fun patchValueShapeChangedMigration(migration: ValueShapeChangedMigration) {
-            patchSwitchTemplate(migration)
+        fun patchValueShapeChangedMigrations() {
+            MigrationCases.valueShapeChanged.forEach(::patchSwitchTemplate)
         }
 
         fun patchContracts() {
@@ -160,10 +162,22 @@ object TemplatePreservingConfigUpgrade {
             val targets = side.targetPointers
                 .mapNotNull { targetPointer -> root.at(targetPointer).takeUnless(JsonNode::isMissingNode) }
 
+            patchOpenApiContractTemplates(rawEntries, targets)
+            patchGenericRunOptionContractTemplates(rawEntries, targets)
+            patchGenericBaseUrlContractTemplates(rawEntries, targets)
+        }
+
+        private fun patchOpenApiContractTemplates(rawEntries: JsonNode, targets: List<JsonNode>) {
             rawEntries.forEachIndexed { index, entry ->
                 targets.forEach { target -> target.patchContractEntryTemplates(entry, index) }
             }
+        }
+
+        private fun patchGenericRunOptionContractTemplates(rawEntries: JsonNode, targets: List<JsonNode>) {
             targets.forEach { target -> patchGenericRunOptionConfigTemplates(rawEntries, target) }
+        }
+
+        private fun patchGenericBaseUrlContractTemplates(rawEntries: JsonNode, targets: List<JsonNode>) {
             targets.forEach { target -> patchGenericBaseUrlTemplates(rawEntries, target) }
         }
 
@@ -414,7 +428,7 @@ object TemplatePreservingConfigUpgrade {
 
     private fun TemplateValue.matchesFieldName(fieldName: String?): Boolean {
         return this.fieldName == fieldName ||
-            nodeNameChangedMigrations.any {
+            MigrationCases.leafNodeRenamed.any {
                 it.legacyNodeName == this.fieldName && it.upgradedNodeName == fieldName
             }
     }
