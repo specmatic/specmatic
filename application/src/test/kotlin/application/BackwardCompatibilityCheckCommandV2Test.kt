@@ -4,11 +4,15 @@ import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import application.backwardCompatibility.BackwardCompatibilityCheckHook
 import application.backwardCompatibility.CompatibilityResult
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.mockk.every
 import io.mockk.spyk
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
+import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -24,6 +28,8 @@ import java.io.File
 import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
+    private val objectMapper = ObjectMapper()
+
     @TempDir
     private lateinit var tempDir: File
 
@@ -462,6 +468,77 @@ class BackwardCompatibilityCheckCommandV2Test {
         }
     }
 
+    @Nested
+    inner class ChangeTrackingReportTests {
+        @Test
+        fun `reports external schema changes after command checks out the base branch`() {
+            val apiFile = tempDir.resolve("api.yaml")
+            val componentsFile = tempDir.resolve("components.yaml")
+
+            fixture("api.yaml").copyTo(apiFile)
+            fixture("components_base.yaml").copyTo(componentsFile)
+            commit(tempDir, "Initial contract")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+
+            ProcessBuilder("git", "switch", "-c", "external-ref-change")
+                .directory(tempDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+
+            fixture("components_current.yaml").copyTo(componentsFile, overwrite = true)
+            commit(tempDir, "Add optional field in external schema")
+
+            val configFile = remoteDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    reportDirPath: ${tempDir.resolve("reports").canonicalPath}
+                    """.trimIndent()
+                )
+            }
+
+            val (_, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+                using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                    BackwardCompatibilityCheckCommandV2().apply {
+                        options.repoDir = tempDir.canonicalPath
+                        options.baseBranch = baseBranch
+                    }.call()
+                }
+            }
+
+            assertThat(exitCode).isEqualTo(0)
+
+            val reportJson = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
+            val operations = reportJson.path("results").path("summary").path("extra").path("executionDetails").first()
+                .path("operations")
+            val getOrders = operations.single {
+                it.path("method").asText() == "GET" && it.path("path").asText() == "/orders"
+            }
+
+            assertThat(getOrders.path("compatibility").path("result").asText()).isEqualTo("Compatible")
+            assertThat(getOrders.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
+        }
+
+        private fun fixture(name: String): File =
+            File("src/test/resources/specifications/bcc_change_tracking_external_refs/$name").canonicalFile
+
+        private fun bccReportJson(reportDir: File): JsonNode {
+            val htmlReport = reportDir.resolve("html/index.html")
+            assertThat(htmlReport).exists()
+
+            val html = htmlReport.readText()
+            val reportLiteral = html
+                .substringAfter("const report = ")
+                .substringBefore("const specmaticConfig =")
+                .trim()
+                .removeSuffix(";")
+                .trim()
+
+            return objectMapper.readTree(reportLiteral)
+        }
+    }
+
     @Test
     fun `should skip asyncapi spec files`() {
         val asyncApiFile = File("src/test/resources/specifications/asyncapi.yaml").canonicalFile
@@ -528,10 +605,13 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     private fun commitAndPush(repoDir: File, commitMessage: String) {
-        ProcessBuilder("git", "add", ".").directory(repoDir).inheritIO().start().waitFor()
-        ProcessBuilder("git", "commit", "-m", commitMessage).directory(repoDir).inheritIO().start().waitFor()
+        commit(repoDir, commitMessage)
         ProcessBuilder("git", "push", "origin", "master").directory(repoDir).inheritIO().start().waitFor()
     }
 
+    private fun commit(repoDir: File, commitMessage: String) {
+        ProcessBuilder("git", "add", ".").directory(repoDir).inheritIO().start().waitFor()
+        ProcessBuilder("git", "commit", "-m", commitMessage).directory(repoDir).inheritIO().start().waitFor()
+    }
 
 }

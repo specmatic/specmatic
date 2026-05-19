@@ -251,6 +251,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     }
 
                     val newer = getFeatureFromSpecPath(specFilePath)
+                    // The newer feature is parsed while the worktree has the current branch files, but below we
+                    // checkout the base branch before running the comparison. OpenAPI change tracking resolves
+                    // external refs when scenariosForChangeTracking() is first evaluated, so delaying this until
+                    // after checkout races with the branch switch and can build the newer fingerprints from the
+                    // base branch's external files. Materialize it here while the current branch is still checked out.
+                    (newer as? Feature)?.scenariosForChangeTracking()
                     val unusedExamples = getUnusedExamples(newer)
 
                     val repoDirFile = File(effectiveRepoDir).absoluteFile
