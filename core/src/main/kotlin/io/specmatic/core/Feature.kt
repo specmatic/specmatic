@@ -193,7 +193,7 @@ data class Feature(
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,
             exampleDirPaths = exampleDirPaths,
-        ) ?: scenarios
+        ).orEmpty()
     }
 
     fun scenariosForChangeTracking(): List<Scenario> = cachedScenariosForChangeTracking

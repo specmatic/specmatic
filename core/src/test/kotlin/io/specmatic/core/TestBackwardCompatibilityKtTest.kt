@@ -5713,6 +5713,36 @@ paths:
                             type: string
                 """,
             ),
+            ChangeStatusCase(
+                name = "33. operation path has been modified, parameter name changed",
+                path = "/orders/{orderId}", method = "GET",
+                expected = ChangeStatus.CHANGED,
+                newPatch = """
+                - op: remove
+                  path: /paths/~1orders~1{id}
+                - op: add
+                  path: /paths/~1orders~1{orderId}
+                  value:
+                    get:
+                      parameters:
+                        - name: orderId
+                          in: path
+                          required: true
+                          schema:
+                            type: string
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [id]
+                                properties:
+                                  id:
+                                    type: string
+                """,
+            ),
         )
 
     }
