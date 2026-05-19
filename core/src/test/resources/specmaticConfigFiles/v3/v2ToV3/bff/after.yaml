@@ -13,11 +13,11 @@ systemUnderTest:
     runOptions:
       openapi:
         filter: PATH!='/health,/monitor/{id},/swagger'
-        actuatorUrl: http://localhost:8080/actuator/mappings
+        actuatorUrl: "{APP_URL:http://localhost:8080}/actuator/mappings"
         specs:
           - spec:
               id: product-search-bff-v6
-              baseUrl: http://localhost:8080
+              baseUrl: "{APP_URL:http://localhost:8080}"
     data:
       examples:
         - directories:

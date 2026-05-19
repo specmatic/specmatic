@@ -1,0 +1,712 @@
+---
+components:
+  adapters:
+    sample:
+      post_specmatic_response_processor: value
+      pre_specmatic_request_processor: value
+      pre_specmatic_response_processor: value
+      stub_load_contract: value
+      test_load_contract: value
+  certificates:
+    sample:
+      keyStore:
+        alias: value
+        directory: value
+        file: value
+        password: value
+      keyStorePassword: value
+      mtlsEnabled: true
+  dictionaries:
+    sample:
+      path: value
+  examples:
+    commonExamples:
+      directories:
+      - value
+    mockExamples:
+    - "$ref": value
+      directories:
+      - value
+    testExamples:
+    - "$ref": value
+      directories:
+      - value
+  runOptions:
+    sample:
+      asyncapi:
+        inMemoryBroker:
+          host: value
+          logDir: value
+          port: 1
+        replyTimeout: 1
+        schemaRegistry:
+          kind: value
+          password: value
+          url: value
+          username: value
+        servers:
+        - adminCredentials:
+            sample: value
+          client:
+            consumer:
+              "$ref": value
+              keyStore:
+                alias: value
+                directory: value
+                file: value
+                password: value
+              keyStorePassword: value
+              mtlsEnabled: true
+            producer:
+              "$ref": value
+              keyStore:
+                alias: value
+                directory: value
+                file: value
+                password: value
+              keyStorePassword: value
+              mtlsEnabled: true
+          host: value
+          protocol: value
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        subscriberReadinessWaitTimeout: 1
+        type: value
+      graphqlsdl:
+        host: value
+        port: 1
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        type: value
+      openapi:
+        actuatorUrl: value
+        baseUrl: value
+        cert:
+          "$ref": value
+          keyStore:
+            alias: value
+            directory: value
+            file: value
+            password: value
+          keyStorePassword: value
+          mtlsEnabled: true
+        filter: value
+        host: value
+        logMode: value
+        logsDirPath: value
+        port: 1
+        specs:
+        - spec:
+            baseUrl: value
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+            securitySchemes:
+              sample:
+                token: value
+                type: value
+        swaggerUiBaseUrl: value
+        swaggerUrl: value
+        type: value
+        workflow:
+          ids:
+            sample:
+              extract: value
+              use: value
+      protobuf:
+        host: value
+        importPaths:
+        - 1
+        port: 1
+        protocVersion: value
+        requestTimeout: 1
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        type: value
+      wsdl:
+        baseUrl: value
+        cert:
+          "$ref": value
+          keyStore:
+            alias: value
+            directory: value
+            file: value
+            password: value
+          keyStorePassword: value
+          mtlsEnabled: true
+        host: value
+        port: 1
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        type: value
+  services:
+    sample:
+      definitions:
+      - definition:
+          source:
+            "$ref": value
+            filesystem:
+              directory: value
+            git:
+              auth:
+                bearerEnvironmentVariable: value
+                bearerFile: value
+                personalAccessToken: value
+              branch: value
+              matchBranch: true
+              url: value
+            web:
+              url: value
+          specs:
+          - value
+          - spec:
+              id: value
+              path: value
+              urlPathPrefix: value
+      description: value
+  settings:
+    sample:
+      backwardCompatibility:
+        baseBranch: value
+        repoDirectory: value
+        strictMode: true
+        targetPath: value
+      delayInMilliseconds: value
+      general:
+        disableTelemetry: true
+        featureFlags:
+          escapeSoapAction: value
+          fuzzyMatcherForPayloads: value
+          schemaExampleDefault: value
+        ignoreInlineExampleWarnings: true
+        ignoreInlineExamples: true
+        logging:
+          json:
+            console: value
+            directory: value
+            logFilePrefix: value
+          level: value
+          text:
+            console: value
+            directory: value
+            logFilePrefix: value
+        prettyPrint: true
+        sharedExamplesDirectoryTemplate:
+        - value
+        specExamplesDirectoryTemplate: value
+      generative: true
+      gracefulRestartTimeoutInMilliseconds: 1
+      hotReload: value
+      junitReportDir: 1
+      lenientMode: true
+      maxTestCount: 1
+      maxTestRequestCombinations: value
+      mock:
+        delayInMilliseconds: value
+        generative: true
+        gracefulRestartTimeoutInMilliseconds: 1
+        hotReload: value
+        lenientMode: true
+        startTimeoutInMilliseconds: 1
+        strictMode: true
+      parallelism: 1
+      proxy:
+        ignoreHeaders:
+        - true
+        recordRequests: true
+      schemaResiliencyTests: value
+      startTimeoutInMilliseconds: 1
+      strictMode: true
+      test:
+        junitReportDir: 1
+        lenientMode: true
+        maxTestCount: 1
+        maxTestRequestCombinations: value
+        parallelism: 1
+        schemaResiliencyTests: value
+        strictMode: true
+        timeoutInMilliseconds: 1
+        validateResponseValues: true
+      timeoutInMilliseconds: 1
+      validateResponseValues: true
+  sources:
+    sample:
+      filesystem:
+        directory: value
+      git:
+        auth:
+          bearerEnvironmentVariable: value
+          bearerFile: value
+          personalAccessToken: value
+        branch: value
+        matchBranch: true
+        url: value
+      web:
+        url: value
+dependencies:
+  data:
+    adapters:
+      "$ref": value
+      post_specmatic_response_processor: value
+      pre_specmatic_request_processor: value
+      pre_specmatic_response_processor: value
+      stub_load_contract: value
+      test_load_contract: value
+    dictionary:
+      "$ref": value
+      path: value
+    examples:
+    - "$ref": value
+      directories:
+      - value
+  services:
+  - service:
+      "$ref": value
+      data:
+        adapters:
+          "$ref": value
+          post_specmatic_response_processor: value
+          pre_specmatic_request_processor: value
+          pre_specmatic_response_processor: value
+          stub_load_contract: value
+          test_load_contract: value
+        dictionary:
+          "$ref": value
+          path: value
+        examples:
+        - "$ref": value
+          directories:
+          - value
+      definitions:
+      - definition:
+          source:
+            "$ref": value
+            filesystem:
+              directory: value
+            git:
+              auth:
+                bearerEnvironmentVariable: value
+                bearerFile: value
+                personalAccessToken: value
+              branch: value
+              matchBranch: true
+              url: value
+            web:
+              url: value
+          specs:
+          - value
+          - spec:
+              id: value
+              path: value
+              urlPathPrefix: value
+      description: value
+      runOptions:
+        "$ref": value
+        asyncapi:
+          inMemoryBroker:
+            host: value
+            logDir: value
+            port: 1
+          schemaRegistry:
+            kind: value
+            password: value
+            url: value
+            username: value
+          servers:
+          - adminCredentials:
+              sample: value
+            client:
+              consumer:
+                "$ref": value
+                keyStore:
+                  alias: value
+                  directory: value
+                  file: value
+                  password: value
+                keyStorePassword: value
+                mtlsEnabled: true
+              producer:
+                "$ref": value
+                keyStore:
+                  alias: value
+                  directory: value
+                  file: value
+                  password: value
+                keyStorePassword: value
+                mtlsEnabled: true
+            host: value
+            protocol: value
+          specs:
+          - spec:
+              host: value
+              id: value
+              overlayFilePath: value
+              port: 1
+          type: value
+        graphqlsdl:
+          host: value
+          port: 1
+          specs:
+          - spec:
+              host: value
+              id: value
+              overlayFilePath: value
+              port: 1
+          type: value
+        openapi:
+          baseUrl: value
+          cert:
+            "$ref": value
+            keyStore:
+              alias: value
+              directory: value
+              file: value
+              password: value
+            keyStorePassword: value
+            mtlsEnabled: true
+          filter: value
+          host: value
+          logMode: value
+          logsDirPath: value
+          port: 1
+          specs:
+          - spec:
+              baseUrl: value
+              host: value
+              id: value
+              overlayFilePath: value
+              port: 1
+              securitySchemes:
+                sample:
+                  token: value
+                  type: value
+          type: value
+        protobuf:
+          host: value
+          importPaths:
+          - 1
+          port: 1
+          protocVersion: value
+          specs:
+          - spec:
+              host: value
+              id: value
+              overlayFilePath: value
+              port: 1
+          type: value
+        wsdl:
+          baseUrl: value
+          cert:
+            "$ref": value
+            keyStore:
+              alias: value
+              directory: value
+              file: value
+              password: value
+            keyStorePassword: value
+            mtlsEnabled: true
+          host: value
+          port: 1
+          specs:
+          - spec:
+              host: value
+              id: value
+              overlayFilePath: value
+              port: 1
+          type: value
+      settings:
+        "$ref": value
+        delayInMilliseconds: value
+        generative: true
+        gracefulRestartTimeoutInMilliseconds: 1
+        hotReload: value
+        lenientMode: true
+        startTimeoutInMilliseconds: 1
+        strictMode: true
+  settings:
+    "$ref": value
+    delayInMilliseconds: value
+    generative: true
+    gracefulRestartTimeoutInMilliseconds: 1
+    hotReload: value
+    lenientMode: true
+    startTimeoutInMilliseconds: 1
+    strictMode: true
+mcp:
+  test:
+    baseUrl: value
+    bearerToken: value
+    dictionaryFile: value
+    enableResiliencyTests: true
+    filterTools:
+    - value
+    skipTools:
+    - value
+    transportKind: 1
+proxies:
+- proxy:
+    adapters:
+      "$ref": value
+      post_specmatic_response_processor: value
+      pre_specmatic_request_processor: value
+      pre_specmatic_response_processor: value
+      stub_load_contract: value
+      test_load_contract: value
+    baseUrl: value
+    cert:
+      "$ref": value
+      keyStore:
+        alias: value
+        directory: value
+        file: value
+        password: value
+      keyStorePassword: value
+      mtlsEnabled: true
+    mock:
+    - value
+    recordingsDirectory: true
+    target: value
+    timeoutInMilliseconds: 1
+specmatic:
+  governance:
+    report:
+      formats:
+      - value
+      outputDirectory: value
+    successCriteria:
+      enforce: true
+      maxMissedOperationsInSpec: 1
+      minCoveragePercentage: 1
+  license:
+    path: value
+  settings:
+    "$ref": value
+    backwardCompatibility:
+      baseBranch: value
+      repoDirectory: value
+      strictMode: true
+      targetPath: value
+    general:
+      disableTelemetry: true
+      featureFlags:
+        escapeSoapAction: value
+        fuzzyMatcherForPayloads: value
+        schemaExampleDefault: value
+      ignoreInlineExampleWarnings: true
+      ignoreInlineExamples: true
+      logging:
+        json:
+          console: value
+          directory: value
+          logFilePrefix: value
+        level: value
+        text:
+          console: value
+          directory: value
+          logFilePrefix: value
+      prettyPrint: true
+      sharedExamplesDirectoryTemplate:
+      - value
+      specExamplesDirectoryTemplate: value
+    mock:
+      delayInMilliseconds: value
+      generative: true
+      gracefulRestartTimeoutInMilliseconds: 1
+      hotReload: value
+      lenientMode: true
+      startTimeoutInMilliseconds: 1
+      strictMode: true
+    proxy:
+      ignoreHeaders:
+      - true
+      recordRequests: true
+    test:
+      junitReportDir: 1
+      lenientMode: true
+      maxTestCount: 1
+      maxTestRequestCombinations: value
+      parallelism: 1
+      schemaResiliencyTests: value
+      strictMode: true
+      timeoutInMilliseconds: 1
+      validateResponseValues: true
+systemUnderTest:
+  service:
+    "$ref": value
+    data:
+      adapters:
+        "$ref": value
+        post_specmatic_response_processor: value
+        pre_specmatic_request_processor: value
+        pre_specmatic_response_processor: value
+        stub_load_contract: value
+        test_load_contract: value
+      dictionary:
+        "$ref": value
+        path: value
+      examples:
+      - "$ref": value
+        directories:
+        - value
+    definitions:
+    - definition:
+        source:
+          "$ref": value
+          filesystem:
+            directory: value
+          git:
+            auth:
+              bearerEnvironmentVariable: value
+              bearerFile: value
+              personalAccessToken: value
+            branch: value
+            matchBranch: true
+            url: value
+          web:
+            url: value
+        specs:
+        - value
+        - spec:
+            id: value
+            path: value
+            urlPathPrefix: value
+    description: value
+    runOptions:
+      "$ref": value
+      asyncapi:
+        replyTimeout: 1
+        schemaRegistry:
+          kind: value
+          password: value
+          url: value
+          username: value
+        servers:
+        - adminCredentials:
+            sample: value
+          client:
+            consumer:
+              "$ref": value
+              keyStore:
+                alias: value
+                directory: value
+                file: value
+                password: value
+              keyStorePassword: value
+              mtlsEnabled: true
+            producer:
+              "$ref": value
+              keyStore:
+                alias: value
+                directory: value
+                file: value
+                password: value
+              keyStorePassword: value
+              mtlsEnabled: true
+          host: value
+          protocol: value
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        subscriberReadinessWaitTimeout: 1
+        type: value
+      graphqlsdl:
+        host: value
+        port: 1
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        type: value
+      openapi:
+        actuatorUrl: value
+        baseUrl: value
+        cert:
+          "$ref": value
+          keyStore:
+            alias: value
+            directory: value
+            file: value
+            password: value
+          keyStorePassword: value
+          mtlsEnabled: true
+        filter: value
+        host: value
+        port: 1
+        specs:
+        - spec:
+            baseUrl: value
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+            securitySchemes:
+              sample:
+                token: value
+                type: value
+        swaggerUiBaseUrl: value
+        swaggerUrl: value
+        type: value
+        workflow:
+          ids:
+            sample:
+              extract: value
+              use: value
+      protobuf:
+        host: value
+        importPaths:
+        - 1
+        port: 1
+        protocVersion: value
+        requestTimeout: 1
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        type: value
+      wsdl:
+        baseUrl: value
+        host: value
+        port: 1
+        specs:
+        - spec:
+            host: value
+            id: value
+            overlayFilePath: value
+            port: 1
+        type: value
+    settings:
+      "$ref": value
+      junitReportDir: 1
+      lenientMode: true
+      maxTestCount: 1
+      maxTestRequestCombinations: value
+      parallelism: 1
+      schemaResiliencyTests: value
+      strictMode: true
+      timeoutInMilliseconds: 1
+      validateResponseValues: true
+version: 3

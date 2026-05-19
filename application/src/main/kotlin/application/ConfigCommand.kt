@@ -1,6 +1,7 @@
 package application
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -10,6 +11,7 @@ import io.specmatic.core.config.SpecmaticConfigVersion.Companion.getLatestVersio
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.isValidVersion
 import io.specmatic.core.config.getVersion
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.v3.upgrade.TemplatePreservingConfigUpgrade
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exitWithMessage
@@ -73,8 +75,12 @@ class ConfigCommand : Callable<Int> {
         }
 
         private fun upgrade(configFile: File) {
-            val upgradedConfigYaml =
-                getObjectMapper().writeValueAsString(convertToLatestVersionedConfig(configFile.toSpecmaticConfig()))
+            val objectMapper = getObjectMapper()
+            val upgradedConfigTree = TemplatePreservingConfigUpgrade.preserveTemplates(
+                rawLegacyConfig = objectMapper.readTree(configFile.readText()),
+                upgradedConfig = objectMapper.valueToTree<JsonNode>(convertToLatestVersionedConfig(configFile.toSpecmaticConfig()))
+            )
+            val upgradedConfigYaml = objectMapper.writeValueAsString(upgradedConfigTree)
 
             if(outputFile == null) {
                 logger.log(upgradedConfigYaml)

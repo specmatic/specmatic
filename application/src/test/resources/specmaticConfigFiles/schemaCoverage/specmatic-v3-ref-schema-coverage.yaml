@@ -1,0 +1,24 @@
+---
+version: 3
+systemUnderTest:
+  service:
+    data:
+      examples:
+        "$ref": value
+dependencies:
+  data:
+    examples:
+      "$ref": value
+  services:
+  - service:
+      data:
+        examples:
+          "$ref": value
+proxies:
+- proxy:
+    target: value
+    mock: value
+specmatic:
+  governance:
+    report:
+      formats: value

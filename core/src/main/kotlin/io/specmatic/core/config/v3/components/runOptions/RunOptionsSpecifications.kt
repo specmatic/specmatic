@@ -34,6 +34,7 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
 
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
+        (spec.config["baseUrl"] as? String)?.let { return it }
         if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, "localhost")
         return "${spec.host ?: defaultHost}:${spec.port}"
     }
