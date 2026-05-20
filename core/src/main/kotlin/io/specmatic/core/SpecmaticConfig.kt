@@ -362,9 +362,6 @@ interface SpecmaticConfig {
     fun getPipelineProject(): String?
 
     @JsonIgnore
-    fun getProjectId(): String?
-
-    @JsonIgnore
     fun getProjectName(): String?
 
     @JsonIgnore

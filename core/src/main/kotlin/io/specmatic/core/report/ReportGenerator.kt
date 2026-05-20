@@ -16,7 +16,6 @@ object ReportGenerator {
         startTime: Long,
         endTime: Long,
         specConfigs: List<CtrfSpecConfig>,
-        projectId: String? = null,
         projectName: String? = null,
         coverage: Int? = null,
         actuatorEnabled: Boolean? = null,
@@ -48,7 +47,6 @@ object ReportGenerator {
             extra = extra,
             specConfig = specConfigs,
             toolName = toolName,
-            projectId = projectId,
             projectName = projectName,
         )
 

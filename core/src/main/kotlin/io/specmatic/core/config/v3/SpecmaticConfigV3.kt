@@ -20,7 +20,6 @@ data class SpecmaticConfigV3(
     val mcp: McpConfiguration? = null,
     val specmatic: Specmatic? = null,
     val components: Components? = null,
-    val projectId: String? = null,
     val projectName: String? = null,
 ) : SpecmaticVersionedConfig {
     override fun transform(file: File?): SpecmaticConfig {

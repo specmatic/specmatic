@@ -1182,7 +1182,6 @@ class HttpStub(
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
                 specConfigs = mockUsage.ctrfSpecConfigs(),
-                projectId = specmaticConfigInstance.getProjectId(),
                 projectName = specmaticConfigInstance.getProjectName(),
                 coverage = mockUsageReport.coverage,
                 absoluteCoverage = mockUsageReport.absoluteCoverage,

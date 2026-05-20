@@ -118,7 +118,6 @@ class VersionAwareConfigParserTest {
                 writeText(
                     """
                     version: 2
-                    projectId: project-123
                     projectName: Payments
                     contracts: []
                     """.trimIndent()
@@ -127,7 +126,6 @@ class VersionAwareConfigParserTest {
 
         val config: SpecmaticConfig = configFile.toSpecmaticConfig()
 
-        assertThat(config.getProjectId()).isEqualTo("project-123")
         assertThat(config.getProjectName()).isEqualTo("Payments")
     }
 

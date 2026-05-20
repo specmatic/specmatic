@@ -56,13 +56,11 @@ class SpecmaticConfigV3Test {
     fun `should deserialize project metadata in v3`() {
         val yaml = """
             version: 3
-            projectId: project-123
             projectName: Payments
         """.trimIndent()
 
         val config = loadConfig(yaml, dereference = false).transform(null)
 
-        assertThat(config.getProjectId()).isEqualTo("project-123")
         assertThat(config.getProjectName()).isEqualTo("Payments")
     }
 

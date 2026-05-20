@@ -667,10 +667,6 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return null
     }
 
-    override fun getProjectId(): String? {
-        return specmaticConfig.projectId
-    }
-
     override fun getProjectName(): String? {
         return specmaticConfig.projectName
     }

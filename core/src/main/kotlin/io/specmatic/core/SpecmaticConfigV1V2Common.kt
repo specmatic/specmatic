@@ -337,7 +337,6 @@ data class SpecmaticConfigV1V2Common(
     private val licensePath: Path? = null,
     private val reportDirPath: Path? = null,
     private val globalSettings: SpecmaticGlobalSettings? = null,
-    private val projectId: String? = null,
     private val projectName: String? = null,
 ) : SpecmaticConfig {
     companion object {
@@ -1197,11 +1196,6 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun getPipelineProject(): String? {
         return pipeline?.getProject()
-    }
-
-    @JsonIgnore
-    override fun getProjectId(): String? {
-        return projectId
     }
 
     @JsonIgnore
