@@ -1,13 +1,15 @@
 package io.specmatic.core.config.v3.components.settings
 
+import io.specmatic.core.TemplatableValue
+
 data class MockSettings(
-    val generative: Boolean? = null,
-    val delayInMilliseconds: Long? = null,
-    val startTimeoutInMilliseconds: Long? = null,
-    val hotReload: Boolean? = null,
-    val strictMode: Boolean? = null,
-    val gracefulRestartTimeoutInMilliseconds: Long? = null,
-    val lenientMode: Boolean? = null
+    val generative: TemplatableValue<Boolean>? = null,
+    val delayInMilliseconds: TemplatableValue<Long>? = null,
+    val startTimeoutInMilliseconds: TemplatableValue<Long>? = null,
+    val hotReload: TemplatableValue<Boolean>? = null,
+    val strictMode: TemplatableValue<Boolean>? = null,
+    val gracefulRestartTimeoutInMilliseconds: TemplatableValue<Long>? = null,
+    val lenientMode: TemplatableValue<Boolean>? = null
 ) {
     fun merge(fallback: MockSettings?): MockSettings {
         if (fallback == null) return this

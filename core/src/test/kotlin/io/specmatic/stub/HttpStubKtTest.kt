@@ -17,6 +17,7 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.SPECMATIC_EMPTY_HEADER
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.parseContractFileToFeature
@@ -539,7 +540,7 @@ Feature: Test
             features = listOf(feature),
             httpExpectations = HttpExpectations(mutableListOf(stubData)),
             strictMode = true,
-            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         )
 
         val strictModeReport = Results(listOf(stubData.matches(request)))
@@ -605,7 +606,7 @@ Feature: Test
             features = listOf(feature),
             httpExpectations = HttpExpectations(mutableListOf(stubData)),
             strictMode = true,
-            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(false)))
         )
 
         val strictModeReport = Results(listOf(stubData.matches(request)))
@@ -668,7 +669,7 @@ Feature: Test
             features = listOf(feature),
             httpExpectations = HttpExpectations(mutableListOf()),
             strictMode = true,
-            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
@@ -727,7 +728,7 @@ Feature: Test
             features = listOf(feature),
             httpExpectations = HttpExpectations(mutableListOf()),
             strictMode = true,
-            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
@@ -770,7 +771,7 @@ Feature: Test
             features = listOf(feature),
             httpExpectations = HttpExpectations(mutableListOf()),
             strictMode = true,
-            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
@@ -829,7 +830,7 @@ Feature: Test
             strictMode = strictMode,
             features = listOf(feature),
             httpExpectations = HttpExpectations(mutableListOf()),
-            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = generative))
+            specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(generative)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
@@ -885,7 +886,7 @@ Feature: Test
         val result = fakeHttpResponse(
             listOf(feature),
             request,
-            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
@@ -975,7 +976,7 @@ Feature: Test
         val result = fakeHttpResponse(
             listOf(feature),
             request,
-            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)
@@ -1023,7 +1024,7 @@ Feature: Test
         val result = fakeHttpResponse(
             listOf(feature),
             request,
-            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
+            SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(false)))
         )
 
         assertThat(result).isInstanceOf(NotStubbed::class.java)

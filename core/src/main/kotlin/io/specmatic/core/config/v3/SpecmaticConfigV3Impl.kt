@@ -1,5 +1,6 @@
 package io.specmatic.core.config.v3
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.conversions.SPECMATIC_BASIC_AUTH_TOKEN
 import io.specmatic.conversions.SPECMATIC_OAUTH2_TOKEN
 import io.specmatic.core.APIKeySecuritySchemeConfiguration
@@ -48,6 +49,7 @@ import io.specmatic.core.VirtualServiceConfiguration
 import io.specmatic.core.WorkflowDetails
 import io.specmatic.core.azure.AzureAPI
 import io.specmatic.core.config.BackwardCompatibilityConfig
+import io.specmatic.core.config.ConfigTemplateMetadata
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
@@ -97,6 +99,7 @@ import io.specmatic.core.utilities.GitMonoRepo
 import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
 import io.specmatic.core.utilities.ResolvedWebSource
+import io.specmatic.core.value
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -108,6 +111,9 @@ import kotlin.collections.mapNotNull
 import kotlin.collections.orEmpty
 
 data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: SpecmaticConfigV3) : SpecmaticConfig {
+    @get:JsonIgnore
+    val configTemplateMetadata: ConfigTemplateMetadata = specmaticConfig.configTemplateMetadata
+
     private val effectiveWorkingFile: File = file?.canonicalFile ?: File(".").canonicalFile
     private val resolver = SpecmaticConfigV3Resolver(specmaticConfig.components ?: Components(), effectiveWorkingFile.toPath())
     private fun emptyTestServiceConfig() = TestServiceConfig(service = RefOrValue.Value(CommonServiceConfig(definitions = emptyList())))
@@ -248,7 +254,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getHotReload(): Switch? {
-        val mockHotReload = getMockSettings().hotReload ?: return null
+        val mockHotReload = getMockSettings().hotReload.value() ?: return null
         return if (mockHotReload) Switch.enabled else Switch.disabled
     }
 
@@ -288,7 +294,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getStubStartTimeoutInMilliseconds(): Long {
-        return getMockSettings().startTimeoutInMilliseconds ?: 20_000L
+        return getMockSettings().startTimeoutInMilliseconds.value() ?: 20_000L
     }
 
     override fun logDependencyProjects(azure: AzureAPI) {
@@ -346,7 +352,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun isResponseValueValidationEnabled(): Boolean {
-        return testSettings.validateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
+        return testSettings.validateResponseValues.value() ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
     }
 
     override fun parsedDefaultPatternValues(): Map<String, Value> {
@@ -360,29 +366,29 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getTestTimeoutInMilliseconds(): Long? {
-        return testSettings.timeoutInMilliseconds ?: getLongValue(SPECMATIC_TEST_TIMEOUT)
+        return testSettings.timeoutInMilliseconds.value() ?: getLongValue(SPECMATIC_TEST_TIMEOUT)
     }
 
     override fun getMaxTestRequestCombinations(): Int? {
-        val configValue = testSettings.maxTestRequestCombinations
+        val configValue = testSettings.maxTestRequestCombinations.value()
         return configValue ?: getIntValue(MAX_TEST_REQUEST_COMBINATIONS)
     }
 
     override fun getTestStrictMode(): Boolean? {
-        return testSettings.strictMode ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
+        return testSettings.strictMode.value() ?: getStringValue(TEST_STRICT_MODE)?.toBoolean()
     }
 
     override fun getTestLenientMode(): Boolean? {
-        return testSettings.lenientMode ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
+        return testSettings.lenientMode.value() ?: getStringValue(TEST_LENIENT_MODE)?.toBoolean()
     }
 
     override fun getStubLenientMode(file: File): Boolean? {
         val mockSettings = getMockSettingsFor(file)
-        return mockSettings.lenientMode
+        return mockSettings.lenientMode.value()
     }
 
     override fun getTestParallelism(): String? {
-        return testSettings.parallelism ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
+        return testSettings.parallelism.value() ?: getStringValue(SPECMATIC_TEST_PARALLELISM)
     }
 
     override fun getTestsDirectory(): String? {
@@ -390,12 +396,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getMaxTestCount(): Int? {
-        return testSettings.maxTestCount ?: getIntValue(MAX_TEST_COUNT)
+        return testSettings.maxTestCount.value() ?: getIntValue(MAX_TEST_COUNT)
     }
 
     override fun getTestFilter(): String? {
         val runOpts = specmaticConfig.systemUnderTest?.getRunOptions(resolver, SpecType.OPENAPI) as? OpenApiTestConfig
-        return runOpts?.filter ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
+        return runOpts?.filter.value() ?: readEnvVarOrProperty(TEST_FILTER_ENV_VAR, TEST_FILTER_PROPERTY)
     }
 
     override fun getTestFilterName(): String? {
@@ -439,19 +445,19 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getTestSwaggerUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUrl
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUrl.value()
     }
 
     override fun getTestSwaggerUIBaseUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUiBaseUrl
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUiBaseUrl.value()
     }
 
     override fun getTestJunitReportDir(): String? {
-        return testSettings.junitReportDir
+        return testSettings.junitReportDir.value()
     }
 
     override fun getActuatorUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl.value() ?: getStringValue(TEST_ENDPOINTS_API)
     }
 
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig {
@@ -473,12 +479,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getStubGenerative(specFile: File?): Boolean {
         val mockSettings = if (specFile != null) getMockSettingsFor(specFile) else getMockSettings()
-        return mockSettings.generative ?: false
+        return mockSettings.generative.value() ?: false
     }
 
     override fun getStubDelayInMilliseconds(specFile: File?): Long? {
         val mockSettings = if (specFile != null) getMockSettingsFor(specFile) else getMockSettings()
-        return mockSettings.delayInMilliseconds ?: getLongValue(SPECMATIC_STUB_DELAY)
+        return mockSettings.delayInMilliseconds.value() ?: getLongValue(SPECMATIC_STUB_DELAY)
     }
 
     override fun getStubDictionary(specFile: File?): String? {
@@ -491,12 +497,12 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getStubStrictMode(specFile: File?): Boolean? {
         val mockSettings = if (specFile != null) getMockSettingsFor(specFile) else getMockSettings()
-        return mockSettings.strictMode ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
+        return mockSettings.strictMode.value() ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
     }
 
     override fun getStubFilter(specFile: File): String? {
         val runOpts = getMockRunOptions(specFile, SpecType.OPENAPI) as? OpenApiMockConfig ?: return null
-        return runOpts.filter
+        return runOpts.filter.value()
     }
 
     override fun getStubHttpsConfiguration(): CertRegistry {
@@ -513,7 +519,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getStubGracefulRestartTimeoutInMilliseconds(): Long? {
         val mockSettings = getMockSettings()
-        return mockSettings.gracefulRestartTimeoutInMilliseconds
+        return mockSettings.gracefulRestartTimeoutInMilliseconds.value()
     }
 
     override fun getDefaultBaseUrl(): String {

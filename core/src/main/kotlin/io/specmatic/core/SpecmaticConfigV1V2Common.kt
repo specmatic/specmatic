@@ -1,10 +1,21 @@
 package io.specmatic.core
 
 import com.fasterxml.jackson.annotation.*
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.BeanProperty
 import com.fasterxml.jackson.databind.DatabindException
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JavaType
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
+import com.fasterxml.jackson.databind.deser.ContextualDeserializer
 import com.fasterxml.jackson.databind.exc.*
 import io.specmatic.conversions.SPECMATIC_BASIC_AUTH_TOKEN
 import io.specmatic.conversions.SPECMATIC_OAUTH2_TOKEN
@@ -130,55 +141,135 @@ fun String.loadContract(): Feature {
     return parseContractFileToFeature(File(this))
 }
 
+@JsonSerialize(using = TemplatableValueSerializer::class)
+@JsonDeserialize(using = TemplatableValueDeserializer::class)
+data class TemplatableValue<T>(val value: T, val template: String? = null) {
+    fun <R> map(transform: (T) -> R, templateTransform: (String) -> String = { it }): TemplatableValue<R> {
+        return TemplatableValue(transform(value), template?.let(templateTransform))
+    }
+
+    override fun toString(): String = value.toString()
+
+    companion object {
+        fun <T> of(value: T?): TemplatableValue<T>? = value?.let { TemplatableValue(it) }
+    }
+}
+
+fun <T> TemplatableValue<T>?.value(): T? = this?.value
+
+fun <T, R> TemplatableValue<T>?.mapTemplatable(
+    transform: (T) -> R,
+    templateTransform: (String) -> String = { it },
+): TemplatableValue<R>? {
+    return this?.map(transform, templateTransform)
+}
+
+fun Any?.withoutTemplatableValues(): Any? {
+    return when (this) {
+        is TemplatableValue<*> -> value.withoutTemplatableValues()
+        is Map<*, *> -> entries.associate { (key, value) ->
+            key.withoutTemplatableValues() to value.withoutTemplatableValues()
+        }
+        is List<*> -> map { it.withoutTemplatableValues() }
+        else -> this
+    }
+}
+
+class TemplatableValueSerializer : JsonSerializer<TemplatableValue<*>>() {
+    override fun serialize(value: TemplatableValue<*>, gen: JsonGenerator, serializers: SerializerProvider) {
+        value.template?.let {
+            gen.writeString(it)
+            return
+        }
+
+        gen.writeObject(value.value)
+    }
+}
+
+class TemplatableValueDeserializer(
+    private val wrappedType: JavaType? = null,
+) : JsonDeserializer<TemplatableValue<*>>(), ContextualDeserializer {
+    override fun createContextual(ctxt: DeserializationContext, property: BeanProperty?): JsonDeserializer<*> {
+        val contextualType = property?.type ?: ctxt.contextualType
+        return TemplatableValueDeserializer(contextualType?.containedType(0))
+    }
+
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): TemplatableValue<*> {
+        val rawNode = p.codec.readTree<JsonNode>(p)
+        val template = rawNode.takeIf { it.isTextual }?.asText()?.takeIf(ConfigTemplateUtils::isConfigTemplate)
+        val valueNode = template?.let { ConfigTemplateUtils.resolveTemplateValue(rawNode) } ?: rawNode
+        return TemplatableValue(valueNode.toNativeValue(p, ctxt, wrappedType), template)
+    }
+
+    private fun JsonNode.toNativeValue(p: JsonParser, ctxt: DeserializationContext, valueType: JavaType?): Any? {
+        if (valueType == null || valueType.rawClass == Any::class.java) return nativeValue(p)
+        return ctxt.readTreeAsValue(this, valueType.rawClass)
+    }
+
+    private fun JsonNode.nativeValue(p: JsonParser): Any? {
+        return when {
+            isTextual -> asText()
+            isInt -> asInt()
+            isLong -> asLong()
+            isDouble -> asDouble()
+            isBoolean -> asBoolean()
+            isArray -> map { it.nativeValue(p) }
+            isObject -> properties().associate { (key, value) -> key to value.nativeValue(p) }
+            isNull -> null
+            else -> throw JsonMappingException(p, "Unsupported templatable value type")
+        }
+    }
+}
+
 data class StubConfiguration(
-    private val generative: Boolean? = null,
-    private val delayInMilliseconds: Long? = null,
-    private val dictionary: String? = null,
-    private val includeMandatoryAndRequestedKeysInResponse: Boolean? = null,
-    private val startTimeoutInMilliseconds: Long? = null,
-    private val hotReload: Switch? = null,
-    private val strictMode: Boolean? = null,
-    private val baseUrl: String? = null,
-    private val customImplicitStubBase: String? = null,
-    private val filter: String? = null,
-    private val gracefulRestartTimeoutInMilliseconds: Long? = null,
+    private val generative: TemplatableValue<Boolean>? = null,
+    private val delayInMilliseconds: TemplatableValue<Long>? = null,
+    private val dictionary: TemplatableValue<String>? = null,
+    private val includeMandatoryAndRequestedKeysInResponse: TemplatableValue<Boolean>? = null,
+    private val startTimeoutInMilliseconds: TemplatableValue<Long>? = null,
+    private val hotReload: TemplatableValue<Switch>? = null,
+    private val strictMode: TemplatableValue<Boolean>? = null,
+    private val baseUrl: TemplatableValue<String>? = null,
+    private val customImplicitStubBase: TemplatableValue<String>? = null,
+    private val filter: TemplatableValue<String>? = null,
+    private val gracefulRestartTimeoutInMilliseconds: TemplatableValue<Long>? = null,
     private val https: HttpsConfiguration? = null,
-    private val lenientMode: Boolean? = null
+    private val lenientMode: TemplatableValue<Boolean>? = null
 ) {
     fun getLenientMode(): Boolean? {
-        return lenientMode
+        return lenientMode.value()
     }
 
     fun getGenerative(): Boolean? {
-        return generative
+        return generative.value()
     }
 
     fun getDelayInMilliseconds(): Long? {
-        return delayInMilliseconds ?: getLongValue(SPECMATIC_STUB_DELAY)
+        return delayInMilliseconds.value() ?: getLongValue(SPECMATIC_STUB_DELAY)
     }
 
     fun getDictionary(): String? {
-        return dictionary ?: getStringValue(SPECMATIC_STUB_DICTIONARY)
+        return dictionary.value() ?: getStringValue(SPECMATIC_STUB_DICTIONARY)
     }
 
     fun getIncludeMandatoryAndRequestedKeysInResponse(): Boolean? {
-        return includeMandatoryAndRequestedKeysInResponse
+        return includeMandatoryAndRequestedKeysInResponse.value()
     }
 
     fun getStartTimeoutInMilliseconds(): Long? {
-        return startTimeoutInMilliseconds
+        return startTimeoutInMilliseconds.value()
     }
 
     fun getHotReload(): Switch? {
-        return hotReload
+        return hotReload.value()
     }
 
     fun getStrictMode(): Boolean? {
-        return strictMode ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
+        return strictMode.value() ?: Flags.getBooleanValueOrNull(Flags.STUB_STRICT_MODE)
     }
 
     fun getFilter(): String? {
-        return filter
+        return filter.value()
     }
 
     fun getHttps(): HttpsConfiguration? {
@@ -186,16 +277,27 @@ data class StubConfiguration(
     }
 
     fun getGracefulRestartTimeoutInMilliseconds(): Long? {
-        return gracefulRestartTimeoutInMilliseconds
+        return gracefulRestartTimeoutInMilliseconds.value()
     }
 
     fun getBaseUrl(): String? {
-        return baseUrl
+        return baseUrl.value()
     }
 
     fun getCustomImplicitStubBase(): String? {
-        return customImplicitStubBase
+        return customImplicitStubBase.value()
     }
+
+    fun getTemplatedGenerative(): TemplatableValue<Boolean>? = generative
+    fun getTemplatedDelayInMilliseconds(): TemplatableValue<Long>? = delayInMilliseconds
+    fun getTemplatedDictionary(): TemplatableValue<String>? = dictionary
+    fun getTemplatedStartTimeoutInMilliseconds(): TemplatableValue<Long>? = startTimeoutInMilliseconds
+    fun getTemplatedHotReload(): TemplatableValue<Switch>? = hotReload
+    fun getTemplatedStrictMode(): TemplatableValue<Boolean>? = strictMode
+    fun getTemplatedBaseUrl(): TemplatableValue<String>? = baseUrl
+    fun getTemplatedFilter(): TemplatableValue<String>? = filter
+    fun getTemplatedGracefulRestartTimeoutInMilliseconds(): TemplatableValue<Long>? = gracefulRestartTimeoutInMilliseconds
+    fun getTemplatedLenientMode(): TemplatableValue<Boolean>? = lenientMode
 }
 
 data class VirtualServiceConfiguration(
@@ -337,6 +439,9 @@ data class SpecmaticConfigV1V2Common(
     private val licensePath: Path? = null,
     private val reportDirPath: Path? = null,
     private val globalSettings: SpecmaticGlobalSettings? = null,
+    @get:JsonIgnore
+    @field:JsonIgnore
+    val configTemplateMetadata: ConfigTemplateMetadata = ConfigTemplateMetadata.empty(),
 ) : SpecmaticConfig {
     companion object {
         fun getEffectiveBranchForSource(
@@ -1343,18 +1448,18 @@ data class SpecmaticConfigV1V2Common(
     override fun withStubModes(strictMode: Boolean?): SpecmaticConfigV1V2Common {
         if (strictMode == null) return this
         val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(strictMode = strictMode))
+        return this.copy(stub = stubConfig.copy(strictMode = TemplatableValue(strictMode)))
     }
 
     override fun withStubFilter(filter: String?): SpecmaticConfigV1V2Common {
         if (filter == null) return this
         val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(filter = filter))
+        return this.copy(stub = stubConfig.copy(filter = TemplatableValue(filter)))
     }
 
     override fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfigV1V2Common {
         val stubConfig = this.stub ?: StubConfiguration()
-        return this.copy(stub = stubConfig.copy(delayInMilliseconds = delayInMilliseconds))
+        return this.copy(stub = stubConfig.copy(delayInMilliseconds = TemplatableValue(delayInMilliseconds)))
     }
 
     override fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig {

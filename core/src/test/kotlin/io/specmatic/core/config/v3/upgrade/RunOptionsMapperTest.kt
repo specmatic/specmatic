@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3.upgrade
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import io.specmatic.core.config.v3.components.SecuritySchemeType
+import io.specmatic.core.TemplatableValue
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -30,7 +31,7 @@ class RunOptionsMapperTest {
         val openApi = mapper.openApi["petstore.yaml"]!!
         assertThat(openApi.securitySchemes).containsKey("oauth")
         assertThat(openApi.overlayFilePath).isEqualTo("overlay.yaml")
-        assertThat(openApi.baseUrl).isEqualTo("http://example.com:9001")
+        assertThat(openApi.baseUrl).isEqualTo(TemplatableValue("http://example.com:9001"))
         assertThat(openApi.host).isNull()
         assertThat(openApi.port).isNull()
     }
@@ -51,8 +52,8 @@ class RunOptionsMapperTest {
 
         val openApi = mapper.openApi["inventory.yaml"]!!
         assertThat(openApi.baseUrl).isNull()
-        assertThat(openApi.port).isEqualTo(9090)
-        assertThat(openApi.host).isEqualTo("svc.internal")
+        assertThat(openApi.port).isEqualTo(TemplatableValue(9090))
+        assertThat(openApi.host).isEqualTo(TemplatableValue("svc.internal"))
     }
 
     @Test

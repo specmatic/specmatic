@@ -29,17 +29,37 @@ internal fun File.toResolvedSpecmaticConfigMap(): Map<String, Any> {
 
 fun File.toSpecmaticConfig(): SpecmaticConfig {
     val configTree = toResolvedSpecmaticConfigTree()
-    return when (configTree.getVersion()) {
+    return configTree.toSpecmaticConfig(this)
+}
+
+fun File.toTemplateAwareSpecmaticConfig(): SpecmaticConfig {
+    val rawConfigTree = objectMapper.readTree(this.readText())
+    val configTree = resolveTemplates(rawConfigTree, ::isTemplatableConfigPath)
+    val templateMetadata = ConfigTemplateMetadata.from(rawConfigTree)
+    return configTree.toSpecmaticConfig(this, templateMetadata)
+}
+
+private fun JsonNode.toSpecmaticConfig(
+    file: File,
+    templateMetadata: ConfigTemplateMetadata = ConfigTemplateMetadata.empty(),
+): SpecmaticConfig {
+    return when (getVersion()) {
         SpecmaticConfigVersion.VERSION_1 -> {
-            objectMapper.treeToValue(configTree, SpecmaticConfigV1::class.java).transform(this)
+            objectMapper.treeToValue(this, SpecmaticConfigV1::class.java)
+                .transform(file)
+                .copy(configTemplateMetadata = templateMetadata)
         }
 
         SpecmaticConfigVersion.VERSION_2 -> {
-            objectMapper.treeToValue(configTree, SpecmaticConfigV2::class.java).transform(this)
+            objectMapper.treeToValue(this, SpecmaticConfigV2::class.java)
+                .transform(file)
+                .copy(configTemplateMetadata = templateMetadata)
         }
 
         SpecmaticConfigVersion.VERSION_3 -> {
-            objectMapper.treeToValue(configTree, SpecmaticConfigV3::class.java).transform(this)
+            objectMapper.treeToValue(this, SpecmaticConfigV3::class.java)
+                .copy(configTemplateMetadata = templateMetadata.useSourcePathsAsV3TargetPaths())
+                .transform(file)
         }
 
         else -> {
@@ -61,22 +81,60 @@ private fun JsonNode.getVersion(): SpecmaticConfigVersion? {
 }
 
 internal fun resolveTemplates(node: JsonNode): JsonNode {
+    return resolveTemplates(node = node, shouldPreserveTemplateAt = { false })
+}
+
+private fun resolveTemplates(
+    node: JsonNode,
+    shouldPreserveTemplateAt: (List<String>) -> Boolean,
+    path: List<String> = emptyList(),
+): JsonNode {
     return when {
         node.isObject ->
             node.fields().asSequence().fold(objectMapper.nodeFactory.objectNode()) { acc, entry ->
-                acc.set<JsonNode>(entry.key, resolveTemplates(entry.value))
+                acc.set<JsonNode>(entry.key, resolveTemplates(entry.value, shouldPreserveTemplateAt, path + entry.key))
                 acc
             }
 
         node.isArray ->
-            node.elements().asSequence().fold(objectMapper.nodeFactory.arrayNode()) { acc, element ->
-                acc.add(resolveTemplates(element))
+            node.elements().asSequence().withIndex().fold(objectMapper.nodeFactory.arrayNode()) { acc, element ->
+                acc.add(resolveTemplates(element.value, shouldPreserveTemplateAt, path + element.index.toString()))
                 acc
             }
 
+        node.isTextual && shouldPreserveTemplateAt(path) -> node
         node.isTextual -> resolveTemplateValue(node.asText()) ?: node
         else -> node
     }
+}
+
+private fun isTemplatableConfigPath(path: List<String>): Boolean {
+    return isContractConfigPath(path) || isStubConfigurationPath(path)
+}
+
+private fun isContractConfigPath(path: List<String>): Boolean {
+    if (path.firstOrNull() != "contracts") return false
+    val configIndex = path.indexOf("config")
+    if (configIndex < 3) return false
+    return path.getOrNull(configIndex - 2) in setOf("provides", "consumes")
+}
+
+private fun isStubConfigurationPath(path: List<String>): Boolean {
+    if (path.size != 2 || path.first() != "stub") return false
+    return path.last() in setOf(
+        "generative",
+        "delayInMilliseconds",
+        "dictionary",
+        "includeMandatoryAndRequestedKeysInResponse",
+        "startTimeoutInMilliseconds",
+        "hotReload",
+        "strictMode",
+        "baseUrl",
+        "customImplicitStubBase",
+        "filter",
+        "gracefulRestartTimeoutInMilliseconds",
+        "lenientMode",
+    )
 }
 
 private fun resolveTemplateValue(value: String): JsonNode? {

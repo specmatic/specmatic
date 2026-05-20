@@ -13,6 +13,8 @@ import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Source
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.TemplatableValue
+import io.specmatic.core.config.ConfigTemplateUtils
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.utilities.Flags
 import java.io.File
@@ -283,7 +285,7 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
 
     private fun JsonNode.nativeValue(p: JsonParser): Any {
         return when {
-            this.isTextual -> this.asText()
+            this.isTextual -> templatableScalarValue(p) ?: this.asText()
             this.isInt -> this.asInt()
             this.isLong -> this.asLong()
             this.isDouble -> this.asDouble()
@@ -293,6 +295,20 @@ class ConsumesDeserializer(private val consumes: Boolean = true) : JsonDeseriali
             this.isNull -> throw JsonMappingException(p, "Null values not supported in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
             else -> throw JsonMappingException(p, "Unsupported value type in 'config' key present under $keyBeingDeserialized field in Specmatic configuration")
         }
+    }
+
+    private fun JsonNode.templatableScalarValue(p: JsonParser): Any? {
+        val rawText = asText()
+        if (!ConfigTemplateUtils.isConfigTemplate(rawText)) return null
+        val resolved = ConfigTemplateUtils.resolveTemplateValue(this)
+        if (!resolved.isScalarValue()) return resolved.nativeValue(p)
+        return TemplatableValue(value = resolved.scalarText(), template = rawText)
+    }
+
+    private fun JsonNode.isScalarValue(): Boolean = isTextual || isNumber || isBoolean
+
+    private fun JsonNode.scalarText(): String {
+        return asText()
     }
 
     private fun JsonNode.getValidatedJsonNode(p: JsonParser): JsonNode {

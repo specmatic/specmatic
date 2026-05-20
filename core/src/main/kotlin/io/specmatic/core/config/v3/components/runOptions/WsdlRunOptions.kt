@@ -1,8 +1,10 @@
 package io.specmatic.core.config.v3.components.runOptions
 
 import com.fasterxml.jackson.annotation.*
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.value
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"))
@@ -10,9 +12,9 @@ sealed interface WsdlRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlTestConfig(
-    val baseUrl: String? = null,
-    val host: String? = null,
-    val port: Int? = null,
+    val baseUrl: TemplatableValue<String>? = null,
+    val host: TemplatableValue<String>? = null,
+    val port: TemplatableValue<Int>? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
     override val specs: List<WsdlRunOptionsSpecifications>? = null
 ) : WsdlRunOptions, ConfigWithCert {
@@ -20,8 +22,8 @@ data class WsdlTestConfig(
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
-        if (port != null) return "http://${host ?: "localhost"}:$port"
+        if (baseUrl != null) return baseUrl.value
+        if (port != null) return "http://${host.value() ?: "localhost"}:${port.value}"
         return null
     }
 
@@ -46,9 +48,9 @@ data class WsdlTestConfig(
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlMockConfig(
-    val baseUrl: String? = null,
-    val host: String? = null,
-    val port: Int? = null,
+    val baseUrl: TemplatableValue<String>? = null,
+    val host: TemplatableValue<String>? = null,
+    val port: TemplatableValue<Int>? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
     override val specs: List<WsdlRunOptionsSpecifications>? = null
 ) : WsdlRunOptions, ConfigWithCert {
@@ -56,10 +58,10 @@ data class WsdlMockConfig(
 
     @JsonIgnore
     override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
+        if (baseUrl != null) return baseUrl.value
         if (port == null) return null
         val scheme = if (cert == null) "http" else "https"
-        return "$scheme://${host ?: "0.0.0.0"}:$port"
+        return "$scheme://${host.value() ?: "0.0.0.0"}:${port.value}"
     }
 
     @JsonIgnore

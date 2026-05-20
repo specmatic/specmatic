@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.withoutTemplatableValues
 
 data class OpenAPIMockConfig(
     @JsonProperty("baseUrl")
@@ -33,7 +34,7 @@ data class OpenAPIMockConfig(
 
         private fun readConfig(data: Map<String, Any>): Result<OpenAPIMockConfig> {
             return runCatching {
-                mapper.convertValue(data, OpenAPIMockConfig::class.java)
+                mapper.convertValue(data.withoutTemplatableValues(), OpenAPIMockConfig::class.java)
             }
         }
     }

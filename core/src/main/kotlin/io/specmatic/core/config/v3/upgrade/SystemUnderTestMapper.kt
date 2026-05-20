@@ -6,9 +6,12 @@ import io.specmatic.core.BearerSecuritySchemeConfiguration
 import io.specmatic.core.OAuth2SecuritySchemeConfiguration
 import io.specmatic.core.SecurityConfiguration
 import io.specmatic.core.SecuritySchemeConfiguration
+import io.specmatic.core.TemplatableValue
+import io.specmatic.core.config.ConfigTemplateMetadata
 import io.specmatic.core.config.OpenAPITestConfig as LegacyOpenAPITestConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.determineSpecTypeFor
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import io.specmatic.core.config.v3.components.SecuritySchemeType
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiTestConfig
@@ -26,6 +29,7 @@ import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.reporter.model.SpecType
+import java.io.File
 
 class SystemUnderTestMapper {
     fun mapFrom(view: LegacyConfigView, source: SourceMigrationBuilder): TestServiceConfig? {
@@ -61,6 +65,21 @@ class SystemUnderTestMapper {
         return TestServiceConfig(service = RefOrValue.Value(service))
     }
 
+    fun transferMetadata(view: LegacyConfigView, metadata: ConfigTemplateMetadata): ConfigTemplateMetadata {
+        val state = view.sources.foldIndexed(TemplateTransferState(metadata)) { sourceIndex, sourceState, source ->
+            source.test.orEmpty().foldIndexed(sourceState) { configIndex, configState, config ->
+                configState.transferProviderRunOptions(sourceIndex, configIndex, config)
+            }
+        }.includeGlobalOpenApiSpecs(view)
+
+        return state.metadata
+            .transferTestRunOptions()
+            .transferWorkflow()
+            .transferOverlayToOpenApiSpecs(state.openApiSpecIndices.values)
+            .transferSecurityToOpenApiSpecs(state.openApiSpecIndices.values)
+            .transferTestData(view)
+    }
+
     private fun List<SourceMigration.TestSourceMigration>.mergeAllSpecTypesByPath(): Map<String, SpecType> {
         return fold(mapOf()) { acc, migration ->
             acc.plus(migration.specTypesByPath)
@@ -87,11 +106,11 @@ class SystemUnderTestMapper {
         if (migrations.none { it.hasSpecType(SpecType.OPENAPI) }) return OpenApiTestConfig()
         return OpenApiTestConfig(
             workflow = view.workflow,
-            filter = view.testConfig?.filter,
-            baseUrl = view.testConfig?.baseUrl,
-            swaggerUrl = view.testConfig?.swaggerUrl,
-            actuatorUrl = view.testConfig?.actuatorUrl,
-            swaggerUiBaseUrl = view.testConfig?.swaggerUIBaseURL,
+            filter = TemplatableValue.of(view.testConfig?.filter),
+            baseUrl = TemplatableValue.of(view.testConfig?.baseUrl),
+            swaggerUrl = TemplatableValue.of(view.testConfig?.swaggerUrl),
+            actuatorUrl = TemplatableValue.of(view.testConfig?.actuatorUrl),
+            swaggerUiBaseUrl = TemplatableValue.of(view.testConfig?.swaggerUIBaseURL),
             cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
             specs = overrides.openApi.values.map(::OpenApiRunOptionsSpecifications),
         )
@@ -100,7 +119,7 @@ class SystemUnderTestMapper {
     private fun buildWsdlTestConfig(view: LegacyConfigView, migrations: List<SourceMigration.TestSourceMigration>, overrides: RunOptionsMapper): WsdlTestConfig {
         if (migrations.none { it.hasSpecType(SpecType.WSDL) }) return WsdlTestConfig()
         return WsdlTestConfig(
-            baseUrl = view.testConfig?.baseUrl,
+            baseUrl = TemplatableValue.of(view.testConfig?.baseUrl),
             cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
             specs = overrides.wsdl.values.map(::WsdlRunOptionsSpecifications)
         )
@@ -138,6 +157,231 @@ class SystemUnderTestMapper {
 
     private fun extractExamplesFromTestConfig(configValue: SpecExecutionConfig.ConfigValue): List<String> {
         return runCatching { LegacyOpenAPITestConfig.from(configValue.config).examples.orEmpty() }.getOrDefault(emptyList())
+    }
+
+    private data class TemplateTransferState(
+        val metadata: ConfigTemplateMetadata,
+        val openApiSpecIndices: Map<String, Int> = linkedMapOf(),
+        val wsdlSpecIndices: Map<String, Int> = linkedMapOf(),
+        val asyncApiSpecIndices: Map<String, Int> = linkedMapOf(),
+        val graphQlSpecIndices: Map<String, Int> = linkedMapOf(),
+        val protobufSpecIndices: Map<String, Int> = linkedMapOf(),
+    ) {
+        fun transferProviderRunOptions(sourceIndex: Int, configIndex: Int, config: SpecExecutionConfig): TemplateTransferState {
+            if (config is SpecExecutionConfig.StringValue) return this
+
+            return config.specs().foldIndexed(this) { specIndexInConfig, state, specPath ->
+                when (config.providerSpecTypeFor(specPath)) {
+                    SpecType.OPENAPI -> state.transferSpecConfigTemplate(
+                        sourceIndex = sourceIndex,
+                        configIndex = configIndex,
+                        specIndexInConfig = specIndexInConfig,
+                        specPath = specPath,
+                        config = config,
+                        v3SpecType = "openapi",
+                        knownIndices = state.openApiSpecIndices,
+                        updateKnownIndices = { indices -> copy(openApiSpecIndices = indices) },
+                    )
+
+                    SpecType.WSDL -> state.transferSpecConfigTemplate(
+                        sourceIndex = sourceIndex,
+                        configIndex = configIndex,
+                        specIndexInConfig = specIndexInConfig,
+                        specPath = specPath,
+                        config = config,
+                        v3SpecType = "wsdl",
+                        knownIndices = state.wsdlSpecIndices,
+                        updateKnownIndices = { indices -> copy(wsdlSpecIndices = indices) },
+                    )
+
+                    SpecType.ASYNCAPI -> state.transferSpecConfigTemplate(
+                        sourceIndex = sourceIndex,
+                        configIndex = configIndex,
+                        specIndexInConfig = specIndexInConfig,
+                        specPath = specPath,
+                        config = config,
+                        v3SpecType = "asyncapi",
+                        knownIndices = state.asyncApiSpecIndices,
+                        updateKnownIndices = { indices -> copy(asyncApiSpecIndices = indices) },
+                    )
+
+                    SpecType.GRAPHQL -> state.transferSpecConfigTemplate(
+                        sourceIndex = sourceIndex,
+                        configIndex = configIndex,
+                        specIndexInConfig = specIndexInConfig,
+                        specPath = specPath,
+                        config = config,
+                        v3SpecType = "graphqlsdl",
+                        knownIndices = state.graphQlSpecIndices,
+                        updateKnownIndices = { indices -> copy(graphQlSpecIndices = indices) },
+                    )
+
+                    SpecType.PROTOBUF -> state.transferSpecConfigTemplate(
+                        sourceIndex = sourceIndex,
+                        configIndex = configIndex,
+                        specIndexInConfig = specIndexInConfig,
+                        specPath = specPath,
+                        config = config,
+                        v3SpecType = "protobuf",
+                        knownIndices = state.protobufSpecIndices,
+                        updateKnownIndices = { indices -> copy(protobufSpecIndices = indices) },
+                    )
+                }
+            }
+        }
+
+        fun includeGlobalOpenApiSpecs(view: LegacyConfigView): TemplateTransferState {
+            val updatedOpenApiSpecIndices = view.sources
+                .flatMap { source -> source.test.orEmpty() }
+                .fold(openApiSpecIndices) { indices, config ->
+                    config.specs().fold(indices) { specIndices, specPath ->
+                        if (config.providerSpecTypeFor(specPath) != SpecType.OPENAPI) return@fold specIndices
+                        if (specPath in specIndices) specIndices else specIndices + (specPath to specIndices.size)
+                    }
+                }
+
+            return copy(openApiSpecIndices = updatedOpenApiSpecIndices)
+        }
+
+        private fun transferSpecConfigTemplate(
+            sourceIndex: Int,
+            configIndex: Int,
+            specIndexInConfig: Int,
+            specPath: String,
+            config: SpecExecutionConfig,
+            v3SpecType: String,
+            knownIndices: Map<String, Int>,
+            updateKnownIndices: TemplateTransferState.(Map<String, Int>) -> TemplateTransferState,
+        ): TemplateTransferState {
+            val targetIndex = knownIndices[specPath] ?: knownIndices.size
+            val updatedState = if (specPath in knownIndices) this else updateKnownIndices(knownIndices + (specPath to targetIndex))
+
+            val fieldMetadataState = config.providerSourceTemplateFields(specIndexInConfig).fold(updatedState) { state, field ->
+                val targetPath = listOf("systemUnderTest", "service", "runOptions", v3SpecType, "specs", targetIndex.toString(), "spec", field.targetName)
+                val updatedMetadata = providerSourcePathPrefixes(sourceIndex, "provides", configIndex).fold(state.metadata) { currentMetadata, prefix ->
+                    currentMetadata.transferTemplate(prefix + field.sourceSegments, targetPath)
+                }
+
+                state.copy(metadata = updatedMetadata)
+            }
+
+            if (config !is SpecExecutionConfig.ConfigValue) return fieldMetadataState
+
+            val targetSpecPrefix = listOf("systemUnderTest", "service", "runOptions", v3SpecType, "specs", targetIndex.toString(), "spec")
+            val updatedMetadata = providerSourcePathPrefixes(sourceIndex, "provides", configIndex).fold(fieldMetadataState.metadata) { currentMetadata, prefix ->
+                currentMetadata.transferTemplatesUnder(prefix + "config", targetSpecPrefix)
+            }
+
+            return fieldMetadataState.copy(metadata = updatedMetadata)
+        }
+    }
+}
+
+private data class ProviderSourceTemplateField(val sourceSegments: List<String>, val targetName: String)
+
+private fun SpecExecutionConfig.providerSourceTemplateFields(specIndexInConfig: Int): List<ProviderSourceTemplateField> {
+    return when (this) {
+        is SpecExecutionConfig.ConfigValue -> listOf("baseUrl", "host", "port").map { fieldName ->
+            ProviderSourceTemplateField(listOf("config", fieldName), fieldName)
+        }
+
+        is SpecExecutionConfig.ObjectValue.FullUrl -> listOf(ProviderSourceTemplateField(listOf("baseUrl"), "baseUrl"))
+        is SpecExecutionConfig.ObjectValue.PartialUrl -> listOfNotNull(
+            ProviderSourceTemplateField(listOf("host"), "host"),
+            ProviderSourceTemplateField(listOf("port"), "port"),
+        )
+
+        is SpecExecutionConfig.StringValue -> emptyList()
+    }
+}
+
+private fun SpecExecutionConfig.providerSpecTypeFor(specPath: String): SpecType {
+    val explicitType = (this as? SpecExecutionConfig.ConfigValue)?.specType?.let { configuredSpecType ->
+        SpecType.entries.firstOrNull { specType -> specType.value.equals(configuredSpecType, ignoreCase = true) }
+    }
+
+    return explicitType ?: determineSpecTypeFor(File(specPath)).first()
+}
+
+private fun providerSourcePathPrefixes(sourceIndex: Int, entryKind: String, entryIndex: Int): List<List<String>> {
+    val indexedPath = listOf("contracts", sourceIndex.toString(), entryKind, entryIndex.toString())
+    return when (sourceIndex) {
+        0 -> listOf(indexedPath, listOf("contracts", entryKind, entryIndex.toString()))
+        else -> listOf(indexedPath)
+    }
+}
+
+private fun ConfigTemplateMetadata.transferTestRunOptions(): ConfigTemplateMetadata {
+    return this
+        .transferTemplate(listOf("test", "baseUrl"), listOf("systemUnderTest", "service", "runOptions", "openapi", "baseUrl"))
+        .transferTemplate(listOf("test", "filter"), listOf("systemUnderTest", "service", "runOptions", "openapi", "filter"))
+        .transferTemplate(listOf("test", "swaggerUIBaseURL"), listOf("systemUnderTest", "service", "runOptions", "openapi", "swaggerUiBaseUrl"))
+        .transferTemplate(listOf("test", "swaggerUrl"), listOf("systemUnderTest", "service", "runOptions", "openapi", "swaggerUrl"))
+        .transferTemplate(listOf("test", "actuatorUrl"), listOf("systemUnderTest", "service", "runOptions", "openapi", "actuatorUrl"))
+        .transferTemplatesUnder(listOf("test", "https"), listOf("systemUnderTest", "service", "runOptions", "openapi", "cert"))
+}
+
+private fun ConfigTemplateMetadata.transferWorkflow(): ConfigTemplateMetadata {
+    return transferTemplatesUnder(listOf("workflow"), listOf("systemUnderTest", "service", "runOptions", "openapi", "workflow"))
+}
+
+private fun ConfigTemplateMetadata.transferOverlayToOpenApiSpecs(openApiSpecIndices: Collection<Int>): ConfigTemplateMetadata {
+    return openApiSpecIndices.fold(this) { metadata, specIndex ->
+        metadata.transferTemplate(
+            listOf("test", "overlayFilePath"),
+            listOf("systemUnderTest", "service", "runOptions", "openapi", "specs", specIndex.toString(), "spec", "overlayFilePath"),
+        )
+    }
+}
+
+private fun ConfigTemplateMetadata.transferSecurityToOpenApiSpecs(openApiSpecIndices: Collection<Int>): ConfigTemplateMetadata {
+    return openApiSpecIndices.fold(this) { metadata, specIndex ->
+        metadata.transferTemplatesUnder(
+            sourcePrefix = listOf("security", "OpenAPI", "securitySchemes"),
+            targetPrefix = listOf("systemUnderTest", "service", "runOptions", "openapi", "specs", specIndex.toString(), "spec", "securitySchemes"),
+            suffixTransform = { suffix ->
+                when (suffix.lastOrNull()) {
+                    "value" -> suffix.dropLast(1) + "token"
+                    else -> suffix
+                }
+            },
+        )
+    }
+}
+
+private fun ConfigTemplateMetadata.transferTestData(view: LegacyConfigView): ConfigTemplateMetadata {
+    val withGlobalData = transferTemplatesUnder(
+        sourcePrefix = listOf("examples"),
+        targetPrefix = listOf("systemUnderTest", "service", "data", "examples", "0", "directories"),
+    ).transferTemplate(
+        sourcePath = listOf("stub", "dictionary"),
+        targetPath = listOf("systemUnderTest", "service", "data", "dictionary", "path"),
+    )
+
+    val examplesByValue = linkedMapOf<String, Int>()
+    return view.sources.foldIndexed(withGlobalData) { sourceIndex, metadata, source ->
+        source.test.orEmpty().foldIndexed(metadata) { configIndex, configMetadata, config ->
+            val configValue = config as? SpecExecutionConfig.ConfigValue ?: return@foldIndexed configMetadata
+            val examples = configValue.config["examples"] as? List<*> ?: return@foldIndexed configMetadata
+            examples.foldIndexed(configMetadata) { exampleIndex, exampleMetadata, example ->
+                val exampleText = example.configValueText() ?: return@foldIndexed exampleMetadata
+                val targetIndex = view.globalExamples.size + examplesByValue.getOrPut(exampleText) { examplesByValue.size }
+                providerSourcePathPrefixes(sourceIndex, "provides", configIndex).fold(exampleMetadata) { currentMetadata, prefix ->
+                    currentMetadata.transferTemplate(
+                        sourcePath = prefix + listOf("config", "examples", exampleIndex.toString()),
+                        targetPath = listOf("systemUnderTest", "service", "data", "examples", "0", "directories", targetIndex.toString()),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun Any?.configValueText(): String? {
+    return when (this) {
+        is TemplatableValue<*> -> value.toString()
+        is String -> this
+        else -> null
     }
 }
 

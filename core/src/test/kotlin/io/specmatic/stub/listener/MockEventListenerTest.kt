@@ -5,6 +5,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.pattern.parsedJSONObject
@@ -146,7 +147,7 @@ class MockEventListenerTest {
     @Test
     fun `should send generated 400 response data to listener when generative stub is enabled`() {
         val feature = featureWithGenerative4xxResponse
-        val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+        val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
         val events = captureMockEvents { listener ->
             HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)).use { stub ->
                 stub.client.execute(HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}""")))
@@ -164,7 +165,7 @@ class MockEventListenerTest {
     @Test
     fun `should report failure to listener for invalid request when generative stub is disabled`() {
         val feature = featureWithGenerative4xxResponse
-        val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = false))
+        val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(false)))
         val events = captureMockEvents { listener ->
             HttpStub(features = listOf(feature), listeners = listOf(listener), specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config)).use { stub ->
                 stub.client.execute(HttpRequest(method = "POST", path = "/hello", body = parsedJSONObject("""{"data": 10}""")))

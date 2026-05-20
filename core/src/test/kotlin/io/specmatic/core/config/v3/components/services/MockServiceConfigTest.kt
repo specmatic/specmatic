@@ -1,5 +1,6 @@
 package io.specmatic.core.config.v3.components.services
 
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
@@ -21,6 +22,8 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class MockServiceConfigTest {
+    private fun <T> t(value: T): TemplatableValue<T> = TemplatableValue(value)
+
     private val resolver = object : RefOrValueResolver {
         override fun resolveRef(reference: String): Map<*, *> {
             error("Unexpected ref resolution in test: $reference")
@@ -148,12 +151,12 @@ class MockServiceConfigTest {
             runOptions = RefOrValue.Value(
                 MockRunOptions(
                     openapi = OpenApiMockConfig(
-                        baseUrl = "http://default-mock-base-url:9000",
+                        baseUrl = t("http://default-mock-base-url:9000"),
                         specs = listOf(
                             OpenApiRunOptionsSpecifications(
                                 spec = OpenApiRunOptionsSpecifications.Value(
                                     id = "orders-spec",
-                                    baseUrl = "http://spec-level-mock-base-url:9001"
+                                    baseUrl = t("http://spec-level-mock-base-url:9001")
                                 )
                             )
                         )
@@ -196,12 +199,12 @@ class MockServiceConfigTest {
             runOptions = RefOrValue.Value(
                 MockRunOptions(
                     openapi = OpenApiMockConfig(
-                        baseUrl = "http://default-mock-base-url:9000",
+                        baseUrl = t("http://default-mock-base-url:9000"),
                         specs = listOf(
                             OpenApiRunOptionsSpecifications(
                                 spec = OpenApiRunOptionsSpecifications.Value(
                                     id = "different-spec-id",
-                                    baseUrl = "http://spec-level-mock-base-url:9001"
+                                    baseUrl = t("http://spec-level-mock-base-url:9001")
                                 )
                             )
                         )
@@ -236,12 +239,12 @@ class MockServiceConfigTest {
             runOptions = RefOrValue.Value(
                 MockRunOptions(
                     wsdl = WsdlMockConfig(
-                        baseUrl = "http://wsdl-default:9100",
+                        baseUrl = t("http://wsdl-default:9100"),
                         specs = listOf(
                             WsdlRunOptionsSpecifications(
                                 WsdlRunOptionsSpecifications.Value(
                                     id = "wsdl-spec",
-                                    baseUrl = "http://wsdl-spec:9101"
+                                    baseUrl = t("http://wsdl-spec:9101")
                                 )
                             )
                         )
@@ -274,12 +277,12 @@ class MockServiceConfigTest {
             runOptions = RefOrValue.Value(
                 MockRunOptions(
                     wsdl = WsdlMockConfig(
-                        baseUrl = "http://wsdl-default:9100",
+                        baseUrl = t("http://wsdl-default:9100"),
                         specs = listOf(
                             WsdlRunOptionsSpecifications(
                                 WsdlRunOptionsSpecifications.Value(
                                     id = "different-spec-id",
-                                    baseUrl = "http://wsdl-spec:9101"
+                                    baseUrl = t("http://wsdl-spec:9101")
                                 )
                             )
                         )
@@ -299,7 +302,7 @@ class MockServiceConfigTest {
         val protobufConfig = ProtobufMockConfig(
             specs = listOf(
                 RunOptionsSpecifications(
-                    RunOptionsSpecifications.Value(id = "proto-spec", host = "proto-spec", port = 9201)
+                    RunOptionsSpecifications.Value(id = "proto-spec", host = t("proto-spec"), port = t(9201))
                 )
             )
         ).apply {
@@ -334,7 +337,7 @@ class MockServiceConfigTest {
         val protobufConfig = ProtobufMockConfig(
             specs = listOf(
                 RunOptionsSpecifications(
-                    RunOptionsSpecifications.Value(id = "different-spec-id", host = "proto-spec", port = 9201)
+                    RunOptionsSpecifications.Value(id = "different-spec-id", host = t("proto-spec"), port = t(9201))
                 )
             )
         ).apply {
@@ -369,7 +372,7 @@ class MockServiceConfigTest {
         val graphConfig = GraphQLSdlMockConfig(
             specs = listOf(
                 RunOptionsSpecifications(
-                    RunOptionsSpecifications.Value(id = "graphql-spec", host = "graphql-spec", port = 9301)
+                    RunOptionsSpecifications.Value(id = "graphql-spec", host = t("graphql-spec"), port = t(9301))
                 )
             )
         ).apply {
@@ -404,7 +407,7 @@ class MockServiceConfigTest {
         val graphConfig = GraphQLSdlMockConfig(
             specs = listOf(
                 RunOptionsSpecifications(
-                    RunOptionsSpecifications.Value(id = "different-spec-id", host = "graphql-spec", port = 9301)
+                    RunOptionsSpecifications.Value(id = "different-spec-id", host = t("graphql-spec"), port = t(9301))
                 )
             )
         ).apply {
@@ -455,7 +458,7 @@ class MockServiceConfigTest {
             ),
             runOptions = RefOrValue.Value(
                 MockRunOptions(
-                    openapi = OpenApiMockConfig(baseUrl = "http://openapi-host:9401"),
+                    openapi = OpenApiMockConfig(baseUrl = t("http://openapi-host:9401")),
                     asyncapi = asyncConfig
                 )
             )

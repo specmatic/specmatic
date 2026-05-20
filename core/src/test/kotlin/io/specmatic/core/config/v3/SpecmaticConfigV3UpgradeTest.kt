@@ -455,6 +455,48 @@ class SpecmaticConfigV3UpgradeTest {
                                   keyStorePassword: password
                     """.trimIndent())
                 ),
+                UpgradeTestCase(
+                    name = "v2 dependency hotReload disabled upgrades to specmatic mock settings",
+                    before = InputSource.RawInput("""
+                    version: 2
+                    contracts:
+                      - filesystem:
+                          directory: ./src/test/resources/openapi
+                        consumes:
+                          - specs:
+                              - hello.yaml
+                            host: mock.internal
+                            port: 9000
+                    stub:
+                      hotReload: disabled
+                    """.trimIndent()),
+                    after = InputSource.RawInput("""
+                    version: 3
+                    dependencies:
+                      services:
+                        - service:
+                            definitions:
+                              - definition:
+                                  source:
+                                    filesystem:
+                                      directory: ./src/test/resources/openapi
+                                  specs:
+                                    - spec:
+                                        id: hello
+                                        path: hello.yaml
+                            runOptions:
+                              openapi:
+                                specs:
+                                  - spec:
+                                      id: hello
+                                      host: mock.internal
+                                      port: 9000
+                    specmatic:
+                      settings:
+                        mock:
+                          hotReload: false
+                    """.trimIndent())
+                ),
             )
         }
     }
@@ -514,6 +556,28 @@ class SpecmaticConfigV3UpgradeTest {
                           disableTelemetry: true
                           ignoreInlineExamples: true
                           ignoreInlineExampleWarnings: true
+                    """.trimIndent())
+                ),
+                UpgradeTestCase(
+                    name = "camel case top level fields from v2 upgrade to v3",
+                    before = InputSource.RawInput("""
+                    version: 2
+                    licensePath: ./license-camel.txt
+                    reportDirPath: ./reports/camel
+                    globalSettings:
+                      specExamplesDirectoryTemplate: specs/%s
+                    """.trimIndent()),
+                    after = InputSource.RawInput("""
+                    version: 3
+                    specmatic:
+                      governance:
+                        report:
+                          outputDirectory: "./reports/camel"
+                      license:
+                        path: ./license-camel.txt
+                      settings:
+                        general:
+                          specExamplesDirectoryTemplate: specs/%s
                     """.trimIndent())
                 )
             )
@@ -642,6 +706,26 @@ class SpecmaticConfigV3UpgradeTest {
                 SpecExecutionScenario(
                     name = "object partial basePath maps to urlPathPrefix",
                     versions = listOf(1),
+                    beforeSpecs = """
+                    - specs:
+                        - basepath.yaml
+                      host: basepath.example
+                      port: 8088
+                      basePath: /api/v1
+                    """.trimIndent(),
+                    expectedRunOptions = """
+                    openapi:
+                      specs:
+                        - spec:
+                            id: basepath
+                            host: basepath.example
+                            port: 8088
+                    """.trimIndent()
+                ),
+                SpecExecutionScenario(
+                    name = "object partial basePath maps to dependency urlPathPrefix",
+                    versions = listOf(2),
+                    sides = listOf(Side.Dependencies),
                     beforeSpecs = """
                     - specs:
                         - basepath.yaml

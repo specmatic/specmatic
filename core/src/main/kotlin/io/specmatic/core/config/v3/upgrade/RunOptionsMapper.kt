@@ -1,10 +1,12 @@
 package io.specmatic.core.config.v3.upgrade
 
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.RunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.WsdlRunOptionsSpecifications
+import io.specmatic.core.value
 import io.specmatic.reporter.model.SpecType
 
 data class RunOptionsMapper(
@@ -51,16 +53,19 @@ data class RunOptionsMapper(
 
     private fun SpecExecutionConfig.ObjectValue.toUrlMergeInput(): UrlMergeInput {
         return when (this) {
-            is SpecExecutionConfig.ObjectValue.FullUrl -> UrlMergeInput.BaseUrl(baseUrl)
-            is SpecExecutionConfig.ObjectValue.PartialUrl -> UrlMergeInput.HostPort(host = host, port = port)
+            is SpecExecutionConfig.ObjectValue.FullUrl -> UrlMergeInput.BaseUrl(TemplatableValue(baseUrl))
+            is SpecExecutionConfig.ObjectValue.PartialUrl -> UrlMergeInput.HostPort(
+                host = host?.let { TemplatableValue(it) },
+                port = port?.let { TemplatableValue(it) },
+            )
         }
     }
 
     private fun SpecExecutionConfig.ConfigValue.toUrlMergeInput(): UrlMergeInput {
-        val baseUrl = config["baseUrl"] as? String
+        val baseUrl = config["baseUrl"].asTemplatableString()
         if (baseUrl != null) return UrlMergeInput.BaseUrl(baseUrl)
-        val port = config["port"] as? Int
-        val host = config["host"] as? String
+        val port = config["port"].asTemplatableInt()
+        val host = config["host"].asTemplatableString()
         return if (port != null) {
             UrlMergeInput.HostPort(host = host, port = port)
         } else {
@@ -169,42 +174,64 @@ data class RunOptionsMapper(
 }
 
 private sealed interface UrlMergeInput {
-    fun toPort(existingPort: Int?): Int?
-    fun baseUrl(existing: String?): String?
-    fun port(existing: Int?, existingBaseUrl: String?): Int?
-    fun host(existing: String?, existingBaseUrl: String?): String?
-    fun toHost(existingHost: String?, defaultHostForPortOnly: String): String?
+    fun toPort(existingPort: TemplatableValue<Int>?): TemplatableValue<Int>?
+    fun baseUrl(existing: TemplatableValue<String>?): TemplatableValue<String>?
+    fun port(existing: TemplatableValue<Int>?, existingBaseUrl: TemplatableValue<String>?): TemplatableValue<Int>?
+    fun host(existing: TemplatableValue<String>?, existingBaseUrl: TemplatableValue<String>?): TemplatableValue<String>?
+    fun toHost(existingHost: TemplatableValue<String>?, defaultHostForPortOnly: String): TemplatableValue<String>?
 
-    data class BaseUrl(val value: String) : UrlMergeInput {
-        override fun baseUrl(existing: String?) = value
-        override fun port(existing: Int?, existingBaseUrl: String?) = null
-        override fun host(existing: String?, existingBaseUrl: String?) = null
-        override fun toPort(existingPort: Int?) = parseBaseUrlParts(value).port ?: existingPort
-        override fun toHost(existingHost: String?, defaultHostForPortOnly: String) = parseBaseUrlParts(value).host ?: existingHost
+    data class BaseUrl(val value: TemplatableValue<String>) : UrlMergeInput {
+        override fun baseUrl(existing: TemplatableValue<String>?) = value
+        override fun port(existing: TemplatableValue<Int>?, existingBaseUrl: TemplatableValue<String>?) = null
+        override fun host(existing: TemplatableValue<String>?, existingBaseUrl: TemplatableValue<String>?) = null
+        override fun toPort(existingPort: TemplatableValue<Int>?) = parseBaseUrlParts(value).port ?: existingPort
+        override fun toHost(existingHost: TemplatableValue<String>?, defaultHostForPortOnly: String) = parseBaseUrlParts(value).host ?: existingHost
     }
 
-    data class HostPort(val host: String?, val port: Int?) : UrlMergeInput {
-        override fun baseUrl(existing: String?) = existing
-        override fun toPort(existingPort: Int?) = port ?: existingPort
-        override fun port(existing: Int?, existingBaseUrl: String?) = if (existingBaseUrl != null) null else port ?: existing
-        override fun host(existing: String?, existingBaseUrl: String?) = if (existingBaseUrl != null) null else host ?: existing
-        override fun toHost(existingHost: String?, defaultHostForPortOnly: String): String? = host ?: if (port != null) defaultHostForPortOnly else existingHost
+    data class HostPort(val host: TemplatableValue<String>?, val port: TemplatableValue<Int>?) : UrlMergeInput {
+        override fun baseUrl(existing: TemplatableValue<String>?) = existing
+        override fun toPort(existingPort: TemplatableValue<Int>?) = port ?: existingPort
+        override fun port(existing: TemplatableValue<Int>?, existingBaseUrl: TemplatableValue<String>?) = if (existingBaseUrl != null) null else port ?: existing
+        override fun host(existing: TemplatableValue<String>?, existingBaseUrl: TemplatableValue<String>?) = if (existingBaseUrl != null) null else host ?: existing
+        override fun toHost(existingHost: TemplatableValue<String>?, defaultHostForPortOnly: String): TemplatableValue<String>? {
+            return host ?: if (port != null) TemplatableValue(defaultHostForPortOnly) else existingHost
+        }
     }
 
     data object None : UrlMergeInput {
-        override fun baseUrl(existing: String?) = existing
-        override fun port(existing: Int?, existingBaseUrl: String?) = existing
-        override fun host(existing: String?, existingBaseUrl: String?) = existing
-        override fun toHost(existingHost: String?, defaultHostForPortOnly: String): String? = existingHost
-        override fun toPort(existingPort: Int?) = existingPort
+        override fun baseUrl(existing: TemplatableValue<String>?) = existing
+        override fun port(existing: TemplatableValue<Int>?, existingBaseUrl: TemplatableValue<String>?) = existing
+        override fun host(existing: TemplatableValue<String>?, existingBaseUrl: TemplatableValue<String>?) = existing
+        override fun toHost(existingHost: TemplatableValue<String>?, defaultHostForPortOnly: String): TemplatableValue<String>? = existingHost
+        override fun toPort(existingPort: TemplatableValue<Int>?) = existingPort
     }
 }
 
-private data class BaseUrlParts(val host: String?, val port: Int?)
-private fun parseBaseUrlParts(baseUrl: String): BaseUrlParts {
+private data class BaseUrlParts(val host: TemplatableValue<String>?, val port: TemplatableValue<Int>?)
+private fun parseBaseUrlParts(baseUrl: TemplatableValue<String>): BaseUrlParts {
     return runCatching {
-        val uri = java.net.URI(baseUrl)
+        val uri = java.net.URI(baseUrl.value)
         val parsedPort = if (uri.port == -1) null else uri.port
-        BaseUrlParts(host = uri.host, port = parsedPort)
+        BaseUrlParts(
+            host = uri.host?.let { TemplatableValue(value = it, template = baseUrl.template) },
+            port = parsedPort?.let { TemplatableValue(value = it, template = baseUrl.template) },
+        )
     }.getOrDefault(BaseUrlParts(host = null, port = null))
+}
+
+private fun Any?.asTemplatableString(): TemplatableValue<String>? {
+    return when (this) {
+        is TemplatableValue<*> -> TemplatableValue(value = value.toString(), template = template)
+        is String -> TemplatableValue(this)
+        else -> null
+    }
+}
+
+private fun Any?.asTemplatableInt(): TemplatableValue<Int>? {
+    return when (this) {
+        is TemplatableValue<*> -> value.toString().toIntOrNull()?.let { TemplatableValue(value = it, template = template) }
+        is Number -> TemplatableValue(toInt())
+        is String -> toIntOrNull()?.let { TemplatableValue(it) }
+        else -> null
+    }
 }

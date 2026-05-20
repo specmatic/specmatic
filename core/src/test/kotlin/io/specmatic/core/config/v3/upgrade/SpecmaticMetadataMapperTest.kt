@@ -14,6 +14,7 @@ import io.specmatic.core.TestConfiguration
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.ConcreteSettings
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.value
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -38,9 +39,9 @@ class SpecmaticMetadataMapperTest {
         val metadata = SpecmaticMetadataMapper().mapFrom(config, LegacyConfigView.from(config))
         val settings = (metadata.settings as RefOrValue.Value<ConcreteSettings>).value
 
-        assertThat(settings.test?.parallelism).isEqualTo("4")
-        assertThat(settings.test?.validateResponseValues).isTrue()
-        assertThat(settings.test?.timeoutInMilliseconds).isEqualTo(9000)
+        assertThat(settings.test?.parallelism.value()).isEqualTo("4")
+        assertThat(settings.test?.validateResponseValues.value()).isTrue()
+        assertThat(settings.test?.timeoutInMilliseconds.value()).isEqualTo(9000)
         assertThat(settings.test?.schemaResiliencyTests).isEqualTo(ResiliencyTestSuite.positiveOnly)
     }
 

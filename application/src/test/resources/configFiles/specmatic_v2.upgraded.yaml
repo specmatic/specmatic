@@ -1,0 +1,984 @@
+---
+version: 3
+systemUnderTest:
+  service:
+    definitions:
+    - definition:
+        source:
+          git:
+            url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+            branch: "${POLY_GIT_BRANCH:develop}"
+            matchBranch: "${POLY_GIT_MATCH:false}"
+            auth:
+              personalAccessToken: "${AUTH_PAT:pat_value}"
+        specs:
+        - spec:
+            id: "provide-string"
+            path: "${PROVIDE_SPEC_1:specs/git/provide-string.yaml}"
+        - spec:
+            id: "provide-full-url"
+            path: "${PROVIDE_SPEC_2:specs/git/provide-full-url.yaml}"
+        - spec:
+            id: "provide-partial-url"
+            path: "${PROVIDE_SPEC_3:specs/git/provide-partial-url.yaml}"
+        - spec:
+            id: "provide-config-value"
+            path: "${PROVIDE_SPEC_4:specs/git/provide-config-value.yaml}"
+        - spec:
+            id: "provide-config-value-asyncapi"
+            path: "${PROVIDE_SPEC_5:specs/git/provide-config-value-asyncapi.yaml}"
+        - spec:
+            id: "provide-config-value-grpc"
+            path: "${PROVIDE_GRPC_SPEC_PATH:specs/git/provide-config-value-grpc.proto}"
+        - spec:
+            id: "provide-config-value-graphql"
+            path: "${PROVIDE_GRAPHQL_SPEC_PATH:specs/git/provide-config-value-graphql.graphql}"
+        - spec:
+            id: "provide-config-value-openapi-v2"
+            path: "${PROVIDE_SPEC_6:specs/git/provide-config-value-openapi-v2.yaml}"
+        - spec:
+            id: "provide-config-value-openapi-direct"
+            path: "specs/git/provide-config-value-openapi-direct.yaml"
+        - spec:
+            id: "provide-config-value-asyncapi-v2"
+            path: "${PROVIDE_SPEC_7:specs/git/provide-config-value-asyncapi-v2.yaml}"
+        - spec:
+            id: "provide-config-value-asyncapi-direct"
+            path: "specs/git/provide-config-value-asyncapi-direct.yaml"
+        - spec:
+            id: "provide-config-value-grpc-v2"
+            path: "${PROVIDE_GRPC_SPEC_PATH_V2:specs/git/provide-config-value-grpc-v2.proto}"
+        - spec:
+            id: "provide-config-value-grpc-direct"
+            path: "specs/git/provide-config-value-grpc-direct.proto"
+        - spec:
+            id: "provide-config-value-graphql-v2"
+            path: "${PROVIDE_GRAPHQL_SPEC_PATH_V2:specs/git/provide-config-value-graphql-v2.graphql}"
+        - spec:
+            id: "provide-config-value-graphql-direct"
+            path: "specs/git/provide-config-value-graphql-direct.graphql"
+    - definition:
+        source:
+          filesystem:
+            directory: "${FS_DIR:contracts/local}"
+        specs:
+        - spec:
+            id: "filesystem-provide"
+            path: "${FS_PROVIDE:specs/fs/filesystem-provide.yaml}"
+    - definition:
+        source:
+          web:
+            url: "${WEB_URL:https://raw.githubusercontent.com/acme/contracts/main}"
+        specs:
+        - spec:
+            id: "web-provide"
+            path: "${WEB_PROVIDE:specs/web/web-provide.yaml}"
+    runOptions:
+      openapi:
+        baseUrl: "${TEST_BASE_URL:http://localhost:8080}"
+        filter: "${TEST_FILTER:GET /orders}"
+        workflow:
+          ids:
+            key1:
+              extract: "${WF_EXTRACT_1:$.id}"
+              use: "${WF_USE_1:$.orderId}"
+            key2:
+              extract: "${WF_EXTRACT_2:$.token}"
+              use: "${WF_USE_2:$.token}"
+        swaggerUiBaseUrl: "${SWAGGER_UI_URL:http://localhost:9999/swagger-ui}"
+        swaggerUrl: "${SWAGGER_URL:http://localhost:9999/v3/api-docs}"
+        actuatorUrl: "${ACTUATOR_URL:http://localhost:9999/actuator}"
+        cert:
+          keyStore:
+            directory: "${TEST_KEYSTORE_DIR:certs/test}"
+            password: "${TEST_KEY_PASSWORD:kp4}"
+            alias: "${TEST_KEY_ALIAS:alias4}"
+          keyStorePassword: "${TEST_KEYSTORE_PASSWORD:ksp4}"
+          mtlsEnabled: "${TEST_MTLS_ENABLED:false}"
+        specs:
+        - spec:
+            id: "provide-full-url"
+            baseUrl: "${PROVIDE_BASE_URL:https://provider.example.com}"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "provide-partial-url"
+            host: "${PROVIDE_HOST:provider-host}"
+            port: "${PROVIDE_PORT:9001}"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "provide-config-value"
+            baseUrl: "${PROVIDE_CFG_BASE_URL:https://openapi-test.example.com}"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "provide-config-value-openapi-v2"
+            baseUrl: "${PROVIDE_CFG_BASE_URL_V2:https://openapi-provider-v2.example.com}"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "provide-config-value-openapi-direct"
+            baseUrl: "https://openapi-test.example.com"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "provide-string"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "filesystem-provide"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+        - spec:
+            id: "web-provide"
+            overlayFilePath: "${TEST_OVERLAY:overlays/overlay.yaml}"
+            securitySchemes:
+              oauthScheme:
+                type: "${SEC_TYPE_OAUTH:oauth2}"
+                token: "${SEC_TOKEN_OAUTH:oauth-token}"
+              basicScheme:
+                type: "${SEC_TYPE_BASIC:basicAuth}"
+                token: "${SEC_TOKEN_BASIC:basic-token}"
+              bearerScheme:
+                type: "${SEC_TYPE_BEARER:bearer}"
+                token: "${SEC_TOKEN_BEARER:bearer-token}"
+              apiKeyScheme:
+                type: "${SEC_TYPE_APIKEY:apiKey}"
+                token: "${SEC_VALUE_APIKEY:x-api-key-value}"
+      asyncapi:
+        specs:
+        - spec:
+            id: "provide-config-value-asyncapi"
+            replyTimeout: "${PROVIDE_REPLY_TIMEOUT:5000}"
+            subscriberReadinessWaitTime: "${PROVIDE_SUBSCRIBER_READINESS_WAIT_TIME:2000}"
+            servers:
+            - host: "${PROVIDE_ASYNC_SERVER_HOST:localhost}"
+              protocol: "${PROVIDE_ASYNC_SERVER_PROTOCOL:mqtt}"
+              client:
+                consumer:
+                  key1: "${PROVIDE_ASYNC_CONSUMER_PROP_KEY1:value1}"
+                  key2:
+                  - "${PROVIDE_ASYNC_CONSUMER_PROP_KEY2:value2}"
+                  key3:
+                    subKey: "${PROVIDE_ASYNC_CONSUMER_PROP_SUBKEY:value3}"
+                producer:
+                  key1: "${PROVIDE_ASYNC_PRODUCER_PROP_KEY1:value1}"
+                  key2:
+                  - "${PROVIDE_ASYNC_PRODUCER_PROP_KEY2:value2}"
+                  key3:
+                    subKey: "${PROVIDE_ASYNC_PRODUCER_PROP_SUBKEY:value3}"
+              adminCredentials:
+                key1: "${PROVIDE_ASYNC_ADMIN_PROP_KEY1:value1}"
+                key2:
+                - "${PROVIDE_ASYNC_ADMIN_PROP_KEY2:value2}"
+                key3:
+                  subKey: "${PROVIDE_ASYNC_ADMIN_PROP_SUBKEY:value3}"
+            schemaRegistryProps:
+              kind: "${PROVIDE_SCHEMA_REGISTRY_KIND:confluent}"
+              url: "${PROVIDE_SCHEMA_REGISTRY_URL:http://localhost:8081}"
+              username: "${PROVIDE_SCHEMA_REGISTRY_USERNAME:user}"
+              password: "${PROVIDE_SCHEMA_REGISTRY_PASSWORD:password}"
+        - spec:
+            id: "provide-config-value-asyncapi-v2"
+            replyTimeout: "${PROVIDE_REPLY_TIMEOUT_V2:7000}"
+            subscriberReadinessWaitTime: "${PROVIDE_SUBSCRIBER_READINESS_WAIT_TIME_V2:3000}"
+            servers:
+            - host: "${PROVIDE_ASYNC_SERVER_HOST_V2:provider-async-host}"
+              protocol: "${PROVIDE_ASYNC_SERVER_PROTOCOL_V2:kafka}"
+              client:
+                consumer:
+                  key1: "${PROVIDE_ASYNC_CONSUMER_PROP_KEY1_V2:consumer-value-a}"
+                  key2:
+                  - "${PROVIDE_ASYNC_CONSUMER_PROP_KEY2_V2:consumer-value-b}"
+                  key3:
+                    subKey: "${PROVIDE_ASYNC_CONSUMER_PROP_SUBKEY_V2:consumer-value-c}"
+                producer:
+                  key1: "${PROVIDE_ASYNC_PRODUCER_PROP_KEY1_V2:producer-value-a}"
+                  key2:
+                  - "${PROVIDE_ASYNC_PRODUCER_PROP_KEY2_V2:producer-value-b}"
+                  key3:
+                    subKey: "${PROVIDE_ASYNC_PRODUCER_PROP_SUBKEY_V2:producer-value-c}"
+              adminCredentials:
+                key1: "${PROVIDE_ASYNC_ADMIN_PROP_KEY1_V2:admin-value-a}"
+                key2:
+                - "${PROVIDE_ASYNC_ADMIN_PROP_KEY2_V2:admin-value-b}"
+                key3:
+                  subKey: "${PROVIDE_ASYNC_ADMIN_PROP_SUBKEY_V2:admin-value-c}"
+            schemaRegistryProps:
+              kind: "${PROVIDE_SCHEMA_REGISTRY_KIND_V2:apicurio}"
+              url: "${PROVIDE_SCHEMA_REGISTRY_URL_V2:http://localhost:8082}"
+              username: "${PROVIDE_SCHEMA_REGISTRY_USERNAME_V2:provider-user-v2}"
+              password: "${PROVIDE_SCHEMA_REGISTRY_PASSWORD_V2:provider-password-v2}"
+        - spec:
+            id: "provide-config-value-asyncapi-direct"
+            replyTimeout: 5000
+            subscriberReadinessWaitTime: 3000
+            servers:
+            - host: "localhost"
+              protocol: "kafka"
+              client:
+                consumer:
+                  key1: "value1"
+                  key2:
+                  - "consumer-value-b"
+                  key3:
+                    subKey: "value3"
+                producer:
+                  key1: "producer-value-a"
+                  key2:
+                  - "value2"
+                  key3:
+                    subKey: "producer-value-c"
+              adminCredentials:
+                key1: "value1"
+                key2:
+                - "admin-value-b"
+                key3:
+                  subKey: "value3"
+            schemaRegistryProps:
+              kind: "confluent"
+              url: "http://localhost:8082"
+              username: "user"
+              password: "provider-password-v2"
+      graphqlsdl:
+        specs:
+        - spec:
+            id: "provide-config-value-graphql"
+            host: "${PROVIDE_GRPC_HOST__2:localhost}"
+            port: "${PROVIDE_GRPC_PORT__2:50051}"
+        - spec:
+            id: "provide-config-value-graphql-v2"
+            host: "${PROVIDE_GRAPHQL_HOST_V2:provider-graphql-host}"
+            port: "${PROVIDE_GRAPHQL_PORT_V2:9091}"
+        - spec:
+            id: "provide-config-value-graphql-direct"
+            host: "localhost"
+            port: 9091
+      protobuf:
+        specs:
+        - spec:
+            id: "provide-config-value-grpc"
+            host: "${PROVIDE_GRPC_HOST:localhost}"
+            port: "${PROVIDE_GRPC_PORT:50051}"
+            protocVersion: "${PROVIDE_GRPC_PROTOC_VERSION:25.1}"
+            requestTimeout: "${PROVIDE_GRPC_REQUEST_TIMEOUT:5000}"
+            importPaths:
+            - "${PROVIDE_GRPC_IMPORT_PATH_PRIMARY:proto}"
+            - "${PROVIDE_GRPC_IMPORT_PATH_SECONDARY:proto2}"
+        - spec:
+            id: "provide-config-value-grpc-v2"
+            host: "${PROVIDE_GRPC_HOST_V2:provider-grpc-host}"
+            port: "${PROVIDE_GRPC_PORT_V2:50052}"
+            protocVersion: "${PROVIDE_GRPC_PROTOC_VERSION_V2:26.0}"
+            requestTimeout: "${PROVIDE_GRPC_REQUEST_TIMEOUT_V2:7000}"
+            importPaths:
+            - "${PROVIDE_GRPC_IMPORT_PATH_PRIMARY_V2:proto-v2}"
+            - "${PROVIDE_GRPC_IMPORT_PATH_SECONDARY_V2:proto-shared-v2}"
+        - spec:
+            id: "provide-config-value-grpc-direct"
+            host: "localhost"
+            port: 50052
+            protocVersion: "25.1"
+            requestTimeout: 7000
+            importPaths:
+            - "proto"
+            - "proto-shared-v2"
+    data:
+      examples:
+      - directories:
+        - "${EXAMPLE_DIR_1:examples/global}"
+        - "${EXAMPLE_DIR_2:examples/more}"
+        - "${PROVIDE_EX_1:examples/a}"
+        - "${PROVIDE_EX_2:examples/provider-b}"
+      dictionary:
+        path: "${STUB_DICTIONARY:dictionaries/stub.dict}"
+dependencies:
+  services:
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - "${CONSUME_SPEC_1:specs/git/consume-string.yaml}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-full-url"
+              path: "${CONSUME_SPEC_2:specs/git/consume-full-url.yaml}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+          specs:
+          - spec:
+              id: "consume-full-url"
+              baseUrl: "${CONSUME_BASE_URL:https://consumer.example.com}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-partial-url"
+              path: "${CONSUME_SPEC_3:specs/git/consume-partial-url.yaml}"
+              urlPathPrefix: "${CONSUME_BASE_PATH:/stub}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+          specs:
+          - spec:
+              id: "consume-partial-url"
+              host: "${CONSUME_HOST:consumer-host}"
+              port: "${CONSUME_PORT:9002}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value"
+              path: "${CONSUME_SPEC_4:specs/git/consume-config-value.yaml}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+          specs:
+          - spec:
+              id: "consume-config-value"
+              baseUrl: "${CONSUME_CFG_BASE_URL:https://openapi-mock.example.com}"
+      data:
+        examples:
+        - directories:
+          - "${CONSUME_EX_1:examples/mock-a}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consumes-config-value-asyncapi"
+              path: "${CONSUME_SPEC_5:specs/git/consumes-config-value-asyncapi.yaml}"
+      runOptions:
+        asyncapi:
+          specs:
+          - spec:
+              id: "consumes-config-value-asyncapi"
+              inMemoryBroker:
+                logDir: "${ASYNC_MOCK_LOG_DIR:./async-mock-logs}"
+                host: "${ASYNC_MOCK_HOST:localhost}"
+                port: "${ASYNC_MOCK_PORT:1883}"
+              servers:
+              - host: "${PROVIDE_ASYNC_SERVER_HOST__2:localhost}"
+                protocol: "${PROVIDE_ASYNC_SERVER_PROTOCOL__2:mqtt}"
+                client:
+                  consumer:
+                    key1: "${PROVIDE_ASYNC_CONSUMER_PROP_KEY1__2:value1}"
+                    key2:
+                    - "${PROVIDE_ASYNC_CONSUMER_PROP_KEY2__2:value2}"
+                    key3:
+                      subKey: "${PROVIDE_ASYNC_CONSUMER_PROP_SUBKEY__2:value3}"
+                  producer:
+                    key1: "${PROVIDE_ASYNC_PRODUCER_PROP_KEY1__2:value1}"
+                    key2:
+                    - "${PROVIDE_ASYNC_PRODUCER_PROP_KEY2__2:value2}"
+                    key3:
+                      subKey: "${PROVIDE_ASYNC_PRODUCER_PROP_SUBKEY__2:value3}"
+                adminCredentials:
+                  key1: "${PROVIDE_ASYNC_ADMIN_PROP_KEY1__2:value1}"
+                  key2:
+                  - "${PROVIDE_ASYNC_ADMIN_PROP_KEY2__2:value2}"
+                  key3:
+                    subKey: "${PROVIDE_ASYNC_ADMIN_PROP_SUBKEY__2:value3}"
+              schemaRegistryProps:
+                kind: "${PROVIDE_SCHEMA_REGISTRY_KIND__2:confluent}"
+                url: "${PROVIDE_SCHEMA_REGISTRY_URL__2:http://localhost:8081}"
+                username: "${PROVIDE_SCHEMA_REGISTRY_USERNAME__2:user}"
+                password: "${PROVIDE_SCHEMA_REGISTRY_PASSWORD__2:password}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "provide-config-value-grpc"
+              path: "${PROVIDE_GRPC_SPEC_PATH__2:specs/git/provide-config-value-grpc.proto}"
+      runOptions:
+        protobuf:
+          specs:
+          - spec:
+              id: "provide-config-value-grpc"
+              host: "${PROVIDE_GRPC_HOST__3:localhost}"
+              port: "${PROVIDE_GRPC_PORT__3:50051}"
+              protocVersion: "${PROVIDE_GRPC_PROTOC_VERSION__2:25.1}"
+              importPaths:
+              - "${PROVIDE_GRPC_IMPORT_PATH_PRIMARY__2:proto}"
+              - "${PROVIDE_GRPC_IMPORT_PATH_SECONDARY__2:proto2}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "provide-config-value-graphql"
+              path: "${PROVIDE_GRAPHQL_SPEC_PATH__2:specs/git/provide-config-value-graphql.graphql}"
+      runOptions:
+        graphqlsdl:
+          specs:
+          - spec:
+              id: "provide-config-value-graphql"
+              host: "${PROVIDE_GRPC_HOST__4:localhost}"
+              port: "${PROVIDE_GRPC_PORT__4:50051}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-openapi-v2"
+              path: "${CONSUME_SPEC_6:specs/git/consume-config-value-openapi-v2.yaml}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+          specs:
+          - spec:
+              id: "consume-config-value-openapi-v2"
+              baseUrl: "${CONSUME_CFG_BASE_URL_V2:https://openapi-consumer-v2.example.com}"
+      data:
+        examples:
+        - directories:
+          - "${CONSUME_EX_2:examples/mock-b}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-openapi-direct"
+              path: "specs/git/consume-config-value-openapi-direct.yaml"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+          specs:
+          - spec:
+              id: "consume-config-value-openapi-direct"
+              baseUrl: "https://openapi-mock.example.com"
+      data:
+        examples:
+        - directories:
+          - "examples/mock-b"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-asyncapi-v2"
+              path: "${CONSUME_SPEC_7:specs/git/consume-config-value-asyncapi-v2.yaml}"
+      runOptions:
+        asyncapi:
+          specs:
+          - spec:
+              id: "consume-config-value-asyncapi-v2"
+              inMemoryBroker:
+                logDir: "${ASYNC_MOCK_LOG_DIR_V2:./async-mock-logs-v2}"
+                host: "${ASYNC_MOCK_HOST_V2:consumer-async-host}"
+                port: "${ASYNC_MOCK_PORT_V2:1884}"
+              servers:
+              - host: "${CONSUME_ASYNC_SERVER_HOST_V2:consumer-server-host}"
+                protocol: "${CONSUME_ASYNC_SERVER_PROTOCOL_V2:kafka}"
+                client:
+                  consumer:
+                    key1: "${CONSUME_ASYNC_CONSUMER_PROP_KEY1_V2:consumer-value-a}"
+                    key2:
+                    - "${CONSUME_ASYNC_CONSUMER_PROP_KEY2_V2:consumer-value-b}"
+                    key3:
+                      subKey: "${CONSUME_ASYNC_CONSUMER_PROP_SUBKEY_V2:consumer-value-c}"
+                  producer:
+                    key1: "${CONSUME_ASYNC_PRODUCER_PROP_KEY1_V2:producer-value-a}"
+                    key2:
+                    - "${CONSUME_ASYNC_PRODUCER_PROP_KEY2_V2:producer-value-b}"
+                    key3:
+                      subKey: "${CONSUME_ASYNC_PRODUCER_PROP_SUBKEY_V2:producer-value-c}"
+                adminCredentials:
+                  key1: "${CONSUME_ASYNC_ADMIN_PROP_KEY1_V2:admin-value-a}"
+                  key2:
+                  - "${CONSUME_ASYNC_ADMIN_PROP_KEY2_V2:admin-value-b}"
+                  key3:
+                    subKey: "${CONSUME_ASYNC_ADMIN_PROP_SUBKEY_V2:admin-value-c}"
+              schemaRegistryProps:
+                kind: "${CONSUME_SCHEMA_REGISTRY_KIND_V2:apicurio}"
+                url: "${CONSUME_SCHEMA_REGISTRY_URL_V2:http://localhost:8083}"
+                username: "${CONSUME_SCHEMA_REGISTRY_USERNAME_V2:consumer-user-v2}"
+                password: "${CONSUME_SCHEMA_REGISTRY_PASSWORD_V2:consumer-password-v2}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-asyncapi-direct"
+              path: "specs/git/consume-config-value-asyncapi-direct.yaml"
+      runOptions:
+        asyncapi:
+          specs:
+          - spec:
+              id: "consume-config-value-asyncapi-direct"
+              inMemoryBroker:
+                logDir: "./async-mock-logs"
+                host: "consumer-async-host"
+                port: 1883
+              servers:
+              - host: "localhost"
+                protocol: "kafka"
+                client:
+                  consumer:
+                    key1: "value1"
+                    key2:
+                    - "consumer-value-b"
+                    key3:
+                      subKey: "value3"
+                  producer:
+                    key1: "producer-value-a"
+                    key2:
+                    - "value2"
+                    key3:
+                      subKey: "producer-value-c"
+                adminCredentials:
+                  key1: "value1"
+                  key2:
+                  - "admin-value-b"
+                  key3:
+                    subKey: "value3"
+              schemaRegistryProps:
+                kind: "confluent"
+                url: "http://localhost:8083"
+                username: "user"
+                password: "consumer-password-v2"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-grpc-v2"
+              path: "${CONSUME_GRPC_SPEC_PATH_V2:specs/git/consume-config-value-grpc-v2.proto}"
+      runOptions:
+        protobuf:
+          specs:
+          - spec:
+              id: "consume-config-value-grpc-v2"
+              host: "${CONSUME_GRPC_HOST_V2:consumer-grpc-host}"
+              port: "${CONSUME_GRPC_PORT_V2:50053}"
+              protocVersion: "${CONSUME_GRPC_PROTOC_VERSION_V2:26.0}"
+              importPaths:
+              - "${CONSUME_GRPC_IMPORT_PATH_PRIMARY_V2:consumer-proto-v2}"
+              - "${CONSUME_GRPC_IMPORT_PATH_SECONDARY_V2:consumer-proto-shared-v2}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-grpc-direct"
+              path: "specs/git/consume-config-value-grpc-direct.proto"
+      runOptions:
+        protobuf:
+          specs:
+          - spec:
+              id: "consume-config-value-grpc-direct"
+              host: "localhost"
+              port: 50053
+              protocVersion: "25.1"
+              importPaths:
+              - "proto"
+              - "consumer-proto-shared-v2"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-graphql-v2"
+              path: "${CONSUME_GRAPHQL_SPEC_PATH_V2:specs/git/consume-config-value-graphql-v2.graphql}"
+      runOptions:
+        graphqlsdl:
+          specs:
+          - spec:
+              id: "consume-config-value-graphql-v2"
+              host: "${CONSUME_GRAPHQL_HOST_V2:consumer-graphql-host}"
+              port: "${CONSUME_GRAPHQL_PORT_V2:9092}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            git:
+              url: "${POLY_GIT_URL:https://github.com/acme/contracts2.git}"
+              branch: "${POLY_GIT_BRANCH:develop}"
+              matchBranch: "${POLY_GIT_MATCH:false}"
+              auth:
+                personalAccessToken: "${AUTH_PAT:pat_value}"
+          specs:
+          - spec:
+              id: "consume-config-value-graphql-direct"
+              path: "specs/git/consume-config-value-graphql-direct.graphql"
+      runOptions:
+        graphqlsdl:
+          specs:
+          - spec:
+              id: "consume-config-value-graphql-direct"
+              host: "localhost"
+              port: 9092
+  - service:
+      definitions:
+      - definition:
+          source:
+            filesystem:
+              directory: "${FS_DIR:contracts/local}"
+          specs:
+          - "${FS_CONSUME:specs/fs/filesystem-consume.yaml}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+  - service:
+      definitions:
+      - definition:
+          source:
+            web:
+              url: "${WEB_URL:https://raw.githubusercontent.com/acme/contracts/main}"
+          specs:
+          - "${WEB_CONSUME:specs/web/web-consume.yaml}"
+      runOptions:
+        openapi:
+          baseUrl: "${STUB_BASE_URL:http://localhost:9000}"
+          filter: "${STUB_FILTER:POST /orders}"
+          cert:
+            keyStore:
+              file: "${STUB_KEYSTORE_FILE:certs/stub-keystore.p12}"
+              password: "${STUB_KEY_PASSWORD:kp5}"
+              alias: "${STUB_KEY_ALIAS:alias5}"
+            keyStorePassword: "${STUB_KEYSTORE_PASSWORD:ksp5}"
+            mtlsEnabled: "${STUB_MTLS_ENABLED:true}"
+  data:
+    examples:
+    - directories:
+      - "${EXAMPLE_DIR_1:examples/global}"
+      - "${EXAMPLE_DIR_2:examples/more}"
+    dictionary:
+      path: "${STUB_DICTIONARY:dictionaries/stub.dict}"
+    adapters:
+      ${HOOK_NAME:hook1}: "${HOOK_PATH:scripts/hook1.sh}"
+proxies:
+- proxy:
+    target: "${PROXY_TARGET:http://upstream:8080}"
+    baseUrl: "${PROXY_BASE:http://localhost:9009}"
+    timeoutInMilliseconds: "${PROXY_TIMEOUT_MS:30000}"
+    adapters:
+      ${HOOK_NAME:hook1}: "${HOOK_PATH:scripts/hook1.sh}"
+    mock:
+    - "${PROXY_CONSUME_1:specs/proxy.yaml}"
+    cert:
+      keyStore:
+        file: "${PROXY_KEYSTORE_FILE:certs/proxy.p12}"
+        password: "${PROXY_KEY_PASS:kp3}"
+        alias: "${PROXY_KEY_ALIAS:alias3}"
+      keyStorePassword: "${PROXY_KEYSTORE_PASS:ksp3}"
+      mtlsEnabled: "${PROXY_MTLS:true}"
+    recordingsDirectory: "${PROXY_OUTPUT_DIR:proxy-recordings}"
+mcp:
+  test:
+    baseUrl: "${MCP_BASE_URL:http://localhost:7071}"
+    transportKind: "${MCP_TRANSPORT:STREAMABLE_HTTP}"
+    enableResiliencyTests: "${MCP_RESILIENCY:true}"
+    dictionaryFile: "${MCP_DICTIONARY:dictionaries/mcp.dict}"
+    bearerToken: "${MCP_BEARER:mcp-bearer-token}"
+    filterTools:
+    - "${MCP_FILTER_TOOL_1:search}"
+    - "${MCP_FILTER_TOOL_2:ping}"
+    skipTools:
+    - "${MCP_SKIP_TOOL_1:dangerous-tool}"
+specmatic:
+  license:
+    path: "${LICENCE|LICENSE|LICENCE_PATH|LICENSE_PATH:~/.home/specmatic-license.txt}"
+  governance:
+    report:
+      outputDirectory: "${REPORT_DIR_PATH:reports/specmatic}"
+    successCriteria:
+      minCoveragePercentage: "${REPORT_MIN_THRESHOLD:80}"
+      maxMissedOperationsInSpec: "${REPORT_MAX_MISSED:3}"
+      enforce: "${REPORT_ENFORCE:true}"
+  settings:
+    general:
+      disableTelemetry: "${DISABLE_TELEMETRY:true}"
+      ignoreInlineExamples: "${IGNORE_INLINE_EXAMPLES:false}"
+      ignoreInlineExampleWarnings: "${IGNORE_INLINE_EXAMPLE_WARNINGS:true}"
+      prettyPrint: "${PRETTY_PRINT:true}"
+      logging:
+        level: "${LOG_LEVEL:DEBUG}"
+        json:
+          directory: "${LOG_JSON_DIR:logs/json}"
+          console: "${LOG_JSON_CONSOLE:true}"
+          logFilePrefix: "${LOG_JSON_PREFIX:specmatic-json}"
+        text:
+          directory: "${LOG_TEXT_DIR:logs/text}"
+          console: "${LOG_TEXT_CONSOLE:false}"
+          logFilePrefix: "${LOG_TEXT_PREFIX:specmatic-text}"
+      featureFlags:
+        fuzzyMatcherForPayloads: "${FUZZY:true}"
+        schemaExampleDefault: "${SCHEMA_EXAMPLE_DEFAULT:true}"
+        escapeSoapAction: "${ESCAPE_SOAP_ACTION:true}"
+      specExamplesDirectoryTemplate: "${SPEC_EXAMPLE_TEMPLATE:<SPEC_FILE_NAME>_examples}"
+      sharedExamplesDirectoryTemplate:
+      - "${SHARED_EX_TEMPLATE_1:<SPEC_EACH_PARENT>_common}"
+      - "${SHARED_EX_TEMPLATE_2:common}"
+    test:
+      schemaResiliencyTests: "${TEST_RESILIENCY:all}"
+      timeoutInMilliseconds: "${TEST_TIMEOUT_MS:120000}"
+      strictMode: "${TEST_STRICT:true}"
+      lenientMode: "${TEST_LENIENT:false}"
+      parallelism: "${TEST_PARALLELISM:4}"
+      maxTestRequestCombinations: "${TEST_MAX_COMBINATIONS:40}"
+      junitReportDir: "${TEST_JUNIT_DIR:reports/junit}"
+      validateResponseValues: "${TEST_VALIDATE_RESPONSE:true}"
+      maxTestCount: "${TEST_MAX_COUNT:200}"
+    mock:
+      generative: "${STUB_GENERATIVE:true}"
+      delayInMilliseconds: "${STUB_DELAY_MS:10}"
+      startTimeoutInMilliseconds: "${STUB_START_TIMEOUT_MS:60000}"
+      hotReload: "${STUB_HOT_RELOAD:true}"
+      strictMode: "${STUB_STRICT:false}"
+      gracefulRestartTimeoutInMilliseconds: "${STUB_GRACEFUL_TIMEOUT_MS:15000}"
+      lenientMode: "${STUB_LENIENT:true}"
+    backwardCompatibility:
+      baseBranch: "${BC_BASE_BRANCH:main}"
+      targetPath: "${BC_TARGET_PATH:contracts/openapi}"
+      repoDirectory: "${BC_REPO_DIR:.specmatic/repos/contracts}"
+      strictMode: "${BC_STRICT:true}"

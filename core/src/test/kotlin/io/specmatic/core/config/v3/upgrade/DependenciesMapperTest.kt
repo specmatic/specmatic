@@ -4,6 +4,7 @@ import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.Switch
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.RefOrValue
@@ -40,10 +41,10 @@ class DependenciesMapperTest {
                 sources = listOf(source),
                 hooks = mapOf("request-body" to "hooks/req.js"),
                 stub = StubConfiguration(
-                    hotReload = Switch.enabled,
-                    dictionary = "dict.json",
-                    filter = "PATH='/orders'",
-                    baseUrl = "http://global-mock:8080",
+                    hotReload = TemplatableValue(Switch.enabled),
+                    dictionary = TemplatableValue("dict.json"),
+                    filter = TemplatableValue("PATH='/orders'"),
+                    baseUrl = TemplatableValue("http://global-mock:8080"),
                 ),
             )
         )
@@ -54,13 +55,12 @@ class DependenciesMapperTest {
         val dictionary = ((result.data?.dictionary) as RefOrValue.Value).value
         assertThat(dictionary.path).isEqualTo("dict.json")
 
-        val settings = (result.settings as RefOrValue.Value<MockSettings>).value
-        assertThat(settings.hotReload).isTrue()
+        assertThat(result.settings).isNull()
 
         val service = ((result.services.single().service) as RefOrValue.Value<CommonServiceConfig<MockRunOptions, MockSettings>>).value
         val runOptions = (service.runOptions as RefOrValue.Value<MockRunOptions>).value
-        assertThat(runOptions.openapi?.filter).isEqualTo("PATH='/orders'")
-        assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://global-mock:8080")
+        assertThat(runOptions.openapi?.filter).isEqualTo(TemplatableValue("PATH='/orders'"))
+        assertThat(runOptions.openapi?.baseUrl).isEqualTo(TemplatableValue("http://global-mock:8080"))
         assertThat(runOptions.openapi?.specs?.map { it.spec.id }).containsExactly("orders")
     }
 }

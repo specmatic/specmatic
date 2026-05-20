@@ -1,7 +1,9 @@
 package io.specmatic.core.config.v3
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.config.ConfigTemplateMetadata
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticVersionedConfig
@@ -20,6 +22,9 @@ data class SpecmaticConfigV3(
     val mcp: McpConfiguration? = null,
     val specmatic: Specmatic? = null,
     val components: Components? = null,
+    @get:JsonIgnore
+    @field:JsonIgnore
+    val configTemplateMetadata: ConfigTemplateMetadata = ConfigTemplateMetadata.empty(),
 ) : SpecmaticVersionedConfig {
     override fun transform(file: File?): SpecmaticConfig {
         return SpecmaticConfigV3Impl(file, this)

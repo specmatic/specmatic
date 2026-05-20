@@ -2,6 +2,7 @@ package io.specmatic.core.config.v3.components.services
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.SpecificationSourceEntry
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
@@ -155,7 +156,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     fun withStubMode(resolver: SpecmaticConfigV3Resolver, strictMode: Boolean): MockServiceConfig {
         val settings = this.settings?.resolveElseThrow(resolver) ?: MockSettings()
-        val updatedSettings = MockSettings(strictMode = strictMode).merge(settings)
+        val updatedSettings = MockSettings(strictMode = TemplatableValue(strictMode)).merge(settings)
         return this.copy(settings = RefOrValue.Value(updatedSettings))
     }
 
@@ -165,7 +166,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                 val service = value.service.resolveElseThrow(resolver)
                 val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: MockRunOptions()
                 val openApiRunOpts = runOpts.openapi ?: OpenApiMockConfig()
-                val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = filter)
+                val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = TemplatableValue(filter))
                 val updatedRunOpts = runOpts.copy(openapi = updatedOpenApiRunOpts)
                 value.copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))
             }
@@ -174,7 +175,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
 
     fun withGlobalDelay(resolver: SpecmaticConfigV3Resolver, delayInMilliseconds: Long): MockServiceConfig {
         val settings = this.settings?.resolveElseThrow(resolver) ?: MockSettings()
-        val updatedSettings = MockSettings(delayInMilliseconds = delayInMilliseconds).merge(settings)
+        val updatedSettings = MockSettings(delayInMilliseconds = TemplatableValue(delayInMilliseconds)).merge(settings)
         return this.copy(settings = RefOrValue.Value(updatedSettings))
     }
 

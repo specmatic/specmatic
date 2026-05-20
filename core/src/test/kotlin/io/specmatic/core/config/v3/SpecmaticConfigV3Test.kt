@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.readValue
 import io.specmatic.core.SourceProvider
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.config.toSpecmaticConfig
@@ -315,7 +316,7 @@ class SpecmaticConfigV3Test {
             val settings = config.components?.settings?.get("mySettings")
             assertThat(settings).isInstanceOf(ConcreteSettings::class.java); settings as ConcreteSettings
             assertThat(settings.general?.prettyPrint).isTrue
-            assertThat(settings.mock?.delayInMilliseconds).isEqualTo(10000)
+            assertThat(settings.mock?.delayInMilliseconds).isEqualTo(TemplatableValue(10000L))
         }
 
         @ParameterizedTest

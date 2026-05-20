@@ -8,6 +8,7 @@ import io.specmatic.core.SecurityConfiguration
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.TestConfiguration
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.RefOrValue
@@ -46,8 +47,8 @@ class SystemUnderTestMapperTest {
         val runOptions = (service.runOptions as RefOrValue.Value<TestRunOptions>).value
 
         assertThat(service.definitions).hasSize(1)
-        assertThat(runOptions.openapi?.filter).isEqualTo("PATH='/users'")
-        assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://localhost:8080")
+        assertThat(runOptions.openapi?.filter).isEqualTo(TemplatableValue("PATH='/users'"))
+        assertThat(runOptions.openapi?.baseUrl).isEqualTo(TemplatableValue("http://localhost:8080"))
         assertThat(runOptions.openapi?.specs?.single()?.spec?.overlayFilePath).isEqualTo("overlay.yaml")
         assertThat(runOptions.openapi?.specs?.single()?.spec?.securitySchemes).containsKey("api_key")
     }

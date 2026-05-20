@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.specmatic.core.ResiliencyTestsConfig
+import io.specmatic.core.withoutTemplatableValues
 
 data class OpenAPITestConfig(
     @JsonProperty("baseUrl")
@@ -36,9 +37,8 @@ data class OpenAPITestConfig(
 
         private fun readConfig(data: Map<String, Any>): Result<OpenAPITestConfig> {
             return runCatching {
-                mapper.convertValue(data, OpenAPITestConfig::class.java)
+                mapper.convertValue(data.withoutTemplatableValues(), OpenAPITestConfig::class.java)
             }
         }
     }
 }
-

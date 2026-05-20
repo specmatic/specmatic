@@ -3,7 +3,9 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
+import io.specmatic.core.value
 import kotlin.String
 
 interface IRunOptionSpecification {
@@ -35,15 +37,15 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
         if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, "localhost")
-        return "${spec.host ?: defaultHost}:${spec.port}"
+        return "${spec.host.value() ?: defaultHost}:${spec.port.value()}"
     }
 
     @JsonIgnore
     override fun getConfig(): Map<String, Any> {
         return buildMap {
             putAll(spec.config)
-            spec.host?.let { put("host", it) }
-            spec.port?.let { put("port", it) }
+            spec.host?.let { put("host", it.value) }
+            spec.port?.let { put("port", it.value) }
         }
     }
 
@@ -55,8 +57,8 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     data class Value(
         val id: String? = null,
         val overlayFilePath: String? = null,
-        val host: String? = null,
-        val port: Int? = null,
+        val host: TemplatableValue<String>? = null,
+        val port: TemplatableValue<Int>? = null,
         @JsonIgnore
         private val _config: MutableMap<String, Any> = linkedMapOf()
     ) {
@@ -95,16 +97,16 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
 
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.baseUrl != null) return spec.baseUrl
+        if (spec.baseUrl != null) return spec.baseUrl.value
         if (spec.port == null) return null
-        return "http://${spec.host ?: defaultHost}:${spec.port}"
+        return "http://${spec.host.value() ?: defaultHost}:${spec.port.value()}"
     }
 
     data class Value(
         val id: String? = null,
-        val baseUrl: String? = null,
-        val host: String? = null,
-        val port: Int? = null,
+        val baseUrl: TemplatableValue<String>? = null,
+        val host: TemplatableValue<String>? = null,
+        val port: TemplatableValue<Int>? = null,
     )
 }
 
@@ -136,16 +138,16 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
 
     @JsonIgnore
     override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.baseUrl != null) return spec.baseUrl
+        if (spec.baseUrl != null) return spec.baseUrl.value
         if (spec.port == null) return null
-        return "http://${spec.host ?: defaultHost}:${spec.port}"
+        return "http://${spec.host.value() ?: defaultHost}:${spec.port.value()}"
     }
 
     data class Value(
         val id: String? = null,
-        val baseUrl: String? = null,
-        val host: String? = null,
-        val port: Int? = null,
+        val baseUrl: TemplatableValue<String>? = null,
+        val host: TemplatableValue<String>? = null,
+        val port: TemplatableValue<Int>? = null,
         val overlayFilePath: String? = null,
         val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
     )

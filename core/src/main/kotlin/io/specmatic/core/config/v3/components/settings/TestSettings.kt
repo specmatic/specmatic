@@ -2,18 +2,19 @@ package io.specmatic.core.config.v3.components.settings
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.TemplatableValue
 
 data class TestSettings(
     @field:JsonAlias("resiliencyTests")
     val schemaResiliencyTests: ResiliencyTestSuite? = null,
-    val timeoutInMilliseconds: Long? = null,
-    val strictMode: Boolean? = null,
-    val lenientMode: Boolean? = null,
-    val parallelism: String? = null,
-    val maxTestRequestCombinations: Int? = null,
-    val junitReportDir: String? = null,
-    val validateResponseValues: Boolean? = null,
-    val maxTestCount: Int? = null,
+    val timeoutInMilliseconds: TemplatableValue<Long>? = null,
+    val strictMode: TemplatableValue<Boolean>? = null,
+    val lenientMode: TemplatableValue<Boolean>? = null,
+    val parallelism: TemplatableValue<String>? = null,
+    val maxTestRequestCombinations: TemplatableValue<Int>? = null,
+    val junitReportDir: TemplatableValue<String>? = null,
+    val validateResponseValues: TemplatableValue<Boolean>? = null,
+    val maxTestCount: TemplatableValue<Int>? = null,
 ) {
     fun merge(fallback: TestSettings?): TestSettings {
         if (fallback == null) return this

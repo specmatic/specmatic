@@ -5,6 +5,7 @@ import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.TestSettings
+import io.specmatic.core.value
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -33,9 +34,9 @@ class RefOrValueTest {
         val runOptions = resolved.runOptions!!.resolveElseThrow(resolver)
         val settings = resolved.settings!!.resolveElseThrow(resolver)
         assertThat(runOptions).isInstanceOf(TestRunOptions::class.java)
-        assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://from-extra")
+        assertThat(runOptions.openapi?.baseUrl.value()).isEqualTo("http://from-extra")
         assertThat(settings).isInstanceOf(TestSettings::class.java)
-        assertThat(settings.timeoutInMilliseconds).isEqualTo(1234)
+        assertThat(settings.timeoutInMilliseconds.value()).isEqualTo(1234)
     }
 
     @Test
@@ -62,9 +63,9 @@ class RefOrValueTest {
         val runOptions = resolved.runOptions!!.resolveElseThrow(resolver)
         val settings = resolved.settings!!.resolveElseThrow(resolver)
         assertThat(runOptions).isInstanceOf(MockRunOptions::class.java)
-        assertThat(runOptions.openapi?.baseUrl).isEqualTo("http://from-extra")
+        assertThat(runOptions.openapi?.baseUrl.value()).isEqualTo("http://from-extra")
         assertThat(settings).isInstanceOf(MockSettings::class.java)
-        assertThat(settings.strictMode).isTrue()
+        assertThat(settings.strictMode.value()).isTrue()
     }
 
     @Test

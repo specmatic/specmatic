@@ -867,7 +867,7 @@ Feature: Math API
             yamlMapper.writeValueAsString(
                 SpecmaticConfigV2(
                     version = SpecmaticConfigVersion.VERSION_2,
-                    stub = StubConfiguration(dictionary = dictionaryFile.canonicalPath),
+                    stub = StubConfiguration(dictionary = TemplatableValue(dictionaryFile.canonicalPath)),
                     contracts = listOf(
                         ContractConfig(
                             filesystem = ContractConfig.FileSystemContractSource(tempDir.canonicalPath),
@@ -907,7 +907,7 @@ Feature: Math API
             yamlMapper.writeValueAsString(
                 SpecmaticConfigV2(
                     version = SpecmaticConfigVersion.VERSION_2,
-                    stub = StubConfiguration(dictionary = dictionaryFile.canonicalPath),
+                    stub = StubConfiguration(dictionary = TemplatableValue(dictionaryFile.canonicalPath)),
                     contracts = listOf(
                         ContractConfig(
                             filesystem = ContractConfig.FileSystemContractSource(tempDir.canonicalPath),

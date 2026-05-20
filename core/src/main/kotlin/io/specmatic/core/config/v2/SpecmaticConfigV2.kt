@@ -1,6 +1,7 @@
 package io.specmatic.core.config.v2
 
 import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonFormat
 import io.specmatic.core.*
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getAllPatternsMandatory
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getAttributeSelectionConfigOrNull
@@ -27,6 +28,7 @@ import java.nio.file.Path
 
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
+    @field:JsonFormat(with = [JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY])
     val contracts: List<ContractConfig> = emptyList(),
     val auth: Auth? = null,
     val pipeline: Pipeline? = null,

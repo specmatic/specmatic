@@ -9,7 +9,8 @@ import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatest
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.getLatestVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.isValidVersion
 import io.specmatic.core.config.getVersion
-import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.toTemplateAwareSpecmaticConfig
+import io.specmatic.core.config.writeYamlPreservingConfigTemplates
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exitWithMessage
@@ -73,8 +74,9 @@ class ConfigCommand : Callable<Int> {
         }
 
         private fun upgrade(configFile: File) {
-            val upgradedConfigYaml =
-                getObjectMapper().writeValueAsString(convertToLatestVersionedConfig(configFile.toSpecmaticConfig()))
+            val objectMapper = getObjectMapper()
+            val upgradedConfigYaml = convertToLatestVersionedConfig(configFile.toTemplateAwareSpecmaticConfig())
+                .writeYamlPreservingConfigTemplates(objectMapper)
 
             if(outputFile == null) {
                 logger.log(upgradedConfigYaml)

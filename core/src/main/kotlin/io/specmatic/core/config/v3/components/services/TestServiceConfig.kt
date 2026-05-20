@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SpecificationSourceEntry
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
@@ -135,21 +136,24 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     fun withTestMode(resolver: RefOrValueResolver, strictMode: Boolean?, lenientMode: Boolean?): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()
-        val updatedSettings = TestSettings(strictMode = strictMode, lenientMode = lenientMode).merge(settings)
+        val updatedSettings = TestSettings(
+            strictMode = strictMode?.let { TemplatableValue(it) },
+            lenientMode = lenientMode?.let { TemplatableValue(it) },
+        ).merge(settings)
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
     fun withTestTimeout(resolver: RefOrValueResolver, timeout: Long): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val settings = service.settings?.resolveElseThrow(resolver) ?: TestSettings()
-        val updatedSettings = TestSettings(timeoutInMilliseconds = timeout).merge(settings)
+        val updatedSettings = TestSettings(timeoutInMilliseconds = TemplatableValue(timeout)).merge(settings)
         return this.copy(service = RefOrValue.Value(service.copy(settings = RefOrValue.Value(updatedSettings))))
     }
 
     fun withBaseUrl(resolver: SpecmaticConfigV3Resolver, testBaseURL: String): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: TestRunOptions()
-        val openApiRunOpts = runOpts.openapi?.copy(baseUrl = testBaseURL) ?: OpenApiTestConfig(baseUrl = testBaseURL)
+        val openApiRunOpts = runOpts.openapi?.copy(baseUrl = TemplatableValue(testBaseURL)) ?: OpenApiTestConfig(baseUrl = TemplatableValue(testBaseURL))
         val updatedRunOpts = runOpts.copy(openapi = openApiRunOpts)
         return copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))
     }
@@ -158,7 +162,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         val service = this.service.resolveElseThrow(resolver)
         val runOpts = service.runOptions?.resolveElseThrow(resolver) ?: TestRunOptions()
         val openApiRunOpts = runOpts.openapi ?: OpenApiTestConfig()
-        val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = filter)
+        val updatedOpenApiRunOpts = openApiRunOpts.copy(filter = TemplatableValue(filter))
         val updatedRunOpts = runOpts.copy(openapi = updatedOpenApiRunOpts)
         return copy(service = RefOrValue.Value(service.copy(runOptions = RefOrValue.Value(updatedRunOpts))))
     }

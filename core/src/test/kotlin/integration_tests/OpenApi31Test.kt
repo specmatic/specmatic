@@ -6,6 +6,7 @@ import io.specmatic.core.ResiliencyTestsConfig
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
+import io.specmatic.core.TemplatableValue
 import io.specmatic.core.TestConfiguration
 import io.specmatic.core.examples.server.ScenarioFilter
 import io.specmatic.core.pattern.AnyOfPattern
@@ -43,7 +44,7 @@ class OpenApi31Test {
     private val backwardCompatibilityFilter = "PATH!='/multiTypeEnumSchema'"
     private val specmaticConfig = SpecmaticConfigV1V2Common(
         test = TestConfiguration(resiliencyTests = ResiliencyTestsConfig(enable = ResiliencyTestSuite.all)),
-        stub = StubConfiguration(generative = true),
+        stub = StubConfiguration(generative = TemplatableValue(true)),
     )
 
     @Test

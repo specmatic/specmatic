@@ -77,7 +77,7 @@ internal class HttpStubTest {
         """.trimIndent()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(delayInMilliseconds = 123))
+        val specmaticConfig = SpecmaticConfigV1V2Common(stub = StubConfiguration(delayInMilliseconds = TemplatableValue(123L)))
 
         HttpStub(
             features = listOf(feature),
@@ -2434,7 +2434,7 @@ paths:
 
             val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
 
-            val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = true))
+            val config = SpecmaticConfigV1V2Common(stub = StubConfiguration(generative = TemplatableValue(true)))
             HttpStub(
                 listOf(feature),
                 strictMode = true,
