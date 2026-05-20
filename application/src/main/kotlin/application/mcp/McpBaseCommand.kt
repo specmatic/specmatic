@@ -10,7 +10,7 @@ import java.util.concurrent.Callable
     name = "mcp",
     mixinStandardHelpOptions = true,
     scope = CommandLine.ScopeType.INHERIT,
-    subcommands = [McpTestCommand::class],
+    subcommands = [McpTestCommand::class, McpServerCommand::class],
     description = ["Execute Specmatic MCP capabilities"]
 )
 @Category("MCP capabilities")

@@ -15,6 +15,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.jvm.optionals.getOrNull
 
+private const val MCP_QUIET_MODE_PROPERTY = "specmatic.mcp.quiet"
+
+internal fun consolePrintln(message: Any? = "") {
+    val target = if (System.getProperty(MCP_QUIET_MODE_PROPERTY) == "true") System.err else System.out
+    target.println(message ?: "null")
+}
+
 fun getContractExecutionPrinter(): ContractExecutionPrinter {
     return if(stdOutIsRedirected())
         MonochromePrinter()
@@ -112,7 +119,7 @@ class ContractExecutionListener : TestExecutionListener {
     private fun printAndLogFailure(testExecutionResult: TestExecutionResult, testIdentifier: TestIdentifier?) {
         val message = testExecutionResult.throwable?.get()?.message?.trimIndent().orEmpty()
         val reason = "Reason:\n$message"
-        println("$reason\n\n")
+        consolePrintln("$reason\n\n")
 
         val log = """"${testIdentifier?.displayName} ${testExecutionResult.status}"
     ${reason.prependIndent("  ")}"""
@@ -121,37 +128,39 @@ class ContractExecutionListener : TestExecutionListener {
     }
 
     override fun testPlanExecutionFinished(testPlan: TestPlan?) {
-        org.fusesource.jansi.AnsiConsole.systemInstall()
+        if (System.getProperty(MCP_QUIET_MODE_PROPERTY) != "true") {
+            org.fusesource.jansi.AnsiConsole.systemInstall()
+        }
 
-        println()
+        consolePrintln()
 
         val exceptionSnapshot = synchronized(exceptionsThrown) { exceptionsThrown.toList() }
         exceptionSnapshot.forEach { exceptionThrown ->
             logger.log(exceptionThrown)
         }
 
-        println()
+        consolePrintln()
 
         if(SpecmaticJUnitSupport.partialSuccesses.isNotEmpty()) {
-            println()
+            consolePrintln()
             printer.printFailureTitle("Partial Successes:")
-            println()
+            consolePrintln()
 
             SpecmaticJUnitSupport.partialSuccesses.filter { it.partialSuccessMessage != null} .forEach { result ->
-                println("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
-                println("    " + result.partialSuccessMessage!!)
-                println()
+                consolePrintln("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
+                consolePrintln("    " + result.partialSuccessMessage!!)
+                consolePrintln()
             }
 
-            println()
+            consolePrintln()
         }
 
         val failedLogSnapshot = synchronized(failedLog) { failedLog.toList() }
         if (failedLogSnapshot.isNotEmpty()) {
-            println()
+            consolePrintln()
             printer.printFailureTitle("Unsuccessful Scenarios:")
-            println(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
-            println()
+            consolePrintln(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
+            consolePrintln()
         }
 
         printer.printFinalSummary(

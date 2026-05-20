@@ -14,9 +14,9 @@ class ColorPrinter: ContractExecutionPrinter {
             else -> Ansi.ansi().fgGreen()
         }
 
-        println(color.a(testSummary.message).reset())
-        println()
-        println("Executed at ${currentDateAndTime()}")
+        consolePrintln(color.a(testSummary.message).reset())
+        consolePrintln()
+        consolePrintln("Executed at ${currentDateAndTime()}")
     }
 
     override fun printTestSummary(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
@@ -27,10 +27,10 @@ class ColorPrinter: ContractExecutionPrinter {
             else -> Ansi.ansi()
         }
 
-        println(color.a(testStatusMessage(testIdentifier, testExecutionResult)).reset())
+        consolePrintln(color.a(testStatusMessage(testIdentifier, testExecutionResult)).reset())
     }
 
     override fun printFailureTitle(failures: String) {
-        println(failures)
+        consolePrintln(failures)
     }
 }

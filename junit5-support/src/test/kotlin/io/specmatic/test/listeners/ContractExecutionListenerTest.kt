@@ -1,6 +1,7 @@
 package io.specmatic.test.listeners
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import io.specmatic.core.Result
 import io.specmatic.core.ScenarioDetailsForResult
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -11,6 +12,8 @@ import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.engine.UniqueId
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor
 import org.junit.platform.launcher.TestIdentifier
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.util.UUID
 
 class ContractExecutionListenerTest {
@@ -18,6 +21,7 @@ class ContractExecutionListenerTest {
     fun resetState() {
         ContractExecutionListener.reset()
         SpecmaticJUnitSupport.partialSuccesses.clear()
+        System.clearProperty("specmatic.mcp.quiet")
     }
 
     @Test
@@ -125,6 +129,34 @@ class ContractExecutionListenerTest {
 
         assertEquals(0, listener.exitCode())
         assertEquals(0, ContractExecutionListener.exitCode())
+    }
+
+    @Test
+    fun `quiet mode writes listener output to stderr instead of stdout`() {
+        val stdout = ByteArrayOutputStream()
+        val stderr = ByteArrayOutputStream()
+        val originalOut = System.out
+        val originalErr = System.err
+        System.setProperty("specmatic.mcp.quiet", "true")
+        System.setOut(PrintStream(stdout, true, Charsets.UTF_8))
+        System.setErr(PrintStream(stderr, true, Charsets.UTF_8))
+
+        try {
+            val listener = ContractExecutionListener()
+
+            listener.executionFinished(
+                testIdentifier(TestDescriptor.Type.TEST),
+                TestExecutionResult.failed(AssertionError("boom"))
+            )
+            listener.testPlanExecutionFinished(null)
+        } finally {
+            System.setOut(originalOut)
+            System.setErr(originalErr)
+            System.clearProperty("specmatic.mcp.quiet")
+        }
+
+        assertEquals("", stdout.toString(Charsets.UTF_8))
+        assertTrue(stderr.toString(Charsets.UTF_8).contains("Unsuccessful Scenarios:"))
     }
 }
 
