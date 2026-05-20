@@ -58,4 +58,9 @@ class SpecmaticApplicationTest {
         assertThat(nonBlankLines).hasSize(1)
         assertThat(nonBlankLines.single()).containsPattern("^Specmatic Version: v\\d+\\.\\d+\\.\\d+.*$")
     }
+
+    @Test
+    fun `mcp server invocation should not print version banner`() {
+        assertThat(SpecmaticApplication.shouldPrintVersionBanner(arrayOf("mcp", "server"))).isFalse()
+    }
 }

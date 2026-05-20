@@ -42,6 +42,10 @@ dependencies {
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
+    implementation("io.modelcontextprotocol:kotlin-sdk:0.12.0") {
+        exclude(group = "io.ktor")
+    }
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
 

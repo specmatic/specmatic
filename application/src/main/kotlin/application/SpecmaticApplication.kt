@@ -14,6 +14,14 @@ open class SpecmaticApplication {
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
+            try {
+                val configClass = Class.forName("io.github.oshai.kotlinlogging.KotlinLoggingConfiguration")
+                val configInstance = configClass.getField("INSTANCE").get(null)
+                configClass.methods.firstOrNull { it.name == "setLogStartupMessage" }?.invoke(configInstance, false)
+                Class.forName("io.github.oshai.kotlinlogging.KotlinLogging")
+            } catch (_: Throwable) {
+            }
+
             LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
 
             val specmaticConfig = loadSpecmaticConfigOrNull()
@@ -27,7 +35,7 @@ open class SpecmaticApplication {
 
             val commandLine = CommandLine(SpecmaticCommand())
             SpecmaticCoreSubcommands.configure(commandLine)
-            if (args.none { it == "-V" || it == "--version" || it == "generate-completion" }) {
+            if (shouldPrintVersionBanner(args)) {
                 commandLine.printVersionHelp(System.out)
                 println()
             }
@@ -39,6 +47,14 @@ open class SpecmaticApplication {
                     SystemExit.exitWith(exitCode)
                 }
             }
+        }
+
+        internal fun shouldPrintVersionBanner(args: Array<String>): Boolean {
+            if (args.any { it == "-V" || it == "--version" || it == "generate-completion" }) {
+                return false
+            }
+
+            return !(args.size >= 2 && args[0] == "mcp" && args[1] == "server")
         }
 
         private fun setupPicoCli() {

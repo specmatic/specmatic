@@ -5,17 +5,17 @@ import org.junit.platform.launcher.TestIdentifier
 
 class MonochromePrinter: ContractExecutionPrinter {
     override fun printFinalSummary(testSummary: TestSummary) {
-        println(testSummary.message)
-        println()
-        println("Executed at ${currentDateAndTime()}")
+        consolePrintln(testSummary.message)
+        consolePrintln()
+        consolePrintln("Executed at ${currentDateAndTime()}")
     }
 
     override fun printTestSummary(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
-        println(testStatusMessage(testIdentifier, testExecutionResult))
+        consolePrintln(testStatusMessage(testIdentifier, testExecutionResult))
     }
 
     override fun printFailureTitle(failures: String) {
-        println(failures)
+        consolePrintln(failures)
     }
 }
 
