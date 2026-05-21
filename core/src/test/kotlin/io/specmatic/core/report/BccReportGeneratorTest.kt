@@ -52,16 +52,16 @@ class BccReportGeneratorTest {
         val groupedCreateOrder = reportOperations.single { it.operation == createOrder && it.specConfig.specification == "specs/orders.yaml" }
         assertThat(groupedCreateOrder.compatibility.changeStatus).isEqualTo(ChangeStatus.CHANGED)
         assertThat(groupedCreateOrder.tests).containsExactly(firstRecord, secondRecord)
-        assertThat(groupedCreateOrder.qualifiers).containsExactly(CtrfOperationQualifiers.WIP)
+        assertThat(groupedCreateOrder.qualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
         assertThat(groupedCreateOrder.compatibility.result).isEqualTo(BackwardCompatibilityResult.Incompatible)
 
         val groupedGetOrders = reportOperations.single { it.operation == getOrders && it.specConfig.specification == "specs/orders.yaml" }
         assertThat(groupedGetOrders.tests).containsExactly(firstRecord)
-        assertThat(groupedGetOrders.qualifiers).containsExactly(CtrfOperationQualifiers.WIP)
+        assertThat(groupedGetOrders.qualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
         assertThat(groupedGetOrders.compatibility.result).isEqualTo(BackwardCompatibilityResult.Compatible)
 
         val groupedPayments = reportOperations.single { it.operation == createOrder && it.specConfig.specification == "specs/payments.yaml" }
-        assertThat(groupedPayments.qualifiers).isEmpty()
+        assertThat(groupedPayments.qualifiers).containsExactly(CtrfOperationQualifiers.CHANGED)
         assertThat(groupedPayments.tests).containsExactly(thirdRecord)
         assertThat(groupedPayments.compatibility.result).isEqualTo(BackwardCompatibilityResult.Compatible)
     }
@@ -123,7 +123,37 @@ class BccReportGeneratorTest {
         )
 
         val reportOperation = generator.generateReportOperations(listOf(firstRecord, secondRecord)).single()
+        assertThat(reportOperation.qualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
+    }
+
+    @Test
+    fun `should add changed qualifier when operation has changes`() {
+        val createOrder = openApiOperation(path = "/orders", method = "POST", responseCode = 201)
+        val reportOperation = generator.generateReportOperations(
+            listOf(
+                testRecord(operations = setOf(createOrder), changeStatus = ChangeStatus.UNCHANGED),
+                testRecord(operations = setOf(createOrder), changeStatus = ChangeStatus.CHANGED),
+            )
+        ).single()
+
+        assertThat(reportOperation.qualifiers).containsExactly(CtrfOperationQualifiers.CHANGED)
+    }
+
+    @Test
+    fun `should omit changed qualifier when operation is unchanged`() {
+        val createOrder = openApiOperation(path = "/orders", method = "POST", responseCode = 201)
+        val reportOperation = generator.generateReportOperations(
+            listOf(
+                testRecord(
+                    operations = setOf(createOrder),
+                    changeStatus = ChangeStatus.UNCHANGED,
+                    operationQualifiers = listOf(CtrfOperationQualifiers.WIP),
+                ),
+            )
+        ).single()
+
         assertThat(reportOperation.qualifiers).containsExactly(CtrfOperationQualifiers.WIP)
+        assertThat(reportOperation.qualifiers).doesNotContain(CtrfOperationQualifiers.CHANGED)
     }
 
     @Test
@@ -245,6 +275,10 @@ class BccReportGeneratorTest {
         operationQualifiers: List<CtrfOperationQualifiers> = emptyList(),
         result: BackwardCompatibilityResult = BackwardCompatibilityResult.Compatible,
     ): CtrfBackwardCompatibilityRecord {
+        val effectiveQualifiers = buildList {
+            addAll(operationQualifiers)
+            if (changeStatus == ChangeStatus.CHANGED) add(CtrfOperationQualifiers.CHANGED)
+        }
         return object : CtrfBackwardCompatibilityRecord {
             override val id: UUID = id
             override val duration: Long = 100
@@ -258,7 +292,7 @@ class BccReportGeneratorTest {
             override val operations: Set<APIOperation> = operations
             override val result: BackwardCompatibilityResult = result
             override val changeStatus: ChangeStatus = changeStatus
-            override val operationQualifiers: List<CtrfOperationQualifiers> = operationQualifiers
+            override val operationQualifiers: List<CtrfOperationQualifiers> = effectiveQualifiers
         }
     }
 }

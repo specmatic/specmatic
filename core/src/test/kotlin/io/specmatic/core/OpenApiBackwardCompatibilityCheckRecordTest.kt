@@ -28,7 +28,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
 
         assertThat(record.id).isNotNull()
         assertThat(record.message).isEmpty()
-        assertThat(record.operationQualifiers).isEmpty()
+        assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.CHANGED)
         assertThat(record.duration).isEqualTo(0)
         assertThat(record.branch).isEqualTo("main")
         assertThat(record.specType).isEqualTo(SpecType.OPENAPI)
@@ -78,7 +78,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
 
         assertThat(record.message).contains("breaking change")
         assertThat(record.result).isEqualTo(BackwardCompatibilityResult.Incompatible)
-        assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP)
+        assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
     }
 
     private fun openApiFeature(): Feature {
