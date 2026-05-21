@@ -42,6 +42,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     override val operationQualifiers: List<CtrfOperationQualifiers> = buildList {
         if (scenario.ignoreFailure) add(CtrfOperationQualifiers.WIP)
+        if (changeStatus == ChangeStatus.CHANGED) add(CtrfOperationQualifiers.CHANGED)
     }
 
     private fun toOpenApiOperation(scenario: Scenario): Set<APIOperation> = setOf(

@@ -275,6 +275,10 @@ class BccReportGeneratorTest {
         operationQualifiers: List<CtrfOperationQualifiers> = emptyList(),
         result: BackwardCompatibilityResult = BackwardCompatibilityResult.Compatible,
     ): CtrfBackwardCompatibilityRecord {
+        val effectiveQualifiers = buildList {
+            addAll(operationQualifiers)
+            if (changeStatus == ChangeStatus.CHANGED) add(CtrfOperationQualifiers.CHANGED)
+        }
         return object : CtrfBackwardCompatibilityRecord {
             override val id: UUID = id
             override val duration: Long = 100
@@ -288,7 +292,7 @@ class BccReportGeneratorTest {
             override val operations: Set<APIOperation> = operations
             override val result: BackwardCompatibilityResult = result
             override val changeStatus: ChangeStatus = changeStatus
-            override val operationQualifiers: List<CtrfOperationQualifiers> = operationQualifiers
+            override val operationQualifiers: List<CtrfOperationQualifiers> = effectiveQualifiers
         }
     }
 }
