@@ -22,8 +22,11 @@ class McpServerCommand : Callable<Int> {
     var verbose: Boolean? = null
 
     override fun call(): Int {
+        val originalOut = System.`out`
+        System.setOut(System.err)
+
         configureLogging(
-            LoggingConfiguration.Companion.LoggingFromOpts(
+            io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts(
                 debug = verbose,
                 textConsoleLog = false
             )
@@ -31,12 +34,14 @@ class McpServerCommand : Callable<Int> {
 
         return try {
             runBlocking {
-                SpecmaticMcpServer().use { it.run() }
+                SpecmaticMcpServer().use { it.run(outputStream = originalOut) }
             }
             0
         } catch (t: Throwable) {
             t.printStackTrace(System.err)
             1
+        } finally {
+            System.setOut(originalOut)
         }
     }
 }

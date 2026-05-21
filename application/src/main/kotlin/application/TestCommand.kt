@@ -47,7 +47,7 @@ class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()
     var contractPaths: List<String>? = null
 
     @Option(names = ["--host"], description = ["The host to bind to, e.g. localhost or some locally bound IP"], defaultValue = "localhost")
-    lateinit var host: String
+    var host: String = "localhost"
 
     @Option(names = ["--port"], description = ["The port to bind to"])
     var port: Int = 0
@@ -230,7 +230,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             inlineSuggestions = suggestions.takeIf(::isNotNullOrBlank),
             suggestionsPath = suggestionsPath.takeIf(::isNotNullOrBlank),
             variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
-            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port"),
+            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port") || host != "localhost" || (port != 0 && port != -1),
         )
 
         val settings = ContractTestSettings(
@@ -249,7 +249,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun commandSpecHasParsedOption(option: String): Boolean {
-        return commandSpec.commandLine().parseResult?.hasMatchedOption(option) == true
+        return if (::commandSpec.isInitialized) {
+            commandSpec.commandLine().parseResult?.hasMatchedOption(option) == true
+        } else {
+            false
+        }
     }
 
     private fun resolvedJunitReportDir(): String? {
