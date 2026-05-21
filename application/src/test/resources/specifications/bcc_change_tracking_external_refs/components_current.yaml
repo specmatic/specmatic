@@ -1,0 +1,10 @@
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        note:
+          type: string
