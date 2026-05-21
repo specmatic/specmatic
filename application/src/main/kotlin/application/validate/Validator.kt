@@ -2,10 +2,13 @@ package application.validate
 
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.linter.config.ResolvedLintConfig
+import io.specmatic.linter.model.LintResult
 import java.io.File
 
 sealed interface SpecValidationResult<Feature> {
     data class FailedToLoad<Feature>(val result: Result.Failure): SpecValidationResult<Feature>
+    data class LinterResult<Feature>(val feature: Feature, val result: LintResult) : SpecValidationResult<Feature>
     data class ValidationResult<Feature>(val feature: Feature, val result: Result) : SpecValidationResult<Feature>
 }
 
@@ -21,7 +24,7 @@ sealed interface ExampleValidationResult {
 interface Validator<Feature> {
     val name: String
 
-    fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature>
+    fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig, linterConfig: ResolvedLintConfig): SpecValidationResult<Feature>
     fun validateInlineExamples(specification: File, feature: Feature, specmaticConfig: SpecmaticConfig): Map<String, ExampleValidationResult>
     fun validateExample(feature: Feature, file: File, specmaticConfig: SpecmaticConfig): ExampleValidationResult
     fun validateExamples(feature: Feature, files: List<File>, specmaticConfig: SpecmaticConfig): Result

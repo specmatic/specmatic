@@ -7,9 +7,17 @@ data class SpecificationValidationOutcome<Feature>(
     val file: File,
     val validationResult: SpecValidationResult<Feature>
 ) {
+    val hasFailed: Boolean
+        get() = when (validationResult) {
+            is SpecValidationResult.FailedToLoad<*> -> true
+            is SpecValidationResult.LinterResult<*> -> false
+            is SpecValidationResult.ValidationResult<*> -> validationResult.result is Result.Failure && !validationResult.result.isPartial
+        }
+
     val hasErrors: Boolean
         get() = when (validationResult) {
             is SpecValidationResult.FailedToLoad -> !validationResult.result.isPartial
+            is SpecValidationResult.LinterResult -> validationResult.result.totals.errors > 0
             is SpecValidationResult.ValidationResult -> validationResult.result is Result.Failure && !validationResult.result.isPartial
         }
 
@@ -17,11 +25,19 @@ data class SpecificationValidationOutcome<Feature>(
         get() = when (validationResult) {
             is SpecValidationResult.FailedToLoad -> validationResult.result
             is SpecValidationResult.ValidationResult -> validationResult.result
+            is SpecValidationResult.LinterResult -> if (validationResult.result.totals.errors > 0) {
+                Result.Failure("Specification lint failed")
+            } else if (validationResult.result.totals.warnings > 0) {
+                Result.Failure("Specification lint warnings", isPartial = true)
+            } else {
+                Result.Success()
+            }
         }
 
     val feature: Feature?
         get() = when (validationResult) {
             is SpecValidationResult.FailedToLoad -> null
+            is SpecValidationResult.LinterResult -> validationResult.feature
             is SpecValidationResult.ValidationResult -> validationResult.feature
         }
 }

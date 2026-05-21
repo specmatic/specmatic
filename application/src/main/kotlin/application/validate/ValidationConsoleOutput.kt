@@ -2,6 +2,10 @@ package application.validate
 
 import io.specmatic.core.Result
 import io.specmatic.core.log.logger
+import io.specmatic.linter.api.SpecmaticLinter
+import io.specmatic.linter.config.ResolvedLintConfig
+import io.specmatic.linter.format.LintResultFormatter
+import io.specmatic.linter.model.LintResult
 import java.io.File
 
 private class ConsoleTheme(unicode: Boolean) {
@@ -32,7 +36,7 @@ class ValidationConsoleOutput {
         printSeparator(theme.heavySeparator, NEW_LINE)
     }
 
-    fun <Feature> printSpecificationResult(outcome: SpecificationValidationOutcome<Feature>) {
+    fun <Feature> printSpecificationResult(outcome: SpecificationValidationOutcome<Feature>, linterConfig: ResolvedLintConfig?) {
         when (val validationResult = outcome.validationResult) {
             is SpecValidationResult.FailedToLoad -> {
                 printFailure("Specification validation failed due to load errors")
@@ -54,7 +58,23 @@ class ValidationConsoleOutput {
                 if (validationResult.result.isSuccess()) return
                 printResult(validationResult.result)
             }
+            is SpecValidationResult.LinterResult -> {
+                val result = validationResult.result
+                val totals = validationResult.result.totals
+                val summary = LintResultFormatter.summary(validationResult.result)
+                when {
+                    totals.errors > 0 -> printFailure("Specification has $summary")
+                    totals.warnings > 0 || totals.ignored > 0 -> printFailure("Specification is valid, but has $summary")
+                    else -> printSuccess("Specification is valid")
+                }
+                printResult(result, linterConfig)
+            }
         }
+    }
+
+    fun printResult(report: LintResult, config: ResolvedLintConfig?) {
+        logger.boundary()
+        logger.log(SpecmaticLinter.formatReport(report, config))
     }
 
     fun printExamplesSkipped(specExampleCount: Int, sharedExampleCount: Int) {

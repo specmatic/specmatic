@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+    implementation("io.specmatic:specmatic-linter-core-min:${project.property("specmaticLinterVersion")}")
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")

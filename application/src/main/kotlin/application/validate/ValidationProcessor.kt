@@ -2,12 +2,17 @@ package application.validate
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
+import io.specmatic.linter.config.ConfigLoader
+import io.specmatic.linter.config.ResolvedLintConfig
+import io.specmatic.linter.model.LintProblem
 import io.specmatic.loader.SpecificationWithExamples
 import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class ValidationProcessor<Feature>(
     private val validator: Validator<Feature>,
+    private val linterConfig: ResolvedLintConfig,
+    private val ignoreFileGenerator: IgnoreFileGenerator = IgnoreFileGenerator(),
     private val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
     private val consoleOutput: ValidationConsoleOutput = ValidationConsoleOutput(),
 ) {
@@ -28,24 +33,19 @@ class ValidationProcessor<Feature>(
     private fun validateSpecificationWithExamples(specData: SpecificationWithExamples, index: Int, total: Int): SpecificationValidationResults<Feature> {
         consoleOutput.printSpecificationHeader(specData.specFile, index, total)
         val specOutcome = validateSpecification(specData.specFile)
-        consoleOutput.printSpecificationResult(specOutcome)
+        consoleOutput.printSpecificationResult(specOutcome, linterConfig)
+        ignoreFileGenerator.addAll(specOutcome)
 
-        if (specOutcome.hasErrors) {
+        if (specOutcome.hasFailed) {
             consoleOutput.printExamplesSkipped(specExampleCount = specData.examples.specExamples.size, sharedExampleCount = specData.examples.sharedExamples.size)
-            val result = SpecificationValidationResults(
-                specFile = specData.specFile,
-                specificationOutcome = specOutcome,
-            )
+            val result = SpecificationValidationResults(specFile = specData.specFile, specificationOutcome = specOutcome)
             consoleOutput.printSpecificationSummary(result)
             return result
         }
 
         val feature = specOutcome.feature ?: run {
             consoleOutput.printExamplesSkipped(specExampleCount = specData.examples.specExamples.size, sharedExampleCount = specData.examples.sharedExamples.size)
-            val result = SpecificationValidationResults(
-                specFile = specData.specFile,
-                specificationOutcome = specOutcome,
-            )
+            val result = SpecificationValidationResults(specFile = specData.specFile, specificationOutcome = specOutcome)
             consoleOutput.printSpecificationSummary(result)
             return result
         }
@@ -102,12 +102,13 @@ class ValidationProcessor<Feature>(
         )
 
         consoleOutput.printSpecificationSummary(result)
+        ignoreFileGenerator.generate(linterConfig)
         return result
     }
 
     private fun validateSpecification(specFile: File): SpecificationValidationOutcome<Feature> {
         val validationResult = try {
-            validator.validateSpecification(specFile, specmaticConfig = specmaticConfig,)
+            validator.validateSpecification(specFile, specmaticConfig = specmaticConfig, linterConfig = linterConfig)
         } catch (e: Exception) {
             SpecValidationResult.FailedToLoad(result = e.toFailure())
         }
@@ -122,14 +123,14 @@ class ValidationProcessor<Feature>(
     }
 
     private fun validateInlineExamples(specification: File, feature: Feature): Map<String, ExampleValidationOutcome> {
-        return validator.validateInlineExamples(specification, feature, specmaticConfig = specmaticConfig,).mapValues { (_, result) ->
+        return validator.validateInlineExamples(specification, feature, specmaticConfig = specmaticConfig).mapValues { (_, result) ->
             ExampleValidationOutcome(file = result.file, validationResult = result, isSpecificationSpecific = true)
         }
     }
 
     private fun validateExample(exampleFile: File, feature: Feature, isSpecificationSpecific: Boolean): ExampleValidationOutcome {
         val validationResult = try {
-            validator.validateExample(feature, exampleFile, specmaticConfig = specmaticConfig,)
+            validator.validateExample(feature, exampleFile, specmaticConfig = specmaticConfig)
         } catch (e: Exception) {
             ExampleValidationResult.FailedToLoad(file = exampleFile, result = e.toFailure())
         }
@@ -139,5 +140,30 @@ class ValidationProcessor<Feature>(
             validationResult = validationResult,
             isSpecificationSpecific = isSpecificationSpecific
         )
+    }
+}
+
+class IgnoreFileGenerator(private val generateIgnoreFile: Boolean = false) {
+    private val entries = mutableMapOf<String, MutableMap<String, MutableSet<String>>>()
+
+    fun addAll(outcome: SpecificationValidationOutcome<*>) {
+        if (!generateIgnoreFile || outcome.validationResult !is SpecValidationResult.LinterResult) return
+        outcome.validationResult.result.problems.forEach(::add)
+    }
+
+    private fun add(problem: LintProblem) {
+        val location = problem.location.firstOrNull() ?: return
+        val pointer = location.pointer ?: return
+        entries
+            .getOrPut(location.source.absoluteRef) { mutableMapOf() }
+            .getOrPut(problem.ruleId) { mutableSetOf() }
+            .add(pointer)
+    }
+
+    fun generate(lintConfig: ResolvedLintConfig) {
+        if (entries.isEmpty()) return
+        val ignorePath = lintConfig.ignoreFilePath()
+        ConfigLoader.saveIgnoreFile(entries, ignorePath)
+        println("Generated ignore file at $ignorePath")
     }
 }

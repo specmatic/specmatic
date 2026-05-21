@@ -1,10 +1,18 @@
 package application.validate
 
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
 import io.specmatic.core.log.configureLogging
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.utilities.SystemExit
+import io.specmatic.linter.api.ConfigOptions
+import io.specmatic.linter.api.SpecmaticLinter
+import io.specmatic.linter.config.ConfigLoader
+import io.specmatic.linter.config.ResolvedLintConfig
+import io.specmatic.linter.model.OutputFormat
+import io.specmatic.linter.model.ReportConfig
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
 import io.specmatic.loader.SpecCompatibilityChecker
@@ -23,13 +31,80 @@ class ValidateCommandOptions {
 
     @CommandLine.Option(names = ["--spec-file"], description = ["Specification to validate, along with respective examples"])
     var file: File? = null
+
+    @CommandLine.Option(
+        names = ["--lint-config"],
+        description = [
+            "Path to the linter config file to use.",
+            "If not provided, the command looks for specmatic-linter.yaml or specmatic-linter.yml in the current directory."
+        ],
+    )
+    var configPath: String? = null
+
+    @CommandLine.Option(
+        split = ",",
+        names = ["--extends"],
+        description = [
+            "Override the preset list from the config file for this run.",
+            "Use this when you want to temporarily run with presets such as minimal, recommended, or recommended-strict.",
+        ],
+    )
+    var customExtends: List<String>? = null
+
+    @CommandLine.Option(
+        split = ",",
+        names = ["--skip-rule"],
+        description = [
+            "Temporarily disable one or more rules for this run.",
+            "This does not change your config file. Example: --skip-rule operation-summary,path-parameters-defined",
+        ],
+    )
+    var skipRules: List<String>? = null
+
+    @CommandLine.Option(
+        names = ["--generate-ignore-file"],
+        description = [
+            "Create or update .specmatic-lint-ignore.yaml based on the problems found in this run.",
+            "Use this when you want to keep current known issues out of future lint results while you fix them gradually.",
+            "Instead of printing the lint output, this mode records the failing rule ids and JSON pointers for each problem location.",
+        ],
+    )
+    var generateIgnoreFile: Boolean = false
+
+    @CommandLine.Option(
+        defaultValue = "warn",
+        names = ["--lint-config-severity"],
+        description = [
+            "Validate the config file itself before linting APIs.",
+            "Use warn to print config problems without failing the command, error to fail the command, or off to skip config validation.",
+        ],
+    )
+    var lintConfigSeverity: String = "warn"
+
+    @CommandLine.Option(
+        names = ["--max-problems"],
+        description = [
+            "Maximum number of non-ignored lint problems to print, (default: 100)",
+            "This only affects the displayed output. Linting still evaluates the full document.",
+        ],
+    )
+    var maxProblems: Int? = null
+
+    @CommandLine.Option(
+        names = ["--format"],
+        description = [
+            "Output format for lint results, (default: codeframe)",
+            "Common choices are codeframe for local use, json for tooling, summary for quick totals, and github-actions for CI annotations.",
+        ],
+    )
+    var format: String? = null
 }
 
 @Command(name = "validate", hidden = true, mixinStandardHelpOptions = true, description = ["Lint & Validate specification and external examples"])
 class ValidateCommand(
     private val validator: Validator<out Any?> = OpenApiValidator(),
     specCompatibilityChecker: SpecCompatibilityChecker = OpenApiSpecCompatibilityChecker(),
-    specmaticConfig: io.specmatic.core.SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
+    specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault(),
     configBackedSpecificationLoader: ConfigBackedSpecificationLoader? = null,
     private val currentDirectoryProvider: () -> File = { File(".").canonicalFile },
     @field:CommandLine.Mixin val validateOptions: ValidateCommandOptions = ValidateCommandOptions()
@@ -43,6 +118,7 @@ class ValidateCommand(
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = validateOptions.debug))
         validateArguments()
 
+        val linterConfig = createLintConfig(currentDirectoryProvider())
         val data = loadSpecificationData()
 
         if (data.isEmpty()) {
@@ -50,7 +126,8 @@ class ValidateCommand(
             return 0
         }
 
-        val processor = ValidationProcessor(validator)
+        val ignoreFileEntries = IgnoreFileGenerator(generateIgnoreFile = validateOptions.generateIgnoreFile)
+        val processor = ValidationProcessor(validator, linterConfig, ignoreFileEntries)
         val summary = processor.processValidation(data)
         return if (summary.isSuccess) 0 else 1
     }
@@ -98,5 +175,31 @@ class ValidateCommand(
 
     private fun File.normalizedPath(): String {
         return runCatching { canonicalPath }.getOrElse { absolutePath }
+    }
+
+    private fun createLintConfig(workingDirectory: File): ResolvedLintConfig {
+        lintConfigSeverity()
+        val opts = ConfigOptions(
+            skipRules = validateOptions.skipRules,
+            workingDirectory = workingDirectory.toPath(),
+            customExtends = validateOptions.customExtends,
+            configPath = validateOptions.configPath?.let(::File),
+            report = ReportConfig(format = validateOptions.format?.let(OutputFormat::fromText), maxProblems = validateOptions.maxProblems),
+        )
+
+        return SpecmaticLinter.loadConfig(opts)
+    }
+
+    private fun lintConfigSeverity() {
+        val configPath = validateOptions.configPath ?: return
+        if (validateOptions.lintConfigSeverity == "off") return
+
+        val configLintResult = ConfigLoader.lintConfig(configPath)
+        if (configLintResult.problems.isEmpty()) return
+
+        System.err.println(configLintResult.problems.joinToString("\n"))
+        if (validateOptions.lintConfigSeverity == "error") {
+            SystemExit.exitWith(2, "Lint config has errors")
+        }
     }
 }

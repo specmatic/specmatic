@@ -13,6 +13,7 @@ import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
 import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.conversions.lenient.NoOpDiagnosticCollector
 import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.log.LogStrategy
@@ -53,6 +54,9 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 import io.swagger.v3.parser.core.models.SwaggerParseResult
 import io.swagger.v3.parser.util.ClasspathHelper
+import io.specmatic.linter.api.SpecmaticLinter
+import io.specmatic.linter.config.ResolvedLintConfig
+import io.specmatic.linter.model.LintResult
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.io.File
 import kotlin.collections.orEmpty
@@ -99,6 +103,7 @@ class OpenApiSpecification(
     private val parseCollectorContext: CollectorContext = CollectorContext(),
     private val exampleDirPaths: List<String> = emptyList(),
     private val changeTrackingSource: OpenApiChangeTrackingSource? = null,
+    private val lintResult: LintResult = LintResult.empty(),
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
@@ -169,7 +174,7 @@ class OpenApiSpecification(
             }
         }
 
-        fun fromFile(openApiFilePath: String, relativeTo: String = "", lenientMode: Boolean = false): OpenApiSpecification {
+        fun fromFile(openApiFilePath: String, relativeTo: String = "", lenientMode: Boolean = false, lintConfig: ResolvedLintConfig? = null): OpenApiSpecification {
             val openApiFile = File(openApiFilePath).let { openApiFile ->
                 if (openApiFile.isAbsolute) {
                     openApiFile
@@ -178,14 +183,15 @@ class OpenApiSpecification(
                 }
             }
 
-            return fromFile(openApiFile.canonicalPath, lenientMode)
+            return fromFile(openApiFile.canonicalPath, lenientMode, lintConfig)
         }
 
         fun fromFile(
             openApiFilePath: String,
             relativeTo: String,
             specmaticConfig: SpecmaticConfig,
-            lenientMode: Boolean = false
+            lenientMode: Boolean = false,
+            lintConfig: ResolvedLintConfig? = null
         ): OpenApiSpecification {
             val openApiFile = File(openApiFilePath).let { openApiFile ->
                 if (openApiFile.isAbsolute) {
@@ -195,14 +201,14 @@ class OpenApiSpecification(
                 }
             }
 
-            return fromFile(openApiFile.canonicalPath, specmaticConfig, lenientMode)
+            return fromFile(openApiFile.canonicalPath, specmaticConfig, lenientMode, lintConfig)
         }
 
-        fun fromFile(openApiFilePath: String, lenientMode: Boolean = false): OpenApiSpecification {
-            return fromFile(openApiFilePath, SpecmaticConfig(), lenientMode)
+        fun fromFile(openApiFilePath: String, lenientMode: Boolean = false, lintConfig: ResolvedLintConfig? = null): OpenApiSpecification {
+            return fromFile(openApiFilePath, SpecmaticConfig(), lenientMode, lintConfig)
         }
 
-        fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig, lenientMode: Boolean = false): OpenApiSpecification {
+        fun fromFile(openApiFilePath: String, specmaticConfig: SpecmaticConfig, lenientMode: Boolean = false, lintConfig: ResolvedLintConfig? = null): OpenApiSpecification {
             val specContent = sequenceOf(
                 { File(openApiFilePath).readText() },
                 { ClasspathHelper.loadFileFromClasspath(openApiFilePath) },
@@ -218,8 +224,9 @@ class OpenApiSpecification(
                 breadCrumb = openApiFilePath,
             )
 
+
             return runCatching {
-                fromYAML(specContent, openApiFilePath, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
+                fromYAML(specContent, openApiFilePath, specmaticConfig = specmaticConfig, lenientMode = lenientMode, lintConfig = lintConfig)
             }.getOrElse { e ->
                 // TODO: Fix BackwardCompatibilityCheck to not pass example json as OpenAPI files to avoid fallback here
                 logger.debug(e, "Failed to parse specification $openApiFilePath using fromYAML")
@@ -291,8 +298,12 @@ class OpenApiSpecification(
             overlayContent: String = "",
             strictMode: Boolean = false,
             lenientMode: Boolean = false,
-            exampleDirPaths: List<String> = emptyList()
+            exampleDirPaths: List<String> = emptyList(),
+            lintConfig: ResolvedLintConfig? = null
         ): OpenApiSpecification {
+            val effectiveLintResult = lint(openApiFilePath, yamlContent, lintConfig)
+            assertLintAcceptable(openApiFilePath, effectiveLintResult, lintConfig, lenientMode)
+
             val collectorContext = CollectorContext()
             val implicitOverlayFile = getImplicitOverlayContent(openApiFilePath)
             val mergedYaml = yamlContent.applyOverlay(overlayContent).applyOverlay(implicitOverlayFile)
@@ -337,6 +348,7 @@ class OpenApiSpecification(
                 logger = logger,
                 parseCollectorContext = collectorContext,
                 exampleDirPaths = exampleDirPaths,
+                lintResult = effectiveLintResult,
                 changeTrackingSource = OpenApiChangeTrackingSource(
                     yamlContent = preprocessedYaml,
                     openApiFilePath = openApiFilePath.replace("\\", "/"),
@@ -371,6 +383,22 @@ class OpenApiSpecification(
                 lenientMode = lenientMode,
                 exampleDirPaths = exampleDirPaths,
             )
+        }
+
+        private fun lint(openApiFilePath: String, specContent: String, lintConfig: ResolvedLintConfig?): LintResult {
+            return if (File(openApiFilePath).exists()) {
+                SpecmaticLinter.lintFile(openApiFilePath, lintConfig)
+            } else {
+                SpecmaticLinter.lintText(specContent, openApiFilePath, lintConfig)
+            }
+        }
+
+        private fun assertLintAcceptable(openApiFilePath: String, lintResult: LintResult, lintConfig: ResolvedLintConfig?, lenientMode: Boolean) {
+            if (lenientMode || lintResult.totals.errors == 0) return
+            throw ContractException(buildString {
+                this.appendLine("OpenAPI lint failed for $openApiFilePath")
+                this.appendLine(SpecmaticLinter.formatReport(lintResult, lintConfig))
+            })
         }
 
         fun loadDictionary(openApiFilePath: String, dictionaryPathFromConfig: String?, strictMode: Boolean = false): Dictionary {
@@ -543,8 +571,19 @@ class OpenApiSpecification(
         return result.returnLenientlyElseFail(lenientMode, feature)
     }
 
+    @Deprecated(message = "Prefer using SpecmaticLinter instead, this will soon be removed", replaceWith = ReplaceWith("toFeatureWithLintResult()"))
     fun toFeatureLenient(): Pair<Feature, Result> {
         val rootContext = CollectorContext().combineImmutable(parseCollectorContext)
+        return buildFeature(rootContext)
+    }
+
+    fun toFeatureWithLintResult(): Pair<Feature, LintResult> {
+        val rootContext = CollectorContext(collector = NoOpDiagnosticCollector).combineImmutable(parseCollectorContext)
+        val (feature, _) = buildFeature(rootContext)
+        return Pair(feature, lintResult)
+    }
+
+    private fun buildFeature(rootContext: CollectorContext): Pair<Feature, Result> {
         val name = File(openApiFilePath).name
 
         val (scenarioInfos, inlineExamples) = toScenarioInfos(rootContext)

@@ -9,16 +9,18 @@ import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.parseContractFileToFeature
+import io.specmatic.linter.config.ResolvedLintConfig
 import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class OpenApiValidator: Validator<Feature> {
     override val name: String = "OpenAPI"
 
-    override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<Feature> {
+    override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig, linterConfig: ResolvedLintConfig): SpecValidationResult<Feature> {
         if (specification.extension in OPENAPI_FILE_EXTENSIONS) {
-            val (feature, result) = OpenApiSpecification.fromFile(specification.canonicalPath, specmaticConfig).toFeatureLenient()
-            return SpecValidationResult.ValidationResult(feature, result)
+            val specification = OpenApiSpecification.fromFile(specification.canonicalPath, specmaticConfig, lintConfig = linterConfig, lenientMode = true)
+            val (feature, lintResult) = specification.toFeatureWithLintResult()
+            return SpecValidationResult.LinterResult(feature, lintResult)
         }
 
         return runCatching {

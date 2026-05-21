@@ -9,10 +9,12 @@ import application.validate.Validator
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.specmatic.core.Feature
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.GitRepo
+import io.specmatic.linter.config.ResolvedLintConfig
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
 import org.assertj.core.api.Assertions.assertThat
@@ -395,7 +397,7 @@ class ValidateCommandTest {
         override val name: String = "Tracking"
         val validatedSpecifications = mutableListOf<String>()
 
-        override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig): SpecValidationResult<String> {
+        override fun validateSpecification(specification: File, specmaticConfig: SpecmaticConfig, linterConfig: ResolvedLintConfig): SpecValidationResult<String> {
             val canonicalPath = specification.canonicalPath
             validatedSpecifications.add(canonicalPath)
             val result = if (canonicalPath in invalidSpecifications) Result.Failure("Invalid specification") else Result.Success()
