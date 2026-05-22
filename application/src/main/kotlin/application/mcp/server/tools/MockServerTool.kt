@@ -27,58 +27,28 @@ class MockServerTool {
         .resolve("specmatic-mcp")
         .resolve("mock-servers.json")
 
-    internal fun manageMockServer(args: ManageMockServerArgs): String {
-        return when (args.command) {
-            "start" -> {
-                val spec = args.openApiSpec ?: throw IllegalArgumentException("openApiSpec is required for 'start' command")
-                startMockServer(spec, args.port, args.specFormat)
-            }
-            "stop" -> stopMockServer(args.port)
-            "list" -> listMockServers()
-            else -> throw IllegalArgumentException("command must be one of: start, stop, list")
-        }
+    internal fun manageMockServer(args: ManageMockServerArgs): String = when (args.command) {
+        "start" -> startMockServer(
+            openApiSpec = args.openApiSpec
+                ?: throw IllegalArgumentException("openApiSpec is required for 'start' command"),
+            port = args.port,
+            specFormat = args.specFormat
+        )
+        "stop" -> stopMockServer(args.port)
+        "list" -> listMockServers()
+        else -> throw IllegalArgumentException("command must be one of: start, stop, list")
     }
 
     private fun startMockServer(openApiSpec: String, port: Int, specFormat: String): String {
-        if (runningMocks.containsKey(port)) {
-            return mockServerMessage(
-                "Failed to start mock server",
-                listOf("Port $port is already in use by a mock server running in this process.")
-            )
-        }
-
-        val records = loadMockRegistry().filterAlive()
-        if (records.any { it.port == port }) {
-            return mockServerMessage(
-                "Failed to start mock server",
-                listOf("Port $port is already in use by another mock server started by Specmatic MCP.")
-            )
-        }
+        val activeServers = refreshRegistry()
+        validatePortAvailability(port, activeServers)?.let { return it }
 
         val tempDir = createTempDirectory("specmatic-mock-").toFile()
         val specFile = tempDir.resolve("spec.$specFormat").apply { writeText(openApiSpec) }
 
         return try {
-            val command = StubCommand().apply {
-                contractPaths = listOf(specFile.canonicalPath)
-                this.port = port
-                host = "127.0.0.1"
-                noConsoleLog = true
-                hotReload = Switch.disabled
-                registerShutdownHook = false
-            }
-
-            thread(name = "specmatic-mock-port-$port") {
-                try {
-                    System.err.println("[MockServerTool] Starting StubCommand on ${command.host}:${command.port} in background thread...")
-                    command.call()
-                } catch (e: Throwable) {
-                    System.err.println("[MockServerTool] Error in StubCommand background thread: ${e.message}")
-                    e.printStackTrace(System.err)
-                } finally {
-                    System.err.println("[MockServerTool] StubCommand background thread for port $port exiting.")
-                }
-            }
+            val command = createStubCommand(specFile, port)
+            startInBackground(command, port)
 
             System.err.println("[MockServerTool] Waiting for mock server to become reachable on $port...")
             val ready = runBlocking {
@@ -87,24 +57,12 @@ class MockServerTool {
 
             if (!ready) {
                 System.err.println("[MockServerTool] Timeout waiting for mock server on port $port. Command state: host=${command.host}, port=${command.port}")
-                command.close()
-                tempDir.deleteRecursively()
-                return mockServerMessage(
-                    "Failed to start mock server",
-                    listOf("The mock server did not become reachable on port $port within 10 seconds.")
-                )
+                cleanupFailedStart(command, tempDir)
+                return startFailure("The mock server did not become reachable on port $port within 10 seconds.")
             }
 
             runningMocks[port] = command
-
-            val record = PersistedMockServerRecord(
-                port = port,
-                processId = -1, // In-process
-                tempDir = tempDir.canonicalPath,
-                workDir = File(System.getProperty("user.dir")).canonicalPath,
-                url = "http://localhost:$port"
-            )
-            saveMockRegistry(records + record)
+            saveMockRegistry(activeServers + createRegistryRecord(port, tempDir))
 
             mockServerMessage(
                 "Mock server started successfully",
@@ -116,42 +74,28 @@ class MockServerTool {
                 )
             )
         } catch (e: Throwable) {
-            tempDir.deleteRecursively()
-            mockServerMessage(
-                "Failed to start mock server",
-                listOf(e.message ?: "Unknown error")
-            )
+            cleanupFailedStart(tempDir = tempDir)
+            startFailure(e.message ?: "Unknown error")
         }
     }
 
     private fun stopMockServer(port: Int): String {
-        val inProcessCommand = runningMocks.remove(port)
-        if (inProcessCommand != null) {
-            inProcessCommand.close()
-            val records = loadMockRegistry().filterNot { it.port == port }
-            saveMockRegistry(records)
-            return mockServerMessage("Mock server stopped successfully", listOf("Port: $port (In-process)"))
-        }
-
-        val records = loadMockRegistry().filterAlive()
-        val server = records.firstOrNull { it.port == port }
-            ?: return mockServerMessage("Failed to stop mock server", listOf("No mock server is running on port $port."))
+        val activeServers = refreshRegistry()
+        val server = activeServers.firstOrNull { it.port == port }
+            ?: return stopFailure("No mock server is running on port $port.")
 
         return try {
-            if (server.processId > 0) {
-                stopProcess(server.processId)
-            }
-            saveMockRegistry(records.filterNot { it.port == port })
-            File(server.tempDir).deleteRecursively()
-            mockServerMessage("Mock server stopped successfully", listOf("Port: $port"))
+            stopServer(server)
+            saveMockRegistry(activeServers.filterNot { it.port == port })
+            mockServerMessage("Mock server stopped successfully", listOf(stopMessage(port, server)))
         } catch (e: Throwable) {
-            mockServerMessage("Failed to stop mock server", listOf(e.message ?: "Unknown error"))
+            stopFailure(e.message ?: "Unknown error")
         }
     }
 
     private fun listMockServers(): String {
-        val runningMockServers = loadMockRegistry().filterAlive().sortedBy { it.port }
-        saveMockRegistry(runningMockServers)
+        val runningMockServers = refreshRegistry().sortedBy(PersistedMockServerRecord::port)
+
         return buildString {
             append("# Specmatic Mock Server Management\n\n")
             append("Running mock servers: ${runningMockServers.size}\n\n")
@@ -161,15 +105,92 @@ class MockServerTool {
             } else {
                 runningMockServers.forEach { server ->
                     append("- ${server.url}")
-                    if (server.processId > 0) {
-                        append(" (pid: ${server.processId})")
-                    } else {
-                        append(" (in-process)")
-                    }
+                    append(if (server.processId > 0) " (pid: ${server.processId})" else " (in-process)")
                     append('\n')
                 }
             }
         }
+    }
+
+    private fun createStubCommand(specFile: File, port: Int): StubCommand {
+        return StubCommand().apply {
+            contractPaths = listOf(specFile.canonicalPath)
+            this.port = port
+            host = "127.0.0.1"
+            noConsoleLog = true
+            hotReload = Switch.disabled
+            registerShutdownHook = false
+        }
+    }
+
+    private fun startInBackground(command: StubCommand, port: Int) {
+        thread(name = "specmatic-mock-port-$port") {
+            try {
+                System.err.println("[MockServerTool] Starting StubCommand on ${command.host}:${command.port} in background thread...")
+                command.call()
+            } catch (e: Throwable) {
+                System.err.println("[MockServerTool] Error in StubCommand background thread: ${e.message}")
+                e.printStackTrace(System.err)
+            } finally {
+                System.err.println("[MockServerTool] StubCommand background thread for port $port exiting.")
+            }
+        }
+    }
+
+    private fun validatePortAvailability(port: Int, activeServers: List<PersistedMockServerRecord>): String? {
+        if (runningMocks.containsKey(port)) {
+            return startFailure("Port $port is already in use by a mock server running in this process.")
+        }
+
+        if (activeServers.any { it.port == port }) {
+            return startFailure("Port $port is already in use by another mock server started by Specmatic MCP.")
+        }
+
+        return null
+    }
+
+    private fun createRegistryRecord(port: Int, tempDir: File): PersistedMockServerRecord {
+        return PersistedMockServerRecord(
+            port = port,
+            processId = -1,
+            tempDir = tempDir.canonicalPath,
+            workDir = File(System.getProperty("user.dir")).canonicalPath,
+            url = "http://localhost:$port"
+        )
+    }
+
+    private fun cleanupFailedStart(command: StubCommand? = null, tempDir: File) {
+        command?.close()
+        tempDir.deleteRecursively()
+    }
+
+    private fun refreshRegistry(): List<PersistedMockServerRecord> {
+        val activeServers = loadMockRegistry().filterAlive()
+        saveMockRegistry(activeServers)
+        return activeServers
+    }
+
+    private fun stopServer(server: PersistedMockServerRecord) {
+        runningMocks.remove(server.port)?.close() ?: stopExternalProcess(server)
+        File(server.tempDir).deleteRecursively()
+    }
+
+    private fun stopExternalProcess(server: PersistedMockServerRecord) {
+        if (server.processId > 0) {
+            stopProcess(server.processId)
+        }
+    }
+
+    private fun stopMessage(port: Int, server: PersistedMockServerRecord): String {
+        return if (server.processId > 0) "Port: $port" else "Port: $port (In-process)"
+    }
+
+    private fun startFailure(message: String): String {
+        return mockServerMessage("Failed to start mock server", listOf(message))
+    }
+
+    private fun stopFailure(message: String): String {
+        return mockServerMessage("Failed to stop mock server", listOf(message))
     }
 
     private fun mockServerMessage(title: String, lines: List<String>): String {
@@ -195,11 +216,11 @@ class MockServerTool {
     }
 
     private fun List<PersistedMockServerRecord>.filterAlive(): List<PersistedMockServerRecord> {
-        return filter { 
-            if (it.processId > 0) {
-                ProcessHandle.of(it.processId).map(ProcessHandle::isAlive).orElse(false)
+        return filter { server ->
+            if (server.processId > 0) {
+                ProcessHandle.of(server.processId).map(ProcessHandle::isAlive).orElse(false)
             } else {
-                runningMocks.containsKey(it.port)
+                runningMocks.containsKey(server.port)
             }
         }
     }
