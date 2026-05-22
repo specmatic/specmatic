@@ -1,7 +1,6 @@
 package application.mcp.server.tools
 
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
-import application.mcp.server.utils.McpUtils.captureStandardStreams
 import kotlinx.serialization.Serializable
 
 @Serializable
