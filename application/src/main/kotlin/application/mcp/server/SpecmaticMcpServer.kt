@@ -1,7 +1,6 @@
 package application.mcp.server
 
 import application.mcp.server.tools.*
-import application.mcp.server.utils.McpUtils.safeToolCall
 import io.modelcontextprotocol.kotlin.sdk.server.*
 import io.modelcontextprotocol.kotlin.sdk.types.*
 import kotlinx.coroutines.runBlocking
@@ -162,6 +161,37 @@ class SpecmaticMcpServer : AutoCloseable {
     override fun close() {
         runBlocking {
             server.close()
+        }
+    }
+
+    private fun safeToolCall(block: () -> String): CallToolResult {
+        return try {
+            val text = io.specmatic.core.utilities.SystemExit.throwOnExit {
+                block()
+            }
+            CallToolResult(
+                content = listOf(TextContent(text = text)),
+                isError = false
+            )
+        } catch (t: Throwable) {
+            val errorMessage = when (t) {
+                is io.specmatic.core.utilities.SystemExitException -> t.message
+                else -> t.message ?: (t::class.simpleName ?: "Unknown error")
+            }
+
+            t.printStackTrace(System.err)
+            CallToolResult(
+                content = listOf(
+                    TextContent(
+                        text = buildString {
+                            append("# Specmatic MCP Tool Error\n\n")
+                            append("- ")
+                            append(errorMessage)
+                        }
+                    )
+                ),
+                isError = true
+            )
         }
     }
 }

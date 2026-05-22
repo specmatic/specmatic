@@ -1,7 +1,6 @@
 package application.mcp.server.tools
 
 import application.TestCommand
-import application.mcp.server.utils.McpUtils.captureStandardStreams
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import kotlinx.serialization.Serializable
 import org.w3c.dom.Element
