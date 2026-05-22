@@ -5,7 +5,6 @@ import io.specmatic.core.config.Switch
 import io.specmatic.stub.waitUntilConnectable
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -26,6 +25,7 @@ class MockServerTool {
     private val mockRegistryFile = File(System.getProperty("java.io.tmpdir"))
         .resolve("specmatic-mcp")
         .resolve("mock-servers.json")
+    private val json = Json { ignoreUnknownKeys = true }
 
     internal fun manageMockServer(args: ManageMockServerArgs): String = when (args.command) {
         "start" -> startMockServer(
@@ -87,7 +87,7 @@ class MockServerTool {
         return try {
             stopServer(server)
             saveMockRegistry(activeServers.filterNot { it.port == port })
-            mockServerMessage("Mock server stopped successfully", listOf(stopMessage(port, server)))
+            mockServerMessage("Mock server stopped successfully", listOf(stopMessage(port)))
         } catch (e: Throwable) {
             stopFailure(e.message ?: "Unknown error")
         }
@@ -104,9 +104,7 @@ class MockServerTool {
                 append("No mock servers are currently running.")
             } else {
                 runningMockServers.forEach { server ->
-                    append("- ${server.url}")
-                    append(if (server.processId > 0) " (pid: ${server.processId})" else " (in-process)")
-                    append('\n')
+                    append("- ${server.url} (in-process)\n")
                 }
             }
         }
@@ -152,7 +150,6 @@ class MockServerTool {
     private fun createRegistryRecord(port: Int, tempDir: File): PersistedMockServerRecord {
         return PersistedMockServerRecord(
             port = port,
-            processId = -1,
             tempDir = tempDir.canonicalPath,
             workDir = File(System.getProperty("user.dir")).canonicalPath,
             url = "http://localhost:$port"
@@ -171,18 +168,12 @@ class MockServerTool {
     }
 
     private fun stopServer(server: PersistedMockServerRecord) {
-        runningMocks.remove(server.port)?.close() ?: stopExternalProcess(server)
+        runningMocks.remove(server.port)?.close()
         File(server.tempDir).deleteRecursively()
     }
 
-    private fun stopExternalProcess(server: PersistedMockServerRecord) {
-        if (server.processId > 0) {
-            stopProcess(server.processId)
-        }
-    }
-
-    private fun stopMessage(port: Int, server: PersistedMockServerRecord): String {
-        return if (server.processId > 0) "Port: $port" else "Port: $port (In-process)"
+    private fun stopMessage(port: Int): String {
+        return "Port: $port (In-process)"
     }
 
     private fun startFailure(message: String): String {
@@ -206,52 +197,23 @@ class MockServerTool {
         if (!mockRegistryFile.isFile) return emptyList()
 
         return runCatching {
-            Json.decodeFromString<List<PersistedMockServerRecord>>(mockRegistryFile.readText())
+            json.decodeFromString<List<PersistedMockServerRecord>>(mockRegistryFile.readText())
         }.getOrElse { emptyList() }
     }
 
     private fun saveMockRegistry(records: List<PersistedMockServerRecord>) {
         mockRegistryFile.parentFile.mkdirs()
-        mockRegistryFile.writeText(Json.encodeToString(records))
+        mockRegistryFile.writeText(json.encodeToString(records))
     }
 
     private fun List<PersistedMockServerRecord>.filterAlive(): List<PersistedMockServerRecord> {
-        return filter { server ->
-            if (server.processId > 0) {
-                ProcessHandle.of(server.processId).map(ProcessHandle::isAlive).orElse(false)
-            } else {
-                runningMocks.containsKey(server.port)
-            }
-        }
-    }
-
-    private fun stopProcess(processId: Long) {
-        val handle = ProcessHandle.of(processId).orElseThrow {
-            IllegalStateException("No process found for pid $processId")
-        }
-
-        handle.destroy()
-        repeat(20) {
-            if (!handle.isAlive) return
-            Thread.sleep(100)
-        }
-
-        handle.destroyForcibly()
-        repeat(20) {
-            if (!handle.isAlive) return
-            Thread.sleep(100)
-        }
-
-        if (handle.isAlive) {
-            error("Failed to stop process $processId")
-        }
+        return filter { server -> runningMocks.containsKey(server.port) }
     }
 }
 
 @Serializable
 private data class PersistedMockServerRecord(
     val port: Int,
-    val processId: Long,
     val tempDir: String,
     val workDir: String,
     val url: String
