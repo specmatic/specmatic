@@ -97,14 +97,14 @@ class MockServerTool {
         val runningMockServers = refreshRegistry().sortedBy(PersistedMockServerRecord::port)
 
         return buildString {
-            append("# Specmatic Mock Server Management\n\n")
-            append("Running mock servers: ${runningMockServers.size}\n\n")
+            append("## Specmatic Mock Server Management\n\n")
+            append("### Running Mock Servers: ${runningMockServers.size}\n\n")
 
             if (runningMockServers.isEmpty()) {
-                append("No mock servers are currently running.")
+                append("> No mock servers are currently running.\n")
             } else {
                 runningMockServers.forEach { server ->
-                    append("- ${server.url} (in-process)\n")
+                    append("- **${server.url}** (in-process)\n")
                 }
             }
         }
@@ -186,9 +186,9 @@ class MockServerTool {
 
     private fun mockServerMessage(title: String, lines: List<String>): String {
         return buildString {
-            append("# Specmatic Mock Server Management\n\n")
-            append(title)
-            append("\n\n")
+            append("## Specmatic Mock Server Management\n\n")
+            append("### $title\n\n")
+
             lines.forEach { line -> append("- $line\n") }
         }.trimEnd()
     }

@@ -184,9 +184,9 @@ class SpecmaticMcpServer : AutoCloseable {
                 content = listOf(
                     TextContent(
                         text = buildString {
-                            append("# Specmatic MCP Tool Error\n\n")
-                            append("- ")
-                            append(errorMessage)
+                            append("## Specmatic MCP Tool Error\n\n")
+                            append("> **Error:** $errorMessage\n\n")
+                            append("Please check the logs or ensure the inputs are correct.")
                         }
                     )
                 ),
