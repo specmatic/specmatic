@@ -3,9 +3,11 @@ package application.mcp.server.tools
 import application.TestCommand
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import kotlinx.serialization.Serializable
-import org.w3c.dom.Element
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.io.path.createTempDirectory
 
 @Serializable
@@ -21,6 +23,7 @@ class ContractTestTool {
         val tempDir = createTempDirectory(if (resiliency) "specmatic-resiliency-" else "specmatic-contract-").toFile()
         val specFile = tempDir.resolve("spec.${args.specFormat}").apply { writeText(args.openApiSpec) }
         val reportDir = tempDir.resolve("reports").apply { mkdirs() }
+        val runStartedAt = System.currentTimeMillis()
 
         val originalGenerativeFlag = System.getProperty(SPECMATIC_GENERATIVE_TESTS)
         if (resiliency) {
@@ -37,8 +40,7 @@ class ContractTestTool {
                 command.call()
             }
 
-            val reportFile = reportDir.resolve("TEST-junit-jupiter.xml")
-            val summary = if (reportFile.isFile) parseJUnitSummary(reportFile) else null
+            val summary = findCtrfReport(reportDir, runStartedAt)?.let(::parseCtrfSummary)
 
             formatTestResult(
                 title = if (resiliency) "Resiliency" else "Contract",
@@ -46,7 +48,6 @@ class ContractTestTool {
                 summary = summary,
                 consoleOutput = stdout,
                 errors = stderr,
-                reportPath = reportFile.takeIf(File::isFile)?.canonicalPath,
                 extraIntro = if (resiliency) "Boundary condition testing is enabled, so Specmatic also generates contract-invalid requests.\n\n" else ""
             )
         } finally {
@@ -59,51 +60,57 @@ class ContractTestTool {
         }
     }
 
-    private fun parseJUnitSummary(reportFile: File): JUnitSummary? {
+    internal fun parseCtrfSummary(reportFile: File): TestSummary? {
         if (!reportFile.isFile) return null
 
-        val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-        val document = builder.parse(reportFile)
-        val suite = document.documentElement ?: return null
-        val tests = suite.getAttribute("tests").toIntOrNull() ?: 0
-        val failures = suite.getAttribute("failures").toIntOrNull() ?: 0
-        val errors = suite.getAttribute("errors").toIntOrNull() ?: 0
-        val failed = failures + errors
-        val passed = (tests - failed).coerceAtLeast(0)
+        val results = Json.parseToJsonElement(reportFile.readText()).jsonObject["results"]?.jsonObject ?: return null
+        val summary = results["summary"]?.jsonObject ?: return null
 
-        val failedTests = mutableListOf<FailedJUnitTest>()
-        val testcases = suite.getElementsByTagName("testcase")
-        for (index in 0 until testcases.length) {
-            val testcase = testcases.item(index) as? Element ?: continue
-            val failureNode = testcase.getElementsByTagName("failure").item(0) as? Element
-            val errorNode = testcase.getElementsByTagName("error").item(0) as? Element
-            val node = failureNode ?: errorNode ?: continue
+        val total = summary["tests"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+        val passed = summary["passed"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+        val failed = summary["failed"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
 
-            failedTests += FailedJUnitTest(
-                scenario = testcase.getAttribute("name").ifBlank {
-                    listOf(testcase.getAttribute("classname"), testcase.getAttribute("name"))
-                        .filter { it.isNotBlank() }
-                        .joinToString(".")
-                },
-                message = node.getAttribute("message").ifBlank { node.textContent.orEmpty().trim() }
-            )
-        }
+        val failedTests = results["tests"]
+            ?.jsonArray
+            ?.mapNotNull { test ->
+                val testObject = test.jsonObject
+                if (testObject["status"]?.jsonPrimitive?.content != "failed") return@mapNotNull null
 
-        return JUnitSummary(
-            total = tests,
+                FailedTest(
+                    scenario = testObject["name"]?.jsonPrimitive?.content.orEmpty(),
+                    message = testObject["message"]?.jsonPrimitive?.content.orEmpty()
+                )
+            }
+            .orEmpty()
+
+        return TestSummary(
+            total = total,
             passed = passed,
             failed = failed,
-            failedTests = failedTests
+            failedTests = failedTests,
+            reportLabel = "CTRF",
+            reportPath = reportFile.canonicalPath
         )
+    }
+
+
+
+    private fun findCtrfReport(reportDir: File, runStartedAt: Long): File? {
+        val candidates = listOf(
+            reportDir.resolve(CTRF_REPORT_FILE_NAME),
+            File(DEFAULT_CTRF_REPORT_PATH)
+        )
+
+        return candidates.firstOrNull { it.isFile && it.lastModified() >= runStartedAt }
+            ?: candidates.firstOrNull(File::isFile)
     }
 
     private fun formatTestResult(
         title: String,
         success: Boolean,
-        summary: JUnitSummary?,
+        summary: TestSummary?,
         consoleOutput: String,
         errors: String,
-        reportPath: String?,
         extraIntro: String = ""
     ): String {
         return buildString {
@@ -119,9 +126,7 @@ class ContractTestTool {
                 append("- Passed: ${it.passed}\n")
                 append("- Failed: ${it.failed}\n\n")
 
-                if (reportPath != null) {
-                    append("JUnit report: `$reportPath`\n\n")
-                }
+                append("${it.reportLabel} report: `${it.reportPath}`\n\n")
 
                 if (it.failedTests.isNotEmpty()) {
                     append("Failed tests:\n")
@@ -156,14 +161,19 @@ class ContractTestTool {
     }
 }
 
-private data class JUnitSummary(
+private const val CTRF_REPORT_FILE_NAME = "ctrf-report.json"
+private const val DEFAULT_CTRF_REPORT_PATH = "build/reports/specmatic/test/ctrf-report.json"
+
+internal data class TestSummary(
     val total: Int,
     val passed: Int,
     val failed: Int,
-    val failedTests: List<FailedJUnitTest>
+    val failedTests: List<FailedTest>,
+    val reportLabel: String,
+    val reportPath: String
 )
 
-private data class FailedJUnitTest(
+internal data class FailedTest(
     val scenario: String,
     val message: String
 )
