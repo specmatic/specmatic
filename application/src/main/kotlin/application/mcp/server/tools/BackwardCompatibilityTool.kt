@@ -24,27 +24,29 @@ class BackwardCompatibilityTool {
         }
 
         return buildString {
-            append("# Specmatic Backward Compatibility Check\n\n")
+            append("## Specmatic Backward Compatibility Check\n\n")
             if (!args.targetPath.isNullOrBlank()) {
                 append("File: `${args.targetPath}`\n\n")
             }
 
+            append("### Status: ")
             if (exitCode == 0) {
-                append("Status: BACKWARD COMPATIBLE\n\n")
+                append("BACKWARD COMPATIBLE")
             } else {
-                append("Status: BREAKING CHANGES DETECTED OR CHECK FAILED\n\n")
+                append("BREAKING CHANGES DETECTED OR CHECK FAILED")
             }
+            append("\n\n")
 
             if (stdout.isNotBlank()) {
-                append("Detailed analysis:\n")
-                append("```\n")
+                append("### Detailed Analysis\n")
+                append("```text\n")
                 append(stdout.trimEnd())
                 append("\n```\n\n")
             }
 
             if (stderr.isNotBlank()) {
-                append("Errors:\n")
-                append("```\n")
+                append("### Errors\n")
+                append("```text\n")
                 append(stderr.trimEnd())
                 append("\n```\n")
             }

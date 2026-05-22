@@ -114,26 +114,31 @@ class ContractTestTool {
         extraIntro: String = ""
     ): String {
         return buildString {
-            append("# Specmatic $title Test Results\n\n")
-            append(extraIntro)
-            append("Status: ")
+            append("## Specmatic $title Test Results\n\n")
+            if (extraIntro.isNotBlank()) {
+                append("> $extraIntro\n\n")
+            }
+
+            append("### Status: ")
             append(if (success) "PASSED" else "FAILED")
             append("\n\n")
 
             summary?.let {
-                append("Summary:\n")
-                append("- Total tests: ${it.total}\n")
-                append("- Passed: ${it.passed}\n")
-                append("- Failed: ${it.failed}\n\n")
+                append("### Execution Summary\n")
+                append("| Metric | Value |\n")
+                append("| :--- | :--- |\n")
+                append("| Total Tests | ${it.total} |\n")
+                append("| Passed | ${it.passed} |\n")
+                append("| Failed | ${it.failed} |\n\n")
 
-                append("${it.reportLabel} report: `${it.reportPath}`\n\n")
+                append("Report: `${it.reportPath}`\n\n")
 
                 if (it.failedTests.isNotEmpty()) {
-                    append("Failed tests:\n")
+                    append("### Failed Scenarios\n")
                     it.failedTests.forEach { failedTest ->
-                        append("- ${failedTest.scenario}")
+                        append("- **${failedTest.scenario}**")
                         if (failedTest.message.isNotBlank()) {
-                            append(": ${failedTest.message}")
+                            append(": `${failedTest.message}`")
                         }
                         append('\n')
                     }
@@ -142,8 +147,8 @@ class ContractTestTool {
             }
 
             if (consoleOutput.isNotBlank()) {
-                append("Console output:\n")
-                append("```\n")
+                append("### Console Output\n")
+                append("```text\n")
                 append(consoleOutput.trimEnd().take(4000))
                 if (consoleOutput.length > 4000) {
                     append("\n... [truncated ${consoleOutput.length - 4000} characters]")
@@ -152,8 +157,8 @@ class ContractTestTool {
             }
 
             if (errors.isNotBlank()) {
-                append("Errors:\n")
-                append("```\n")
+                append("### Errors\n")
+                append("```text\n")
                 append(errors.trimEnd())
                 append("\n```\n")
             }
