@@ -8,7 +8,7 @@ import io.specmatic.core.utilities.SystemExitException
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import kotlinx.io.*
-import java.io.InputStream
+import io.specmatic.specmatic.executable.VersionInfo
 import java.io.OutputStream
 
 class SpecmaticMcpServer : AutoCloseable {
@@ -19,7 +19,7 @@ class SpecmaticMcpServer : AutoCloseable {
     private val server = Server(
         Implementation(
             name = "specmatic-mcp-server",
-            version = "1.0.0"
+            version = VersionInfo.version
         ),
         ServerOptions(
             capabilities = ServerCapabilities(
@@ -150,8 +150,8 @@ class SpecmaticMcpServer : AutoCloseable {
         System.err.println("Successfully registered tools.")
     }
 
-    suspend fun run(inputStream: InputStream = System.`in`, outputStream: OutputStream = System.`out`) {
-        val transport = StdioServerTransport(inputStream.asSource().buffered(), outputStream.asSink().buffered())
+    suspend fun run(outputStream: OutputStream = System.`out`) {
+        val transport = StdioServerTransport(System.`in`.asSource().buffered(), outputStream.asSink().buffered())
         val session = server.createSession(transport)
         val done = kotlinx.coroutines.CompletableDeferred<Unit>()
         session.onClose {
