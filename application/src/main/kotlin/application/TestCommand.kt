@@ -230,7 +230,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             inlineSuggestions = suggestions.takeIf(::isNotNullOrBlank),
             suggestionsPath = suggestionsPath.takeIf(::isNotNullOrBlank),
             variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
-            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port") || host != "localhost" || (port != 0 && port != -1),
+            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port")
         )
 
         val settings = ContractTestSettings(
@@ -249,11 +249,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     private fun commandSpecHasParsedOption(option: String): Boolean {
-        return if (::commandSpec.isInitialized) {
-            commandSpec.commandLine().parseResult?.hasMatchedOption(option) == true
-        } else {
-            false
-        }
+        return commandSpec.commandLine().parseResult?.hasMatchedOption(option) == true
     }
 
     private fun resolvedJunitReportDir(): String? {

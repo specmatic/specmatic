@@ -1,5 +1,6 @@
 package application.mcp
 
+import application.SpecmaticApplication
 import application.mcp.server.SpecmaticMcpServer
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.log.configureLogging
@@ -22,7 +23,7 @@ class McpServerCommand : Callable<Int> {
     var verbose: Boolean? = null
 
     override fun call(): Int {
-        val originalOut = System.`out`
+        val originalOut = SpecmaticApplication.originalStdout
         System.setOut(System.err)
 
         configureLogging(

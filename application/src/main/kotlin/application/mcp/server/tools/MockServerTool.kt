@@ -6,6 +6,7 @@ import io.specmatic.stub.waitUntilConnectable
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import picocli.CommandLine
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
@@ -47,8 +48,20 @@ class MockServerTool {
         val specFile = tempDir.resolve("spec.$specFormat").apply { writeText(openApiSpec) }
 
         return try {
-            val command = createStubCommand(specFile, port)
-            startInBackground(command, port)
+            val command = StubCommand()
+            val argsList = mutableListOf<String>()
+            argsList.add("--port")
+            argsList.add(port.toString())
+            argsList.add("--host")
+            argsList.add("127.0.0.1")
+            argsList.add("--noConsoleLog")
+            argsList.add("--hot-reload")
+            argsList.add("disabled")
+            argsList.add(specFile.canonicalPath)
+
+            command.registerShutdownHook = false
+
+            startInBackground(command, port, argsList)
 
             System.err.println("[MockServerTool] Waiting for mock server to become reachable on $port...")
             val ready = runBlocking {
@@ -56,7 +69,7 @@ class MockServerTool {
             }
 
             if (!ready) {
-                System.err.println("[MockServerTool] Timeout waiting for mock server on port $port. Command state: host=${command.host}, port=${command.port}")
+                System.err.println("[MockServerTool] Timeout waiting for mock server on port $port.")
                 cleanupFailedStart(command, tempDir)
                 return startFailure("The mock server did not become reachable on port $port within 10 seconds.")
             }
@@ -110,22 +123,11 @@ class MockServerTool {
         }
     }
 
-    private fun createStubCommand(specFile: File, port: Int): StubCommand {
-        return StubCommand().apply {
-            contractPaths = listOf(specFile.canonicalPath)
-            this.port = port
-            host = "127.0.0.1"
-            noConsoleLog = true
-            hotReload = Switch.disabled
-            registerShutdownHook = false
-        }
-    }
-
-    private fun startInBackground(command: StubCommand, port: Int) {
+    private fun startInBackground(command: StubCommand, port: Int, args: List<String>) {
         thread(name = "specmatic-mock-port-$port") {
             try {
-                System.err.println("[MockServerTool] Starting StubCommand on ${command.host}:${command.port} in background thread...")
-                command.call()
+                System.err.println("[MockServerTool] Starting StubCommand on port $port in background thread...")
+                CommandLine(command).execute(*args.toTypedArray())
             } catch (e: Throwable) {
                 System.err.println("[MockServerTool] Error in StubCommand background thread: ${e.message}")
                 e.printStackTrace(System.err)

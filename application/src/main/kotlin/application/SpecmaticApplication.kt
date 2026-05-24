@@ -1,7 +1,6 @@
 package application
 
 import io.specmatic.core.loadSpecmaticConfigOrNull
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
 import io.specmatic.license.core.Executor
@@ -13,14 +12,11 @@ import picocli.CommandLine
 open class SpecmaticApplication {
     companion object {
         @JvmStatic
+        val originalStdout: java.io.PrintStream = System.`out`
+
+        @JvmStatic
         fun main(args: Array<String>) {
-            try {
-                val configClass = Class.forName("io.github.oshai.kotlinlogging.KotlinLoggingConfiguration")
-                val configInstance = configClass.getField("INSTANCE").get(null)
-                configClass.methods.firstOrNull { it.name == "setLogStartupMessage" }?.invoke(configInstance, false)
-                Class.forName("io.github.oshai.kotlinlogging.KotlinLogging")
-            } catch (_: Throwable) {
-            }
+            redirectStdoutToStderrIfMcpServer(args)
 
             LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
 
@@ -35,13 +31,13 @@ open class SpecmaticApplication {
 
             val commandLine = CommandLine(SpecmaticCommand())
             SpecmaticCoreSubcommands.configure(commandLine)
-            if (shouldPrintVersionBanner(args)) {
-                commandLine.printVersionHelp(System.out)
+            if (args.none { it == "-V" || it == "--version" || it == "generate-completion" }) {
+                commandLine.printVersionHelp(System.`out`)
                 println()
             }
 
             when {
-                args.isEmpty() -> commandLine.usage(System.out)
+                args.isEmpty() -> commandLine.usage(System.`out`)
                 else -> {
                     val exitCode = commandLine.execute(*args)
                     SystemExit.exitWith(exitCode)
@@ -49,12 +45,10 @@ open class SpecmaticApplication {
             }
         }
 
-        internal fun shouldPrintVersionBanner(args: Array<String>): Boolean {
-            if (args.any { it == "-V" || it == "--version" || it == "generate-completion" }) {
-                return false
+        private fun redirectStdoutToStderrIfMcpServer(args: Array<String>) {
+            if (args.size >= 2 && args[0] == "mcp" && args[1] == "server") {
+                System.setOut(System.err)
             }
-
-            return !(args.size >= 2 && args[0] == "mcp" && args[1] == "server")
         }
 
         private fun setupPicoCli() {

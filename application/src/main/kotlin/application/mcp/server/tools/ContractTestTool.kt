@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import picocli.CommandLine
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
@@ -23,7 +24,6 @@ class ContractTestTool {
         val tempDir = createTempDirectory(if (resiliency) "specmatic-resiliency-" else "specmatic-contract-").toFile()
         val specFile = tempDir.resolve("spec.${args.specFormat}").apply { writeText(args.openApiSpec) }
         val reportDir = tempDir.resolve("reports").apply { mkdirs() }
-        val runStartedAt = System.currentTimeMillis()
 
         val originalGenerativeFlag = System.getProperty(SPECMATIC_GENERATIVE_TESTS)
         if (resiliency) {
@@ -32,12 +32,15 @@ class ContractTestTool {
 
         return try {
             val (exitCode, stdout, stderr) = captureStandardStreams {
-                val command = TestCommand().apply {
-                    contractPaths = listOf(specFile.canonicalPath)
-                    testBaseURL = args.apiBaseUrl
-                }
-                command.call()
+                val command = TestCommand()
+                val argsList = mutableListOf<String>()
+                argsList.add("--testBaseURL")
+                argsList.add(args.apiBaseUrl)
+                argsList.add("--junitReportDir")
+                argsList.add(reportDir.canonicalPath)
+                argsList.add(specFile.canonicalPath)
 
+                CommandLine(command).execute(*argsList.toTypedArray())
             }
 
             val summary = reportDir.resolve(DEFAULT_CTRF_REPORT_PATH).let(::parseCtrfSummary)

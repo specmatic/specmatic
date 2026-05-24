@@ -204,9 +204,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             ),
             LoggingConfigSource.FromConfig(specmaticConfiguration.getLogConfigurationOrDefault()))
 
-        val parseResult = if (::commandSpec.isInitialized) commandSpec.commandLine().parseResult else null
-        val hostSpecified = parseResult?.hasMatchedOption("--host") == true || host != DEFAULT_HTTP_STUB_HOST
-        val portSpecified = parseResult?.hasMatchedOption("--port") == true || (port != 0 && port.toString() != DEFAULT_HTTP_STUB_PORT)
+        val parseResult = commandSpec.commandLine().parseResult
+        val hostSpecified = parseResult?.hasMatchedOption("--host") == true
+        val portSpecified = parseResult?.hasMatchedOption("--port") == true
         if (!hostSpecified && !portSpecified) {
             resolveHostAndPortFromBaseUrl(specmaticConfiguration.getDefaultBaseUrl())?.let { (resolvedHost, resolvedPort) ->
                 host = resolvedHost
