@@ -2,6 +2,7 @@ package application.mcp.server.tools
 
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import kotlinx.serialization.Serializable
+import picocli.CommandLine
 
 @Serializable
 data class BackwardCompatArgs(
@@ -13,14 +14,14 @@ data class BackwardCompatArgs(
 class BackwardCompatibilityTool {
 
     internal fun runBackwardCompatibilityCheck(args: BackwardCompatArgs): String {
-        val command = BackwardCompatibilityCheckCommandV2().apply {
-            options.targetPath = args.targetPath
-            options.baseBranch = args.baseBranch
-            options.repoDir = args.repoDir
-        }
+        val command = BackwardCompatibilityCheckCommandV2()
+        val argsList = mutableListOf<String>()
+        args.targetPath?.let { argsList.add("--target-path"); argsList.add(it) }
+        args.baseBranch?.let { argsList.add("--base-branch"); argsList.add(it) }
+        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(it) }
 
         val (exitCode, stdout, stderr) = captureStandardStreams {
-            command.call()
+            CommandLine(command).execute(*argsList.toTypedArray())
         }
 
         return buildString {
