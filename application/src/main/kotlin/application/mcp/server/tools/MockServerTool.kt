@@ -151,7 +151,6 @@ class MockServerTool {
         return PersistedMockServerRecord(
             port = port,
             tempDir = tempDir.canonicalPath,
-            workDir = File(System.getProperty("user.dir")).canonicalPath,
             url = "http://localhost:$port"
         )
     }
@@ -215,6 +214,5 @@ class MockServerTool {
 private data class PersistedMockServerRecord(
     val port: Int,
     val tempDir: String,
-    val workDir: String,
     val url: String
 )

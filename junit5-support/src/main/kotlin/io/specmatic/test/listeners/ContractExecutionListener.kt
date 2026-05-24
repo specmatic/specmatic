@@ -15,10 +15,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.jvm.optionals.getOrNull
 
-private const val MCP_QUIET_MODE_PROPERTY = "specmatic.mcp.quiet"
+private const val PROGRAMMATIC_OUTPUT_PROPERTY = "specmatic.programmaticOutput"
 
 internal fun consolePrintln(message: Any? = "") {
-    val target = if (System.getProperty(MCP_QUIET_MODE_PROPERTY) == "true") System.err else System.out
+    val target = if (System.getProperty(PROGRAMMATIC_OUTPUT_PROPERTY) == "true") System.err else System.out
     target.println(message ?: "null")
 }
 
@@ -128,7 +128,7 @@ class ContractExecutionListener : TestExecutionListener {
     }
 
     override fun testPlanExecutionFinished(testPlan: TestPlan?) {
-        if (System.getProperty(MCP_QUIET_MODE_PROPERTY) != "true") {
+        if (System.getProperty(PROGRAMMATIC_OUTPUT_PROPERTY) != "true") {
             org.fusesource.jansi.AnsiConsole.systemInstall()
         }
 

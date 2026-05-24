@@ -21,7 +21,7 @@ class ContractExecutionListenerTest {
     fun resetState() {
         ContractExecutionListener.reset()
         SpecmaticJUnitSupport.partialSuccesses.clear()
-        System.clearProperty("specmatic.mcp.quiet")
+        System.clearProperty("specmatic.programmaticOutput")
     }
 
     @Test
@@ -137,7 +137,7 @@ class ContractExecutionListenerTest {
         val stderr = ByteArrayOutputStream()
         val originalOut = System.out
         val originalErr = System.err
-        System.setProperty("specmatic.mcp.quiet", "true")
+        System.setProperty("specmatic.programmaticOutput", "true")
         System.setOut(PrintStream(stdout, true, Charsets.UTF_8))
         System.setErr(PrintStream(stderr, true, Charsets.UTF_8))
 
@@ -152,7 +152,7 @@ class ContractExecutionListenerTest {
         } finally {
             System.setOut(originalOut)
             System.setErr(originalErr)
-            System.clearProperty("specmatic.mcp.quiet")
+            System.clearProperty("specmatic.programmaticOutput")
         }
 
         assertEquals("", stdout.toString(Charsets.UTF_8))
