@@ -3,6 +3,8 @@ package application.mcp.server
 import application.mcp.server.tools.*
 import io.modelcontextprotocol.kotlin.sdk.server.*
 import io.modelcontextprotocol.kotlin.sdk.types.*
+import io.specmatic.core.utilities.SystemExit
+import io.specmatic.core.utilities.SystemExitException
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import kotlinx.io.*
@@ -166,7 +168,7 @@ class SpecmaticMcpServer : AutoCloseable {
 
     private fun safeToolCall(block: () -> String): CallToolResult {
         return try {
-            val text = io.specmatic.core.utilities.SystemExit.throwOnExit {
+            val text = SystemExit.throwOnExit {
                 block()
             }
             CallToolResult(
@@ -175,7 +177,7 @@ class SpecmaticMcpServer : AutoCloseable {
             )
         } catch (t: Throwable) {
             val errorMessage = when (t) {
-                is io.specmatic.core.utilities.SystemExitException -> t.message
+                is SystemExitException -> t.message
                 else -> t.message ?: (t::class.simpleName ?: "Unknown error")
             }
 
