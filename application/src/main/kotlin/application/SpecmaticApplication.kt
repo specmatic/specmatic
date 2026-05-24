@@ -48,6 +48,7 @@ open class SpecmaticApplication {
         private fun redirectStdoutToStderrIfMcpServer(args: Array<String>) {
             if (args.size >= 2 && args[0] == "mcp" && args[1] == "server") {
                 System.setOut(System.err)
+
             }
         }
 

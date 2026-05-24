@@ -27,7 +27,7 @@ class McpServerCommand : Callable<Int> {
         System.setOut(System.err)
 
         configureLogging(
-            io.specmatic.core.config.LoggingConfiguration.Companion.LoggingFromOpts(
+            LoggingConfiguration.Companion.LoggingFromOpts(
                 debug = verbose,
                 textConsoleLog = false
             )
