@@ -46,7 +46,7 @@ class BackwardCompatibilityTool {
             }
 
             if (stderr.isNotBlank()) {
-                append("### Errors\n")
+                append("### Execution Logs\n")
                 append("```text\n")
                 append(stderr.trimEnd())
                 append("\n```\n")

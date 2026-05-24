@@ -36,8 +36,6 @@ class ContractTestTool {
                 val argsList = mutableListOf<String>()
                 argsList.add("--testBaseURL")
                 argsList.add(args.apiBaseUrl)
-                argsList.add("--junitReportDir")
-                argsList.add(reportDir.canonicalPath)
                 argsList.add(specFile.canonicalPath)
 
                 CommandLine(command).execute(*argsList.toTypedArray())
@@ -148,7 +146,7 @@ class ContractTestTool {
             }
 
             if (errors.isNotBlank()) {
-                append("### Errors\n")
+                append("### Execution Logs\n")
                 append("```text\n")
                 append(errors.trimEnd())
                 append("\n```\n")
