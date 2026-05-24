@@ -35,12 +35,12 @@ class ContractTestTool {
                 val command = TestCommand().apply {
                     contractPaths = listOf(specFile.canonicalPath)
                     testBaseURL = args.apiBaseUrl
-                    junitReportDirName = reportDir.canonicalPath
                 }
                 command.call()
+
             }
 
-            val summary = findCtrfReport(reportDir, runStartedAt)?.let(::parseCtrfSummary)
+            val summary = reportDir.resolve(DEFAULT_CTRF_REPORT_PATH).let(::parseCtrfSummary)
 
             formatTestResult(
                 title = if (resiliency) "Resiliency" else "Contract",
@@ -91,18 +91,6 @@ class ContractTestTool {
             reportLabel = "CTRF",
             reportPath = reportFile.canonicalPath
         )
-    }
-
-
-
-    private fun findCtrfReport(reportDir: File, runStartedAt: Long): File? {
-        val candidates = listOf(
-            reportDir.resolve(CTRF_REPORT_FILE_NAME),
-            File(DEFAULT_CTRF_REPORT_PATH)
-        )
-
-        return candidates.firstOrNull { it.isFile && it.lastModified() >= runStartedAt }
-            ?: candidates.firstOrNull(File::isFile)
     }
 
     private fun formatTestResult(
@@ -166,7 +154,6 @@ class ContractTestTool {
     }
 }
 
-private const val CTRF_REPORT_FILE_NAME = "ctrf-report.json"
 private const val DEFAULT_CTRF_REPORT_PATH = "build/reports/specmatic/test/ctrf-report.json"
 
 internal data class TestSummary(
