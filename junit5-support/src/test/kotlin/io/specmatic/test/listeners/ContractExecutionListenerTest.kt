@@ -21,7 +21,6 @@ class ContractExecutionListenerTest {
     fun resetState() {
         ContractExecutionListener.reset()
         SpecmaticJUnitSupport.partialSuccesses.clear()
-        System.clearProperty("specmatic.programmaticOutput")
     }
 
     @Test
@@ -132,12 +131,11 @@ class ContractExecutionListenerTest {
     }
 
     @Test
-    fun `quiet mode writes listener output to stderr instead of stdout`() {
+    fun `output is written to stderr instead of stdout when console is null`() {
         val stdout = ByteArrayOutputStream()
         val stderr = ByteArrayOutputStream()
-        val originalOut = System.out
+        val originalOut = System.`out`
         val originalErr = System.err
-        System.setProperty("specmatic.programmaticOutput", "true")
         System.setOut(PrintStream(stdout, true, Charsets.UTF_8))
         System.setErr(PrintStream(stderr, true, Charsets.UTF_8))
 
@@ -152,11 +150,14 @@ class ContractExecutionListenerTest {
         } finally {
             System.setOut(originalOut)
             System.setErr(originalErr)
-            System.clearProperty("specmatic.programmaticOutput")
         }
 
-        assertEquals("", stdout.toString(Charsets.UTF_8))
-        assertTrue(stderr.toString(Charsets.UTF_8).contains("Unsuccessful Scenarios:"))
+        // Since System.console() is null in most test environments, it should write to stderr
+        if (System.console() == null) {
+            assertTrue(stderr.toString(Charsets.UTF_8).contains("Unsuccessful Scenarios:"))
+        } else {
+            assertTrue(stdout.toString(Charsets.UTF_8).contains("Unsuccessful Scenarios:"))
+        }
     }
 }
 

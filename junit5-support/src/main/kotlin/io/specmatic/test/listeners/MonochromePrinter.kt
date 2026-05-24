@@ -1,21 +1,22 @@
 package io.specmatic.test.listeners
 
+import java.io.PrintStream
 import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.launcher.TestIdentifier
 
-class MonochromePrinter: ContractExecutionPrinter {
+class MonochromePrinter(private val out: PrintStream = System.out): ContractExecutionPrinter {
     override fun printFinalSummary(testSummary: TestSummary) {
-        consolePrintln(testSummary.message)
-        consolePrintln()
-        consolePrintln("Executed at ${currentDateAndTime()}")
+        out.println(testSummary.message)
+        out.println()
+        out.println("Executed at ${currentDateAndTime()}")
     }
 
     override fun printTestSummary(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
-        consolePrintln(testStatusMessage(testIdentifier, testExecutionResult))
+        out.println(testStatusMessage(testIdentifier, testExecutionResult))
     }
 
     override fun printFailureTitle(failures: String) {
-        consolePrintln(failures)
+        out.println(failures)
     }
 }
 

@@ -1,10 +1,11 @@
 package io.specmatic.test.listeners
 
+import java.io.PrintStream
 import org.fusesource.jansi.Ansi
 import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.launcher.TestIdentifier
 
-class ColorPrinter: ContractExecutionPrinter {
+class ColorPrinter(private val out: PrintStream = System.out): ContractExecutionPrinter {
     override fun printFinalSummary(testSummary: TestSummary) {
         val (_, partialSuccesses, aborted) = testSummary
 
@@ -14,9 +15,9 @@ class ColorPrinter: ContractExecutionPrinter {
             else -> Ansi.ansi().fgGreen()
         }
 
-        consolePrintln(color.a(testSummary.message).reset())
-        consolePrintln()
-        consolePrintln("Executed at ${currentDateAndTime()}")
+        out.println(color.a(testSummary.message).reset())
+        out.println()
+        out.println("Executed at ${currentDateAndTime()}")
     }
 
     override fun printTestSummary(testIdentifier: TestIdentifier?, testExecutionResult: TestExecutionResult?) {
@@ -27,10 +28,10 @@ class ColorPrinter: ContractExecutionPrinter {
             else -> Ansi.ansi()
         }
 
-        consolePrintln(color.a(testStatusMessage(testIdentifier, testExecutionResult)).reset())
+        out.println(color.a(testStatusMessage(testIdentifier, testExecutionResult)).reset())
     }
 
     override fun printFailureTitle(failures: String) {
-        consolePrintln(failures)
+        out.println(failures)
     }
 }

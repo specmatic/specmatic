@@ -9,25 +9,17 @@ import org.junit.platform.engine.TestExecutionResult.Status
 import org.junit.platform.launcher.TestExecutionListener
 import org.junit.platform.launcher.TestIdentifier
 import org.junit.platform.launcher.TestPlan
+import java.io.PrintStream
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.jvm.optionals.getOrNull
 
-private const val PROGRAMMATIC_OUTPUT_PROPERTY = "specmatic.programmaticOutput"
-
-internal fun consolePrintln(message: Any? = "") {
-    val target = if (System.getProperty(PROGRAMMATIC_OUTPUT_PROPERTY) == "true") System.err else System.out
-    target.println(message ?: "null")
-}
-
 fun getContractExecutionPrinter(): ContractExecutionPrinter {
-    return if(stdOutIsRedirected())
-        MonochromePrinter()
-    else if(colorIsRequested())
-        ColorPrinter()
-    else MonochromePrinter()
+    val printerStream = if(stdOutIsRedirected()) System.err else System.out
+    if(colorIsRequested()) return ColorPrinter(printerStream)
+    return MonochromePrinter(printerStream)
 }
 
 private fun colorIsRequested() = System.getenv("SPECMATIC_COLOR") == "1"
@@ -116,10 +108,14 @@ class ContractExecutionListener : TestExecutionListener {
         return throwable?.getOrNull()?.cause?.message == CoverageStatus.WIP.value
     }
 
+    private fun stdOut() = if(stdOutIsRedirected()) System.err else System.out
+
     private fun printAndLogFailure(testExecutionResult: TestExecutionResult, testIdentifier: TestIdentifier?) {
+        val out = stdOut()
+
         val message = testExecutionResult.throwable?.get()?.message?.trimIndent().orEmpty()
         val reason = "Reason:\n$message"
-        consolePrintln("$reason\n\n")
+        out.println("$reason\n\n")
 
         val log = """"${testIdentifier?.displayName} ${testExecutionResult.status}"
     ${reason.prependIndent("  ")}"""
@@ -128,39 +124,41 @@ class ContractExecutionListener : TestExecutionListener {
     }
 
     override fun testPlanExecutionFinished(testPlan: TestPlan?) {
-        if (System.getProperty(PROGRAMMATIC_OUTPUT_PROPERTY) != "true") {
+        val out = stdOut()
+
+        if (!stdOutIsRedirected()) {
             org.fusesource.jansi.AnsiConsole.systemInstall()
         }
 
-        consolePrintln()
+        out.println()
 
         val exceptionSnapshot = synchronized(exceptionsThrown) { exceptionsThrown.toList() }
         exceptionSnapshot.forEach { exceptionThrown ->
             logger.log(exceptionThrown)
         }
 
-        consolePrintln()
+        out.println()
 
         if(SpecmaticJUnitSupport.partialSuccesses.isNotEmpty()) {
-            consolePrintln()
+            out.println()
             printer.printFailureTitle("Partial Successes:")
-            consolePrintln()
+            out.println()
 
             SpecmaticJUnitSupport.partialSuccesses.filter { it.partialSuccessMessage != null} .forEach { result ->
-                consolePrintln("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
-                consolePrintln("    " + result.partialSuccessMessage!!)
-                consolePrintln()
+                out.println("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
+                out.println("    " + result.partialSuccessMessage!!)
+                out.println()
             }
 
-            consolePrintln()
+            out.println()
         }
 
         val failedLogSnapshot = synchronized(failedLog) { failedLog.toList() }
         if (failedLogSnapshot.isNotEmpty()) {
-            consolePrintln()
+            out.println()
             printer.printFailureTitle("Unsuccessful Scenarios:")
-            consolePrintln(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
-            consolePrintln()
+            out.println(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
+            out.println()
         }
 
         printer.printFinalSummary(
