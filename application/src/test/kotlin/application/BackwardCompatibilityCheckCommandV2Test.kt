@@ -516,8 +516,9 @@ class BackwardCompatibilityCheckCommandV2Test {
                 it.path("method").asText() == "GET" && it.path("path").asText() == "/orders"
             }
 
-            assertThat(getOrders.path("compatibility").path("result").asText()).isEqualTo("Compatible")
-            assertThat(getOrders.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
+            assertThat(getOrders.path("status").asText()).isEqualTo("compatible")
+            val qualifiers = getOrders.path("qualifiers").map { it.asText() }
+            assertThat(qualifiers).contains("changed")
         }
 
         private fun fixture(name: String): File =
