@@ -4711,8 +4711,7 @@ paths:
             assertThat(postOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(postOperation.path("testIds").isArray).isTrue()
             assertThat(postOperation.path("testIds").size()).isGreaterThan(0)
-            assertThat(postOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
-            assertThat(postOperation.path("compatibility").path("result").asText()).isEqualTo("Incompatible")
+            assertThat(postOperation.path("status").asText()).isEqualTo("Incompatible")
 
             val getOperation = operations.first { it.path("method").asText() == "GET" }
             assertThat(getOperation.path("path").asText()).isEqualTo("/orders")
@@ -4722,8 +4721,7 @@ paths:
             assertThat(getOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(getOperation.path("testIds").isArray).isTrue()
             assertThat(getOperation.path("testIds").size()).isGreaterThan(0)
-            assertThat(getOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
-            assertThat(getOperation.path("compatibility").path("result").asText()).isEqualTo("Compatible")
+            assertThat(getOperation.path("status").asText()).isEqualTo("Compatible")
         }
     }
 
@@ -4785,11 +4783,8 @@ paths:
                         "status=${node.path("responseCode").asInt()} " +
                         "resCT=${node.path("responseContentType").asText().ifEmpty { "null" }}"
                 })
-            assertThat(row.path("compatibility").path("changeStatus").asText())
-                .describedAs("changeStatus for $key")
-                .isEqualTo(changeStatus)
-            assertThat(row.path("compatibility").path("result").asText())
-                .describedAs("result for $key")
+            assertThat(row.path("status").asText())
+                .describedAs("status for $key")
                 .isEqualTo(result)
             val qualifiers = row.path("qualifiers").map { it.asText() }
             if (changeStatus == "CHANGED") {
@@ -4894,8 +4889,9 @@ paths:
                 (case.responseContentType == null || it.path("responseContentType").asText() == case.responseContentType)
             }
 
-            assertThat(op.path("compatibility").path("changeStatus").asText())
-                .isEqualTo(case.expected.name)
+            val qualifiers = op.path("qualifiers").map { it.asText() }
+            val changeStatus = if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
+            assertThat(changeStatus).isEqualTo(case.expected.name)
         }
 
         @Test
@@ -5026,7 +5022,8 @@ paths:
                 (contentType == null || it.path("contentType").asText() == contentType) &&
                 (responseContentType == null || it.path("responseContentType").asText() == responseContentType)
             }
-            return operation.path("compatibility").path("changeStatus").asText()
+            val qualifiers = operation.path("qualifiers").map { it.asText() }
+            return if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
         }
 
         // TODO(product): decide whether new-only operations should surface as CHANGED in the BCC report.
