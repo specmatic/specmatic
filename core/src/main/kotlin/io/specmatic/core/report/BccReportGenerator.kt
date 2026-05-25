@@ -3,12 +3,10 @@ package io.specmatic.core.report
 import io.specmatic.reporter.ctrf.model.BccReportOperation
 import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
-import io.specmatic.reporter.ctrf.model.CtrfOperationCompatibility
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
-import io.specmatic.reporter.model.BackwardCompatibilityResult
+import io.specmatic.reporter.model.BackwardCompatibilityStatus
 
 class BccReportGenerator {
     fun generateReportOperations(tests: List<CtrfBackwardCompatibilityRecord>): List<BaseBccReportOperation> {
@@ -24,10 +22,7 @@ class BccReportGenerator {
             operation = groupKey.operation,
             specConfig = groupKey.specConfig,
             qualifiers = operationQualifiersFrom(tests),
-            compatibility = CtrfOperationCompatibility(
-                changeStatus = operationChangeStatus(tests),
-                result = backwardCompatibilityResultFrom(tests),
-            ),
+            status = backwardCompatibilityResultFrom(tests),
         )
     }
 
@@ -35,17 +30,10 @@ class BccReportGenerator {
         return tests.flatMap { it.operationQualifiers }.distinct()
     }
 
-    private fun operationChangeStatus(tests: List<CtrfBackwardCompatibilityRecord>): ChangeStatus {
+    private fun backwardCompatibilityResultFrom(tests: List<CtrfBackwardCompatibilityRecord>): BackwardCompatibilityStatus {
         return when {
-            tests.any { it.changeStatus == ChangeStatus.CHANGED } -> ChangeStatus.CHANGED
-            else -> ChangeStatus.UNCHANGED
-        }
-    }
-
-    private fun backwardCompatibilityResultFrom(tests: List<CtrfBackwardCompatibilityRecord>): BackwardCompatibilityResult {
-        return when {
-            tests.any { it.result == BackwardCompatibilityResult.Incompatible } -> BackwardCompatibilityResult.Incompatible
-            else -> BackwardCompatibilityResult.Compatible
+            tests.any { it.result == BackwardCompatibilityStatus.Incompatible } -> BackwardCompatibilityStatus.Incompatible
+            else -> BackwardCompatibilityStatus.Compatible
         }
     }
 

@@ -1,7 +1,5 @@
 package io.specmatic.core
 
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
-
 data class ScenarioFingerprint(
     val status: Int,
     val requestContentType: String?,

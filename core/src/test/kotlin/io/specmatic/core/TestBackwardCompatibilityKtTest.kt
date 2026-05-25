@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
+import io.specmatic.core.ChangeStatus
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
@@ -4140,7 +4140,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4331,7 +4331,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/single_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/single_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4391,7 +4391,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4711,8 +4711,7 @@ paths:
             assertThat(postOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(postOperation.path("testIds").isArray).isTrue()
             assertThat(postOperation.path("testIds").size()).isGreaterThan(0)
-            assertThat(postOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
-            assertThat(postOperation.path("compatibility").path("result").asText()).isEqualTo("Incompatible")
+            assertThat(postOperation.path("status").asText()).isEqualTo("incompatible")
 
             val getOperation = operations.first { it.path("method").asText() == "GET" }
             assertThat(getOperation.path("path").asText()).isEqualTo("/orders")
@@ -4722,8 +4721,7 @@ paths:
             assertThat(getOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(getOperation.path("testIds").isArray).isTrue()
             assertThat(getOperation.path("testIds").size()).isGreaterThan(0)
-            assertThat(getOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
-            assertThat(getOperation.path("compatibility").path("result").asText()).isEqualTo("Compatible")
+            assertThat(getOperation.path("status").asText()).isEqualTo("compatible")
         }
     }
 
@@ -4738,32 +4736,32 @@ paths:
             val json = "application/json"
 
             // NEW-SIDE N1: Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
-            operations.assertRow(OperationKey("GET", "/orders", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
-            operations.assertRow(OperationKey("POST", "/orders", json, 201, json), changeStatus = "CHANGED", result = "Compatible")
-            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/orders", null, 200, json), changeStatus = "CHANGED", result = "compatible")
+            operations.assertRow(OperationKey("POST", "/orders", json, 201, json), changeStatus = "CHANGED", result = "compatible")
+            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 200, json), changeStatus = "CHANGED", result = "compatible")
 
             // NEW-SIDE N2: ErrorBrief.code string -> integer (reachable ONLY from GET /orders 400)
-            operations.assertRow(OperationKey("GET", "/orders", null, 400, json), changeStatus = "CHANGED", result = "Incompatible")
+            operations.assertRow(OperationKey("GET", "/orders", null, 400, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N3: Self-recursive Category gains optional `description`
-            operations.assertRow(OperationKey("GET", "/categories", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/categories", null, 200, json), changeStatus = "CHANGED", result = "compatible")
 
             // OLD-SIDE O1 (non-breaking): ErrorDetailed loses optional `traceId`
-            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "compatible")
 
             // OLD-SIDE O2 (breaking): DELETE /orders/{id} removed from new (no request/response body)
-            operations.assertRow(OperationKey("DELETE", "/orders/{id}", null, 204, null), changeStatus = "CHANGED", result = "Incompatible")
+            operations.assertRow(OperationKey("DELETE", "/orders/{id}", null, 204, null), changeStatus = "CHANGED", result = "incompatible")
 
             // OLD-SIDE O3 (breaking): GET /orders 500 response removed from new
-            operations.assertRow(OperationKey("GET", "/orders", null, 500, json), changeStatus = "CHANGED", result = "Incompatible")
+            operations.assertRow(OperationKey("GET", "/orders", null, 500, json), changeStatus = "CHANGED", result = "incompatible")
 
             // UNCHANGED 5-tuple sharing a (path, method) with a CHANGED row -
             // POST /orders 400 uses OrderInput (untouched) for request and ValidationError
             // (untouched) for response, while POST /orders 201 uses Order (changed) for response.
-            operations.assertRow(OperationKey("POST", "/orders", json, 400, json), changeStatus = "UNCHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("POST", "/orders", json, 400, json), changeStatus = "UNCHANGED", result = "compatible")
 
             // UNCHANGED standalone operation - GET /health is identical in both specs
-            operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "compatible")
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
@@ -4785,11 +4783,8 @@ paths:
                         "status=${node.path("responseCode").asInt()} " +
                         "resCT=${node.path("responseContentType").asText().ifEmpty { "null" }}"
                 })
-            assertThat(row.path("compatibility").path("changeStatus").asText())
-                .describedAs("changeStatus for $key")
-                .isEqualTo(changeStatus)
-            assertThat(row.path("compatibility").path("result").asText())
-                .describedAs("result for $key")
+            assertThat(row.path("status").asText())
+                .describedAs("status for $key")
                 .isEqualTo(result)
             val qualifiers = row.path("qualifiers").map { it.asText() }
             if (changeStatus == "CHANGED") {
@@ -4894,8 +4889,9 @@ paths:
                 (case.responseContentType == null || it.path("responseContentType").asText() == case.responseContentType)
             }
 
-            assertThat(op.path("compatibility").path("changeStatus").asText())
-                .isEqualTo(case.expected.name)
+            val qualifiers = op.path("qualifiers").map { it.asText() }
+            val changeStatus = if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
+            assertThat(changeStatus).isEqualTo(case.expected.name)
         }
 
         @Test
@@ -5026,7 +5022,8 @@ paths:
                 (contentType == null || it.path("contentType").asText() == contentType) &&
                 (responseContentType == null || it.path("responseContentType").asText() == responseContentType)
             }
-            return operation.path("compatibility").path("changeStatus").asText()
+            val qualifiers = operation.path("qualifiers").map { it.asText() }
+            return if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
         }
 
         // TODO(product): decide whether new-only operations should surface as CHANGED in the BCC report.

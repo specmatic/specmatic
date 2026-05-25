@@ -3,9 +3,8 @@ package io.specmatic.core
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
-import io.specmatic.reporter.model.BackwardCompatibilityResult
+import io.specmatic.reporter.model.BackwardCompatibilityStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.openAPIOperationFrom
 import java.util.UUID
@@ -16,7 +15,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     val compatResult: Result,
     override val duration: Long = 0,
     override val id: UUID = UUID.randomUUID(),
-    override val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
+    val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
 ) : CtrfBackwardCompatibilityRecord {
     override val specType: SpecType = scenario.specType
     override val repository: String? = scenario.sourceRepository
@@ -35,9 +34,9 @@ data class OpenApiBackwardCompatibilityCheckRecord(
         scenario.responseContentType?.let { contentType -> add("response-content-type:$contentType") }
     }
 
-    override val result: BackwardCompatibilityResult = when (compatResult) {
-        is Result.Success -> BackwardCompatibilityResult.Compatible
-        is Result.Failure -> BackwardCompatibilityResult.Incompatible
+    override val result: BackwardCompatibilityStatus = when (compatResult) {
+        is Result.Success -> BackwardCompatibilityStatus.Compatible
+        is Result.Failure -> BackwardCompatibilityStatus.Incompatible
     }
 
     override val operationQualifiers: List<CtrfOperationQualifiers> = buildList {
