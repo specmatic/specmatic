@@ -3,7 +3,7 @@ package io.specmatic.core.report
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
+import io.specmatic.core.ChangeStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.BackwardCompatibilityResult
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -290,7 +290,6 @@ class BccReportGeneratorTest {
             override val specification: String = specification
             override val operations: Set<APIOperation> = operations
             override val result: BackwardCompatibilityResult = result
-            override val changeStatus: ChangeStatus = changeStatus
             override val operationQualifiers: List<CtrfOperationQualifiers> = effectiveQualifiers
         }
     }

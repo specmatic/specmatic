@@ -3,7 +3,6 @@ package io.specmatic.core
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.BackwardCompatibilityResult
 import io.specmatic.reporter.model.SpecType
@@ -16,7 +15,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     val compatResult: Result,
     override val duration: Long = 0,
     override val id: UUID = UUID.randomUUID(),
-    override val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
+    val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
 ) : CtrfBackwardCompatibilityRecord {
     override val specType: SpecType = scenario.specType
     override val repository: String? = scenario.sourceRepository

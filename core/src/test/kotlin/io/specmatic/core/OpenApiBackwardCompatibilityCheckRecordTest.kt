@@ -3,7 +3,7 @@ package io.specmatic.core
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
+import io.specmatic.core.ChangeStatus
 import io.specmatic.reporter.model.BackwardCompatibilityResult
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.openAPIOperationFrom
