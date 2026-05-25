@@ -5,8 +5,56 @@ import io.specmatic.core.utilities.SystemExitException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 
 class SpecmaticApplicationTest {
+
+    @Test
+    fun `should redirect stdout to stderr when arguments are mcp server`() {
+        val originalOut = System.`out`
+        val originalErr = System.`err`
+        try {
+            val out = PrintStream(ByteArrayOutputStream())
+            val err = PrintStream(ByteArrayOutputStream())
+            System.setOut(out)
+            System.setErr(err)
+
+            val method = SpecmaticApplication.Companion::class.java.getDeclaredMethod("redirectStdoutToStderrIfMcpServer", Array<String>::class.java)
+            method.isAccessible = true
+
+            method.invoke(SpecmaticApplication.Companion, arrayOf("mcp", "server"))
+
+            assertThat(System.`out`).isSameAs(err)
+            assertThat(System.`out`).isSameAs(System.`err`)
+        } finally {
+            System.setOut(originalOut)
+            System.setErr(originalErr)
+        }
+    }
+
+    @Test
+    fun `should NOT redirect stdout to stderr when arguments are NOT mcp server`() {
+        val originalOut = System.`out`
+        val originalErr = System.err
+        try {
+            val out = PrintStream(ByteArrayOutputStream())
+            val err = PrintStream(ByteArrayOutputStream())
+            System.setOut(out)
+            System.setErr(err)
+
+            val method = SpecmaticApplication.Companion::class.java.getDeclaredMethod("redirectStdoutToStderrIfMcpServer", Array<String>::class.java)
+            method.isAccessible = true
+
+            method.invoke(SpecmaticApplication.Companion, arrayOf("test"))
+
+            assertThat(System.`out`).isSameAs(out)
+            assertThat(System.`out`).isNotSameAs(err)
+        } finally {
+            System.setOut(originalOut)
+            System.setErr(originalErr)
+        }
+    }
 
     @Test
     fun `should print version info on each invocation that isn't version check`() {
