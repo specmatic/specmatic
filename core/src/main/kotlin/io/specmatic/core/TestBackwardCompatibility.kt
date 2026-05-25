@@ -10,7 +10,6 @@ import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfReport
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
-private const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
     return testBackwardCompatibilityWithReport(older, newer).first
@@ -35,7 +34,6 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Res
 }
 
 private fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
-    if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
     return ReportGenerator.generateReportBcc(

@@ -4674,7 +4674,7 @@ paths:
         val newerContract = OpenApiSpecification.fromFile(newerSpec.canonicalPath).toFeature()
         val reportDir = tempDir.resolve("reports/backward_compatibility").canonicalFile
 
-        using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+        using(CONFIG_FILE_PATH to configFile.canonicalPath) {
             val (result, report) = testBackwardCompatibilityWithReport(olderContract, newerContract)
             assertThat(report).withFailMessage("Expected CTRF Report to be generated").isNotNull
             assertThat(result.success()).isFalse
@@ -4807,7 +4807,7 @@ paths:
             val oldFeature = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-            return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            return using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                 val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
                 val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
                 json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
@@ -5059,7 +5059,7 @@ paths:
             val oldFeature = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-            return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            return using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                 val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
                 val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
                 json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")

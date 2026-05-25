@@ -499,7 +499,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             val (_, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
-                using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                     BackwardCompatibilityCheckCommandV2().apply {
                         options.repoDir = tempDir.canonicalPath
                         options.baseBranch = baseBranch
