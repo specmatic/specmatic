@@ -88,6 +88,22 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Category'
+  # WIP operation - mirrors orders_old.yaml. `code` changes string -> integer
+  # (breaking), but the WIP tag keeps it out of the verdict.
+  /promotions:
+    get:
+      tags: [WIP]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: integer
 components:
   schemas:
     Order:

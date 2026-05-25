@@ -10,10 +10,8 @@ import java.util.IdentityHashMap
 class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
     private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
-        .filter { !it.ignoreFailure }
         .groupBy { it.path to it.method }
     private val newChangeTrackingScenariosByPathAndMethod = newFeature.scenariosForChangeTracking()
-        .filter { !it.ignoreFailure }
         .groupBy { it.path to it.method }
 
     fun run(): List<OpenApiBackwardCompatibilityCheckRecord> {
@@ -37,7 +35,6 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun groupScenariosByPathAndMethod(feature: Feature): List<RequestFamily> {
         return feature.scenarios
-            .filter { !it.ignoreFailure }
             .groupBy { scenario -> scenario.path to scenario.method }.values
             .map(::RequestFamily)
     }

@@ -119,6 +119,25 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Category'
+  # WIP operation: tagged WIP so it is ignored for the pass/fail verdict, but it
+  # must still execute and be change-tracked. Its `code` response field changes
+  # string -> integer in new (breaking).
+  # Expected: GET /promotions 200 row CHANGED + Incompatible + qualifier `wip`,
+  # counted under `other` (not `failed`) in the summary, and not breaking the verdict.
+  /promotions:
+    get:
+      tags: [WIP]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
 components:
   schemas:
     Order:

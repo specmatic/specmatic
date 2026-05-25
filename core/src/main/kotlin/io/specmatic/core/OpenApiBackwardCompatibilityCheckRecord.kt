@@ -22,11 +22,14 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     override val branch: String? = scenario.sourceRepositoryBranch
     override val specification: String = scenario.specification ?: feature.path
 
+    override val isWip: Boolean = scenario.ignoreFailure
+
     // TODO: Need actual positive variation from generatedScenario
-    override val name: String = scenario.fullApiDescription
+    override val name: String = if (isWip) "WIP: ${scenario.fullApiDescription}" else scenario.fullApiDescription
     override val message: String = compatResult.reportString()
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
+        if (isWip) add("wip")
         add("status:${scenario.status}")
         add("method:${scenario.method.lowercase()}")
         add("path:${convertPathParameterStyle(scenario.path)}")
@@ -40,7 +43,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     }
 
     override val operationQualifiers: List<CtrfOperationQualifiers> = buildList {
-        if (scenario.ignoreFailure) add(CtrfOperationQualifiers.WIP)
+        if (isWip) add(CtrfOperationQualifiers.WIP)
         if (changeStatus == ChangeStatus.CHANGED) add(CtrfOperationQualifiers.CHANGED)
     }
 

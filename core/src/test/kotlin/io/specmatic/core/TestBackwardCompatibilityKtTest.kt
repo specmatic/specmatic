@@ -11,6 +11,7 @@ import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.api.client.OBJECT_MAPPER
+import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
@@ -4763,13 +4764,49 @@ paths:
             // UNCHANGED standalone operation - GET /health is identical in both specs
             operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "compatible")
 
+            // WIP operation: still executes and is change-tracked. `code` changes string -> integer
+            // (breaking), so the operation is CHANGED + Incompatible and carries the `wip` qualifier.
+            // It must NOT break the verdict (asserted separately below).
+            val wipRow = operations.assertRow(OperationKey("GET", "/promotions", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+            assertThat(wipRow.path("qualifiers").map { it.asText() })
+                .describedAs("WIP operation qualifiers")
+                .contains("wip")
+
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 10 operation rows in the report")
-                .hasSize(10)
+                .describedAs("expected 11 operation rows in the report")
+                .hasSize(11)
         }
 
-        private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String) {
+        @Test
+        fun `a breaking wip operation executes and is reported as other while retaining its failed raw status`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("orders_old.yaml")
+            val newSpec = readFixture("orders_new.yaml")
+
+            val (_, report) = runBcc(tempDir, oldSpec, newSpec)
+
+            val reportJson = OBJECT_MAPPER.valueToTree<JsonNode>(report)
+            val tests = reportJson.path("results").path("tests")
+            val wipTests = tests.filter { it.path("name").asText().startsWith("WIP:") }
+            assertThat(wipTests).describedAs("WIP tests in the report").isNotEmpty()
+
+            // Every WIP test is reported as `other` (never `passed`/`failed`) and tagged `wip`.
+            assertThat(wipTests).allSatisfy { wipTest ->
+                assertThat(wipTest.path("status").asText()).isEqualTo("other")
+                assertThat(wipTest.path("tags").map { it.asText() }).contains("wip")
+            }
+            // The WIP operation actually executed and produced a real failure: at least one WIP
+            // test retains a `failed` raw status even though its reported state is `other`.
+            assertThat(wipTests).anySatisfy { wipTest ->
+                assertThat(wipTest.path("rawStatus").asText()).isEqualTo("failed")
+            }
+
+            // The WIP failure is counted under `other`, never `failed`.
+            val summary = reportJson.path("results").path("summary")
+            assertThat(summary.path("other").asInt()).isGreaterThanOrEqualTo(1)
+        }
+
+        private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String): JsonNode {
             val row = firstOrNull { node ->
                 node.path("method").asText() == key.method &&
                 node.path("path").asText() == key.path &&
@@ -4792,12 +4829,13 @@ paths:
             } else {
                 assertThat(qualifiers).describedAs("qualifiers for $key").doesNotContain("changed")
             }
+            return row
         }
 
         private fun readFixture(name: String): String =
             javaClass.getResource("/openapi/bcc_integration/$name")!!.readText()
 
-        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpec: String): JsonNode {
+        private fun runBcc(tempDir: File, oldSpec: String, newSpec: String): Pair<Results, CtrfReport?> {
             val configFile = tempDir.resolve("specmatic.yaml").apply {
                 writeText("""
                 version: 2
@@ -4808,10 +4846,14 @@ paths:
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
             return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
-                val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
-                val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
-                json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
+                testBackwardCompatibilityWithReport(oldFeature, newFeature)
             }
+        }
+
+        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpec: String): JsonNode {
+            val (_, report) = runBcc(tempDir, oldSpec, newSpec)
+            val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
+            return json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
         }
     }
 
