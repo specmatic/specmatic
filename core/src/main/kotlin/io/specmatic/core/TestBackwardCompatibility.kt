@@ -21,12 +21,12 @@ internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature)
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
     val endTime = System.currentTimeMillis()
 
-    val result = records.toBackwardCompatibilityStatuss()
+    val result = records.toBackwardCompatibilityStatuses()
     val report = generateBackwardCompatibilityReport(records, startTime, endTime)
     return Pair(result, report)
 }
 
-fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuss(): Results {
+fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {
     return filterIsInstance<OpenApiBackwardCompatibilityCheckRecord>()
         .groupBy { it.operations }.values
         .fold(Results()) { acc, recordsForOperation ->
