@@ -5,7 +5,7 @@ import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.core.ChangeStatus
 import io.specmatic.reporter.internal.dto.operation.APIOperation
-import io.specmatic.reporter.model.BackwardCompatibilityResult
+import io.specmatic.reporter.model.BackwardCompatibilityStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
@@ -30,20 +30,20 @@ class BccReportGeneratorTest {
         val firstRecord = testRecord(
             specification = "specs/orders.yaml",
             operations = setOf(createOrder, getOrders),
-            result = BackwardCompatibilityResult.Compatible,
+            result = BackwardCompatibilityStatus.Compatible,
             operationQualifiers = listOf(CtrfOperationQualifiers.WIP),
         )
 
         val secondRecord = testRecord(
             specification = "specs/orders.yaml",
             operations = setOf(createOrder),
-            result = BackwardCompatibilityResult.Incompatible,
+            result = BackwardCompatibilityStatus.Incompatible,
         )
 
         val thirdRecord = testRecord(
             specification = "specs/payments.yaml",
             operations = setOf(createOrder),
-            result = BackwardCompatibilityResult.Compatible,
+            result = BackwardCompatibilityStatus.Compatible,
         )
 
         val reportOperations = generator.generateReportOperations(listOf(firstRecord, secondRecord, thirdRecord))
@@ -52,17 +52,17 @@ class BccReportGeneratorTest {
         val groupedCreateOrder = reportOperations.single { it.operation == createOrder && it.specConfig.specification == "specs/orders.yaml" }
         assertThat(groupedCreateOrder.tests).containsExactly(firstRecord, secondRecord)
         assertThat(groupedCreateOrder.qualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
-        assertThat(groupedCreateOrder.status).isEqualTo(BackwardCompatibilityResult.Incompatible)
+        assertThat(groupedCreateOrder.status).isEqualTo(BackwardCompatibilityStatus.Incompatible)
 
         val groupedGetOrders = reportOperations.single { it.operation == getOrders && it.specConfig.specification == "specs/orders.yaml" }
         assertThat(groupedGetOrders.tests).containsExactly(firstRecord)
         assertThat(groupedGetOrders.qualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
-        assertThat(groupedGetOrders.status).isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(groupedGetOrders.status).isEqualTo(BackwardCompatibilityStatus.Compatible)
 
         val groupedPayments = reportOperations.single { it.operation == createOrder && it.specConfig.specification == "specs/payments.yaml" }
         assertThat(groupedPayments.qualifiers).containsExactly(CtrfOperationQualifiers.CHANGED)
         assertThat(groupedPayments.tests).containsExactly(thirdRecord)
-        assertThat(groupedPayments.status).isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(groupedPayments.status).isEqualTo(BackwardCompatibilityStatus.Compatible)
     }
 
     @Test
@@ -202,12 +202,12 @@ class BccReportGeneratorTest {
         val createOrder = openApiOperation(path = "/orders", method = "POST", responseCode = 201)
         val reportOperation = generator.generateReportOperations(
             listOf(
-                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityResult.Compatible),
-                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityResult.Compatible),
+                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityStatus.Compatible),
+                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityStatus.Compatible),
             )
         )
 
-        assertThat(reportOperation.single().status).isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(reportOperation.single().status).isEqualTo(BackwardCompatibilityStatus.Compatible)
     }
 
     @Test
@@ -215,12 +215,12 @@ class BccReportGeneratorTest {
         val createOrder = openApiOperation(path = "/orders", method = "POST", responseCode = 201)
         val reportOperation = generator.generateReportOperations(
             listOf(
-                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityResult.Compatible),
-                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityResult.Incompatible),
+                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityStatus.Compatible),
+                testRecord(operations = setOf(createOrder), result = BackwardCompatibilityStatus.Incompatible),
             )
         )
 
-        assertThat(reportOperation.single().status).isEqualTo(BackwardCompatibilityResult.Incompatible)
+        assertThat(reportOperation.single().status).isEqualTo(BackwardCompatibilityStatus.Incompatible)
     }
 
     @Test
@@ -272,7 +272,7 @@ class BccReportGeneratorTest {
         repository: String? = "https://github.com/example/repo.git",
         changeStatus: ChangeStatus = ChangeStatus.CHANGED,
         operationQualifiers: List<CtrfOperationQualifiers> = emptyList(),
-        result: BackwardCompatibilityResult = BackwardCompatibilityResult.Compatible,
+        result: BackwardCompatibilityStatus = BackwardCompatibilityStatus.Compatible,
     ): CtrfBackwardCompatibilityRecord {
         val effectiveQualifiers = buildList {
             addAll(operationQualifiers)
@@ -289,7 +289,7 @@ class BccReportGeneratorTest {
             override val repository: String? = repository
             override val specification: String = specification
             override val operations: Set<APIOperation> = operations
-            override val result: BackwardCompatibilityResult = result
+            override val result: BackwardCompatibilityStatus = result
             override val operationQualifiers: List<CtrfOperationQualifiers> = effectiveQualifiers
         }
     }

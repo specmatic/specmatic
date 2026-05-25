@@ -4140,7 +4140,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuss()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4331,7 +4331,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/single_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/single_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuss()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4391,7 +4391,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuss()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
