@@ -23,7 +23,6 @@ class ContractTestTool {
     internal fun runContractTest(args: RunTestArgs, resiliency: Boolean): String {
         val tempDir = createTempDirectory(if (resiliency) "specmatic-resiliency-" else "specmatic-contract-").toFile()
         val specFile = tempDir.resolve("spec.${args.specFormat}").apply { writeText(args.openApiSpec) }
-        val reportDir = tempDir.resolve("reports").apply { mkdirs() }
 
         val originalGenerativeFlag = System.getProperty(SPECMATIC_GENERATIVE_TESTS)
         if (resiliency) {
@@ -41,7 +40,7 @@ class ContractTestTool {
                 CommandLine(command).execute(*argsList.toTypedArray())
             }
 
-            val summary = reportDir.resolve(DEFAULT_CTRF_REPORT_PATH).let(::parseCtrfSummary)
+            val summary = File(DEFAULT_CTRF_REPORT_PATH).let(::parseCtrfSummary)
 
             formatTestResult(
                 title = if (resiliency) "Resiliency" else "Contract",
