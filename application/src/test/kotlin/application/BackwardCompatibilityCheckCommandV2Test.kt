@@ -6,8 +6,6 @@ import application.backwardCompatibility.BackwardCompatibilityCheckHook
 import application.backwardCompatibility.CompatibilityResult
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.flipkart.zjsonpatch.JsonPatch
 import io.mockk.every
 import io.mockk.spyk
 import io.specmatic.core.IFeature
@@ -622,54 +620,17 @@ class BackwardCompatibilityCheckCommandV2Test {
 
     @Nested
     inner class WipMatrix {
-        private val baseSpec = """
-            openapi: 3.0.0
-            info: { title: API, version: 1.0.0 }
-            paths:
-              /a:
-                get:
-                  responses:
-                    '200':
-                      description: ok
-                      content:
-                        application/json:
-                          schema:
-                            type: object
-                            required: [value]
-                            properties: { value: { type: string } }
-              /b:
-                get:
-                  tags: [WIP]
-                  responses:
-                    '200':
-                      description: ok
-                      content:
-                        application/json:
-                          schema:
-                            type: object
-                            required: [code]
-                            properties: { code: { type: string } }
-        """.trimIndent()
-
-        private val removeB = """{ "op": "remove", "path": "/paths/~1b" }"""
-        private val removeA = """{ "op": "remove", "path": "/paths/~1a" }"""
-        private val noteOnA = """{ "op": "add", "path": "/paths/~1a/get/responses/200/content/application~1json/schema/properties/note", "value": { "type": "string" } }"""
-        private val labelOnB = """{ "op": "add", "path": "/paths/~1b/get/responses/200/content/application~1json/schema/properties/label", "value": { "type": "string" } }"""
-        private val breakA = """{ "op": "replace", "path": "/paths/~1a/get/responses/200/content/application~1json/schema/properties/value/type", "value": "integer" }"""
-        private val breakB = """{ "op": "replace", "path": "/paths/~1b/get/responses/200/content/application~1json/schema/properties/code/type", "value": "integer" }"""
-
-        private fun patches(vararg ops: String) = "[ ${ops.joinToString(", ")} ]"
-
-        // Runs the command over a spec that changes from oldPatch -> newPatch (both applied to
-        // baseSpec). Returns the full console output (trailing whitespace normalized per line),
-        // the exit code, and the spec file (for path interpolation in assertions).
-        private fun runChange(oldPatch: String?, newPatch: String?): Triple<String, Int, File> {
+        // Commits `oldSpec` on the base branch, then `newSpec` on a feature branch, and runs the
+        // backward compatibility check across them. Returns the full console output (trailing
+        // whitespace normalized per line), the exit code, and the spec file (for path
+        // interpolation in assertions).
+        private fun runChange(oldSpec: String, newSpec: String): Triple<String, Int, File> {
             val spec = tempDir.resolve("spec.yaml")
-            spec.writeText(oldPatch?.let { baseSpec.applyJsonPatch(it) } ?: baseSpec)
+            spec.writeText(oldSpec.trimIndent())
             commit(tempDir, "old")
             val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
             ProcessBuilder("git", "switch", "-c", "change").directory(tempDir).inheritIO().start().waitFor()
-            spec.writeText(newPatch?.let { baseSpec.applyJsonPatch(it) } ?: baseSpec)
+            spec.writeText(newSpec.trimIndent())
             commit(tempDir, "new")
             val (stdOut, exitCode) = captureStandardOutput {
                 BackwardCompatibilityCheckCommandV2().apply {
@@ -682,7 +643,39 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `1 - all compatible, no WIP - COMPATIBLE, no report sections`() {
-            val (output, exitCode, spec) = runChange(patches(removeB), patches(removeB, noteOnA))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string }, note: { type: string } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(0)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -721,7 +714,63 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `2 - compatible non-WIP and compatible WIP - COMPATIBLE, no WIP section`() {
-            val (output, exitCode, spec) = runChange(null, patches(noteOnA, labelOnB))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string }, note: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string }, label: { type: string } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(0)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -764,7 +813,63 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `3 - compatible non-WIP and breaking WIP - COMPATIBLE, WIP section shown`() {
-            val (output, exitCode, spec) = runChange(null, patches(noteOnA, breakB))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string }, note: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(0)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -816,7 +921,39 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `4 - breaking non-WIP, no WIP - INCOMPATIBLE, report shown`() {
-            val (output, exitCode, spec) = runChange(patches(removeB), patches(removeB, breakA))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(1)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -866,7 +1003,63 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `5 - breaking non-WIP and compatible WIP - INCOMPATIBLE, no WIP section`() {
-            val (output, exitCode, spec) = runChange(null, patches(breakA, labelOnB))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string }, label: { type: string } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(1)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -920,7 +1113,63 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `6 - breaking non-WIP and breaking WIP - INCOMPATIBLE, both sections shown`() {
-            val (output, exitCode, spec) = runChange(null, patches(breakA, breakB))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(1)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -983,7 +1232,41 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         @Test
         fun `7 - spec is entirely WIP and breaking - COMPATIBLE, only WIP section shown`() {
-            val (output, exitCode, spec) = runChange(patches(removeA), patches(removeA, breakB))
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
 
             assertThat(exitCode).isEqualTo(0)
             assertThat(output).isEqualToNormalizingNewlines("""
@@ -1028,14 +1311,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
-
-        private fun String.applyJsonPatch(patch: String): String {
-            val specNode = yamlMapper.readTree(this)
-            val patchNode = yamlMapper.readTree(patch.trimIndent())
-            return yamlMapper.writeValueAsString(JsonPatch.apply(patchNode, specNode)).trim()
-        }
-
-        private val yamlMapper = ObjectMapper(YAMLFactory())
     }
 
     @Nested
