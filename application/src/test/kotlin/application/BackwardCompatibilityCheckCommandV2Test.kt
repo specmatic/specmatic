@@ -1311,6 +1311,170 @@ class BackwardCompatibilityCheckCommandV2Test {
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
+
+        @Test
+        fun `8 - WIP tag added in new and breaking - COMPATIBLE, WIP section shown (new spec governs)`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `9 - WIP tag removed in new and breaking - INCOMPATIBLE, report shown (new spec governs)`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
     }
 
     @Nested
