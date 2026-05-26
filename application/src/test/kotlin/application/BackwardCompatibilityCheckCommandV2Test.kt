@@ -520,25 +520,25 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             // Normalize trailing whitespace per line so the literal stays maintainable;
             // the full output is asserted otherwise.
-            val normalizedOutput = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }
+            val normalizedOutput = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
 
             assertThat(normalizedOutput).isEqualToNormalizingNewlines("""
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 5, API Operations: 6
               Schema components: 7, Security Schemes: none
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 5, API Operations: 7
               Schema components: 7, Security Schemes: none
@@ -575,7 +575,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /promotions against 1 operations
               - GET /promotions -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -607,7 +607,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
 
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
 
@@ -640,7 +640,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                     options.baseBranch = baseBranch
                 }.call()
             }
-            return Triple(stdOut.lineSequence().joinToString("\n") { it.trimEnd() }, exitCode, spec)
+            return Triple(stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/'), exitCode, spec)
         }
 
         @Test
@@ -684,18 +684,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -703,9 +703,9 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
 
@@ -779,18 +779,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
@@ -802,9 +802,9 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
 
@@ -878,18 +878,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
@@ -901,7 +901,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
@@ -912,7 +912,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
 
@@ -962,18 +962,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -981,7 +981,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -994,7 +994,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
 
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
 
@@ -1068,18 +1068,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
@@ -1091,7 +1091,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1104,7 +1104,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
 
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
 
@@ -1178,18 +1178,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 2, API Operations: 2
 
@@ -1201,7 +1201,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1223,7 +1223,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
 
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
 
@@ -1275,18 +1275,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -1294,7 +1294,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
@@ -1305,7 +1305,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
 
@@ -1356,18 +1356,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -1375,7 +1375,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
@@ -1386,7 +1386,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
               --------------------
 
@@ -1437,18 +1437,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalPath}
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
 
             --------------------
 
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: ${spec.canonicalPath}
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -1456,7 +1456,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalPath}:
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1469,7 +1469,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
 
               --------------------
-              Verdict for spec ${spec.canonicalPath}:
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
                 (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
               --------------------
 
