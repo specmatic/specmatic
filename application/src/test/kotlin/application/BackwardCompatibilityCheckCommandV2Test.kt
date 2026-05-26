@@ -69,6 +69,8 @@ class BackwardCompatibilityCheckCommandV2Test {
             .start()
             .waitFor()
 
+        ProcessBuilder("git", "symbolic-ref", "HEAD", "refs/heads/main").directory(tempDir).inheritIO().start().waitFor()
+
         ProcessBuilder("git", "config", "--local", "user.name", "developer")
             .directory(tempDir)
             .inheritIO()
@@ -1616,7 +1618,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
     private fun commitAndPush(repoDir: File, commitMessage: String) {
         commit(repoDir, commitMessage)
-        ProcessBuilder("git", "push", "origin", "master").directory(repoDir).inheritIO().start().waitFor()
+        ProcessBuilder("git", "push", "origin", "main").directory(repoDir).inheritIO().start().waitFor()
     }
 
     private fun commit(repoDir: File, commitMessage: String) {
