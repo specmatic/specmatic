@@ -4833,13 +4833,12 @@ paths:
 
             val reportJson = OBJECT_MAPPER.valueToTree<JsonNode>(report)
             val tests = reportJson.path("results").path("tests")
-            val wipTests = tests.filter { it.path("name").asText().startsWith("WIP:") }
+            val wipTests = tests.filter { it.path("tags").map { tag -> tag.asText() }.contains("wip") }
             assertThat(wipTests).describedAs("WIP tests in the report").isNotEmpty()
 
-            // Every WIP test is reported as `other` (never `passed`/`failed`) and tagged `wip`.
+            // Every WIP test is reported as `other` (never `passed`/`failed`).
             assertThat(wipTests).allSatisfy { wipTest ->
                 assertThat(wipTest.path("status").asText()).isEqualTo("other")
-                assertThat(wipTest.path("tags").map { it.asText() }).contains("wip")
             }
             // The WIP operation actually executed and produced a real failure: at least one WIP
             // test retains a `failed` raw status even though its reported state is `other`.

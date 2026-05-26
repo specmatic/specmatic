@@ -80,7 +80,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Incompatible)
         assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
         assertThat(record.isWip).isTrue()
-        assertThat(record.name).isEqualTo("WIP: ${scenario.fullApiDescription}")
+        assertThat(record.name).isEqualTo(scenario.fullApiDescription)
         assertThat(record.tags).contains("wip")
     }
 
