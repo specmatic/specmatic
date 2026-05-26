@@ -18,8 +18,7 @@ jobs:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
           # compile/assemble in parallel to speed things up, but we will run the tests in a separate step (in sequence)
-          # one-time --refresh-dependencies to bypass the stale cached specmatic-reporter SNAPSHOT (revert once on a pinned release)
-          pre-gradle-command: ./gradlew compileTestKotlin assemble --parallel --refresh-dependencies -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
+          pre-gradle-command: ./gradlew compileTestKotlin assemble --parallel -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
           gradle-extra-args: priospot -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
           github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
       
