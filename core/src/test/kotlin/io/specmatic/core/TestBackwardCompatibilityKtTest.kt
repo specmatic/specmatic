@@ -1043,7 +1043,7 @@ Then status 200
 
         // The breaking WIP scenario is retained as an ignorable failure: it does not break the
         // check, but it is still visible (so it shows up in console output) rather than dropped.
-        assertThat(results.success()).isTrue
+        assertThat(results.successExcludingIgnorableFailures()).isTrue
         assertThat(results.hasFailures()).isTrue()
         assertThat(results.hasIgnorableFailures()).isTrue()
         assertThat(results.withoutIgnorableFailures().hasFailures()).isFalse()

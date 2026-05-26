@@ -282,7 +282,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
                     val backwardCompatibilityResult = checkBackwardCompatibility(older, newer)
                     val result =
-                        if (backwardCompatibilityResult.success()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
+                        if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
 
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
@@ -331,7 +331,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     val hook = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java).firstOrNull()
 
     private fun validateSpecsWithHook(processedSpecs: List<ProcessedSpec>): List<ProcessedSpec> {
-        val failedSpecs = processedSpecs.filter { it.backwardCompatibilityResult.success().not() }
+        val failedSpecs = processedSpecs.filter { it.backwardCompatibilityResult.successExcludingIgnorableFailures().not() }
 
         if (failedSpecs.isEmpty() || hook == null)
             return processedSpecs
@@ -380,7 +380,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val newer = processedSpec.newer
         val unusedExamples = processedSpec.unusedExamples
 
-        if (backwardCompatibilityResult.success().not()) {
+        if (backwardCompatibilityResult.successExcludingIgnorableFailures().not()) {
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
             logger.log(
