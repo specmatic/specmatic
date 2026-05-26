@@ -4739,6 +4739,10 @@ paths:
             val operations = operationsFrom(report)
             val json = "application/json"
 
+            // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}) fail the check;
+            // the breaking WIP operation does not contribute to this verdict.
+            assertThat(results.success()).isFalse()
+
             // The full console report: every incompatibility (including the breaking WIP
             // operation GET /promotions, which is shown but does not break the verdict).
             assertThat(results.report()).isEqualToNormalizingNewlines("""
@@ -4822,7 +4826,10 @@ paths:
             val oldSpec = readFixture("orders_old.yaml")
             val newSpec = readFixture("orders_new.yaml")
 
-            val (_, report) = runBcc(tempDir, oldSpec, newSpec)
+            val (results, report) = runBcc(tempDir, oldSpec, newSpec)
+
+            // The breaking WIP operation does not drive the verdict; the real breaking changes do.
+            assertThat(results.success()).isFalse()
 
             val reportJson = OBJECT_MAPPER.valueToTree<JsonNode>(report)
             val tests = reportJson.path("results").path("tests")
