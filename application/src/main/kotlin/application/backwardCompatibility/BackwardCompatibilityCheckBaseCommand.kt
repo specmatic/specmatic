@@ -383,7 +383,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         if (backwardCompatibilityResult.success().not()) {
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
-            logger.log(backwardCompatibilityResult.withoutViolationReport().distinctReport().prependIndent(TWO_INDENTS))
+            logger.log(
+                backwardCompatibilityResult.withoutIgnorableFailures().withoutViolationReport().distinctReport()
+                    .prependIndent(TWO_INDENTS)
+            )
+
+            logWipScenarios(backwardCompatibilityResult)
 
             val verdict = failedVerdictMessage(processedSpec, hook, effectiveStrictMode, effectiveBaseBranch)
 
@@ -391,6 +396,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
             return verdict.first
         }
+
+        logWipScenarios(backwardCompatibilityResult)
 
         val errorsFound = printExampleValiditySummaryAndReturnResult(newer, unusedExamples, specFilePath)
 
@@ -403,6 +410,17 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
         return if (errorsFound) CompatibilityResult.FAILED
         else CompatibilityResult.PASSED
+    }
+
+    private fun logWipScenarios(backwardCompatibilityResult: Results) {
+        if (!backwardCompatibilityResult.hasIgnorableFailures()) return
+
+        logger.log("_".repeat(40).prependIndent(ONE_INDENT))
+        logger.log("WIP scenarios (incompatible, not breaking the check):$newLine".prependIndent(ONE_INDENT))
+        logger.log(
+            backwardCompatibilityResult.ignorableFailures().withoutViolationReport().distinctReport()
+                .prependIndent(TWO_INDENTS)
+        )
     }
 
     private fun logVerdictFor(specFilePath: String, message: String, startWithNewLine: Boolean = true) {

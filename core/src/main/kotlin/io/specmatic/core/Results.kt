@@ -6,7 +6,14 @@ data class Results(val results: List<Result> = emptyList()) {
     fun hasResults(): Boolean = results.isNotEmpty()
 
     fun hasFailures(): Boolean = results.any { it is Result.Failure }
-    fun success(): Boolean = if(hasResults()) successCount > 0 && failureCount == 0 else true
+    fun success(): Boolean =
+        if (hasResults()) results.none { it is Result.Failure && !it.shouldBeIgnored() } else true
+
+    fun hasIgnorableFailures(): Boolean = results.any { it is Result.Failure && it.shouldBeIgnored() }
+
+    fun ignorableFailures(): Results = copy(results = results.filter { it is Result.Failure && it.shouldBeIgnored() })
+
+    fun withoutIgnorableFailures(): Results = copy(results = results.filterNot { it is Result.Failure && it.shouldBeIgnored() })
 
     fun withoutFluff(fluffLevel: Int): Results = copy(results = results.filterNot { it.isFluffy(fluffLevel) })
 

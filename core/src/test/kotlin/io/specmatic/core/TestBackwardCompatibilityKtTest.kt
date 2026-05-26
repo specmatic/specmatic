@@ -1023,9 +1023,9 @@ Feature: Contract API
 
 @WIP
 Scenario: api call
-When POST /data
-  And request-body (number)
+When GET /data
 Then status 200
+  And response-body (number)
     """.trim()
 
         val gherkin2 = """
@@ -1033,19 +1033,21 @@ Feature: Contract API
 
 @WIP
 Scenario: api call
-When POST /data
-  And request-body (string)
+When GET /data
 Then status 200
+  And response-body (string)
     """.trim()
 
         val results: Results =
             testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
-        if (results.failureCount > 0)
-            println(results.report())
-
+        // The breaking WIP scenario is retained as an ignorable failure: it does not break the
+        // check, but it is still visible (so it shows up in console output) rather than dropped.
         assertThat(results.success()).isTrue
-        assertThat(results.hasFailures()).isFalse()
+        assertThat(results.hasFailures()).isTrue()
+        assertThat(results.hasIgnorableFailures()).isTrue()
+        assertThat(results.withoutIgnorableFailures().hasFailures()).isFalse()
+        assertThat(results.ignorableFailures().report()).contains("GET /data")
     }
 
     @Test
@@ -4733,8 +4735,45 @@ paths:
             val oldSpec = readFixture("orders_old.yaml")
             val newSpec = readFixture("orders_new.yaml")
 
-            val operations = runBccAndGetOperations(tempDir, oldSpec, newSpec)
+            val (results, report) = runBcc(tempDir, oldSpec, newSpec)
+            val operations = operationsFrom(report)
             val json = "application/json"
+
+            // The full console report: every incompatibility (including the breaking WIP
+            // operation GET /promotions, which is shown but does not break the verdict).
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "GET /orders. Response: bad request"
+            API: GET /orders -> 400
+
+              >> RESPONSE.BODY.code
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /orders. Response: server error"
+            API: GET /orders -> 500
+
+                  This API exists in the old contract but not in the new contract
+
+            In scenario "DELETE /orders/(id:string). Response: deleted"
+            API: DELETE /orders/(id:string) -> 204
+
+                  This API exists in the old contract but not in the new contract
+
+            In scenario "GET /promotions. Response: ok"
+            API: GET /promotions -> 200
+
+              >> RESPONSE.BODY.code
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+            """.trimIndent())
 
             // NEW-SIDE N1: Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
             operations.assertRow(OperationKey("GET", "/orders", null, 200, json), changeStatus = "CHANGED", result = "compatible")
@@ -4850,8 +4889,7 @@ paths:
             }
         }
 
-        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpec: String): JsonNode {
-            val (_, report) = runBcc(tempDir, oldSpec, newSpec)
+        private fun operationsFrom(report: CtrfReport?): JsonNode {
             val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
             return json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
         }

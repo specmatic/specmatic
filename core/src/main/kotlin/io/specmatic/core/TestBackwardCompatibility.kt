@@ -28,7 +28,6 @@ internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature)
 
 fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {
     return filterIsInstance<OpenApiBackwardCompatibilityCheckRecord>()
-        .filter { !it.scenario.ignoreFailure }
         .groupBy { it.operations }.values
         .fold(Results()) { acc, recordsForOperation ->
             acc.plus(Results(recordsForOperation.map { it.compatResult }).distinct())
