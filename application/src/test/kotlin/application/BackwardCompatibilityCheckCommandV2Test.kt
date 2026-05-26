@@ -13,11 +13,16 @@ import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -29,6 +34,20 @@ import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
     private val objectMapper = ObjectMapper()
+
+    companion object {
+        @JvmStatic
+        @BeforeAll
+        fun beforeAll() {
+            // Initialise the license up front so the license-loading log line does not
+            // get interleaved into the console output captured by the tests.
+            LicenseResolver.utilize(
+                product = LicensedProduct.OPEN_SOURCE,
+                feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
+                protocol = listOf(SpecmaticProtocol.HTTP)
+            )
+        }
+    }
 
     @TempDir
     private lateinit var tempDir: File
@@ -466,6 +485,137 @@ class BackwardCompatibilityCheckCommandV2Test {
             val exampleDir = BackwardCompatibilityCheckCommandV2().getParentExamplesDirectory(Paths.get(exampleFile))
             assertThat(exampleDir).isEqualTo(expectedDir?.let(Paths::get))
         }
+    }
+
+    @Nested
+    inner class WipConsoleOutput {
+        // Uses the same fixtures as TestBackwardCompatibilityKtTest's
+        // "report reflects per-5-tuple change status..." but drives the full command (with git
+        // machinery) to assert the entire console output. The breaking WIP operation GET /promotions
+        // appears in its own "WIP scenarios" section and does NOT count towards the FAILED verdict;
+        // the real breaking changes (GET /orders 400/500, DELETE /orders/{id}) are what fail the spec.
+        @Test
+        fun `breaking WIP scenarios are shown in a separate section and do not drive the verdict`() {
+            val spec = tempDir.resolve("orders.yaml")
+            fixture("orders_old.yaml").copyTo(spec)
+            commit(tempDir, "Initial contract")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+
+            ProcessBuilder("git", "switch", "-c", "orders-change")
+                .directory(tempDir).inheritIO().start().waitFor()
+
+            fixture("orders_new.yaml").copyTo(spec, overwrite = true)
+            commit(tempDir, "Breaking changes plus a breaking WIP operation")
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = baseBranch
+                }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+
+            // Normalize trailing whitespace per line so the literal stays maintainable;
+            // the full output is asserted otherwise.
+            val normalizedOutput = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }
+
+            assertThat(normalizedOutput).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 5, API Operations: 6
+              Schema components: 7, Security Schemes: none
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 5, API Operations: 7
+              Schema components: 7, Security Schemes: none
+
+
+            [Compatibility Check] Executing 1 scenarios for POST /orders against 2 operations
+              - POST /orders -> 201 (requestContentType application/json, responseContentType application/json)
+              - POST /orders -> 400 (requestContentType application/json, responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /orders against 3 operations
+              - GET /orders -> 200 (responseContentType application/json)
+              - GET /orders -> 400 (responseContentType application/json)
+              - GET /orders -> 500 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /orders/(id:string) against 2 operations
+              - GET /orders/(id:string) -> 200 (responseContentType application/json)
+              - GET /orders/(id:string) -> 404 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for DELETE /orders/(id:string) against 1 operations
+              - DELETE /orders/(id:string) -> 204
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /health against 1 operations
+              - GET /health -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /categories against 1 operations
+              - GET /categories -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /promotions against 1 operations
+              - GET /promotions -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /orders. Response: bad request"
+                API: GET /orders -> 400
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+
+                In scenario "GET /orders. Response: server error"
+                API: GET /orders -> 500
+
+                      This API exists in the old contract but not in the new contract
+
+                In scenario "DELETE /orders/(id:string). Response: deleted"
+                API: DELETE /orders/(id:string) -> 204
+
+                      This API exists in the old contract but not in the new contract
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /promotions. Response: ok"
+                API: GET /promotions -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        private fun fixture(name: String): File =
+            File("src/test/resources/specifications/bcc_integration/$name").canonicalFile
     }
 
     @Nested
