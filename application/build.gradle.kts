@@ -53,6 +53,8 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.11")
+    testImplementation("com.flipkart.zjsonpatch:zjsonpatch:0.4.16")
+    testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.21.3")
 
 }
 

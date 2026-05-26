@@ -6,6 +6,8 @@ import application.backwardCompatibility.BackwardCompatibilityCheckHook
 import application.backwardCompatibility.CompatibilityResult
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.flipkart.zjsonpatch.JsonPatch
 import io.mockk.every
 import io.mockk.spyk
 import io.specmatic.core.IFeature
@@ -616,6 +618,424 @@ class BackwardCompatibilityCheckCommandV2Test {
 
         private fun fixture(name: String): File =
             File("src/test/resources/specifications/bcc_integration/$name").canonicalFile
+    }
+
+    @Nested
+    inner class WipMatrix {
+        private val baseSpec = """
+            openapi: 3.0.0
+            info: { title: API, version: 1.0.0 }
+            paths:
+              /a:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required: [value]
+                            properties: { value: { type: string } }
+              /b:
+                get:
+                  tags: [WIP]
+                  responses:
+                    '200':
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required: [code]
+                            properties: { code: { type: string } }
+        """.trimIndent()
+
+        private val removeB = """{ "op": "remove", "path": "/paths/~1b" }"""
+        private val removeA = """{ "op": "remove", "path": "/paths/~1a" }"""
+        private val noteOnA = """{ "op": "add", "path": "/paths/~1a/get/responses/200/content/application~1json/schema/properties/note", "value": { "type": "string" } }"""
+        private val labelOnB = """{ "op": "add", "path": "/paths/~1b/get/responses/200/content/application~1json/schema/properties/label", "value": { "type": "string" } }"""
+        private val breakA = """{ "op": "replace", "path": "/paths/~1a/get/responses/200/content/application~1json/schema/properties/value/type", "value": "integer" }"""
+        private val breakB = """{ "op": "replace", "path": "/paths/~1b/get/responses/200/content/application~1json/schema/properties/code/type", "value": "integer" }"""
+
+        private fun patches(vararg ops: String) = "[ ${ops.joinToString(", ")} ]"
+
+        // Runs the command over a spec that changes from oldPatch -> newPatch (both applied to
+        // baseSpec). Returns the full console output (trailing whitespace normalized per line),
+        // the exit code, and the spec file (for path interpolation in assertions).
+        private fun runChange(oldPatch: String?, newPatch: String?): Triple<String, Int, File> {
+            val spec = tempDir.resolve("spec.yaml")
+            spec.writeText(oldPatch?.let { baseSpec.applyJsonPatch(it) } ?: baseSpec)
+            commit(tempDir, "old")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+            ProcessBuilder("git", "switch", "-c", "change").directory(tempDir).inheritIO().start().waitFor()
+            spec.writeText(newPatch?.let { baseSpec.applyJsonPatch(it) } ?: baseSpec)
+            commit(tempDir, "new")
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = baseBranch
+                }.call()
+            }
+            return Triple(stdOut.lineSequence().joinToString("\n") { it.trimEnd() }, exitCode, spec)
+        }
+
+        @Test
+        fun `1 - all compatible, no WIP - COMPATIBLE, no report sections`() {
+            val (output, exitCode, spec) = runChange(patches(removeB), patches(removeB, noteOnA))
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+            1. Running the check for ${spec.canonicalPath}:
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `2 - compatible non-WIP and compatible WIP - COMPATIBLE, no WIP section`() {
+            val (output, exitCode, spec) = runChange(null, patches(noteOnA, labelOnB))
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+            1. Running the check for ${spec.canonicalPath}:
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `3 - compatible non-WIP and breaking WIP - COMPATIBLE, WIP section shown`() {
+            val (output, exitCode, spec) = runChange(null, patches(noteOnA, breakB))
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /b. Response: ok"
+                API: GET /b -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `4 - breaking non-WIP, no WIP - INCOMPATIBLE, report shown`() {
+            val (output, exitCode, spec) = runChange(patches(removeB), patches(removeB, breakA))
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `5 - breaking non-WIP and compatible WIP - INCOMPATIBLE, no WIP section`() {
+            val (output, exitCode, spec) = runChange(null, patches(breakA, labelOnB))
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `6 - breaking non-WIP and breaking WIP - INCOMPATIBLE, both sections shown`() {
+            val (output, exitCode, spec) = runChange(null, patches(breakA, breakB))
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /b. Response: ok"
+                API: GET /b -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `7 - spec is entirely WIP and breaking - COMPATIBLE, only WIP section shown`() {
+            val (output, exitCode, spec) = runChange(patches(removeA), patches(removeA, breakB))
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalPath}:
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /b. Response: ok"
+                API: GET /b -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+              --------------------
+              Verdict for spec ${spec.canonicalPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        private fun String.applyJsonPatch(patch: String): String {
+            val specNode = yamlMapper.readTree(this)
+            val patchNode = yamlMapper.readTree(patch.trimIndent())
+            return yamlMapper.writeValueAsString(JsonPatch.apply(patchNode, specNode)).trim()
+        }
+
+        private val yamlMapper = ObjectMapper(YAMLFactory())
     }
 
     @Nested
