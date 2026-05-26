@@ -106,4 +106,28 @@ class SpecmaticApplicationTest {
         assertThat(nonBlankLines).hasSize(1)
         assertThat(nonBlankLines.single()).containsPattern("^Specmatic Version: v\\d+\\.\\d+\\.\\d+.*$")
     }
+
+    @Test
+    fun `main should redirect stdout to stderr when arguments are mcp server`() {
+        val originalOut = System.`out`
+        val originalErr = System.`err`
+        try {
+            val out = PrintStream(ByteArrayOutputStream())
+            val err = PrintStream(ByteArrayOutputStream())
+            System.setOut(out)
+            System.setErr(err)
+
+            assertThrows<SystemExitException> {
+                SystemExit.throwOnExit {
+                    SpecmaticApplication.main(arrayOf("mcp", "server", "--help"))
+                }
+            }
+
+            assertThat(System.`out`).isSameAs(err)
+            assertThat(System.`out`).isSameAs(System.`err`)
+        } finally {
+            System.setOut(originalOut)
+            System.setErr(originalErr)
+        }
+    }
 }
