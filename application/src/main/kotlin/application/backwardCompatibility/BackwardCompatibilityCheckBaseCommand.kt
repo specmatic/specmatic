@@ -90,6 +90,10 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     open fun areExamplesValid(feature: IFeature, which: String): Boolean = true
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
 
+    // Invoked once after every changed spec has been checked. Subclasses that accumulate report
+    // records across specs override this to emit a single combined report.
+    open fun generateReport() {}
+
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
         addShutdownHook()
@@ -321,6 +325,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     getCompatibilityResultAndLogResults(processed)
                 }
             }
+
+            generateReport()
 
             return CompatibilityReport(results)
         } finally {
