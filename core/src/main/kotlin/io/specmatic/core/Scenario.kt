@@ -48,6 +48,15 @@ const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIEL
 const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM_KEY"
 
 enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
+
+// A 2xx status forces the positive/structural-expansion branch of HttpRequestPattern.newBasedOn
+// when generating backward-compatibility request variations from an (example-free) old scenario.
+private const val BACKWARD_COMPATIBILITY_REQUEST_STATUS = 200
+
+// Upper bound on the number of generated request variations per request schema during a backward
+// compatibility check, to keep deeply nested / enum-heavy request bodies from exploding into a
+// combinatorial product (which previously OOM-ed). See newBasedOnBackwardCompatibility.
+private const val BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS = 50
 data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
@@ -552,14 +561,32 @@ data class Scenario(
     }
 
     private fun newBasedOnBackwardCompatibility(row: Row): Sequence<Scenario> {
+        // maxTestRequestCombinations bounds the combinatorial expansion. The row-based newBasedOn
+        // uses CombinationSpec, whose first (prioritised) phase already covers every per-key value
+        // once -- equivalent to the legacy resolver-only patternValues path -- before it begins
+        // enumerating the full cartesian product. Capping prevents that product from exploding to
+        // 2^N (and OOM-ing) on deeply nested request bodies.
         val resolver = Resolver(expectedFacts, false, patterns)
+            .copy(maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS)
 
         val newExpectedServerState = newExpectedServerStateBasedOn(row, expectedFacts, fixtures, resolver)
 
-        return httpRequestPattern.newBasedOn(resolver).map { newHttpRequestPattern ->
-            this.copy(
-                httpRequestPattern = newHttpRequestPattern,
-                expectedFacts = newExpectedServerState
+        // status 200 selects the positive/structural-expansion branch of newBasedOn (rather than
+        // readFrom), so the generated request patterns carry the valueDetails describing each
+        // positive variation (e.g. which optional keys are present). The body branch is
+        // status-independent for an empty row.
+        return httpRequestPattern.newBasedOn(row, resolver, BACKWARD_COMPATIBILITY_REQUEST_STATUS).map { newHttpRequestPatternR ->
+            newHttpRequestPatternR.realise(
+                hasValue = { newHttpRequestPattern, _ ->
+                    this.copy(
+                        httpRequestPattern = newHttpRequestPattern,
+                        expectedFacts = newExpectedServerState,
+                        requestChangeSummary = (newHttpRequestPatternR as HasValue<HttpRequestPattern>)
+                            .valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
+                    )
+                },
+                orFailure = { throw ContractException(it.toFailure().toFailureReport()) },
+                orException = { throw it.t }
             )
         }
     }

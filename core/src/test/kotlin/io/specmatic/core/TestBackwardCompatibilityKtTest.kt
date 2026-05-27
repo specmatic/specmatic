@@ -1872,7 +1872,14 @@ paths:
             """
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
+
+              >> REQUEST.BODY
+              
+                  This is json object in the new specification, but an empty string or no body value in the old specification
+
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+
               >> REQUEST.BODY.data2
               
                   R2001: Missing required property
@@ -1880,17 +1887,10 @@ paths:
                   Summary: A required property defined in the specification is missing
               
                   New specification expects property "data2" in the request but it is missing from the old specification
-            
+
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY
-              
-                  This is json object in the new specification, but an empty string or no body value in the old specification
-            
-            In scenario "hello world. Response: Says hello"
-            API: POST /data -> 200
-            
+
               >> RESPONSE.BODY
               
                   R1001: Type mismatch
@@ -4578,6 +4578,52 @@ paths:
           
               This is number in the new specification response but string in the old specification
         """.trimIndent())
+    }
+
+    @Test
+    fun `positive request variations of a 5-tuple get distinct names reflecting the key combination`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
+        }
+        // An optional request-body key produces multiple positive variations for the same 5-tuple.
+        val spec = """
+            openapi: 3.0.0
+            info: { title: Widgets, version: 1.0.0 }
+            paths:
+              /widgets:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [id]
+                          properties:
+                            id: { type: string }
+                            label: { type: string }
+                  responses:
+                    '200': { description: ok }
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "widgets.yaml").toFeature()
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            val (result, report) = testBackwardCompatibilityWithReport(feature, feature)
+            assertThat(result.success()).withFailMessage(result.report()).isTrue
+
+            val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+            val names = tests.map { it.path("name").asText() }
+
+            // No two tests collapse to the same display name.
+            assertThat(names).doesNotHaveDuplicates()
+
+            // The two positive request variations of POST /widgets -> 200 are present and distinguishable.
+            val base = "POST /widgets -> 200 (requestContentType application/json)"
+            assertThat(names).contains(
+                "$base with a request where REQUEST.BODY contains all the keys",
+                "$base with a request where REQUEST.BODY contains only the mandatory keys",
+            )
+        }
     }
 
     @Test

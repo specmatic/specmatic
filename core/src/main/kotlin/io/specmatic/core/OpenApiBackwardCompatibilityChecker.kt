@@ -75,22 +75,23 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 
     private fun evaluateVariation(variationFromOldScenario: Scenario, changeStatusFor: (Scenario) -> ChangeStatus): List<OpenApiBackwardCompatibilityCheckRecord> {
+        val variationSummary = variationFromOldScenario.requestChangeSummary
         return try {
             val request = variationFromOldScenario.generateHttpRequest(backwardCompatibilityStrategies)
             requestMatches(request, variationFromOldScenario, changeStatusFor)
         } catch (contractException: ContractException) {
             val result = contractException.failure()
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, variationSummary))
         } catch (_: StackOverflowError) {
             val result = Result.Failure(STACK_OVERFLOW_MESSAGE)
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, variationSummary))
         } catch (_: EmptyContract) {
             val newFilePath = if (newFeature.path.isNotEmpty()) " at ${newFeature.path}" else ""
             val result = Result.Failure("The contract$newFilePath had no operations")
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, variationSummary))
         } catch (throwable: Throwable) {
             val result = Result.Failure("Exception: ${throwable.localizedMessage}")
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, variationSummary))
         }
     }
 
@@ -104,7 +105,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
-            return listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            return listOf(newRecord(variationFromOldScenario, result, changeStatusFor, variationFromOldScenario.requestChangeSummary))
         }
 
         // This is a performance optimization: If Path + Method + RequestContentType has many scenarios,
@@ -118,8 +119,10 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
         // This is a performance optimization: As there can be multiple scenarios with responseCode and contentTypes,
         // we can associate first result with remaining avoiding re-valuation as they will share the same request schema as per OAS
+        // The matched record uses the new scenario (for its 5-tuple/display), but carries the old
+        // request variation's summary so multiple positive variations of the same 5-tuple are distinguishable.
         return identifierMatches.map { newScenario ->
-            newRecord(newScenario, matchResult, changeStatusFor)
+            newRecord(newScenario, matchResult, changeStatusFor, variationFromOldScenario.requestChangeSummary)
         }
     }
 
@@ -162,12 +165,18 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         }
     }
 
-    private fun newRecord(scenario: Scenario, result: Result, changeStatusFor: (Scenario) -> ChangeStatus): OpenApiBackwardCompatibilityCheckRecord {
+    private fun newRecord(
+        scenario: Scenario,
+        result: Result,
+        changeStatusFor: (Scenario) -> ChangeStatus,
+        requestVariationSummary: String? = null,
+    ): OpenApiBackwardCompatibilityCheckRecord {
         return OpenApiBackwardCompatibilityCheckRecord(
             feature = newFeature,
             scenario = scenario,
             compatResult = result.updateScenario(scenario).withoutFailureReasons(),
             changeStatus = changeStatusFor(scenario),
+            requestVariationSummary = requestVariationSummary,
         )
     }
 

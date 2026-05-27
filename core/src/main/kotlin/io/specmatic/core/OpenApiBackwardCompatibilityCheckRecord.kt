@@ -16,6 +16,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     override val duration: Long = 0,
     override val id: UUID = UUID.randomUUID(),
     val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
+    val requestVariationSummary: String? = null,
 ) : CtrfBackwardCompatibilityRecord {
     override val specType: SpecType = scenario.specType
     override val repository: String? = scenario.sourceRepository
@@ -24,8 +25,10 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     override val isWip: Boolean = scenario.ignoreFailure
 
-    // TODO: Need actual positive variation from generatedScenario
-    override val name: String = scenario.fullApiDescription
+    override val name: String = buildString {
+        append(scenario.fullApiDescription)
+        requestVariationSummary?.takeIf(String::isNotBlank)?.let { append(" with a request where $it") }
+    }
     override val message: String = compatResult.reportString()
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
