@@ -19,6 +19,7 @@ import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -1684,9 +1685,17 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             val reportJson = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
 
+            // Both specs are present, each reported as incompatible on its own operation.
             val executionDetails = reportJson.path("results").path("summary").path("extra").path("executionDetails")
-            val reportedSpecs = executionDetails.map { it.path("specification").asText() }
-            assertThat(reportedSpecs).containsExactlyInAnyOrder(spec1Path, spec2Path)
+            val operationsBySpec = executionDetails.associate { detail ->
+                detail.path("specification").asText() to detail.path("operations").single().let {
+                    "${it.path("method").asText()} ${it.path("path").asText()} -> ${it.path("status").asText()}"
+                }
+            }
+            assertThat(operationsBySpec).containsOnly(
+                entry(spec1Path, "GET /a -> incompatible"),
+                entry(spec2Path, "GET /b -> incompatible")
+            )
         }
     }
 
