@@ -79,6 +79,25 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.message).contains("breaking change")
         assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Incompatible)
         assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
+        assertThat(record.isWip).isTrue()
+        assertThat(record.name).isEqualTo(scenario.fullApiDescription)
+        assertThat(record.tags).contains("wip")
+    }
+
+    @Test
+    fun `should not mark non-wip scenarios as wip`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = Result.Success(),
+            feature = feature.copy(scenarios = listOf(scenario)),
+        )
+
+        assertThat(record.isWip).isFalse()
+        assertThat(record.name).isEqualTo(scenario.fullApiDescription)
+        assertThat(record.tags).doesNotContain("wip")
     }
 
     private fun openApiFeature(): Feature {

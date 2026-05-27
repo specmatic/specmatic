@@ -53,7 +53,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.11")
-
 }
 
 tasks.test {

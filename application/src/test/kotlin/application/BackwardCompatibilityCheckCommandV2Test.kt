@@ -13,11 +13,16 @@ import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
+import io.specmatic.license.core.LicenseResolver
+import io.specmatic.license.core.LicensedProduct
+import io.specmatic.license.core.SpecmaticFeature
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -29,6 +34,20 @@ import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
     private val objectMapper = ObjectMapper()
+
+    companion object {
+        @JvmStatic
+        @BeforeAll
+        fun beforeAll() {
+            // Initialise the license up front so the license-loading log line does not
+            // get interleaved into the console output captured by the tests.
+            LicenseResolver.utilize(
+                product = LicensedProduct.OPEN_SOURCE,
+                feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
+                protocol = listOf(SpecmaticProtocol.HTTP)
+            )
+        }
+    }
 
     @TempDir
     private lateinit var tempDir: File
@@ -49,6 +68,8 @@ class BackwardCompatibilityCheckCommandV2Test {
             .inheritIO()
             .start()
             .waitFor()
+
+        ProcessBuilder("git", "symbolic-ref", "HEAD", "refs/heads/main").directory(tempDir).inheritIO().start().waitFor()
 
         ProcessBuilder("git", "config", "--local", "user.name", "developer")
             .directory(tempDir)
@@ -469,6 +490,996 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     @Nested
+    inner class WipConsoleOutput {
+        // Uses the same fixtures as TestBackwardCompatibilityKtTest's
+        // "report reflects per-5-tuple change status..." but drives the full command (with git
+        // machinery) to assert the entire console output. The breaking WIP operation GET /promotions
+        // appears in its own "WIP scenarios" section and does NOT count towards the FAILED verdict;
+        // the real breaking changes (GET /orders 400/500, DELETE /orders/{id}) are what fail the spec.
+        @Test
+        fun `breaking WIP scenarios are shown in a separate section and do not drive the verdict`() {
+            val spec = tempDir.resolve("orders.yaml")
+            fixture("orders_old.yaml").copyTo(spec)
+            commit(tempDir, "Initial contract")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+
+            ProcessBuilder("git", "switch", "-c", "orders-change")
+                .directory(tempDir).inheritIO().start().waitFor()
+
+            fixture("orders_new.yaml").copyTo(spec, overwrite = true)
+            commit(tempDir, "Breaking changes plus a breaking WIP operation")
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = baseBranch
+                }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+
+            // Normalize trailing whitespace per line so the literal stays maintainable;
+            // the full output is asserted otherwise.
+            val normalizedOutput = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
+
+            assertThat(normalizedOutput).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 5, API Operations: 6
+              Schema components: 7, Security Schemes: none
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 5, API Operations: 7
+              Schema components: 7, Security Schemes: none
+
+
+            [Compatibility Check] Executing 1 scenarios for POST /orders against 2 operations
+              - POST /orders -> 201 (requestContentType application/json, responseContentType application/json)
+              - POST /orders -> 400 (requestContentType application/json, responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /orders against 3 operations
+              - GET /orders -> 200 (responseContentType application/json)
+              - GET /orders -> 400 (responseContentType application/json)
+              - GET /orders -> 500 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /orders/(id:string) against 2 operations
+              - GET /orders/(id:string) -> 200 (responseContentType application/json)
+              - GET /orders/(id:string) -> 404 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for DELETE /orders/(id:string) against 1 operations
+              - DELETE /orders/(id:string) -> 204
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /health against 1 operations
+              - GET /health -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /categories against 1 operations
+              - GET /categories -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /promotions against 1 operations
+              - GET /promotions -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /orders. Response: bad request"
+                API: GET /orders -> 400
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+
+                In scenario "GET /orders. Response: server error"
+                API: GET /orders -> 500
+
+                      This API exists in the old contract but not in the new contract
+
+                In scenario "DELETE /orders/(id:string). Response: deleted"
+                API: DELETE /orders/(id:string) -> 204
+
+                      This API exists in the old contract but not in the new contract
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /promotions. Response: ok"
+                API: GET /promotions -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        private fun fixture(name: String): File =
+            File("src/test/resources/specifications/bcc_integration/$name").canonicalFile
+    }
+
+    @Nested
+    inner class WipMatrix {
+        // Commits `oldSpec` on the base branch, then `newSpec` on a feature branch, and runs the
+        // backward compatibility check across them. Returns the full console output (trailing
+        // whitespace normalized per line), the exit code, and the spec file (for path
+        // interpolation in assertions).
+        private fun runChange(oldSpec: String, newSpec: String): Triple<String, Int, File> {
+            val spec = tempDir.resolve("spec.yaml")
+            spec.writeText(oldSpec.trimIndent())
+            commit(tempDir, "old")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+            ProcessBuilder("git", "switch", "-c", "change").directory(tempDir).inheritIO().start().waitFor()
+            spec.writeText(newSpec.trimIndent())
+            commit(tempDir, "new")
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = baseBranch
+                }.call()
+            }
+            return Triple(stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/'), exitCode, spec)
+        }
+
+        @Test
+        fun `1 - all compatible, no WIP - COMPATIBLE, no report sections`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string }, note: { type: string } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `2 - compatible non-WIP and compatible WIP - COMPATIBLE, no WIP section`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string }, note: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string }, label: { type: string } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `3 - compatible non-WIP and breaking WIP - COMPATIBLE, WIP section shown`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string }, note: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /b. Response: ok"
+                API: GET /b -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `4 - breaking non-WIP, no WIP - INCOMPATIBLE, report shown`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `5 - breaking non-WIP and compatible WIP - INCOMPATIBLE, no WIP section`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string }, label: { type: string } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: PASS
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `6 - breaking non-WIP and breaking WIP - INCOMPATIBLE, both sections shown`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 2, API Operations: 2
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /b. Response: ok"
+                API: GET /b -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `7 - spec is entirely WIP and breaking - COMPATIBLE, only WIP section shown`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /b:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [code]
+                                properties: { code: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /b. Response: ok"
+                API: GET /b -> 200
+
+                  >> RESPONSE.BODY.code
+
+                      This is number in the new specification response but string in the old specification
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `8 - WIP tag added in new and breaking - COMPATIBLE, WIP section shown (new spec governs)`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              WIP scenarios (incompatible, not breaking the check):
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+        }
+
+        @Test
+        fun `9 - WIP tag removed in new and breaking - INCOMPATIBLE, report shown (new spec governs)`() {
+            val oldSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      tags: [WIP]
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: string } }
+            """
+            val newSpec = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /a:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: integer } }
+            """
+            val (output, exitCode, spec) = runChange(oldSpec, newSpec)
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. ${spec.canonicalFile.invariantSeparatorsPath}
+
+            --------------------
+
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
+                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              --------------------
+
+
+            Files checked: 1 (Passed: 0, Failed: 1)
+            """.trimIndent())
+        }
+    }
+
+    @Nested
     inner class ChangeTrackingReportTests {
         @Test
         fun `reports external schema changes after command checks out the base branch`() {
@@ -607,7 +1618,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
     private fun commitAndPush(repoDir: File, commitMessage: String) {
         commit(repoDir, commitMessage)
-        ProcessBuilder("git", "push", "origin", "master").directory(repoDir).inheritIO().start().waitFor()
+        ProcessBuilder("git", "push", "origin", "main").directory(repoDir).inheritIO().start().waitFor()
     }
 
     private fun commit(repoDir: File, commitMessage: String) {
