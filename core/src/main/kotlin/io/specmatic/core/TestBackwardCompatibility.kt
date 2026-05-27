@@ -40,6 +40,7 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Res
 }
 
 fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+    if (records.isEmpty()) return null
     if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
