@@ -1,9 +1,6 @@
-name: Java Build with Gradle
+name: Trigger Specmatic Tests Orchestrator
+
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       orchestrator_repository:
@@ -18,8 +15,7 @@ on:
         type: string
       ENTERPRISE_VERSION:
         description: Enterprise selector or direct jar URL to test. Blank is invalid.
-        required: false
-        default: SNAPSHOT
+        required: true
         type: string
       TEST_EXECUTOR_JSON_PATH:
         description: Path to the caller-owned test executor JSON file to embed in the orchestrator payload.
@@ -31,57 +27,22 @@ on:
         required: false
         default: ubuntu-latest,windows-latest
         type: string
-jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
-    runs-on: ${{ matrix.os }}
-    permissions:
-      pull-requests: write
-      contents: write # This is required so that the dependency check can push dependency graph to the github repository
-      checks: write # Required for test reporting
-      statuses: write # Required for Specmatic Orchestrator Gate statuses
-    steps:
-      - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
-        with:
-          # compile/assemble in parallel to speed things up, but we will run the tests in a separate step (in sequence)
-          pre-gradle-command: ./gradlew compileTestKotlin assemble --parallel -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
-          gradle-extra-args: priospot -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
-          github-token-for-pr-comment: ${{ secrets.GITHUB_TOKEN }} # use the CI token with write permissions to post PR comments
-      
-      - name: Publish Snapshot
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
-        run: ./gradlew publishAllPublicationsToMavenCentralRepository publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository --parallel
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}"
-          ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}"
-          ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}"
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: "${{ secrets.SPECMATIC_GPG_KEY_ID }}"
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY_PASSPHRASE }}"
-          ORG_GRADLE_PROJECT_specmaticSnapshotsUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
-          ORG_GRADLE_PROJECT_specmaticSnapshotsPassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
-          ORG_GRADLE_PROJECT_specmaticPrivateUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
-          ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
 
-      - name: Trigger Specmatic Tests Orchestrator
-        if: matrix.os == 'ubuntu-latest' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')))
+jobs:
+  trigger-orchestrator:
+    name: Trigger orchestrator
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Checkout specmatic
+        uses: actions/checkout@v5
+
+      - name: Validate inputs
         shell: bash
-        env:
-          SPECMATIC_GITHUB_TOKEN: ${{ secrets.SPECMATIC_GITHUB_TOKEN }}
-          ORCHESTRATOR_REPOSITORY: ${{ inputs.orchestrator_repository || 'specmatic/specmatic-tests-orchestrator' }}
-          ORCHESTRATOR_EVENT_TYPE: ${{ inputs.orchestrator_event_type || 'specmatic-enterprise-jar-ready' }}
-          TEST_EXECUTOR_JSON_PATH: ${{ inputs.TEST_EXECUTOR_JSON_PATH || '.github/test-executor.json' }}
-          ENTERPRISE_VERSION: ${{ inputs.ENTERPRISE_VERSION || 'SNAPSHOT' }}
-          ORCHESTRATOR_CONFIGURATIONS: ${{ inputs.orchestrator_configurations || 'ubuntu-latest,windows-latest' }}
-          STATUS_TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          if [ -z "${SPECMATIC_GITHUB_TOKEN:-}" ]; then
-            echo "Missing SPECMATIC_GITHUB_TOKEN repository secret."
-            echo "Add a PAT with access to update statuses in ${GITHUB_REPOSITORY} and dispatch ${ORCHESTRATOR_REPOSITORY}."
-            exit 1
-          fi
           if [ -z "$(printf '%s' "${ENTERPRISE_VERSION}" | tr -d '[:space:]')" ]; then
             echo "ENTERPRISE_VERSION is required. Provide an Enterprise selector such as SNAPSHOT, RELEASE, a version, repository URL, or direct jar URL."
             exit 1
@@ -96,6 +57,29 @@ jobs:
           fi
           if [ -z "$(printf '%s' "${ORCHESTRATOR_CONFIGURATIONS}" | tr -d '[:space:],')" ]; then
             echo "orchestrator_configurations must include at least one runner label."
+            exit 1
+          fi
+        env:
+          ENTERPRISE_VERSION: ${{ inputs.ENTERPRISE_VERSION }}
+          ORCHESTRATOR_REPOSITORY: ${{ inputs.orchestrator_repository }}
+          ORCHESTRATOR_EVENT_TYPE: ${{ inputs.orchestrator_event_type }}
+          ORCHESTRATOR_CONFIGURATIONS: ${{ inputs.orchestrator_configurations }}
+
+      - name: Create statuses and trigger orchestrator
+        shell: bash
+        env:
+          SPECMATIC_GITHUB_TOKEN: ${{ secrets.SPECMATIC_GITHUB_TOKEN }}
+          ORCHESTRATOR_REPOSITORY: ${{ inputs.orchestrator_repository }}
+          ORCHESTRATOR_EVENT_TYPE: ${{ inputs.orchestrator_event_type }}
+          TEST_EXECUTOR_JSON_PATH: ${{ inputs.TEST_EXECUTOR_JSON_PATH }}
+          ENTERPRISE_VERSION: ${{ inputs.ENTERPRISE_VERSION }}
+          ORCHESTRATOR_CONFIGURATIONS: ${{ inputs.orchestrator_configurations }}
+          STATUS_TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPECMATIC_GITHUB_TOKEN:-}" ]; then
+            echo "Missing SPECMATIC_GITHUB_TOKEN repository secret."
+            echo "Add a PAT with access to update statuses in ${GITHUB_REPOSITORY} and dispatch ${ORCHESTRATOR_REPOSITORY}."
             exit 1
           fi
 
@@ -189,7 +173,11 @@ jobs:
               echo "- OS: ${display_os} (${configuration})"
               echo "- Initial state: pending"
               echo "- Enterprise selector: ${ENTERPRISE_VERSION}"
-              echo "- Manifest source: ${TEST_EXECUTOR_JSON_PATH}"
+              if [ -n "${TEST_EXECUTOR_JSON_PATH}" ]; then
+                echo "- Manifest source: ${TEST_EXECUTOR_JSON_PATH}"
+              else
+                echo "- Manifest: orchestrator default"
+              fi
               echo "- Commit status: [${GITHUB_SHA:0:7}](${status_url})"
               echo "- Orchestrator workflow: https://github.com/${ORCHESTRATOR_REPOSITORY}/actions/workflows/specmatic-enterprise-jar-tests.yml"
               echo "- Result details: the callback updates this gate's Details link to the exact specmatic-tests-orchestrator run."

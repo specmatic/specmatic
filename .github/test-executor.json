@@ -1,0 +1,16 @@
+[
+  {
+    "type": "sample-project",
+    "description": "Order API Java checks for Specmatic core",
+    "github-url": "https://github.com/specmatic/specmatic-order-api-java.git",
+    "branch": "main",
+    "enterprise-version": "${ENTERPRISE_VERSION}"
+  },
+  {
+    "type": "sample-project",
+    "description": "Order API Java OAuth checks for Specmatic core",
+    "github-url": "https://github.com/specmatic/specmatic-order-api-java-with-oauth.git",
+    "branch": "main",
+    "enterprise-version": "${ENTERPRISE_VERSION}"
+  }
+]
