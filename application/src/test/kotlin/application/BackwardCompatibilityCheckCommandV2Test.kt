@@ -1888,6 +1888,135 @@ class BackwardCompatibilityCheckCommandV2Test {
                 entry(spec2Path, "GET /b -> incompatible")
             )
         }
+
+        @Test
+        fun `hook passing a single failing spec reports the failure but exits successfully`() {
+            fun specWithType(path: String, type: String) = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  $path:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: $type } }
+            """.trimIndent()
+
+            val spec = tempDir.resolve("spec.yaml")
+
+            spec.writeText(specWithType("/a", "string"))
+            commit(tempDir, "Initial contract")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+
+            ProcessBuilder("git", "switch", "-c", "breaking-change")
+                .directory(tempDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+
+            // The spec changes the response body type from string to integer, which is breaking.
+            spec.writeText(specWithType("/a", "integer"))
+            commit(tempDir, "Make the spec breaking")
+
+            val configFile = remoteDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    reportDirPath: ${tempDir.resolve("reports").canonicalPath}
+                    """.trimIndent()
+                )
+            }
+
+            val (stdOut, exitCode) = withRegisteredService(
+                BackwardCompatibilityCheckHook::class.java,
+                AlwaysPassingBackwardCompatibilityCheckHook::class.java
+            ) {
+                captureStandardOutput(redirectStdErrToStdout = true) {
+                    using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                        BackwardCompatibilityCheckCommandV2().apply {
+                            options.repoDir = tempDir.canonicalPath
+                            options.baseBranch = baseBranch
+                        }.call()
+                    }
+                }
+            }
+
+            val output = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
+
+            val specPath = spec.canonicalFile.invariantSeparatorsPath
+            val htmlReportPath = tempDir.resolve("reports/backward_compatibility/html/index.html")
+                .canonicalFile.invariantSeparatorsPath
+
+            // The console output still reports the spec as failing, but the hook passes the
+            // build so the exit code is 0.
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(output).isEqualToNormalizingNewlines("""
+            Checking backward compatibility of the following specs:
+
+              - Specs that have changed:
+                1. $specPath
+
+            --------------------
+
+
+
+            API Specification Summary: $specPath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: $specPath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
+              - GET /a -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
+            Validating 1 failed spec(s) with the backward compatibility check hook...
+            Hook validation complete.
+            1. Running the check for $specPath:
+              ________________________________________
+              The Incompatibility Report:
+
+                In scenario "GET /a. Response: ok"
+                API: GET /a -> 200
+
+                  >> RESPONSE.BODY.value
+
+                      This is number in the new specification response but string in the old specification
+
+
+              --------------------
+              Verdict for spec $specPath:
+                (HOOK: PASSED) The hook declared the failing spec as backward compatible
+              --------------------
+
+
+            Generating BCC report for 2 checks and 1 operations...
+            Generating HTML report in $htmlReportPath
+            Files checked: 1 (Passed: 1, Failed: 0)
+            """.trimIndent())
+
+            val reportJson = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
+
+            // The failing operation is still present in the report even though the hook passed the build.
+            val executionDetails = reportJson.path("results").path("summary").path("extra").path("executionDetails")
+            val operationsBySpec = executionDetails.associate { detail ->
+                detail.path("specification").asText().replace('\\', '/') to detail.path("operations").single().let {
+                    "${it.path("method").asText()} ${it.path("path").asText()} -> ${it.path("status").asText()}"
+                }
+            }
+            assertThat(operationsBySpec).containsOnly(
+                entry(specPath, "GET /a -> incompatible")
+            )
+        }
     }
 
     @Test
@@ -2026,4 +2155,26 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
         const val PASSED_SPEC = "hook-passed.yaml"
         const val FAILED_SPEC = "hook-failed.yaml"
     }
+}
+
+class AlwaysPassingBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook {
+    override fun check(
+        backwardCompatibilityResult: Results,
+        centralRepoUrl: String,
+        specFilePath: String,
+    ): Pair<CompatibilityResult, List<OperationUsageResponse>?> = CompatibilityResult.PASSED to emptyList()
+
+    override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {
+        println("Validating ${failedSpecs.size} failed spec(s) with the backward compatibility check hook...")
+    }
+
+    override fun logCompletedMessage() {
+        println("Hook validation complete.")
+    }
+
+    override fun failedVerdictAndMessage(
+        processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
+        strictMode: Boolean,
+    ): Pair<CompatibilityResult, String> =
+        CompatibilityResult.PASSED to "(HOOK: PASSED) The hook declared the failing spec as backward compatible"
 }
