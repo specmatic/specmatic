@@ -4839,7 +4839,7 @@ paths:
         }
 
         @Test
-        fun `a breaking wip operation executes and is reported as other while retaining its failed raw status`(@TempDir tempDir: File) {
+        fun `a breaking wip operation executes and is reported as other while retaining its incompatible raw status`(@TempDir tempDir: File) {
             val oldSpec = readFixture("orders_old.yaml")
             val newSpec = readFixture("orders_new.yaml")
 
@@ -4858,9 +4858,9 @@ paths:
                 assertThat(wipTest.path("status").asText()).isEqualTo("other")
             }
             // The WIP operation actually executed and produced a real failure: at least one WIP
-            // test retains a `failed` raw status even though its reported state is `other`.
+            // test retains an `incompatible` raw status even though its reported state is `other`.
             assertThat(wipTests).anySatisfy { wipTest ->
-                assertThat(wipTest.path("rawStatus").asText()).isEqualTo("failed")
+                assertThat(wipTest.path("rawStatus").asText()).isEqualTo("incompatible")
             }
 
             // The WIP failure is counted under `other`, never `failed`.
