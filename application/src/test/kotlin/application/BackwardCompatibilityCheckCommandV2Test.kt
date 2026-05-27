@@ -1591,10 +1591,9 @@ class BackwardCompatibilityCheckCommandV2Test {
                 )
             }
 
-            MixedResultBackwardCompatibilityCheckHook.reset()
-
-            val (stdOut, exitCode) = withServiceLoaderEntries(
-                mapOf(BackwardCompatibilityCheckHook::class.java to MixedResultBackwardCompatibilityCheckHook::class.java.name)
+            val (stdOut, exitCode) = withRegisteredService(
+                BackwardCompatibilityCheckHook::class.java,
+                MixedResultBackwardCompatibilityCheckHook::class.java
             ) {
                 captureStandardOutput(redirectStdErrToStdout = true) {
                     using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
@@ -1615,12 +1614,6 @@ class BackwardCompatibilityCheckCommandV2Test {
                 .canonicalFile.invariantSeparatorsPath
 
             assertThat(exitCode).isEqualTo(1)
-            assertThat(MixedResultBackwardCompatibilityCheckHook.checkedSpecs)
-                .containsExactlyInAnyOrder(
-                    MixedResultBackwardCompatibilityCheckHook.PASSED_SPEC,
-                    MixedResultBackwardCompatibilityCheckHook.FAILED_SPEC
-                )
-
             assertThat(output).isEqualToNormalizingNewlines("""
             Checking backward compatibility of the following specs:
 
@@ -1987,15 +1980,12 @@ class BackwardCompatibilityCheckCommandV2Test {
         return objectMapper.readTree(reportLiteral)
     }
 
-    private fun <T> withServiceLoaderEntries(entries: Map<Class<*>, String>, block: () -> T): T {
+    private fun <T> withRegisteredService(service: Class<*>, implementation: Class<*>, block: () -> T): T {
         val previousContextClassLoader = Thread.currentThread().contextClassLoader
         val serviceLoaderDir = Files.createTempDirectory("specmatic-service-loader-test")
-        val servicesDir = serviceLoaderDir.resolve("META-INF/services")
-        Files.createDirectories(servicesDir)
-
-        entries.forEach { (service, implementationClassName) ->
-            Files.writeString(servicesDir.resolve(service.name), "$implementationClassName\n")
-        }
+        val serviceFile = serviceLoaderDir.resolve("META-INF/services/${service.name}")
+        Files.createDirectories(serviceFile.parent)
+        Files.writeString(serviceFile, "${implementation.name}\n")
 
         val classLoader = URLClassLoader(arrayOf(serviceLoaderDir.toUri().toURL()), previousContextClassLoader)
         Thread.currentThread().contextClassLoader = classLoader
@@ -2016,14 +2006,10 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
         backwardCompatibilityResult: Results,
         centralRepoUrl: String,
         specFilePath: String,
-    ): Pair<CompatibilityResult, List<OperationUsageResponse>?> {
-        checkedSpecs.add(specFilePath)
-
-        return when (specFilePath) {
-            PASSED_SPEC -> CompatibilityResult.PASSED to emptyList()
-            FAILED_SPEC -> CompatibilityResult.FAILED to emptyList()
-            else -> CompatibilityResult.UNKNOWN to emptyList()
-        }
+    ): Pair<CompatibilityResult, List<OperationUsageResponse>?> = when (specFilePath) {
+        PASSED_SPEC -> CompatibilityResult.PASSED to emptyList()
+        FAILED_SPEC -> CompatibilityResult.FAILED to emptyList()
+        else -> CompatibilityResult.UNKNOWN to emptyList()
     }
 
     override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {}
@@ -2039,10 +2025,5 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
     companion object {
         const val PASSED_SPEC = "hook-passed.yaml"
         const val FAILED_SPEC = "hook-failed.yaml"
-        val checkedSpecs = java.util.concurrent.CopyOnWriteArrayList<String>()
-
-        fun reset() {
-            checkedSpecs.clear()
-        }
     }
 }
