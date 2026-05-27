@@ -7,7 +7,6 @@ import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
-import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -25,22 +24,9 @@ import kotlin.io.path.pathString
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
 
-    private val reportRecords = mutableListOf<CtrfBackwardCompatibilityRecord>()
-    private var reportStartTime: Long? = null
-
-    override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
-        if (reportStartTime == null) reportStartTime = System.currentTimeMillis()
+    override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
         val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature)
-        reportRecords.addAll(records)
-        return results
-    }
-
-    override fun generateReport() {
-        generateBackwardCompatibilityReport(
-            reportRecords,
-            reportStartTime ?: System.currentTimeMillis(),
-            System.currentTimeMillis()
-        )
+        return BackwardCompatibilityCheckResult(results, records)
     }
 
     companion object {
