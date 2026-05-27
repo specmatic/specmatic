@@ -375,14 +375,19 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 })
             }
 
-            return futures.map { (processed, future) ->
-                try {
-                    val compatibilityResult = future.get()
-                    processed.copy(computedCompatibilityCheckHookResult = compatibilityResult)
+            val hookResultsBySpec = futures.associate { (processed, future) ->
+                processed.specFilePath to try {
+                    future.get()
                 } catch (e: Throwable) {
                     logger.log(e)
-                    processed.copy(computedCompatibilityCheckHookResult = unknownResult)
+                    unknownResult
                 }
+            }
+
+            return processedSpecs.map { processed ->
+                hookResultsBySpec[processed.specFilePath]
+                    ?.let { processed.copy(computedCompatibilityCheckHookResult = it) }
+                    ?: processed
             }
         } finally {
             executor.shutdown()
