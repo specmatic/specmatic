@@ -49,15 +49,7 @@ class MockServerTool {
 
         return try {
             val command = StubCommand()
-            val argsList = mutableListOf<String>()
-            argsList.add("--port")
-            argsList.add(port.toString())
-            argsList.add("--host")
-            argsList.add("127.0.0.1")
-            argsList.add("--noConsoleLog")
-            argsList.add("--hot-reload")
-            argsList.add("disabled")
-            argsList.add(specFile.canonicalPath)
+            val argsList = stubCommandArgs(port, tempDir, specFile)
 
             command.registerShutdownHook = false
 
@@ -154,6 +146,21 @@ class MockServerTool {
             port = port,
             tempDir = tempDir.canonicalPath,
             url = "http://localhost:$port"
+        )
+    }
+
+    private fun stubCommandArgs(port: Int, tempDir: File, specFile: File): List<String> {
+        return listOf(
+            "--port",
+            port.toString(),
+            "--host",
+            "127.0.0.1",
+            "--textLog",
+            tempDir.canonicalPath,
+            "--noConsoleLog",
+            "--hot-reload",
+            "disabled",
+            specFile.canonicalPath
         )
     }
 

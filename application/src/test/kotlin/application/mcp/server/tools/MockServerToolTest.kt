@@ -3,7 +3,6 @@ package application.mcp.server.tools
 import application.StubCommand
 import io.mockk.*
 import io.specmatic.stub.waitUntilConnectable
-import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -44,6 +43,16 @@ class MockServerToolTest {
         return field.get(tool) as ConcurrentHashMap<Int, StubCommand>
     }
 
+    private fun registryFile(): File = tempDir.resolve("mock-servers.json")
+
+    private fun persistedTempDir(): File {
+        val tempDirPath = registryFile().readText()
+            .substringAfter("\"tempDir\":\"")
+            .substringBefore('"')
+
+        return File(tempDirPath)
+    }
+
     @Test
     fun `manageMockServer list should return empty message when no servers are running`() {
         val args = ManageMockServerArgs(command = "list")
@@ -71,14 +80,33 @@ class MockServerToolTest {
 
         assertThat(result).contains("Mock server started successfully")
         assertThat(result).contains("Server URL: http://localhost:9001")
+        assertThat(result).contains("Log directory:")
         
         // Verify registry was updated
-        val registryFile = tempDir.resolve("mock-servers.json")
+        val registryFile = registryFile()
         assertThat(registryFile).exists()
         assertThat(registryFile.readText()).contains("9001")
+        assertThat(persistedTempDir()).isDirectory()
         
         // Verify tool internal state
         assertThat(getRunningMocks()).containsKey(9001)
+    }
+
+    @Test
+    fun `should start MCP managed mocks with text file logging and console logging disabled`() {
+        val commandArgsMethod = tool.javaClass.getDeclaredMethod("stubCommandArgs", Int::class.javaPrimitiveType, File::class.java, File::class.java)
+        commandArgsMethod.isAccessible = true
+
+        val mockTempDir = tempDir.resolve("mock-runtime").apply { mkdirs() }
+        val specFile = mockTempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0") }
+
+        @Suppress("UNCHECKED_CAST")
+        val args = commandArgsMethod.invoke(tool, 9001, mockTempDir, specFile) as List<String>
+
+        assertThat(args).containsSequence("--textLog", mockTempDir.canonicalPath)
+        assertThat(args).contains("--noConsoleLog")
+        assertThat(args).containsSequence("--hot-reload", "disabled")
+        assertThat(args.last()).isEqualTo(specFile.canonicalPath)
     }
 
     @Test
@@ -100,15 +128,18 @@ class MockServerToolTest {
         // Start a server first
         tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9006))
         assertThat(getRunningMocks()).containsKey(9006)
+        val mockTempDir = persistedTempDir()
+        assertThat(mockTempDir).isDirectory()
         
         // Stop it
         val result = tool.manageMockServer(ManageMockServerArgs(command = "stop", port = 9006))
 
         assertThat(result).contains("Mock server stopped successfully")
         assertThat(result).contains("Port: 9006")
+        assertThat(mockTempDir).doesNotExist()
         
         // Verify registry is empty
-        val registryFile = tempDir.resolve("mock-servers.json")
+        val registryFile = registryFile()
         assertThat(registryFile.readText()).isEqualTo("[]")
         
         // Verify internal state
