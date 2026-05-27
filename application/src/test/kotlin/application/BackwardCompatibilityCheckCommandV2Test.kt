@@ -1688,7 +1688,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             // Both specs are present, each reported as incompatible on its own operation.
             val executionDetails = reportJson.path("results").path("summary").path("extra").path("executionDetails")
             val operationsBySpec = executionDetails.associate { detail ->
-                detail.path("specification").asText() to detail.path("operations").single().let {
+                detail.path("specification").asText().replace('\\', '/') to detail.path("operations").single().let {
                     "${it.path("method").asText()} ${it.path("path").asText()} -> ${it.path("status").asText()}"
                 }
             }
