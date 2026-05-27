@@ -24,8 +24,9 @@ import kotlin.io.path.pathString
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
 
-    override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
-        return testBackwardCompatibility(oldFeature as Feature, newFeature as Feature)
+    override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
+        val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature)
+        return BackwardCompatibilityCheckResult(results, records)
     }
 
     companion object {

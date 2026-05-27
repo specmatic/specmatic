@@ -4728,6 +4728,23 @@ paths:
         }
     }
 
+    @Test
+    fun `generateBackwardCompatibilityReport returns null and writes nothing when there are no records`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 2
+            reportDirPath: ${tempDir.canonicalPath}/reports
+            """.trimIndent())
+        }
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            val report = generateBackwardCompatibilityReport(emptyList(), 0L, 1L)
+
+            assertThat(report).isNull()
+            assertThat(tempDir.resolve("reports")).doesNotExist()
+        }
+    }
+
     @Nested
     inner class BccIntegrationFromFixtures {
         @Test

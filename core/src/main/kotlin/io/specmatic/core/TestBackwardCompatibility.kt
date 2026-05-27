@@ -26,6 +26,11 @@ internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature)
     return Pair(result, report)
 }
 
+fun backwardCompatibilityRecords(older: Feature, newer: Feature): Pair<Results, List<CtrfBackwardCompatibilityRecord>> {
+    val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
+    return records.toBackwardCompatibilityStatuses() to records
+}
+
 fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {
     return filterIsInstance<OpenApiBackwardCompatibilityCheckRecord>()
         .groupBy { it.operations }.values
@@ -34,7 +39,8 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Res
         }
 }
 
-private fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+    if (records.isEmpty()) return null
     if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
