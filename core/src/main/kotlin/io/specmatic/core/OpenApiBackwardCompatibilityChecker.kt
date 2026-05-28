@@ -55,7 +55,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun generatePositiveVariations(scenarios: List<Scenario>): List<Scenario> {
         return scenarios.flatMap { scenario ->
-            scenario.withoutExamples().generateBackwardCompatibilityScenarios()
+            scenario.withoutExamples().generateBackwardCompatibilityScenarios().map { it.value }
         }
     }
 

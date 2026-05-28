@@ -706,7 +706,7 @@ data class Scenario(
     fun generateBackwardCompatibilityScenarios(
         variables: Map<String, String> = emptyMap(),
         testBaseURLs: Map<String, String> = emptyMap()
-    ): List<Scenario> {
+    ): List<ReturnValue<Scenario>> {
         val referencesWithBaseURLs = references.mapValues { (_, reference) ->
             reference.copy(variables = variables, baseURLs = testBaseURLs)
         }
@@ -756,19 +756,18 @@ data class Scenario(
                 }
             }.flatMap { row ->
                 newBasedOn(row, backwardCompatibilityStrategies).map { generated ->
-                    generated.realise(
-                        // Carry the generated variation's key-combination description (e.g. "REQUEST.BODY
-                        // contains only the mandatory keys") so each positive variation of a 5-tuple is
-                        // distinguishable downstream (notably in the backward-compatibility CTRF report).
-                        hasValue = { scenario, _ ->
-                            scenario.copy(
-                                requestChangeSummary = (generated as HasValue<Scenario>)
-                                    .valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
-                            )
-                        },
-                        orFailure = { throw ContractException(it.toFailure().toFailureReport()) },
-                        orException = { throw it.t },
-                    )
+                    // Carry the generated variation's key-combination description (e.g. "REQUEST.BODY
+                    // contains only the mandatory keys") so each positive variation of a 5-tuple is
+                    // distinguishable downstream (notably in the backward-compatibility CTRF report).
+                    // Decorated lazily (no realise) so failures propagate to the consumer untouched.
+                    generated.ifHasValue { result ->
+                        HasValue(
+                            result.value.copy(
+                                requestChangeSummary = result.valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
+                            ),
+                            result.valueDetails
+                        )
+                    }
                 }
             }
         }
