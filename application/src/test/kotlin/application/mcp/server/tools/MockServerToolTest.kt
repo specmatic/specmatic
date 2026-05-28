@@ -22,11 +22,6 @@ class MockServerToolTest {
     fun setUp() {
         tool = MockServerTool()
         
-        // Use reflection to override the private mockRegistryFile to point to our temp directory
-        val registryFileField = tool.javaClass.getDeclaredField("mockRegistryFile")
-        registryFileField.isAccessible = true
-        registryFileField.set(tool, tempDir.resolve("mock-servers.json"))
-        
         // Mock the top-level function in SpecmaticMockRunner.kt
         mockkStatic("io.specmatic.stub.SpecmaticMockRunnerKt")
     }
@@ -43,14 +38,10 @@ class MockServerToolTest {
         return field.get(tool) as ConcurrentHashMap<Int, StubCommand>
     }
 
-    private fun registryFile(): File = tempDir.resolve("mock-servers.json")
-
-    private fun persistedTempDir(): File {
-        val tempDirPath = registryFile().readText()
-            .substringAfter("\"tempDir\":\"")
-            .substringBefore('"')
-
-        return File(tempDirPath)
+    private fun extractLogDir(result: String): String {
+        return result.lines().find { it.contains("Log directory:") }
+            ?.substringAfter("Log directory: ")
+            ?.trim() ?: ""
     }
 
     @Test
@@ -82,11 +73,8 @@ class MockServerToolTest {
         assertThat(result).contains("Server URL: http://localhost:9001")
         assertThat(result).contains("Log directory:")
         
-        // Verify registry was updated
-        val registryFile = registryFile()
-        assertThat(registryFile).exists()
-        assertThat(registryFile.readText()).contains("9001")
-        assertThat(persistedTempDir()).isDirectory()
+        val logDir = extractLogDir(result)
+        assertThat(File(logDir)).isDirectory()
         
         // Verify tool internal state
         assertThat(getRunningMocks()).containsKey(9001)
@@ -110,7 +98,7 @@ class MockServerToolTest {
     }
 
     @Test
-    fun `manageMockServer stop should return failure when port is not in registry`() {
+    fun `manageMockServer stop should return failure when port is not running`() {
         val args = ManageMockServerArgs(command = "stop", port = 9005)
         val result = tool.manageMockServer(args)
 
@@ -128,19 +116,12 @@ class MockServerToolTest {
         // Start a server first
         tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9006))
         assertThat(getRunningMocks()).containsKey(9006)
-        val mockTempDir = persistedTempDir()
-        assertThat(mockTempDir).isDirectory()
         
         // Stop it
         val result = tool.manageMockServer(ManageMockServerArgs(command = "stop", port = 9006))
 
         assertThat(result).contains("Mock server stopped successfully")
         assertThat(result).contains("Port: 9006")
-        assertThat(mockTempDir).doesNotExist()
-        
-        // Verify registry is empty
-        val registryFile = registryFile()
-        assertThat(registryFile.readText()).isEqualTo("[]")
         
         // Verify internal state
         assertThat(getRunningMocks()).doesNotContainKey(9006)
