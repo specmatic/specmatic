@@ -134,7 +134,7 @@ class ContractExecutionListenerTest {
     fun `output is written to stderr instead of stdout when console is null`() {
         val stdout = ByteArrayOutputStream()
         val stderr = ByteArrayOutputStream()
-        val originalOut = System.`out`
+        val originalOut = System.out
         val originalErr = System.err
         System.setOut(PrintStream(stdout, true, Charsets.UTF_8))
         System.setErr(PrintStream(stderr, true, Charsets.UTF_8))

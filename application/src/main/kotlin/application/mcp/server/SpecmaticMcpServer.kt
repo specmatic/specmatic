@@ -150,7 +150,7 @@ class SpecmaticMcpServer : AutoCloseable {
         System.err.println("Successfully registered tools.")
     }
 
-    suspend fun run(outputStream: OutputStream = System.`out`) {
+    suspend fun run(outputStream: OutputStream = System.out) {
         val transport = StdioServerTransport(System.`in`.asSource().buffered(), outputStream.asSink().buffered())
         val session = server.createSession(transport)
         val done = kotlinx.coroutines.CompletableDeferred<Unit>()
