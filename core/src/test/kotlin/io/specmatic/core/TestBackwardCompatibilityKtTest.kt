@@ -7,6 +7,7 @@ import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.ChangeStatus
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
+import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
@@ -4665,6 +4666,54 @@ paths:
             // 3 (= max(3, 2)) prioritised variations, not the 3 x 2 = 6 cartesian product.
             assertThat(requestTests).hasSize(3)
             assertThat(requestTests.map { it.path("name").asText() }).doesNotHaveDuplicates()
+        }
+    }
+
+    @Test
+    fun `ambient generation flags do not leak into backward compatibility request variations`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
+        }
+        // BCC builds its generation strategy from scratch rather than copying DefaultStrategies (which is
+        // strategiesFromFlags(SpecmaticConfig()) and reads ambient system properties). Here the `kind`
+        // enum carries an `example`, so SCHEMA_EXAMPLE_DEFAULT=true would otherwise leak in as
+        // UseDefaultExample, collapse the enum to its example value, and silently stop exercising the
+        // 'food' value -- halving the request coverage. Both enum values must still be generated.
+        val spec = """
+            openapi: 3.0.0
+            info: { title: Catalog, version: 1.0.0 }
+            paths:
+              /catalog:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [name, kind]
+                          properties:
+                            name: { type: string }
+                            kind: { type: string, enum: [book, food], example: book }
+                  responses:
+                    '201': { description: created }
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "catalog.yaml").toFeature()
+
+        using(
+            CONFIG_FILE_PATH to configFile.canonicalPath,
+            "SPECMATIC_BCC_REPORT" to "true",
+            SCHEMA_EXAMPLE_DEFAULT to "true",
+        ) {
+            val (_, report) = testBackwardCompatibilityWithReport(feature, feature)
+            val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+            val names = tests.map { it.path("name").asText() }
+
+            val base = "Scenario: POST /catalog -> 201 (requestContentType application/json)"
+            assertThat(names).contains(
+                "$base with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'book' from enum (request)",
+                "$base with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'food' from enum (request)",
+            )
         }
     }
 

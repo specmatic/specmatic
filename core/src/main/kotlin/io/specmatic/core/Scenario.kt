@@ -726,14 +726,23 @@ data class Scenario(
         // additionally caps the set for pathologically large enums. NonGenerativeTests keeps it to
         // structural (optional-key) variations.
         //
-        // generation/prefixes are pinned rather than inherited from DefaultStrategies: that reads a
-        // fresh SpecmaticConfig() which falls back to system properties, so with
-        // SPECMATIC_GENERATIVE_TESTS/ONLY_POSITIVE set it would otherwise carry GenerativeTestsEnabled
-        // and the +ve/-ve prefixes, leaking generative mutations and prefixed report names into BCC.
-        val backwardCompatibilityStrategies = DefaultStrategies.copy(
+        // Built from scratch rather than DefaultStrategies.copy(...): DefaultStrategies is
+        // strategiesFromFlags(SpecmaticConfig()), which reads system properties, so copying it leaks
+        // ambient flags into BCC and makes the generated variation set environment-dependent. Most
+        // concretely, SCHEMA_EXAMPLE_DEFAULT flips defaultExampleResolver to UseDefaultExample, which
+        // collapses an enum to its schema `example` value -- so a `kind: [book, food]` with `example:
+        // book` would generate only the 'book' variation and silently stop exercising 'food'. The other
+        // strategy/prefix/key-check fields are pinned for the same reason. These values reproduce the
+        // env-independent defaults the deleted newBasedOnBackwardCompatibility relied on (a plain
+        // Resolver), plus the intended prioritised-only set and the safety cap.
+        val backwardCompatibilityStrategies = FlagsBased(
+            defaultExampleResolver = DoNotUseDefaultExample,
             generation = NonGenerativeTests,
+            unexpectedKeyCheck = null,
             positivePrefix = "",
             negativePrefix = "",
+            allPatternsAreMandatory = false,
+            useFuzzyMatching = false,
             maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS,
             prioritisedRequestCombinationsOnly = true,
         )
