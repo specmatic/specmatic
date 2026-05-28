@@ -49,11 +49,6 @@ const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM
 
 enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
 
-// Safety cap on the prioritised request-combination set per object during a backward compatibility
-// check. Prioritised-only generation already bounds this to ~max(per-key candidate counts); the cap
-// only bites for pathologically large enums. See generateBackwardCompatibilityScenarios.
-private const val BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS = 50
-
 // Status used to force valid-request generation in newBasedOn (any 2xx triggers the positive path).
 private const val POSITIVE_REQUEST_STATUS = 200
 data class Scenario(
@@ -722,9 +717,14 @@ data class Scenario(
         // each candidate value of each request parameter/body key is covered once, but the full
         // cartesian product across keys is skipped. This keeps the generated set close to the legacy
         // resolver-only path (no combinatorial explosion across headers x body x enums), while still
-        // carrying the per-variation valueDetails used for naming. maxTestRequestCombinations
-        // additionally caps the set for pathologically large enums. NonGenerativeTests keeps it to
+        // carrying the per-variation valueDetails used for naming. NonGenerativeTests keeps it to
         // structural (optional-key) variations.
+        //
+        // maxTestRequestCombinations is left uncapped (Int.MAX_VALUE): prioritisedRequestCombinationsOnly
+        // already bounds the set linearly to ~max(per-key candidate counts), so there is no explosion to
+        // cap. A finite cap here would instead silently drop legitimate per-value coverage -- e.g. with a
+        // required 51-value enum it would skip value 51, and BCC could then report an operation as
+        // compatible even though a new schema that removed exactly that value would reject old clients.
         //
         // Built from scratch rather than DefaultStrategies.copy(...): DefaultStrategies is
         // strategiesFromFlags(SpecmaticConfig()), which reads system properties, so copying it leaks
@@ -743,7 +743,7 @@ data class Scenario(
             negativePrefix = "",
             allPatternsAreMandatory = false,
             useFuzzyMatching = false,
-            maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS,
+            maxTestRequestCombinations = Int.MAX_VALUE,
             prioritisedRequestCombinationsOnly = true,
         )
 
