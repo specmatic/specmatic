@@ -33,7 +33,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.branch).isEqualTo("main")
         assertThat(record.specType).isEqualTo(SpecType.OPENAPI)
         assertThat(record.tags).doesNotContain("path:${scenario.path}")
-        assertThat(record.name).isEqualTo("${scenario.testDescription().trim()} (request)")
+        assertThat(record.name).isEqualTo("${scenario.fullApiTestDescription().trim()} (request)")
         assertThat(record.changeStatus).isEqualTo(ChangeStatus.CHANGED)
         assertThat(record.specification).isEqualTo("specs/orders.yaml")
         assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Compatible)
@@ -50,6 +50,44 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.operations).containsExactly(
             openAPIOperationFrom(scenario, convertPathParameterStyle(scenario.path))
         )
+    }
+
+    @Test
+    fun `name should carry content-type so 5-tuples differing only by media type are distinguishable`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.1
+        info:
+          title: Orders API
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: string
+                  text/plain:
+                    schema:
+                      type: string
+              responses:
+                '200':
+                  description: ok
+        """.trimIndent(), "orders.yaml").toFeature()
+
+        val jsonScenario = feature.scenarios.single { it.requestContentType == "application/json" }
+        val textScenario = feature.scenarios.single { it.requestContentType == "text/plain" }
+
+        fun nameFor(scenario: Scenario) = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = Result.Success(),
+            feature = feature,
+        ).name
+
+        assertThat(nameFor(jsonScenario)).contains("application/json")
+        assertThat(nameFor(textScenario)).contains("text/plain")
+        assertThat(nameFor(jsonScenario)).isNotEqualTo(nameFor(textScenario))
     }
 
     @Test
@@ -81,7 +119,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Incompatible)
         assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
         assertThat(record.isWip).isTrue()
-        assertThat(record.name).isEqualTo("${scenario.testDescription().trim()} (request)")
+        assertThat(record.name).isEqualTo("${scenario.fullApiTestDescription().trim()} (request)")
         assertThat(record.tags).contains("wip")
     }
 
@@ -97,7 +135,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         )
 
         assertThat(record.isWip).isFalse()
-        assertThat(record.name).isEqualTo("${scenario.testDescription().trim()} (request)")
+        assertThat(record.name).isEqualTo("${scenario.fullApiTestDescription().trim()} (request)")
         assertThat(record.tags).doesNotContain("wip")
     }
 

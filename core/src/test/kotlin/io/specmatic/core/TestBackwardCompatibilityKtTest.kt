@@ -4618,9 +4618,9 @@ paths:
             assertThat(names).doesNotHaveDuplicates()
 
             // The two positive request variations of POST /widgets -> 200 are present and
-            // distinguishable, named identically to the contract-test/mock CTRF (scenario.testDescription),
-            // minus the +ve prefix, with the "(request)" compatibility-phase suffix.
-            val base = "Scenario: POST /widgets -> 200"
+            // distinguishable, named like the contract-test/mock CTRF (scenario.testDescription) minus the
+            // +ve prefix, plus the request content type and the "(request)" compatibility-phase suffix.
+            val base = "Scenario: POST /widgets -> 200 (requestContentType application/json)"
             assertThat(names).contains(
                 "$base with a request where REQUEST.BODY contains all the keys (request)",
                 "$base with a request where REQUEST.BODY contains only the mandatory keys (request)",
@@ -4844,56 +4844,57 @@ paths:
             val operations = operationsFrom(report)
             val json = "application/json"
 
-            // Every CTRF test name, named identically to contract-test/mock tests (scenario.testDescription,
-            // minus the +ve prefix). Each 5-tuple yields a request-compatibility test and a
-            // response-compatibility test, distinguished by the "(request)"/"(response)" suffix; for GET
-            // (no request body) the two read the same apart from that suffix, while POST /orders carries the
-            // request-body key-combination summary on its request test (OrderInput and its nested Customer
-            // are fully required, so there is exactly one "contains all the keys" variation). 5-tuples
-            // removed from the new contract (GET /orders 500, DELETE /orders/{id}) yield only the records
-            // that detect their absence.
+            // Every CTRF test name. The base description matches contract-test/mock tests
+            // (scenario.testDescription, minus the +ve prefix), and BCC additionally carries the content
+            // type so 5-tuples that differ only by request/response media type stay distinguishable. Each
+            // 5-tuple yields a request-compatibility test and a response-compatibility test, distinguished
+            // by the "(request)"/"(response)" suffix; for GET (no request body) the two read the same apart
+            // from that suffix, while POST /orders carries the request-body key-combination summary on its
+            // request test (OrderInput and its nested Customer are fully required, so there is exactly one
+            // "contains all the keys" variation). 5-tuples removed from the new contract (GET /orders 500,
+            // DELETE /orders/{id}) yield only the records that detect their absence.
             val names = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
                 .map { it.path("name").asText() }
             assertThat(names).containsExactlyInAnyOrder(
                 // GET /orders 200
-                "Scenario: GET /orders -> 200 (request)",
-                "Scenario: GET /orders -> 200 (response)",
+                "Scenario: GET /orders -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /orders -> 200 (responseContentType application/json) (response)",
                 // GET /orders 400
-                "Scenario: GET /orders -> 400 (request)",
-                "Scenario: GET /orders -> 400 (response)",
+                "Scenario: GET /orders -> 400 (responseContentType application/json) (request)",
+                "Scenario: GET /orders -> 400 (responseContentType application/json) (response)",
                 // GET /orders 500 - removed in new, only the response absence-detecting record
-                "Scenario: GET /orders -> 500 (response)",
+                "Scenario: GET /orders -> 500 (responseContentType application/json) (response)",
                 // POST /orders 201 - response test, plus request test with the single body variation
-                "Scenario: POST /orders -> 201 (response)",
-                "Scenario: POST /orders -> 201 with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
+                "Scenario: POST /orders -> 201 (requestContentType application/json, responseContentType application/json) (response)",
+                "Scenario: POST /orders -> 201 (requestContentType application/json, responseContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
                 // POST /orders 400 - response test, plus request test with the single body variation
-                "Scenario: POST /orders -> 400 (response)",
-                "Scenario: POST /orders -> 400 with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
+                "Scenario: POST /orders -> 400 (requestContentType application/json, responseContentType application/json) (response)",
+                "Scenario: POST /orders -> 400 (requestContentType application/json, responseContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
                 // POST /catalog 201 - response test, plus one request test per (key-combination x kind enum)
                 // variation, each with a distinct name.
-                "Scenario: POST /catalog -> 201 (response)",
-                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'book' from enum (request)",
-                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'food' from enum (request)",
-                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'book' from enum (request)",
-                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'food' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) (response)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'book' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'food' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'book' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'food' from enum (request)",
                 // GET /orders/{id} 200
-                "Scenario: GET /orders/(id:string) -> 200 (request)",
-                "Scenario: GET /orders/(id:string) -> 200 (response)",
+                "Scenario: GET /orders/(id:string) -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /orders/(id:string) -> 200 (responseContentType application/json) (response)",
                 // GET /orders/{id} 404
-                "Scenario: GET /orders/(id:string) -> 404 (request)",
-                "Scenario: GET /orders/(id:string) -> 404 (response)",
+                "Scenario: GET /orders/(id:string) -> 404 (responseContentType application/json) (request)",
+                "Scenario: GET /orders/(id:string) -> 404 (responseContentType application/json) (response)",
                 // DELETE /orders/{id} 204 - removed in new, request + response absence-detecting records
                 "Scenario: DELETE /orders/(id:string) -> 204 (request)",
                 "Scenario: DELETE /orders/(id:string) -> 204 (response)",
                 // GET /categories 200
-                "Scenario: GET /categories -> 200 (request)",
-                "Scenario: GET /categories -> 200 (response)",
+                "Scenario: GET /categories -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /categories -> 200 (responseContentType application/json) (response)",
                 // GET /health 200
-                "Scenario: GET /health -> 200 (request)",
-                "Scenario: GET /health -> 200 (response)",
+                "Scenario: GET /health -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /health -> 200 (responseContentType application/json) (response)",
                 // GET /promotions 200 - WIP operation
-                "Scenario: GET /promotions -> 200 (request)",
-                "Scenario: GET /promotions -> 200 (response)",
+                "Scenario: GET /promotions -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /promotions -> 200 (responseContentType application/json) (response)",
             )
 
             // Every CTRF test name is unique: the phase suffix separates request/response checks, and

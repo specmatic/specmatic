@@ -35,15 +35,16 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     override val isWip: Boolean = scenario.ignoreFailure
 
-    // Mirrors the contract-test / mock CTRF naming (TestResultRecord.testName -> scenario.testDescription),
-    // so a 5-tuple's positive request variations are described identically across report types. The
-    // variation summary is applied via a local copy (the stored scenario's identity must be preserved
-    // for response-compatibility dedup). generativePrefix is empty for BCC (all scenarios are
-    // positive), so testDescription() yields a leading-space " Scenario: ..."; trim drops that slot.
-    // The "(request)"/"(response)" suffix distinguishes the two compatibility checks of a 5-tuple,
-    // which otherwise share a name (most visibly for GETs with no request body).
+    // Uses fullApiTestDescription (not the plain testDescription that contract-test/mock CTRF use) so
+    // the content-type appears in the name: operations with multiple request/response media types on
+    // the same method/path/status are otherwise indistinguishable, since their 5-tuples differ only by
+    // content-type. The variation summary is applied via a local copy (the stored scenario's identity
+    // must be preserved for response-compatibility dedup). generativePrefix is empty for BCC (all
+    // scenarios are positive), so the description yields a leading-space " Scenario: ..."; trim drops
+    // that slot. The "(request)"/"(response)" suffix distinguishes the two compatibility checks of a
+    // 5-tuple, which otherwise share a name (most visibly for GETs with no request body).
     override val name: String =
-        "${scenario.copy(requestChangeSummary = requestVariationSummary).testDescription().trim()} (${phase.label})"
+        "${scenario.copy(requestChangeSummary = requestVariationSummary).fullApiTestDescription().trim()} (${phase.label})"
     override val message: String = compatResult.reportString()
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
