@@ -4829,6 +4829,13 @@ paths:
                 // POST /orders 400 - response test, plus request test with the single body variation
                 "Scenario: POST /orders -> 400 (response)",
                 "Scenario: POST /orders -> 400 with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
+                // POST /catalog 201 - response test, plus one request test per (key-combination x kind enum)
+                // variation, each with a distinct name.
+                "Scenario: POST /catalog -> 201 (response)",
+                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'book' from enum (request)",
+                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'food' from enum (request)",
+                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'book' from enum (request)",
+                "Scenario: POST /catalog -> 201 with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'food' from enum (request)",
                 // GET /orders/{id} 200
                 "Scenario: GET /orders/(id:string) -> 200 (request)",
                 "Scenario: GET /orders/(id:string) -> 200 (response)",
@@ -4848,6 +4855,10 @@ paths:
                 "Scenario: GET /promotions -> 200 (request)",
                 "Scenario: GET /promotions -> 200 (response)",
             )
+
+            // Every CTRF test name is unique: the phase suffix separates request/response checks, and
+            // each positive request variation carries a distinct key-combination/enum summary.
+            assertThat(names).doesNotHaveDuplicates()
 
             // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}) fail the check;
             // the breaking WIP operation does not contribute to this verdict.
@@ -4917,6 +4928,10 @@ paths:
             // UNCHANGED standalone operation - GET /health is identical in both specs
             operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "compatible")
 
+            // UNCHANGED standalone operation with an optional field and an enum - POST /catalog is
+            // identical in both specs; it exists to exercise multiple distinctly-named request variations.
+            operations.assertRow(OperationKey("POST", "/catalog", json, 201, null), changeStatus = "UNCHANGED", result = "compatible")
+
             // WIP operation: still executes and is change-tracked. `code` changes string -> integer
             // (breaking), so the operation is CHANGED + Incompatible and carries the `wip` qualifier.
             // It must NOT break the verdict (asserted separately below).
@@ -4927,8 +4942,8 @@ paths:
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 11 operation rows in the report")
-                .hasSize(11)
+                .describedAs("expected 12 operation rows in the report")
+                .hasSize(12)
         }
 
         @Test
