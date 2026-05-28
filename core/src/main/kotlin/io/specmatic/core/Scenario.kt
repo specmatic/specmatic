@@ -725,7 +725,15 @@ data class Scenario(
         // carrying the per-variation valueDetails used for naming. maxTestRequestCombinations
         // additionally caps the set for pathologically large enums. NonGenerativeTests keeps it to
         // structural (optional-key) variations.
-        val flagsBased = DefaultStrategies.copy(
+        //
+        // generation/prefixes are pinned rather than inherited from DefaultStrategies: that reads a
+        // fresh SpecmaticConfig() which falls back to system properties, so with
+        // SPECMATIC_GENERATIVE_TESTS/ONLY_POSITIVE set it would otherwise carry GenerativeTestsEnabled
+        // and the +ve/-ve prefixes, leaking generative mutations and prefixed report names into BCC.
+        val backwardCompatibilityStrategies = DefaultStrategies.copy(
+            generation = NonGenerativeTests,
+            positivePrefix = "",
+            negativePrefix = "",
             maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS,
             prioritisedRequestCombinationsOnly = true,
         )
@@ -743,7 +751,7 @@ data class Scenario(
                 // always be generated along the valid path even when the representative scenario for
                 // a request identifier carries a 4xx response (which would otherwise omit required
                 // query/header params and falsely flag identical specs as request-incompatible).
-                newBasedOn(row, flagsBased, forcePositiveRequest = true).map { generated ->
+                newBasedOn(row, backwardCompatibilityStrategies, forcePositiveRequest = true).map { generated ->
                     generated.realise(
                         // Carry the generated variation's key-combination description (e.g. "REQUEST.BODY
                         // contains only the mandatory keys") so each positive variation of a 5-tuple is
