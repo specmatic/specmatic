@@ -45,6 +45,21 @@ class SystemGitTest {
         assertThat(systemGit.getUntrackedFiles()).containsExactly(untrackedFile.absolutePath)
     }
 
+    @Test
+    fun `stash should report true when local changes are stashed from an empty stash list`(@TempDir tempDir: File) {
+        initialiseGitRepository(tempDir)
+        val fileName = "openapi.yaml"
+        commitFile(tempDir, fileName, "openapi: 3.0.0")
+
+        tempDir.resolve(fileName).writeText("openapi: 3.0.1")
+
+        val systemGit = SystemGit(tempDir.absolutePath)
+        assertThat(runGit(tempDir, "stash", "list")).isBlank()
+
+        assertThat(systemGit.stash()).isTrue()
+        assertThat(runGit(tempDir, "stash", "list")).contains("tmp")
+    }
+
     private fun initialiseGitRepository(directory: File) {
         runGit(directory, "init", "-b", "main")
         runGit(directory, "config", "user.name", "Specmatic Tests")
