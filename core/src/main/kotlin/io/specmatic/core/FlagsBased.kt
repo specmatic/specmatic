@@ -16,6 +16,13 @@ data class FlagsBased(
     val maxTestRequestCombinations: Int,
     val randomArraySize: Int? = null,
     val prioritisedRequestCombinationsOnly: Boolean = false,
+    // When set, request generation always follows the valid path regardless of the scenario's
+    // response status. Normally a 4xx response (400/422) drives invalid-request generation
+    // (omitting required query/header params) to exercise the error path. Backward-compatibility
+    // checks only compare request schemas, so they must always get a valid request -- otherwise two
+    // identical specs whose representative response is a 4xx would generate param-omitting requests
+    // and be falsely flagged as request-incompatible.
+    val requestSchemaOnly: Boolean = false,
 ) {
     fun update(resolver: Resolver): Resolver {
         val findKeyErrorCheck = resolver.findKeyErrorCheck
