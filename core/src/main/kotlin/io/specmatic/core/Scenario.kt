@@ -49,9 +49,9 @@ const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM
 
 enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
 
-// Safety cap on the lockstep request-combination set per object during a backward compatibility
-// check. Lockstep generation already bounds this to ~max(per-key candidate counts); the cap only
-// bites for pathologically large enums. See generateBackwardCompatibilityScenarios.
+// Safety cap on the prioritised request-combination set per object during a backward compatibility
+// check. Prioritised-only generation already bounds this to ~max(per-key candidate counts); the cap
+// only bites for pathologically large enums. See generateBackwardCompatibilityScenarios.
 private const val BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS = 50
 data class Scenario(
     override val name: String,
@@ -709,16 +709,16 @@ data class Scenario(
             reference.copy(variables = variables, baseURLs = testBaseURLs)
         }
 
-        // Reuse the standard request-variation generator, restricted to the prioritised (lockstep)
-        // combinations: each candidate value of each request parameter/body key is covered once, but
-        // the full cartesian product across keys is skipped. This keeps the generated set close to
-        // the legacy resolver-only path (no combinatorial explosion across headers x body x enums),
-        // while still carrying the per-variation valueDetails used for naming. maxTestRequestCombinations
-        // additionally caps the lockstep set for pathologically large enums. NonGenerativeTests keeps
-        // it to structural (optional-key) variations.
+        // Reuse the standard request-variation generator, restricted to the prioritised combinations:
+        // each candidate value of each request parameter/body key is covered once, but the full
+        // cartesian product across keys is skipped. This keeps the generated set close to the legacy
+        // resolver-only path (no combinatorial explosion across headers x body x enums), while still
+        // carrying the per-variation valueDetails used for naming. maxTestRequestCombinations
+        // additionally caps the set for pathologically large enums. NonGenerativeTests keeps it to
+        // structural (optional-key) variations.
         val flagsBased = DefaultStrategies.copy(
             maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS,
-            lockstepRequestCombinations = true,
+            prioritisedRequestCombinationsOnly = true,
         )
 
         return scenarioBreadCrumb(this) {

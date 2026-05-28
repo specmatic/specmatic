@@ -21,10 +21,10 @@ package io.specmatic.core.pattern
 class CombinationSpec<ValueType>(
     keyToCandidatesOrig: Map<String, Sequence<ReturnValue<ValueType>>>,
     maxCombinations: Int,
-    // When true, emit only the prioritised (lockstep) combinations that cover every candidate value
-    // once and skip the cartesian-product fill, bounding the set to ~max(per-key counts). Used by
-    // backward compatibility checks to avoid a combinatorial explosion of generated scenarios.
-    private val lockstepOnly: Boolean = false,
+    // When true, emit only the prioritised combinations that cover every candidate value once and
+    // skip the cartesian-product fill, bounding the set to ~max(per-key counts). Used by backward
+    // compatibility checks to avoid a combinatorial explosion of generated scenarios.
+    private val prioritisedOnly: Boolean = false,
 ) {
     companion object {
         fun <ValueType> from(keyToCandidates: Map<String, Sequence<ValueType>>, maxCombinations: Int): CombinationSpec<ValueType> {
@@ -88,8 +88,8 @@ class CombinationSpec<ValueType>(
             if(prioritisedGenerations.size == maxCombinations)
                 return@sequence
 
-            // Lockstep mode stops after the prioritised combinations, skipping the cartesian product.
-            if(lockstepOnly)
+            // Stop after the prioritised combinations, skipping the cartesian-product fill.
+            if(prioritisedOnly)
                 return@sequence
 
             val otherPatterns: Sequence<ReturnValue<Map<String, ValueType>>> = allCombinations(rawPatternCollection).map { it.mapFold() }

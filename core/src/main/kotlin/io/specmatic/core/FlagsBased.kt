@@ -15,7 +15,7 @@ data class FlagsBased(
     val useFuzzyMatching: Boolean,
     val maxTestRequestCombinations: Int,
     val randomArraySize: Int? = null,
-    val lockstepRequestCombinations: Boolean = false,
+    val prioritisedRequestCombinationsOnly: Boolean = false,
 ) {
     fun update(resolver: Resolver): Resolver {
         val findKeyErrorCheck = resolver.findKeyErrorCheck
@@ -29,7 +29,7 @@ data class FlagsBased(
             allPatternsAreMandatory = allPatternsAreMandatory,
             maxTestRequestCombinations = maxTestRequestCombinations,
             randomArraySize = randomArraySize,
-            lockstepRequestCombinations = lockstepRequestCombinations,
+            prioritisedRequestCombinationsOnly = prioritisedRequestCombinationsOnly,
         )
     }
 

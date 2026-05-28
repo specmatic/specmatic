@@ -55,10 +55,10 @@ data class Resolver(
     val cycleMarker: String = "",
     val maxTestRequestCombinations: Int = Int.MAX_VALUE,
     val randomArraySize: Int? = null,
-    // When true, request-parameter/body generation keeps only the prioritised (lockstep) combinations
-    // -- each candidate value covered once -- and skips the full cartesian product. Used by backward
+    // When true, request-parameter/body generation keeps only the prioritised combinations -- each
+    // candidate value covered once -- and skips the full cartesian product. Used by backward
     // compatibility checks to avoid a combinatorial explosion of generated scenarios.
-    val lockstepRequestCombinations: Boolean = false,
+    val prioritisedRequestCombinationsOnly: Boolean = false,
 ) {
     constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
     constructor() : this(emptyMap(), false)
