@@ -64,4 +64,35 @@ class OpenApiBackwardCompatibilityCheckerTest {
         }
         """.trimIndent())
     }
+
+    @Test
+    fun `identical specs with a required query param should be request-compatible even when a 4xx response is listed first`() {
+        val spec = """
+        openapi: 3.0.1
+        info:
+          title: Products API
+          version: 1.0.0
+        paths:
+          /products:
+            get:
+              parameters:
+                - name: type
+                  in: query
+                  required: true
+                  schema:
+                    type: string
+              responses:
+                '400':
+                  description: bad request
+                '200':
+                  description: ok
+        """.trimIndent()
+
+        val oldSpec = OpenApiSpecification.fromYAML(spec, "old.yaml").toFeature()
+        val newSpec = OpenApiSpecification.fromYAML(spec, "new.yaml").toFeature()
+
+        val records = OpenApiBackwardCompatibilityChecker(oldSpec, newSpec).run()
+
+        assertThat(records.map { it.compatResult }).allMatch { it is Result.Success }
+    }
 }

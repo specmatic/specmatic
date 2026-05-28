@@ -53,6 +53,9 @@ enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
 // check. Prioritised-only generation already bounds this to ~max(per-key candidate counts); the cap
 // only bites for pathologically large enums. See generateBackwardCompatibilityScenarios.
 private const val BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS = 50
+
+// Status used to force valid-request generation in newBasedOn (any 2xx triggers the positive path).
+private const val POSITIVE_REQUEST_STATUS = 200
 data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
@@ -486,7 +489,7 @@ data class Scenario(
 
     private fun is4xxResponse(httpResponse: HttpResponse) = (400..499).contains(httpResponse.status)
 
-    fun newBasedOn(row: Row, flagsBased: FlagsBased): Sequence<ReturnValue<Scenario>> {
+    fun newBasedOn(row: Row, flagsBased: FlagsBased, forcePositiveRequest: Boolean = false): Sequence<ReturnValue<Scenario>> {
         val ignoreFailure = this.ignoreFailure || row.name.startsWith("[WIP]")
 
         val resolver = resolver.copy(
@@ -505,8 +508,14 @@ data class Scenario(
 
                 val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
 
+                // The response status drives valid- vs invalid-request generation: a 4xx response
+                // definition has its request generated along the invalid path (omitting required
+                // params). forcePositiveRequest overrides this so callers that only care about the
+                // request schema (e.g. backward-compatibility checks) always get a valid request,
+                // regardless of which response status happens to be the representative one.
+                val requestStatus = if (forcePositiveRequest) POSITIVE_REQUEST_STATUS else httpResponsePattern.status
                 val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when (isNegative) {
-                    false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
+                    false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, requestStatus), flagsBased.positivePrefix)
                     else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
@@ -730,7 +739,11 @@ data class Scenario(
                     }
                 }
             }.flatMap { row ->
-                newBasedOn(row, flagsBased).map { generated ->
+                // forcePositiveRequest: BCC checks request-schema compatibility, so the request must
+                // always be generated along the valid path even when the representative scenario for
+                // a request identifier carries a 4xx response (which would otherwise omit required
+                // query/header params and falsely flag identical specs as request-incompatible).
+                newBasedOn(row, flagsBased, forcePositiveRequest = true).map { generated ->
                     generated.realise(
                         // Carry the generated variation's key-combination description (e.g. "REQUEST.BODY
                         // contains only the mandatory keys") so each positive variation of a 5-tuple is
