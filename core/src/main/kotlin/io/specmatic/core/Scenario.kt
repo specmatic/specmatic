@@ -49,13 +49,9 @@ const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM
 
 enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
 
-// A 2xx status forces the positive/structural-expansion branch of HttpRequestPattern.newBasedOn
-// when generating backward-compatibility request variations from an (example-free) old scenario.
-private const val BACKWARD_COMPATIBILITY_REQUEST_STATUS = 200
-
 // Upper bound on the number of generated request variations per request schema during a backward
 // compatibility check, to keep deeply nested / enum-heavy request bodies from exploding into a
-// combinatorial product (which previously OOM-ed). See newBasedOnBackwardCompatibility.
+// combinatorial product (which previously OOM-ed). See generateBackwardCompatibilityScenarios.
 private const val BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS = 50
 data class Scenario(
     override val name: String,
@@ -560,37 +556,6 @@ data class Scenario(
         return httpRequestPattern.fillInTheBlanks(resolvedRequest, updatedResolver)
     }
 
-    private fun newBasedOnBackwardCompatibility(row: Row): Sequence<Scenario> {
-        // maxTestRequestCombinations bounds the combinatorial expansion. The row-based newBasedOn
-        // uses CombinationSpec, whose first (prioritised) phase already covers every per-key value
-        // once -- equivalent to the legacy resolver-only patternValues path -- before it begins
-        // enumerating the full cartesian product. Capping prevents that product from exploding to
-        // 2^N (and OOM-ing) on deeply nested request bodies.
-        val resolver = Resolver(expectedFacts, false, patterns)
-            .copy(maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS)
-
-        val newExpectedServerState = newExpectedServerStateBasedOn(row, expectedFacts, fixtures, resolver)
-
-        // status 200 selects the positive/structural-expansion branch of newBasedOn (rather than
-        // readFrom), so the generated request patterns carry the valueDetails describing each
-        // positive variation (e.g. which optional keys are present). The body branch is
-        // status-independent for an empty row.
-        return httpRequestPattern.newBasedOn(row, resolver, BACKWARD_COMPATIBILITY_REQUEST_STATUS).map { newHttpRequestPatternR ->
-            newHttpRequestPatternR.realise(
-                hasValue = { newHttpRequestPattern, _ ->
-                    this.copy(
-                        httpRequestPattern = newHttpRequestPattern,
-                        expectedFacts = newExpectedServerState,
-                        requestChangeSummary = (newHttpRequestPatternR as HasValue<HttpRequestPattern>)
-                            .valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
-                    )
-                },
-                orFailure = { throw ContractException(it.toFailure().toFailureReport()) },
-                orException = { throw it.t }
-            )
-        }
-    }
-
     fun validateAndFilterExamples(flagsBased: FlagsBased): Pair<Scenario, Result> {
         val apiDesc = defaultAPIDescription.trim()
 
@@ -744,6 +709,13 @@ data class Scenario(
             reference.copy(variables = variables, baseURLs = testBaseURLs)
         }
 
+        // Reuse the standard request-variation generator. maxTestRequestCombinations bounds the
+        // combinatorial expansion: newBasedOn uses CombinationSpec, whose first (prioritised) phase
+        // already covers every per-key value once before it enumerates the full cartesian product.
+        // Capping prevents that product from exploding to 2^N (and OOM-ing) on deeply nested
+        // request bodies. NonGenerativeTests keeps it to structural (optional-key) variations.
+        val flagsBased = DefaultStrategies.copy(maxTestRequestCombinations = BACKWARD_COMPATIBILITY_MAX_REQUEST_COMBINATIONS)
+
         return scenarioBreadCrumb(this) {
             when (examples.size) {
                 0 -> listOf(Row())
@@ -753,7 +725,21 @@ data class Scenario(
                     }
                 }
             }.flatMap { row ->
-                newBasedOnBackwardCompatibility(row)
+                newBasedOn(row, flagsBased).map { generated ->
+                    generated.realise(
+                        // Carry the generated variation's key-combination description (e.g. "REQUEST.BODY
+                        // contains only the mandatory keys") so each positive variation of a 5-tuple is
+                        // distinguishable downstream (notably in the backward-compatibility CTRF report).
+                        hasValue = { scenario, _ ->
+                            scenario.copy(
+                                requestChangeSummary = (generated as HasValue<Scenario>)
+                                    .valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
+                            )
+                        },
+                        orFailure = { throw ContractException(it.toFailure().toFailureReport()) },
+                        orException = { throw it.t },
+                    )
+                }
             }
         }
     }
