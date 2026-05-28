@@ -25,10 +25,13 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     override val isWip: Boolean = scenario.ignoreFailure
 
-    override val name: String = buildString {
-        append(scenario.fullApiDescription)
-        requestVariationSummary?.takeIf(String::isNotBlank)?.let { append(" with a request where $it") }
-    }
+    // Mirrors the contract-test / mock CTRF naming (TestResultRecord.testName -> scenario.testDescription),
+    // so a 5-tuple's positive request variations are described identically across report types. The
+    // variation summary is applied via a local copy (the stored scenario's identity must be preserved
+    // for response-compatibility dedup). generativePrefix is empty for BCC (all scenarios are
+    // positive), so testDescription() yields a leading-space " Scenario: ..."; trim drops that slot.
+    override val name: String =
+        scenario.copy(requestChangeSummary = requestVariationSummary).testDescription().trim()
     override val message: String = compatResult.reportString()
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {

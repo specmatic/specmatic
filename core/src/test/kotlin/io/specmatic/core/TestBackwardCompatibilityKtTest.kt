@@ -4617,8 +4617,10 @@ paths:
             // No two tests collapse to the same display name.
             assertThat(names).doesNotHaveDuplicates()
 
-            // The two positive request variations of POST /widgets -> 200 are present and distinguishable.
-            val base = "POST /widgets -> 200 (requestContentType application/json)"
+            // The two positive request variations of POST /widgets -> 200 are present and
+            // distinguishable, named identically to the contract-test/mock CTRF (scenario.testDescription),
+            // minus the +ve prefix.
+            val base = "Scenario: POST /widgets -> 200"
             assertThat(names).contains(
                 "$base with a request where REQUEST.BODY contains all the keys",
                 "$base with a request where REQUEST.BODY contains only the mandatory keys",

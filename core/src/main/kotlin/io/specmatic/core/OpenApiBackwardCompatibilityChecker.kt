@@ -171,6 +171,9 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         changeStatusFor: (Scenario) -> ChangeStatus,
         requestVariationSummary: String? = null,
     ): OpenApiBackwardCompatibilityCheckRecord {
+        // Pass the old request variation's summary as a separate field rather than copying it onto
+        // the scenario: validateResponseCompatibility dedupes matched new scenarios by identity, so
+        // the scenario instance must be preserved.
         return OpenApiBackwardCompatibilityCheckRecord(
             feature = newFeature,
             scenario = scenario,
