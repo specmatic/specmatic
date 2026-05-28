@@ -33,7 +33,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.branch).isEqualTo("main")
         assertThat(record.specType).isEqualTo(SpecType.OPENAPI)
         assertThat(record.tags).doesNotContain("path:${scenario.path}")
-        assertThat(record.name).isEqualTo(scenario.testDescription().trim())
+        assertThat(record.name).isEqualTo("${scenario.testDescription().trim()} (request)")
         assertThat(record.changeStatus).isEqualTo(ChangeStatus.CHANGED)
         assertThat(record.specification).isEqualTo("specs/orders.yaml")
         assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Compatible)
@@ -44,6 +44,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
             "path:${convertPathParameterStyle(scenario.path)}",
             "content-type:application/json",
             "response-content-type:application/json",
+            "compatibility:request",
         )
 
         assertThat(record.operations).containsExactly(
@@ -80,7 +81,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Incompatible)
         assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
         assertThat(record.isWip).isTrue()
-        assertThat(record.name).isEqualTo(scenario.testDescription().trim())
+        assertThat(record.name).isEqualTo("${scenario.testDescription().trim()} (request)")
         assertThat(record.tags).contains("wip")
     }
 
@@ -96,7 +97,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         )
 
         assertThat(record.isWip).isFalse()
-        assertThat(record.name).isEqualTo(scenario.testDescription().trim())
+        assertThat(record.name).isEqualTo("${scenario.testDescription().trim()} (request)")
         assertThat(record.tags).doesNotContain("wip")
     }
 

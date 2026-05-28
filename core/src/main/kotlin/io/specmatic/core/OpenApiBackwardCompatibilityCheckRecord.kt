@@ -9,6 +9,15 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.openAPIOperationFrom
 import java.util.UUID
 
+// Which side of an operation a backward-compatibility check covers. A 5-tuple yields one check per
+// phase; the phase distinguishes the otherwise identically-named request and response tests.
+enum class BackwardCompatibilityCheckPhase(val label: String) {
+    REQUEST("request"),
+    RESPONSE("response");
+
+    val tag: String get() = "compatibility:$label"
+}
+
 data class OpenApiBackwardCompatibilityCheckRecord(
     val feature: Feature,
     val scenario: Scenario,
@@ -17,6 +26,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     override val id: UUID = UUID.randomUUID(),
     val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
     val requestVariationSummary: String? = null,
+    val phase: BackwardCompatibilityCheckPhase = BackwardCompatibilityCheckPhase.REQUEST,
 ) : CtrfBackwardCompatibilityRecord {
     override val specType: SpecType = scenario.specType
     override val repository: String? = scenario.sourceRepository
@@ -30,8 +40,10 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     // variation summary is applied via a local copy (the stored scenario's identity must be preserved
     // for response-compatibility dedup). generativePrefix is empty for BCC (all scenarios are
     // positive), so testDescription() yields a leading-space " Scenario: ..."; trim drops that slot.
+    // The "(request)"/"(response)" suffix distinguishes the two compatibility checks of a 5-tuple,
+    // which otherwise share a name (most visibly for GETs with no request body).
     override val name: String =
-        scenario.copy(requestChangeSummary = requestVariationSummary).testDescription().trim()
+        "${scenario.copy(requestChangeSummary = requestVariationSummary).testDescription().trim()} (${phase.label})"
     override val message: String = compatResult.reportString()
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
@@ -41,6 +53,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
         add("path:${convertPathParameterStyle(scenario.path)}")
         scenario.requestContentType?.let { contentType -> add("content-type:$contentType") }
         scenario.responseContentType?.let { contentType -> add("response-content-type:$contentType") }
+        add(phase.tag)
     }
 
     override val result: BackwardCompatibilityStatus = when (compatResult) {
