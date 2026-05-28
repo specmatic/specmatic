@@ -173,7 +173,7 @@ fun newMapBasedOn(patternMap: Map<String, Pattern>, row: Row, resolver: Resolver
         }
     }
 
-    return patternList(patternCollection, resolver.maxTestRequestCombinations)
+    return patternList(patternCollection, resolver.maxTestRequestCombinations, resolver.lockstepRequestCombinations)
 }
 
 fun newBasedOn(patternMap: Map<String, Pattern>, resolver: Resolver): Sequence<Map<String, Pattern>> {
@@ -260,12 +260,13 @@ fun key(pattern: Pattern, key: String): String {
 
 fun <ValueType> patternList(
     patternCollection: Map<String, Sequence<ReturnValue<ValueType>>>,
-    maxTestRequestCombinations: Int = Int.MAX_VALUE
+    maxTestRequestCombinations: Int = Int.MAX_VALUE,
+    lockstepOnly: Boolean = false,
 ): Sequence<ReturnValue<Map<String, ValueType>>> {
     if (patternCollection.isEmpty())
         return sequenceOf(HasValue(emptyMap()))
 
-    val spec = CombinationSpec(patternCollection, maxTestRequestCombinations)
+    val spec = CombinationSpec(patternCollection, maxTestRequestCombinations, lockstepOnly)
     return spec.selectedCombinations
 }
 
