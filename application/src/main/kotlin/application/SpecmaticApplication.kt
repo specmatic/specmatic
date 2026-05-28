@@ -12,10 +12,11 @@ import picocli.CommandLine
 open class SpecmaticApplication {
     companion object {
         @JvmStatic
-        val originalStdout: java.io.PrintStream = System.`out`
+        val originalStdout: java.io.PrintStream = System.out
 
         @JvmStatic
         fun main(args: Array<String>) {
+            val commandLine = createCommandLine()
             redirectStdoutToStderrIfMcpServer(args)
 
             LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
@@ -29,15 +30,13 @@ open class SpecmaticApplication {
 
             Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
 
-            val commandLine = CommandLine(SpecmaticCommand())
-            SpecmaticCoreSubcommands.configure(commandLine)
             if (args.none { it == "-V" || it == "--version" || it == "generate-completion" }) {
-                commandLine.printVersionHelp(System.`out`)
+                commandLine.printVersionHelp(System.out)
                 println()
             }
 
             when {
-                args.isEmpty() -> commandLine.usage(System.`out`)
+                args.isEmpty() -> commandLine.usage(System.out)
                 else -> {
                     val exitCode = commandLine.execute(*args)
                     SystemExit.exitWith(exitCode)
@@ -46,11 +45,28 @@ open class SpecmaticApplication {
         }
 
         private fun redirectStdoutToStderrIfMcpServer(args: Array<String>) {
-            if (args.size >= 2 && args[0] == "mcp" && args[1] == "server") {
-                System.setOut(System.err)
+            val commandLine = createCommandLine().apply {
+                isUnmatchedArgumentsAllowed = true
+            }
 
+            val parseResult = try {
+                commandLine.parseArgs(*args)
+            } catch (_: CommandLine.ParameterException) {
+                null
+            }
+
+            val subcommandPath = parseResult
+                ?.asCommandLineList()
+                ?.drop(1)
+                ?.map { it.commandName }
+
+            if (subcommandPath == listOf("mcp", "server")) {
+                System.setOut(System.err)
             }
         }
+
+        private fun createCommandLine(): CommandLine =
+            CommandLine(SpecmaticCommand()).also(SpecmaticCoreSubcommands::configure)
 
         private fun setupPicoCli() {
             System.setProperty("picocli.usage.width", "auto")

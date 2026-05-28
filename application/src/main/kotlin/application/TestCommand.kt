@@ -47,7 +47,7 @@ class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()
     var contractPaths: List<String>? = null
 
     @Option(names = ["--host"], description = ["The host to bind to, e.g. localhost or some locally bound IP"], defaultValue = "localhost")
-    var host: String = "localhost"
+    lateinit var host: String
 
     @Option(names = ["--port"], description = ["The port to bind to"])
     var port: Int = 0
