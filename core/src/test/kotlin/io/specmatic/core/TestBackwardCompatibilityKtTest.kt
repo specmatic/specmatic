@@ -4804,6 +4804,50 @@ paths:
             val operations = operationsFrom(report)
             val json = "application/json"
 
+            // Every CTRF test name, named identically to contract-test/mock tests (scenario.testDescription,
+            // minus the +ve prefix). Each 5-tuple yields a request-compatibility test and a
+            // response-compatibility test; for GET (no request body) both read the same, while POST /orders
+            // carries the request-body key-combination summary on its request-compatibility test (OrderInput
+            // and its nested Customer are fully required, so there is exactly one "contains all the keys"
+            // variation). 5-tuples removed from the new contract (GET /orders 500, DELETE /orders/{id}) yield
+            // only the records that detect their absence.
+            val names = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+                .map { it.path("name").asText() }
+            assertThat(names).containsExactlyInAnyOrder(
+                // GET /orders 200 (request-compat + response-compat)
+                "Scenario: GET /orders -> 200",
+                "Scenario: GET /orders -> 200",
+                // GET /orders 400 (request-compat + response-compat)
+                "Scenario: GET /orders -> 400",
+                "Scenario: GET /orders -> 400",
+                // GET /orders 500 - removed in new, only the absence-detecting record
+                "Scenario: GET /orders -> 500",
+                // POST /orders 201 - response-compat, then request-compat with the single body variation
+                "Scenario: POST /orders -> 201",
+                "Scenario: POST /orders -> 201 with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys",
+                // POST /orders 400 - response-compat, then request-compat with the single body variation
+                "Scenario: POST /orders -> 400",
+                "Scenario: POST /orders -> 400 with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys",
+                // GET /orders/{id} 200 (request-compat + response-compat)
+                "Scenario: GET /orders/(id:string) -> 200",
+                "Scenario: GET /orders/(id:string) -> 200",
+                // GET /orders/{id} 404 (request-compat + response-compat)
+                "Scenario: GET /orders/(id:string) -> 404",
+                "Scenario: GET /orders/(id:string) -> 404",
+                // DELETE /orders/{id} 204 - removed in new, request + response absence-detecting records
+                "Scenario: DELETE /orders/(id:string) -> 204",
+                "Scenario: DELETE /orders/(id:string) -> 204",
+                // GET /categories 200 (request-compat + response-compat)
+                "Scenario: GET /categories -> 200",
+                "Scenario: GET /categories -> 200",
+                // GET /health 200 (request-compat + response-compat)
+                "Scenario: GET /health -> 200",
+                "Scenario: GET /health -> 200",
+                // GET /promotions 200 - WIP operation (request-compat + response-compat)
+                "Scenario: GET /promotions -> 200",
+                "Scenario: GET /promotions -> 200",
+            )
+
             // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}) fail the check;
             // the breaking WIP operation does not contribute to this verdict.
             assertThat(results.success()).isFalse()
