@@ -79,6 +79,32 @@ internal class FlagsBasedTest {
     }
 
     @Test
+    fun `strategiesFromFlags should not enable prioritisedRequestCombinationsOnly by default`() {
+        val result = strategiesFromFlags(SpecmaticConfig())
+
+        assertThat(result.prioritisedRequestCombinationsOnly).isFalse()
+    }
+
+    @Test
+    fun `FlagsBased update should propagate prioritisedRequestCombinationsOnly into resolver`() {
+        val flagsBased = FlagsBased(
+            defaultExampleResolver = DoNotUseDefaultExample,
+            generation = NonGenerativeTests,
+            unexpectedKeyCheck = null,
+            positivePrefix = "",
+            negativePrefix = "",
+            allPatternsAreMandatory = false,
+            useFuzzyMatching = false,
+            maxTestRequestCombinations = Int.MAX_VALUE,
+            prioritisedRequestCombinationsOnly = true,
+        )
+
+        val resolver = flagsBased.update(Resolver())
+
+        assertThat(resolver.prioritisedRequestCombinationsOnly).isTrue()
+    }
+
+    @Test
     fun `FlagsBased update should propagate fuzzy matching into resolver`() {
         val flagsBased = FlagsBased(
             defaultExampleResolver = DoNotUseDefaultExample,

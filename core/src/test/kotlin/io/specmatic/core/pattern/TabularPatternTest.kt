@@ -28,6 +28,22 @@ import java.net.URI
 import java.util.function.Consumer
 
 class TabularPatternTest {
+
+    @Test
+    fun `newMapBasedOn restricts to prioritised combinations when the resolver flag is set`() {
+        // Two keys with two candidate values each. Default generation emits the full cartesian
+        // product (2x2); with the resolver's prioritisedRequestCombinationsOnly flag (used by backward
+        // compatibility checks) it collapses to the prioritised set -- max(per-key count) = 2.
+        val patternMap = mapOf<String, Pattern>(
+            Pair("a", AnyPattern(pattern = listOf(ExactValuePattern(StringValue("x")), ExactValuePattern(StringValue("y"))), extensions = emptyMap())),
+            Pair("b", AnyPattern(pattern = listOf(ExactValuePattern(StringValue("p")), ExactValuePattern(StringValue("q"))), extensions = emptyMap())),
+        )
+
+        assertThat(newMapBasedOn(patternMap, Row(), Resolver()).toList()).hasSize(4)
+        assertThat(
+            newMapBasedOn(patternMap, Row(), Resolver().copy(prioritisedRequestCombinationsOnly = true)).toList()
+        ).hasSize(2)
+    }
     @Test
     fun `A tabular pattern should match a JSON object value`() {
         val gherkin = """

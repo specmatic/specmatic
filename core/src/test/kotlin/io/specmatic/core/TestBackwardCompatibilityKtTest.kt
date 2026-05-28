@@ -4629,6 +4629,46 @@ paths:
     }
 
     @Test
+    fun `request variations use the prioritised combination set, not the cartesian product`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
+        }
+        // Two required enum keys with 3 and 2 candidate values. The cartesian product would be 6
+        // request variations; backward compatibility generates only the prioritised set -- each value
+        // covered once, max(per-key count) = 3 -- so deep/enum-heavy specs don't explode.
+        val spec = """
+            openapi: 3.0.0
+            info: { title: Things, version: 1.0.0 }
+            paths:
+              /things:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [a, b]
+                          properties:
+                            a: { type: string, enum: [x, y, z] }
+                            b: { type: string, enum: [p, q] }
+                  responses:
+                    '200': { description: ok }
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "things.yaml").toFeature()
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            val (_, report) = testBackwardCompatibilityWithReport(feature, feature)
+            val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+            val requestTests = tests.filter { it.path("tags").map { tag -> tag.asText() }.contains("compatibility:request") }
+
+            // 3 (= max(3, 2)) prioritised variations, not the 3 x 2 = 6 cartesian product.
+            assertThat(requestTests).hasSize(3)
+            assertThat(requestTests.map { it.path("name").asText() }).doesNotHaveDuplicates()
+        }
+    }
+
+    @Test
     fun `should generate backward compatibility report with mixed compatible and incompatible operations`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml").apply {
             writeText("""

@@ -127,6 +127,43 @@ class CombinationSpecTest {
   }
 
   @Test
+  fun `prioritisedOnly emits only the prioritised combinations and skips the cartesian product`() {
+    val candidates = mapOf(
+      "k1" to sequenceOf(12L, 14L),
+      "k2" to sequenceOf(25L, 22L, 28L, 27L),
+      "k3" to sequenceOf(39L, 33L, 31L),
+    ).mapValues { entry -> entry.value.map { HasValue(it) } }
+
+    val spec = CombinationSpec(candidates, maxCombinations = 50, prioritisedOnly = true)
+
+    // Only the prioritised (lockstep) combinations -- max(per-key count) = 4 -- with every candidate
+    // value covered once; none of the cartesian-product fill that the default mode appends.
+    assertThat(spec.selectedCombinations.map { it.value }.toList()).containsExactly(
+      mapOf("k1" to 12L, "k2" to 25L, "k3" to 39L),
+      mapOf("k1" to 14L, "k2" to 22L, "k3" to 33L),
+      mapOf("k1" to 12L, "k2" to 28L, "k3" to 31L),
+      mapOf("k1" to 14L, "k2" to 27L, "k3" to 39L),
+    )
+  }
+
+  @Test
+  fun `prioritisedOnly still respects maxCombinations`() {
+    val candidates = mapOf(
+      "k1" to sequenceOf(12L, 14L),
+      "k2" to sequenceOf(25L, 22L, 28L, 27L),
+      "k3" to sequenceOf(39L, 33L, 31L),
+    ).mapValues { entry -> entry.value.map { HasValue(it) } }
+
+    val spec = CombinationSpec(candidates, maxCombinations = 3, prioritisedOnly = true)
+
+    assertThat(spec.selectedCombinations.map { it.value }.toList()).containsExactly(
+      mapOf("k1" to 12L, "k2" to 25L, "k3" to 39L),
+      mapOf("k1" to 14L, "k2" to 22L, "k3" to 33L),
+      mapOf("k1" to 12L, "k2" to 28L, "k3" to 31L),
+    )
+  }
+
+  @Test
   fun `restricts combos even when prioritized count is too high`() {
     val spec = CombinationSpec.from(
       mapOf(
