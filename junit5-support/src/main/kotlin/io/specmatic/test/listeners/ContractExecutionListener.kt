@@ -9,7 +9,6 @@ import org.junit.platform.engine.TestExecutionResult.Status
 import org.junit.platform.launcher.TestExecutionListener
 import org.junit.platform.launcher.TestIdentifier
 import org.junit.platform.launcher.TestPlan
-import java.io.PrintStream
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -17,9 +16,11 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.jvm.optionals.getOrNull
 
 fun getContractExecutionPrinter(): ContractExecutionPrinter {
-    val printerStream = if(stdOutIsRedirected()) System.err else System.out
-    if(colorIsRequested()) return ColorPrinter(printerStream)
-    return MonochromePrinter(printerStream)
+    return if(stdOutIsRedirected())
+        MonochromePrinter()
+    else if(colorIsRequested())
+        ColorPrinter()
+    else MonochromePrinter()
 }
 
 private fun colorIsRequested() = System.getenv("SPECMATIC_COLOR") == "1"
@@ -108,14 +109,10 @@ class ContractExecutionListener : TestExecutionListener {
         return throwable?.getOrNull()?.cause?.message == CoverageStatus.WIP.value
     }
 
-    private fun stdOut() = if(stdOutIsRedirected()) System.err else System.out
-
     private fun printAndLogFailure(testExecutionResult: TestExecutionResult, testIdentifier: TestIdentifier?) {
-        val out = stdOut()
-
         val message = testExecutionResult.throwable?.get()?.message?.trimIndent().orEmpty()
         val reason = "Reason:\n$message"
-        out.println("$reason\n\n")
+        println("$reason\n\n")
 
         val log = """"${testIdentifier?.displayName} ${testExecutionResult.status}"
     ${reason.prependIndent("  ")}"""
@@ -124,41 +121,37 @@ class ContractExecutionListener : TestExecutionListener {
     }
 
     override fun testPlanExecutionFinished(testPlan: TestPlan?) {
-        val out = stdOut()
+        org.fusesource.jansi.AnsiConsole.systemInstall()
 
-        if (!stdOutIsRedirected()) {
-            org.fusesource.jansi.AnsiConsole.systemInstall()
-        }
-
-        out.println()
+        println()
 
         val exceptionSnapshot = synchronized(exceptionsThrown) { exceptionsThrown.toList() }
         exceptionSnapshot.forEach { exceptionThrown ->
             logger.log(exceptionThrown)
         }
 
-        out.println()
+        println()
 
         if(SpecmaticJUnitSupport.partialSuccesses.isNotEmpty()) {
-            out.println()
+            println()
             printer.printFailureTitle("Partial Successes:")
-            out.println()
+            println()
 
             SpecmaticJUnitSupport.partialSuccesses.filter { it.partialSuccessMessage != null} .forEach { result ->
-                out.println("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
-                out.println("    " + result.partialSuccessMessage!!)
-                out.println()
+                println("  " + (result.scenario?.testDescription() ?: "Unknown Scenario"))
+                println("    " + result.partialSuccessMessage!!)
+                println()
             }
 
-            out.println()
+            println()
         }
 
         val failedLogSnapshot = synchronized(failedLog) { failedLog.toList() }
         if (failedLogSnapshot.isNotEmpty()) {
-            out.println()
+            println()
             printer.printFailureTitle("Unsuccessful Scenarios:")
-            out.println(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
-            out.println()
+            println(failedLogSnapshot.joinToString(System.lineSeparator() + System.lineSeparator()) { it.prependIndent("  ") })
+            println()
         }
 
         printer.printFinalSummary(

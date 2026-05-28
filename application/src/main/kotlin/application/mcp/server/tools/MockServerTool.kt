@@ -22,7 +22,6 @@ data class ManageMockServerArgs(
 
 class MockServerTool {
     private val runningMocks = ConcurrentHashMap<Int, StubCommand>()
-    private val mockDirectories = ConcurrentHashMap<Int, File>()
 
     internal fun manageMockServer(args: ManageMockServerArgs): String = when (args.command) {
         "start" -> startMockServer(
@@ -62,7 +61,7 @@ class MockServerTool {
             }
 
             runningMocks[port] = command
-            mockDirectories[port] = tempDir
+
 
             mockServerMessage(
                 "Mock server started successfully",
@@ -153,7 +152,6 @@ class MockServerTool {
 
     private fun stopServer(port: Int) {
         runningMocks.remove(port)?.close()
-        mockDirectories.remove(port)?.deleteRecursively()
     }
 
     private fun stopMessage(port: Int): String {
