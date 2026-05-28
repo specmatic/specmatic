@@ -5,7 +5,6 @@ import io.specmatic.core.config.Switch
 import io.specmatic.stub.waitUntilConnectable
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import picocli.CommandLine
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -23,10 +22,7 @@ data class ManageMockServerArgs(
 
 class MockServerTool {
     private val runningMocks = ConcurrentHashMap<Int, StubCommand>()
-    private val mockRegistryFile = File(System.getProperty("java.io.tmpdir"))
-        .resolve("specmatic-mcp")
-        .resolve("mock-servers.json")
-    private val json = Json { ignoreUnknownKeys = true }
+    private val mockDirectories = ConcurrentHashMap<Int, File>()
 
     internal fun manageMockServer(args: ManageMockServerArgs): String = when (args.command) {
         "start" -> startMockServer(
@@ -41,8 +37,7 @@ class MockServerTool {
     }
 
     private fun startMockServer(openApiSpec: String, port: Int, specFormat: String): String {
-        val activeServers = refreshRegistry()
-        validatePortAvailability(port, activeServers)?.let { return it }
+        validatePortAvailability(port)?.let { return it }
 
         val tempDir = createTempDirectory("specmatic-mock-").toFile()
         val specFile = tempDir.resolve("spec.$specFormat").apply { writeText(openApiSpec) }
@@ -67,7 +62,7 @@ class MockServerTool {
             }
 
             runningMocks[port] = command
-            saveMockRegistry(activeServers + createRegistryRecord(port, tempDir))
+            mockDirectories[port] = tempDir
 
             mockServerMessage(
                 "Mock server started successfully",
@@ -85,13 +80,12 @@ class MockServerTool {
     }
 
     private fun stopMockServer(port: Int): String {
-        val activeServers = refreshRegistry()
-        val server = activeServers.firstOrNull { it.port == port }
-            ?: return stopFailure("No mock server is running on port $port.")
+        if (!runningMocks.containsKey(port)) {
+            return stopFailure("No mock server is running on port $port.")
+        }
 
         return try {
-            stopServer(server)
-            saveMockRegistry(activeServers.filterNot { it.port == port })
+            stopServer(port)
             mockServerMessage("Mock server stopped successfully", listOf(stopMessage(port)))
         } catch (e: Throwable) {
             stopFailure(e.message ?: "Unknown error")
@@ -99,7 +93,7 @@ class MockServerTool {
     }
 
     private fun listMockServers(): String {
-        val runningMockServers = refreshRegistry().sortedBy(PersistedMockServerRecord::port)
+        val runningMockServers = runningMocks.keys.sorted()
 
         return buildString {
             append("## Specmatic Mock Server Management\n\n")
@@ -108,8 +102,8 @@ class MockServerTool {
             if (runningMockServers.isEmpty()) {
                 append("> No mock servers are currently running.\n")
             } else {
-                runningMockServers.forEach { server ->
-                    append("- **${server.url}** (in-process)\n")
+                runningMockServers.forEach { port ->
+                    append("- **http://localhost:$port** (in-process)\n")
                 }
             }
         }
@@ -129,24 +123,12 @@ class MockServerTool {
         }
     }
 
-    private fun validatePortAvailability(port: Int, activeServers: List<PersistedMockServerRecord>): String? {
+    private fun validatePortAvailability(port: Int): String? {
         if (runningMocks.containsKey(port)) {
             return startFailure("Port $port is already in use by a mock server running in this process.")
         }
 
-        if (activeServers.any { it.port == port }) {
-            return startFailure("Port $port is already in use by another mock server started by Specmatic MCP.")
-        }
-
         return null
-    }
-
-    private fun createRegistryRecord(port: Int, tempDir: File): PersistedMockServerRecord {
-        return PersistedMockServerRecord(
-            port = port,
-            tempDir = tempDir.canonicalPath,
-            url = "http://localhost:$port"
-        )
     }
 
     private fun stubCommandArgs(port: Int, tempDir: File, specFile: File): List<String> {
@@ -169,15 +151,9 @@ class MockServerTool {
         tempDir.deleteRecursively()
     }
 
-    private fun refreshRegistry(): List<PersistedMockServerRecord> {
-        val activeServers = loadMockRegistry().filterAlive()
-        saveMockRegistry(activeServers)
-        return activeServers
-    }
-
-    private fun stopServer(server: PersistedMockServerRecord) {
-        runningMocks.remove(server.port)?.close()
-        File(server.tempDir).deleteRecursively()
+    private fun stopServer(port: Int) {
+        runningMocks.remove(port)?.close()
+        mockDirectories.remove(port)?.deleteRecursively()
     }
 
     private fun stopMessage(port: Int): String {
@@ -200,28 +176,4 @@ class MockServerTool {
             lines.forEach { line -> append("- $line\n") }
         }.trimEnd()
     }
-
-    private fun loadMockRegistry(): List<PersistedMockServerRecord> {
-        if (!mockRegistryFile.isFile) return emptyList()
-
-        return runCatching {
-            json.decodeFromString<List<PersistedMockServerRecord>>(mockRegistryFile.readText())
-        }.getOrElse { emptyList() }
-    }
-
-    private fun saveMockRegistry(records: List<PersistedMockServerRecord>) {
-        mockRegistryFile.parentFile.mkdirs()
-        mockRegistryFile.writeText(json.encodeToString(records))
-    }
-
-    private fun List<PersistedMockServerRecord>.filterAlive(): List<PersistedMockServerRecord> {
-        return filter { server -> runningMocks.containsKey(server.port) }
-    }
 }
-
-@Serializable
-private data class PersistedMockServerRecord(
-    val port: Int,
-    val tempDir: String,
-    val url: String
-)
