@@ -113,6 +113,7 @@ specmatic {
         dockerBuild {
             imageName = "specmatic"
             dockerOrgNames = listOf("specmatic")
+            extraApkDependencies = listOf("wget")
         }
         publish {
             pom {
