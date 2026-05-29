@@ -883,7 +883,7 @@ class OpenApiSpecification(
                             protocol = protocol,
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata,
-                            sourceLocations = sourceLocationsFromMap()
+                            sourceLocations = sourceLocations
                         )
                     }
 
@@ -1973,9 +1973,9 @@ class OpenApiSpecification(
         return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
     }
 
-    private fun sourceLocationsFromMap(): Map<String, SourceLocation> {
+    private val sourceLocations: Map<String, SourceLocation> by lazy {
         val displayPath = File(openApiFilePath).invariantSeparatorsPath
-        return jsonPointerSourceMap.mapValues { (_, node) ->
+        jsonPointerSourceMap.mapValues { (_, node) ->
             SourceLocation(displayPath, node.line, node.column)
         }
     }
