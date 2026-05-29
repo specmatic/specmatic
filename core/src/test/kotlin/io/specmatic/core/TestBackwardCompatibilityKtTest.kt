@@ -5357,7 +5357,7 @@ paths:
             In scenario "POST /anyof-inline. Response: ok"
             API: POST /anyof-inline -> 200
 
-              >> REQUEST.BODY.count
+              >> REQUEST.BODY.count (new.yaml:124:21)
               
                   R3005: Property matches no schema option
                   Documentation: https://docs.specmatic.io/rules#r3005
@@ -5392,7 +5392,7 @@ paths:
             In scenario "POST /anyof-reffed. Response: ok"
             API: POST /anyof-reffed -> 200
 
-              >> REQUEST.BODY.count
+              >> REQUEST.BODY.count (new.yaml:167:9)
               
                   R3005: Property matches no schema option
                   Documentation: https://docs.specmatic.io/rules#r3005
@@ -5427,7 +5427,7 @@ paths:
             In scenario "POST /anyof-payload-ref. Response: ok"
             API: POST /anyof-payload-ref -> 200
 
-              >> REQUEST.BODY.count
+              >> REQUEST.BODY.count (new.yaml:167:9)
               
                   R3005: Property matches no schema option
                   Documentation: https://docs.specmatic.io/rules#r3005

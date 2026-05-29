@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
+import io.specmatic.core.SourceLocation
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.patternMismatchResult
 import io.specmatic.core.value.EmptyString
@@ -16,6 +17,7 @@ data class AnyOfPattern(
     override val example: String? = null,
     override val discriminator: Discriminator? = null,
     override val extensions: Map<String, Any> = pattern.extractCombinedExtensions(),
+    private val schemaPointer: String? = null,
     private val delegate: AnyPattern =
         AnyPattern(
             pattern = pattern,
@@ -63,7 +65,7 @@ data class AnyOfPattern(
                 Failure(
                     message = "Key '$key' is not declared in any anyOf option",
                     ruleViolation = StandardRuleViolation.ANY_OF_UNKNOWN_KEY
-                ).breadCrumb(key)
+                ).breadCrumb(key, sourceLocationForKey(key, updatedPatterns, resolver))
             )
         }
 
@@ -72,7 +74,7 @@ data class AnyOfPattern(
                 Failure(
                     message = "Key '$key' did not match any anyOf option that declares it",
                     ruleViolation = StandardRuleViolation.ANY_OF_NO_MATCHING_SCHEMA
-                ).breadCrumb(key)
+                ).breadCrumb(key, sourceLocationForKey(key, updatedPatterns, resolver))
             )
         }
 
@@ -191,6 +193,15 @@ data class AnyOfPattern(
                         separator = " or ",
                     ) { withoutPatternDelimiters(it.typeName) }
             }
+
+    private fun sourceLocationForKey(key: String, patterns: List<Pattern>, resolver: Resolver): SourceLocation? {
+        val fromDeclaringBranch = patterns.firstNotNullOfOrNull { pattern ->
+            val objectPattern = resolvedHop(pattern, resolver) as? JSONObjectPattern ?: return@firstNotNullOfOrNull null
+            val pointer = objectPattern.propertyPointers[key] ?: objectPattern.propertyPointers[withoutOptionality(key)]
+            pointer?.let(resolver::locate)
+        }
+        return fromDeclaringBranch ?: resolver.locate(schemaPointer)
+    }
 
     private fun analyzeJSONObjectKeys(
         value: JSONObjectValue,

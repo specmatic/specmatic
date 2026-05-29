@@ -1933,7 +1933,8 @@ class OpenApiSpecification(
             typeAlias = pattern.typeAlias,
             example = pattern.example,
             discriminator = pattern.discriminator,
-            extensions = pattern.extensions
+            extensions = pattern.extensions,
+            schemaPointer = schemaPointer
         )
     }
 
