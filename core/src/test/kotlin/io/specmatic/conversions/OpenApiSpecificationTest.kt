@@ -63,6 +63,16 @@ fun openAPIToString(openAPI: OpenAPI): String {
 
 internal class OpenApiSpecificationTest {
 
+    data class FormExplodedObjectQueryExampleCase(
+        val name: String,
+        val parameterYaml: String,
+        val componentsYaml: String = "",
+        val expectedQueryParams: Map<String, String>,
+        val unexpectedQueryParams: Set<String> = setOf("info")
+    ) {
+        override fun toString(): String = name
+    }
+
     companion object {
         const val OPENAPI_FILE_WITH_YAML_EXTENSION = "openApiTest.yaml"
         const val OPENAPI_FILE_WITH_YML_EXTENSION = "openApiTest.yml"
@@ -92,6 +102,149 @@ internal class OpenApiSpecificationTest {
             return Stream.of(
                 Arguments.of("3.0.1"),
                 Arguments.of("3.1.0"),
+            )
+        }
+
+        @JvmStatic
+        fun formExplodedObjectQueryExampleCases(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "inline object parameter example",
+                        parameterYaml = """
+                            - in: query
+                              name: info
+                              required: true
+                              schema:
+                                type: object
+                                required:
+                                  - status
+                                properties:
+                                  status:
+                                    type: integer
+                                  message:
+                                    type: string
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    status: 200
+                                    message: ok
+                        """.trimIndent(),
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "required object with required property only",
+                        parameterYaml = """
+                            - in: query
+                              name: info
+                              required: true
+                              schema:
+                                type: object
+                                required:
+                                  - status
+                                properties:
+                                  status:
+                                    type: integer
+                                  message:
+                                    type: string
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    status: 200
+                        """.trimIndent(),
+                        expectedQueryParams = mapOf("status" to "200"),
+                        unexpectedQueryParams = setOf("info", "message")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "optional object parameter with required property",
+                        parameterYaml = """
+                            - in: query
+                              name: info
+                              required: false
+                              schema:
+                                type: object
+                                required:
+                                  - status
+                                properties:
+                                  status:
+                                    type: integer
+                                  message:
+                                    type: string
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    status: 200
+                                    message: ok
+                        """.trimIndent(),
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "schema ref",
+                        parameterYaml = """
+                            - in: query
+                              name: info
+                              required: true
+                              schema:
+                                ${"$"}ref: '#/components/schemas/Info'
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    status: 200
+                                    message: ok
+                        """.trimIndent(),
+                        componentsYaml = """
+                            components:
+                              schemas:
+                                Info:
+                                  type: object
+                                  required:
+                                    - status
+                                  properties:
+                                    status:
+                                      type: integer
+                                    message:
+                                      type: string
+                        """.trimIndent(),
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "example ref",
+                        parameterYaml = """
+                            - in: query
+                              name: info
+                              required: true
+                              schema:
+                                type: object
+                                required:
+                                  - status
+                                properties:
+                                  status:
+                                    type: integer
+                                  message:
+                                    type: string
+                              examples:
+                                SUCCESS:
+                                  ${"$"}ref: '#/components/examples/InfoSuccess'
+                        """.trimIndent(),
+                        componentsYaml = """
+                            components:
+                              examples:
+                                InfoSuccess:
+                                  value:
+                                    status: 200
+                                    message: ok
+                        """.trimIndent(),
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                )
             )
         }
     }
@@ -12561,24 +12714,27 @@ paths:
         assertThat(testCount).isEqualTo(2)
     }
 
-    @Test
-    fun `inline examples for form exploded object query param should use serialized property query keys`() {
-        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(), "").toFeature()
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("formExplodedObjectQueryExampleCases")
+    fun `inline form exploded object query examples are serialized to wire keys`(case: FormExplodedObjectQueryExampleCase) {
+        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(case), "").toFeature()
 
         val request = feature.inlineNamedStubs.single { it.name == "SUCCESS" }.stub.request
         val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
             .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+        val queryParams = request.queryParams.asMap()
 
-        assertThat(request.queryParams.asMap())
-            .containsEntry("status", "200")
-            .containsEntry("message", "ok")
-            .doesNotContainKey("info")
+        assertThat(queryParams).containsAllEntriesOf(case.expectedQueryParams)
+        case.unexpectedQueryParams.forEach { queryParamKey ->
+            assertThat(queryParams).doesNotContainKey(queryParamKey)
+        }
         assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
     }
 
-    @Test
-    fun `contract tests should use serialized property query keys from form exploded object parameter examples`() {
-        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(), "").toFeature()
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("formExplodedObjectQueryExampleCases")
+    fun `contract tests use serialized query property keys from inline examples`(case: FormExplodedObjectQueryExampleCase) {
+        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(case), "").toFeature()
         val seenQueryParams = mutableListOf<Map<String, String>>()
 
         val results = feature.executeTests(object : TestExecutor {
@@ -12590,10 +12746,10 @@ paths:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
-            assertThat(queryParams)
-                .containsEntry("status", "200")
-                .containsEntry("message", "ok")
-                .doesNotContainKey("info")
+            assertThat(queryParams).containsAllEntriesOf(case.expectedQueryParams)
+            case.unexpectedQueryParams.forEach { queryParamKey ->
+                assertThat(queryParams).doesNotContainKey(queryParamKey)
+            }
         })
     }
 
@@ -12728,50 +12884,38 @@ paths:
         assertThat(matchedExampleRequest).isTrue()
     }
 
-    private fun formExplodedObjectQueryParamWithInlineExamplesSpec(): String {
-        return """
-            openapi: 3.0.0
-            info:
-              title: Object Query Inline Example
-              version: 1.0.0
-            paths:
-              /data:
-                get:
-                  parameters:
-                    - in: query
-                      name: info
-                      required: true
-                      schema:
-                        type: object
-                        required:
-                          - status
-                        properties:
-                          status:
-                            type: integer
-                          message:
-                            type: string
-                      examples:
-                        SUCCESS:
-                          value:
-                            status: 200
-                            message: ok
-                  responses:
-                    '200':
-                      description: OK
-                      content:
-                        application/json:
-                          schema:
-                            type: object
-                            required:
-                              - id
-                            properties:
-                              id:
-                                type: integer
-                          examples:
-                            SUCCESS:
-                              value:
-                                id: 10
+    private fun formExplodedObjectQueryParamWithInlineExamplesSpec(case: FormExplodedObjectQueryExampleCase): String {
+        val specWithoutComponents = """
+openapi: 3.0.0
+info:
+  title: ${case.name}
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+${case.parameterYaml.trimIndent().prependIndent("        ")}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+              examples:
+                SUCCESS:
+                  value:
+                    id: 10
         """.trimIndent()
+
+        return listOf(specWithoutComponents, case.componentsYaml.trimIndent())
+            .filter(String::isNotBlank)
+            .joinToString("\n")
     }
 
     private fun duplicateExampleNameAcrossOperationsSpec(): String {
