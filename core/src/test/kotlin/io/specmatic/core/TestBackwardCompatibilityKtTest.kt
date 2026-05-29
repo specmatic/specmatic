@@ -4992,17 +4992,20 @@ paths:
             val operations = operationsFrom(report)
             val json = "application/json"
 
-            // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}) fail the check;
+            // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}, the anyOf/oneOf
+            // unions, and the reffed-out request body/response/path-item/header) fail the check;
             // the breaking WIP operation does not contribute to this verdict.
             assertThat(results.success()).isFalse()
 
             // The full console report: every incompatibility (including the breaking WIP
-            // operation GET /promotions, which is shown but does not break the verdict).
+            // operation GET /promotions, which is shown but does not break the verdict). Each
+            // located breadcrumb is asserted at the source position of the element that changed,
+            // including across $ref'd-out request bodies, responses, path items, and headers.
             assertThat(results.report()).isEqualToNormalizingNewlines("""
             In scenario "GET /orders. Response: bad request"
             API: GET /orders -> 400
 
-              >> RESPONSE.BODY.code (new.yaml:187:9)
+              >> RESPONSE.BODY.code (new.yaml:283:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5023,7 +5026,7 @@ paths:
             In scenario "GET /shipments. Response: ok"
             API: GET /shipments -> 200
 
-              >> RESPONSE.BODY.weight (new.yaml:236:9)
+              >> RESPONSE.BODY.weight (new.yaml:332:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5031,7 +5034,7 @@ paths:
               
                   This is number in the new specification response but string in the old specification
               
-              >> RESPONSE.BODY.carrier (new.yaml:244:13)
+              >> RESPONSE.BODY.carrier (new.yaml:340:13)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5053,13 +5056,79 @@ paths:
             In scenario "PUT /widgets/(widgetId:number). Response: ok"
             API: PUT /widgets/(widgetId:number) -> 200
 
-              >> REQUEST.PARAMETERS.PATH.widgetId (new.yaml:248:7)
+              >> REQUEST.PARAMETERS.PATH.widgetId (new.yaml:344:7)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
               
                   This is type number in the new specification, but type string in the old specification
+
+            In scenario "GET /anyof. Response: ok"
+            API: GET /anyof -> 200
+
+              >> RESPONSE.BODY.alpha (old.yaml:186:23)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "alpha" but it is missing in the new specification
+
+            In scenario "GET /oneof. Response: ok"
+            API: GET /oneof -> 200
+
+              >> RESPONSE.BODY.gamma (new.yaml:174:23)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "gamma" but it is missing in the new specification
+
+            In scenario "POST /parcels. Response: ok"
+            API: POST /parcels -> 200
+
+              >> REQUEST.BODY.size (new.yaml:358:15)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+
+            In scenario "GET /inventory. Response: ok"
+            API: GET /inventory -> 200
+
+              >> RESPONSE.BODY.count (new.yaml:369:15)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /audit. Response: ok"
+            API: GET /audit -> 200
+
+              >> RESPONSE.BODY.event (new.yaml:383:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /tokens. Response: ok"
+            API: GET /tokens -> 200
+
+              >> RESPONSE.HEADER.X-Rate-Limit (new.yaml:386:5)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
             """.trimIndent())
 
             // NEW-SIDE N1: Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
@@ -5113,10 +5182,46 @@ paths:
                 .describedAs("WIP operation qualifiers")
                 .contains("wip")
 
+            // NEW-SIDE N6 (breaking): GET /anyof returns an anyOf of two inline object members;
+            // member[1].beta changes type string -> integer. The located breadcrumb above
+            // (old.yaml:186:23) resolves to the `alpha` branch member, proving annotateAnyOfPattern
+            // annotates per-branch property pointers.
+            operations.assertRow(OperationKey("GET", "/anyof", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N7 (breaking): GET /oneof returns a oneOf of two inline object members;
+            // member[1].delta changes type string -> integer. The located breadcrumb above
+            // (new.yaml:174:23) resolves to the `gamma` branch member, proving annotateAnyPattern
+            // annotates per-branch property pointers.
+            operations.assertRow(OperationKey("GET", "/oneof", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N8 (breaking): POST /parcels takes its request body via $ref to
+            // #/components/requestBodies/ParcelBody, whose schema property `size` changes type
+            // string -> integer. The REQUEST.BODY.size breadcrumb is annotated at the component
+            // requestBody's schema (new.yaml:358:15), not the use-site - a reffed-out request body.
+            operations.assertRow(OperationKey("POST", "/parcels", json, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N9 (breaking): GET /inventory returns a $ref to
+            // #/components/responses/InventoryOk, whose schema property `count` changes type
+            // string -> integer. The RESPONSE.BODY.count breadcrumb is annotated at the component
+            // response's schema (new.yaml:369:15) - a reffed-out response.
+            operations.assertRow(OperationKey("GET", "/inventory", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N10 (breaking): /audit is a $ref to #/components/pathItems/Audit, whose
+            // GET 200 response schema property `event` changes type string -> integer. The
+            // RESPONSE.BODY.event breadcrumb resolves to the component pathItem's schema
+            // (new.yaml:383:21) - a reffed-out path item.
+            operations.assertRow(OperationKey("GET", "/audit", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N11 (breaking): GET /tokens 200 declares a header via $ref to
+            // #/components/headers/RateLimit, whose schema changes type string -> integer. The
+            // RESPONSE.HEADER.X-Rate-Limit breadcrumb resolves to the component header definition
+            // (new.yaml:386:5) - a reffed-out response header.
+            operations.assertRow(OperationKey("GET", "/tokens", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 13 operation rows in the report")
-                .hasSize(13)
+                .describedAs("expected 19 operation rows in the report")
+                .hasSize(19)
         }
 
         @Test

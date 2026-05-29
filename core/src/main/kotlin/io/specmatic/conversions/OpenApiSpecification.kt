@@ -1288,7 +1288,7 @@ class OpenApiSpecification(
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
             val (resolvedResponse, responseContext) = resolveResponse(response, statusContext)
-            val responseUseSitePointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status"
+            val responseUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status"
             val responseBasePointer = sourcePointerForRefUseSite(responseUseSitePointer, response.`$ref`)
             val headersMap = openAPIHeadersToSpecmatic(resolvedResponse, responseContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
@@ -1628,7 +1628,7 @@ class OpenApiSpecification(
 
                 "application/xml" -> {
                     val rawXmlBody = toXMLPattern(mediaType, collectorContext = mediaTypeContext)
-                    val requestBodyUseSitePointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
                     val xmlSchemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     val annotatedXmlBody = annotateWithPropertyPointers(rawXmlBody, mediaType.schema, xmlSchemaPointer)
@@ -1662,7 +1662,7 @@ class OpenApiSpecification(
                     val bodyIsRequired: Boolean = requestBody.required ?: false
 
                     val rawBody = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext)
-                    val requestBodyUseSitePointer = "/paths/${escapeJsonPointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
                     val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     val bodyWithPointers = annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
@@ -1810,6 +1810,17 @@ class OpenApiSpecification(
             ?: useSitePointer
     }
 
+    // A path item can itself be reffed out (paths./x.$ref -> #/components/pathItems/X).
+    // The parser inlines it before building the model, so the operation is reachable, but
+    // the use-site pointer (/paths/~1x) carries no children in the source map. Resolve it to
+    // the component pathItem so request/response/parameter pointers built underneath land on
+    // the component definition. The path-item $ref is stripped from the model before parsing,
+    // so there is no model-level ref to pass; resolution relies on the source map's refTarget.
+    // Non-reffed paths have no refTarget and fall back to the use-site unchanged.
+    private fun pathScopePointer(openApiPath: String): String {
+        return sourcePointerForRefUseSite("/paths/${escapeJsonPointer(openApiPath)}", ref = null)
+    }
+
     private fun buildParameterPointers(
         openApiPath: String,
         httpMethod: String,
@@ -1818,7 +1829,7 @@ class OpenApiSpecification(
         operationParameters: List<Parameter>?,
         collectorContext: CollectorContext
     ): Map<String, String> {
-        val pathScope = "/paths/${escapeJsonPointer(openApiPath)}"
+        val pathScope = pathScopePointer(openApiPath)
         val pathItemPrefix = "$pathScope/parameters"
         val operationPrefix = "$pathScope/${httpMethod.lowercase()}/parameters"
         val pointers = mutableMapOf<String, String>()
