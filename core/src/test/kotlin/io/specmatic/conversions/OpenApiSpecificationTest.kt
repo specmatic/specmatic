@@ -12562,6 +12562,42 @@ paths:
     }
 
     @Test
+    fun `inline examples for form exploded object query param should use serialized property query keys`() {
+        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(), "").toFeature()
+
+        val request = feature.inlineNamedStubs.single { it.name == "SUCCESS" }.stub.request
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+
+        assertThat(request.queryParams.asMap())
+            .containsEntry("status", "200")
+            .containsEntry("message", "ok")
+            .doesNotContainKey("info")
+        assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `contract tests should use serialized property query keys from form exploded object parameter examples`() {
+        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(), "").toFeature()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams)
+                .containsEntry("status", "200")
+                .containsEntry("message", "ok")
+                .doesNotContainKey("info")
+        })
+    }
+
+    @Test
     fun `should use path item parameter examples for path query and header when generating example driven tests`() {
         val spec = """
             openapi: 3.0.0
@@ -12690,6 +12726,52 @@ paths:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(matchedExampleRequest).isTrue()
+    }
+
+    private fun formExplodedObjectQueryParamWithInlineExamplesSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Object Query Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - status
+                        properties:
+                          status:
+                            type: integer
+                          message:
+                            type: string
+                      examples:
+                        SUCCESS:
+                          value:
+                            status: 200
+                            message: ok
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
     }
 
     private fun duplicateExampleNameAcrossOperationsSpec(): String {
