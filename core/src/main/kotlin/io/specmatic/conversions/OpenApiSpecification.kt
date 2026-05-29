@@ -98,7 +98,7 @@ class OpenApiSpecification(
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
     private val exampleDirPaths: List<String> = emptyList(),
-    private val jsonPointerSourceMap: Map<String, YamlNodeLocation> = emptyMap()
+    private val jsonPointerSourceMap: Map<String, YamlNodeLocation> = emptyMap(),
     private val changeTrackingSource: OpenApiChangeTrackingSource? = null,
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()

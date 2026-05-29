@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.ChangeStatus
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
@@ -18,7 +17,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import java.io.File
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -171,6 +169,17 @@ internal class TestBackwardCompatibilityKtTest {
           Summary: The value type does not match the expected type defined in the specification
 
           This is number in the new specification response but string in the old specification
+
+    In scenario "get item. Response: ok"
+    API: GET /items/(id:number) -> 200
+
+      >> REQUEST.PARAMETERS.PATH.id (new.yaml:124:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
 
     In scenario "foo. Response: ok"
     API: GET /foo -> 200
@@ -4370,7 +4379,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().copy(addSourceLocation = true).toBackwardCompatibilityStatuses()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4621,7 +4630,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().copy(addSourceLocation = true).toBackwardCompatibilityStatuses()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4993,7 +5002,7 @@ paths:
             In scenario "GET /orders. Response: bad request"
             API: GET /orders -> 400
 
-              >> RESPONSE.BODY.code
+              >> RESPONSE.BODY.code (new.yaml:157:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5004,17 +5013,17 @@ paths:
             In scenario "GET /orders. Response: server error"
             API: GET /orders -> 500
 
-                  This API exists in the old contract but not in the new contract
+                  This API exists in the old contract but not in the new contract (old.yaml:28:9)
 
             In scenario "DELETE /orders/(id:string). Response: deleted"
             API: DELETE /orders/(id:string) -> 204
 
-                  This API exists in the old contract but not in the new contract
+                  This API exists in the old contract but not in the new contract (old.yaml:87:5)
 
             In scenario "GET /promotions. Response: ok"
             API: GET /promotions -> 200
 
-              >> RESPONSE.BODY.code
+              >> RESPONSE.BODY.code (new.yaml:105:19)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001

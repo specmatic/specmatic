@@ -18,10 +18,10 @@ fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
 
 internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature): Pair<Results, CtrfReport?> {
     val startTime = System.currentTimeMillis()
-    val records = OpenApiBackwardCompatibilityChecker(older, newer).run().copy(addSourceLocation = true)
+    val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
     val endTime = System.currentTimeMillis()
 
-    val result = records.toBackwardCompatibilityStatuses()
+    val result = records.toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
     val report = generateBackwardCompatibilityReport(records, startTime, endTime)
     return Pair(result, report)
 }
