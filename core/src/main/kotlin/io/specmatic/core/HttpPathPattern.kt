@@ -25,6 +25,11 @@ data class HttpPathPattern(
         .map { SegmentCounts.segmentCounts(it, internalPathRegex) }
         .fold(SegmentCounts()) { acc, counts -> acc + counts }
 
+    // otherPathPatterns is ambient context (the sibling paths of the same method), used only for
+    // specificity disambiguation during matching. It is not part of this path's own structure, so
+    // it must be dropped before using value-equality to decide whether an operation has changed.
+    fun withoutOtherPathPatterns(): HttpPathPattern = copy(otherPathPatterns = emptyList())
+
     fun encompasses(otherHttpPathPattern: HttpPathPattern, thisResolver: Resolver, otherResolver: Resolver): Result {
         if (this.matches(URI.create(otherHttpPathPattern.path), resolver = thisResolver) is Success)
             return Success()

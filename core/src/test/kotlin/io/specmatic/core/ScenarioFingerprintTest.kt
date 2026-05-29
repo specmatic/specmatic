@@ -69,7 +69,13 @@ class ScenarioFingerprintTest {
         assertThat(fingerprint.status).isEqualTo(scenario.status)
         assertThat(fingerprint.requestContentType).isEqualTo(scenario.requestContentType)
         assertThat(fingerprint.responseContentType).isEqualTo(scenario.responseContentType)
-        assertThat(fingerprint.httpRequestPattern).isEqualTo(scenario.httpRequestPattern)
+        // The request pattern is copied off the scenario but with the ambient sibling-path context
+        // dropped, so change status reflects only this operation's own contract.
+        assertThat(fingerprint.httpRequestPattern).isEqualTo(
+            scenario.httpRequestPattern.copy(
+                httpPathPattern = scenario.httpRequestPattern.httpPathPattern?.withoutOtherPathPatterns()
+            )
+        )
         assertThat(fingerprint.httpResponsePattern).isEqualTo(scenario.httpResponsePattern)
     }
 

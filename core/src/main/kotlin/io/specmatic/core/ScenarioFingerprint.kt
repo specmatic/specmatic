@@ -20,7 +20,12 @@ data class ScenarioFingerprint(
             status = scenario.status,
             requestContentType = scenario.requestContentType,
             responseContentType = scenario.responseContentType,
-            httpRequestPattern = scenario.httpRequestPattern,
+            // Drop the ambient sibling-path context so that an operation's change status reflects
+            // only its own contract - otherwise a path-pattern change in one operation would flip
+            // the change status of every other operation sharing the same HTTP method.
+            httpRequestPattern = scenario.httpRequestPattern.let { request ->
+                request.copy(httpPathPattern = request.httpPathPattern?.withoutOtherPathPatterns())
+            },
             httpResponsePattern = scenario.httpResponsePattern,
         )
 
