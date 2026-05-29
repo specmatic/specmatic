@@ -1,0 +1,10 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/products/(id:number)"
+  },
+  "http-response": {
+    "status": 200,
+    "body": "Another Sample Product"
+  }
+}

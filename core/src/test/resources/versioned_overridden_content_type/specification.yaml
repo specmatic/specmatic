@@ -1,0 +1,128 @@
+openapi: "3.0.0"
+info:
+  title: "Widgets API"
+  version: "1.0.0"
+
+paths:
+  /widgets/json:
+    post:
+      summary: "Create Widget - JSON"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+      responses:
+        "201":
+          description: "Base JSON response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+
+  /widgets/versioned-json:
+    post:
+      summary: "Create Widget - Versioned JSON override"
+      parameters:
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            type: string
+            enum:
+              - application/json; version=2026-12-31
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+      responses:
+        "202":
+          description: "Enum Content-Type response override"
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/json; version=2026-12-31
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+
+  /widgets/vendor-json:
+    post:
+      summary: "Create Widget - Vendor JSON override"
+      parameters:
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: "^application/vnd\\.widget\\.json$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+      responses:
+        "203":
+          description: "Pattern Content-Type response override"
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                pattern: "^application/vnd\\.widget\\.json$"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+
+  /widgets/versioned-vendor-json:
+    post:
+      summary: "Create Widget - Versioned Vendor JSON override"
+      parameters:
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            oneOf:
+              - type: string
+                enum:
+                  - application/vnd.widget.json; version=2026-12-31
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimpleSchema"
+      responses:
+        "204":
+          description: "oneOf Content-Type response override"
+          headers:
+            Content-Type:
+              schema:
+                oneOf:
+                  - type: string
+                    enum:
+                      - application/vnd.widget.json; version=2026-12-31
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleSchema"
+
+components:
+  schemas:
+    SimpleSchema:
+      type: object
+      required:
+        - id
+        - message
+      properties:
+        id:
+          type: integer
+        message:
+          type: string
