@@ -5556,6 +5556,62 @@ paths:
             """.trimIndent())
         }
 
+        @Test
+        fun `form-urlencoded and multipart bodies annotate the changed field at its source`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_multipart_old.yaml")
+            val newSpec = readFixture("composition_multipart_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /urlencoded-inline. Response: ok"
+            API: POST /urlencoded-inline -> 200
+
+              >> REQUEST.FORM-FIELDS.count (new.yaml:21:17)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type string in the old specification
+
+            In scenario "POST /urlencoded-ref. Response: ok"
+            API: POST /urlencoded-ref -> 200
+
+              >> REQUEST.FORM-FIELDS.count (new.yaml:72:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type string in the old specification
+
+            In scenario "POST /multipart-inline. Response: ok"
+            API: POST /multipart-inline -> 200
+
+              >> REQUEST.MULTIPART-FORMDATA.count (new.yaml:49:17)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /multipart-ref. Response: ok"
+            API: POST /multipart-ref -> 200
+
+              >> REQUEST.MULTIPART-FORMDATA.count (new.yaml:78:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
         private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String): JsonNode {
             val row = firstOrNull { node ->
                 node.path("method").asText() == key.method &&

@@ -1611,20 +1611,30 @@ class OpenApiSpecification(
                             }
                         }
 
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     Pair(
                         requestPattern.copy(
                             multiPartFormDataPattern = parts,
+                            multiPartPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
                         ), emptyMap()
                     )
                 }
 
-                "application/x-www-form-urlencoded" -> Pair(
-                    requestPattern.copy(
-                        formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
-                        headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                    ), emptyMap()
-                )
+                "application/x-www-form-urlencoded" -> {
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                    Pair(
+                        requestPattern.copy(
+                            formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
+                            formFieldPointers = formContentPointers(mediaType.schema, schemaPointer),
+                            headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                        ), emptyMap()
+                    )
+                }
 
                 "application/xml" -> {
                     val rawXmlBody = toXMLPattern(mediaType, collectorContext = mediaTypeContext)
@@ -2001,6 +2011,15 @@ class OpenApiSpecification(
             sources.putAll(collectPropertySources(constituentSchema, constituentPointer))
         }
         return sources
+    }
+
+    private fun formContentPointers(schema: Schema<*>?, schemaPointer: String): Map<String, String> {
+        if (schema?.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return collectPropertySources(resolvedSchema, targetPointer).mapValues { (_, source) -> source.first }
+        }
+        return collectPropertySources(schema, schemaPointer).mapValues { (_, source) -> source.first }
     }
 
     private fun annotateListPattern(pattern: ListPattern, schema: Schema<*>?, schemaPointer: String): ListPattern {
