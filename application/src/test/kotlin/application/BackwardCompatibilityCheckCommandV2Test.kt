@@ -20,6 +20,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.entry
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -49,6 +50,14 @@ class BackwardCompatibilityCheckCommandV2Test {
                 feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
                 protocol = listOf(SpecmaticProtocol.HTTP)
             )
+
+            System.setProperty("SPECMATIC_BCC_REPORT", "true")
+        }
+
+        @AfterAll
+        @JvmStatic
+        fun teardown() {
+            System.clearProperty("SPECMATIC_BCC_REPORT")
         }
     }
 
@@ -615,6 +624,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 21 checks and 11 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 0, Failed: 1)
             """.trimIndent())
         }
@@ -713,6 +724,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 2 checks and 1 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
@@ -812,6 +825,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 4 checks and 2 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
@@ -920,6 +935,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 4 checks and 2 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
@@ -1002,6 +1019,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 2 checks and 1 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 0, Failed: 1)
             """.trimIndent())
         }
@@ -1112,6 +1131,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 4 checks and 2 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 0, Failed: 1)
             """.trimIndent())
         }
@@ -1231,6 +1252,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 4 checks and 2 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 0, Failed: 1)
             """.trimIndent())
         }
@@ -1313,6 +1336,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 2 checks and 1 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
@@ -1394,6 +1419,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 2 checks and 1 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent())
         }
@@ -1477,6 +1504,8 @@ class BackwardCompatibilityCheckCommandV2Test {
               --------------------
 
 
+            Generating BCC report for 2 checks and 1 operations...
+            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
             Files checked: 1 (Passed: 0, Failed: 1)
             """.trimIndent())
         }
@@ -1513,7 +1542,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             val (_, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
-                using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                     BackwardCompatibilityCheckCommandV2().apply {
                         options.repoDir = tempDir.canonicalPath
                         options.baseBranch = baseBranch
@@ -1596,7 +1625,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 MixedResultBackwardCompatibilityCheckHook::class.java
             ) {
                 captureStandardOutput(redirectStdErrToStdout = true) {
-                    using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                    using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                         BackwardCompatibilityCheckCommandV2().apply {
                             options.repoDir = tempDir.canonicalPath
                             options.baseBranch = baseBranch
@@ -1778,7 +1807,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
-                using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                     BackwardCompatibilityCheckCommandV2().apply {
                         options.repoDir = tempDir.canonicalPath
                         options.baseBranch = baseBranch
@@ -1947,7 +1976,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 AlwaysPassingBackwardCompatibilityCheckHook::class.java
             ) {
                 captureStandardOutput(redirectStdErrToStdout = true) {
-                    using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+                    using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                         BackwardCompatibilityCheckCommandV2().apply {
                             options.repoDir = tempDir.canonicalPath
                             options.baseBranch = baseBranch

@@ -10,7 +10,7 @@ import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfReport
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
-private const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
+internal const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
     return testBackwardCompatibilityWithReport(older, newer).first
@@ -21,14 +21,14 @@ internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature)
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
     val endTime = System.currentTimeMillis()
 
-    val result = records.toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
+    val result = records.toBackwardCompatibilityStatuses().copy(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
     val report = generateBackwardCompatibilityReport(records, startTime, endTime)
     return Pair(result, report)
 }
 
 fun backwardCompatibilityRecords(older: Feature, newer: Feature): Pair<Results, List<CtrfBackwardCompatibilityRecord>> {
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
-    return records.toBackwardCompatibilityStatuses().copy(addSourceLocation = true) to records
+    return records.toBackwardCompatibilityStatuses().copy(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) to records
 }
 
 fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {
