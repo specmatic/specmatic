@@ -24,8 +24,8 @@ sealed class Result {
         }
     }
 
-    fun reportString(): String {
-        return toReport().toText()
+    fun reportString(addSourceLocation: Boolean = false): String {
+        return toReport(addSourceLocation = addSourceLocation).toText()
     }
 
     fun isFluffy(): Boolean {
@@ -57,9 +57,9 @@ sealed class Result {
 
     abstract fun shouldBeIgnored(): Boolean
 
-    fun toReport(scenarioMessage: String? = null): Report {
+    fun toReport(scenarioMessage: String? = null, addSourceLocation: Boolean = false): Report {
         return when (this) {
-            is Failure -> toFailureReport(scenarioMessage)
+            is Failure -> toFailureReport(scenarioMessage, addSourceLocation)
             else -> SuccessReport
         }
     }

@@ -28,7 +28,7 @@ internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature)
 
 fun backwardCompatibilityRecords(older: Feature, newer: Feature): Pair<Results, List<CtrfBackwardCompatibilityRecord>> {
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
-    return records.toBackwardCompatibilityStatuses() to records
+    return records.toBackwardCompatibilityStatuses().copy(addSourceLocation = true) to records
 }
 
 fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {

@@ -26,7 +26,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     // TODO: Need actual positive variation from generatedScenario
     override val name: String = scenario.fullApiDescription
-    override val message: String = compatResult.reportString()
+    override val message: String = compatResult.reportString(addSourceLocation = true)
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
         if (isWip) add("wip")
