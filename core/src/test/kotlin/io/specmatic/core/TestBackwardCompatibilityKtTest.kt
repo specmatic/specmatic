@@ -5002,7 +5002,7 @@ paths:
             In scenario "GET /orders. Response: bad request"
             API: GET /orders -> 400
 
-              >> RESPONSE.BODY.code (new.yaml:157:9)
+              >> RESPONSE.BODY.code (new.yaml:168:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5020,10 +5020,29 @@ paths:
 
                   This API exists in the old contract but not in the new contract (old.yaml:87:5)
 
+            In scenario "GET /shipments. Response: ok"
+            API: GET /shipments -> 200
+
+              >> RESPONSE.BODY.weight (new.yaml:217:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+              
+              >> RESPONSE.BODY.carrier (new.yaml:225:13)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
             In scenario "GET /promotions. Response: ok"
             API: GET /promotions -> 200
 
-              >> RESPONSE.BODY.code (new.yaml:105:19)
+              >> RESPONSE.BODY.code (new.yaml:116:19)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5042,6 +5061,14 @@ paths:
 
             // NEW-SIDE N3: Self-recursive Category gains optional `description`
             operations.assertRow(OperationKey("GET", "/categories", null, 200, json), changeStatus = "CHANGED", result = "compatible")
+
+            // NEW-SIDE N4 (breaking): Shipment is an allOf of a $ref'd constituent (ShipmentBase,
+            // contributing `weight`) and an inline constituent (contributing `carrier`). Both
+            // properties change type string -> number, so GET /shipments 200 is CHANGED +
+            // Incompatible. The console report above asserts each breadcrumb is annotated at the
+            // constituent that declares the property (ShipmentBase.weight and the inline carrier),
+            // proving annotateAllOfPattern resolves both $ref and inline allOf members.
+            operations.assertRow(OperationKey("GET", "/shipments", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // OLD-SIDE O1 (non-breaking): ErrorDetailed loses optional `traceId`
             operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "compatible")
@@ -5070,8 +5097,8 @@ paths:
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 11 operation rows in the report")
-                .hasSize(11)
+                .describedAs("expected 12 operation rows in the report")
+                .hasSize(12)
         }
 
         @Test

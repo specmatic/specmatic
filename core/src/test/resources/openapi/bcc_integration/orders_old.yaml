@@ -119,6 +119,17 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Category'
+  # allOf case: Shipment composes a $ref'd constituent (ShipmentBase) and an
+  # inline constituent. Both contribute a property that turns breaking in new.
+  /shipments:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
   # WIP operation: tagged WIP so it is ignored for the pass/fail verdict, but it
   # must still execute and be change-tracked. Its `code` response field changes
   # string -> integer in new (breaking).
@@ -216,3 +227,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Category'
+    # allOf source-location case: `weight` from the $ref'd constituent
+    # (ShipmentBase) and `carrier` from the inline constituent, both string
+    # here and number in new (breaking).
+    ShipmentBase:
+      type: object
+      required: [weight]
+      properties:
+        weight:
+          type: string
+    Shipment:
+      allOf:
+        - $ref: '#/components/schemas/ShipmentBase'
+        - type: object
+          required: [carrier]
+          properties:
+            carrier:
+              type: string
