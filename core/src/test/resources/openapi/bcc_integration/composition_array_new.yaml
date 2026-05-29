@@ -1,0 +1,51 @@
+openapi: 3.0.0
+info:
+  title: Array ref source-location cases
+  version: 1.0.0
+# Array request bodies reached through a $ref. /array-body-ref points the whole body at
+# an array component; /array-items-ref is an inline array whose items are a $ref. In both
+# the item's `count` property is `boolean` here and `number` in composition_array_old.yaml,
+# so each operation turns backward-incompatible and the report pins where `count` resolves.
+paths:
+  # body is a $ref to an array component
+  /array-body-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Metrics'
+      responses:
+        '200':
+          description: ok
+  # inline array body whose items are a $ref to an object component
+  /array-items-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Metric'
+      responses:
+        '200':
+          description: ok
+components:
+  schemas:
+    Metric:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: boolean
+    Metrics:
+      type: array
+      items:
+        type: object
+        required: [count]
+        properties:
+          count:
+            type: boolean

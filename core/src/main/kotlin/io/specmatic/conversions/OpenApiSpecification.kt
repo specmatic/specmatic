@@ -2004,6 +2004,11 @@ class OpenApiSpecification(
     }
 
     private fun annotateListPattern(pattern: ListPattern, schema: Schema<*>?, schemaPointer: String): ListPattern {
+        if (schema?.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return annotateListPattern(pattern, resolvedSchema, targetPointer)
+        }
         val itemsPointer = "$schemaPointer/items"
         val annotatedInner = annotateWithPropertyPointers(pattern.pattern, schema?.items, itemsPointer)
         return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
@@ -3238,10 +3243,13 @@ class OpenApiSpecification(
                     extract = { this.items },
                     createDefault = { Schema<Any>() }
                 )
-                ListPattern(
+                val listPattern = ListPattern(
                     pattern = toSpecmaticPattern(itemsSchema, typeStack, collectorContext = collectorContext.at("items")),
                     example = toListExample(this.extractFirstExampleAsJsonNode()),
                 )
+                if (patternName.isNotBlank())
+                    annotateListPattern(listPattern, this, "/components/schemas/${escapeJsonPointer(patternName)}")
+                else listPattern
             }
 
             "object" -> if (this.xml?.name != null) {

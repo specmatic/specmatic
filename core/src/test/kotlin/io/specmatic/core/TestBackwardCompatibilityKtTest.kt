@@ -5522,6 +5522,40 @@ paths:
             """.trimIndent())
         }
 
+        @Test
+        fun `array bodies reached through a ref annotate the changed item property`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_array_old.yaml")
+            val newSpec = readFixture("composition_array_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /array-body-ref. Response: ok"
+            API: POST /array-body-ref -> 200
+
+              >> REQUEST.BODY[0].count (new.yaml:50:11)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /array-items-ref. Response: ok"
+            API: POST /array-items-ref -> 200
+
+              >> REQUEST.BODY[0].count (new.yaml:42:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
         private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String): JsonNode {
             val row = firstOrNull { node ->
                 node.path("method").asText() == key.method &&
