@@ -53,6 +53,7 @@ sealed class Result {
     abstract fun failureReason(failureReason: FailureReason?): Result
     open fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter = BreadCrumbToJsonPathConverter()): List<Issue> = emptyList()
     open fun withRuleViolation(ruleViolation: RuleViolation): Result = this
+    open fun withoutFailureReasons(): Result = this
 
     abstract fun shouldBeIgnored(): Boolean
 
@@ -281,6 +282,10 @@ sealed class Result {
         fun withoutRuleViolation(): Failure {
             val causesWithoutFailure = this.causes.map { it.copy(cause = it.cause?.withoutRuleViolation()) }
             return this.copy(causes = causesWithoutFailure, ruleViolationReport = null)
+        }
+
+        override fun withoutFailureReasons(): Failure {
+            return this._removeReasonsFromCauses()
         }
 
         override fun toIssues(breadCrumbToJsonPathConverter: BreadCrumbToJsonPathConverter): List<Issue> {

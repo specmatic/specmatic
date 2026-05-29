@@ -187,29 +187,20 @@ Feature: Recursive test
 
     @Test
     @Tag(GENERATION)
-    fun `should determine max list size from resolver maxRandomArraySize`() {
+    fun `should determine exact list size from resolver randomArraySize`() {
         val pattern = ListPattern(NumberPattern())
         repeat(10) {
-            val value = pattern.generate(Resolver(maxRandomArraySize = 1)) as JSONArrayValue
+            val value = pattern.generate(Resolver(randomArraySize = 1)) as JSONArrayValue
             assertThat(value.list).hasSize(1)
         }
-
-        val generatedSizes = (1..100).map {
-            val value = pattern.generate(Resolver(maxRandomArraySize = 3)) as JSONArrayValue
-            value.list.size
-        }
-
-        assertTrue(generatedSizes.all { it in 1..3 })
-        assertThat(generatedSizes).contains(3)
     }
 
-    @ParameterizedTest
     @Tag(GENERATION)
-    @ValueSource(ints = [-1, 0])
-    fun `should always generate at least one list item even when maxRandomArraySize is lower`(maxSize: Int) {
+    @Test
+    fun `should use configured randomArraySize exactly`() {
         val pattern = ListPattern(NumberPattern())
-        val value = pattern.generate(Resolver(maxRandomArraySize = maxSize)) as JSONArrayValue
-        assertThat(value.list).hasSizeGreaterThanOrEqualTo(1)
+        val value = pattern.generate(Resolver(randomArraySize = 2)) as JSONArrayValue
+        assertThat(value.list).hasSize(2)
     }
 
     @Nested

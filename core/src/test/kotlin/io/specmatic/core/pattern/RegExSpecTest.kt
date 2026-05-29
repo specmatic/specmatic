@@ -106,6 +106,12 @@ class RegExSpecTest {
         possibleValues.split("|").forEach { assertThat(regExSpec.match(StringValue(it))).isTrue }
     }
 
+    @Test
+    fun `match should not allow dot to cross newlines`() {
+        val regExSpec = RegExSpec("^a.b$")
+        assertThat(regExSpec.match(StringValue("a\nb"))).isFalse()
+    }
+
     @ParameterizedTest
     @CsvSource(
         "^[A-Z]{5,10}\$; [A-Z]{5,10}",

@@ -1,7 +1,6 @@
 package application.backwardCompatibility
 
 import io.specmatic.core.IFeature
-import io.specmatic.core.Results
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import org.assertj.core.api.Assertions.assertThat
@@ -132,7 +131,7 @@ class BackwardCompatibilityCheckBaseCommandTest {
         fun strictMode() = effectiveStrictMode
         fun git() = gitCommand
 
-        override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results {
+        override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
             TODO("Not yet implemented")
         }
 

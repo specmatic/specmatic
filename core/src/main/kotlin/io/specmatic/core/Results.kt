@@ -8,6 +8,14 @@ data class Results(val results: List<Result> = emptyList(), val addSourceLocatio
     fun hasFailures(): Boolean = results.any { it is Result.Failure }
     fun success(): Boolean = if(hasResults()) successCount > 0 && failureCount == 0 else true
 
+    fun successExcludingIgnorableFailures(): Boolean = withoutIgnorableFailures().success()
+
+    fun hasIgnorableFailures(): Boolean = results.any { it is Result.Failure && it.shouldBeIgnored() }
+
+    fun ignorableFailures(): Results = copy(results = results.filter { it is Result.Failure && it.shouldBeIgnored() })
+
+    fun withoutIgnorableFailures(): Results = copy(results = results.filterNot { it is Result.Failure && it.shouldBeIgnored() })
+
     fun withoutFluff(fluffLevel: Int): Results = copy(results = results.filterNot { it.isFluffy(fluffLevel) })
 
     fun withoutFluff(): Results = copy(results = minimumFluff())

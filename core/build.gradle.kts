@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.3.20"
+    kotlin("plugin.serialization") version "2.3.21"
 }
 
 dependencies {
@@ -17,7 +17,7 @@ dependencies {
     implementation("joda-time:joda-time:2.14.2")
     implementation("net.minidev:json-smart:2.6.0")
 
-    implementation("com.ezylang:EvalEx:3.6.0")
+    implementation("com.ezylang:EvalEx:3.6.1")
     implementation("org.apache.commons:commons-lang3:3.20.0")
     implementation("io.cucumber:gherkin:33.0.0")
     implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
@@ -32,8 +32,8 @@ dependencies {
     implementation("com.jayway.jsonpath:json-path:2.10.0")
     implementation("io.github.zenwave360:json-schema-ref-parser-jvm:0.8.10")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.4.0.202509020913-r")
     implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.4.0.202509020913-r")
     implementation("com.fasterxml.jackson.core:jackson-core:2.21.3")
@@ -52,7 +52,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("org.json:json:20250517")
-    testImplementation("org.springframework:spring-web:6.2.17")
+    testImplementation("org.springframework:spring-web:6.2.18")
     testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")

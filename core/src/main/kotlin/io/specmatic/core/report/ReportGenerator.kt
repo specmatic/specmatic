@@ -4,7 +4,9 @@ import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
+import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
 import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.reporting.ReportProvider
 import io.specmatic.specmatic.core.VersionInfo
@@ -51,6 +53,36 @@ object ReportGenerator {
 
         ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+    }
+
+    fun generateReportBcc(
+        endTime: Long,
+        startTime: Long,
+        reportDir: File,
+        specConfigs: List<CtrfSpecConfig>,
+        toolName: String = "Specmatic ${VersionInfo.describe()}",
+        coverageReportOperations: List<BaseBccReportOperation>,
+    ): CtrfReport? {
+        if (isCtrfSpecConfigsValid(specConfigs).not()) return null
+        val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()
+        val extra = buildMap<String, Any> {
+            put("specmaticConfigPath", getConfigFilePath())
+            put("reportType", "BackwardCompatibility")
+        }
+
+        consoleLog("Generating BCC report for $totalChecksRan checks and ${coverageReportOperations.size} operations...")
+        val report = CtrfReportGenerator.generateBccReport(
+            bccReportOperations = coverageReportOperations,
+            specConfig = specConfigs,
+            startTime = startTime,
+            toolName = toolName,
+            endTime = endTime,
+            extra = extra,
+        )
+
+        ReportProvider.generateCtrfReport(report, reportDir)
+        ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+        return report
     }
 
     internal fun specmaticConfigAsMap(): Map<String, Any> {

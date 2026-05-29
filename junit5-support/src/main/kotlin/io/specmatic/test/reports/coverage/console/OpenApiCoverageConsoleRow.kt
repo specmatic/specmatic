@@ -33,8 +33,9 @@ data class OpenApiCoverageConsoleRow(
         responseStatus = coverageReportOperation.operation.responseCode.toString(),
         exercisedCount = coverageReportOperation.metrics?.attempts ?: coverageReportOperation.tests.size,
         result = formatResult(
-            passedCount = coverageReportOperation.tests.count { it.result == TestResult.Success },
-            failedCount = coverageReportOperation.tests.count { it.result == TestResult.Failed }
+            passedCount = coverageReportOperation.tests.count { it.result == TestResult.Success && !it.isWip},
+            failedCount = coverageReportOperation.tests.count { it.result == TestResult.Failed && !it.isWip },
+            wipCount = coverageReportOperation.tests.count {it.isWip},
         ),
         coveragePercentage = coveragePercentage,
         remarks = coverageReportOperation.coverageStatus,
@@ -66,7 +67,7 @@ data class OpenApiCoverageConsoleRow(
         path,
         responseStatus.toString(),
         count,
-        formatResult(passedCount = count, failedCount = 0),
+        formatResult(passedCount = count, failedCount = 0, wipCount = 0),
         coveragePercentage,
         remarks,
         eligibleForCoverage,
@@ -127,10 +128,11 @@ data class OpenApiCoverageConsoleRow(
     internal fun formattedRemarkLength(): Int = formattedRemark.length
 
     companion object {
-        private fun formatResult(passedCount: Int, failedCount: Int): String {
+        private fun formatResult(passedCount: Int, failedCount: Int, wipCount: Int): String {
             return buildList {
                 if (passedCount > 0) add("${passedCount}p")
                 if (failedCount > 0) add("${failedCount}f")
+                if (wipCount > 0) add("${wipCount}w")
             }.joinToString(" ")
         }
     }

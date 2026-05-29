@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.3.20"
+    kotlin("plugin.serialization") version "2.3.21"
 }
 
 dependencies {
@@ -11,9 +11,9 @@ dependencies {
     }
 
     implementation("net.minidev:json-smart:2.6.0")
-    implementation("com.ezylang:EvalEx:3.6.0")
+    implementation("com.ezylang:EvalEx:3.6.1")
     implementation(project(":specmatic-core"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
     implementation("org.assertj:assertj-core:3.27.7")
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.3")

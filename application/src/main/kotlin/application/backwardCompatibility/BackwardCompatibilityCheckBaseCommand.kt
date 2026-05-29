@@ -5,6 +5,7 @@ import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.LoggingConfiguration
+import io.specmatic.core.generateBackwardCompatibilityReport
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
@@ -14,6 +15,7 @@ import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
+import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import picocli.CommandLine.Option
 import java.io.File
 import java.nio.file.Paths
@@ -77,7 +79,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     protected val effectiveTargetPath: String by lazy { options.targetPath ?: backwardCompConfig?.targetPath.orEmpty() }
     protected val effectiveStrictMode: Boolean by lazy { options.strictMode ?: backwardCompConfig?.strictMode ?: false }
 
-    abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): Results
+    abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult
     abstract fun File.isValidFileFormat(): Boolean
     abstract fun File.isValidSpec(): Boolean
     abstract fun getFeatureFromSpecPath(path: String): IFeature
@@ -226,6 +228,11 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     val unknownResult =
         Pair<CompatibilityResult, List<OperationUsageResponse>>(CompatibilityResult.UNKNOWN, emptyList())
 
+    data class BackwardCompatibilityCheckResult(
+        val results: Results,
+        val reportRecords: List<CtrfBackwardCompatibilityRecord> = emptyList()
+    )
+
     data class ProcessedSpec(
         val specFilePath: String,
         val backwardCompatibilityResult: Results,
@@ -235,11 +242,13 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
             CompatibilityResult.UNKNOWN, emptyList()
         ),
-        val isNewFile: Boolean
+        val isNewFile: Boolean,
+        val reportRecords: List<CtrfBackwardCompatibilityRecord> = emptyList()
     )
 
     private fun runBackwardCompatibilityCheckFor(files: Set<String>, baseBranch: String): CompatibilityReport {
         val treeishWithChanges = getCurrentBranch()
+        val reportStartTime = System.currentTimeMillis()
 
         try {
             // FIRST PASS: collect results without logging. This includes reading newer/older features and running the lightweight compatibility check.
@@ -251,6 +260,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     }
 
                     val newer = getFeatureFromSpecPath(specFilePath)
+                    // The newer feature is parsed while the worktree has the current branch files, but below we
+                    // checkout the base branch before running the comparison. OpenAPI change tracking resolves
+                    // external refs when scenariosForChangeTracking() is first evaluated, so delaying this until
+                    // after checkout races with the branch switch and can build the newer fingerprints from the
+                    // base branch's external files. Materialize it here while the current branch is still checked out.
+                    (newer as? Feature)?.scenariosForChangeTracking()
                     val unusedExamples = getUnusedExamples(newer)
 
                     val repoDirFile = File(effectiveRepoDir).absoluteFile
@@ -274,9 +289,10 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
                     val older = getFeatureFromSpecPath(specFilePath)
 
-                    val backwardCompatibilityResult = checkBackwardCompatibility(older, newer)
+                    val checkResult = checkBackwardCompatibility(older, newer)
+                    val backwardCompatibilityResult = checkResult.results
                     val result =
-                        if (backwardCompatibilityResult.success()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
+                        if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
 
                     LicenseResolver.utilize(
                         product = LicensedProduct.OPEN_SOURCE,
@@ -290,7 +306,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                         newer = newer,
                         unusedExamples = unusedExamples,
                         precomputedCompatibilityResult = result,
-                        isNewFile = false
+                        isNewFile = false,
+                        reportRecords = checkResult.reportRecords
                     )
                 } finally {
                     gitCommand.checkout(treeishWithChanges)
@@ -316,6 +333,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 }
             }
 
+            generateBackwardCompatibilityReport(
+                specsValidatedByHook.flatMap { it.reportRecords },
+                reportStartTime,
+                System.currentTimeMillis()
+            )
+
             return CompatibilityReport(results)
         } finally {
             gitCommand.checkout(treeishWithChanges)
@@ -325,7 +348,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     val hook = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java).firstOrNull()
 
     private fun validateSpecsWithHook(processedSpecs: List<ProcessedSpec>): List<ProcessedSpec> {
-        val failedSpecs = processedSpecs.filter { it.backwardCompatibilityResult.success().not() }
+        val failedSpecs = processedSpecs.filter { it.backwardCompatibilityResult.successExcludingIgnorableFailures().not() }
 
         if (failedSpecs.isEmpty() || hook == null)
             return processedSpecs
@@ -352,14 +375,19 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 })
             }
 
-            return futures.map { (processed, future) ->
-                try {
-                    val compatibilityResult = future.get()
-                    processed.copy(computedCompatibilityCheckHookResult = compatibilityResult)
+            val hookResultsBySpec = futures.associate { (processed, future) ->
+                processed.specFilePath to try {
+                    future.get()
                 } catch (e: Throwable) {
                     logger.log(e)
-                    processed.copy(computedCompatibilityCheckHookResult = unknownResult)
+                    unknownResult
                 }
+            }
+
+            return processedSpecs.map { processed ->
+                hookResultsBySpec[processed.specFilePath]
+                    ?.let { processed.copy(computedCompatibilityCheckHookResult = it) }
+                    ?: processed
             }
         } finally {
             executor.shutdown()
@@ -374,10 +402,15 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val newer = processedSpec.newer
         val unusedExamples = processedSpec.unusedExamples
 
-        if (backwardCompatibilityResult.success().not()) {
+        if (backwardCompatibilityResult.successExcludingIgnorableFailures().not()) {
             logger.log("_".repeat(40).prependIndent(ONE_INDENT))
             logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
-            logger.log(backwardCompatibilityResult.withoutViolationReport().distinctReport().prependIndent(TWO_INDENTS))
+            logger.log(
+                backwardCompatibilityResult.withoutIgnorableFailures().withoutViolationReport().distinctReport()
+                    .prependIndent(TWO_INDENTS)
+            )
+
+            logWipScenarios(backwardCompatibilityResult)
 
             val verdict = failedVerdictMessage(processedSpec, hook, effectiveStrictMode, effectiveBaseBranch)
 
@@ -385,6 +418,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
             return verdict.first
         }
+
+        logWipScenarios(backwardCompatibilityResult)
 
         val errorsFound = printExampleValiditySummaryAndReturnResult(newer, unusedExamples, specFilePath)
 
@@ -397,6 +432,17 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
         return if (errorsFound) CompatibilityResult.FAILED
         else CompatibilityResult.PASSED
+    }
+
+    private fun logWipScenarios(backwardCompatibilityResult: Results) {
+        if (!backwardCompatibilityResult.hasIgnorableFailures()) return
+
+        logger.log("_".repeat(40).prependIndent(ONE_INDENT))
+        logger.log("WIP scenarios (incompatible, not breaking the check):$newLine".prependIndent(ONE_INDENT))
+        logger.log(
+            backwardCompatibilityResult.ignorableFailures().withoutViolationReport().distinctReport()
+                .prependIndent(TWO_INDENTS)
+        )
     }
 
     private fun logVerdictFor(specFilePath: String, message: String, startWithNewLine: Boolean = true) {

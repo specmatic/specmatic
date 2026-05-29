@@ -64,6 +64,7 @@ class CoverageReportTextRenderer: ReportRenderer<OpenAPICoverageConsoleReport> {
             "! = Operation excluded from the run due to a filter",
             "p = passed tests",
             "f = failed tests",
+            "w = wip tests",
             "",
             "${report.coveragePercentage}% API Coverage reported from ${report.operationsEligibleForCoverage} operations eligible for coverage",
             "${report.absoluteCoveragePercentage}% Absolute Coverage (includes excluded operations that were not tested)"

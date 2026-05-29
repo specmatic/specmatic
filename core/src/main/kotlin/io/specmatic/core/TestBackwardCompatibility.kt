@@ -1,13 +1,56 @@
 package io.specmatic.core
 
+import io.specmatic.core.report.BccReportGenerator
+import io.specmatic.core.report.ReportGenerator
+import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
+import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
+import io.specmatic.reporter.ctrf.model.CtrfReport
+
+private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
+private const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    val operationToResult = OpenApiBackwardCompatibilityChecker(older, newer).run()
-    val aggregated = operationToResult.values.fold(Results()) { acc, results -> acc.plus(results) }
-    return aggregated.copy(addSourceLocation = true)
+    return testBackwardCompatibilityWithReport(older, newer).first
+}
+
+internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature): Pair<Results, CtrfReport?> {
+    val startTime = System.currentTimeMillis()
+    val records = OpenApiBackwardCompatibilityChecker(older, newer).run().copy(addSourceLocation = true)
+    val endTime = System.currentTimeMillis()
+
+    val result = records.toBackwardCompatibilityStatuses()
+    val report = generateBackwardCompatibilityReport(records, startTime, endTime)
+    return Pair(result, report)
+}
+
+fun backwardCompatibilityRecords(older: Feature, newer: Feature): Pair<Results, List<CtrfBackwardCompatibilityRecord>> {
+    val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
+    return records.toBackwardCompatibilityStatuses() to records
+}
+
+fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {
+    return filterIsInstance<OpenApiBackwardCompatibilityCheckRecord>()
+        .groupBy { it.operations }.values
+        .fold(Results()) { acc, recordsForOperation ->
+            acc.plus(Results(recordsForOperation.map { it.compatResult }).distinct())
+        }
+}
+
+fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+    if (records.isEmpty()) return null
+    if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return null
+    val reportOperations = BccReportGenerator().generateReportOperations(records)
+    val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
+    return ReportGenerator.generateReportBcc(
+        endTime = endTime,
+        startTime = startTime,
+        reportDir = reportDir,
+        coverageReportOperations = reportOperations,
+        specConfigs = reportOperations.map { it.specConfig }.distinct(),
+    )
 }
 
 object NewAndOldSpecificationRequestMismatches: MismatchMessages {

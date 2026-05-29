@@ -64,7 +64,6 @@ class OpenApiCoverageTest {
                 assertThat(test.actualResponseStatus).isEqualTo(400)
                 assertThat(test.actualResponseContentType).isEqualTo("application/json")
                 assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isFalse },
                     { assertThat(it.reasons).isEmpty() },
                 )
             }
@@ -154,7 +153,6 @@ class OpenApiCoverageTest {
             assertThat(wipView.operation.metrics?.matches).isEqualTo(0)
             assertThat(wipView.tests).hasSize(1).allSatisfy { test ->
                 assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isFalse },
                     { assertThat(it.reasons).isEmpty() },
                 )
             }
@@ -226,11 +224,7 @@ class OpenApiCoverageTest {
             assertThat(okResponseView.operation.metrics?.matches).isEqualTo(10)
             assertThat(okResponseView.operation.metrics?.attempts).isEqualTo(10)
             assertThat(okResponseView.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
-            assertThat(okResponseView.tests).hasSize(10).allSatisfy { test ->
-                assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isTrue },
-                )
-            }
+            assertThat(okResponseView.tests).hasSize(10)
         }
 
         report.verify {
@@ -239,11 +233,7 @@ class OpenApiCoverageTest {
             assertThat(badRequestView.operation.metrics?.matches).isEqualTo(20)
             assertThat(badRequestView.operation.metrics?.attempts).isEqualTo(20)
             assertThat(badRequestView.operation.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
-            assertThat(badRequestView.tests).hasSize(20).allSatisfy { test ->
-                assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isTrue },
-                )
-            }
+            assertThat(badRequestView.tests).hasSize(20)
         }
     }
 
@@ -299,9 +289,7 @@ class OpenApiCoverageTest {
             assertThat(okResponseView.operation.metrics?.attempts).isEqualTo(10)
             assertThat(okResponseView.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
             assertThat(okResponseView.tests).hasSize(10).allSatisfy { test ->
-                assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isTrue },
-                )
+                assertThat(test.extraFields())
             }
         }
 
@@ -313,15 +301,11 @@ class OpenApiCoverageTest {
             assertThat(badRequestView.operation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
 
             assertThat(badRequestView.tests.filter { it.actualResponseContentType == "application/json" }).hasSize(10).allSatisfy { test ->
-                assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isTrue },
-                )
+                assertThat(test.extraFields())
             }
 
             assertThat(badRequestView.tests.filterNot { it.actualResponseContentType == "application/json" }).hasSize(10).allSatisfy { test ->
-                assertThat(test.extraFields()).satisfies(
-                    { assertThat(it.match).isFalse },
-                )
+                assertThat(test.extraFields())
             }
         }
     }

@@ -1,7 +1,7 @@
 plugins {
     id("java")
     kotlin("jvm")
-    kotlin("plugin.serialization") version "2.3.20"
+    kotlin("plugin.serialization") version "2.3.21"
 }
 
 dependencies {
@@ -13,7 +13,7 @@ dependencies {
     implementation("joda-time:joda-time:2.14.2")
     implementation("net.minidev:json-smart:2.6.0")
 
-    implementation("com.ezylang:EvalEx:3.6.0")
+    implementation("com.ezylang:EvalEx:3.6.1")
     implementation("com.arakelian:java-jq:2.0.0")
     testImplementation("com.arakelian:java-jq:2.0.0")
 
@@ -41,9 +41,9 @@ dependencies {
 
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
 
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
 
@@ -53,7 +53,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.11")
-
 }
 
 tasks.test {

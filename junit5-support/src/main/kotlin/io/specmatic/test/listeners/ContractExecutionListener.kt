@@ -1,6 +1,7 @@
 package io.specmatic.test.listeners
 
 import io.specmatic.core.log.logger
+import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.test.SpecmaticJUnitSupport
 import org.junit.platform.engine.TestDescriptor
 import org.junit.platform.engine.TestExecutionResult
@@ -12,6 +13,7 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.jvm.optionals.getOrNull
 
 fun getContractExecutionPrinter(): ContractExecutionPrinter {
     return if(stdOutIsRedirected())
@@ -29,6 +31,7 @@ class ContractExecutionListener : TestExecutionListener {
     private val success = AtomicInteger(0)
     private val failure = AtomicInteger(0)
     private val aborted = AtomicInteger(0)
+    private val wip = AtomicInteger(0)
     private val couldNotStart = AtomicBoolean(false)
     private val testSuiteFailed = AtomicBoolean(false)
     private val printer: ContractExecutionPrinter = getContractExecutionPrinter()
@@ -50,6 +53,7 @@ class ContractExecutionListener : TestExecutionListener {
         success.set(0)
         failure.set(0)
         aborted.set(0)
+        wip.set(0)
         couldNotStart.set(false)
         testSuiteFailed.set(false)
         failedLog.clear()
@@ -68,7 +72,7 @@ class ContractExecutionListener : TestExecutionListener {
                 it.throwable?.ifPresent { throwable -> exceptionsThrown.add(throwable) }
                 if (it.status != Status.SUCCESSFUL) {
                     testSuiteFailed.set(true)
-                    if (success.get() + failure.get() + aborted.get() == 0) {
+                    if (success.get() + failure.get() + aborted.get() + wip.get() == 0) {
                         couldNotStart.set(true)
                     }
                 }
@@ -85,7 +89,10 @@ class ContractExecutionListener : TestExecutionListener {
                 println()
             }
             Status.ABORTED -> {
-                aborted.incrementAndGet()
+                when {
+                    testExecutionResult.isWip() -> wip.incrementAndGet()
+                    else -> aborted.incrementAndGet()
+                }
                 printAndLogFailure(testExecutionResult, testIdentifier)
             }
             Status.FAILED -> {
@@ -96,6 +103,10 @@ class ContractExecutionListener : TestExecutionListener {
                 logger.debug("A test called \"${testIdentifier?.displayName}\" ran but the test execution result was null. Please inform the Specmatic developer.")
             }
         }
+    }
+
+    private fun TestExecutionResult.isWip(): Boolean {
+        return throwable?.getOrNull()?.cause?.message == CoverageStatus.WIP.value
     }
 
     private fun printAndLogFailure(testExecutionResult: TestExecutionResult, testIdentifier: TestIdentifier?) {
@@ -148,7 +159,8 @@ class ContractExecutionListener : TestExecutionListener {
                 success = success.get(),
                 partialSuccesses = SpecmaticJUnitSupport.partialSuccesses.size,
                 aborted = aborted.get(),
-                failure = failure.get()
+                failure = failure.get(),
+                wip = wip.get()
             )
         )
     }
