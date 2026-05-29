@@ -12,6 +12,8 @@ import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 internal class ListPatternTest {
     @Test
@@ -199,6 +201,20 @@ Feature: Recursive test
         val pattern = ListPattern(NumberPattern())
         val value = pattern.generate(Resolver(randomArraySize = 2)) as JSONArrayValue
         assertThat(value.list).hasSize(2)
+    }
+
+    @Tag(GENERATION)
+    @Test
+    fun `should honor the default max random array size when randomArraySize is not configured`() {
+        val pattern = ListPattern(NumberPattern())
+
+        val generatedSizes = (1..100).map {
+            val value = pattern.generate(Resolver()) as JSONArrayValue
+            value.list.size
+        }
+
+        assertTrue(generatedSizes.all { it in 1..DEFAULT_RANDOM_ARRAY_SIZE })
+        assertThat(generatedSizes).contains(DEFAULT_RANDOM_ARRAY_SIZE)
     }
 
     @Nested

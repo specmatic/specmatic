@@ -1,0 +1,304 @@
+openapi: 3.0.0
+info:
+  title: BCC integration sample
+  version: '2.0'
+paths:
+  /data:
+    get:
+      summary: list data
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+    post:
+      summary: submit data
+      parameters:
+        # query 'q' type changed: string -> number
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: number
+        # 'tag' became required
+        - name: tag
+          in: query
+          required: true
+          schema:
+            type: string
+        # new required query param
+        - name: extra
+          in: query
+          required: true
+          schema:
+            type: string
+        # header 'X-Required' type changed: string -> number
+        - name: X-Required
+          in: header
+          required: true
+          schema:
+            type: number
+        # 'X-Optional' became required
+        - name: X-Optional
+          in: header
+          required: true
+          schema:
+            type: string
+        # new required header
+        - name: X-Extra
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              # 'note' newly required, 'extra' newly required
+              required: [id, note, extra]
+              properties:
+                # 'id' type changed: string -> number
+                id:
+                  type: number
+                note:
+                  type: string
+                # new property 'extra'
+                extra:
+                  type: string
+                address:
+                  type: object
+                  required: [street]
+                  properties:
+                    # nested object: address.street type changed: string -> number
+                    street:
+                      type: number
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      # array of objects: tags[*].name type changed: string -> number
+                      name:
+                        type: number
+      responses:
+        '200':
+          description: ok
+          headers:
+            # response header 'X-Resp' type changed: string -> number
+            X-Resp:
+              schema:
+                type: number
+          content:
+            application/json:
+              schema:
+                type: object
+                # 'id' demoted to optional, 'extra' removed entirely
+                required: []
+                properties:
+                  id:
+                    type: string
+                  note:
+                    type: string
+            text/plain:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  # text/plain 'code' type changed: string -> number
+                  code:
+                    type: number
+  /items/{id}:
+    get:
+      summary: get item
+      parameters:
+        # path param 'id' type changed: string -> integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  # /foo path removed entirely
+  /bar-v2:
+    # /bar renamed to /bar-v2
+    get:
+      summary: bar
+      responses:
+        '200':
+          description: ok
+  /baz:
+    get:
+      summary: list baz
+      responses:
+        '200':
+          description: ok
+    # post on /baz removed
+  /pets:
+    post:
+      summary: register pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: ok
+  /submissions:
+    post:
+      summary: submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Submission'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    # response enum widened: added 'pending'
+                    enum: [accepted, pending]
+  /reusable-components:
+    post:
+      summary: reusable components
+      parameters:
+        - $ref: '#/components/parameters/ReusableQuery'
+        - $ref: '#/components/parameters/ReusableHeader'
+        - $ref: '#/components/parameters/ReusableFilter'
+      requestBody:
+        $ref: '#/components/requestBodies/ReusableRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReusableResponse'
+components:
+  schemas:
+    Submission:
+      type: object
+      required: [id, kind, category]
+      properties:
+        # Submission.id type changed: string -> number
+        id:
+          type: number
+        # Submission.kind oneOf narrowed: number branch removed
+        kind:
+          oneOf:
+            - type: string
+        # Submission.category enum narrowed: 'B' removed
+        category:
+          type: string
+          enum: [A]
+    Animal:
+      type: object
+      required: [species]
+      properties:
+        # Animal.species type changed: string -> number — surfaces via Dog/Cat allOf
+        species:
+          type: number
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
+    Dog:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            # Dog.sound type changed: string -> number
+            sound:
+              type: number
+    Cat:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            # Cat.sound type changed: string -> boolean
+            sound:
+              type: boolean
+  parameters:
+    ReusableQuery:
+      name: reusableQuery
+      in: query
+      required: true
+      schema:
+        type: number
+    ReusableHeader:
+      name: X-Reusable
+      in: header
+      required: true
+      schema:
+        type: number
+    ReusableFilter:
+      name: filter
+      in: query
+      required: true
+      style: form
+      explode: true
+      schema:
+        type: object
+        required: [filterKind]
+        properties:
+          filterKind:
+            type: number
+  requestBodies:
+    ReusableRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentId]
+            properties:
+              componentId:
+                type: number
+  responses:
+    ReusableResponse:
+      description: ok
+      headers:
+        X-Reusable-Response:
+          $ref: '#/components/headers/ReusableResponseHeader'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentStatus]
+            properties:
+              componentStatus:
+                type: number
+  headers:
+    ReusableResponseHeader:
+      schema:
+        type: number

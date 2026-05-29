@@ -79,7 +79,8 @@ data class Scenario(
     val exampleRow: Row? = null,
     val operationMetadata: OperationMetadata? = null,
     val requestChangeSummary: String? = null,
-    val generatedFrom: GeneratedScenarioOrigin? = null
+    val generatedFrom: GeneratedScenarioOrigin? = null,
+    val sourceLocations: Map<String, SourceLocation> = emptyMap()
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -112,7 +113,8 @@ data class Scenario(
         specification = scenarioInfo.specification,
         protocol = scenarioInfo.protocol,
         specType = scenarioInfo.specType,
-        operationMetadata = scenarioInfo.operationMetadata
+        operationMetadata = scenarioInfo.operationMetadata,
+        sourceLocations = scenarioInfo.sourceLocations
     )
 
     val apiIdentifier: String
@@ -401,6 +403,7 @@ data class Scenario(
     ): Result {
         if (httpResponsePattern.status == DEFAULT_RESPONSE_CODE || httpResponse.status != httpResponsePattern.status) {
             return Result.Failure(
+                message = "",
                 breadCrumb = "STATUS",
                 failureReason = FailureReason.StatusMismatch
             ).updateScenario(this)
@@ -731,7 +734,7 @@ data class Scenario(
         }
     }
 
-    val resolver: Resolver = Resolver(newPatterns = patterns, dictionary = dictionary)
+    val resolver: Resolver = Resolver(newPatterns = patterns, dictionary = dictionary, sourceLocations = sourceLocations)
 
     val serverState: Map<String, Value>
         get() = expectedFacts
