@@ -229,10 +229,10 @@ data class HttpRequestPattern(
         val (httpRequest, resolver, _: List<Failure>) = parameters
 
         val keyErrorResults: List<Failure> = resolver.findKeyErrorList(formFieldsPattern, httpRequest.formFields).map {
-            when {
-                httpRequest.formFields.contains(it.name) -> it.missingKeyToResult("form field", resolver.mismatchMessages)
-                httpRequest.formFields.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("form field", resolver.mismatchMessages)
-                else -> it.unknownKeyToResult("form field", resolver.mismatchMessages)
+            when (it) {
+                is MissingKeyError -> it.missingKeyToResult("form field", resolver.mismatchMessages)
+                is UnexpectedKeyError -> it.unknownKeyToResult("form field", resolver.mismatchMessages)
+                is FuzzyKeyError -> it.unknownKeyToResult("form field", resolver.mismatchMessages)
             }.breadCrumb(it.name, resolver.locate(formFieldPointers[withoutOptionality(it.name)])).breadCrumb(FORM_FIELDS_BREADCRUMB)
         }
 
