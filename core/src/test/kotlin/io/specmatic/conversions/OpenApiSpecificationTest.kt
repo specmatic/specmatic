@@ -4096,6 +4096,101 @@ paths:
         }
 
         @Test
+        fun `xml request body should support inline oneOf references`() {
+            val xmlContract = """
+            openapi: 3.0.3
+            info:
+              title: test-xml
+              version: '1.0'
+            paths:
+              '/items':
+                post:
+                  responses:
+                    '200':
+                      description: OK
+                  requestBody:
+                    content:
+                      application/xml:
+                        schema:
+                          oneOf:
+                            - ${"$"}ref: '#/components/schemas/document'
+                            - ${"$"}ref: '#/components/schemas/parcel'
+            components:
+              schemas:
+                document:
+                  type: object
+                  xml:
+                    name: document
+                  properties:
+                    id:
+                      type: integer
+                  required:
+                    - id
+                parcel:
+                  type: object
+                  xml:
+                    name: parcel
+                  properties:
+                    trackingNumber:
+                      type: string
+                  required:
+                    - trackingNumber
+        """.trimIndent()
+
+            val xmlFeature = OpenApiSpecification.fromYAML(xmlContract, "").toFeature()
+
+            assertMatchesSnippet("/items", """<document><id>10</id></document>""", xmlFeature)
+            assertMatchesSnippet("/items", """<parcel><trackingNumber>ABC123</trackingNumber></parcel>""", xmlFeature)
+        }
+
+        @Test
+        fun `xml response body should support inline oneOf references`() {
+            val xmlContract = """
+            openapi: 3.0.3
+            info:
+              title: test-xml
+              version: '1.0'
+            paths:
+              '/items':
+                get:
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/xml:
+                          schema:
+                            oneOf:
+                              - ${"$"}ref: '#/components/schemas/document'
+                              - ${"$"}ref: '#/components/schemas/parcel'
+            components:
+              schemas:
+                document:
+                  type: object
+                  xml:
+                    name: document
+                  properties:
+                    id:
+                      type: integer
+                  required:
+                    - id
+                parcel:
+                  type: object
+                  xml:
+                    name: parcel
+                  properties:
+                    trackingNumber:
+                      type: string
+                  required:
+                    - trackingNumber
+        """.trimIndent()
+
+            val xmlFeature = OpenApiSpecification.fromYAML(xmlContract, "").toFeature()
+
+            assertMatchesResponseSnippet("/items", """<document><id>10</id></document>""", xmlFeature)
+            assertMatchesResponseSnippet("/items", """<parcel><trackingNumber>ABC123</trackingNumber></parcel>""", xmlFeature)
+        }
+
+        @Test
         fun `xml contract with attributes`() {
             val xmlContract = """
             openapi: 3.0.3
