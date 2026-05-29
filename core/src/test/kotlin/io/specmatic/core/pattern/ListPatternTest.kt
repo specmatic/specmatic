@@ -203,6 +203,20 @@ Feature: Recursive test
         assertThat(value.list).hasSize(2)
     }
 
+    @Tag(GENERATION)
+    @Test
+    fun `should honor the default max random array size when randomArraySize is not configured`() {
+        val pattern = ListPattern(NumberPattern())
+
+        val generatedSizes = (1..100).map {
+            val value = pattern.generate(Resolver()) as JSONArrayValue
+            value.list.size
+        }
+
+        assertTrue(generatedSizes.all { it in 1..DEFAULT_RANDOM_ARRAY_SIZE })
+        assertThat(generatedSizes).contains(DEFAULT_RANDOM_ARRAY_SIZE)
+    }
+
     @Nested
     inner class AllPatternsMandatory {
         @Test
