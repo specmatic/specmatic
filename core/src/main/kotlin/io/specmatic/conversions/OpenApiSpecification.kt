@@ -1637,6 +1637,17 @@ class OpenApiSpecification(
                 }
 
                 "application/xml" -> {
+                    val examplesFromMediaType = mediaType.examples ?: emptyMap()
+                    val exampleBodies: Map<String, String?> = examplesFromMediaType.mapValues {
+                        resolveExample(it.value)?.value?.toString() ?: ""
+                    }
+
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithRequestBodies(exampleBodies, contentType)
+
                     val rawXmlBody = toXMLPattern(mediaType, collectorContext = mediaTypeContext)
                     val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
@@ -1646,7 +1657,7 @@ class OpenApiSpecification(
                         requestPattern.copy(
                             body = annotatedXmlBody,
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                        ), emptyMap()
+                        ), allExamples
                     )
                 }
 

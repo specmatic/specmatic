@@ -880,6 +880,184 @@ class LoadTestsFromExternalisedFiles {
         assertThat(results.testCount).isEqualTo(1)
     }
 
+    @Test
+    fun `should load inline xml oneOf examples as tests`() {
+        val feature = OpenApiSpecification
+            .fromYAML(xmlOneOfDocumentParcelSpecWithInlineExamples(), "")
+            .toFeature()
+
+        assertThat(feature.inlineNamedStubs.map { it.name }).contains("DOCUMENT", "PARCEL")
+        assertDocumentAndParcelXmlOneOfExamplesRun(feature)
+    }
+
+    @Test
+    fun `should load external xml oneOf examples as tests`(@TempDir tempDir: File) {
+        val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
+        writeXmlOneOfExample(examplesDir, "document", "<document><id>10</id></document>")
+        writeXmlOneOfExample(examplesDir, "parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
+
+        Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
+            val feature = OpenApiSpecification
+                .fromYAML(xmlOneOfDocumentParcelSpec(), "")
+                .toFeature()
+                .loadExternalisedExamples()
+
+            assertDoesNotThrow { feature.validateExamplesOrException() }
+            assertDocumentAndParcelXmlOneOfExamplesRun(feature)
+        }
+    }
+
+    private fun assertDocumentAndParcelXmlOneOfExamplesRun(feature: Feature) {
+        val rootElementNamesSeen = mutableListOf<String>()
+
+        val results = feature.executeTests(object: TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val requestBody = request.body as XMLNode
+                rootElementNamesSeen.add(requestBody.name)
+
+                return HttpResponse(
+                    status = 200,
+                    headers = mapOf("Content-Type" to "application/xml"),
+                    body = requestBody
+                )
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(results.testCount).isEqualTo(2)
+        assertThat(rootElementNamesSeen).containsExactlyInAnyOrder("document", "parcel")
+    }
+
+    private fun writeXmlOneOfExample(examplesDir: File, name: String, xmlBody: String) {
+        examplesDir.resolve("$name.json").writeText("""
+        {
+          "http-request": {
+            "method": "POST",
+            "path": "/items",
+            "headers": {
+              "Content-Type": "application/xml"
+            },
+            "body": "$xmlBody"
+          },
+          "http-response": {
+            "status": 200,
+            "headers": {
+              "Content-Type": "application/xml"
+            },
+            "body": "$xmlBody"
+          }
+        }
+        """.trimIndent())
+    }
+
+    private fun xmlOneOfDocumentParcelSpec(): String = """
+        openapi: 3.0.3
+        info:
+          title: XML oneOf API
+          version: '1.0'
+        paths:
+          /items:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/xml:
+                    schema:
+                      oneOf:
+                        - ${"$"}ref: '#/components/schemas/document'
+                        - ${"$"}ref: '#/components/schemas/parcel'
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/xml:
+                      schema:
+                        oneOf:
+                          - ${"$"}ref: '#/components/schemas/document'
+                          - ${"$"}ref: '#/components/schemas/parcel'
+        components:
+          schemas:
+            document:
+              type: object
+              xml:
+                name: document
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+            parcel:
+              type: object
+              xml:
+                name: parcel
+              required:
+                - trackingNumber
+              properties:
+                trackingNumber:
+                  type: string
+    """.trimIndent()
+
+    private fun xmlOneOfDocumentParcelSpecWithInlineExamples(): String = """
+        openapi: 3.0.3
+        info:
+          title: XML oneOf API
+          version: '1.0'
+        paths:
+          /items:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/xml:
+                    schema:
+                      oneOf:
+                        - ${"$"}ref: '#/components/schemas/document'
+                        - ${"$"}ref: '#/components/schemas/parcel'
+                    examples:
+                      DOCUMENT:
+                        value: |
+                          <document><id>10</id></document>
+                      PARCEL:
+                        value: |
+                          <parcel><trackingNumber>ABC123</trackingNumber></parcel>
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    application/xml:
+                      schema:
+                        oneOf:
+                          - ${"$"}ref: '#/components/schemas/document'
+                          - ${"$"}ref: '#/components/schemas/parcel'
+                      examples:
+                        DOCUMENT:
+                          value: |
+                            <document><id>10</id></document>
+                        PARCEL:
+                          value: |
+                            <parcel><trackingNumber>ABC123</trackingNumber></parcel>
+        components:
+          schemas:
+            document:
+              type: object
+              xml:
+                name: document
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+            parcel:
+              type: object
+              xml:
+                name: parcel
+              required:
+                - trackingNumber
+              properties:
+                trackingNumber:
+                  type: string
+    """.trimIndent()
+
     @Nested
     inner class AttributeSelection {
         @BeforeEach
