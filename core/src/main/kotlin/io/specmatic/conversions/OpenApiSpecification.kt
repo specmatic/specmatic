@@ -1944,9 +1944,25 @@ class OpenApiSpecification(
         schemaPointer: String,
         keyword: String
     ): List<Pattern>? {
-        if (branchSchemas == null || variants.size != branchSchemas.size) return null
-        return variants.mapIndexed { index, variant ->
-            annotateWithPropertyPointers(variant, branchSchemas[index], "$schemaPointer/$keyword/$index")
+        if (branchSchemas == null) return null
+
+        if (keyword != "oneOf") {
+            if (variants.size != branchSchemas.size) return null
+            return variants.mapIndexed { index, variant ->
+                annotateWithPropertyPointers(variant, branchSchemas[index], "$schemaPointer/$keyword/$index")
+            }
+        }
+
+        // oneOf drops nullable empty-object members and appends a single NullPattern, so the
+        // variant list no longer lines up positionally with the declared schemas. Pair each
+        // non-null variant with its originating schema and use that schema's original index.
+        val schemasWithVariant = branchSchemas.withIndex().filterNot { nullableEmptyObject(it.value) }
+        if (variants.count { it !is NullPattern } != schemasWithVariant.size) return null
+        var cursor = 0
+        return variants.map { variant ->
+            if (variant is NullPattern) return@map variant
+            val (originalIndex, schema) = schemasWithVariant[cursor++]
+            annotateWithPropertyPointers(variant, schema, "$schemaPointer/$keyword/$originalIndex")
         }
     }
 

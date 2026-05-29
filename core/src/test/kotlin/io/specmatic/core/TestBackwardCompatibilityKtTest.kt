@@ -5461,6 +5461,67 @@ paths:
             """.trimIndent())
         }
 
+        @Test
+        fun `oneOf and anyOf with a nullable empty-object branch still annotate the changed property`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_nullable_old.yaml")
+            val newSpec = readFixture("composition_nullable_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /oneof-nullable-first. Response: ok"
+            API: POST /oneof-nullable-first -> 200
+
+              >> REQUEST.BODY.count (new.yaml:25:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /oneof-nullable-middle. Response: ok"
+            API: POST /oneof-nullable-middle -> 200
+
+              >> REQUEST.BODY.name (new.yaml:42:21)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.count (new.yaml:49:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /anyof-nullable-first. Response: ok"
+            API: POST /anyof-nullable-first -> 200
+
+              >> REQUEST.BODY.count (new.yaml:68:21)
+              
+                  R3005: Property matches no schema option
+                  Documentation: https://docs.specmatic.io/rules#r3005
+                  Summary: The property does not satisfy any available schema options
+              
+                  Key 'count' did not match any anyOf option that declares it
+              
+              >> REQUEST.BODY.count (new.yaml:68:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
         private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String): JsonNode {
             val row = firstOrNull { node ->
                 node.path("method").asText() == key.method &&
