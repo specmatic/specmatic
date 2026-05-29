@@ -150,6 +150,10 @@ sealed class Result {
                     it.toFailureCause()
                 }, isPartial = failures.all { it.isPartial })
             }
+
+            fun empty(): Failure {
+                return Failure(causes = emptyList())
+            }
         }
 
         val message = causes.firstOrNull()?.message ?: ""
