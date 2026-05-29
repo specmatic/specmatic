@@ -5002,7 +5002,7 @@ paths:
             In scenario "GET /orders. Response: bad request"
             API: GET /orders -> 400
 
-              >> RESPONSE.BODY.code (new.yaml:168:9)
+              >> RESPONSE.BODY.code (new.yaml:187:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5023,7 +5023,7 @@ paths:
             In scenario "GET /shipments. Response: ok"
             API: GET /shipments -> 200
 
-              >> RESPONSE.BODY.weight (new.yaml:217:9)
+              >> RESPONSE.BODY.weight (new.yaml:236:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5031,7 +5031,7 @@ paths:
               
                   This is number in the new specification response but string in the old specification
               
-              >> RESPONSE.BODY.carrier (new.yaml:225:13)
+              >> RESPONSE.BODY.carrier (new.yaml:244:13)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5049,6 +5049,17 @@ paths:
                   Summary: The value type does not match the expected type defined in the specification
               
                   This is number in the new specification response but string in the old specification
+
+            In scenario "PUT /widgets/(widgetId:number). Response: ok"
+            API: PUT /widgets/(widgetId:number) -> 200
+
+              >> REQUEST.PARAMETERS.PATH.widgetId (new.yaml:248:7)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
             """.trimIndent())
 
             // NEW-SIDE N1: Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
@@ -5069,6 +5080,13 @@ paths:
             // constituent that declares the property (ShipmentBase.weight and the inline carrier),
             // proving annotateAllOfPattern resolves both $ref and inline allOf members.
             operations.assertRow(OperationKey("GET", "/shipments", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N5 (breaking): PUT /widgets/{widgetId} takes its `widgetId` path parameter
+            // via $ref to #/components/parameters/WidgetId, whose schema changes string -> integer.
+            // The $ref use-site has no `name`, so the breadcrumb must resolve to the component
+            // parameter's `name` key (asserted at new.yaml:248:7 in the console report above) -
+            // a regression guard that reffed-out path parameters are located at the component.
+            operations.assertRow(OperationKey("PUT", "/widgets/{widgetId}", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // OLD-SIDE O1 (non-breaking): ErrorDetailed loses optional `traceId`
             operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "compatible")
@@ -5097,8 +5115,8 @@ paths:
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 12 operation rows in the report")
-                .hasSize(12)
+                .describedAs("expected 13 operation rows in the report")
+                .hasSize(13)
         }
 
         @Test

@@ -115,6 +115,25 @@ paths:
                 properties:
                   code:
                     type: integer
+  # reffed path-param case: widgetId is $ref'd to a component parameter whose
+  # schema changes type string -> integer (breaking). The breadcrumb must
+  # resolve to the component parameter's `name` key even though the $ref
+  # use-site has no `name`.
+  /widgets/{widgetId}:
+    put:
+      parameters:
+        - $ref: '#/components/parameters/WidgetId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
 components:
   schemas:
     Order:
@@ -224,3 +243,10 @@ components:
           properties:
             carrier:
               type: number
+  parameters:
+    WidgetId:
+      name: widgetId
+      in: path
+      required: true
+      schema:
+        type: integer
