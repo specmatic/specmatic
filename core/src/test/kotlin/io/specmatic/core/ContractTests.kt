@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.ServerSocket
 
@@ -1332,6 +1333,72 @@ Examples:
                 .loadExternalisedExamples()
 
         assertThat(feature.scenarios.filter { it.examples.singleOrNull()?.rows?.size?.let { it > 0 } == true }).hasSize(1)
+    }
+
+    @Test
+    fun `external examples should match operations when media types have parameters`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("api.yaml")
+        specFile.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json;charset=utf-8:
+                        schema:
+                          type: object
+                  responses:
+                    '201':
+                      description: Created
+                      content:
+                        application/json;charset=utf-8:
+                          schema:
+                            type: object
+            """.trimIndent()
+        )
+
+        val examplesDir = tempDir.resolve("api_examples").also(File::mkdirs)
+        examplesDir.resolve("create_order.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "POST",
+                "path": "/orders",
+                "headers": {
+                  "Content-Type": "application/json;charset=utf-8"
+                },
+                "body": {
+                  "id": 10
+                }
+              },
+              "http-response": {
+                "status": 201,
+                "headers": {
+                  "Content-Type": "application/json;charset=utf-8"
+                },
+                "body": {
+                  "id": 10
+                }
+              }
+            }
+            """.trimIndent()
+        )
+
+        val (feature, unusedExamples) = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamplesAndListUnloadableExamples()
+
+        val matchingScenario = feature.scenarios.single { it.method == "POST" && it.path == "/orders" && it.status == 201 }
+
+        assertThat(unusedExamples).isEmpty()
+        assertThat(matchingScenario.examples.flatMap { it.rows }).hasSize(1)
     }
 
     @Test
