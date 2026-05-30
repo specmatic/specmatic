@@ -1,0 +1,33 @@
+openapi: 3.0.0
+info:
+  title: Orders API
+  version: 1.0.0
+paths:
+  /orders:
+    post:
+      requestBody:
+        required: true
+        content:
+          'application/json; charset=utf-8':
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+          content:
+            'application/json; charset=utf-8':
+              schema:
+                type: object
+                required:
+                  - id
+                  - source
+                properties:
+                  id:
+                    type: integer
+                  source:
+                    type: string

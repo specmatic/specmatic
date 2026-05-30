@@ -2519,6 +2519,57 @@ paths:
         }
 
         @Test
+        fun `should load and serve inline examples with media type parameters`() {
+            val feature = OpenApiSpecification
+                .fromFile(parameterizedMediaTypeSpec("inline/api.yaml").path)
+                .toFeature()
+
+            HttpStub(feature).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/orders",
+                        headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+                        body = parsedJSONObject("""{"id": 10}""")
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(201)
+                assertThat(response.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+                assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10, "source": "inline"}"""))
+            }
+        }
+
+        @Test
+        fun `should load and serve external examples with media type parameters`() {
+            val specFile = parameterizedMediaTypeSpec("mock/api.yaml")
+            val examplesDir = parameterizedMediaTypeSpec("mock/api_examples")
+            val loadResults = loadContractStubsFromFilesAsResults(
+                contractPathDataList = listOf(ContractPathData("", specFile.path, exampleDirPaths = listOf(examplesDir.path))),
+                dataDirPaths = emptyList(),
+                specmaticConfig = SpecmaticConfig(),
+                withImplicitStubs = false
+            )
+            val loadedStubs = loadResults.filterIsInstance<FeatureStubsResult.Success>().single()
+
+            HttpStub(loadedStubs.feature, loadedStubs.scenarioStubs).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/orders",
+                        headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+                        body = parsedJSONObject("""{"id": 10}""")
+                    )
+                )
+
+                assertThat(loadedStubs.scenarioStubs).hasSize(1)
+                assertThat(response.status).isEqualTo(201)
+                assertThat(response.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+                assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10, "source": "external"}"""))
+            }
+        }
+
+        @Test
         fun `should load and serve expectations from external example over the inline example based expectation`() {
             HttpStub(
                 featureWithInlineExample, listOf(
@@ -2547,6 +2598,10 @@ paths:
                 assertThat(response.status).isEqualTo(200)
                 assertThat(response.body).isEqualTo(parsedJSONObject("""{"message":"file_overrides_example_expectation"}"""))
             }
+        }
+
+        private fun parameterizedMediaTypeSpec(relativePath: String): File {
+            return File("src/test/resources/openapi/parameterized_media_type_examples/$relativePath")
         }
 
         @Test
