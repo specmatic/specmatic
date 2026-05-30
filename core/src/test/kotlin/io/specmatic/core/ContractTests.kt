@@ -1337,9 +1337,8 @@ Examples:
     }
 
     @Test
-    fun `external examples should match operations when media types have parameters`(@TempDir tempDir: File) {
-        val specFile = writeParameterizedMediaTypeSpec(tempDir)
-        writeParameterizedMediaTypeExample(tempDir, requestBody = """{"id": 10}""", responseBody = """{"id": 10}""")
+    fun `external examples should match operations when media types have parameters`() {
+        val specFile = parameterizedMediaTypeSpec("valid/api.yaml")
 
         val (feature, unusedExamples) = OpenApiSpecification
             .fromFile(specFile.path)
@@ -1353,9 +1352,8 @@ Examples:
     }
 
     @Test
-    fun `external examples with media type parameters should be used to generate tests`(@TempDir tempDir: File) {
-        val specFile = writeParameterizedMediaTypeSpec(tempDir)
-        writeParameterizedMediaTypeExample(tempDir, requestBody = """{"id": 10}""", responseBody = """{"id": 10}""")
+    fun `external examples with media type parameters should be used to generate tests`() {
+        val specFile = parameterizedMediaTypeSpec("valid/api.yaml")
 
         val feature = OpenApiSpecification
             .fromFile(specFile.path)
@@ -1387,9 +1385,8 @@ Examples:
     }
 
     @Test
-    fun `external examples with media type parameters should fail validation when payload does not match`(@TempDir tempDir: File) {
-        val specFile = writeParameterizedMediaTypeSpec(tempDir)
-        writeParameterizedMediaTypeExample(tempDir, requestBody = """{"id": "invalid"}""", responseBody = """{"id": 10}""")
+    fun `external examples with media type parameters should fail validation when payload does not match`() {
+        val specFile = parameterizedMediaTypeSpec("invalid_payload/api.yaml")
 
         val feature = OpenApiSpecification
             .fromFile(specFile.path)
@@ -1401,15 +1398,8 @@ Examples:
     }
 
     @Test
-    fun `external examples with unmatched media type parameters should be reported unused`(@TempDir tempDir: File) {
-        val specFile = writeParameterizedMediaTypeSpec(tempDir)
-        writeParameterizedMediaTypeExample(
-            tempDir = tempDir,
-            requestContentType = "application/xml; charset=utf-8",
-            responseContentType = "application/xml; charset=utf-8",
-            requestBody = """{"id": 10}""",
-            responseBody = """{"id": 10}"""
-        )
+    fun `external examples with unmatched media type parameters should be reported unused`() {
+        val specFile = parameterizedMediaTypeSpec("unmatched_content_type/api.yaml")
 
         val (feature, unusedExamples) = OpenApiSpecification
             .fromFile(specFile.path)
@@ -1422,76 +1412,8 @@ Examples:
         assertThat(unusedExamples.single()).endsWith("create_order.json")
     }
 
-    private fun writeParameterizedMediaTypeSpec(tempDir: File): File {
-        return tempDir.resolve("api.yaml").also {
-            it.writeText(
-                """
-                openapi: 3.0.0
-                info:
-                  title: Orders API
-                  version: 1.0.0
-                paths:
-                  /orders:
-                    post:
-                      requestBody:
-                        required: true
-                        content:
-                          'application/json; charset=utf-8':
-                            schema:
-                              type: object
-                              required:
-                                - id
-                              properties:
-                                id:
-                                  type: integer
-                      responses:
-                        '201':
-                          description: Created
-                          content:
-                            'application/json; charset=utf-8':
-                              schema:
-                                type: object
-                                required:
-                                  - id
-                                properties:
-                                  id:
-                                    type: integer
-                """.trimIndent()
-            )
-        }
-    }
-
-    private fun writeParameterizedMediaTypeExample(
-        tempDir: File,
-        requestContentType: String = "application/json; charset=utf-8",
-        responseContentType: String = "application/json; charset=utf-8",
-        requestBody: String,
-        responseBody: String
-    ): File {
-        val examplesDir = tempDir.resolve("api_examples").also(File::mkdirs)
-        return examplesDir.resolve("create_order.json").also {
-            it.writeText(
-                """
-                {
-                  "http-request": {
-                    "method": "POST",
-                    "path": "/orders",
-                    "headers": {
-                      "Content-Type": "$requestContentType"
-                    },
-                    "body": $requestBody
-                  },
-                  "http-response": {
-                    "status": 201,
-                    "headers": {
-                      "Content-Type": "$responseContentType"
-                    },
-                    "body": $responseBody
-                  }
-                }
-                """.trimIndent()
-            )
-        }
+    private fun parameterizedMediaTypeSpec(relativePath: String): File {
+        return File("src/test/resources/openapi/parameterized_media_type_examples/$relativePath")
     }
 
     @Test
