@@ -966,20 +966,21 @@ data class Scenario(
 
         return externalisedJSONExamples.mapValues { (operationId, rows) ->
             rows.filter { row ->
-                matchesRequest(row, operationId, patternMatchingResolver)
-                        && matchesResponse(row, operationId, patternMatchingResolver)
-                        && matchesOperationIfWsdl(row)
+                requestBelongsToScenario(row, operationId, patternMatchingResolver)
+                        && responseBelongsToScenario(row, operationId, patternMatchingResolver)
             }
         }.filterValues { it.isNotEmpty() }
     }
 
-    private fun matchesRequest(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+    private fun requestBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+        if (!matchesOperationIfWsdl(row)) return false
+
         return row.requestExample?.let { request ->
             httpRequestPattern.matchesPathStructureMethodAndContentType(request, patternMatchingResolver).isSuccess()
         } ?: matchesRequestOperationIdentifier(operationId, patternMatchingResolver)
     }
 
-    private fun matchesResponse(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+    private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         return row.responseExample?.let { response ->
             httpResponsePattern.matchesStatusAndContentType(response, patternMatchingResolver).isSuccess()
         } ?: matchesResponseOperationIdentifier(operationId)

@@ -307,7 +307,7 @@ data class HttpRequestPattern(
         val (httpRequest, resolver, failures) = parameters
 
         method.let {
-            return if (it != httpRequest.method)
+            return if (!it.equals(httpRequest.method, ignoreCase = true))
                 MatchFailure(
                     mismatchFailure(
                         expected = method.orEmpty(),
