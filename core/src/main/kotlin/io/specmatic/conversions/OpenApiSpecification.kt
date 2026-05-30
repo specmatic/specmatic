@@ -1637,6 +1637,17 @@ class OpenApiSpecification(
                 }
 
                 "application/xml" -> {
+                    val examplesFromMediaType = mediaType.examples ?: emptyMap()
+                    val exampleBodies: Map<String, String?> = examplesFromMediaType.mapValues {
+                        resolveExample(it.value)?.value?.toString() ?: ""
+                    }
+
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithRequestBodies(exampleBodies, contentType)
+
                     val rawXmlBody = toXMLPattern(mediaType, collectorContext = mediaTypeContext)
                     val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
@@ -1646,7 +1657,7 @@ class OpenApiSpecification(
                         requestPattern.copy(
                             body = annotatedXmlBody,
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                        ), emptyMap()
+                        ), allExamples
                     )
                 }
 
@@ -2700,9 +2711,11 @@ class OpenApiSpecification(
         return toXMLPattern(mediaType.schema, typeStack = emptyList(), collectorContext = collectorContext.at("schema"))
     }
 
-    private fun toXMLPattern(schema: Schema<*>, nodeNameFromProperty: String? = null, typeStack: List<String>, collectorContext: CollectorContext): XMLPattern {
+    private fun toXMLPattern(schema: Schema<*>, nodeNameFromProperty: String? = null, typeStack: List<String>, collectorContext: CollectorContext): Pattern {
         val name = schema.xml?.name ?: nodeNameFromProperty
         return when {
+            schema.oneOf != null -> handleXMLSchemaOneOf(schema, name, typeStack, collectorContext)
+
             schema.isPrimitive() -> {
                 name ?: throw ContractException("Could not determine name for an xml node")
                 val primitivePattern = toSpecmaticPattern(schema, typeStack, collectorContext = collectorContext)
@@ -2726,7 +2739,7 @@ class OpenApiSpecification(
                     } else {
                         emptyMap()
                     }
-                    type.copy(pattern = type.pattern.copy(attributes = optionalAttribute.plus(type.pattern.attributes)))
+                    type.withXMLAttributes(optionalAttribute)
                 }
 
                 val attributeProperties = schema.properties.filter { entry ->
@@ -2760,12 +2773,9 @@ class OpenApiSpecification(
                 val itemName = repeatingSchema.xml?.name ?: nodeNameFromProperty
                 val itemsContext = collectorContext.at("items")
                 val innerPattern = toXMLPattern(repeatingSchema, itemName, typeStack, itemsContext).let { repeatingType ->
-                    repeatingType.copy(
-                        pattern = repeatingType.pattern.copy(
-                            attributes = repeatingType.pattern.attributes.plus(
-                                OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(MULTIPLE_ATTRIBUTE_VALUE))
-                            )
-                        )
+                    repeatingType.withXMLAttributes(
+                        mapOf(OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(MULTIPLE_ATTRIBUTE_VALUE))),
+                        overwriteExisting = true
                     )
                 }
 
@@ -2787,6 +2797,44 @@ class OpenApiSpecification(
                     mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue(componentName)))
                 ))
             }
+        }
+    }
+
+    private fun handleXMLSchemaOneOf(
+        schema: Schema<*>,
+        nodeName: String?,
+        typeStack: List<String>,
+        collectorContext: CollectorContext
+    ): Pattern {
+        val oneOfContext = collectorContext.at("oneOf")
+        val candidatePatterns = schema.oneOf.withIndex().mapNotNull { (index, schema) ->
+            val oneOfIndexContext = oneOfContext.at(index)
+            if (nullableEmptyObject(schema)) return@mapNotNull null
+            toXMLPattern(schema = schema, nodeNameFromProperty = nodeName, typeStack = typeStack, collectorContext = oneOfIndexContext)
+        }
+
+        val nullable = if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
+        return AnyPattern(
+            candidatePatterns.plus(nullable),
+            typeAlias = nodeName?.let(::withPatternDelimiters),
+            extensions = emptyMap()
+        )
+    }
+
+    private fun Pattern.withXMLAttributes(attributes: Map<String, Pattern>, overwriteExisting: Boolean = false): Pattern {
+        if (attributes.isEmpty()) return this
+
+        return when (this) {
+            is XMLPattern -> {
+                val updatedAttributes = if (overwriteExisting)
+                    pattern.attributes.plus(attributes)
+                else
+                    attributes.plus(pattern.attributes)
+
+                copy(pattern = pattern.copy(attributes = updatedAttributes))
+            }
+            is AnyPattern -> copy(pattern = pattern.map { it.withXMLAttributes(attributes, overwriteExisting) })
+            else -> this
         }
     }
 

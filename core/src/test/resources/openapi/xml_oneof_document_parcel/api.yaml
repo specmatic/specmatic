@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: XML oneOf API
+  version: '1.0'
+paths:
+  /items:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/document'
+                - $ref: '#/components/schemas/parcel'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/xml:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/document'
+                  - $ref: '#/components/schemas/parcel'
+components:
+  schemas:
+    document:
+      type: object
+      xml:
+        name: document
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+    parcel:
+      type: object
+      xml:
+        name: parcel
+      required:
+        - trackingNumber
+      properties:
+        trackingNumber:
+          type: string

@@ -6,6 +6,7 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONArray
@@ -18,6 +19,7 @@ import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.test.ExampleProcessor
@@ -30,6 +32,11 @@ import java.math.BigDecimal
 
 private val doubleMax = BigDecimal(Double.MAX_VALUE)
 private val doubleMin = BigDecimal(-Double.MAX_VALUE)
+private val XML_ONEOF_RESOURCE_DIR = File("src/test/resources/openapi/xml_oneof_document_parcel")
+private val XML_ONEOF_CONTRACT = XML_ONEOF_RESOURCE_DIR.resolve("api.yaml")
+private val XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES = XML_ONEOF_RESOURCE_DIR.resolve("api_with_inline_examples.yaml")
+private val XML_ONEOF_EXTERNAL_EXAMPLES_DIR = XML_ONEOF_RESOURCE_DIR.resolve("api_examples")
+private val XML_ONEOF_INVALID_INVOICE_EXAMPLE = XML_ONEOF_RESOURCE_DIR.resolve("invalid_examples/invoice.json")
 
 class LoadTestsFromExternalisedFiles {
 
@@ -878,6 +885,102 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(results.testCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `should load inline xml oneOf examples as tests`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        assertThat(feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("inline-document", "inline-parcel")
+        assertThat(feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+        assertDocumentAndParcelXmlOneOfExamplesRun(feature)
+    }
+
+    @Test
+    fun `should load external xml oneOf examples as tests`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT.path)
+            .toFeature()
+            .loadExternalisedExamples()
+
+        assertDocumentAndParcelXmlOneOfExamplesRun(feature)
+    }
+
+    @Test
+    fun `should validate external xml oneOf examples`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT.path)
+            .toFeature()
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExamples(feature, xmlOneOfExternalExampleFiles())
+
+        assertThat(validationResults.success).isTrue()
+        assertThat(validationResults.exampleValidationResults.values).allSatisfy { result ->
+            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
+        }
+    }
+
+    @Test
+    fun `should expose inline and external xml oneOf examples through core stub loading`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        val filteredExamples = feature.filterExamples(
+            examples = xmlOneOfExternalExampleFiles().map(ScenarioStub::readFromFile),
+            filter = "PATH='/items'"
+        )
+
+        assertThat(filteredExamples.unusedExamples).isEmpty()
+        assertThat(filteredExamples.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("inline-document", "inline-parcel")
+        assertThat(filteredExamples.feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+        assertThat(filteredExamples.externalExamples.map { it.nameOrFileName }).containsExactlyInAnyOrder("external-document", "external-parcel")
+        assertThat(filteredExamples.externalExamples.map { it.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+    }
+
+    @Test
+    fun `should reject external xml oneOf example that matches no branch during validation`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT.path)
+            .toFeature()
+
+        val result = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExample(feature, XML_ONEOF_INVALID_INVOICE_EXAMPLE)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("invoice")
+    }
+
+    private fun assertDocumentAndParcelXmlOneOfExamplesRun(feature: Feature) {
+        val rootElementNamesSeen = mutableListOf<String>()
+
+        val results = feature.executeTests(object: TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                val requestBody = request.body as XMLNode
+                rootElementNamesSeen.add(requestBody.name)
+
+                return HttpResponse(
+                    status = 200,
+                    headers = mapOf("Content-Type" to "application/xml"),
+                    body = requestBody
+                )
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(results.testCount).isEqualTo(2)
+        assertThat(rootElementNamesSeen).containsExactlyInAnyOrder("document", "parcel")
+    }
+
+    private fun ScenarioStub.requestRootName(): String {
+        return (requestElsePartialRequest().body as XMLNode).name
+    }
+
+    private fun xmlOneOfExternalExampleFiles(): List<File> {
+        return XML_ONEOF_EXTERNAL_EXAMPLES_DIR.listFiles().orEmpty().sortedBy { it.name }
     }
 
     @Nested
