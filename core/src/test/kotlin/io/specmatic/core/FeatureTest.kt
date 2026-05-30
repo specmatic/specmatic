@@ -3334,6 +3334,31 @@ paths:
     }
 
     @Test
+    fun `mock uses serialized query property keys from externalized object query examples`(@TempDir tempDir: File) {
+        val specFile = writeCustomerObjectQueryParamSpec(tempDir)
+        val examplesDir = tempDir.resolve("customer_object_query_param_examples").also { it.mkdirs() }
+        writeCustomerObjectQueryExample(examplesDir)
+
+        createStubFromContracts(
+            contractPaths = listOf(specFile.canonicalPath),
+            dataDirPaths = listOf(examplesDir.canonicalPath),
+            port = ServerSocket(0).use { it.localPort },
+            timeoutMillis = 0,
+        ).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/data",
+                    queryParams = QueryParameters(mapOf("customerId" to "external", "segment" to "live"))
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"source":"external"}"""))
+        }
+    }
+
+    @Test
     fun `validate externalized examples for absent required-only and all optional form exploded object query params`(@TempDir tempDir: File) {
         val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
         val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }

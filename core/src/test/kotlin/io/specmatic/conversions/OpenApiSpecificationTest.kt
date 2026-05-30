@@ -53,6 +53,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.math.BigDecimal
+import java.net.ServerSocket
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
@@ -12753,6 +12754,21 @@ paths:
         })
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("formExplodedObjectQueryExampleCases")
+    fun `mock uses serialized query property keys from inline object query examples`(case: FormExplodedObjectQueryExampleCase) {
+        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(case), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(case.expectedQueryParams))
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+        }
+    }
+
     @Test
     fun `should use path item parameter examples for path query and header when generating example driven tests`() {
         val spec = """
@@ -13051,4 +13067,6 @@ ${case.parameterYaml.trimIndent().prependIndent("        ")}
     private fun generatedNegativeRequests(feature: Feature): List<HttpRequest> {
         return feature.negativeTestScenarios().toList().map { it.second.value.generateHttpRequest() }
     }
+
+    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
 }
