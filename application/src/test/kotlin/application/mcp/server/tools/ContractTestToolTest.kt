@@ -9,37 +9,41 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import picocli.CommandLine
 import java.io.File
 
 class ContractTestToolTest {
 
-    private val tool = ContractTestTool()
+    @TempDir
+    lateinit var tempDir: File
+
+    private lateinit var reportDir: File
+    private lateinit var tool: ContractTestTool
+
+    @org.junit.jupiter.api.BeforeEach
+    fun setUp() {
+        reportDir = tempDir.resolve("junit")
+        tool = ContractTestTool { reportDir }
+    }
 
     @AfterEach
     fun tearDown() {
         unmockkAll()
         System.clearProperty(SPECMATIC_GENERATIVE_TESTS)
-        File("build/reports/specmatic/test/ctrf-report.json").delete()
     }
 
     @Test
     fun `runContractTest should format results correctly for a successful contract test`() {
         mockkConstructor(TestCommand::class)
-        every { anyConstructed<TestCommand>().call() } returns 0
-
-        // Mock CTRF report
-        val reportDir = File("build/reports/specmatic/test")
-        reportDir.mkdirs()
-        val reportFile = reportDir.resolve("ctrf-report.json")
-        reportFile.writeText("""
-            {
-              "results": {
-                "summary": { "tests": 1, "passed": 1, "failed": 0 },
-                "tests": []
-              }
-            }
-        """.trimIndent())
+        every { anyConstructed<TestCommand>().call() } answers {
+            val reportFile = reportDir.resolve("TEST-junit-jupiter.xml")
+            reportDir.mkdirs()
+            reportFile.writeText("""
+                <testsuite name="Contract Tests" tests="1" failures="0" errors="0" skipped="0">
+                  <testcase name="Scenario 1" classname="Contract Tests" time="0.1"/>
+                </testsuite>
+            """.trimIndent())
+            0
+        }
 
         val args = RunTestArgs(
             openApiSpec = "openapi: 3.0.0...",
@@ -59,22 +63,19 @@ class ContractTestToolTest {
     @Test
     fun `runContractTest should format results correctly for a failed resiliency test`() {
         mockkConstructor(TestCommand::class)
-        every { anyConstructed<TestCommand>().call() } returns 1
-
-        // Mock CTRF report
-        val reportDir = File("build/reports/specmatic/test")
-        reportDir.mkdirs()
-        val reportFile = reportDir.resolve("ctrf-report.json")
-        reportFile.writeText("""
-            {
-              "results": {
-                "summary": { "tests": 2, "passed": 1, "failed": 1 },
-                "tests": [
-                  { "name": "Failed Scenario", "status": "failed", "message": "Expected 200 but got 400" }
-                ]
-              }
-            }
-        """.trimIndent())
+        every { anyConstructed<TestCommand>().call() } answers {
+            val reportFile = reportDir.resolve("TEST-junit-jupiter.xml")
+            reportDir.mkdirs()
+            reportFile.writeText("""
+                <testsuite name="Contract Tests" tests="2" failures="1" errors="0" skipped="0">
+                  <testcase name="Passed Scenario" classname="Contract Tests" time="0.1"/>
+                  <testcase name="Failed Scenario" classname="Contract Tests" time="0.1">
+                    <failure message="Expected 200 but got 400"/>
+                  </testcase>
+                </testsuite>
+            """.trimIndent())
+            1
+        }
 
         val args = RunTestArgs(
             openApiSpec = "openapi: 3.0.0...",
@@ -91,18 +92,15 @@ class ContractTestToolTest {
         assertThat(result).contains("| Failed | 1 |")
         assertThat(result).contains("### Failed Scenarios")
         assertThat(result).contains("- **Failed Scenario**: `Expected 200 but got 400`")
-        
+
         // Ensure generative tests flag was set and then restored/cleared
         // Note: The property check inside runContractTest finally block will clear it if it was null
     }
 
     @Test
-    fun `runContractTest should handle missing CTRF report gracefully`() {
+    fun `runContractTest should handle missing JUnit report gracefully`() {
         mockkConstructor(TestCommand::class)
         every { anyConstructed<TestCommand>().call() } returns 0
-
-        // Ensure report file does not exist
-        File("build/reports/specmatic/test/ctrf-report.json").delete()
 
         val args = RunTestArgs(
             openApiSpec = "openapi: 3.0.0...",
@@ -118,43 +116,21 @@ class ContractTestToolTest {
 
     
     @Test
-    fun `parseCtrfSummary should correctly parse a valid CTRF report`(@TempDir tempDir: File) {
-        val reportFile = tempDir.resolve("ctrf-report.json")
+    fun `parseJUnitSummary should correctly parse a valid JUnit report`() {
+        val reportFile = tempDir.resolve("TEST-junit-jupiter.xml")
         reportFile.writeText("""
-            {
-              "results": {
-                "summary": {
-                  "tests": 10,
-                  "passed": 8,
-                  "failed": 2,
-                  "pending": 0,
-                  "skipped": 0,
-                  "other": 0,
-                  "start": 1715850000000,
-                  "stop": 1715850010000
-                },
-                "tests": [
-                  {
-                    "name": "Scenario 1",
-                    "status": "passed",
-                    "duration": 100
-                  },
-                  {
-                    "name": "Scenario 2",
-                    "status": "failed",
-                    "message": "Error message 2"
-                  },
-                  {
-                    "name": "Scenario 3",
-                    "status": "failed",
-                    "message": "Error message 3"
-                  }
-                ]
-              }
-            }
+            <testsuite name="Contract Tests" tests="10" failures="1" errors="1" skipped="0">
+              <testcase name="Scenario 1" classname="Contract Tests" time="0.1"/>
+              <testcase name="Scenario 2" classname="Contract Tests" time="0.1">
+                <failure message="Error message 2"/>
+              </testcase>
+              <testcase name="Scenario 3" classname="Contract Tests" time="0.1">
+                <error message="Error message 3"/>
+              </testcase>
+            </testsuite>
         """.trimIndent())
 
-        val summary = tool.parseCtrfSummary(reportFile)
+        val summary = tool.parseJUnitSummary(reportFile)
 
         assertThat(summary).isNotNull
         assertThat(summary!!.total).isEqualTo(10)
@@ -168,28 +144,25 @@ class ContractTestToolTest {
     }
 
     @Test
-    fun `parseCtrfSummary should return null if report file does not exist`() {
-        val summary = tool.parseCtrfSummary(File("non-existent.json"))
+    fun `parseJUnitSummary should return null if report file does not exist`() {
+        val summary = tool.parseJUnitSummary(File("non-existent.xml"))
         assertThat(summary).isNull()
     }
 
     @Test
-    fun `parseCtrfSummary should handle empty failed tests list`(@TempDir tempDir: File) {
-        val reportFile = tempDir.resolve("ctrf-report.json")
+    fun `parseJUnitSummary should handle empty failed tests list`() {
+        val reportFile = tempDir.resolve("TEST-junit-jupiter.xml")
         reportFile.writeText("""
-            {
-              "results": {
-                "summary": {
-                  "tests": 5,
-                  "passed": 5,
-                  "failed": 0
-                },
-                "tests": []
-              }
-            }
+            <testsuite name="Contract Tests" tests="5" failures="0" errors="0" skipped="0">
+              <testcase name="Scenario 1" classname="Contract Tests" time="0.1"/>
+              <testcase name="Scenario 2" classname="Contract Tests" time="0.1"/>
+              <testcase name="Scenario 3" classname="Contract Tests" time="0.1"/>
+              <testcase name="Scenario 4" classname="Contract Tests" time="0.1"/>
+              <testcase name="Scenario 5" classname="Contract Tests" time="0.1"/>
+            </testsuite>
         """.trimIndent())
 
-        val summary = tool.parseCtrfSummary(reportFile)
+        val summary = tool.parseJUnitSummary(reportFile)
 
         assertThat(summary).isNotNull
         assertThat(summary!!.total).isEqualTo(5)
@@ -199,17 +172,13 @@ class ContractTestToolTest {
     }
 
     @Test
-    fun `parseCtrfSummary should handle missing summary fields`(@TempDir tempDir: File) {
-        val reportFile = tempDir.resolve("ctrf-report.json")
+    fun `parseJUnitSummary should handle missing summary fields`() {
+        val reportFile = tempDir.resolve("TEST-junit-jupiter.xml")
         reportFile.writeText("""
-            {
-              "results": {
-                "summary": {}
-              }
-            }
+            <testsuite name="Contract Tests"/>
         """.trimIndent())
 
-        val summary = tool.parseCtrfSummary(reportFile)
+        val summary = tool.parseJUnitSummary(reportFile)
 
         assertThat(summary).isNotNull
         assertThat(summary!!.total).isEqualTo(0)
