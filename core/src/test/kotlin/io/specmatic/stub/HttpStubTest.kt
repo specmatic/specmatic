@@ -25,6 +25,7 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.http.HttpHeaders
@@ -2519,6 +2520,58 @@ paths:
         }
 
         @Test
+        fun `should load and serve inline examples with media type parameters`() {
+            val feature = OpenApiSpecification.fromYAML(
+                parameterizedMediaTypeSpecWithInlineExample(),
+                ""
+            ).toFeature()
+
+            HttpStub(feature).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/orders",
+                        headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+                        body = parsedJSONObject("""{"id": 10}""")
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(201)
+                assertThat(response.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+                assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10, "source": "inline"}"""))
+            }
+        }
+
+        @Test
+        fun `should load and serve external examples with media type parameters`(@TempDir tempDir: File) {
+            val specFile = writeParameterizedMediaTypeSpec(tempDir)
+            val examplesDir = writeParameterizedMediaTypeExample(tempDir)
+            val loadResults = loadContractStubsFromFilesAsResults(
+                contractPathDataList = listOf(ContractPathData("", specFile.path, exampleDirPaths = listOf(examplesDir.path))),
+                dataDirPaths = emptyList(),
+                specmaticConfig = SpecmaticConfig(),
+                withImplicitStubs = false
+            )
+            val loadedStubs = loadResults.filterIsInstance<FeatureStubsResult.Success>().single()
+
+            HttpStub(loadedStubs.feature, loadedStubs.scenarioStubs).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/orders",
+                        headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+                        body = parsedJSONObject("""{"id": 10}""")
+                    )
+                )
+
+                assertThat(loadedStubs.scenarioStubs).hasSize(1)
+                assertThat(response.status).isEqualTo(201)
+                assertThat(response.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+                assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10, "source": "external"}"""))
+            }
+        }
+
+        @Test
         fun `should load and serve expectations from external example over the inline example based expectation`() {
             HttpStub(
                 featureWithInlineExample, listOf(
@@ -2546,6 +2599,126 @@ paths:
 
                 assertThat(response.status).isEqualTo(200)
                 assertThat(response.body).isEqualTo(parsedJSONObject("""{"message":"file_overrides_example_expectation"}"""))
+            }
+        }
+
+        private fun parameterizedMediaTypeSpecWithInlineExample(): String {
+            return """
+                openapi: 3.0.0
+                info:
+                  title: Orders API
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          'application/json; charset=utf-8':
+                            schema:
+                              type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  type: integer
+                            examples:
+                              create_order:
+                                value:
+                                  id: 10
+                      responses:
+                        '201':
+                          description: Created
+                          content:
+                            'application/json; charset=utf-8':
+                              schema:
+                                type: object
+                                required:
+                                  - id
+                                  - source
+                                properties:
+                                  id:
+                                    type: integer
+                                  source:
+                                    type: string
+                              examples:
+                                create_order:
+                                  value:
+                                    id: 10
+                                    source: inline
+            """.trimIndent()
+        }
+
+        private fun writeParameterizedMediaTypeSpec(tempDir: File): File {
+            return tempDir.resolve("api.yaml").also {
+                it.writeText(
+                    """
+                    openapi: 3.0.0
+                    info:
+                      title: Orders API
+                      version: 1.0.0
+                    paths:
+                      /orders:
+                        post:
+                          requestBody:
+                            required: true
+                            content:
+                              'application/json; charset=utf-8':
+                                schema:
+                                  type: object
+                                  required:
+                                    - id
+                                  properties:
+                                    id:
+                                      type: integer
+                          responses:
+                            '201':
+                              description: Created
+                              content:
+                                'application/json; charset=utf-8':
+                                  schema:
+                                    type: object
+                                    required:
+                                      - id
+                                      - source
+                                    properties:
+                                      id:
+                                        type: integer
+                                      source:
+                                        type: string
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private fun writeParameterizedMediaTypeExample(tempDir: File): File {
+            return tempDir.resolve("api_examples").also(File::mkdirs).also { examplesDir ->
+                examplesDir.resolve("create_order.json").writeText(
+                    """
+                    {
+                      "http-request": {
+                        "method": "POST",
+                        "path": "/orders",
+                        "headers": {
+                          "Content-Type": "application/json; charset=utf-8"
+                        },
+                        "body": {
+                          "id": 10
+                        }
+                      },
+                      "http-response": {
+                        "status": 201,
+                        "headers": {
+                          "Content-Type": "application/json; charset=utf-8"
+                        },
+                        "body": {
+                          "id": 10,
+                          "source": "external"
+                        }
+                      }
+                    }
+                    """.trimIndent()
+                )
             }
         }
 
