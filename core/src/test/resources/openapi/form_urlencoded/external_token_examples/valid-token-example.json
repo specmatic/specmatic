@@ -1,0 +1,24 @@
+{
+  "http-request": {
+    "path": "/token",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "form-fields": {
+      "client_id": "client-123",
+      "client_secret": "secret-456",
+      "grant_type": "client_credentials",
+      "scope": "dummy/.default"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "access_token": "example-token"
+    }
+  }
+}

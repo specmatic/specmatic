@@ -1236,15 +1236,7 @@ class OpenApiSpecification(
 
         val requestBodyExample: Map<String, Any> = if (requestExampleValue != null) {
             if (requestBodyContentType == "application/x-www-form-urlencoded" || requestBodyContentType == "multipart/form-data") {
-                val operationSummaryClause = operationSummary?.let { "for operation \"${operationSummary}\"" } ?: ""
-                val jsonExample =
-                    attempt("Could not parse example $exampleName$operationSummaryClause") {
-                        // TODO: Collect as error
-                        parsedJSON(requestExampleValue.toString()) as JSONObjectValue
-                    }
-                jsonExample.jsonObject.map { (key, value) ->
-                    key to value.toString()
-                }.toMap()
+                formFieldsFromExampleValue(requestExampleValue, exampleName, operationSummary)
             } else {
                 mapOf("(REQUEST-BODY)" to requestExampleValue)
             }
@@ -1252,6 +1244,34 @@ class OpenApiSpecification(
             emptyMap()
         }
         return requestBodyExample
+    }
+
+    private fun formFieldExamplesFromMediaType(
+        requestBodyMediaType: MediaType,
+        operationSummary: String?
+    ): Map<String, Map<String, String>> {
+        return requestBodyMediaType.examples.orEmpty().mapNotNull { (exampleName, example) ->
+            val requestExampleValue = resolveExample(example)?.value ?: return@mapNotNull null
+
+            exampleName to formFieldsFromExampleValue(requestExampleValue, exampleName, operationSummary)
+        }.toMap()
+    }
+
+    private fun formFieldsFromExampleValue(
+        requestExampleValue: Any,
+        exampleName: String,
+        operationSummary: String?
+    ): Map<String, String> {
+        val operationSummaryClause = operationSummary?.let { " for operation \"${operationSummary}\"" } ?: ""
+        val jsonExample =
+            attempt("Could not parse example $exampleName$operationSummaryClause") {
+                // TODO: Collect as error
+                parsedJSON(requestExampleValue.toString()) as JSONObjectValue
+            }
+
+        return jsonExample.jsonObject.mapValues { (_, value) ->
+            value.toStringLiteral()
+        }
     }
 
     private fun resolveExample(example: Example?): Example? {
@@ -1624,6 +1644,15 @@ class OpenApiSpecification(
                 }
 
                 "application/x-www-form-urlencoded" -> {
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithFormFields(
+                                formFieldExamplesFromMediaType(mediaType, operation.summary),
+                                contentType
+                            )
+
                     val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
                     val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
@@ -1632,7 +1661,7 @@ class OpenApiSpecification(
                             formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
                             formFieldPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                        ), emptyMap()
+                        ), allExamples
                     )
                 }
 

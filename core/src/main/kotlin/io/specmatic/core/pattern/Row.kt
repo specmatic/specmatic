@@ -174,11 +174,12 @@ data class Row(
         val path = requestPattern.httpPathPattern?.extractPathParams(request.path.orEmpty(), resolver).orEmpty().toStringMap()
         val headers = request.headers
         val queryParams = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
+        val formFields = request.formFields
         val bodyEntry = if (request.body !is NoBodyValue) {
             mapOf(REQUEST_BODY_FIELD to request.body.toStringLiteral())
         } else emptyMap()
 
-        return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + bodyEntry).copy(requestExample = request)
+        return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + formFields + bodyEntry).copy(requestExample = request)
     }
 
     companion object {

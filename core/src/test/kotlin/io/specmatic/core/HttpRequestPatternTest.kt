@@ -488,6 +488,133 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
+    fun `missing required form fields are reported as missing properties`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/",
+            formFields = mapOf("grant_type" to "client_credentials", "scope" to "dummy/.default")
+        )
+
+        val result = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf(
+                "client_id" to StringPattern(),
+                "client_secret" to StringPattern(),
+                "grant_type" to StringPattern(),
+                "scope" to StringPattern()
+            )
+        ).matches(request, Resolver())
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+
+        val failureDetails = (result as Failure).toMatchFailureDetailList()
+        assertThat(failureDetails.map { it.breadCrumbs.joinToString(".") }).containsExactly(
+            "REQUEST.FORM-FIELDS.client_id",
+            "REQUEST.FORM-FIELDS.client_secret"
+        )
+        assertThat(failureDetails.map { it.ruleViolationReport?.ruleViolations }).containsExactly(
+            setOf(StandardRuleViolation.REQUIRED_PROPERTY_MISSING),
+            setOf(StandardRuleViolation.REQUIRED_PROPERTY_MISSING)
+        )
+        assertThat(result.reportString()).contains("R2001: Missing required property")
+        assertThat(result.reportString()).doesNotContain("R2003: Unknown property")
+    }
+
+    @Test
+    fun `unknown form fields are reported as unknown properties`() {
+        val request = HttpRequest(method = "POST", path = "/", formFields = mapOf("known" to "10", "extra" to "20"))
+
+        val result = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("known" to NumberPattern())
+        ).matches(request, Resolver())
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+
+        val failureDetails = (result as Failure).toMatchFailureDetailList()
+        assertThat(failureDetails.map { it.breadCrumbs.joinToString(".") }).containsExactly("REQUEST.FORM-FIELDS.extra")
+        assertThat(failureDetails.single().ruleViolationReport?.ruleViolations).isEqualTo(setOf(StandardRuleViolation.UNKNOWN_PROPERTY))
+        assertThat(result.reportString()).contains("R2003: Unknown property")
+    }
+
+    @Test
+    fun `missing and unknown form fields are reported with distinct rule violations`() {
+        val request = HttpRequest(method = "POST", path = "/", formFields = mapOf("known" to "10", "extra" to "20"))
+
+        val result = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = HttpPathPattern.from("/"),
+            formFieldsPattern = mapOf("known" to NumberPattern(), "missing" to StringPattern())
+        ).matches(request, Resolver())
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+
+        val failureDetails = (result as Failure).toMatchFailureDetailList()
+        assertThat(failureDetails.map { it.breadCrumbs.joinToString(".") }).containsExactly(
+            "REQUEST.FORM-FIELDS.missing",
+            "REQUEST.FORM-FIELDS.extra"
+        )
+        assertThat(failureDetails.map { it.ruleViolationReport?.ruleViolations }).containsExactly(
+            setOf(StandardRuleViolation.REQUIRED_PROPERTY_MISSING),
+            setOf(StandardRuleViolation.UNKNOWN_PROPERTY)
+        )
+    }
+
+    @Test
+    fun `openapi form-urlencoded requests report missing required form fields as missing properties`() {
+        val contract = """
+            openapi: 3.0.3
+            info:
+              title: Token API
+              version: '1.0'
+            paths:
+              /token:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/x-www-form-urlencoded:
+                        schema:
+                          type: object
+                          required:
+                            - client_id
+                            - client_secret
+                            - grant_type
+                          properties:
+                            client_id:
+                              type: string
+                            client_secret:
+                              type: string
+                            grant_type:
+                              type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(contract, "").toFeature()
+        val request = HttpRequest(
+            method = "POST",
+            path = "/token",
+            headers = mapOf("Content-Type" to "application/x-www-form-urlencoded"),
+            formFields = mapOf("grant_type" to "client_credentials")
+        )
+
+        val response = feature.lookupResponse(request)
+
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.body.toStringLiteral()).contains("R2001: Missing required property")
+        assertThat(response.body.toStringLiteral()).contains("REQUEST.FORM-FIELDS.client_id")
+        assertThat(response.body.toStringLiteral()).contains("REQUEST.FORM-FIELDS.client_secret")
+        assertThat(response.body.toStringLiteral()).doesNotContain("R2003: Unknown property")
+    }
+
+    @Test
     fun `match errors across the request including header and body will be returned`()  {
         val type = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("http://helloworld.com/data"), headersPattern = HttpHeadersPattern(mapOf("X-Data" to NumberPattern())), body = JSONObjectPattern(mapOf("id" to NumberPattern())))
         val request = HttpRequest("POST", "/data", headers = mapOf("X-Data" to "abc123"), body = parsedJSON("""{"id": "abc123"}"""))
