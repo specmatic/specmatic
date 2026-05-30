@@ -328,26 +328,6 @@ class ValidateCommandTest {
     }
 
     @Test
-    fun `validate command should validate external examples when media types have parameters`(@TempDir tempDir: File) {
-        val fixture = writeParameterizedMediaTypeExampleFixture(tempDir)
-
-        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
-            CommandLine(
-                ValidateCommand(
-                    validator = OpenApiValidator(),
-                    currentDirectoryProvider = { tempDir.canonicalFile }
-                )
-            ).execute("--spec-file", fixture.specFile.canonicalPath)
-        }
-
-        assertThat(exitCode).isZero()
-        assertThat(output).contains("create_order.json")
-        assertThat(output).doesNotContain("does not match any operation")
-        assertThat(output).doesNotContain("does not belong")
-        assertThat(output).doesNotContain("The following externalized examples were not used")
-    }
-
-    @Test
     fun `when malformed spec exists only under dot specmatic scan does not report it`(@TempDir tempDir: File) {
         val scannedSpec = writeOpenApiFile(tempDir.resolve("contracts/kept.yaml"))
         val malformedSpec = tempDir.resolve(".specmatic/repos/broken.yaml")

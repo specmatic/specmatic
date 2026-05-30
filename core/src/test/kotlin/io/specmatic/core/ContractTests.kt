@@ -10,6 +10,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Flags
@@ -1337,58 +1338,8 @@ Examples:
 
     @Test
     fun `external examples should match operations when media types have parameters`(@TempDir tempDir: File) {
-        val specFile = tempDir.resolve("api.yaml")
-        specFile.writeText(
-            """
-            openapi: 3.0.0
-            info:
-              title: Orders API
-              version: 1.0.0
-            paths:
-              /orders:
-                post:
-                  requestBody:
-                    required: true
-                    content:
-                      application/json;charset=utf-8:
-                        schema:
-                          type: object
-                  responses:
-                    '201':
-                      description: Created
-                      content:
-                        application/json;charset=utf-8:
-                          schema:
-                            type: object
-            """.trimIndent()
-        )
-
-        val examplesDir = tempDir.resolve("api_examples").also(File::mkdirs)
-        examplesDir.resolve("create_order.json").writeText(
-            """
-            {
-              "http-request": {
-                "method": "POST",
-                "path": "/orders",
-                "headers": {
-                  "Content-Type": "application/json;charset=utf-8"
-                },
-                "body": {
-                  "id": 10
-                }
-              },
-              "http-response": {
-                "status": 201,
-                "headers": {
-                  "Content-Type": "application/json;charset=utf-8"
-                },
-                "body": {
-                  "id": 10
-                }
-              }
-            }
-            """.trimIndent()
-        )
+        val specFile = writeParameterizedMediaTypeSpec(tempDir)
+        writeParameterizedMediaTypeExample(tempDir, requestBody = """{"id": 10}""", responseBody = """{"id": 10}""")
 
         val (feature, unusedExamples) = OpenApiSpecification
             .fromFile(specFile.path)
@@ -1399,6 +1350,148 @@ Examples:
 
         assertThat(unusedExamples).isEmpty()
         assertThat(matchingScenario.examples.flatMap { it.rows }).hasSize(1)
+    }
+
+    @Test
+    fun `external examples with media type parameters should be used to generate tests`(@TempDir tempDir: File) {
+        val specFile = writeParameterizedMediaTypeSpec(tempDir)
+        writeParameterizedMediaTypeExample(tempDir, requestBody = """{"id": 10}""", responseBody = """{"id": 10}""")
+
+        val feature = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamples()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val requestsReceived = mutableListOf<HttpRequest>()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                requestsReceived.add(request)
+
+                return HttpResponse(
+                    status = 201,
+                    headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+                    body = parsedJSONObject("""{"id": 10}""")
+                )
+            }
+        })
+
+        assertThat(results.testCount).isEqualTo(1)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(requestsReceived).hasSize(1)
+        assertThat(requestsReceived.single().method).isEqualTo("POST")
+        assertThat(requestsReceived.single().path).isEqualTo("/orders")
+        assertThat(requestsReceived.single().headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+        assertThat(requestsReceived.single().body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+    }
+
+    @Test
+    fun `external examples with media type parameters should fail validation when payload does not match`(@TempDir tempDir: File) {
+        val specFile = writeParameterizedMediaTypeSpec(tempDir)
+        writeParameterizedMediaTypeExample(tempDir, requestBody = """{"id": "invalid"}""", responseBody = """{"id": 10}""")
+
+        val feature = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamples()
+
+        val exception = assertThrows(ContractException::class.java) { feature.validateExamplesOrException() }
+        assertThat(exception.report()).contains("REQUEST.BODY.id")
+    }
+
+    @Test
+    fun `external examples with unmatched media type parameters should be reported unused`(@TempDir tempDir: File) {
+        val specFile = writeParameterizedMediaTypeSpec(tempDir)
+        writeParameterizedMediaTypeExample(
+            tempDir = tempDir,
+            requestContentType = "application/xml; charset=utf-8",
+            responseContentType = "application/xml; charset=utf-8",
+            requestBody = """{"id": 10}""",
+            responseBody = """{"id": 10}"""
+        )
+
+        val (feature, unusedExamples) = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamplesAndListUnloadableExamples()
+
+        val matchingScenario = feature.scenarios.single { it.method == "POST" && it.path == "/orders" && it.status == 201 }
+
+        assertThat(matchingScenario.examples.flatMap { it.rows }).isEmpty()
+        assertThat(unusedExamples.single()).endsWith("create_order.json")
+    }
+
+    private fun writeParameterizedMediaTypeSpec(tempDir: File): File {
+        return tempDir.resolve("api.yaml").also {
+            it.writeText(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Orders API
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          'application/json; charset=utf-8':
+                            schema:
+                              type: object
+                              required:
+                                - id
+                              properties:
+                                id:
+                                  type: integer
+                      responses:
+                        '201':
+                          description: Created
+                          content:
+                            'application/json; charset=utf-8':
+                              schema:
+                                type: object
+                                required:
+                                  - id
+                                properties:
+                                  id:
+                                    type: integer
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun writeParameterizedMediaTypeExample(
+        tempDir: File,
+        requestContentType: String = "application/json; charset=utf-8",
+        responseContentType: String = "application/json; charset=utf-8",
+        requestBody: String,
+        responseBody: String
+    ): File {
+        val examplesDir = tempDir.resolve("api_examples").also(File::mkdirs)
+        return examplesDir.resolve("create_order.json").also {
+            it.writeText(
+                """
+                {
+                  "http-request": {
+                    "method": "POST",
+                    "path": "/orders",
+                    "headers": {
+                      "Content-Type": "$requestContentType"
+                    },
+                    "body": $requestBody
+                  },
+                  "http-response": {
+                    "status": 201,
+                    "headers": {
+                      "Content-Type": "$responseContentType"
+                    },
+                    "body": $responseBody
+                  }
+                }
+                """.trimIndent()
+            )
+        }
     }
 
     @Test

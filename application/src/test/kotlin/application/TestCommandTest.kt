@@ -1,6 +1,5 @@
 package application
 
-import com.sun.net.httpserver.HttpServer
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -29,8 +28,6 @@ import org.xml.sax.InputSource
 import picocli.CommandLine
 import java.io.File
 import java.io.StringReader
-import java.net.InetSocketAddress
-import java.net.ServerSocket
 import java.util.*
 import java.util.stream.Stream
 
@@ -176,47 +173,6 @@ internal class TestCommandTest {
         CommandLine(testCommand, factory).execute(*testCase.arguments.toTypedArray())
         val settings = SpecmaticJUnitSupport.settingsStaging.get() ?: fail("Expected staged settings to be set")
         assertThat(settings.isHostOrPortExplicitlySpecified).isEqualTo(testCase.expected)
-    }
-
-    @Test
-    fun `test command should run external example when media types have parameters`(@TempDir tempDir: File) {
-        val fixture = writeParameterizedMediaTypeExampleFixture(tempDir, "external_examples")
-        val port = ServerSocket(0).use { it.localPort }
-        val receivedRequests = Collections.synchronizedList(mutableListOf<String>())
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", port), 0)
-
-        server.createContext("/orders") { exchange ->
-            val requestBody = exchange.requestBody.bufferedReader().use { it.readText() }
-            receivedRequests.add("${exchange.requestMethod} ${exchange.requestURI.path} ${exchange.requestHeaders.getFirst("Content-Type")} $requestBody")
-
-            val responseBody = """{"id":10}"""
-            exchange.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
-            exchange.sendResponseHeaders(201, responseBody.toByteArray().size.toLong())
-            exchange.responseBody.use { it.write(responseBody.toByteArray()) }
-        }
-
-        val (output, exitCode) = try {
-            server.start()
-            captureStandardOutput(redirectStdErrToStdout = true) {
-                CommandLine(TestCommand()).execute(
-                    "--testBaseURL",
-                    "http://127.0.0.1:$port",
-                    "--examples",
-                    fixture.examplesDir.canonicalPath,
-                    "--filter",
-                    "METHOD='POST' && PATH='/orders' && STATUS='201'",
-                    fixture.specFile.canonicalPath
-                )
-            }
-        } finally {
-            server.stop(0)
-        }
-
-        assertThat(exitCode).isZero()
-        assertThat(receivedRequests).hasSize(1)
-        assertThat(receivedRequests.single()).contains("POST /orders application/json; charset=utf-8").contains(""""id": 10""")
-        assertThat(output).contains("create_order")
-        assertThat(output).doesNotContain("The following externalized examples were not used")
     }
 
     companion object {
