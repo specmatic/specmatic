@@ -10,6 +10,7 @@ import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.git.checkout
 import io.specmatic.core.git.clone
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.*
@@ -34,11 +35,29 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.net.ServerSocket
+import java.util.concurrent.Callable
+import kotlin.system.measureTimeMillis
 import java.util.stream.Stream
 
 private const val testSystemProperty = "THIS_PROPERTY_EXISTS"
 
 internal class UtilitiesTest {
+    @Test
+    fun `runWithTimeout should throw ContractException without waiting for task completion`() {
+        val elapsedTime = measureTimeMillis {
+            val exception = assertThrows<ContractException> {
+                runWithTimeout(0, "timed out", Callable {
+                    Thread.sleep(5000)
+                    "completed"
+                })
+            }
+
+            assertThat(exception.message).contains("timed out")
+        }
+
+        assertThat(elapsedTime).isLessThan(2000)
+    }
+
     @Test
     fun `parsing multiline xml`() {
         val xml = """<line1>
