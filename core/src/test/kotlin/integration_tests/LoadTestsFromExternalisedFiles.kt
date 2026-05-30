@@ -6,6 +6,7 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONArray
@@ -18,6 +19,7 @@ import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import io.specmatic.test.ExampleProcessor
@@ -886,15 +888,24 @@ class LoadTestsFromExternalisedFiles {
             .fromYAML(xmlOneOfDocumentParcelSpecWithInlineExamples(), "")
             .toFeature()
 
-        assertThat(feature.inlineNamedStubs.map { it.name }).contains("DOCUMENT", "PARCEL")
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature, feature.inlineNamedStubs)
+
+        assertThat(feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("DOCUMENT", "PARCEL")
+        assertThat(feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+        assertThat(validationResults.values).allSatisfy { result ->
+            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
+        }
         assertDocumentAndParcelXmlOneOfExamplesRun(feature)
     }
 
     @Test
     fun `should load external xml oneOf examples as tests`(@TempDir tempDir: File) {
         val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
-        writeXmlOneOfExample(examplesDir, "document", "<document><id>10</id></document>")
-        writeXmlOneOfExample(examplesDir, "parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
+        val exampleFiles = listOf(
+            writeXmlOneOfExample(examplesDir, "document", "<document><id>10</id></document>"),
+            writeXmlOneOfExample(examplesDir, "parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
+        )
 
         Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
             val feature = OpenApiSpecification
@@ -902,9 +913,56 @@ class LoadTestsFromExternalisedFiles {
                 .toFeature()
                 .loadExternalisedExamples()
 
+            val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+                .validateExamples(feature, exampleFiles)
+
             assertDoesNotThrow { feature.validateExamplesOrException() }
+            assertThat(validationResults.success).isTrue()
+            assertThat(validationResults.exampleValidationResults.values).allSatisfy { result ->
+                assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
+            }
             assertDocumentAndParcelXmlOneOfExamplesRun(feature)
         }
+    }
+
+    @Test
+    fun `should expose inline and external xml oneOf examples through core stub loading`(@TempDir tempDir: File) {
+        val feature = OpenApiSpecification
+            .fromYAML(xmlOneOfDocumentParcelSpecWithInlineExamples(), "")
+            .toFeature()
+        val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
+        val externalExampleFiles = listOf(
+            writeXmlOneOfExample(examplesDir, "document", "<document><id>10</id></document>"),
+            writeXmlOneOfExample(examplesDir, "parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
+        )
+
+        val filteredExamples = feature.filterExamples(
+            examples = externalExampleFiles.map(ScenarioStub::readFromFile),
+            filter = "PATH='/items'"
+        )
+
+        assertThat(filteredExamples.unusedExamples).isEmpty()
+        assertThat(filteredExamples.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("DOCUMENT", "PARCEL")
+        assertThat(filteredExamples.feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+        assertThat(filteredExamples.externalExamples.map { it.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+    }
+
+    @Test
+    fun `should reject external xml oneOf example that matches no branch`(@TempDir tempDir: File) {
+        val invalidExampleFile = writeXmlOneOfExample(
+            tempDir.resolve("xml-oneof-examples").apply { mkdirs() },
+            "invoice",
+            "<invoice><id>10</id></invoice>"
+        )
+        val feature = OpenApiSpecification
+            .fromYAML(xmlOneOfDocumentParcelSpec(), "")
+            .toFeature()
+
+        val result = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExample(feature, invalidExampleFile)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("invoice")
     }
 
     private fun assertDocumentAndParcelXmlOneOfExamplesRun(feature: Feature) {
@@ -928,8 +986,13 @@ class LoadTestsFromExternalisedFiles {
         assertThat(rootElementNamesSeen).containsExactlyInAnyOrder("document", "parcel")
     }
 
-    private fun writeXmlOneOfExample(examplesDir: File, name: String, xmlBody: String) {
-        examplesDir.resolve("$name.json").writeText("""
+    private fun ScenarioStub.requestRootName(): String {
+        return (requestElsePartialRequest().body as XMLNode).name
+    }
+
+    private fun writeXmlOneOfExample(examplesDir: File, name: String, xmlBody: String): File {
+        return examplesDir.resolve("$name.json").also {
+            it.writeText("""
         {
           "http-request": {
             "method": "POST",
@@ -948,6 +1011,7 @@ class LoadTestsFromExternalisedFiles {
           }
         }
         """.trimIndent())
+        }
     }
 
     private fun xmlOneOfDocumentParcelSpec(): String = """
