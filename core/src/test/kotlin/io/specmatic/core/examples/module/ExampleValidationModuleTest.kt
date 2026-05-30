@@ -19,8 +19,24 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
+private val XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES =
+    File("src/test/resources/openapi/xml_oneof_document_parcel/api_with_inline_examples.yaml")
+
 class ExampleValidationModuleTest {
     private val exampleValidationModule = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+
+    @Test
+    fun `should validate inline xml oneOf examples`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        val validationResults = exampleValidationModule.validateInlineExamples(feature, feature.inlineNamedStubs)
+
+        assertThat(validationResults.values).allSatisfy { result ->
+            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
+        }
+    }
 
     @Test
     fun `should be able to match on pattern tokens instead of literal values`() {

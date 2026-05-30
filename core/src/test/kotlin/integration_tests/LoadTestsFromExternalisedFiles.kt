@@ -909,20 +909,6 @@ class LoadTestsFromExternalisedFiles {
     }
 
     @Test
-    fun `should validate inline xml oneOf examples`() {
-        val feature = OpenApiSpecification
-            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
-            .toFeature()
-
-        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
-            .validateInlineExamples(feature, feature.inlineNamedStubs)
-
-        assertThat(validationResults.values).allSatisfy { result ->
-            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
-        }
-    }
-
-    @Test
     fun `should validate external xml oneOf examples`() {
         val feature = OpenApiSpecification
             .fromFile(XML_ONEOF_CONTRACT.path)
