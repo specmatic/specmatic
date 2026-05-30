@@ -4,18 +4,19 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.url
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import java.io.File
 import java.net.ServerSocket
 
 internal class FormUrlEncodedExampleTest {
+    private val exampleValidationModule = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+
     @Test
     fun `contract tests use inline form-urlencoded examples`() {
         val feature = inlineFeature()
@@ -33,20 +34,26 @@ internal class FormUrlEncodedExampleTest {
     }
 
     @Test
-    fun `validate accepts inline form-urlencoded examples`() {
+    fun `validate core path accepts inline form-urlencoded examples`() {
         val feature = inlineFeature()
 
         assertExampleFormFields(feature)
-        feature.validateExamplesOrException()
+        val validationResults = exampleValidationModule.validateInlineExamples(feature, feature.inlineNamedStubs)
+
+        assertThat(validationResults).containsOnlyKeys("valid-token-example")
+        assertThat(validationResults.getValue("valid-token-example")).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
-    fun `validate accepts external form-urlencoded examples`() {
+    fun `validate core path accepts external form-urlencoded examples`() {
         val (feature, unusedExamples) = externalFeatureWithExamples(EXTERNAL_SPEC_FILE)
 
         assertThat(unusedExamples).isEmpty()
         assertExampleFormFields(feature)
-        feature.validateExamplesOrException()
+
+        val validationResult = exampleValidationModule.validateExample(feature, EXTERNAL_EXAMPLE_FILE)
+
+        assertThat(validationResult).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
@@ -75,18 +82,15 @@ internal class FormUrlEncodedExampleTest {
     }
 
     @Test
-    fun `form-urlencoded external example validation reports missing required form fields as missing properties`() {
+    fun `validate core path reports missing required form fields as missing properties`() {
         val feature = OpenApiSpecification
             .fromFile(EXTERNAL_MISSING_REQUIRED_FORM_FIELD_SPEC_FILE.canonicalPath)
             .toFeature()
-            .loadExternalisedExamples()
+        val validationResult = exampleValidationModule.validateExample(feature, MISSING_REQUIRED_FORM_FIELD_EXAMPLE_FILE)
 
-        val exception = assertThrows<ContractException> {
-            feature.validateExamplesOrException()
-        }
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
 
-        val report = exception.report()
-        assertThat(report).contains(MISSING_REQUIRED_FORM_FIELD_EXAMPLE_FILE.name)
+        val report = validationResult.reportString()
         assertThat(report).contains("R2001: Missing required property")
         assertThat(report).contains("REQUEST.FORM-FIELDS.client_id")
         assertThat(report).doesNotContain("R2003: Unknown property")
