@@ -66,8 +66,7 @@ internal class OpenApiSpecificationTest {
 
     data class FormExplodedObjectQueryExampleCase(
         val name: String,
-        val parameterYaml: String,
-        val componentsYaml: String = "",
+        val specPath: String,
         val expectedQueryParams: Map<String, String>,
         val unexpectedQueryParams: Set<String> = setOf("info")
     ) {
@@ -112,49 +111,14 @@ internal class OpenApiSpecificationTest {
                 Arguments.of(
                     FormExplodedObjectQueryExampleCase(
                         name = "inline object parameter example",
-                        parameterYaml = """
-                            - in: query
-                              name: info
-                              required: true
-                              schema:
-                                type: object
-                                required:
-                                  - status
-                                properties:
-                                  status:
-                                    type: integer
-                                  message:
-                                    type: string
-                              examples:
-                                SUCCESS:
-                                  value:
-                                    status: 200
-                                    message: ok
-                        """.trimIndent(),
+                        specPath = "src/test/resources/openapi/object_query_examples/inline_object_parameter_example.yaml",
                         expectedQueryParams = mapOf("status" to "200", "message" to "ok")
                     )
                 ),
                 Arguments.of(
                     FormExplodedObjectQueryExampleCase(
                         name = "required object with required property only",
-                        parameterYaml = """
-                            - in: query
-                              name: info
-                              required: true
-                              schema:
-                                type: object
-                                required:
-                                  - status
-                                properties:
-                                  status:
-                                    type: integer
-                                  message:
-                                    type: string
-                              examples:
-                                SUCCESS:
-                                  value:
-                                    status: 200
-                        """.trimIndent(),
+                        specPath = "src/test/resources/openapi/object_query_examples/required_object_with_required_property_only.yaml",
                         expectedQueryParams = mapOf("status" to "200"),
                         unexpectedQueryParams = setOf("info", "message")
                     )
@@ -162,87 +126,21 @@ internal class OpenApiSpecificationTest {
                 Arguments.of(
                     FormExplodedObjectQueryExampleCase(
                         name = "optional object parameter with required property",
-                        parameterYaml = """
-                            - in: query
-                              name: info
-                              required: false
-                              schema:
-                                type: object
-                                required:
-                                  - status
-                                properties:
-                                  status:
-                                    type: integer
-                                  message:
-                                    type: string
-                              examples:
-                                SUCCESS:
-                                  value:
-                                    status: 200
-                                    message: ok
-                        """.trimIndent(),
+                        specPath = "src/test/resources/openapi/object_query_examples/optional_object_parameter_with_required_property.yaml",
                         expectedQueryParams = mapOf("status" to "200", "message" to "ok")
                     )
                 ),
                 Arguments.of(
                     FormExplodedObjectQueryExampleCase(
                         name = "schema ref",
-                        parameterYaml = """
-                            - in: query
-                              name: info
-                              required: true
-                              schema:
-                                ${"$"}ref: '#/components/schemas/Info'
-                              examples:
-                                SUCCESS:
-                                  value:
-                                    status: 200
-                                    message: ok
-                        """.trimIndent(),
-                        componentsYaml = """
-                            components:
-                              schemas:
-                                Info:
-                                  type: object
-                                  required:
-                                    - status
-                                  properties:
-                                    status:
-                                      type: integer
-                                    message:
-                                      type: string
-                        """.trimIndent(),
+                        specPath = "src/test/resources/openapi/object_query_examples/schema_ref.yaml",
                         expectedQueryParams = mapOf("status" to "200", "message" to "ok")
                     )
                 ),
                 Arguments.of(
                     FormExplodedObjectQueryExampleCase(
                         name = "example ref",
-                        parameterYaml = """
-                            - in: query
-                              name: info
-                              required: true
-                              schema:
-                                type: object
-                                required:
-                                  - status
-                                properties:
-                                  status:
-                                    type: integer
-                                  message:
-                                    type: string
-                              examples:
-                                SUCCESS:
-                                  ${"$"}ref: '#/components/examples/InfoSuccess'
-                        """.trimIndent(),
-                        componentsYaml = """
-                            components:
-                              examples:
-                                InfoSuccess:
-                                  value:
-                                    status: 200
-                                    message: ok
-                        """.trimIndent(),
+                        specPath = "src/test/resources/openapi/object_query_examples/example_ref.yaml",
                         expectedQueryParams = mapOf("status" to "200", "message" to "ok")
                     )
                 )
@@ -12718,7 +12616,7 @@ paths:
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `inline form exploded object query examples are serialized to wire keys`(case: FormExplodedObjectQueryExampleCase) {
-        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(case), "").toFeature()
+        val feature = OpenApiSpecification.fromFile(case.specPath).toFeature()
 
         val request = feature.inlineNamedStubs.single { it.name == "SUCCESS" }.stub.request
         val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
@@ -12735,7 +12633,7 @@ paths:
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `contract tests use serialized query property keys from inline examples`(case: FormExplodedObjectQueryExampleCase) {
-        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(case), "").toFeature()
+        val feature = OpenApiSpecification.fromFile(case.specPath).toFeature()
         val seenQueryParams = mutableListOf<Map<String, String>>()
 
         val results = feature.executeTests(object : TestExecutor {
@@ -12757,7 +12655,7 @@ paths:
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `mock uses serialized query property keys from inline object query examples`(case: FormExplodedObjectQueryExampleCase) {
-        val feature = OpenApiSpecification.fromYAML(formExplodedObjectQueryParamWithInlineExamplesSpec(case), "").toFeature()
+        val feature = OpenApiSpecification.fromFile(case.specPath).toFeature()
 
         HttpStub(feature, port = freePort()).use { stub ->
             val response = stub.client.execute(
@@ -12898,40 +12796,6 @@ paths:
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         assertThat(matchedExampleRequest).isTrue()
-    }
-
-    private fun formExplodedObjectQueryParamWithInlineExamplesSpec(case: FormExplodedObjectQueryExampleCase): String {
-        val specWithoutComponents = """
-openapi: 3.0.0
-info:
-  title: ${case.name}
-  version: 1.0.0
-paths:
-  /data:
-    get:
-      parameters:
-${case.parameterYaml.trimIndent().prependIndent("        ")}
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - id
-                properties:
-                  id:
-                    type: integer
-              examples:
-                SUCCESS:
-                  value:
-                    id: 10
-        """.trimIndent()
-
-        return listOf(specWithoutComponents, case.componentsYaml.trimIndent())
-            .filter(String::isNotBlank)
-            .joinToString("\n")
     }
 
     private fun duplicateExampleNameAcrossOperationsSpec(): String {

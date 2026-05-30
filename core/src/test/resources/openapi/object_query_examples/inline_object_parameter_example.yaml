@@ -1,0 +1,41 @@
+openapi: 3.0.0
+info:
+  title: inline object parameter example
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+        - in: query
+          name: info
+          required: true
+          schema:
+            type: object
+            required:
+              - status
+            properties:
+              status:
+                type: integer
+              message:
+                type: string
+          examples:
+            SUCCESS:
+              value:
+                status: 200
+                message: ok
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+              examples:
+                SUCCESS:
+                  value:
+                    id: 10

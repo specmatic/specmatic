@@ -3293,12 +3293,8 @@ paths:
     }
 
     @Test
-    fun `externalized form exploded object query example is loaded and validated using property keys`(@TempDir tempDir: File) {
-        val specFile = writeCustomerObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("customer_object_query_param_examples").also { it.mkdirs() }
-        writeCustomerObjectQueryExample(examplesDir)
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `externalized form exploded object query example is loaded and validated using property keys`() {
+        val feature = OpenApiSpecification.fromFile(CUSTOMER_OBJECT_QUERY_PARAM_SPEC).toFeature().loadExternalisedExamples()
         val externalRows = feature.scenarios.single().examples.flatMap { it.rows }
 
         assertThat(externalRows).singleElement().satisfies(Consumer { row ->
@@ -3311,11 +3307,8 @@ paths:
     }
 
     @Test
-    fun `contract tests use serialized query property keys from externalized object query examples`(@TempDir tempDir: File) {
-        val specFile = writeCustomerObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("customer_object_query_param_examples").also { it.mkdirs() }
-        writeCustomerObjectQueryExample(examplesDir)
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `contract tests use serialized query property keys from externalized object query examples`() {
+        val feature = OpenApiSpecification.fromFile(CUSTOMER_OBJECT_QUERY_PARAM_SPEC).toFeature().loadExternalisedExamples()
         val seenQueryParams = mutableListOf<Map<String, String>>()
 
         val results = feature.executeTests(object : TestExecutor {
@@ -3334,14 +3327,10 @@ paths:
     }
 
     @Test
-    fun `mock uses serialized query property keys from externalized object query examples`(@TempDir tempDir: File) {
-        val specFile = writeCustomerObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("customer_object_query_param_examples").also { it.mkdirs() }
-        writeCustomerObjectQueryExample(examplesDir)
-
+    fun `mock uses serialized query property keys from externalized object query examples`() {
         createStubFromContracts(
-            contractPaths = listOf(specFile.canonicalPath),
-            dataDirPaths = listOf(examplesDir.canonicalPath),
+            contractPaths = listOf(CUSTOMER_OBJECT_QUERY_PARAM_SPEC),
+            dataDirPaths = listOf(CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR),
             port = ServerSocket(0).use { it.localPort },
             timeoutMillis = 0,
         ).use { stub ->
@@ -3359,25 +3348,15 @@ paths:
     }
 
     @Test
-    fun `validate externalized examples for absent required-only and all optional form exploded object query params`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "absent.json", "/data")
-        writeExternalizedExample(examplesDir, "required-only.json", "/data?name=Jane")
-        writeExternalizedExample(examplesDir, "all.json", "/data?name=Jane&description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `validate externalized examples for absent required-only and all optional form exploded object query params`() {
+        val feature = OpenApiSpecification.fromFile(OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC).toFeature().loadExternalisedExamples()
 
         assertDoesNotThrow { feature.validateExamplesOrException() }
     }
 
     @Test
-    fun `optional form exploded object query param example with only optional property should fail validation`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "optional-only.json", "/data?description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `optional form exploded object query param example with only optional property should fail validation`() {
+        val feature = OpenApiSpecification.fromFile(OPTIONAL_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC).toFeature().loadExternalisedExamples()
 
         assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
             assertThat(exceptionCauseMessage(exception)).contains("REQUEST.PARAMETERS.QUERY.name")
@@ -3385,24 +3364,15 @@ paths:
     }
 
     @Test
-    fun `validate externalized examples for required-only and all mandatory form exploded object query params`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "required-only.json", "/data?name=Jane")
-        writeExternalizedExample(examplesDir, "all.json", "/data?name=Jane&description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `validate externalized examples for required-only and all mandatory form exploded object query params`() {
+        val feature = OpenApiSpecification.fromFile(REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC).toFeature().loadExternalisedExamples()
 
         assertDoesNotThrow { feature.validateExamplesOrException() }
     }
 
     @Test
-    fun `mandatory form exploded object query param example with absent object should fail validation`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "absent.json", "/data")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `mandatory form exploded object query param example with absent object should fail validation`() {
+        val feature = OpenApiSpecification.fromFile(REQUIRED_OBJECT_QUERY_PARAM_ABSENT_SPEC).toFeature().loadExternalisedExamples()
 
         assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
             assertThat(exceptionCauseMessage(exception)).contains("REQUEST.PARAMETERS.QUERY.name")
@@ -3410,12 +3380,8 @@ paths:
     }
 
     @Test
-    fun `mandatory form exploded object query param example with only optional property should mention object query param name`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "optional-only.json", "/data?description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `mandatory form exploded object query param example with only optional property should mention object query param name`() {
+        val feature = OpenApiSpecification.fromFile(REQUIRED_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC).toFeature().loadExternalisedExamples()
 
         assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
             assertThat(exceptionCauseMessage(exception))
@@ -4033,6 +3999,15 @@ paths:
     }
 
     companion object {
+        private const val OBJECT_QUERY_EXAMPLES_BASE = "src/test/resources/openapi/object_query_examples"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param.yaml"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_examples"
+        private const val OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_valid.yaml"
+        private const val OPTIONAL_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_optional_only.yaml"
+        private const val REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_valid.yaml"
+        private const val REQUIRED_OBJECT_QUERY_PARAM_ABSENT_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_absent.yaml"
+        private const val REQUIRED_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_optional_only.yaml"
+
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
             val featureData = arrayOf(
@@ -4070,122 +4045,6 @@ paths:
                 .map { ScenarioStub.readFromFile(it) }
         }
 
-        private fun writeFormExplodedObjectQueryParamSpec(tempDir: File, objectParamRequired: Boolean = false): File {
-            return tempDir.resolve("object_query_param.yaml").apply {
-                writeText(
-                    """
-                    openapi: 3.0.0
-                    info:
-                      title: Object Query Param API
-                      version: 1.0.0
-                    paths:
-                      /data:
-                        get:
-                          parameters:
-                            - in: query
-                              name: info
-                              required: $objectParamRequired
-                              schema:
-                                type: object
-                                required:
-                                  - name
-                                properties:
-                                  name:
-                                    type: string
-                                  description:
-                                    type: string
-                          responses:
-                            '200':
-                              description: OK
-                    """.trimIndent()
-                )
-            }
-        }
-
-        private fun writeCustomerObjectQueryParamSpec(tempDir: File): File {
-            return tempDir.resolve("customer_object_query_param.yaml").apply {
-                writeText(
-                    """
-                    openapi: 3.0.0
-                    info:
-                      title: Customer Object Query Param API
-                      version: 1.0.0
-                    paths:
-                      /data:
-                        get:
-                          parameters:
-                            - in: query
-                              name: info
-                              required: true
-                              style: form
-                              explode: true
-                              schema:
-                                type: object
-                                required:
-                                  - customerId
-                                properties:
-                                  customerId:
-                                    type: string
-                                  segment:
-                                    type: string
-                          responses:
-                            '200':
-                              description: OK
-                              content:
-                                application/json:
-                                  schema:
-                                    type: object
-                                    required:
-                                      - source
-                                    properties:
-                                      source:
-                                        type: string
-                    """.trimIndent()
-                )
-            }
-        }
-
-        private fun writeCustomerObjectQueryExample(examplesDir: File) {
-            examplesDir.resolve("external-success.json").writeText(
-                """
-                {
-                  "http-request": {
-                    "method": "GET",
-                    "path": "/data",
-                    "query": {
-                      "customerId": "external",
-                      "segment": "live"
-                    }
-                  },
-                  "http-response": {
-                    "status": 200,
-                    "headers": {
-                      "Content-Type": "application/json"
-                    },
-                    "body": {
-                      "source": "external"
-                    }
-                  }
-                }
-                """.trimIndent()
-            )
-        }
-
-        private fun writeExternalizedExample(examplesDir: File, fileName: String, path: String) {
-            examplesDir.resolve(fileName).writeText(
-                """
-                {
-                  "http-request": {
-                    "method": "GET",
-                    "path": "$path"
-                  },
-                  "http-response": {
-                    "status": 200
-                  }
-                }
-                """.trimIndent()
-            )
-        }
     }
 
     @Nested
