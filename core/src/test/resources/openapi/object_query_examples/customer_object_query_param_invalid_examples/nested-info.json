@@ -1,0 +1,21 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/data",
+    "query": {
+      "info": {
+        "customerId": "external",
+        "segment": "live"
+      }
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "external"
+    }
+  }
+}

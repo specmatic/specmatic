@@ -8,6 +8,7 @@ import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
@@ -3327,6 +3328,30 @@ paths:
     }
 
     @Test
+    fun `ExampleValidationModule validates serialized query property keys in external object query examples`() {
+        val validationResults = validateExternalExample(
+            specPath = CUSTOMER_OBJECT_QUERY_PARAM_SPEC,
+            examplePath = CUSTOMER_OBJECT_QUERY_PARAM_SUCCESS_EXAMPLE
+        )
+
+        assertThat(validationResults.success).isTrue()
+        assertThat(validationResults.exampleValidationResults.values).singleElement().isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `ExampleValidationModule rejects external object query examples nested under object parameter name`() {
+        val validationResults = validateExternalExample(
+            specPath = CUSTOMER_OBJECT_QUERY_PARAM_SPEC,
+            examplePath = CUSTOMER_OBJECT_QUERY_PARAM_NESTED_INFO_EXAMPLE
+        )
+        val validationResult = validationResults.exampleValidationResults.values.single()
+
+        assertThat(validationResults.success).isFalse()
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(validationResult.reportString()).contains("REQUEST.PARAMETERS.QUERY.customerId")
+    }
+
+    @Test
     fun `mock uses serialized query property keys from externalized object query examples`() {
         createStubFromContracts(
             contractPaths = listOf(CUSTOMER_OBJECT_QUERY_PARAM_SPEC),
@@ -3998,10 +4023,18 @@ paths:
         assertThat(filtered.externalExamples).isEmpty()
     }
 
+    private fun validateExternalExample(specPath: String, examplePath: String) =
+        ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExamples(
+            feature = OpenApiSpecification.fromFile(specPath).toFeature(),
+            examples = listOf(File(examplePath))
+        )
+
     companion object {
         private const val OBJECT_QUERY_EXAMPLES_BASE = "src/test/resources/openapi/object_query_examples"
         private const val CUSTOMER_OBJECT_QUERY_PARAM_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param.yaml"
         private const val CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_examples"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_SUCCESS_EXAMPLE = "$CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR/external-success.json"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_NESTED_INFO_EXAMPLE = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_invalid_examples/nested-info.json"
         private const val OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_valid.yaml"
         private const val OPTIONAL_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_optional_only.yaml"
         private const val REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_valid.yaml"
