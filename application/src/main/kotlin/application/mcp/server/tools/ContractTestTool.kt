@@ -2,11 +2,10 @@ package application.mcp.server.tools
 
 import application.TestCommand
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
+import io.specmatic.core.utilities.newXMLBuilder
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import org.w3c.dom.Element
+import org.w3c.dom.Node
 import picocli.CommandLine
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -18,11 +17,15 @@ data class RunTestArgs(
     val specFormat: String = "yaml"
 )
 
-class ContractTestTool {
+class ContractTestTool(
+    private val junitReportDirectoryFactory: (Boolean) -> File = ::createMcpJUnitReportDirectory
+) {
 
     internal fun runContractTest(args: RunTestArgs, resiliency: Boolean): String {
         val tempDir = createTempDirectory(if (resiliency) "specmatic-resiliency-" else "specmatic-contract-").toFile()
         val specFile = tempDir.resolve("spec.${args.specFormat}").apply { writeText(args.openApiSpec) }
+        val junitReportDir = junitReportDirectoryFactory(resiliency)
+        val junitReportFile = junitReportDir.resolve(JUNIT_REPORT_FILE_NAME)
 
         val originalGenerativeFlag = System.getProperty(SPECMATIC_GENERATIVE_TESTS)
         if (resiliency) {
@@ -35,12 +38,14 @@ class ContractTestTool {
                 val argsList = mutableListOf<String>()
                 argsList.add("--testBaseURL")
                 argsList.add(args.apiBaseUrl)
+                argsList.add("--junitReportDir")
+                argsList.add(junitReportDir.canonicalPath)
                 argsList.add(specFile.canonicalPath)
 
                 CommandLine(command).execute(*argsList.toTypedArray())
             }
 
-            val summary = File(DEFAULT_CTRF_REPORT_PATH).let(::parseCtrfSummary)
+            val summary = parseJUnitSummary(junitReportFile)
 
             formatTestResult(
                 title = if (resiliency) "Resiliency" else "Contract",
@@ -60,35 +65,34 @@ class ContractTestTool {
         }
     }
 
-    internal fun parseCtrfSummary(reportFile: File): TestSummary? {
+    internal fun parseJUnitSummary(reportFile: File): TestSummary? {
         if (!reportFile.isFile) return null
 
-        val results = Json.parseToJsonElement(reportFile.readText()).jsonObject["results"]?.jsonObject ?: return null
-        val summary = results["summary"]?.jsonObject ?: return null
+        val root = newXMLBuilder().parse(reportFile).documentElement ?: return null
+        if (root.tagName !in setOf("testsuite", "testsuites")) return null
 
-        val total = summary["tests"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
-        val passed = summary["passed"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
-        val failed = summary["failed"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
+        val testCases = root.descendantElements("testcase")
+        val failedTests = testCases.mapNotNull { testCase ->
+            val failure = testCase.firstChildElement("failure") ?: testCase.firstChildElement("error") ?: return@mapNotNull null
+            FailedTest(
+                scenario = testCase.getAttribute("name"),
+                message = failure.getAttribute("message").ifBlank { failure.textContent.orEmpty().trim() }
+            )
+        }
 
-        val failedTests = results["tests"]
-            ?.jsonArray
-            ?.mapNotNull { test ->
-                val testObject = test.jsonObject
-                if (testObject["status"]?.jsonPrimitive?.content != "failed") return@mapNotNull null
-
-                FailedTest(
-                    scenario = testObject["name"]?.jsonPrimitive?.content.orEmpty(),
-                    message = testObject["message"]?.jsonPrimitive?.content.orEmpty()
-                )
-            }
-            .orEmpty()
+        val total = root.intAttribute("tests") ?: testCases.size
+        val failures = root.intAttribute("failures")
+        val errors = root.intAttribute("errors")
+        val failed = if (failures != null || errors != null) (failures ?: 0) + (errors ?: 0) else failedTests.size
+        val skipped = root.intAttribute("skipped") ?: testCases.count { it.firstChildElement("skipped") != null }
+        val passed = total - failed - skipped
 
         return TestSummary(
             total = total,
             passed = passed,
             failed = failed,
             failedTests = failedTests,
-            reportLabel = "CTRF",
+            reportLabel = "JUnit",
             reportPath = reportFile.canonicalPath
         )
     }
@@ -119,7 +123,7 @@ class ContractTestTool {
                 append("| Passed | ${it.passed} |\n")
                 append("| Failed | ${it.failed} |\n\n")
 
-                append("Report: `${it.reportPath}`\n\n")
+                append("${it.reportLabel} Report: `${it.reportPath}`\n\n")
 
                 if (it.failedTests.isNotEmpty()) {
                     append("### Failed Scenarios\n")
@@ -154,7 +158,29 @@ class ContractTestTool {
     }
 }
 
-private const val DEFAULT_CTRF_REPORT_PATH = "build/reports/specmatic/test/ctrf-report.json"
+private const val JUNIT_REPORT_FILE_NAME = "TEST-junit-jupiter.xml"
+private const val MCP_JUNIT_REPORT_BASE_DIR = "build/reports/specmatic/test/junit"
+
+private fun createMcpJUnitReportDirectory(resiliency: Boolean): File {
+    val prefix = if (resiliency) "mcp-resiliency" else "mcp-contract"
+    val baseDir = File(MCP_JUNIT_REPORT_BASE_DIR).apply { mkdirs() }
+    return createTempDirectory(baseDir.toPath(), "$prefix-").toFile()
+}
+
+private fun Element.intAttribute(name: String): Int? {
+    return getAttribute(name).takeIf { it.isNotBlank() }?.toIntOrNull()
+}
+
+private fun Element.descendantElements(tagName: String): List<Element> {
+    val nodes = getElementsByTagName(tagName)
+    return (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }
+}
+
+private fun Element.firstChildElement(tagName: String): Element? {
+    return (0 until childNodes.length)
+        .map { childNodes.item(it) }
+        .firstOrNull { it.nodeType == Node.ELEMENT_NODE && it.nodeName == tagName } as? Element
+}
 
 internal data class TestSummary(
     val total: Int,
