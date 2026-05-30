@@ -956,7 +956,7 @@ class LoadTestsFromExternalisedFiles {
     }
 
     @Test
-    fun `should reject external xml oneOf example that matches no branch`() {
+    fun `should reject external xml oneOf example that matches no branch during validation`() {
         val feature = OpenApiSpecification
             .fromFile(XML_ONEOF_CONTRACT.path)
             .toFeature()
