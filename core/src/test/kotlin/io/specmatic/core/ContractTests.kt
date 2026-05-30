@@ -1385,19 +1385,6 @@ Examples:
     }
 
     @Test
-    fun `external examples with media type parameters should fail validation when payload does not match`() {
-        val specFile = parameterizedMediaTypeSpec("invalid_payload/api.yaml")
-
-        val feature = OpenApiSpecification
-            .fromFile(specFile.path)
-            .toFeature()
-            .loadExternalisedExamples()
-
-        val exception = assertThrows(ContractException::class.java) { feature.validateExamplesOrException() }
-        assertThat(exception.report()).contains("REQUEST.BODY.id")
-    }
-
-    @Test
     fun `external examples with unmatched media type parameters should be reported unused`() {
         val specFile = parameterizedMediaTypeSpec("unmatched_content_type/api.yaml")
 

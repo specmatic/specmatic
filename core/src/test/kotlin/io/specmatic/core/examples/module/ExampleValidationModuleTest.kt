@@ -646,6 +646,40 @@ class ExampleValidationModuleTest {
     }
 
     @Test
+    fun `should validate external examples when media types have parameters`() {
+        val openApiFile = parameterizedMediaTypeSpec("valid/api.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val example = openApiFile.resolveSibling("api_examples/create_order.json")
+
+        val result = exampleValidationModule.validateExample(feature, example)
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should reject external examples with media type parameters when payload does not match`() {
+        val openApiFile = parameterizedMediaTypeSpec("invalid_payload/api.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val example = openApiFile.resolveSibling("api_examples/create_order.json")
+
+        val result = exampleValidationModule.validateExample(feature, example)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("REQUEST.BODY.id")
+    }
+
+    @Test
+    fun `should reject external examples with unmatched media type parameters`() {
+        val openApiFile = parameterizedMediaTypeSpec("unmatched_content_type/api.yaml")
+        val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
+        val example = openApiFile.resolveSibling("api_examples/create_order.json")
+
+        val result = exampleValidationModule.validateExample(feature, example)
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
     fun `should be able to validate examples where the OAS has shadowed paths`() {
         val openApiFile = File("src/test/resources/openapi/has_shadow_paths/api.yaml")
         val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature()
@@ -717,5 +751,9 @@ class ExampleValidationModuleTest {
         val exampleFile = tempDir.resolve("example.json")
         exampleFile.writeText(example.toStringLiteral())
         return exampleFile
+    }
+
+    private fun parameterizedMediaTypeSpec(relativePath: String): File {
+        return File("src/test/resources/openapi/parameterized_media_type_examples/$relativePath")
     }
 }
