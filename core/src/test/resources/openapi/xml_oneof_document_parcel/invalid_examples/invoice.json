@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/items",
+    "headers": {
+      "Content-Type": "application/xml"
+    },
+    "body": "<invoice><id>10</id></invoice>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/xml"
+    },
+    "body": "<invoice><id>10</id></invoice>"
+  }
+}

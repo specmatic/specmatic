@@ -32,6 +32,11 @@ import java.math.BigDecimal
 
 private val doubleMax = BigDecimal(Double.MAX_VALUE)
 private val doubleMin = BigDecimal(-Double.MAX_VALUE)
+private val XML_ONEOF_RESOURCE_DIR = File("src/test/resources/openapi/xml_oneof_document_parcel")
+private val XML_ONEOF_CONTRACT = XML_ONEOF_RESOURCE_DIR.resolve("api.yaml")
+private val XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES = XML_ONEOF_RESOURCE_DIR.resolve("api_with_inline_examples.yaml")
+private val XML_ONEOF_EXTERNAL_EXAMPLES_DIR = XML_ONEOF_RESOURCE_DIR.resolve("api_examples")
+private val XML_ONEOF_INVALID_INVOICE_EXAMPLE = XML_ONEOF_RESOURCE_DIR.resolve("invalid_examples/invoice.json")
 
 class LoadTestsFromExternalisedFiles {
 
@@ -885,7 +890,7 @@ class LoadTestsFromExternalisedFiles {
     @Test
     fun `should load inline xml oneOf examples as tests`() {
         val feature = OpenApiSpecification
-            .fromYAML(xmlOneOfDocumentParcelSpecWithInlineExamples(), "")
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
             .toFeature()
 
         val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
@@ -900,44 +905,32 @@ class LoadTestsFromExternalisedFiles {
     }
 
     @Test
-    fun `should load external xml oneOf examples as tests`(@TempDir tempDir: File) {
-        val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
-        val exampleFiles = listOf(
-            writeXmlOneOfExample(examplesDir, "external-document", "<document><id>10</id></document>"),
-            writeXmlOneOfExample(examplesDir, "external-parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
-        )
+    fun `should load external xml oneOf examples as tests`() {
+        val exampleFiles = xmlOneOfExternalExampleFiles()
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT.path)
+            .toFeature()
+            .loadExternalisedExamples()
 
-        Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
-            val feature = OpenApiSpecification
-                .fromYAML(xmlOneOfDocumentParcelSpec(), "")
-                .toFeature()
-                .loadExternalisedExamples()
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExamples(feature, exampleFiles)
 
-            val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
-                .validateExamples(feature, exampleFiles)
-
-            assertDoesNotThrow { feature.validateExamplesOrException() }
-            assertThat(validationResults.success).isTrue()
-            assertThat(validationResults.exampleValidationResults.values).allSatisfy { result ->
-                assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
-            }
-            assertDocumentAndParcelXmlOneOfExamplesRun(feature)
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+        assertThat(validationResults.success).isTrue()
+        assertThat(validationResults.exampleValidationResults.values).allSatisfy { result ->
+            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
         }
+        assertDocumentAndParcelXmlOneOfExamplesRun(feature)
     }
 
     @Test
-    fun `should expose inline and external xml oneOf examples through core stub loading`(@TempDir tempDir: File) {
+    fun `should expose inline and external xml oneOf examples through core stub loading`() {
         val feature = OpenApiSpecification
-            .fromYAML(xmlOneOfDocumentParcelSpecWithInlineExamples(), "")
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
             .toFeature()
-        val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
-        val externalExampleFiles = listOf(
-            writeXmlOneOfExample(examplesDir, "external-document", "<document><id>10</id></document>"),
-            writeXmlOneOfExample(examplesDir, "external-parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
-        )
 
         val filteredExamples = feature.filterExamples(
-            examples = externalExampleFiles.map(ScenarioStub::readFromFile),
+            examples = xmlOneOfExternalExampleFiles().map(ScenarioStub::readFromFile),
             filter = "PATH='/items'"
         )
 
@@ -949,18 +942,13 @@ class LoadTestsFromExternalisedFiles {
     }
 
     @Test
-    fun `should reject external xml oneOf example that matches no branch`(@TempDir tempDir: File) {
-        val invalidExampleFile = writeXmlOneOfExample(
-            tempDir.resolve("xml-oneof-examples").apply { mkdirs() },
-            "invoice",
-            "<invoice><id>10</id></invoice>"
-        )
+    fun `should reject external xml oneOf example that matches no branch`() {
         val feature = OpenApiSpecification
-            .fromYAML(xmlOneOfDocumentParcelSpec(), "")
+            .fromFile(XML_ONEOF_CONTRACT.path)
             .toFeature()
 
         val result = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
-            .validateExample(feature, invalidExampleFile)
+            .validateExample(feature, XML_ONEOF_INVALID_INVOICE_EXAMPLE)
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains("invoice")
@@ -991,137 +979,9 @@ class LoadTestsFromExternalisedFiles {
         return (requestElsePartialRequest().body as XMLNode).name
     }
 
-    private fun writeXmlOneOfExample(examplesDir: File, name: String, xmlBody: String): File {
-        return examplesDir.resolve("$name.json").also {
-            it.writeText("""
-        {
-          "http-request": {
-            "method": "POST",
-            "path": "/items",
-            "headers": {
-              "Content-Type": "application/xml"
-            },
-            "body": "$xmlBody"
-          },
-          "http-response": {
-            "status": 200,
-            "headers": {
-              "Content-Type": "application/xml"
-            },
-            "body": "$xmlBody"
-          }
-        }
-        """.trimIndent())
-        }
+    private fun xmlOneOfExternalExampleFiles(): List<File> {
+        return XML_ONEOF_EXTERNAL_EXAMPLES_DIR.listFiles().orEmpty().sortedBy { it.name }
     }
-
-    private fun xmlOneOfDocumentParcelSpec(): String = """
-        openapi: 3.0.3
-        info:
-          title: XML oneOf API
-          version: '1.0'
-        paths:
-          /items:
-            post:
-              requestBody:
-                required: true
-                content:
-                  application/xml:
-                    schema:
-                      oneOf:
-                        - ${"$"}ref: '#/components/schemas/document'
-                        - ${"$"}ref: '#/components/schemas/parcel'
-              responses:
-                '200':
-                  description: OK
-                  content:
-                    application/xml:
-                      schema:
-                        oneOf:
-                          - ${"$"}ref: '#/components/schemas/document'
-                          - ${"$"}ref: '#/components/schemas/parcel'
-        components:
-          schemas:
-            document:
-              type: object
-              xml:
-                name: document
-              required:
-                - id
-              properties:
-                id:
-                  type: integer
-            parcel:
-              type: object
-              xml:
-                name: parcel
-              required:
-                - trackingNumber
-              properties:
-                trackingNumber:
-                  type: string
-    """.trimIndent()
-
-    private fun xmlOneOfDocumentParcelSpecWithInlineExamples(): String = """
-        openapi: 3.0.3
-        info:
-          title: XML oneOf API
-          version: '1.0'
-        paths:
-          /items:
-            post:
-              requestBody:
-                required: true
-                content:
-                  application/xml:
-                    schema:
-                      oneOf:
-                        - ${"$"}ref: '#/components/schemas/document'
-                        - ${"$"}ref: '#/components/schemas/parcel'
-                    examples:
-                      inline-document:
-                        value: |
-                          <document><id>10</id></document>
-                      inline-parcel:
-                        value: |
-                          <parcel><trackingNumber>ABC123</trackingNumber></parcel>
-              responses:
-                '200':
-                  description: OK
-                  content:
-                    application/xml:
-                      schema:
-                        oneOf:
-                          - ${"$"}ref: '#/components/schemas/document'
-                          - ${"$"}ref: '#/components/schemas/parcel'
-                      examples:
-                        inline-document:
-                          value: |
-                            <document><id>10</id></document>
-                        inline-parcel:
-                          value: |
-                            <parcel><trackingNumber>ABC123</trackingNumber></parcel>
-        components:
-          schemas:
-            document:
-              type: object
-              xml:
-                name: document
-              required:
-                - id
-              properties:
-                id:
-                  type: integer
-            parcel:
-              type: object
-              xml:
-                name: parcel
-              required:
-                - trackingNumber
-              properties:
-                trackingNumber:
-                  type: string
-    """.trimIndent()
 
     @Nested
     inner class AttributeSelection {
