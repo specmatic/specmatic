@@ -891,7 +891,7 @@ class LoadTestsFromExternalisedFiles {
         val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
             .validateInlineExamples(feature, feature.inlineNamedStubs)
 
-        assertThat(feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("DOCUMENT", "PARCEL")
+        assertThat(feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("inline-document", "inline-parcel")
         assertThat(feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
         assertThat(validationResults.values).allSatisfy { result ->
             assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
@@ -903,8 +903,8 @@ class LoadTestsFromExternalisedFiles {
     fun `should load external xml oneOf examples as tests`(@TempDir tempDir: File) {
         val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
         val exampleFiles = listOf(
-            writeXmlOneOfExample(examplesDir, "document", "<document><id>10</id></document>"),
-            writeXmlOneOfExample(examplesDir, "parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
+            writeXmlOneOfExample(examplesDir, "external-document", "<document><id>10</id></document>"),
+            writeXmlOneOfExample(examplesDir, "external-parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
         )
 
         Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
@@ -932,8 +932,8 @@ class LoadTestsFromExternalisedFiles {
             .toFeature()
         val examplesDir = tempDir.resolve("xml-oneof-examples").apply { mkdirs() }
         val externalExampleFiles = listOf(
-            writeXmlOneOfExample(examplesDir, "document", "<document><id>10</id></document>"),
-            writeXmlOneOfExample(examplesDir, "parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
+            writeXmlOneOfExample(examplesDir, "external-document", "<document><id>10</id></document>"),
+            writeXmlOneOfExample(examplesDir, "external-parcel", "<parcel><trackingNumber>ABC123</trackingNumber></parcel>")
         )
 
         val filteredExamples = feature.filterExamples(
@@ -942,8 +942,9 @@ class LoadTestsFromExternalisedFiles {
         )
 
         assertThat(filteredExamples.unusedExamples).isEmpty()
-        assertThat(filteredExamples.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("DOCUMENT", "PARCEL")
+        assertThat(filteredExamples.feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("inline-document", "inline-parcel")
         assertThat(filteredExamples.feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
+        assertThat(filteredExamples.externalExamples.map { it.nameOrFileName }).containsExactlyInAnyOrder("external-document", "external-parcel")
         assertThat(filteredExamples.externalExamples.map { it.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
     }
 
@@ -1078,10 +1079,10 @@ class LoadTestsFromExternalisedFiles {
                         - ${"$"}ref: '#/components/schemas/document'
                         - ${"$"}ref: '#/components/schemas/parcel'
                     examples:
-                      DOCUMENT:
+                      inline-document:
                         value: |
                           <document><id>10</id></document>
-                      PARCEL:
+                      inline-parcel:
                         value: |
                           <parcel><trackingNumber>ABC123</trackingNumber></parcel>
               responses:
@@ -1094,10 +1095,10 @@ class LoadTestsFromExternalisedFiles {
                           - ${"$"}ref: '#/components/schemas/document'
                           - ${"$"}ref: '#/components/schemas/parcel'
                       examples:
-                        DOCUMENT:
+                        inline-document:
                           value: |
                             <document><id>10</id></document>
-                        PARCEL:
+                        inline-parcel:
                           value: |
                             <parcel><trackingNumber>ABC123</trackingNumber></parcel>
         components:
