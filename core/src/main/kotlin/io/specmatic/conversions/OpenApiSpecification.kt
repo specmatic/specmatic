@@ -1030,7 +1030,7 @@ class OpenApiSpecification(
             requests.map { request ->
                 val paramExamples = (request.headers + request.queryParams.asMap()).toList()
                 val pathParameterExamples = try {
-                    parameterExamples(parameters, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
+                    serializedParameterExamples(parameters, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
                 } catch (_: Exception) {
                     emptyMap()
                 }.entries.map { it.key to it.value }
@@ -1164,7 +1164,7 @@ class OpenApiSpecification(
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            val parameterExamples: Map<String, Any> = parameterExamples(parameters, exampleName)
+            val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName)
 
             val requestBodyExample: Map<String, Any> =
                 requestBodyExample(openApiRequest, exampleName, operation.summary)
@@ -1262,16 +1262,16 @@ class OpenApiSpecification(
         } ?: example
     }
 
-    private fun parameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
+    private fun serializedParameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
         return parameters.safeFilter<Parameter>(CollectorContext()).filter { parameterWithContext ->
             val parameter = parameterWithContext.parameter
             parameter.examples.orEmpty().any { it.key == exampleName }
-        }.associate { parameterWithContext ->
+        }.flatMap { parameterWithContext ->
             val parameter = parameterWithContext.parameter
             // TODO: Collect as error
             val exampleValue: Example = parameter.examples[exampleName] ?: throw ContractException("The value of ${parameter.name} in example $exampleName was unexpectedly found to be null.")
-            parameter.name to (resolveExample(exampleValue)?.value ?: "")
-        }
+            serializedParameterExample(parameter, resolveExample(exampleValue)?.value ?: "").entries
+        }.associate { it.key to it.value }
     }
 
     private fun openApiPaths() = parsedOpenApi.paths.orEmpty()
@@ -1555,7 +1555,7 @@ class OpenApiSpecification(
             securitySchemes = effectiveSecuritySchemes
         )
 
-        val exampleQueryParams = namedExampleParams<QueryParameter>(parameters)
+        val exampleQueryParams = namedQueryExampleParams(parameters)
         val examplePathParams = namedExampleParams<PathParameter>(parameters)
         val exampleHeaderParams = namedExampleParams<HeaderParameter>(parameters)
 
@@ -1801,6 +1801,13 @@ class OpenApiSpecification(
         }
     }
 
+    private fun namedQueryExampleParams(parameters: List<Parameter>): Map<String, Map<String, String>> {
+        if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
+        return parameters.safeFilter<QueryParameter>(CollectorContext()).map { it.parameter }.fold(emptyMap()) { acc, parameter ->
+            extractQueryParameterExamples(parameter, acc)
+        }
+    }
+
     private fun extractParameterExamples(
         examplesToAdd: Map<String, Example>?,
         parameterName: String,
@@ -1813,6 +1820,68 @@ class OpenApiSpecification(
                 val exampleMap = acc[exampleName] ?: emptyMap()
                 acc.plus(exampleName to exampleMap.plus(parameterName to exampleValue))
             }
+    }
+
+    private fun extractQueryParameterExamples(
+        parameter: QueryParameter,
+        examplesAccumulatedSoFar: Map<String, Map<String, String>>
+    ): Map<String, Map<String, String>> {
+        return parameter.examples.orEmpty()
+            .entries.filter { it.value.value?.toString().orEmpty() !in OMIT }
+            .fold(examplesAccumulatedSoFar) { acc, (exampleName, example) ->
+                val exampleValue = resolveExample(example)?.value ?: ""
+                val exampleMap = acc[exampleName] ?: emptyMap()
+                val serializedExamples = serializedQueryParameterExample(parameter, exampleValue).mapValues { it.value.toExampleString() }
+                acc.plus(exampleName to exampleMap.plus(serializedExamples))
+            }
+    }
+
+    private fun serializedParameterExample(parameter: Parameter, exampleValue: Any): Map<String, Any> {
+        return when (parameter) {
+            is QueryParameter -> serializedQueryParameterExample(parameter, exampleValue)
+            else -> mapOf(parameter.name to exampleValue)
+        }
+    }
+
+    private fun serializedQueryParameterExample(parameter: QueryParameter, exampleValue: Any): Map<String, Any> {
+        val schema = parameter.schema ?: return mapOf(parameter.name to exampleValue)
+        val (resolvedSchema, _) = resolveSchemaIfRefElseAtSchema(schema, CollectorContext())
+        if (!resolvedSchema.isSchema(OBJECT_TYPE) || !parameter.isFormExploded()) return mapOf(parameter.name to exampleValue)
+
+        return objectExampleEntries(exampleValue)
+            ?.mapValues { it.value ?: "" }
+            ?: mapOf(parameter.name to exampleValue)
+    }
+
+    private fun objectExampleEntries(exampleValue: Any): Map<String, Any?>? {
+        return when (exampleValue) {
+            is Map<*, *> -> exampleValue.entries.associate { (key, value) -> key.toString() to value }
+            is JsonNode -> jsonNodeObjectEntries(exampleValue)
+            else -> null
+        }
+    }
+
+    private fun jsonNodeObjectEntries(exampleValue: JsonNode): Map<String, Any?>? {
+        if (!exampleValue.isObject) return null
+        return exampleValue.properties().associate { (key, value) -> key to value.toExampleValue() }
+    }
+
+    private fun Any?.toExampleString(): String {
+        return when (this) {
+            null -> ""
+            is JsonNode -> this.toExampleValue()?.toString() ?: ""
+            else -> toString()
+        }
+    }
+
+    private fun JsonNode.toExampleValue(): Any? {
+        return when {
+            isNull -> ""
+            isTextual -> asText()
+            isNumber -> numberValue()
+            isBoolean -> booleanValue()
+            else -> toString()
+        }
     }
 
     private fun escapeJsonPointer(token: String): String =

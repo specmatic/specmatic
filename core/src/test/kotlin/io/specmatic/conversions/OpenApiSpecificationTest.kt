@@ -53,6 +53,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.math.BigDecimal
+import java.net.ServerSocket
 import java.util.*
 import java.util.function.Consumer
 import java.util.stream.Stream
@@ -62,6 +63,15 @@ fun openAPIToString(openAPI: OpenAPI): String {
 }
 
 internal class OpenApiSpecificationTest {
+
+    data class FormExplodedObjectQueryExampleCase(
+        val name: String,
+        val specPath: String,
+        val expectedQueryParams: Map<String, String>,
+        val unexpectedQueryParams: Set<String> = setOf("info")
+    ) {
+        override fun toString(): String = name
+    }
 
     companion object {
         const val OPENAPI_FILE_WITH_YAML_EXTENSION = "openApiTest.yaml"
@@ -92,6 +102,48 @@ internal class OpenApiSpecificationTest {
             return Stream.of(
                 Arguments.of("3.0.1"),
                 Arguments.of("3.1.0"),
+            )
+        }
+
+        @JvmStatic
+        fun formExplodedObjectQueryExampleCases(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "inline object parameter example",
+                        specPath = "src/test/resources/openapi/object_query_examples/inline_object_parameter_example.yaml",
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "required object with required property only",
+                        specPath = "src/test/resources/openapi/object_query_examples/required_object_with_required_property_only.yaml",
+                        expectedQueryParams = mapOf("status" to "200"),
+                        unexpectedQueryParams = setOf("info", "message")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "optional object parameter with required property",
+                        specPath = "src/test/resources/openapi/object_query_examples/optional_object_parameter_with_required_property.yaml",
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "schema ref",
+                        specPath = "src/test/resources/openapi/object_query_examples/schema_ref.yaml",
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                ),
+                Arguments.of(
+                    FormExplodedObjectQueryExampleCase(
+                        name = "example ref",
+                        specPath = "src/test/resources/openapi/object_query_examples/example_ref.yaml",
+                        expectedQueryParams = mapOf("status" to "200", "message" to "ok")
+                    )
+                )
             )
         }
     }
@@ -12656,6 +12708,60 @@ paths:
         assertThat(testCount).isEqualTo(2)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("formExplodedObjectQueryExampleCases")
+    fun `inline form exploded object query examples are serialized to wire keys`(case: FormExplodedObjectQueryExampleCase) {
+        val feature = OpenApiSpecification.fromFile(case.specPath).toFeature()
+
+        val request = feature.inlineNamedStubs.single { it.name == "SUCCESS" }.stub.request
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+        val queryParams = request.queryParams.asMap()
+
+        assertThat(queryParams).containsAllEntriesOf(case.expectedQueryParams)
+        case.unexpectedQueryParams.forEach { queryParamKey ->
+            assertThat(queryParams).doesNotContainKey(queryParamKey)
+        }
+        assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("formExplodedObjectQueryExampleCases")
+    fun `contract tests use serialized query property keys from inline examples`(case: FormExplodedObjectQueryExampleCase) {
+        val feature = OpenApiSpecification.fromFile(case.specPath).toFeature()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsAllEntriesOf(case.expectedQueryParams)
+            case.unexpectedQueryParams.forEach { queryParamKey ->
+                assertThat(queryParams).doesNotContainKey(queryParamKey)
+            }
+        })
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("formExplodedObjectQueryExampleCases")
+    fun `mock uses serialized query property keys from inline object query examples`(case: FormExplodedObjectQueryExampleCase) {
+        val feature = OpenApiSpecification.fromFile(case.specPath).toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(case.expectedQueryParams))
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+        }
+    }
+
     @Test
     fun `should use path item parameter examples for path query and header when generating example driven tests`() {
         val spec = """
@@ -12920,4 +13026,6 @@ paths:
     private fun generatedNegativeRequests(feature: Feature): List<HttpRequest> {
         return feature.negativeTestScenarios().toList().map { it.second.value.generateHttpRequest() }
     }
+
+    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
 }

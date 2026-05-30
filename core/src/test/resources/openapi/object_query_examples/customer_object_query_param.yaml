@@ -1,0 +1,34 @@
+openapi: 3.0.0
+info:
+  title: Customer Object Query Param API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+        - in: query
+          name: info
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: object
+            required:
+              - customerId
+            properties:
+              customerId:
+                type: string
+              segment:
+                type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - source
+                properties:
+                  source:
+                    type: string
