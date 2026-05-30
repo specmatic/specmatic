@@ -3293,6 +3293,47 @@ paths:
     }
 
     @Test
+    fun `externalized form exploded object query example is loaded and validated using property keys`(@TempDir tempDir: File) {
+        val specFile = writeCustomerObjectQueryParamSpec(tempDir)
+        val examplesDir = tempDir.resolve("customer_object_query_param_examples").also { it.mkdirs() }
+        writeCustomerObjectQueryExample(examplesDir)
+
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+        val externalRows = feature.scenarios.single().examples.flatMap { it.rows }
+
+        assertThat(externalRows).singleElement().satisfies(Consumer { row ->
+            assertThat(row.name).isEqualTo("external-success")
+            assertThat(row.getField("customerId")).isEqualTo("external")
+            assertThat(row.getField("segment")).isEqualTo("live")
+            assertThat(row.containsField("info")).isFalse()
+        })
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+    }
+
+    @Test
+    fun `contract tests use serialized query property keys from externalized object query examples`(@TempDir tempDir: File) {
+        val specFile = writeCustomerObjectQueryParamSpec(tempDir)
+        val examplesDir = tempDir.resolve("customer_object_query_param_examples").also { it.mkdirs() }
+        writeCustomerObjectQueryExample(examplesDir)
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"source":"external"}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("customerId", "external")
+            assertThat(queryParams).containsEntry("segment", "live")
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+    }
+
+    @Test
     fun `validate externalized examples for absent required-only and all optional form exploded object query params`(@TempDir tempDir: File) {
         val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
         val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
@@ -4034,6 +4075,75 @@ paths:
                     """.trimIndent()
                 )
             }
+        }
+
+        private fun writeCustomerObjectQueryParamSpec(tempDir: File): File {
+            return tempDir.resolve("customer_object_query_param.yaml").apply {
+                writeText(
+                    """
+                    openapi: 3.0.0
+                    info:
+                      title: Customer Object Query Param API
+                      version: 1.0.0
+                    paths:
+                      /data:
+                        get:
+                          parameters:
+                            - in: query
+                              name: info
+                              required: true
+                              style: form
+                              explode: true
+                              schema:
+                                type: object
+                                required:
+                                  - customerId
+                                properties:
+                                  customerId:
+                                    type: string
+                                  segment:
+                                    type: string
+                          responses:
+                            '200':
+                              description: OK
+                              content:
+                                application/json:
+                                  schema:
+                                    type: object
+                                    required:
+                                      - source
+                                    properties:
+                                      source:
+                                        type: string
+                    """.trimIndent()
+                )
+            }
+        }
+
+        private fun writeCustomerObjectQueryExample(examplesDir: File) {
+            examplesDir.resolve("external-success.json").writeText(
+                """
+                {
+                  "http-request": {
+                    "method": "GET",
+                    "path": "/data",
+                    "query": {
+                      "customerId": "external",
+                      "segment": "live"
+                    }
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "headers": {
+                      "Content-Type": "application/json"
+                    },
+                    "body": {
+                      "source": "external"
+                    }
+                  }
+                }
+                """.trimIndent()
+            )
         }
 
         private fun writeExternalizedExample(examplesDir: File, fileName: String, path: String) {
