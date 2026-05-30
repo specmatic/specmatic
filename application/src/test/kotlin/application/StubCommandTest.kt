@@ -422,6 +422,50 @@ internal class StubCommandTest {
     }
 
     @Test
+    fun `mock command should load external examples when media types have parameters`(@TempDir tempDir: File) {
+        val fixture = writeParameterizedMediaTypeExampleFixture(tempDir, "external_examples")
+        val stubsSlot = slot<List<Pair<io.specmatic.core.Feature, List<ScenarioStub>>>>()
+
+        every { watchMaker.make(listOf(fixture.specFile.canonicalPath, fixture.examplesDir.canonicalPath)) } returns watcher
+        every {
+            httpStubEngine.runHTTPStub(
+                capture(stubsSlot),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        } returns mockk { every { close() } returns Unit }
+
+        val command = StubCommand(httpStubEngine = httpStubEngine, stubLoaderEngine = StubLoaderEngine(), watchMaker = watchMaker)
+            .also { it.registerShutdownHook = false }
+
+        val exitStatus = CommandLine(command).execute(
+            "--examples",
+            fixture.examplesDir.canonicalPath,
+            fixture.specFile.canonicalPath
+        )
+
+        assertThat(exitStatus).isZero()
+        val examples = stubsSlot.captured.flatMap { (_, examples) -> examples }
+        assertThat(examples).hasSize(1)
+        assertThat(examples.single().request.method).isEqualTo("POST")
+        assertThat(examples.single().request.path).isEqualTo("/orders")
+        assertThat(examples.single().request.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+        assertThat(examples.single().response.status).isEqualTo(201)
+        assertThat(examples.single().response.headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+    }
+
+    @Test
     fun `should not start stub server when filtered examples are empty`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("products.yaml").also {
             it.writeText(
