@@ -893,34 +893,48 @@ class LoadTestsFromExternalisedFiles {
             .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
             .toFeature()
 
-        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
-            .validateInlineExamples(feature, feature.inlineNamedStubs)
-
         assertThat(feature.inlineNamedStubs.map { it.name }).containsExactlyInAnyOrder("inline-document", "inline-parcel")
         assertThat(feature.inlineNamedStubs.map { it.stub.requestRootName() }).containsExactlyInAnyOrder("document", "parcel")
-        assertThat(validationResults.values).allSatisfy { result ->
-            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
-        }
         assertDocumentAndParcelXmlOneOfExamplesRun(feature)
     }
 
     @Test
     fun `should load external xml oneOf examples as tests`() {
-        val exampleFiles = xmlOneOfExternalExampleFiles()
         val feature = OpenApiSpecification
             .fromFile(XML_ONEOF_CONTRACT.path)
             .toFeature()
             .loadExternalisedExamples()
 
-        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
-            .validateExamples(feature, exampleFiles)
+        assertDocumentAndParcelXmlOneOfExamplesRun(feature)
+    }
 
-        assertDoesNotThrow { feature.validateExamplesOrException() }
+    @Test
+    fun `should validate inline xml oneOf examples`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature, feature.inlineNamedStubs)
+
+        assertThat(validationResults.values).allSatisfy { result ->
+            assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
+        }
+    }
+
+    @Test
+    fun `should validate external xml oneOf examples`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT.path)
+            .toFeature()
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExamples(feature, xmlOneOfExternalExampleFiles())
+
         assertThat(validationResults.success).isTrue()
         assertThat(validationResults.exampleValidationResults.values).allSatisfy { result ->
             assertThat(result.isSuccess()).withFailMessage(result.reportString()).isTrue()
         }
-        assertDocumentAndParcelXmlOneOfExamplesRun(feature)
     }
 
     @Test
