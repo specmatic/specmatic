@@ -81,17 +81,16 @@ class MockServerToolTest {
     }
 
     @Test
-    fun `should start MCP managed mocks with text file logging and console logging disabled`() {
-        val commandArgsMethod = tool.javaClass.getDeclaredMethod("stubCommandArgs", Int::class.javaPrimitiveType, File::class.java, File::class.java)
+    fun `should start MCP managed mocks with console logging disabled`() {
+        val commandArgsMethod = tool.javaClass.getDeclaredMethod("stubCommandArgs", Int::class.javaPrimitiveType, File::class.java)
         commandArgsMethod.isAccessible = true
 
         val mockTempDir = tempDir.resolve("mock-runtime").apply { mkdirs() }
         val specFile = mockTempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0") }
 
         @Suppress("UNCHECKED_CAST")
-        val args = commandArgsMethod.invoke(tool, 9001, mockTempDir, specFile) as List<String>
+        val args = commandArgsMethod.invoke(tool, 9001,specFile) as List<String>
 
-        assertThat(args).containsSequence("--textLog", mockTempDir.canonicalPath)
         assertThat(args).contains("--noConsoleLog")
         assertThat(args).containsSequence("--hot-reload", "disabled")
         assertThat(args.last()).isEqualTo(specFile.canonicalPath)
