@@ -40,8 +40,13 @@ data class LogOutputConfig(val directory: String?, val console: Boolean?, @field
     }
 
     companion object {
-        fun default(): LogOutputConfig {
-            return LogOutputConfig(directory = null, console = true)
+        fun defaultOr(logOutputConfig: LogOutputConfig?): LogOutputConfig {
+            val defaultConfig = LogOutputConfig(directory = null, console = true)
+            return when {
+                logOutputConfig == null -> defaultConfig
+                logOutputConfig.directory == null && logOutputConfig.console == null -> defaultConfig
+                else -> logOutputConfig
+            }
         }
     }
 }
@@ -54,10 +59,10 @@ data class LoggingConfiguration(
     fun levelOrDefault(): ConfigLoggingLevel = level ?: ConfigLoggingLevel.INFO
 
     fun hasJsonConfiguration(): Boolean = json != null
-    fun jsonConfigurationOrDefault(): LogOutputConfig = json ?: LogOutputConfig.default()
+    fun jsonConfigurationOrDefault(): LogOutputConfig = LogOutputConfig.defaultOr(json)
 
     fun hasTextConfiguration(): Boolean = text != null
-    fun textConfigurationOrDefault(): LogOutputConfig = text ?: LogOutputConfig.default()
+    fun textConfigurationOrDefault(): LogOutputConfig = LogOutputConfig.defaultOr(text)
 
     fun overrideMergeWith(other: LoggingConfiguration?): LoggingConfiguration {
         if (other == null) return this
@@ -76,16 +81,8 @@ data class LoggingConfiguration(
         fun from(data: LoggingFromOpts): LoggingConfiguration {
             return LoggingConfiguration(
                 level = if (data.debug == true) ConfigLoggingLevel.DEBUG else null,
-                text = if (data.textConsoleLog != null && data.textLogDirectory != null) {
-                    LogOutputConfig(directory = data.textLogDirectory.path, console = data.textConsoleLog, logFilePrefix = data.logPrefix)
-                } else {
-                    null
-                },
-                json = if (data.jsonConsoleLog != null && data.jsonLogDirectory != null) {
-                    LogOutputConfig(directory = data.jsonLogDirectory.path, console = data.jsonConsoleLog, logFilePrefix = data.logPrefix)
-                } else {
-                    null
-                },
+                text = LogOutputConfig(directory = data.textLogDirectory?.path, console = data.textConsoleLog, logFilePrefix = data.logPrefix),
+                json = LogOutputConfig(directory = data.jsonLogDirectory?.path, console = data.jsonConsoleLog, logFilePrefix = data.logPrefix)
             )
         }
 
