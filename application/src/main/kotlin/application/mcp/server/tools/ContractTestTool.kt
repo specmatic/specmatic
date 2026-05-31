@@ -127,7 +127,7 @@ class ContractTestTool(
 }
 
 private const val JUNIT_REPORT_FILE_NAME = "TEST-junit-jupiter.xml"
-private const val MCP_JUNIT_REPORT_BASE_DIR = "build/reports/specmatic/test/junit"
+private const val MCP_JUNIT_REPORT_BASE_DIR = "build/reports/specmatic/junit"
 
 private fun createMcpJUnitReportDirectory(resiliency: Boolean): File {
     val prefix = if (resiliency) "mcp-resiliency" else "mcp-contract"

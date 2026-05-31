@@ -1,12 +1,12 @@
 package application.mcp.server.tools
 
-import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import io.mockk.every
 import io.mockk.mockkConstructor
 import io.mockk.unmockkAll
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import picocli.CommandLine
 
 class BackwardCompatibilityToolTest {
 
@@ -19,25 +19,45 @@ class BackwardCompatibilityToolTest {
 
     @Test
     fun `runBackwardCompatibilityCheck should format results correctly for a successful check`() {
-        mockkConstructor(BackwardCompatibilityCheckCommandV2::class)
-        every { anyConstructed<BackwardCompatibilityCheckCommandV2>().call() } returns 0
+        var capturedArgs: List<String> = emptyList()
+
+        mockkConstructor(CommandLine::class)
+        every { anyConstructed<CommandLine>().execute(*anyVararg()) } answers {
+            capturedArgs = invocation.args.flatMap {
+                when (it) {
+                    is Array<*> -> it.map { arg -> arg.toString() }
+                    else -> listOf(it.toString())
+                }
+            }
+            println("No breaking changes found")
+            System.err.println("debug log")
+            0
+        }
 
         val args = BackwardCompatArgs(
             targetPath = "spec.yaml",
-            baseBranch = "main"
+            baseBranch = "main",
+            repoDir = "repo"
         )
 
         val result = tool.runBackwardCompatibilityCheck(args)
 
+        assertThat(capturedArgs).containsExactly(
+            "--target-path", "spec.yaml",
+            "--base-branch", "main",
+            "--repo-dir", "repo"
+        )
         assertThat(result).contains("## Specmatic Backward Compatibility Check")
         assertThat(result).contains("File: `spec.yaml`")
         assertThat(result).contains("Status: BACKWARD COMPATIBLE")
+        assertThat(result).contains("No breaking changes found")
+        assertThat(result).contains("debug log")
     }
 
     @Test
     fun `runBackwardCompatibilityCheck should format results correctly for a failed check`() {
-        mockkConstructor(BackwardCompatibilityCheckCommandV2::class)
-        every { anyConstructed<BackwardCompatibilityCheckCommandV2>().call() } returns 1
+        mockkConstructor(CommandLine::class)
+        every { anyConstructed<CommandLine>().execute(*anyVararg()) } returns 1
 
         val args = BackwardCompatArgs(
             targetPath = "spec.yaml"
