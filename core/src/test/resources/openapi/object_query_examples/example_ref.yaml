@@ -1,0 +1,45 @@
+openapi: 3.0.0
+info:
+  title: example ref
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+        - in: query
+          name: info
+          required: true
+          schema:
+            type: object
+            required:
+              - status
+            properties:
+              status:
+                type: integer
+              message:
+                type: string
+          examples:
+            SUCCESS:
+              $ref: '#/components/examples/InfoSuccess'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+              examples:
+                SUCCESS:
+                  value:
+                    id: 10
+components:
+  examples:
+    InfoSuccess:
+      value:
+        status: 200
+        message: ok

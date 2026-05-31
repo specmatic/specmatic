@@ -119,6 +119,151 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Category'
+  # allOf case: Shipment composes a $ref'd constituent (ShipmentBase) and an
+  # inline constituent. Both contribute a property that turns breaking in new.
+  /shipments:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+  # WIP operation: tagged WIP so it is ignored for the pass/fail verdict, but it
+  # must still execute and be change-tracked. Its `code` response field changes
+  # string -> integer in new (breaking).
+  # Expected: GET /promotions 200 row CHANGED + Incompatible + qualifier `wip`,
+  # counted under `other` (not `failed`) in the summary, and not breaking the verdict.
+  /promotions:
+    get:
+      tags: [WIP]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
+  # reffed path-param case: widgetId is $ref'd to a component parameter whose
+  # schema is string here and integer in new (breaking). The breadcrumb must
+  # resolve to the component parameter's `name` key even though the $ref
+  # use-site has no `name`.
+  /widgets/{widgetId}:
+    put:
+      parameters:
+        - $ref: '#/components/parameters/WidgetId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  # anyOf case: response is an anyOf of two inline object members. member[1].beta
+  # changes type string -> integer in new (breaking). The breadcrumb must be
+  # annotated at the anyOf branch member that declares the property.
+  /anyof:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    required: [alpha]
+                    properties:
+                      alpha:
+                        type: string
+                  - type: object
+                    required: [beta]
+                    properties:
+                      beta:
+                        type: string
+  # oneOf case: response is a oneOf of two inline object members. member[1].delta
+  # changes type string -> integer in new (breaking). The breadcrumb must be
+  # annotated at the oneOf branch member that declares the property.
+  /oneof:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [gamma]
+                    properties:
+                      gamma:
+                        type: string
+                  - type: object
+                    required: [delta]
+                    properties:
+                      delta:
+                        type: string
+  # reffed-out requestBody case: POST /parcels takes its body via $ref to
+  # #/components/requestBodies/ParcelBody, whose schema property `size` changes
+  # type string -> integer in new (breaking). The breadcrumb must resolve to the
+  # component requestBody's schema property, not the use-site.
+  /parcels:
+    post:
+      requestBody:
+        $ref: '#/components/requestBodies/ParcelBody'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accepted]
+                properties:
+                  accepted:
+                    type: boolean
+  # reffed-out response case: GET /inventory returns a $ref to
+  # #/components/responses/InventoryOk, whose schema property `count` changes
+  # type string -> integer in new (breaking). The breadcrumb must resolve to the
+  # component response's schema property.
+  /inventory:
+    get:
+      responses:
+        '200':
+          $ref: '#/components/responses/InventoryOk'
+  # reffed-out path-item case: /audit is a $ref to #/components/pathItems/Audit,
+  # whose GET 200 response schema property `event` changes type string -> integer
+  # in new (breaking).
+  /audit:
+    $ref: '#/components/pathItems/Audit'
+  # reffed-out response-header case: GET /tokens 200 declares a header via $ref
+  # to #/components/headers/RateLimit, whose schema changes type string -> integer
+  # in new (breaking). The breadcrumb must resolve to the component header schema.
+  /tokens:
+    get:
+      responses:
+        '200':
+          description: ok
+          headers:
+            X-Rate-Limit:
+              $ref: '#/components/headers/RateLimit'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token]
+                properties:
+                  token:
+                    type: string
 components:
   schemas:
     Order:
@@ -197,3 +342,68 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Category'
+    # allOf source-location case: `weight` from the $ref'd constituent
+    # (ShipmentBase) and `carrier` from the inline constituent, both string
+    # here and number in new (breaking).
+    ShipmentBase:
+      type: object
+      required: [weight]
+      properties:
+        weight:
+          type: string
+    Shipment:
+      allOf:
+        - $ref: '#/components/schemas/ShipmentBase'
+        - type: object
+          required: [carrier]
+          properties:
+            carrier:
+              type: string
+  parameters:
+    WidgetId:
+      name: widgetId
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    ParcelBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [size]
+            properties:
+              size:
+                type: string
+  responses:
+    InventoryOk:
+      description: ok
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [count]
+            properties:
+              count:
+                type: string
+  pathItems:
+    Audit:
+      get:
+        responses:
+          '200':
+            description: ok
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [event]
+                  properties:
+                    event:
+                      type: string
+  headers:
+    RateLimit:
+      required: true
+      schema:
+        type: string

@@ -10,7 +10,7 @@ import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfReport
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
-private const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
+internal const val SPECMATIC_BCC_REPORT_FLAG = "SPECMATIC_BCC_REPORT"
 
 fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
     return testBackwardCompatibilityWithReport(older, newer).first
@@ -21,12 +21,17 @@ internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature)
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
     val endTime = System.currentTimeMillis()
 
-    val result = records.toBackwardCompatibilityResults()
+    val result = records.toBackwardCompatibilityStatuses().copy(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
     val report = generateBackwardCompatibilityReport(records, startTime, endTime)
     return Pair(result, report)
 }
 
-fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityResults(): Results {
+fun backwardCompatibilityRecords(older: Feature, newer: Feature): Pair<Results, List<CtrfBackwardCompatibilityRecord>> {
+    val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
+    return records.toBackwardCompatibilityStatuses().copy(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) to records
+}
+
+fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Results {
     return filterIsInstance<OpenApiBackwardCompatibilityCheckRecord>()
         .groupBy { it.operations }.values
         .fold(Results()) { acc, recordsForOperation ->
@@ -34,7 +39,8 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityResults(): Resu
         }
 }
 
-private fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+    if (records.isEmpty()) return null
     if (!Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG)) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()

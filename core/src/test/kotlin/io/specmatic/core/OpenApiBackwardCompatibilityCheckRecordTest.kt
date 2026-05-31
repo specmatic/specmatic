@@ -3,8 +3,8 @@ package io.specmatic.core
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
-import io.specmatic.reporter.model.BackwardCompatibilityResult
+import io.specmatic.core.ChangeStatus
+import io.specmatic.reporter.model.BackwardCompatibilityStatus
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.openAPIOperationFrom
 import org.assertj.core.api.Assertions.assertThat
@@ -36,7 +36,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(record.name).isEqualTo(scenario.fullApiDescription)
         assertThat(record.changeStatus).isEqualTo(ChangeStatus.CHANGED)
         assertThat(record.specification).isEqualTo("specs/orders.yaml")
-        assertThat(record.result).isEqualTo(BackwardCompatibilityResult.Compatible)
+        assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Compatible)
         assertThat(record.repository).isEqualTo("https://github.com/example/orders.git")
         assertThat(record.tags).containsExactly(
             "status:200",
@@ -77,8 +77,27 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         )
 
         assertThat(record.message).contains("breaking change")
-        assertThat(record.result).isEqualTo(BackwardCompatibilityResult.Incompatible)
+        assertThat(record.result).isEqualTo(BackwardCompatibilityStatus.Incompatible)
         assertThat(record.operationQualifiers).containsExactly(CtrfOperationQualifiers.WIP, CtrfOperationQualifiers.CHANGED)
+        assertThat(record.isWip).isTrue()
+        assertThat(record.name).isEqualTo(scenario.fullApiDescription)
+        assertThat(record.tags).contains("wip")
+    }
+
+    @Test
+    fun `should not mark non-wip scenarios as wip`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = Result.Success(),
+            feature = feature.copy(scenarios = listOf(scenario)),
+        )
+
+        assertThat(record.isWip).isFalse()
+        assertThat(record.name).isEqualTo(scenario.fullApiDescription)
+        assertThat(record.tags).doesNotContain("wip")
     }
 
     private fun openApiFeature(): Feature {

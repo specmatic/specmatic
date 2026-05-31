@@ -10,6 +10,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Flags
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.ServerSocket
 
@@ -1332,6 +1334,73 @@ Examples:
                 .loadExternalisedExamples()
 
         assertThat(feature.scenarios.filter { it.examples.singleOrNull()?.rows?.size?.let { it > 0 } == true }).hasSize(1)
+    }
+
+    @Test
+    fun `external examples should match operations when media types have parameters`() {
+        val specFile = parameterizedMediaTypeSpec("valid/api.yaml")
+
+        val (feature, unusedExamples) = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamplesAndListUnloadableExamples()
+
+        val matchingScenario = feature.scenarios.single { it.method == "POST" && it.path == "/orders" && it.status == 201 }
+
+        assertThat(unusedExamples).isEmpty()
+        assertThat(matchingScenario.examples.flatMap { it.rows }).hasSize(1)
+    }
+
+    @Test
+    fun `external examples with media type parameters should be used to generate tests`() {
+        val specFile = parameterizedMediaTypeSpec("valid/api.yaml")
+
+        val feature = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamples()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val requestsReceived = mutableListOf<HttpRequest>()
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                requestsReceived.add(request)
+
+                return HttpResponse(
+                    status = 201,
+                    headers = mapOf("Content-Type" to "application/json; charset=utf-8"),
+                    body = parsedJSONObject("""{"id": 10}""")
+                )
+            }
+        })
+
+        assertThat(results.testCount).isEqualTo(1)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(requestsReceived).hasSize(1)
+        assertThat(requestsReceived.single().method).isEqualTo("POST")
+        assertThat(requestsReceived.single().path).isEqualTo("/orders")
+        assertThat(requestsReceived.single().headers["Content-Type"]).isEqualTo("application/json; charset=utf-8")
+        assertThat(requestsReceived.single().body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+    }
+
+    @Test
+    fun `external examples with unmatched media type parameters should be reported unused`() {
+        val specFile = parameterizedMediaTypeSpec("unmatched_content_type/api.yaml")
+
+        val (feature, unusedExamples) = OpenApiSpecification
+            .fromFile(specFile.path)
+            .toFeature()
+            .loadExternalisedExamplesAndListUnloadableExamples()
+
+        val matchingScenario = feature.scenarios.single { it.method == "POST" && it.path == "/orders" && it.status == 201 }
+
+        assertThat(matchingScenario.examples.flatMap { it.rows }).isEmpty()
+        assertThat(unusedExamples.single()).endsWith("create_order.json")
+    }
+
+    private fun parameterizedMediaTypeSpec(relativePath: String): File {
+        return File("src/test/resources/openapi/parameterized_media_type_examples/$relativePath")
     }
 
     @Test

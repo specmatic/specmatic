@@ -1,0 +1,79 @@
+openapi: 3.0.0
+info:
+  title: Form and multipart source-location cases
+  version: 1.0.0
+# Four endpoints covering form-urlencoded and multipart/form-data bodies, each with an
+# inline schema and a $ref'd schema. In every endpoint the `count` field/part is `boolean`
+# here and `number` in composition_multipart_old.yaml, so each operation turns backward-
+# incompatible and the report pins where the FORM-FIELDS / MULTIPART-FORMDATA breadcrumb resolves.
+paths:
+  # form-urlencoded, inline schema
+  /urlencoded-inline:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count:
+                  type: boolean
+      responses:
+        '200':
+          description: ok
+  # form-urlencoded, $ref'd schema
+  /urlencoded-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FormFields'
+      responses:
+        '200':
+          description: ok
+  # multipart/form-data, inline schema
+  /multipart-inline:
+    post:
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count:
+                  type: boolean
+      responses:
+        '200':
+          description: ok
+  # multipart/form-data, $ref'd schema
+  /multipart-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadForm'
+      responses:
+        '200':
+          description: ok
+components:
+  schemas:
+    FormFields:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: boolean
+    UploadForm:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: boolean

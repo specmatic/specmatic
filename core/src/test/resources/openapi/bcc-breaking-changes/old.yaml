@@ -1,0 +1,301 @@
+openapi: 3.0.0
+info:
+  title: BCC integration sample
+  version: '1.0'
+paths:
+  /data:
+    get:
+      summary: list data
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+    post:
+      summary: submit data
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: X-Required
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Optional
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                note:
+                  type: string
+                address:
+                  type: object
+                  required: [street]
+                  properties:
+                    street:
+                      type: string
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+      responses:
+        '200':
+          description: ok
+          headers:
+            X-Resp:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, extra]
+                properties:
+                  id:
+                    type: string
+                  note:
+                    type: string
+                  extra:
+                    type: string
+            text/plain:
+              schema:
+                type: object
+                required: [code]
+                properties:
+                  code:
+                    type: string
+  /items/{id}:
+    get:
+      summary: get item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  /foo:
+    get:
+      summary: foo
+      responses:
+        '200':
+          description: ok
+  /bar:
+    get:
+      summary: bar
+      responses:
+        '200':
+          description: ok
+  /baz:
+    get:
+      summary: list baz
+      responses:
+        '200':
+          description: ok
+    post:
+      summary: create baz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+  /pets:
+    post:
+      summary: register pet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: ok
+  /submissions:
+    post:
+      summary: submit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Submission'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted]
+  /reusable-components:
+    post:
+      summary: reusable components
+      parameters:
+        - $ref: '#/components/parameters/ReusableQuery'
+        - $ref: '#/components/parameters/ReusableHeader'
+        - $ref: '#/components/parameters/ReusableFilter'
+      requestBody:
+        $ref: '#/components/requestBodies/ReusableRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReusableResponse'
+        default:
+          description: fallback
+components:
+  schemas:
+    Submission:
+      type: object
+      required: [id, kind, category]
+      properties:
+        id:
+          type: string
+        kind:
+          oneOf:
+            - type: string
+            - type: number
+        category:
+          type: string
+          enum: [A, B]
+    Animal:
+      type: object
+      required: [species]
+      properties:
+        species:
+          type: string
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Cat'
+    Dog:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            sound:
+              type: string
+    Cat:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [name, sound]
+          properties:
+            name:
+              type: string
+            sound:
+              type: string
+  parameters:
+    ReusableQuery:
+      name: reusableQuery
+      in: query
+      required: true
+      schema:
+        type: string
+    ReusableHeader:
+      name: X-Reusable
+      in: header
+      required: true
+      schema:
+        type: string
+    ReusableFilter:
+      name: filter
+      in: query
+      required: true
+      style: form
+      explode: true
+      schema:
+        type: object
+        required: [filterKind]
+        properties:
+          filterKind:
+            type: string
+  requestBodies:
+    ReusableRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentId]
+            properties:
+              componentId:
+                type: string
+  responses:
+    ReusableResponse:
+      description: ok
+      headers:
+        X-Reusable-Response:
+          $ref: '#/components/headers/ReusableResponseHeader'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [componentStatus]
+            properties:
+              componentStatus:
+                type: string
+  headers:
+    ReusableResponseHeader:
+      schema:
+        type: string

@@ -25,7 +25,7 @@ dependencies {
     implementation("io.ktor:ktor-network-tls-jvm:2.3.13")
     implementation("io.ktor:ktor-network-tls-certificates-jvm:2.3.13")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.3")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.4")
 
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
     implementation("org.junit.platform:junit-platform-reporting:1.14.4")
@@ -56,7 +56,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.11")
-
 }
 
 tasks.test {

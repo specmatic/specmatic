@@ -25,7 +25,8 @@ data class ScenarioInfo(
     val specification: String? = null,
     val protocol: SpecmaticProtocol,
     val specType: SpecType,
-    val operationMetadata: OperationMetadata? = null
+    val operationMetadata: OperationMetadata? = null,
+    val sourceLocations: Map<String, SourceLocation> = emptyMap()
 ) {
 
     fun matchesGherkinWrapperPath(scenarioInfos: List<ScenarioInfo>, apiSpecification: ApiSpecification, resolver: Resolver): List<ScenarioInfo> =

@@ -24,6 +24,8 @@ val alwaysReturnStringValue: (resolver: Resolver, pattern: Pattern, rowValue: St
     StringValue(rowValue)
 }
 
+const val DEFAULT_RANDOM_ARRAY_SIZE = 3
+
 data class JSONObjectResolver(
     val allowOnlyMandatoryKeys: Boolean = false
 )
@@ -54,8 +56,14 @@ data class Resolver(
     val lookupPathsSeenSoFar: Set<String> = setOf(),
     val cycleMarker: String = "",
     val maxTestRequestCombinations: Int = Int.MAX_VALUE,
+    val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val randomArraySize: Int? = null,
 ) {
+    fun locate(pointer: String?): SourceLocation? {
+        if (pointer == null) return null
+        return sourceLocations[pointer]
+    }
+
     constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
     constructor() : this(emptyMap(), false)
 
@@ -348,7 +356,8 @@ data class Resolver(
     }
 
     private fun generateRandomList(pattern: Pattern): Value {
-        val maxLimit = randomArraySize ?: randomNumber(3)
+        // randomNumber(n) returns [1, n - 1], so add 1 to keep DEFAULT_RANDOM_ARRAY_SIZE reachable
+        val maxLimit = randomArraySize ?: randomNumber(DEFAULT_RANDOM_ARRAY_SIZE + 1)
         return pattern.listOf(0.until(maxLimit).mapIndexed { index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)

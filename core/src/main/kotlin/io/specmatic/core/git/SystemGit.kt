@@ -256,7 +256,8 @@ class SystemGit(override val workingDirectory: String = ".", private val prefix:
     }
 
     private fun getStashListSize(): Int {
-        return execute(Configuration.gitCommand, "stash", "list").trim().lines().size
+        val output = execute(Configuration.gitCommand, "stash", "list").trim()
+        return if (output.isBlank()) 0 else output.lines().size
     }
 
     override fun detachedHEAD(): String {

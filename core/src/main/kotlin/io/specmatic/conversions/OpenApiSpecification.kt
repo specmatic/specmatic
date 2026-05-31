@@ -98,6 +98,7 @@ class OpenApiSpecification(
     private val logger: LogStrategy = io.specmatic.core.log.logger,
     private val parseCollectorContext: CollectorContext = CollectorContext(),
     private val exampleDirPaths: List<String> = emptyList(),
+    private val jsonPointerSourceMap: Map<String, YamlNodeLocation> = emptyMap(),
     private val changeTrackingSource: OpenApiChangeTrackingSource? = null,
 ) : IncludedSpecification, ApiSpecification {
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
@@ -323,6 +324,8 @@ class OpenApiSpecification(
                 logger.boundary()
             }
 
+            val jsonPointerSourceMap = JsonPointerSourceMap(mergedYaml).build()
+
             return OpenApiSpecification(
                 openApiFilePath,
                 parsedOpenApi,
@@ -337,6 +340,7 @@ class OpenApiSpecification(
                 logger = logger,
                 parseCollectorContext = collectorContext,
                 exampleDirPaths = exampleDirPaths,
+                jsonPointerSourceMap = jsonPointerSourceMap,
                 changeTrackingSource = OpenApiChangeTrackingSource(
                     yamlContent = preprocessedYaml,
                     openApiFilePath = openApiFilePath.replace("\\", "/"),
@@ -764,20 +768,30 @@ class OpenApiSpecification(
 
                     val methodContext = pathsContext.at(openApiPath).at(httpMethod.lowercase())
                     val parameters = (pathItem.parameters.orEmpty() + openApiOperation.parameters.orEmpty()).distinctByNameAndLocation(methodContext)
+                    val queryParameterPointers = buildParameterPointers(openApiPath, httpMethod, "query", pathItem.parameters, openApiOperation.parameters, methodContext)
+                    val requestHeaderPointers = buildParameterPointers(openApiPath, httpMethod, "header", pathItem.parameters, openApiOperation.parameters, methodContext)
+                    val pathParameterPointers = buildParameterPointers(openApiPath, httpMethod, "path", pathItem.parameters, openApiOperation.parameters, methodContext)
                     val specmaticPathParam = toSpecmaticPathParam(
                         openApiPath = openApiPath,
                         parameters = parameters,
                         otherPathPatterns = allPathPatternsGroupedByMethod[httpMethod].orEmpty(),
-                        collectorContext = methodContext
+                        collectorContext = methodContext,
+                        parameterPointers = pathParameterPointers.mapValues { "${it.value}/name" }
                     )
 
                     val specmaticQueryParam = toSpecmaticQueryParam(
                         parameters = parameters,
                         collectorContext = methodContext,
-                        extensibleQueryParams = extensibleQueryParams
+                        extensibleQueryParams = extensibleQueryParams,
+                        parameterPointers = queryParameterPointers
                     )
                     val httpResponsePatterns: List<ResponsePatternData> = attempt(breadCrumb = "$httpMethod $openApiPath -> RESPONSE") {
-                        toHttpResponsePatterns(responses = openApiOperation.responses, collectorContext = methodContext)
+                        toHttpResponsePatterns(
+                            responses = openApiOperation.responses,
+                            collectorContext = methodContext,
+                            openApiPath = openApiPath,
+                            httpMethod = httpMethod
+                        )
                     }
 
                     val first2xxResponseStatus =
@@ -798,7 +812,9 @@ class OpenApiSpecification(
                                 parameters = parameters,
                                 httpMethod = httpMethod,
                                 operation = openApiOperation,
-                                collectorContext = methodContext
+                                collectorContext = methodContext,
+                                openApiPath = openApiPath,
+                                requestHeaderPointers = requestHeaderPointers
                             )
                         }
 
@@ -866,7 +882,8 @@ class OpenApiSpecification(
                             specification = specificationPath,
                             protocol = protocol,
                             specType = SpecType.OPENAPI,
-                            operationMetadata = operationMetadata
+                            operationMetadata = operationMetadata,
+                            sourceLocations = sourceLocations
                         )
                     }
 
@@ -1013,7 +1030,7 @@ class OpenApiSpecification(
             requests.map { request ->
                 val paramExamples = (request.headers + request.queryParams.asMap()).toList()
                 val pathParameterExamples = try {
-                    parameterExamples(parameters, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
+                    serializedParameterExamples(parameters, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
                 } catch (_: Exception) {
                     emptyMap()
                 }.entries.map { it.key to it.value }
@@ -1147,7 +1164,7 @@ class OpenApiSpecification(
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            val parameterExamples: Map<String, Any> = parameterExamples(parameters, exampleName)
+            val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName)
 
             val requestBodyExample: Map<String, Any> =
                 requestBodyExample(openApiRequest, exampleName, operation.summary)
@@ -1219,15 +1236,7 @@ class OpenApiSpecification(
 
         val requestBodyExample: Map<String, Any> = if (requestExampleValue != null) {
             if (requestBodyContentType == "application/x-www-form-urlencoded" || requestBodyContentType == "multipart/form-data") {
-                val operationSummaryClause = operationSummary?.let { "for operation \"${operationSummary}\"" } ?: ""
-                val jsonExample =
-                    attempt("Could not parse example $exampleName$operationSummaryClause") {
-                        // TODO: Collect as error
-                        parsedJSON(requestExampleValue.toString()) as JSONObjectValue
-                    }
-                jsonExample.jsonObject.map { (key, value) ->
-                    key to value.toString()
-                }.toMap()
+                formFieldsFromExampleValue(requestExampleValue, exampleName, operationSummary)
             } else {
                 mapOf("(REQUEST-BODY)" to requestExampleValue)
             }
@@ -1235,6 +1244,34 @@ class OpenApiSpecification(
             emptyMap()
         }
         return requestBodyExample
+    }
+
+    private fun formFieldExamplesFromMediaType(
+        requestBodyMediaType: MediaType,
+        operationSummary: String?
+    ): Map<String, Map<String, String>> {
+        return requestBodyMediaType.examples.orEmpty().mapNotNull { (exampleName, example) ->
+            val requestExampleValue = resolveExample(example)?.value ?: return@mapNotNull null
+
+            exampleName to formFieldsFromExampleValue(requestExampleValue, exampleName, operationSummary)
+        }.toMap()
+    }
+
+    private fun formFieldsFromExampleValue(
+        requestExampleValue: Any,
+        exampleName: String,
+        operationSummary: String?
+    ): Map<String, String> {
+        val operationSummaryClause = operationSummary?.let { " for operation \"${operationSummary}\"" } ?: ""
+        val jsonExample =
+            attempt("Could not parse example $exampleName$operationSummaryClause") {
+                // TODO: Collect as error
+                parsedJSON(requestExampleValue.toString()) as JSONObjectValue
+            }
+
+        return jsonExample.jsonObject.mapValues { (_, value) ->
+            value.toStringLiteral()
+        }
     }
 
     private fun resolveExample(example: Example?): Example? {
@@ -1245,16 +1282,16 @@ class OpenApiSpecification(
         } ?: example
     }
 
-    private fun parameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
+    private fun serializedParameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
         return parameters.safeFilter<Parameter>(CollectorContext()).filter { parameterWithContext ->
             val parameter = parameterWithContext.parameter
             parameter.examples.orEmpty().any { it.key == exampleName }
-        }.associate { parameterWithContext ->
+        }.flatMap { parameterWithContext ->
             val parameter = parameterWithContext.parameter
             // TODO: Collect as error
             val exampleValue: Example = parameter.examples[exampleName] ?: throw ContractException("The value of ${parameter.name} in example $exampleName was unexpectedly found to be null.")
-            parameter.name to (resolveExample(exampleValue)?.value ?: "")
-        }
+            serializedParameterExample(parameter, resolveExample(exampleValue)?.value ?: "").entries
+        }.associate { it.key to it.value }
     }
 
     private fun openApiPaths() = parsedOpenApi.paths.orEmpty()
@@ -1265,23 +1302,34 @@ class OpenApiSpecification(
         return value.toIntOrNull() != null
     }
 
-    private fun toHttpResponsePatterns(responses: ApiResponses?, collectorContext: CollectorContext): List<ResponsePatternData> {
+    private fun toHttpResponsePatterns(responses: ApiResponses?, collectorContext: CollectorContext, openApiPath: String, httpMethod: String): List<ResponsePatternData> {
         val responsesContext = collectorContext.at("responses")
         return responses.orEmpty().map { (status, response) ->
             logger.debug("Processing response payload with status $status")
             val statusContext = responsesContext.at(status)
             val (resolvedResponse, responseContext) = resolveResponse(response, statusContext)
-            val headersMap = openAPIHeadersToSpecmatic(response, responseContext)
+            val responseUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/responses/$status"
+            val responseBasePointer = sourcePointerForRefUseSite(responseUseSitePointer, response.`$ref`)
+            val headersMap = openAPIHeadersToSpecmatic(resolvedResponse, responseContext)
             val finalizedStatus = statusContext.check<String>(value = status, isValid = { isNumber(status) || status == "default" })
                 .violation { OpenApiLintViolations.INVALID_OPERATION_STATUS }
                 .message { "Expected status codes to be numbers or default, but \"$status\" was found, defaulting to 'default'" }
                 .orUse { "default" }
                 .build()
 
+            val responseHeaderPointers = buildResponseHeaderPointers(resolvedResponse, responseBasePointer)
+
             attempt(breadCrumb = status) {
-                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext)
+                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, responseBasePointer, responseHeaderPointers)
             }
         }.flatten()
+    }
+
+    private fun buildResponseHeaderPointers(response: ApiResponse, responseBasePointer: String): Map<String, String> {
+        return response.headers.orEmpty().mapValues { (headerName, header) ->
+            val headerUseSitePointer = "$responseBasePointer/headers/${escapeJsonPointer(headerName)}"
+            sourcePointerForRefUseSite(headerUseSitePointer, header.`$ref`)
+        }
     }
 
     private fun openAPIHeadersToSpecmatic(response: ApiResponse, collectorContext: CollectorContext): Map<String, Pair<Pattern, CollectorContext>> {
@@ -1343,7 +1391,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext): List<ResponsePatternData> {
+    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, responseBasePointer: String, responseHeaderPointers: Map<String, String> = emptyMap()): List<ResponsePatternData> {
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
@@ -1357,7 +1405,8 @@ class OpenApiSpecification(
                 HttpResponsePattern(
                     headersPattern = HttpHeadersPattern(
                         headersMap.mapValues { it.value.first },
-                        preferEscapedSoapAction = preferEscapedSoapAction
+                        preferEscapedSoapAction = preferEscapedSoapAction,
+                        parameterPointers = responseHeaderPointers
                     ),
                     body = NoBodyPattern,
                     status = status.toIntOrNull() ?: DEFAULT_RESPONSE_CODE,
@@ -1394,16 +1443,25 @@ class OpenApiSpecification(
                 headersPattern = HttpHeadersPattern(
                     headersMap.mapValues { it.value.first },
                     contentType = contentType,
-                    preferEscapedSoapAction = preferEscapedSoapAction
+                    preferEscapedSoapAction = preferEscapedSoapAction,
+                    parameterPointers = responseHeaderPointers
                 ),
                 status = if (status == "default") 1000 else status.toInt(),
                 body = when (contentType) {
-                    "application/xml" -> toXMLPattern(mediaType, mediaTypeContext)
-                    else -> toSpecmaticPattern(
-                        mediaType = mediaType,
-                        contentType = contentType,
-                        collectorContext = mediaTypeContext,
-                    )
+                    "application/xml" -> {
+                        val rawXmlBody = toXMLPattern(mediaType, mediaTypeContext)
+                        val xmlSchemaPointer = "$responseBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                        annotateWithPropertyPointers(rawXmlBody, mediaType.schema, xmlSchemaPointer)
+                    }
+                    else -> {
+                        val rawBody = toSpecmaticPattern(
+                            mediaType = mediaType,
+                            contentType = contentType,
+                            collectorContext = mediaTypeContext,
+                        )
+                        val schemaPointer = "$responseBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                        annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
+                    }
                 }
             )
 
@@ -1471,7 +1529,9 @@ class OpenApiSpecification(
         httpMethod: String,
         operation: Operation,
         parameters: List<Parameter>,
-        collectorContext: CollectorContext
+        collectorContext: CollectorContext,
+        openApiPath: String,
+        requestHeaderPointers: Map<String, String> = emptyMap()
     ): List<RequestPatternsData> {
         logger.debug("Processing requests for $httpMethod")
         val securitySchemeEntries = parsedOpenApi.components?.securitySchemes.orEmpty()
@@ -1504,7 +1564,8 @@ class OpenApiSpecification(
         val contentTypeHeader = effectiveHeadersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
         val headersPattern = HttpHeadersPattern(
             effectiveHeadersMap.mapValues { it.value.first },
-            preferEscapedSoapAction = preferEscapedSoapAction
+            preferEscapedSoapAction = preferEscapedSoapAction,
+            parameterPointers = requestHeaderPointers.mapValues { "${it.value}/name" }
         )
         val requestPattern = HttpRequestPattern(
             httpPathPattern = httpPathPattern,
@@ -1514,7 +1575,7 @@ class OpenApiSpecification(
             securitySchemes = effectiveSecuritySchemes
         )
 
-        val exampleQueryParams = namedExampleParams<QueryParameter>(parameters)
+        val exampleQueryParams = namedQueryExampleParams(parameters)
         val examplePathParams = namedExampleParams<PathParameter>(parameters)
         val exampleHeaderParams = namedExampleParams<HeaderParameter>(parameters)
 
@@ -1570,27 +1631,64 @@ class OpenApiSpecification(
                             }
                         }
 
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     Pair(
                         requestPattern.copy(
                             multiPartFormDataPattern = parts,
+                            multiPartPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
                         ), emptyMap()
                     )
                 }
 
-                "application/x-www-form-urlencoded" -> Pair(
-                    requestPattern.copy(
-                        formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
-                        headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                    ), emptyMap()
-                )
+                "application/x-www-form-urlencoded" -> {
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithFormFields(
+                                formFieldExamplesFromMediaType(mediaType, operation.summary),
+                                contentType
+                            )
 
-                "application/xml" -> Pair(
-                    requestPattern.copy(
-                        body = toXMLPattern(mediaType, collectorContext = mediaTypeContext),
-                        headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                    ), emptyMap()
-                )
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                    Pair(
+                        requestPattern.copy(
+                            formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
+                            formFieldPointers = formContentPointers(mediaType.schema, schemaPointer),
+                            headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                        ), allExamples
+                    )
+                }
+
+                "application/xml" -> {
+                    val examplesFromMediaType = mediaType.examples ?: emptyMap()
+                    val exampleBodies: Map<String, String?> = examplesFromMediaType.mapValues {
+                        resolveExample(it.value)?.value?.toString() ?: ""
+                    }
+
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithRequestBodies(exampleBodies, contentType)
+
+                    val rawXmlBody = toXMLPattern(mediaType, collectorContext = mediaTypeContext)
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val xmlSchemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                    val annotatedXmlBody = annotateWithPropertyPointers(rawXmlBody, mediaType.schema, xmlSchemaPointer)
+                    Pair(
+                        requestPattern.copy(
+                            body = annotatedXmlBody,
+                            headersPattern = headersPatternWithContentType(requestPattern, contentType)
+                        ), allExamples
+                    )
+                }
 
                 else -> {
                     val actualContentType = if (contentTypeHeader != null) {
@@ -1613,12 +1711,12 @@ class OpenApiSpecification(
 
                     val bodyIsRequired: Boolean = requestBody.required ?: false
 
-                    val body = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext).let {
-                        if (bodyIsRequired)
-                            it
-                        else
-                            OptionalBodyPattern.fromPattern(it)
-                    }
+                    val rawBody = toSpecmaticPattern(mediaType, contentType = contentType, collectorContext = mediaTypeContext)
+                    val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
+                    val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
+                    val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
+                    val bodyWithPointers = annotateWithPropertyPointers(rawBody, mediaType.schema, schemaPointer)
+                    val body = if (bodyIsRequired) bodyWithPointers else OptionalBodyPattern.fromPattern(bodyWithPointers)
 
                     Pair(
                         requestPattern.copy(
@@ -1732,6 +1830,13 @@ class OpenApiSpecification(
         }
     }
 
+    private fun namedQueryExampleParams(parameters: List<Parameter>): Map<String, Map<String, String>> {
+        if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
+        return parameters.safeFilter<QueryParameter>(CollectorContext()).map { it.parameter }.fold(emptyMap()) { acc, parameter ->
+            extractQueryParameterExamples(parameter, acc)
+        }
+    }
+
     private fun extractParameterExamples(
         examplesToAdd: Map<String, Example>?,
         parameterName: String,
@@ -1744,6 +1849,304 @@ class OpenApiSpecification(
                 val exampleMap = acc[exampleName] ?: emptyMap()
                 acc.plus(exampleName to exampleMap.plus(parameterName to exampleValue))
             }
+    }
+
+    private fun extractQueryParameterExamples(
+        parameter: QueryParameter,
+        examplesAccumulatedSoFar: Map<String, Map<String, String>>
+    ): Map<String, Map<String, String>> {
+        return parameter.examples.orEmpty()
+            .entries.filter { it.value.value?.toString().orEmpty() !in OMIT }
+            .fold(examplesAccumulatedSoFar) { acc, (exampleName, example) ->
+                val exampleValue = resolveExample(example)?.value ?: ""
+                val exampleMap = acc[exampleName] ?: emptyMap()
+                val serializedExamples = serializedQueryParameterExample(parameter, exampleValue).mapValues { it.value.toExampleString() }
+                acc.plus(exampleName to exampleMap.plus(serializedExamples))
+            }
+    }
+
+    private fun serializedParameterExample(parameter: Parameter, exampleValue: Any): Map<String, Any> {
+        return when (parameter) {
+            is QueryParameter -> serializedQueryParameterExample(parameter, exampleValue)
+            else -> mapOf(parameter.name to exampleValue)
+        }
+    }
+
+    private fun serializedQueryParameterExample(parameter: QueryParameter, exampleValue: Any): Map<String, Any> {
+        val schema = parameter.schema ?: return mapOf(parameter.name to exampleValue)
+        val (resolvedSchema, _) = resolveSchemaIfRefElseAtSchema(schema, CollectorContext())
+        if (!resolvedSchema.isSchema(OBJECT_TYPE) || !parameter.isFormExploded()) return mapOf(parameter.name to exampleValue)
+
+        return objectExampleEntries(exampleValue)
+            ?.mapValues { it.value ?: "" }
+            ?: mapOf(parameter.name to exampleValue)
+    }
+
+    private fun objectExampleEntries(exampleValue: Any): Map<String, Any?>? {
+        return when (exampleValue) {
+            is Map<*, *> -> exampleValue.entries.associate { (key, value) -> key.toString() to value }
+            is JsonNode -> jsonNodeObjectEntries(exampleValue)
+            else -> null
+        }
+    }
+
+    private fun jsonNodeObjectEntries(exampleValue: JsonNode): Map<String, Any?>? {
+        if (!exampleValue.isObject) return null
+        return exampleValue.properties().associate { (key, value) -> key to value.toExampleValue() }
+    }
+
+    private fun Any?.toExampleString(): String {
+        return when (this) {
+            null -> ""
+            is JsonNode -> this.toExampleValue()?.toString() ?: ""
+            else -> toString()
+        }
+    }
+
+    private fun JsonNode.toExampleValue(): Any? {
+        return when {
+            isNull -> ""
+            isTextual -> asText()
+            isNumber -> numberValue()
+            isBoolean -> booleanValue()
+            else -> toString()
+        }
+    }
+
+    private fun escapeJsonPointer(token: String): String =
+        token.replace("~", "~0").replace("/", "~1")
+
+    private fun internalRefPointer(ref: String?): String? {
+        if (ref == null) return null
+        if (ref == "#") return ""
+        if (ref.startsWith("#/")) return ref.removePrefix("#")
+        return null
+    }
+
+    private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
+        return jsonPointerSourceMap[useSitePointer]?.refTarget
+            ?: internalRefPointer(ref)
+            ?: useSitePointer
+    }
+
+    // A path item can itself be reffed out (paths./x.$ref -> #/components/pathItems/X).
+    // The parser inlines it before building the model, so the operation is reachable, but
+    // the use-site pointer (/paths/~1x) carries no children in the source map. Resolve it to
+    // the component pathItem so request/response/parameter pointers built underneath land on
+    // the component definition. The path-item $ref is stripped from the model before parsing,
+    // so there is no model-level ref to pass; resolution relies on the source map's refTarget.
+    // Non-reffed paths have no refTarget and fall back to the use-site unchanged.
+    private fun pathScopePointer(openApiPath: String): String {
+        return sourcePointerForRefUseSite("/paths/${escapeJsonPointer(openApiPath)}", ref = null)
+    }
+
+    private fun buildParameterPointers(
+        openApiPath: String,
+        httpMethod: String,
+        paramIn: String,
+        pathItemParameters: List<Parameter>?,
+        operationParameters: List<Parameter>?,
+        collectorContext: CollectorContext
+    ): Map<String, String> {
+        val pathScope = pathScopePointer(openApiPath)
+        val pathItemPrefix = "$pathScope/parameters"
+        val operationPrefix = "$pathScope/${httpMethod.lowercase()}/parameters"
+        val pointers = mutableMapOf<String, String>()
+
+        fun record(parameters: List<Parameter>?, prefix: String) {
+            parameters?.forEachIndexed { idx, parameter ->
+                val resolved = resolveParameter(parameter, collectorContext.at("parameters").at(idx)).first
+                if (resolved.`in` == paramIn && !resolved.name.isNullOrBlank()) {
+                    val parameterUseSitePointer = "$prefix/$idx"
+                    pointers[resolved.name] = sourcePointerForRefUseSite(parameterUseSitePointer, parameter.`$ref`)
+                }
+            }
+        }
+
+        record(pathItemParameters, pathItemPrefix)
+        record(operationParameters, operationPrefix)
+        return pointers
+    }
+
+    private fun annotateWithPropertyPointers(pattern: Pattern, schema: Schema<*>?, schemaPointer: String): Pattern {
+        return when (pattern) {
+            is JSONObjectPattern -> annotateJsonObjectPattern(pattern, schema, schemaPointer)
+            is ListPattern -> annotateListPattern(pattern, schema, schemaPointer)
+            is AnyPattern -> annotateAnyPattern(pattern, schema?.oneOf, schemaPointer)
+            is AnyOfPattern -> annotateAnyOfPattern(pattern, schema?.anyOf, schemaPointer)
+            is XMLPattern -> annotateXMLPattern(pattern, schema, schemaPointer)
+            else -> pattern
+        }
+    }
+
+    private fun annotateXMLPattern(pattern: XMLPattern, schema: Schema<*>?, schemaPointer: String): XMLPattern {
+        if (schema == null) return pattern.copy(schemaPointer = schemaPointer)
+
+        if (schema.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return annotateXMLPattern(pattern, resolvedSchema, targetPointer)
+        }
+
+        if (schema.isSchema(ARRAY_TYPE, multi = false)) {
+            val itemsSchema = schema.items
+            val itemsPointer = "$schemaPointer/items"
+            return if (schema.xml?.wrapped == true) {
+                val annotatedChildren = pattern.pattern.nodes.map { node ->
+                    if (node is XMLPattern) annotateXMLPattern(node, itemsSchema, itemsPointer) else node
+                }
+                pattern.copy(
+                    schemaPointer = schemaPointer,
+                    pattern = pattern.pattern.copy(nodes = annotatedChildren)
+                )
+            } else {
+                annotateXMLPattern(pattern, itemsSchema, itemsPointer)
+            }
+        }
+
+        val withPointer = pattern.copy(schemaPointer = schemaPointer)
+        if (!schema.isSchema(OBJECT_TYPE, multi = false)) return withPointer
+
+        val allProperties = schema.properties.orEmpty()
+        val nodeProperties = allProperties.filter { it.value.xml?.attribute != true }
+        val attributeProperties = allProperties.filter { it.value.xml?.attribute == true }
+
+        val childByName = withPointer.pattern.nodes.filterIsInstance<XMLPattern>().associateBy { it.pattern.name }
+        val annotatedChildren = nodeProperties.mapNotNull { (propertyName, propertySchema) ->
+            val xmlName = propertySchema.xml?.name ?: propertyName
+            val child = childByName[xmlName] ?: return@mapNotNull null
+            val childPointer = "$schemaPointer/properties/${escapeJsonPointer(propertyName)}"
+            xmlName to annotateXMLPattern(child, propertySchema, childPointer)
+        }.toMap()
+        val annotatedNodes = withPointer.pattern.nodes.map { node ->
+            if (node is XMLPattern) annotatedChildren[node.pattern.name] ?: node else node
+        }
+
+        val requiredAttributeNames = schema.required.orEmpty().toSet()
+        val attributePointers = attributeProperties.mapKeys { (name, _) ->
+            if (name in requiredAttributeNames) name else "$name.opt"
+        }.mapValues { (propertyName, _) ->
+            "$schemaPointer/properties/${escapeJsonPointer(propertyName.removeSuffix(".opt"))}"
+        }
+
+        return withPointer.copy(
+            pattern = withPointer.pattern.copy(nodes = annotatedNodes),
+            attributePointers = attributePointers
+        )
+    }
+
+    private fun annotateAnyPattern(pattern: AnyPattern, branchSchemas: List<Schema<*>>?, schemaPointer: String): AnyPattern {
+        val variants = annotateBranchVariants(pattern.pattern, branchSchemas, schemaPointer, "oneOf") ?: return pattern
+        return pattern.copy(pattern = variants)
+    }
+
+    private fun annotateAnyOfPattern(pattern: AnyOfPattern, branchSchemas: List<Schema<*>>?, schemaPointer: String): AnyOfPattern {
+        val variants = annotateBranchVariants(pattern.pattern, branchSchemas, schemaPointer, "anyOf") ?: return pattern
+        // Reconstruct rather than copy: AnyOfPattern's private `delegate: AnyPattern` is
+        // constructed from the constructor's `pattern` parameter, and a data-class copy
+        // keeps the original delegate (with the un-annotated variants) — its matches()
+        // would still consult the stale list. A fresh constructor invocation rebuilds the
+        // delegate with the annotated variants.
+        return AnyOfPattern(
+            pattern = variants,
+            typeAlias = pattern.typeAlias,
+            example = pattern.example,
+            discriminator = pattern.discriminator,
+            extensions = pattern.extensions,
+            schemaPointer = schemaPointer
+        )
+    }
+
+    private fun annotateBranchVariants(
+        variants: List<Pattern>,
+        branchSchemas: List<Schema<*>>?,
+        schemaPointer: String,
+        keyword: String
+    ): List<Pattern>? {
+        if (branchSchemas == null) return null
+
+        if (keyword != "oneOf") {
+            if (variants.size != branchSchemas.size) return null
+            return variants.mapIndexed { index, variant ->
+                annotateWithPropertyPointers(variant, branchSchemas[index], "$schemaPointer/$keyword/$index")
+            }
+        }
+
+        // oneOf drops nullable empty-object members and appends a single NullPattern, so the
+        // variant list no longer lines up positionally with the declared schemas. Pair each
+        // non-null variant with its originating schema and use that schema's original index.
+        val schemasWithVariant = branchSchemas.withIndex().filterNot { nullableEmptyObject(it.value) }
+        if (variants.count { it !is NullPattern } != schemasWithVariant.size) return null
+        var cursor = 0
+        return variants.map { variant ->
+            if (variant is NullPattern) return@map variant
+            val (originalIndex, schema) = schemasWithVariant[cursor++]
+            annotateWithPropertyPointers(variant, schema, "$schemaPointer/$keyword/$originalIndex")
+        }
+    }
+
+    private fun annotateJsonObjectPattern(pattern: JSONObjectPattern, schema: Schema<*>?, schemaPointer: String): JSONObjectPattern {
+        if (schema?.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return annotateJsonObjectPattern(pattern, resolvedSchema, targetPointer)
+        }
+        val propertySources = collectPropertySources(schema, schemaPointer)
+        val pointers = propertySources.mapValues { (_, source) -> source.first }
+        val annotatedPropertyPatterns = pattern.pattern.mapValues { (key, propertyPattern) ->
+            val rawName = withoutOptionality(key)
+            val (nestedPointer, nestedSchema) = propertySources[rawName] ?: return@mapValues propertyPattern
+            annotateWithPropertyPointers(propertyPattern, nestedSchema, nestedPointer)
+        }
+        return pattern.copy(
+            pattern = annotatedPropertyPatterns,
+            propertyPointers = pointers,
+            schemaPointer = schemaPointer
+        )
+    }
+
+    private fun collectPropertySources(schema: Schema<*>?, basePointer: String): Map<String, Pair<String, Schema<*>>> {
+        if (schema == null) return emptyMap()
+        val sources = linkedMapOf<String, Pair<String, Schema<*>>>()
+        schema.properties.orEmpty().forEach { (name, propertySchema) ->
+            sources[name] = "$basePointer/properties/${escapeJsonPointer(name)}" to propertySchema
+        }
+        schema.allOf.orEmpty().forEachIndexed { index, constituent ->
+            val (constituentPointer, constituentSchema) = constituent.`$ref`?.let { ref ->
+                val componentName = ref.substringAfterLast("/")
+                val refSchema = parsedOpenApi.components?.schemas?.get(componentName) ?: return@forEachIndexed
+                "/components/schemas/${escapeJsonPointer(componentName)}" to refSchema
+            } ?: ("$basePointer/allOf/$index" to constituent)
+            sources.putAll(collectPropertySources(constituentSchema, constituentPointer))
+        }
+        return sources
+    }
+
+    private fun formContentPointers(schema: Schema<*>?, schemaPointer: String): Map<String, String> {
+        if (schema?.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return collectPropertySources(resolvedSchema, targetPointer).mapValues { (_, source) -> source.first }
+        }
+        return collectPropertySources(schema, schemaPointer).mapValues { (_, source) -> source.first }
+    }
+
+    private fun annotateListPattern(pattern: ListPattern, schema: Schema<*>?, schemaPointer: String): ListPattern {
+        if (schema?.`$ref` != null) {
+            val targetPointer = sourcePointerForRefUseSite(schemaPointer, schema.`$ref`)
+            val (_, resolvedSchema) = resolveReferenceToSchema(schema.`$ref`, CollectorContext())
+            return annotateListPattern(pattern, resolvedSchema, targetPointer)
+        }
+        val itemsPointer = "$schemaPointer/items"
+        val annotatedInner = annotateWithPropertyPointers(pattern.pattern, schema?.items, itemsPointer)
+        return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
+    }
+
+    private val sourceLocations: Map<String, SourceLocation> by lazy {
+        val displayPath = File(openApiFilePath).invariantSeparatorsPath
+        jsonPointerSourceMap.mapValues { (_, node) ->
+            SourceLocation(displayPath, node.line, node.column)
+        }
     }
 
     private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext>? {
@@ -2042,8 +2445,22 @@ class OpenApiSpecification(
                 createObjectPattern(schemaProperties, patternName)
             }
         }.let {
+            annotateAllOfPattern(it, schema, patternName)
+        }.let {
             cacheComponentPattern(patternName, it)
         }
+    }
+
+    private fun annotateAllOfPattern(pattern: Pattern, schema: Schema<*>, patternName: String): Pattern {
+        if (pattern !is JSONObjectPattern || patternName.isBlank()) return pattern
+        val componentPointer = "/components/schemas/${escapeJsonPointer(patternName)}"
+        val pointers = buildAllOfPropertyPointers(schema, componentPointer)
+        if (pointers.isEmpty()) return pattern
+        return pattern.copy(propertyPointers = pointers, schemaPointer = componentPointer)
+    }
+
+    private fun buildAllOfPropertyPointers(schema: Schema<*>, basePointer: String): Map<String, String> {
+        return collectPropertySources(schema, basePointer).mapValues { (_, source) -> source.first }
     }
 
     private fun resolveSchemaIfRef(schema: Schema<*>?, patternName: String? = null, collectorContext: CollectorContext): ResolvedRef {
@@ -2392,9 +2809,11 @@ class OpenApiSpecification(
         return toXMLPattern(mediaType.schema, typeStack = emptyList(), collectorContext = collectorContext.at("schema"))
     }
 
-    private fun toXMLPattern(schema: Schema<*>, nodeNameFromProperty: String? = null, typeStack: List<String>, collectorContext: CollectorContext): XMLPattern {
+    private fun toXMLPattern(schema: Schema<*>, nodeNameFromProperty: String? = null, typeStack: List<String>, collectorContext: CollectorContext): Pattern {
         val name = schema.xml?.name ?: nodeNameFromProperty
         return when {
+            schema.oneOf != null -> handleXMLSchemaOneOf(schema, name, typeStack, collectorContext)
+
             schema.isPrimitive() -> {
                 name ?: throw ContractException("Could not determine name for an xml node")
                 val primitivePattern = toSpecmaticPattern(schema, typeStack, collectorContext = collectorContext)
@@ -2418,7 +2837,7 @@ class OpenApiSpecification(
                     } else {
                         emptyMap()
                     }
-                    type.copy(pattern = type.pattern.copy(attributes = optionalAttribute.plus(type.pattern.attributes)))
+                    type.withXMLAttributes(optionalAttribute)
                 }
 
                 val attributeProperties = schema.properties.filter { entry ->
@@ -2452,12 +2871,9 @@ class OpenApiSpecification(
                 val itemName = repeatingSchema.xml?.name ?: nodeNameFromProperty
                 val itemsContext = collectorContext.at("items")
                 val innerPattern = toXMLPattern(repeatingSchema, itemName, typeStack, itemsContext).let { repeatingType ->
-                    repeatingType.copy(
-                        pattern = repeatingType.pattern.copy(
-                            attributes = repeatingType.pattern.attributes.plus(
-                                OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(MULTIPLE_ATTRIBUTE_VALUE))
-                            )
-                        )
+                    repeatingType.withXMLAttributes(
+                        mapOf(OCCURS_ATTRIBUTE_NAME to ExactValuePattern(StringValue(MULTIPLE_ATTRIBUTE_VALUE))),
+                        overwriteExisting = true
                     )
                 }
 
@@ -2482,6 +2898,44 @@ class OpenApiSpecification(
         }
     }
 
+    private fun handleXMLSchemaOneOf(
+        schema: Schema<*>,
+        nodeName: String?,
+        typeStack: List<String>,
+        collectorContext: CollectorContext
+    ): Pattern {
+        val oneOfContext = collectorContext.at("oneOf")
+        val candidatePatterns = schema.oneOf.withIndex().mapNotNull { (index, schema) ->
+            val oneOfIndexContext = oneOfContext.at(index)
+            if (nullableEmptyObject(schema)) return@mapNotNull null
+            toXMLPattern(schema = schema, nodeNameFromProperty = nodeName, typeStack = typeStack, collectorContext = oneOfIndexContext)
+        }
+
+        val nullable = if (schema.oneOf.any { nullableEmptyObject(it) }) listOf(NullPattern) else emptyList()
+        return AnyPattern(
+            candidatePatterns.plus(nullable),
+            typeAlias = nodeName?.let(::withPatternDelimiters),
+            extensions = emptyMap()
+        )
+    }
+
+    private fun Pattern.withXMLAttributes(attributes: Map<String, Pattern>, overwriteExisting: Boolean = false): Pattern {
+        if (attributes.isEmpty()) return this
+
+        return when (this) {
+            is XMLPattern -> {
+                val updatedAttributes = if (overwriteExisting)
+                    pattern.attributes.plus(attributes)
+                else
+                    attributes.plus(pattern.attributes)
+
+                copy(pattern = pattern.copy(attributes = updatedAttributes))
+            }
+            is AnyPattern -> copy(pattern = pattern.map { it.withXMLAttributes(attributes, overwriteExisting) })
+            else -> this
+        }
+    }
+
     private fun realName(schema: Schema<*>, name: String): String = if (schema.xml?.prefix != null) {
         "${schema.xml?.prefix}:${name}"
     } else {
@@ -2499,7 +2953,14 @@ class OpenApiSpecification(
             additionalProperties = additionalPropertiesFrom(schema, patternName, typeStack, collectorContext),
             extensions = schema.extensions.orEmpty()
         )
-        return cacheComponentPattern(patternName, jsonObjectPattern)
+        val annotated = if (patternName.isNotBlank()) {
+            annotateWithPropertyPointers(
+                jsonObjectPattern,
+                schema,
+                "/components/schemas/${escapeJsonPointer(patternName)}"
+            ) as JSONObjectPattern
+        } else jsonObjectPattern
+        return cacheComponentPattern(patternName, annotated)
     }
 
     private fun additionalPropertiesFrom(schema: Schema<*>, patternName: String, typeStack: List<String>, collectorContext: CollectorContext): AdditionalProperties {
@@ -2643,9 +3104,9 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean): HttpQueryParamPattern {
+    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean, parameterPointers: Map<String, String> = emptyMap()): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
-        val parsedQueryParameters = queryParameters.map(::toQueryParameterParseResult)
+        val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
         val objectPropertyEntries = queryPatternEntries.filter { it.source.isFormExplodedObjectProperty }
         val objectPropertyEntriesByWireKey = objectPropertyEntries.groupBy(QueryParameterPatternEntry::wireKey)
@@ -2660,13 +3121,17 @@ class OpenApiSpecification(
         }
 
         val queryPattern: Map<String, Pattern> = filteredQueryPatternEntries.associate { it.key to it.pattern }
+        val queryParameterPointers = parameterPointers + filteredQueryPatternEntries.mapNotNull { entry ->
+            entry.pointer?.let { pointer -> entry.wireKey to pointer }
+        }
 
         val additionalProperties = additionalPropertiesInQueryParam(parsedQueryParameters)
         return HttpQueryParamPattern(
             queryPattern,
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
-            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam)
+            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
+            parameterPointers = queryParameterPointers
         )
     }
 
@@ -2680,7 +3145,8 @@ class OpenApiSpecification(
         val wireKey: String,
         val pattern: Pattern,
         val source: QueryParameterPatternSource,
-        val collectorContext: CollectorContext
+        val collectorContext: CollectorContext,
+        val pointer: String? = null
     )
 
     private data class QueryParameterParseResult(
@@ -2689,14 +3155,14 @@ class OpenApiSpecification(
         val additionalProperties: Pattern? = null
     )
 
-    private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>): QueryParameterParseResult {
+    private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>, parameterPointers: Map<String, String>): QueryParameterParseResult {
         val parameter = queryParamWithContext.parameter
         logger.debug("Processing query parameter ${parameter.name}")
         val queryParamContext = queryParamWithContext.collectorContext
         val (resolvedSchema, paramContext) = resolveSchemaIfRefElseAtSchema(parameter.schema, collectorContext = queryParamContext)
 
         return if (resolvedSchema.isSchema(OBJECT_TYPE)) {
-            toFormExplodedObjectQueryParameterParseResult(parameter, resolvedSchema, paramContext, queryParamContext)
+            toFormExplodedObjectQueryParameterParseResult(parameter, resolvedSchema, paramContext, queryParamContext, parameterPointers[parameter.name])
         } else {
             val specmaticPattern = toQueryParameterPattern(
                 parameterName = parameter.name,
@@ -2713,7 +3179,8 @@ class OpenApiSpecification(
                         wireKey = parameter.name,
                         pattern = specmaticPattern,
                         source = QueryParameterPatternSource(parameter.name),
-                        collectorContext = queryParamContext
+                        collectorContext = queryParamContext,
+                        pointer = parameterPointers[parameter.name]?.let { "$it/name" }
                     )
                 )
             )
@@ -2724,7 +3191,8 @@ class OpenApiSpecification(
         parameter: QueryParameter,
         resolvedSchema: Schema<*>,
         schemaContext: CollectorContext,
-        parameterContext: CollectorContext
+        parameterContext: CollectorContext,
+        parameterPointer: String?
     ): QueryParameterParseResult {
         if (!parameter.isFormExploded()) {
             parameterContext.at("schema").record(
@@ -2737,6 +3205,9 @@ class OpenApiSpecification(
 
         val requiredProperties = resolvedSchema.required.orEmpty().toSet()
         val schemaProperties = resolvedSchema.properties.orEmpty()
+        val schemaPointer = parameterPointer?.let {
+            sourcePointerForRefUseSite("$it/schema", parameter.schema?.`$ref`)
+        }
 
         if (parameter.required == true && requiredProperties.isEmpty()) {
             parameterContext.at("required").record(
@@ -2764,7 +3235,8 @@ class OpenApiSpecification(
                     schemaContext = propertyContext
                 ),
                 source = QueryParameterPatternSource(parameter.name, propertyName),
-                collectorContext = propertyContext
+                collectorContext = propertyContext,
+                pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" }
             )
         }
 
@@ -2834,7 +3306,7 @@ class OpenApiSpecification(
         }
     }
 
-    private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext): HttpPathPattern {
+    private fun toSpecmaticPathParam(openApiPath: String, parameters: List<Parameter>, otherPathPatterns: Collection<HttpPathPattern> = emptyList(), collectorContext: CollectorContext, parameterPointers: Map<String, String> = emptyMap()): HttpPathPattern {
         val pathParamMap = parameters
             .safeFilter<PathParameter>(collectorContext)
             .associateBy { parameterWithContext -> parameterWithContext.parameter.name }
@@ -2871,7 +3343,7 @@ class OpenApiSpecification(
         }
 
         val specmaticPath = toSpecmaticFormattedPathString(parameters, openApiPath)
-        return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns)
+        return HttpPathPattern(pathPattern, specmaticPath, otherPathPatterns, parameterPointers)
     }
 
     private fun toSpecmaticFormattedPathString(parameters: List<Parameter>, openApiPath: String): String {
@@ -2936,10 +3408,13 @@ class OpenApiSpecification(
                     extract = { this.items },
                     createDefault = { Schema<Any>() }
                 )
-                ListPattern(
+                val listPattern = ListPattern(
                     pattern = toSpecmaticPattern(itemsSchema, typeStack, collectorContext = collectorContext.at("items")),
                     example = toListExample(this.extractFirstExampleAsJsonNode()),
                 )
+                if (patternName.isNotBlank())
+                    annotateListPattern(listPattern, this, "/components/schemas/${escapeJsonPointer(patternName)}")
+                else listPattern
             }
 
             "object" -> if (this.xml?.name != null) {

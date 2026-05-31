@@ -1,0 +1,9 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/data?name=Jane"
+  },
+  "http-response": {
+    "status": 200
+  }
+}

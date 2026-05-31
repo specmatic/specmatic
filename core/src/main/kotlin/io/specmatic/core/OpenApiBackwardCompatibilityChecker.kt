@@ -3,7 +3,6 @@ package io.specmatic.core
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.test.asserts.toFailure
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -11,10 +10,8 @@ import java.util.IdentityHashMap
 class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
     private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
-        .filter { !it.ignoreFailure }
         .groupBy { it.path to it.method }
     private val newChangeTrackingScenariosByPathAndMethod = newFeature.scenariosForChangeTracking()
-        .filter { !it.ignoreFailure }
         .groupBy { it.path to it.method }
 
     fun run(): List<OpenApiBackwardCompatibilityCheckRecord> {
@@ -38,7 +35,6 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun groupScenariosByPathAndMethod(feature: Feature): List<RequestFamily> {
         return feature.scenarios
-            .filter { !it.ignoreFailure }
             .groupBy { scenario -> scenario.path to scenario.method }.values
             .map(::RequestFamily)
     }
@@ -108,6 +104,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
+                .copy(sourceLocation = locateRemovedOperation(variationFromOldScenario))
             return listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
         }
 
@@ -136,6 +133,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
             val identifierMatches = newScenariosByStatusAndResContentType.findExactOrSingle(oldScenario.status, oldScenario.responseContentType)
             if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
+                    .copy(sourceLocation = locateRemovedResponse(oldScenario))
                 return@flatMap listOf(newRecord(oldScenario, result, changeStatusFor))
             }
 
@@ -186,6 +184,26 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         val fallBackEntries = entries.asSequence().filter { it.key.first == first }.flatMap { it.value.asSequence() }
         return fallBackEntries.singleOrNull(valueFilter)?.let(::listOf).orEmpty()
     }
+
+    private fun locateRemovedOperation(scenario: Scenario): SourceLocation? {
+        val operationPointer = operationPointer(scenario) ?: return null
+        return scenario.resolver.locate(operationPointer)
+    }
+
+    private fun locateRemovedResponse(scenario: Scenario): SourceLocation? {
+        val operationPointer = operationPointer(scenario) ?: return null
+        val statusToken = if (scenario.status == DEFAULT_RESPONSE_CODE) "default" else scenario.status.toString()
+        return scenario.resolver.locate("$operationPointer/responses/$statusToken")
+            ?: scenario.resolver.locate(operationPointer)
+    }
+
+    private fun operationPointer(scenario: Scenario): String? {
+        val openApiPath = scenario.httpRequestPattern.httpPathPattern?.toOpenApiPath() ?: return null
+        return "/paths/${escapeJsonPointer(openApiPath)}/${scenario.method.lowercase()}"
+    }
+
+    private fun escapeJsonPointer(token: String): String =
+        token.replace("~", "~0").replace("/", "~1")
 
     companion object {
         private const val PROGRESSION_LOG_INCREMENT = 100

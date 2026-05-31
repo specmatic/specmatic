@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/items",
+    "headers": {
+      "Content-Type": "application/xml"
+    },
+    "body": "<parcel><trackingNumber>ABC123</trackingNumber></parcel>"
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/xml"
+    },
+    "body": "<parcel><trackingNumber>ABC123</trackingNumber></parcel>"
+  }
+}

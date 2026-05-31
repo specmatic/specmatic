@@ -1,0 +1,72 @@
+openapi: 3.0.0
+info:
+  title: Composition nullable-branch source-location cases
+  version: 1.0.0
+# oneOf/anyOf endpoints that include a `nullable` empty-object branch alongside the
+# real members. oneOf drops the nullable branch and appends a trailing NullPattern,
+# which used to shift the annotation alignment; anyOf keeps every member. In every
+# endpoint the `count` member is `boolean` here and `number` in composition_nullable_old.yaml,
+# so each operation turns backward-incompatible and the report pins where `count` resolves.
+paths:
+  # oneOf with the nullable branch first
+  /oneof-nullable-first:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  nullable: true
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+  # oneOf with the nullable branch between two real members
+  /oneof-nullable-middle:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                - type: object
+                  nullable: true
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+  # anyOf with the nullable branch first
+  /anyof-nullable-first:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - type: object
+                  nullable: true
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: boolean
+      responses:
+        '200':
+          description: ok

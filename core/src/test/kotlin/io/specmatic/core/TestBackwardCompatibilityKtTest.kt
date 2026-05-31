@@ -5,15 +5,17 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
-import io.specmatic.reporter.internal.dto.bcc.ChangeStatus
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.reporter.api.client.OBJECT_MAPPER
+import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -27,7 +29,320 @@ import java.util.stream.Stream
 internal class TestBackwardCompatibilityKtTest {
     private fun assertBackwardCompatibilityFailure(results: Results, expectedReport: String) {
         assertThat(results.success()).withFailMessage(results.report()).isFalse
-        assertThat(results.report()).isEqualToNormalizingNewlines(expectedReport.trimIndent())
+        val stripTrailingWhitespacePerLine: (String) -> String = { s ->
+            s.lines().joinToString("\n") { it.trimEnd() }
+        }
+        assertThat(stripTrailingWhitespacePerLine(results.report()))
+            .isEqualToNormalizingNewlines(stripTrailingWhitespacePerLine(expectedReport.trimIndent()))
+    }
+
+    companion object {
+        @BeforeAll
+        @JvmStatic
+        fun setup() {
+            System.setProperty("SPECMATIC_BCC_REPORT", "true")
+        }
+
+        @AfterAll
+        @JvmStatic
+        fun teardown() {
+            System.clearProperty("SPECMATIC_BCC_REPORT")
+        }
+    }
+
+    @Test
+    fun `all breaking changes from the fixture pair are detected and annotated`() {
+        val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
+        val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()
+
+        val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
+
+        val results = testBackwardCompatibility(older, newer)
+
+        assertThat(results.success()).isFalse
+        assertThat(results.distinctReport().normalizeBlankLines()).isEqualToNormalizingNewlines(
+            """
+    In scenario "submit data. Response: ok"
+    API: POST /data -> 200
+
+      >> REQUEST.PARAMETERS.QUERY.extra (new.yaml:36:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects query param "extra" in the request but it is missing from the old specification
+
+      >> REQUEST.PARAMETERS.QUERY.q (new.yaml:24:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Extra (new.yaml:54:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects header "X-Extra" in the request but it is missing from the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Required (new.yaml:42:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.extra (new.yaml:74:17)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects property "extra" in the request but it is missing from the old specification
+
+      >> REQUEST.BODY.id (new.yaml:69:17)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.address.street (new.yaml:81:21)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.tags[0].name (new.yaml:90:23)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Optional (new.yaml:48:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects header "X-Optional" in the request but it is missing from the old specification
+
+      >> REQUEST.BODY.note (new.yaml:71:17)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects property "note" in the request but it is missing from the old specification
+
+      >> REQUEST.PARAMETERS.QUERY.tag (new.yaml:30:11)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          New specification expects query param "tag" in the request but it is missing from the old specification
+
+      >> RESPONSE.HEADER.X-Resp (new.yaml:97:13)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+      >> RESPONSE.BODY.id (new.yaml:107:19)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          The old specification expects property "id" but it is missing in the new specification
+
+      >> RESPONSE.BODY.extra (old.yaml:86:19)
+
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
+
+          The old specification expects property "extra" but it is missing in the new specification
+
+      >> RESPONSE.BODY.code (new.yaml:117:19)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+    In scenario "get item. Response: ok"
+    API: GET /items/(id:number) -> 200
+
+      >> REQUEST.PARAMETERS.PATH.id (new.yaml:124:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+    In scenario "foo. Response: ok"
+    API: GET /foo -> 200
+
+          This API exists in the old contract but not in the new contract (old.yaml:116:5)
+
+    In scenario "bar. Response: ok"
+    API: GET /bar -> 200
+
+          This API exists in the old contract but not in the new contract (old.yaml:122:5)
+
+    In scenario "create baz. Response: ok"
+    API: POST /baz -> 200
+
+          This API exists in the old contract but not in the new contract (old.yaml:133:5)
+
+    In scenario "register pet. Response: ok"
+    API: POST /pets -> 200
+
+      >> REQUEST.BODY (when Dog object).species (new.yaml:223:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY (when Dog object).sound (new.yaml:238:13)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY (when Cat object).species (new.yaml:223:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY (when Cat object).sound (new.yaml:249:13)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type boolean in the new specification, but type string in the old specification
+
+    In scenario "submit. Response: ok"
+    API: POST /submissions -> 200
+
+      >> REQUEST.BODY.id (new.yaml:208:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.kind (new.yaml:211:9)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type string in the new specification, but type number in the old specification
+
+      >> REQUEST.BODY.category (new.yaml:215:9)
+
+          R1002: Value mismatch
+          Documentation: https://docs.specmatic.io/rules#r1002
+          Summary: The value does not match the expected value defined in the specification
+
+          This is ("A") in the new specification, but "B" in the old specification
+
+      >> RESPONSE.BODY.status (new.yaml:185:19)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is ("accepted" or "pending") in the new specification response but ("accepted") in the old specification
+
+    In scenario "reusable components. Response: ok"
+    API: POST /reusable-components -> 200
+
+      >> REQUEST.PARAMETERS.QUERY.reusableQuery (new.yaml:253:7)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.QUERY.filterKind (new.yaml:274:11)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.PARAMETERS.HEADER.X-Reusable (new.yaml:259:7)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> REQUEST.BODY.componentId (new.yaml:285:15)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is type number in the new specification, but type string in the old specification
+
+      >> RESPONSE.HEADER.X-Reusable-Response (new.yaml:302:5)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+      >> RESPONSE.BODY.componentStatus (new.yaml:299:15)
+
+          R1001: Type mismatch
+          Documentation: https://docs.specmatic.io/rules#r1001
+          Summary: The value type does not match the expected type defined in the specification
+
+          This is number in the new specification response but string in the old specification
+
+    In scenario "reusable components. Response: fallback"
+    API: POST /reusable-components -> 1000
+
+          This API exists in the old contract but not in the new contract (old.yaml:201:9)
+            """.trimIndent().normalizeBlankLines()
+        )
+    }
+
+    private fun String.normalizeBlankLines(): String {
+        return lineSequence().joinToString("\n") { line -> if (line.isBlank()) "" else line }
     }
 
     @Test
@@ -1022,9 +1337,9 @@ Feature: Contract API
 
 @WIP
 Scenario: api call
-When POST /data
-  And request-body (number)
+When GET /data
 Then status 200
+  And response-body (number)
     """.trim()
 
         val gherkin2 = """
@@ -1032,128 +1347,68 @@ Feature: Contract API
 
 @WIP
 Scenario: api call
-When POST /data
-  And request-body (string)
+When GET /data
 Then status 200
+  And response-body (string)
     """.trim()
 
         val results: Results =
             testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
 
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertThat(results.success()).isTrue
-        assertThat(results.hasFailures()).isFalse()
+        // The breaking WIP scenario is retained as an ignorable failure: it does not break the
+        // check, but it is still visible (so it shows up in console output) rather than dropped.
+        assertThat(results.successExcludingIgnorableFailures()).isTrue
+        assertThat(results.hasFailures()).isTrue()
+        assertThat(results.hasIgnorableFailures()).isTrue()
+        assertThat(results.withoutIgnorableFailures().hasFailures()).isFalse()
+        assertThat(results.ignorableFailures().report()).contains("GET /data")
     }
 
     @Test
-    fun `two xml contracts should be backward compatibility when the only thing changing is namespace prefixes`() {
-        val gherkin1 = """
-Feature: Contract API
+    fun `all breaking XML changes from the fixture pair are detected and annotated`() {
+        val oldSpec = File("src/test/resources/openapi/bcc-xml/old.yaml").readText()
+        val newSpec = File("src/test/resources/openapi/bcc-xml/new.yaml").readText()
 
-Scenario: api call
-When POST /data
-  And request-body <ns1:customer xmlns:ns1="http://example.com/customer"><name>(string)</name></ns1:customer>
-Then status 200
-    """.trim()
+        val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-        val gherkin2 = """
-Feature: Contract API
+        val results = testBackwardCompatibility(older, newer)
 
-Scenario: api call
-When POST /data
-  And request-body <ns2:customer xmlns:ns2="http://example.com/customer"><name>(string)</name></ns2:customer>
-Then status 200
-    """.trim()
-
-        val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
-
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertThat(results.success()).isTrue
-        assertThat(results.success()).isTrue()
-    }
-
-    @Test
-    fun `two xml contracts should not be backward compatibility when optional key is made mandatory in request`() {
-        val gherkin1 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body <ns1:customer xmlns:ns1="http://example.com/customer"><name specmatic_occurs="optional">(string)</name></ns1:customer>
-Then status 200
-    """.trim()
-
-        val gherkin2 = """
-Feature: Contract API
-
-Scenario: api call
-When POST /data
-  And request-body <ns2:customer xmlns:ns2="http://example.com/customer"><name>(string)</name></ns2:customer>
-Then status 200
-    """.trim()
-
-        val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
-
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertBackwardCompatibilityFailure(
-            results,
+        assertThat(results.success()).isFalse
+        assertThat(results.distinctReport().normalizeBlankLines()).isEqualToNormalizingNewlines(
             """
-            In scenario "api call"
-            API: POST /data -> 200
-            
-              >> REQUEST.BODY.customer.name
-              
-                  Didn't get enough values
-            """
-        )
-    }
+    In scenario "attribute breakage. Response: ok"
+    API: POST /attributes -> 200
 
-    @Test
-    fun `two xml contracts should not be backward compatibility when mandatory key is made optional in response`() {
-        val gherkin1 = """
-Feature: Contract API
+      >> REQUEST.BODY.order.id (new.yaml:20:17)
 
-Scenario: api call
-When POST /data
-  And request-body "test"
-Then status 200
-  And response-body <ns1:customer xmlns:ns1="http://example.com/customer"><name>(string)</name></ns1:customer>
-    """.trim()
+          R2001: Missing required property
+          Documentation: https://docs.specmatic.io/rules#r2001
+          Summary: A required property defined in the specification is missing
 
-        val gherkin2 = """
-Feature: Contract API
+          New specification expects attribute "id" in the request but it is missing from the old specification
 
-Scenario: api call
-When POST /data
-  And request-body "test"
-Then status 200
-  And response-body <ns1:customer xmlns:ns1="http://example.com/customer"><name specmatic_occurs="optional">(string)</name></ns1:customer>
-    """.trim()
+    In scenario "child property breakage. Response: ok"
+    API: POST /child-property -> 200
 
-        val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+      >> REQUEST.BODY.order.customer.name (new.yaml:57:21)
 
-        if (results.failureCount > 0)
-            println(results.report())
+          Didn't get enough values
 
-        assertBackwardCompatibilityFailure(
-            results,
-            """
-            In scenario "api call"
-            API: POST /data -> 200
-            
-              >> RESPONSE.BODY.customer.name
-              
-                  This node must occur whereas the other is optional.
-            """
+    In scenario "array item breakage. Response: ok"
+    API: POST /array-items -> 200
+
+      >> REQUEST.BODY.order.items.item.name (new.yaml:88:23)
+
+          Didn't get enough values
+
+    In scenario "response breakage. Response: ok"
+    API: POST /response -> 200
+
+      >> RESPONSE.BODY.customer.name (new.yaml:112:19)
+
+          This node must occur whereas the other is optional.
+    """.trimIndent()
         )
     }
 
@@ -1212,7 +1467,7 @@ Then status 200
                         properties:
                           data:
                             type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -1239,7 +1494,7 @@ Then status 200
                         properties:
                           data:
                             type: number
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -1360,7 +1615,7 @@ paths:
                   value: 10
               schema:
                 type: number
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1398,7 +1653,7 @@ paths:
                   value: 10
               schema:
                 type: number
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1407,10 +1662,10 @@ paths:
             """
         In scenario "hello world. Response: Says hello"
         API: POST /data -> 200
-        
+
         ${
                 toViolationReportString(
-                    breadCrumb = "REQUEST.BODY.data",
+                    breadCrumb = "REQUEST.BODY.data (new.yaml:20:17)",
                     details = "This is type string in the new specification, but type number in the old specification",
                     StandardRuleViolation.TYPE_MISMATCH
                 )
@@ -1612,7 +1867,7 @@ paths:
       responses:
         '200':
           description: ok
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1640,7 +1895,7 @@ paths:
       responses:
         '200':
           description: ok
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1648,8 +1903,8 @@ paths:
         assertThat(result.distinctReport()).isEqualTo("""
             In scenario "POST /ping. Response: ok"
             API: POST /ping -> 200
-            
-              >> REQUEST.BODY.timestamp
+
+              >> REQUEST.BODY.timestamp (new.yaml:19:17)
               
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
@@ -1657,7 +1912,7 @@ paths:
               
                   New specification expects property "timestamp" in the request but it is missing from the old specification
               
-              >> REQUEST.BODY.event
+              >> REQUEST.BODY.event (new.yaml:17:17)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -1699,7 +1954,7 @@ paths:
                 properties:
                   message:
                     type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1740,7 +1995,7 @@ paths:
                     type: number
                   code:
                     type: string
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1748,48 +2003,48 @@ paths:
         assertThat(result.distinctReport()).isEqualToIgnoringWhitespace("""
             In scenario "POST /ping. Response: common"
             API: POST /ping -> 200
-            
-              >> REQUEST.BODY.timestamp
-              
+
+              >> REQUEST.BODY.timestamp (new.yaml:19:17)
+
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
                   Summary: A required property defined in the specification is missing
-              
+
                   New specification expects property "timestamp" in the request but it is missing from the old specification
-              
-              >> REQUEST.BODY.event
-              
+
+              >> REQUEST.BODY.event (new.yaml:17:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
-            
+
             In scenario "POST /ping. Response: common"
             API: POST /ping -> 400
-            
-              >> REQUEST.BODY.timestamp
-              
+
+              >> REQUEST.BODY.timestamp (new.yaml:19:17)
+
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
                   Summary: A required property defined in the specification is missing
-              
+
                   New specification expects property "timestamp" in the request but it is missing from the old specification
-              
-              >> REQUEST.BODY.event
-              
+
+              >> REQUEST.BODY.event (new.yaml:17:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
-            
-              >> RESPONSE.BODY.message
-              
+
+              >> RESPONSE.BODY.message (new.yaml:33:19)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is number in the new specification response but string in the old specification
         """.trimIndent())
     }
@@ -1822,7 +2077,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -1856,7 +2111,7 @@ paths:
             text/plain:
               schema:
                 type: number
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result: Results = testBackwardCompatibility(oldContract, newContract)
@@ -1870,12 +2125,12 @@ paths:
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
             
-              >> REQUEST.BODY.data2
-              
+              >> REQUEST.BODY.data2 (new.yaml:21:17)
+
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
                   Summary: A required property defined in the specification is missing
-              
+
                   New specification expects property "data2" in the request but it is missing from the old specification
             
             In scenario "hello world. Response: Says hello"
@@ -2369,7 +2624,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -2400,7 +2655,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result = testBackwardCompatibility(oldContract, newContract)
@@ -2409,13 +2664,13 @@ paths:
             """
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY.data
-              
+
+              >> REQUEST.BODY.data (new.yaml:18:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type null in the old specification
             """
         )
@@ -2523,7 +2778,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "old.yaml"
         ).toFeature()
 
         val newContract = OpenApiSpecification.fromYAML(
@@ -2556,7 +2811,7 @@ paths:
             text/plain:
               schema:
                 type: string
-""".trimIndent(), ""
+""".trimIndent(), "new.yaml"
         ).toFeature()
 
         val result = testBackwardCompatibility(oldContract, newContract)
@@ -2565,21 +2820,21 @@ paths:
             """
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY.data
-              
+
+              >> REQUEST.BODY.data (new.yaml:18:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type null in the old specification
-              
-              >> REQUEST.BODY.data
-              
+
+              >> REQUEST.BODY.data (new.yaml:18:17)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type string in the new specification, but type null in the old specification
             """
         )
@@ -2707,7 +2962,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2733,7 +2988,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2766,7 +3021,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2792,7 +3047,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2801,13 +3056,13 @@ paths:
             """
             In scenario "get products. Response: OK"
             API: GET /products -> 200
-            
-              >> REQUEST.PARAMETERS.QUERY.brand_ids
-              
+
+              >> REQUEST.PARAMETERS.QUERY.brand_ids (new.yaml:11:11)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
             """
         )
@@ -2841,7 +3096,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2869,7 +3124,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -2904,7 +3159,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -2932,7 +3187,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -2942,12 +3197,12 @@ paths:
             API: GET /products -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.PARAMETERS.QUERY.brand_ids
-              
+             >> REQUEST.PARAMETERS.QUERY.brand_ids (new.yaml:11:11)
+
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
                   Summary: The value type does not match the expected type defined in the specification
-              
+
                   This is type number in the new specification, but type string in the old specification
             """.trimIndent())
     }
@@ -2978,7 +3233,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3006,7 +3261,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertThat(results.success()).isTrue
@@ -3040,7 +3295,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3066,7 +3321,7 @@ paths:
                     application/json:
                       schema:
                         type: string
-            """.trimIndent().openAPIToContract()
+            """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertThat(results.report())
@@ -3075,7 +3330,7 @@ paths:
             API: GET /products -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.PARAMETERS.QUERY.brand_ids
+             >> REQUEST.PARAMETERS.QUERY.brand_ids (new.yaml:11:11)
              R1001: Type mismatch
              Documentation: https://docs.specmatic.io/rules#r1001
              Summary: The value type does not match the expected type defined in the specification
@@ -3111,7 +3366,7 @@ paths:
                         '201':
                           description: Created
                           # No content key, indicating no body
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3148,7 +3403,7 @@ paths:
                                     type: string
                                   message:
                                     type: string
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3201,7 +3456,7 @@ paths:
                                     type: string
                                   message:
                                     type: string
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3230,7 +3485,7 @@ paths:
                         '201':
                           description: Created
                           # No content key, indicating no body
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -3279,7 +3534,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3296,7 +3551,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -3305,8 +3560,8 @@ paths:
             """
             In scenario "Create a product. Response: Created"
             API: POST /products -> 201
-            
-                  This API exists in the old contract but not in the new contract
+
+                  This API exists in the old contract but not in the new contract (old.yaml:7:5)
             """
         )
     }
@@ -3463,7 +3718,7 @@ paths:
               responses:
                 '200':
                   description: OK
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3485,7 +3740,7 @@ paths:
               responses:
                 '200':
                   description: OK
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val (stdout, _) = captureStandardOutput {
             testBackwardCompatibility(olderContract, newerContract)
@@ -3512,7 +3767,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature =
             """
@@ -3544,7 +3799,7 @@ paths:
                       responses:
                         '201':
                           description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         println(results.report())
@@ -3586,7 +3841,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3601,7 +3856,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3646,7 +3901,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3671,7 +3926,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3733,7 +3988,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3775,7 +4030,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3820,7 +4075,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("old.yaml")
 
         val newerContract: Feature = """
         openapi: 3.0.0
@@ -3851,7 +4106,7 @@ paths:
               responses:
                 '201':
                   description: Created
-        """.trimIndent().openAPIToContract()
+        """.trimIndent().openAPIToContract("new.yaml")
 
         val results: Results = testBackwardCompatibility(olderContract, newerContract)
         assertBackwardCompatibilityFailure(
@@ -3859,8 +4114,8 @@ paths:
             expectedReport = """
             In scenario "Create a product. Response: Created"
             API: POST /products -> 201
-            
-                  This API exists in the old contract but not in the new contract
+
+                  This API exists in the old contract but not in the new contract (old.yaml:7:5)
             """
         )
     }
@@ -4113,8 +4368,8 @@ paths:
           description: Validation successful
 """.trimIndent()
 
-        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
-        val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
+        val olderContract = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
+        val newerContract = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
         val result: Results = testBackwardCompatibility(olderContract, newerContract)
 
@@ -4125,12 +4380,12 @@ paths:
             API: POST /products/validate -> 200
             """.trimIndent())
             .containsIgnoringWhitespaces("""
-             >> REQUEST.BODY.data[0]
-  
+             >> REQUEST.BODY.data[0] (new.yaml:19:19)
+
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
               Summary: The value type does not match the expected type defined in the specification
-          
+
               This is type boolean in the new specification, but type string in the old specification
             """.trimIndent())
     }
@@ -4140,18 +4395,18 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
         API: GET /missing -> 200
         
-              This API exists in the old contract but not in the new contract
+              This API exists in the old contract but not in the new contract (src/test/resources/openapi/multi_req_res_ct/openapi_v1.yaml:7:5)
         
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4162,7 +4417,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:43:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4173,7 +4428,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4184,7 +4439,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:51:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4195,7 +4450,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4206,7 +4461,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:62:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4217,7 +4472,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:23:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4228,29 +4483,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is number in the new specification response but string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> REQUEST.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is type number in the new specification, but type string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:70:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4261,7 +4494,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4272,7 +4505,29 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:43:19)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:51:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4283,7 +4538,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4294,7 +4549,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:62:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4305,7 +4560,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4316,7 +4571,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct/openapi_v2.yaml:70:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4331,7 +4586,7 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/single_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/single_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses()
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
@@ -4391,18 +4646,18 @@ paths:
         val specificationV1 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml")
         val specificationV2 = OpenApiSpecification.fromFile("src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml")
         val bccChecker = OpenApiBackwardCompatibilityChecker(specificationV1.toFeature(), specificationV2.toFeature())
-        val result = bccChecker.run().toBackwardCompatibilityResults()
+        val result = bccChecker.run().toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
 
         assertThat(result.report()).isEqualToNormalizingNewlines("""
         In scenario "Missing endpoint. Response: A simple string response"
         API: GET /missing -> 200
         
-              This API exists in the old contract but not in the new contract
+              This API exists in the old contract but not in the new contract (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v1.yaml:7:5)
         
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4413,7 +4668,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:58:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4424,7 +4679,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4435,7 +4690,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:66:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4446,7 +4701,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4457,7 +4712,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:84:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4468,7 +4723,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field
+          >> REQUEST.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:31:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4479,29 +4734,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is number in the new specification response but string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> REQUEST.BODY.field2
-          
-              R1001: Type mismatch
-              Documentation: https://docs.specmatic.io/rules#r1001
-              Summary: The value type does not match the expected type defined in the specification
-          
-              This is type number in the new specification, but type string in the old specification
-        
-        In scenario "Simple test POST endpoint. Response: A simple integer response"
-        API: POST /exists/(id:string) -> 200
-        
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:92:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4512,7 +4745,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4523,7 +4756,29 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 200
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:58:19)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is number in the new specification response but string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
+          
+              R1001: Type mismatch
+              Documentation: https://docs.specmatic.io/rules#r1001
+              Summary: The value type does not match the expected type defined in the specification
+          
+              This is type number in the new specification, but type string in the old specification
+        
+        In scenario "Simple test POST endpoint. Response: A simple integer response"
+        API: POST /exists/(id:string) -> 200
+        
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:66:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4534,7 +4789,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4545,7 +4800,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field
+          >> RESPONSE.BODY.field (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:84:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4556,7 +4811,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> REQUEST.BODY.field2
+          >> REQUEST.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:39:17)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4567,7 +4822,7 @@ paths:
         In scenario "Simple test POST endpoint. Response: A simple integer response"
         API: POST /exists/(id:string) -> 201
         
-          >> RESPONSE.BODY.field2
+          >> RESPONSE.BODY.field2 (src/test/resources/openapi/multi_req_res_ct_overriden/openapi_v2.yaml:92:19)
           
               R1001: Type mismatch
               Documentation: https://docs.specmatic.io/rules#r1001
@@ -4674,7 +4929,7 @@ paths:
         val newerContract = OpenApiSpecification.fromFile(newerSpec.canonicalPath).toFeature()
         val reportDir = tempDir.resolve("reports/backward_compatibility").canonicalFile
 
-        using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+        using(CONFIG_FILE_PATH to configFile.canonicalPath) {
             val (result, report) = testBackwardCompatibilityWithReport(olderContract, newerContract)
             assertThat(report).withFailMessage("Expected CTRF Report to be generated").isNotNull
             assertThat(result.success()).isFalse
@@ -4711,8 +4966,7 @@ paths:
             assertThat(postOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(postOperation.path("testIds").isArray).isTrue()
             assertThat(postOperation.path("testIds").size()).isGreaterThan(0)
-            assertThat(postOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
-            assertThat(postOperation.path("compatibility").path("result").asText()).isEqualTo("Incompatible")
+            assertThat(postOperation.path("status").asText()).isEqualTo("incompatible")
 
             val getOperation = operations.first { it.path("method").asText() == "GET" }
             assertThat(getOperation.path("path").asText()).isEqualTo("/orders")
@@ -4722,8 +4976,24 @@ paths:
             assertThat(getOperation.path("qualifiers").map { it.asText() }).containsExactly("changed")
             assertThat(getOperation.path("testIds").isArray).isTrue()
             assertThat(getOperation.path("testIds").size()).isGreaterThan(0)
-            assertThat(getOperation.path("compatibility").path("changeStatus").asText()).isEqualTo("CHANGED")
-            assertThat(getOperation.path("compatibility").path("result").asText()).isEqualTo("Compatible")
+            assertThat(getOperation.path("status").asText()).isEqualTo("compatible")
+        }
+    }
+
+    @Test
+    fun `generateBackwardCompatibilityReport returns null and writes nothing when there are no records`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 2
+            reportDirPath: ${tempDir.canonicalPath}/reports
+            """.trimIndent())
+        }
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val report = generateBackwardCompatibilityReport(emptyList(), 0L, 1L)
+
+            assertThat(report).isNull()
+            assertThat(tempDir.resolve("reports")).doesNotExist()
         }
     }
 
@@ -4734,44 +5004,631 @@ paths:
             val oldSpec = readFixture("orders_old.yaml")
             val newSpec = readFixture("orders_new.yaml")
 
-            val operations = runBccAndGetOperations(tempDir, oldSpec, newSpec)
+            val (results, report) = runBcc(tempDir, oldSpec, newSpec)
+            val operations = operationsFrom(report)
             val json = "application/json"
 
+            // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}, the anyOf/oneOf
+            // unions, and the reffed-out request body/response/path-item/header) fail the check;
+            // the breaking WIP operation does not contribute to this verdict.
+            assertThat(results.success()).isFalse()
+
+            // The full console report: every incompatibility (including the breaking WIP
+            // operation GET /promotions, which is shown but does not break the verdict). Each
+            // located breadcrumb is asserted at the source position of the element that changed,
+            // including across $ref'd-out request bodies, responses, path items, and headers.
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "GET /orders. Response: bad request"
+            API: GET /orders -> 400
+
+              >> RESPONSE.BODY.code (new.yaml:283:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /orders. Response: server error"
+            API: GET /orders -> 500
+
+                  This API exists in the old contract but not in the new contract (old.yaml:28:9)
+
+            In scenario "DELETE /orders/(id:string). Response: deleted"
+            API: DELETE /orders/(id:string) -> 204
+
+                  This API exists in the old contract but not in the new contract (old.yaml:87:5)
+
+            In scenario "GET /shipments. Response: ok"
+            API: GET /shipments -> 200
+
+              >> RESPONSE.BODY.weight (new.yaml:332:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+              
+              >> RESPONSE.BODY.carrier (new.yaml:340:13)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /promotions. Response: ok"
+            API: GET /promotions -> 200
+
+              >> RESPONSE.BODY.code (new.yaml:116:19)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "PUT /widgets/(widgetId:number). Response: ok"
+            API: PUT /widgets/(widgetId:number) -> 200
+
+              >> REQUEST.PARAMETERS.PATH.widgetId (new.yaml:344:7)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+
+            In scenario "GET /anyof. Response: ok"
+            API: GET /anyof -> 200
+
+              >> RESPONSE.BODY.alpha (old.yaml:186:23)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "alpha" but it is missing in the new specification
+
+            In scenario "GET /oneof. Response: ok"
+            API: GET /oneof -> 200
+
+              >> RESPONSE.BODY.gamma (new.yaml:174:23)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  The old specification expects property "gamma" but it is missing in the new specification
+
+            In scenario "POST /parcels. Response: ok"
+            API: POST /parcels -> 200
+
+              >> REQUEST.BODY.size (new.yaml:358:15)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type number in the new specification, but type string in the old specification
+
+            In scenario "GET /inventory. Response: ok"
+            API: GET /inventory -> 200
+
+              >> RESPONSE.BODY.count (new.yaml:369:15)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /audit. Response: ok"
+            API: GET /audit -> 200
+
+              >> RESPONSE.BODY.event (new.yaml:383:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+
+            In scenario "GET /tokens. Response: ok"
+            API: GET /tokens -> 200
+
+              >> RESPONSE.HEADER.X-Rate-Limit (new.yaml:386:5)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is number in the new specification response but string in the old specification
+            """.trimIndent())
+
             // NEW-SIDE N1: Order gains optional `notes` -> CHANGED + Compatible on every Order-using row
-            operations.assertRow(OperationKey("GET", "/orders", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
-            operations.assertRow(OperationKey("POST", "/orders", json, 201, json), changeStatus = "CHANGED", result = "Compatible")
-            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/orders", null, 200, json), changeStatus = "CHANGED", result = "compatible")
+            operations.assertRow(OperationKey("POST", "/orders", json, 201, json), changeStatus = "CHANGED", result = "compatible")
+            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 200, json), changeStatus = "CHANGED", result = "compatible")
 
             // NEW-SIDE N2: ErrorBrief.code string -> integer (reachable ONLY from GET /orders 400)
-            operations.assertRow(OperationKey("GET", "/orders", null, 400, json), changeStatus = "CHANGED", result = "Incompatible")
+            operations.assertRow(OperationKey("GET", "/orders", null, 400, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N3: Self-recursive Category gains optional `description`
-            operations.assertRow(OperationKey("GET", "/categories", null, 200, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/categories", null, 200, json), changeStatus = "CHANGED", result = "compatible")
+
+            // NEW-SIDE N4 (breaking): Shipment is an allOf of a $ref'd constituent (ShipmentBase,
+            // contributing `weight`) and an inline constituent (contributing `carrier`). Both
+            // properties change type string -> number, so GET /shipments 200 is CHANGED +
+            // Incompatible. The console report above asserts each breadcrumb is annotated at the
+            // constituent that declares the property (ShipmentBase.weight and the inline carrier),
+            // proving annotateAllOfPattern resolves both $ref and inline allOf members.
+            operations.assertRow(OperationKey("GET", "/shipments", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N5 (breaking): PUT /widgets/{widgetId} takes its `widgetId` path parameter
+            // via $ref to #/components/parameters/WidgetId, whose schema changes string -> integer.
+            // The $ref use-site has no `name`, so the breadcrumb must resolve to the component
+            // parameter's `name` key (asserted at new.yaml:248:7 in the console report above) -
+            // a regression guard that reffed-out path parameters are located at the component.
+            operations.assertRow(OperationKey("PUT", "/widgets/{widgetId}", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // OLD-SIDE O1 (non-breaking): ErrorDetailed loses optional `traceId`
-            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/orders/{id}", null, 404, json), changeStatus = "CHANGED", result = "compatible")
 
             // OLD-SIDE O2 (breaking): DELETE /orders/{id} removed from new (no request/response body)
-            operations.assertRow(OperationKey("DELETE", "/orders/{id}", null, 204, null), changeStatus = "CHANGED", result = "Incompatible")
+            operations.assertRow(OperationKey("DELETE", "/orders/{id}", null, 204, null), changeStatus = "CHANGED", result = "incompatible")
 
             // OLD-SIDE O3 (breaking): GET /orders 500 response removed from new
-            operations.assertRow(OperationKey("GET", "/orders", null, 500, json), changeStatus = "CHANGED", result = "Incompatible")
+            operations.assertRow(OperationKey("GET", "/orders", null, 500, json), changeStatus = "CHANGED", result = "incompatible")
 
             // UNCHANGED 5-tuple sharing a (path, method) with a CHANGED row -
             // POST /orders 400 uses OrderInput (untouched) for request and ValidationError
             // (untouched) for response, while POST /orders 201 uses Order (changed) for response.
-            operations.assertRow(OperationKey("POST", "/orders", json, 400, json), changeStatus = "UNCHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("POST", "/orders", json, 400, json), changeStatus = "UNCHANGED", result = "compatible")
 
             // UNCHANGED standalone operation - GET /health is identical in both specs
-            operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "Compatible")
+            operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "compatible")
+
+            // WIP operation: still executes and is change-tracked. `code` changes string -> integer
+            // (breaking), so the operation is CHANGED + Incompatible and carries the `wip` qualifier.
+            // It must NOT break the verdict (asserted separately below).
+            val wipRow = operations.assertRow(OperationKey("GET", "/promotions", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+            assertThat(wipRow.path("qualifiers").map { it.asText() })
+                .describedAs("WIP operation qualifiers")
+                .contains("wip")
+
+            // NEW-SIDE N6 (breaking): GET /anyof returns an anyOf of two inline object members;
+            // member[1].beta changes type string -> integer. The located breadcrumb above
+            // (old.yaml:186:23) resolves to the `alpha` branch member, proving annotateAnyOfPattern
+            // annotates per-branch property pointers.
+            operations.assertRow(OperationKey("GET", "/anyof", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N7 (breaking): GET /oneof returns a oneOf of two inline object members;
+            // member[1].delta changes type string -> integer. The located breadcrumb above
+            // (new.yaml:174:23) resolves to the `gamma` branch member, proving annotateAnyPattern
+            // annotates per-branch property pointers.
+            operations.assertRow(OperationKey("GET", "/oneof", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N8 (breaking): POST /parcels takes its request body via $ref to
+            // #/components/requestBodies/ParcelBody, whose schema property `size` changes type
+            // string -> integer. The REQUEST.BODY.size breadcrumb is annotated at the component
+            // requestBody's schema (new.yaml:358:15), not the use-site - a reffed-out request body.
+            operations.assertRow(OperationKey("POST", "/parcels", json, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N9 (breaking): GET /inventory returns a $ref to
+            // #/components/responses/InventoryOk, whose schema property `count` changes type
+            // string -> integer. The RESPONSE.BODY.count breadcrumb is annotated at the component
+            // response's schema (new.yaml:369:15) - a reffed-out response.
+            operations.assertRow(OperationKey("GET", "/inventory", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N10 (breaking): /audit is a $ref to #/components/pathItems/Audit, whose
+            // GET 200 response schema property `event` changes type string -> integer. The
+            // RESPONSE.BODY.event breadcrumb resolves to the component pathItem's schema
+            // (new.yaml:383:21) - a reffed-out path item.
+            operations.assertRow(OperationKey("GET", "/audit", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
+
+            // NEW-SIDE N11 (breaking): GET /tokens 200 declares a header via $ref to
+            // #/components/headers/RateLimit, whose schema changes type string -> integer. The
+            // RESPONSE.HEADER.X-Rate-Limit breadcrumb resolves to the component header definition
+            // (new.yaml:386:5) - a reffed-out response header.
+            operations.assertRow(OperationKey("GET", "/tokens", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 10 operation rows in the report")
-                .hasSize(10)
+                .describedAs("expected 19 operation rows in the report")
+                .hasSize(19)
         }
 
-        private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String) {
+        @Test
+        fun `a breaking wip operation executes and is reported as other while retaining its incompatible raw status`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("orders_old.yaml")
+            val newSpec = readFixture("orders_new.yaml")
+
+            val (results, report) = runBcc(tempDir, oldSpec, newSpec)
+
+            // The breaking WIP operation does not drive the verdict; the real breaking changes do.
+            assertThat(results.success()).isFalse()
+
+            val reportJson = OBJECT_MAPPER.valueToTree<JsonNode>(report)
+            val tests = reportJson.path("results").path("tests")
+            val wipTests = tests.filter { it.path("tags").map { tag -> tag.asText() }.contains("wip") }
+            assertThat(wipTests).describedAs("WIP tests in the report").isNotEmpty()
+
+            // Every WIP test is reported as `other` (never `passed`/`failed`).
+            assertThat(wipTests).allSatisfy { wipTest ->
+                assertThat(wipTest.path("status").asText()).isEqualTo("other")
+            }
+            // The WIP operation actually executed and produced a real failure: at least one WIP
+            // test retains an `incompatible` raw status even though its reported state is `other`.
+            assertThat(wipTests).anySatisfy { wipTest ->
+                assertThat(wipTest.path("rawStatus").asText()).isEqualTo("incompatible")
+            }
+
+            // The WIP failure is counted under `other`, never `failed`.
+            val summary = reportJson.path("results").path("summary")
+            assertThat(summary.path("other").asInt()).isGreaterThanOrEqualTo(1)
+        }
+
+        @Test
+        fun `composition keyword and ref form combinations annotate source locations at the changed property`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_old.yaml")
+            val newSpec = readFixture("composition_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /allof-inline. Response: ok"
+            API: POST /allof-inline -> 200
+
+              >> REQUEST.BODY.count (new.yaml:28:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /allof-reffed. Response: ok"
+            API: POST /allof-reffed -> 200
+
+              >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /allof-payload-ref. Response: ok"
+            API: POST /allof-payload-ref -> 200
+
+              >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /oneof-inline. Response: ok"
+            API: POST /oneof-inline -> 200
+
+              >> REQUEST.BODY.name (new.yaml:71:21)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.count (new.yaml:76:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /oneof-reffed. Response: ok"
+            API: POST /oneof-reffed -> 200
+
+              >> REQUEST.BODY (when MetricName object).name (new.yaml:161:9)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY (when MetricCount object).count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /oneof-payload-ref. Response: ok"
+            API: POST /oneof-payload-ref -> 200
+
+              >> REQUEST.BODY (when MetricName object).name (new.yaml:161:9)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY (when MetricCount object).count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /anyof-inline. Response: ok"
+            API: POST /anyof-inline -> 200
+
+              >> REQUEST.BODY.count (new.yaml:124:21)
+              
+                  R3005: Property matches no schema option
+                  Documentation: https://docs.specmatic.io/rules#r3005
+                  Summary: The property does not satisfy any available schema options
+              
+                  Key 'count' did not match any anyOf option that declares it
+              
+              >> REQUEST.BODY.count (new.yaml:124:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+              
+              >> REQUEST.BODY.name (new.yaml:119:21)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.count (new.yaml:124:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /anyof-reffed. Response: ok"
+            API: POST /anyof-reffed -> 200
+
+              >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R3005: Property matches no schema option
+                  Documentation: https://docs.specmatic.io/rules#r3005
+                  Summary: The property does not satisfy any available schema options
+              
+                  Key 'count' did not match any anyOf option that declares it
+              
+              >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+              
+              >> REQUEST.BODY (when MetricName object).name (new.yaml:161:9)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY (when MetricCount object).count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /anyof-payload-ref. Response: ok"
+            API: POST /anyof-payload-ref -> 200
+
+              >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R3005: Property matches no schema option
+                  Documentation: https://docs.specmatic.io/rules#r3005
+                  Summary: The property does not satisfy any available schema options
+              
+                  Key 'count' did not match any anyOf option that declares it
+              
+              >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+              
+              >> REQUEST.BODY (when MetricName object).name (new.yaml:161:9)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY (when MetricCount object).count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
+        @Test
+        fun `oneOf and anyOf with a nullable empty-object branch still annotate the changed property`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_nullable_old.yaml")
+            val newSpec = readFixture("composition_nullable_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /oneof-nullable-first. Response: ok"
+            API: POST /oneof-nullable-first -> 200
+
+              >> REQUEST.BODY.count (new.yaml:25:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /oneof-nullable-middle. Response: ok"
+            API: POST /oneof-nullable-middle -> 200
+
+              >> REQUEST.BODY.name (new.yaml:42:21)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY.count (new.yaml:49:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /anyof-nullable-first. Response: ok"
+            API: POST /anyof-nullable-first -> 200
+
+              >> REQUEST.BODY.count (new.yaml:68:21)
+              
+                  R3005: Property matches no schema option
+                  Documentation: https://docs.specmatic.io/rules#r3005
+                  Summary: The property does not satisfy any available schema options
+              
+                  Key 'count' did not match any anyOf option that declares it
+              
+              >> REQUEST.BODY.count (new.yaml:68:21)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
+        @Test
+        fun `array bodies reached through a ref annotate the changed item property`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_array_old.yaml")
+            val newSpec = readFixture("composition_array_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /array-body-ref. Response: ok"
+            API: POST /array-body-ref -> 200
+
+              >> REQUEST.BODY[0].count (new.yaml:50:11)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /array-items-ref. Response: ok"
+            API: POST /array-items-ref -> 200
+
+              >> REQUEST.BODY[0].count (new.yaml:42:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
+        @Test
+        fun `form-urlencoded and multipart bodies annotate the changed field at its source`(@TempDir tempDir: File) {
+            val oldSpec = readFixture("composition_multipart_old.yaml")
+            val newSpec = readFixture("composition_multipart_new.yaml")
+
+            val (results, _) = runBcc(tempDir, oldSpec, newSpec)
+
+            assertThat(results.success()).isFalse()
+
+            assertThat(results.report()).isEqualToNormalizingNewlines("""
+            In scenario "POST /urlencoded-inline. Response: ok"
+            API: POST /urlencoded-inline -> 200
+
+              >> REQUEST.FORM-FIELDS.count (new.yaml:21:17)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type string in the old specification
+
+            In scenario "POST /urlencoded-ref. Response: ok"
+            API: POST /urlencoded-ref -> 200
+
+              >> REQUEST.FORM-FIELDS.count (new.yaml:72:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type string in the old specification
+
+            In scenario "POST /multipart-inline. Response: ok"
+            API: POST /multipart-inline -> 200
+
+              >> REQUEST.MULTIPART-FORMDATA.count (new.yaml:49:17)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+
+            In scenario "POST /multipart-ref. Response: ok"
+            API: POST /multipart-ref -> 200
+
+              >> REQUEST.MULTIPART-FORMDATA.count (new.yaml:78:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+            """.trimIndent())
+        }
+
+        private fun JsonNode.assertRow(key: OperationKey, changeStatus: String, result: String): JsonNode {
             val row = firstOrNull { node ->
                 node.path("method").asText() == key.method &&
                 node.path("path").asText() == key.path &&
@@ -4785,11 +5642,8 @@ paths:
                         "status=${node.path("responseCode").asInt()} " +
                         "resCT=${node.path("responseContentType").asText().ifEmpty { "null" }}"
                 })
-            assertThat(row.path("compatibility").path("changeStatus").asText())
-                .describedAs("changeStatus for $key")
-                .isEqualTo(changeStatus)
-            assertThat(row.path("compatibility").path("result").asText())
-                .describedAs("result for $key")
+            assertThat(row.path("status").asText())
+                .describedAs("status for $key")
                 .isEqualTo(result)
             val qualifiers = row.path("qualifiers").map { it.asText() }
             if (changeStatus == "CHANGED") {
@@ -4797,12 +5651,13 @@ paths:
             } else {
                 assertThat(qualifiers).describedAs("qualifiers for $key").doesNotContain("changed")
             }
+            return row
         }
 
         private fun readFixture(name: String): String =
             javaClass.getResource("/openapi/bcc_integration/$name")!!.readText()
 
-        private fun runBccAndGetOperations(tempDir: File, oldSpec: String, newSpec: String): JsonNode {
+        private fun runBcc(tempDir: File, oldSpec: String, newSpec: String): Pair<Results, CtrfReport?> {
             val configFile = tempDir.resolve("specmatic.yaml").apply {
                 writeText("""
                 version: 2
@@ -4812,11 +5667,14 @@ paths:
             val oldFeature = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-            return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
-                val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
-                val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
-                json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
+            return using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+                testBackwardCompatibilityWithReport(oldFeature, newFeature)
             }
+        }
+
+        private fun operationsFrom(report: CtrfReport?): JsonNode {
+            val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
+            return json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
         }
     }
 
@@ -4894,8 +5752,9 @@ paths:
                 (case.responseContentType == null || it.path("responseContentType").asText() == case.responseContentType)
             }
 
-            assertThat(op.path("compatibility").path("changeStatus").asText())
-                .isEqualTo(case.expected.name)
+            val qualifiers = op.path("qualifiers").map { it.asText() }
+            val changeStatus = if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
+            assertThat(changeStatus).isEqualTo(case.expected.name)
         }
 
         @Test
@@ -5026,7 +5885,8 @@ paths:
                 (contentType == null || it.path("contentType").asText() == contentType) &&
                 (responseContentType == null || it.path("responseContentType").asText() == responseContentType)
             }
-            return operation.path("compatibility").path("changeStatus").asText()
+            val qualifiers = operation.path("qualifiers").map { it.asText() }
+            return if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
         }
 
         // TODO(product): decide whether new-only operations should surface as CHANGED in the BCC report.
@@ -5062,7 +5922,7 @@ paths:
             val oldFeature = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-            return using(CONFIG_FILE_PATH to configFile.canonicalPath, "SPECMATIC_BCC_REPORT" to "true") {
+            return using(CONFIG_FILE_PATH to configFile.canonicalPath) {
                 val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
                 val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
                 json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
@@ -5776,6 +6636,6 @@ internal data class ChangeStatusCase(
     override fun toString(): String = name
 }
 
-private fun String.openAPIToContract(): Feature {
-    return OpenApiSpecification.fromYAML(this, "").toFeature()
+private fun String.openAPIToContract(fileName: String = ""): Feature {
+    return OpenApiSpecification.fromYAML(this, fileName).toFeature()
 }
