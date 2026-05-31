@@ -144,6 +144,47 @@ class MockServerToolTest {
     }
 
     @Test
+    fun `manageMockServer start should cleanup resources if timeout occurs`() {
+        mockkConstructor(StubCommand::class)
+        every { anyConstructed<StubCommand>().call() } returns 0
+        every { anyConstructed<StubCommand>().close() } just Runs
+        
+        // Simulate timeout
+        coEvery { waitUntilConnectable(any(), any(), any()) } returns false
+
+        val args = ManageMockServerArgs(
+            command = "start",
+            openApiSpec = "openapi: 3.0.0...",
+            port = 9025
+        )
+        
+        val result = tool.manageMockServer(args)
+
+        assertThat(result).contains("The mock server did not become reachable on port 9025")
+        
+        // Verify StubCommand was closed
+        verify { anyConstructed<StubCommand>().close() }
+        
+        // Verify internal state
+        assertThat(getRunningMocks()).doesNotContainKey(9025)
+    }
+
+    @Test
+    fun `manageMockServer start should fail if port is already in use by another managed mock`() {
+        mockkConstructor(StubCommand::class)
+        every { anyConstructed<StubCommand>().call() } returns 0
+        every { anyConstructed<StubCommand>().close() } just Runs
+        coEvery { waitUntilConnectable(any(), any(), any()) } returns true
+
+        tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9020))
+        
+        val result = tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9020))
+
+        assertThat(result).contains("Failed to start mock server")
+        assertThat(result).contains("Port 9020 is already in use by a mock server running in this process.")
+    }
+
+    @Test
     fun `manageMockServer start should fail if openApiSpec is missing`() {
         val args = ManageMockServerArgs(command = "start", port = 9000)
         
