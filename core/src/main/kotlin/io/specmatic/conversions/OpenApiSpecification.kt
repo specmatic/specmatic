@@ -2228,6 +2228,7 @@ class OpenApiSpecification(
     // breadcrumbs and source locations use the same pointer namespace.
     private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
         val model = parsedOpenApiModel
+        val entryMap = sourceMapCache[entryFileKey].orEmpty()
         val projections = linkedSetOf<ExternalSourceProjection>()
 
         do {
@@ -2240,9 +2241,15 @@ class OpenApiSpecification(
                     // Otherwise the content was inlined, and we don't know a priori whether it landed
                     // at the use site (whole-file PathItem/requestBody/response) or under a fragment
                     // pointer the parser kept addressable, so we project both candidates; only the one
-                    // that matches a breadcrumb pointer is ever read back out.
+                    // that matches a breadcrumb pointer is ever read back out. The fragment candidate
+                    // is dropped when the entry spec already owns that pointer: the parser gave the
+                    // entry component the name, so the external content was inlined at the use site (or
+                    // renamed elsewhere) and projecting it here would overwrite the entry's own location.
                     val targetPointers = modelRef?.removePrefix("#")?.let(::listOf)
-                        ?: listOfNotNull(modelPointer, refUse.targetBasePointer.takeIf { it.isNotEmpty() }).distinct()
+                        ?: listOfNotNull(
+                            modelPointer,
+                            refUse.targetBasePointer.takeIf { it.isNotEmpty() && it !in entryMap },
+                        ).distinct()
                     targetPointers.forEach { targetPointer ->
                         val projection = ExternalSourceProjection(
                             sourceFile = refUse.targetFile,

@@ -5744,6 +5744,19 @@ paths:
                 assertThat(results.report()).contains(">> RESPONSE.BODY.state ($commonB:18:21)")
             }
 
+            // The entry spec owns #/components/pathItems/Status AND also refs an external file's
+            // identically-named fragment. A change inside the entry's own path item must stay anchored
+            // in the entry file: the external projection must not bleed over the entry component pointer.
+            @Test
+            fun `an entry path item is not relocated by an external ref sharing its fragment`() {
+                val results = compare("entry-owns-path-item-fragment")
+                assertThat(results.success()).isFalse()
+                val api = at("entry-owns-path-item-fragment", "new/api.yaml")
+                val common = at("entry-owns-path-item-fragment", "new/common.yaml")
+                assertThat(results.report()).contains(">> RESPONSE.BODY.state ($api:21:21)")
+                assertThat(results.report()).doesNotContain(">> RESPONSE.BODY.state ($common:18:21)")
+            }
+
             @Test
             fun `two external request body files sharing a fragment each keep their own source location`() {
                 val results = compare("requestbody-same-fragment-collision")
