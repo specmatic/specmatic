@@ -2194,10 +2194,13 @@ class BackwardCompatibilityCheckCommandV2Test {
             val apiA = tempDir.resolve("apiA.yaml").canonicalFile.invariantSeparatorsPath
             val apiB = tempDir.resolve("apiB.yaml").canonicalFile.invariantSeparatorsPath
 
-            assertThat(stdOut).contains("Verdict for spec $apiA:")
-            assertThat(stdOut).contains("Verdict for spec $apiB:")
+            // The verdict line prints OS-native paths, so normalize separators before matching the
+            // forward-slash invariant paths (Windows would otherwise emit backslashes).
+            val normalizedOut = stdOut.replace('\\', '/')
+            assertThat(normalizedOut).contains("Verdict for spec $apiA:")
+            assertThat(normalizedOut).contains("Verdict for spec $apiB:")
             // Both referring specs are incompatible, each annotated at the change in the shared file.
-            assertThat(stdOut.split(">> REQUEST.BODY.name ($common:10:9)")).hasSize(3)
+            assertThat(normalizedOut.split(">> REQUEST.BODY.name ($common:10:9)")).hasSize(3)
         }
 
         private fun productBase(type: String) = """
