@@ -105,6 +105,10 @@ class OpenApiSpecification(
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
     private val openApiPathTokenizer: TemplateTokenizer = TemplateTokenizer(TemplateTokenizer.openApiPathRegex)
 
+    private val entryFileKey: String = File(openApiFilePath).invariantSeparatorsPath
+    private val sourceMapCache: MutableMap<String, Map<String, YamlNodeLocation>> =
+        mutableMapOf(entryFileKey to jsonPointerSourceMap)
+
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
         logger.log(openApiSpecificationInfo(openApiFilePath, parsedOpenApi))
@@ -1923,6 +1927,31 @@ class OpenApiSpecification(
         return null
     }
 
+    private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
+        sourceMapCache.getOrPut(file) {
+            runCatching { JsonPointerSourceMap(File(file).readText()).build() }.getOrElse { emptyMap() }
+        }
+
+    private fun resolveExternalFile(refFile: String, currentFile: String): String =
+        File(currentFile).canonicalFile.parentFile.resolve(refFile).canonicalPath
+
+    private var externalFilesDiscovered = false
+
+    private fun discoverExternalFiles() {
+        if (externalFilesDiscovered) return
+        externalFilesDiscovered = true
+        val queue = ArrayDeque(sourceMapCache.keys.toList())
+        val visited = sourceMapCache.keys.toMutableSet()
+        while (queue.isNotEmpty()) {
+            val file = queue.removeFirst()
+            sourceMapFor(file).values.mapNotNull { it.rawRef }.forEach { rawRef ->
+                val refFile = rawRef.substringBefore("#", "").takeIf { it.isNotEmpty() } ?: return@forEach
+                val resolved = resolveExternalFile(refFile, file)
+                if (visited.add(resolved)) queue.addLast(resolved)
+            }
+        }
+    }
+
     private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
         return jsonPointerSourceMap[useSitePointer]?.refTarget
             ?: internalRefPointer(ref)
@@ -2143,10 +2172,20 @@ class OpenApiSpecification(
     }
 
     private val sourceLocations: Map<String, SourceLocation> by lazy {
-        val displayPath = File(openApiFilePath).invariantSeparatorsPath
-        jsonPointerSourceMap.mapValues { (_, node) ->
-            SourceLocation(displayPath, node.line, node.column)
+        discoverExternalFiles()
+        val locations = mutableMapOf<String, SourceLocation>()
+        val entryMap = sourceMapCache[entryFileKey].orEmpty()
+        sourceMapCache.forEach { (file, map) ->
+            if (file == entryFileKey) return@forEach
+            val displayPath = File(file).invariantSeparatorsPath
+            map.forEach { (pointer, node) ->
+                if (pointer !in entryMap) locations[pointer] = SourceLocation(displayPath, node.line, node.column)
+            }
         }
+        entryMap.forEach { (pointer, node) ->
+            locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
+        }
+        locations
     }
 
     private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext>? {

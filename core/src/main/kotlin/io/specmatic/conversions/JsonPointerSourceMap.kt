@@ -14,7 +14,8 @@ data class YamlNodeLocation(
     val line: Int,
     val column: Int,
     val nodeKind: YamlNodeKind,
-    val refTarget: String? = null
+    val refTarget: String? = null,
+    val rawRef: String? = null
 )
 
 class JsonPointerSourceMap(private val yaml: String) {
@@ -26,7 +27,7 @@ class JsonPointerSourceMap(private val yaml: String) {
     }
 
     private fun walk(node: Node, pointer: String, mark: Mark, out: MutableMap<String, YamlNodeLocation>) {
-        out[pointer] = locationOf(node, mark, refTargetOf(node))
+        out[pointer] = locationOf(node, mark, rawRefOf(node))
         when (node) {
             is MappingNode -> for (tuple in node.value) {
                 val keyNode = tuple.keyNode
@@ -42,22 +43,26 @@ class JsonPointerSourceMap(private val yaml: String) {
         }
     }
 
-    private fun refTargetOf(node: Node): String? {
+    private fun rawRefOf(node: Node): String? {
         if (node !is MappingNode) return null
         for (tuple in node.value) {
             val keyNode = tuple.keyNode
             val valueNode = tuple.valueNode
             if (keyNode is ScalarNode && keyNode.value == $$"$ref" && valueNode is ScalarNode) {
-                val ref = valueNode.value
-                if (ref.startsWith("#/")) return ref.removePrefix("#")
-                if (ref == "#") return ""
-                return null
+                return valueNode.value
             }
         }
         return null
     }
 
-    private fun locationOf(node: Node, mark: Mark, refTarget: String?): YamlNodeLocation {
+    private fun internalRefTargetOf(rawRef: String?): String? {
+        if (rawRef == null) return null
+        if (rawRef.startsWith("#/")) return rawRef.removePrefix("#")
+        if (rawRef == "#") return ""
+        return null
+    }
+
+    private fun locationOf(node: Node, mark: Mark, rawRef: String?): YamlNodeLocation {
         val kind = when (node) {
             is MappingNode -> YamlNodeKind.MAPPING
             is SequenceNode -> YamlNodeKind.SEQUENCE
@@ -65,7 +70,7 @@ class JsonPointerSourceMap(private val yaml: String) {
             is AnchorNode -> YamlNodeKind.ANCHOR
             else -> error("Unexpected YAML node type: ${node::class.java.name}")
         }
-        return YamlNodeLocation(mark.line + 1, mark.column + 1, kind, refTarget)
+        return YamlNodeLocation(mark.line + 1, mark.column + 1, kind, internalRefTargetOf(rawRef), rawRef)
     }
 
     private fun escape(token: String): String =

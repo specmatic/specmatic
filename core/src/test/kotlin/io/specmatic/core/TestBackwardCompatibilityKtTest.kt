@@ -51,6 +51,20 @@ internal class TestBackwardCompatibilityKtTest {
     }
 
     @Test
+    fun `breaking change in an externally referenced spec is annotated with the external file location`() {
+        val dir = "src/test/resources/openapi/bcc-breaking-changes-external"
+        val older = OpenApiSpecification.fromFile("$dir/old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromFile("$dir/new.yaml").toFeature()
+
+        val results = testBackwardCompatibility(older, newer)
+        val report = results.distinctReport()
+
+        assertThat(results.success()).isFalse
+        val externalFile = File("$dir/common-new.yaml").canonicalFile.invariantSeparatorsPath
+        assertThat(report).contains(">> REQUEST.BODY.name ($externalFile:13:9)")
+    }
+
+    @Test
     fun `all breaking changes from the fixture pair are detected and annotated`() {
         val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
         val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()

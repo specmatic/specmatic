@@ -1,0 +1,24 @@
+openapi: 3.0.0
+info:
+  title: api
+  version: "1"
+paths:
+  /products:
+    post:
+      summary: create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './common-old.yaml#/components/schemas/ProductBase'
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
