@@ -2227,6 +2227,12 @@ class OpenApiSpecification(
             externalRefUses.forEach { refUse ->
                 modelPointersFor(refUse, projections).forEach { modelPointer ->
                     val modelRef = model.at(modelPointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
+                    // When the parser left an internal ref at the use site, the import landed at that
+                    // ref (e.g. /components/schemas/Payload_1) and that is the only projection target.
+                    // Otherwise the content was inlined, and we don't know a priori whether it landed
+                    // at the use site (whole-file PathItem/requestBody/response) or under a fragment
+                    // pointer the parser kept addressable, so we project both candidates; only the one
+                    // that matches a breadcrumb pointer is ever read back out.
                     val targetPointers = modelRef?.removePrefix("#")?.let(::listOf)
                         ?: listOfNotNull(modelPointer, refUse.targetBasePointer.takeIf { it.isNotEmpty() }).distinct()
                     targetPointers.forEach { targetPointer ->
