@@ -65,6 +65,20 @@ internal class TestBackwardCompatibilityKtTest {
     }
 
     @Test
+    fun `breaking change behind an external path-item ref is annotated with the external file location`() {
+        val dir = "src/test/resources/openapi/bcc-breaking-changes-external"
+        val older = OpenApiSpecification.fromFile("$dir/pathitem-old.yaml").toFeature()
+        val newer = OpenApiSpecification.fromFile("$dir/pathitem-new.yaml").toFeature()
+
+        val results = testBackwardCompatibility(older, newer)
+        val report = results.distinctReport()
+
+        assertThat(results.success()).isFalse
+        val externalFile = File("$dir/pathitem-common-new.yaml").canonicalFile.invariantSeparatorsPath
+        assertThat(report).containsPattern(">> RESPONSE\\.BODY\\.state \\(\\Q$externalFile\\E:\\d+:\\d+\\)")
+    }
+
+    @Test
     fun `all breaking changes from the fixture pair are detected and annotated`() {
         val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
         val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()

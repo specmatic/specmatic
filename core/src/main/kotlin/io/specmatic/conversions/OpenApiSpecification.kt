@@ -1953,10 +1953,16 @@ class OpenApiSpecification(
     }
 
     private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
-        return jsonPointerSourceMap[useSitePointer]?.refTarget
-            ?: internalRefPointer(ref)
-            ?: useSitePointer
+        val node = jsonPointerSourceMap[useSitePointer]
+        node?.refTarget?.let { return it }
+        internalRefPointer(ref)?.let { return it }
+        refFragment(node?.rawRef)?.let { return it }
+        refFragment(ref)?.let { return it }
+        return useSitePointer
     }
+
+    private fun refFragment(ref: String?): String? =
+        ref?.substringAfter("#", "")?.ifEmpty { null }
 
     // A path item can itself be reffed out (paths./x.$ref -> #/components/pathItems/X).
     // The parser inlines it before building the model, so the operation is reachable, but
