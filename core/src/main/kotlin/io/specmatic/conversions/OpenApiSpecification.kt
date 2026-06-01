@@ -1970,8 +1970,16 @@ class OpenApiSpecification(
             val file = queue.removeFirst()
             sourceMapFor(file).forEach { (pointer, node) ->
                 val rawRef = node.rawRef ?: return@forEach
-                val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() } ?: return@forEach
-                val resolved = resolveExternalFile(refFile, file)
+                val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() }
+                // A local $ref inside an external file targets that same file. The parser may rename
+                // its target on import (Payload -> Payload_1) to avoid colliding with an entry schema,
+                // so it still needs a projection. Entry-local refs are skipped: their schemas are
+                // never renamed and are already located via the entry source map.
+                val resolved = when {
+                    refFile != null -> resolveExternalFile(refFile, file)
+                    file != entryFileKey -> file
+                    else -> return@forEach
+                }
                 uses += ExternalRefUse(
                     sourceFile = file,
                     sourcePointer = pointer,

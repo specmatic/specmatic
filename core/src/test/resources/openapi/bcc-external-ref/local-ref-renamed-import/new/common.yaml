@@ -1,0 +1,16 @@
+openapi: 3.0.0
+info: { title: common, version: "1" }
+paths: {}
+components:
+  schemas:
+    Envelope:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          $ref: "#/components/schemas/Payload"
+    Payload:
+      type: object
+      required: [value]
+      properties:
+        value: { type: integer }

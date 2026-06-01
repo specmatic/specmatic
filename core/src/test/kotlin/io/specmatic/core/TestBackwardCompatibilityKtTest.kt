@@ -5772,6 +5772,14 @@ paths:
             fun `a transitive ref renamed during import keeps its external source location`() =
                 assertLocated("transitive-renamed-import", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
 
+            // common.yaml#/Envelope has a LOCAL $ref to common.yaml#/Payload, and the entry spec
+            // already defines a Payload, so the parser imports the external one as Payload_1. The
+            // local ref is never a cross-file use, so projection has to still map the renamed local
+            // target back to its file, or the change inside it loses its external source location.
+            @Test
+            fun `a local ref renamed during import keeps its external source location`() =
+                assertLocated("local-ref-renamed-import", ">> REQUEST.BODY.detail.value", "new/common.yaml:16:9")
+
             // commonA and commonB $ref each other (Node.next points across the cycle), so the ref
             // graph has a loop. Discovery and the projection fixpoint must terminate rather than
             // chase the cycle forever; the change still resolves to its file. If this hangs, the

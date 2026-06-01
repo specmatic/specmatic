@@ -1,0 +1,24 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /p:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./common.yaml#/components/schemas/Envelope"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payload"
+components:
+  schemas:
+    Payload:
+      type: object
+      properties:
+        unrelated: { type: string }
