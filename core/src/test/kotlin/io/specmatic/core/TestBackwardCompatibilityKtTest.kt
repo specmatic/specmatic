@@ -5772,6 +5772,14 @@ paths:
             fun `a transitive ref renamed during import keeps its external source location`() =
                 assertLocated("transitive-renamed-import", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
 
+            // commonA and commonB $ref each other (Node.next points across the cycle), so the ref
+            // graph has a loop. Discovery and the projection fixpoint must terminate rather than
+            // chase the cycle forever; the change still resolves to its file. If this hangs, the
+            // cycle guard regressed.
+            @Test
+            fun `cyclic refs between two external files terminate and still locate the change`() =
+                assertLocated("cyclic-ref", ">> REQUEST.BODY.value", "new/commonA.yaml:10:9")
+
             // Two external files that share the same fragment (#/components/schemas/Payload) must each
             // keep their own source location. The bare pointer collides, so the resolved external file
             // has to remain part of the key or one file's change is reported at the other file's line.
