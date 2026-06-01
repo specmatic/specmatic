@@ -1933,11 +1933,21 @@ class OpenApiSpecification(
 
     private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
         sourceMapCache.getOrPut(file) {
-            JsonPointerSourceMap(File(file).readText()).build()
+            readExternalFileContent(file)?.let { JsonPointerSourceMap(it).build() }.orEmpty()
         }
 
-    private fun resolveExternalFile(refFile: String, currentFile: String): String =
-        File(currentFile).canonicalFile.parentFile.resolve(refFile).canonicalPath
+    private fun readExternalFileContent(file: String): String? =
+        sequenceOf(
+            { File(file).readText() },
+            { ClasspathHelper.loadFileFromClasspath(file) },
+        ).firstNotNullOfOrNull { runCatching { it.invoke() }.getOrNull() }
+
+    private fun resolveExternalFile(refFile: String, currentFile: String): String {
+        val resolved = File(currentFile).canonicalFile.parentFile.resolve(refFile)
+        if (resolved.exists()) return resolved.canonicalPath
+        val parent = File(currentFile).parent ?: "."
+        return File(parent, refFile).toPath().normalize().toString().replace(File.separatorChar, '/')
+    }
 
     private var externalFilesDiscovered = false
     private val externalRefUses = mutableListOf<ExternalRefUse>()
