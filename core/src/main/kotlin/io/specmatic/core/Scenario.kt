@@ -80,7 +80,8 @@ data class Scenario(
     val operationMetadata: OperationMetadata? = null,
     val requestChangeSummary: String? = null,
     val generatedFrom: GeneratedScenarioOrigin? = null,
-    val sourceLocations: Map<String, SourceLocation> = emptyMap()
+    val sourceLocations: Map<String, SourceLocation> = emptyMap(),
+    val operationSourcePointer: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -114,7 +115,8 @@ data class Scenario(
         protocol = scenarioInfo.protocol,
         specType = scenarioInfo.specType,
         operationMetadata = scenarioInfo.operationMetadata,
-        sourceLocations = scenarioInfo.sourceLocations
+        sourceLocations = scenarioInfo.sourceLocations,
+        operationSourcePointer = scenarioInfo.operationSourcePointer
     )
 
     val apiIdentifier: String

@@ -887,7 +887,8 @@ class OpenApiSpecification(
                             protocol = protocol,
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata,
-                            sourceLocations = sourceLocations
+                            sourceLocations = sourceLocations,
+                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
                         )
                     }
 
@@ -1936,6 +1937,7 @@ class OpenApiSpecification(
         File(currentFile).canonicalFile.parentFile.resolve(refFile).canonicalPath
 
     private var externalFilesDiscovered = false
+    private val wholeFileComponents = mutableMapOf<String, String>()
 
     private fun discoverExternalFiles() {
         if (externalFilesDiscovered) return
@@ -1945,8 +1947,9 @@ class OpenApiSpecification(
         while (queue.isNotEmpty()) {
             val file = queue.removeFirst()
             sourceMapFor(file).values.mapNotNull { it.rawRef }.forEach { rawRef ->
-                val refFile = rawRef.substringBefore("#", "").takeIf { it.isNotEmpty() } ?: return@forEach
+                val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() } ?: return@forEach
                 val resolved = resolveExternalFile(refFile, file)
+                if (isWholeFileRef(rawRef)) wholeFileComponents[File(refFile).nameWithoutExtension] = resolved
                 if (visited.add(resolved)) queue.addLast(resolved)
             }
         }
@@ -1963,6 +1966,9 @@ class OpenApiSpecification(
 
     private fun refFragment(ref: String?): String? =
         ref?.substringAfter("#", "")?.ifEmpty { null }
+
+    private fun isWholeFileRef(ref: String?): Boolean =
+        ref != null && ref.substringBefore("#").isNotEmpty() && ref.substringAfter("#", "").isEmpty()
 
     // A path item can itself be reffed out (paths./x.$ref -> #/components/pathItems/X).
     // The parser inlines it before building the model, so the operation is reachable, but
@@ -2190,6 +2196,15 @@ class OpenApiSpecification(
         }
         entryMap.forEach { (pointer, node) ->
             locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
+        }
+        wholeFileComponents.forEach { (componentName, file) ->
+            val displayPath = File(file).invariantSeparatorsPath
+            sourceMapFor(file).forEach { (pointer, node) ->
+                locations.putIfAbsent(
+                    "/components/schemas/${escapeJsonPointer(componentName)}$pointer",
+                    SourceLocation(displayPath, node.line, node.column)
+                )
+            }
         }
         locations
     }
