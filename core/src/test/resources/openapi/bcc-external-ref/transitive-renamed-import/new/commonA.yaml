@@ -1,0 +1,17 @@
+openapi: 3.0.0
+info: { title: commonA, version: "1" }
+paths: {}
+components:
+  schemas:
+    Envelope:
+      type: object
+      required: [detail]
+      properties:
+        local:
+          $ref: "#/components/schemas/Payload"
+        detail:
+          $ref: "./commonB.yaml#/components/schemas/Payload"
+    Payload:
+      type: object
+      properties:
+        id: { type: string }

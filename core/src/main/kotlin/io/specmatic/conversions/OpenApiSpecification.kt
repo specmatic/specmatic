@@ -1937,7 +1937,32 @@ class OpenApiSpecification(
         File(currentFile).canonicalFile.parentFile.resolve(refFile).canonicalPath
 
     private var externalFilesDiscovered = false
-    private val wholeFileComponents = mutableMapOf<String, String>()
+    private val externalRefUses = mutableListOf<ExternalRefUse>()
+
+    private data class ExternalRefUse(
+        val sourceFile: String,
+        val sourcePointer: String,
+        val targetFile: String,
+        val targetBasePointer: String,
+    )
+
+    private data class ExternalSourceProjection(
+        val sourceFile: String,
+        val sourceBasePointer: String,
+        val targetPointer: String,
+    ) {
+        fun contains(file: String, pointer: String): Boolean {
+            if (file != sourceFile) return false
+            if (sourceBasePointer.isEmpty()) return true
+            return pointer == sourceBasePointer || pointer.startsWith("$sourceBasePointer/")
+        }
+
+        fun targetPointerFor(sourcePointer: String): String =
+            if (sourceBasePointer.isEmpty())
+                "$targetPointer$sourcePointer"
+            else
+                "$targetPointer${sourcePointer.removePrefix(sourceBasePointer)}"
+    }
 
     private fun discoverExternalFiles() {
         if (externalFilesDiscovered) return
@@ -1946,10 +1971,16 @@ class OpenApiSpecification(
         val visited = sourceMapCache.keys.toMutableSet()
         while (queue.isNotEmpty()) {
             val file = queue.removeFirst()
-            sourceMapFor(file).values.mapNotNull { it.rawRef }.forEach { rawRef ->
+            sourceMapFor(file).forEach { (pointer, node) ->
+                val rawRef = node.rawRef ?: return@forEach
                 val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() } ?: return@forEach
                 val resolved = resolveExternalFile(refFile, file)
-                if (isWholeFileRef(rawRef)) wholeFileComponents[File(refFile).nameWithoutExtension] = resolved
+                externalRefUses += ExternalRefUse(
+                    sourceFile = file,
+                    sourcePointer = pointer,
+                    targetFile = resolved,
+                    targetBasePointer = refFragment(rawRef).orEmpty(),
+                )
                 if (visited.add(resolved)) queue.addLast(resolved)
             }
         }
@@ -1966,9 +1997,6 @@ class OpenApiSpecification(
 
     private fun refFragment(ref: String?): String? =
         ref?.substringAfter("#", "")?.ifEmpty { null }
-
-    private fun isWholeFileRef(ref: String?): Boolean =
-        ref != null && ref.substringBefore("#").isNotEmpty() && ref.substringAfter("#", "").isEmpty()
 
     // A path item can itself be reffed out (paths./x.$ref -> #/components/pathItems/X).
     // The parser inlines it before building the model, so the operation is reachable, but
@@ -2183,24 +2211,49 @@ class OpenApiSpecification(
         return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
     }
 
-    // Recovers, for each parsed-model component the parser imported from an external file, the file
-    // and original fragment it came from. The parser leaves an internal $ref (#/components/schemas/X
-    // or its renamed form) at the entry-file use site where the original external $ref was authored;
-    // correlating that model ref with the source map's rawRef at the same pointer recovers the
-    // origin. Maps the model component pointer (/components/schemas/X) to (resolvedFile, fragment).
-    private val externalComponentOrigins: Map<String, Pair<String, String>> by lazy {
+    // Recovers where each external source subtree appears in the resolved parser model. The parser
+    // imports external schemas as internal refs, sometimes renaming them to avoid collisions
+    // (Payload, Payload_1, ...), while whole-file PathItem/response/requestBody refs are usually
+    // inlined at the use site. Project external file source maps under those resolved pointers so
+    // breadcrumbs and source locations use the same pointer namespace.
+    private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
+        discoverExternalFiles()
         val model = runCatching { jsonMapper.valueToTree<JsonNode>(parsedOpenApi) }.getOrNull()
-            ?: return@lazy emptyMap()
-        val origins = mutableMapOf<String, Pair<String, String>>()
-        jsonPointerSourceMap.forEach { (pointer, node) ->
-            val rawRef = node.rawRef ?: return@forEach
-            val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() } ?: return@forEach
-            val fragment = refFragment(rawRef) ?: return@forEach
-            val modelRef = model.at(pointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
-                ?: return@forEach
-            origins[modelRef.removePrefix("#")] = resolveExternalFile(refFile, entryFileKey) to fragment
-        }
-        origins
+            ?: return@lazy emptySet()
+        val projections = linkedSetOf<ExternalSourceProjection>()
+
+        do {
+            var changed = false
+            externalRefUses.forEach { refUse ->
+                modelPointersFor(refUse, projections).forEach { modelPointer ->
+                    val modelRef = model.at(modelPointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
+                    val targetPointers = modelRef?.removePrefix("#")?.let(::listOf)
+                        ?: listOfNotNull(modelPointer, refUse.targetBasePointer.takeIf { it.isNotEmpty() }).distinct()
+                    targetPointers.forEach { targetPointer ->
+                        val projection = ExternalSourceProjection(
+                            sourceFile = refUse.targetFile,
+                            sourceBasePointer = refUse.targetBasePointer,
+                            targetPointer = targetPointer,
+                        )
+                        if (projections.add(projection)) changed = true
+                    }
+                }
+            }
+        } while (changed)
+
+        projections
+    }
+
+    private fun modelPointersFor(
+        refUse: ExternalRefUse,
+        projections: Set<ExternalSourceProjection>,
+    ): List<String> {
+        if (refUse.sourceFile == entryFileKey) return listOf(refUse.sourcePointer)
+        return projections.asSequence()
+            .filter { it.contains(refUse.sourceFile, refUse.sourcePointer) }
+            .map { it.targetPointerFor(refUse.sourcePointer) }
+            .distinct()
+            .toList()
     }
 
     private val sourceLocations: Map<String, SourceLocation> by lazy {
@@ -2217,28 +2270,12 @@ class OpenApiSpecification(
         entryMap.forEach { (pointer, node) ->
             locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
         }
-        // The parser flattens external components into the root document and renames clashes
-        // (Payload, Payload_1, ...), so a component pointer built from the model name no longer
-        // carries the source file. Re-key each imported component's locations under its model
-        // pointer, pointing at the file it was imported from, so two files that share a fragment
-        // keep distinct locations instead of one shadowing the other.
-        externalComponentOrigins.forEach { (modelComponentPointer, origin) ->
-            val (file, fragment) = origin
-            val displayPath = File(file).invariantSeparatorsPath
-            sourceMapFor(file).forEach { (pointer, node) ->
-                if (pointer == fragment || pointer.startsWith("$fragment/")) {
-                    locations["$modelComponentPointer${pointer.removePrefix(fragment)}"] =
-                        SourceLocation(displayPath, node.line, node.column)
+        externalSourceProjections.forEach { projection ->
+            val displayPath = File(projection.sourceFile).invariantSeparatorsPath
+            sourceMapFor(projection.sourceFile).forEach { (pointer, node) ->
+                if (projection.contains(projection.sourceFile, pointer)) {
+                    locations[projection.targetPointerFor(pointer)] = SourceLocation(displayPath, node.line, node.column)
                 }
-            }
-        }
-        wholeFileComponents.forEach { (componentName, file) ->
-            val displayPath = File(file).invariantSeparatorsPath
-            sourceMapFor(file).forEach { (pointer, node) ->
-                locations.putIfAbsent(
-                    "/components/schemas/${escapeJsonPointer(componentName)}$pointer",
-                    SourceLocation(displayPath, node.line, node.column)
-                )
             }
         }
         locations

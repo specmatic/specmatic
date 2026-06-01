@@ -5738,6 +5738,10 @@ paths:
             fun `the change is two ref hops away in a transitive chain`() =
                 assertLocated("transitive-chain", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
 
+            @Test
+            fun `a transitive ref renamed during import keeps its external source location`() =
+                assertLocated("transitive-renamed-import", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
+
             // Two external files that share the same fragment (#/components/schemas/Payload) must each
             // keep their own source location. The bare pointer collides, so the resolved external file
             // has to remain part of the key or one file's change is reported at the other file's line.
@@ -5762,6 +5766,18 @@ paths:
             @Test
             fun `a whole-file ref with no fragment resolves into the bare schema file`() =
                 assertLocated("whole-file", ">> REQUEST.BODY.name", "new/ProductBase.yaml:4:3")
+
+            @Test
+            fun `a whole-file path item ref with no fragment is located in the path item file`() =
+                assertLocated("whole-file-path-item", ">> RESPONSE.BODY.state", "new/pathItem.yaml:11:15")
+
+            @Test
+            fun `a whole-file request body ref with no fragment is located in the request body file`() =
+                assertLocated("whole-file-request-body", ">> REQUEST.BODY.name", "new/requestBody.yaml:8:9")
+
+            @Test
+            fun `a whole-file response ref with no fragment is located in the response file`() =
+                assertLocated("whole-file-response", ">> RESPONSE.BODY.name", "new/response.yaml:8:9")
 
             @Test
             fun `an operation removed behind an external path item, located in the old file`() =
