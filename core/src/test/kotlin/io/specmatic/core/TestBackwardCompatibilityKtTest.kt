@@ -5738,6 +5738,19 @@ paths:
             fun `the change is two ref hops away in a transitive chain`() =
                 assertLocated("transitive-chain", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
 
+            // Two external files that share the same fragment (#/components/schemas/Payload) must each
+            // keep their own source location. The bare pointer collides, so the resolved external file
+            // has to remain part of the key or one file's change is reported at the other file's line.
+            @Test
+            fun `two external files sharing a fragment each keep their own source location`() {
+                val results = compare("same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonA:10:9)")
+                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonB:12:9)")
+            }
+
             @Test
             fun `a newly required property is added in an external schema`() =
                 assertLocated("added-required", ">> REQUEST.BODY.token", "new/common.yaml:11:9")

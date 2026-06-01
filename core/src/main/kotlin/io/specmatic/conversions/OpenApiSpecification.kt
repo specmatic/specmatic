@@ -2183,6 +2183,26 @@ class OpenApiSpecification(
         return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
     }
 
+    // Recovers, for each parsed-model component the parser imported from an external file, the file
+    // and original fragment it came from. The parser leaves an internal $ref (#/components/schemas/X
+    // or its renamed form) at the entry-file use site where the original external $ref was authored;
+    // correlating that model ref with the source map's rawRef at the same pointer recovers the
+    // origin. Maps the model component pointer (/components/schemas/X) to (resolvedFile, fragment).
+    private val externalComponentOrigins: Map<String, Pair<String, String>> by lazy {
+        val model = runCatching { jsonMapper.valueToTree<JsonNode>(parsedOpenApi) }.getOrNull()
+            ?: return@lazy emptyMap()
+        val origins = mutableMapOf<String, Pair<String, String>>()
+        jsonPointerSourceMap.forEach { (pointer, node) ->
+            val rawRef = node.rawRef ?: return@forEach
+            val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() } ?: return@forEach
+            val fragment = refFragment(rawRef) ?: return@forEach
+            val modelRef = model.at(pointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
+                ?: return@forEach
+            origins[modelRef.removePrefix("#")] = resolveExternalFile(refFile, entryFileKey) to fragment
+        }
+        origins
+    }
+
     private val sourceLocations: Map<String, SourceLocation> by lazy {
         discoverExternalFiles()
         val locations = mutableMapOf<String, SourceLocation>()
@@ -2196,6 +2216,21 @@ class OpenApiSpecification(
         }
         entryMap.forEach { (pointer, node) ->
             locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
+        }
+        // The parser flattens external components into the root document and renames clashes
+        // (Payload, Payload_1, ...), so a component pointer built from the model name no longer
+        // carries the source file. Re-key each imported component's locations under its model
+        // pointer, pointing at the file it was imported from, so two files that share a fragment
+        // keep distinct locations instead of one shadowing the other.
+        externalComponentOrigins.forEach { (modelComponentPointer, origin) ->
+            val (file, fragment) = origin
+            val displayPath = File(file).invariantSeparatorsPath
+            sourceMapFor(file).forEach { (pointer, node) ->
+                if (pointer == fragment || pointer.startsWith("$fragment/")) {
+                    locations["$modelComponentPointer${pointer.removePrefix(fragment)}"] =
+                        SourceLocation(displayPath, node.line, node.column)
+                }
+            }
         }
         wholeFileComponents.forEach { (componentName, file) ->
             val displayPath = File(file).invariantSeparatorsPath
