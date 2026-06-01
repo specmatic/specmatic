@@ -2210,80 +2210,63 @@ class OpenApiSpecification(
         return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
     }
 
-    // Recovers where each external source subtree appears in the resolved parser model. The parser
-    // imports external schemas as internal refs, sometimes renaming them to avoid collisions
-    // (Payload, Payload_1, ...), while whole-file PathItem/response/requestBody refs are usually
-    // inlined at the use site. Project external file source maps under those resolved pointers so
-    // breadcrumbs and source locations use the same pointer namespace.
-    private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
-        val model = parsedOpenApiModel
-        val entryMap = sourceMapCache[entryFileKey].orEmpty()
-        val projections = linkedSetOf<ExternalSourceProjection>()
+    private data class ProjectedExternalRefUse(
+        val refUse: ExternalRefUse,
+        val modelPointer: String,
+    )
 
-        do {
-            var changed = false
-            externalRefUses.forEach { refUse ->
-                // A whole-document self ref ($ref: "#", common in recursive Node schemas) points the
-                // use site at its own file with an empty base. Projecting it would add an empty-base
-                // projection whose contains() matches every pointer in the file, re-feeding the fixpoint
-                // with ever-deeper paths until BCC hangs or exhausts memory. It also never carries a new
-                // source location: the file's own pointers are already mapped by the import that brought
-                // it in. Skip it.
-                if (refUse.targetFile == refUse.sourceFile && refUse.targetBasePointer.isEmpty()) return@forEach
-                modelPointersFor(refUse, projections).forEach { modelPointer ->
-                    val modelRef = model.at(modelPointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
-                    // When the parser left an internal ref at the use site, the import landed at that
-                    // ref (e.g. /components/schemas/Payload_1) and that is the only projection target.
-                    // Otherwise the content was inlined, and we don't know a priori whether it landed
-                    // at the use site (whole-file PathItem/requestBody/response) or under a fragment
-                    // pointer the parser kept addressable, so we project both candidates; only the one
-                    // that matches a breadcrumb pointer is ever read back out. The fragment candidate
-                    // is dropped when the entry spec already owns that pointer: the parser gave the
-                    // entry component the name, so the external content was inlined at the use site (or
-                    // renamed elsewhere) and projecting it here would overwrite the entry's own location.
-                    val targetPointers = modelRef?.removePrefix("#")?.let(::listOf)
-                        ?: listOfNotNull(
-                            modelPointer,
-                            refUse.targetBasePointer.takeIf { it.isNotEmpty() && it !in entryMap },
-                        ).distinct()
-                    targetPointers.forEach { targetPointer ->
-                        val projection = ExternalSourceProjection(
-                            sourceFile = refUse.targetFile,
-                            sourceBasePointer = refUse.targetBasePointer,
-                            targetPointer = targetPointer,
-                        )
-                        if (projections.add(projection)) changed = true
-                    }
+    // Recovers where each external source subtree appears in the resolved parser model.
+    // External schemas may be imported as renamed internal refs (Payload -> Payload_1), while
+    // whole-file PathItem/response/requestBody refs are usually inlined at the use site.
+    private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
+        val projections = linkedSetOf<ExternalSourceProjection>()
+        val refUsesBySourceFile = externalRefUses.groupBy { it.sourceFile }
+        val queue = ArrayDeque(
+            externalRefUses
+                .filter { it.sourceFile == entryFileKey }
+                .map { ProjectedExternalRefUse(it, it.sourcePointer) }
+        )
+
+        while (queue.isNotEmpty()) {
+            val projectedRefUse = queue.removeFirst()
+            val refUse = projectedRefUse.refUse
+            if (refUse.isWholeDocumentSelfRef()) continue
+
+            targetPointersFor(refUse, projectedRefUse.modelPointer).forEach { targetPointer ->
+                val projection = ExternalSourceProjection(
+                    sourceFile = refUse.targetFile,
+                    sourceBasePointer = refUse.targetBasePointer,
+                    targetPointer = targetPointer,
+                )
+
+                if (projections.add(projection)) {
+                    refUsesBySourceFile[projection.sourceFile].orEmpty()
+                        .filter { projection.contains(it.sourceFile, it.sourcePointer) }
+                        .mapTo(queue) { ProjectedExternalRefUse(it, projection.targetPointerFor(it.sourcePointer)) }
                 }
             }
-        } while (changed)
+        }
 
         projections
     }
 
-    private fun modelPointersFor(
-        refUse: ExternalRefUse,
-        projections: Set<ExternalSourceProjection>,
-    ): List<String> {
-        if (refUse.sourceFile == entryFileKey) return listOf(refUse.sourcePointer)
-        return projections.asSequence()
-            .filter { it.contains(refUse.sourceFile, refUse.sourcePointer) }
-            .map { it.targetPointerFor(refUse.sourcePointer) }
-            .distinct()
-            .toList()
+    private fun ExternalRefUse.isWholeDocumentSelfRef(): Boolean =
+        targetFile == sourceFile && targetBasePointer.isEmpty()
+
+    private fun targetPointersFor(refUse: ExternalRefUse, modelPointer: String): List<String> {
+        val modelRef = parsedOpenApiModel.at(modelPointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
+        if (modelRef != null) return listOf(modelRef.removePrefix("#"))
+
+        return listOfNotNull(
+            modelPointer,
+            refUse.targetBasePointer.takeIf { it.isNotEmpty() && it !in sourceMapCache[entryFileKey].orEmpty() },
+        ).distinct()
     }
 
     private val sourceLocations: Map<String, SourceLocation> by lazy {
         externalRefUses // force discovery so sourceMapCache holds every reachable external file
         val locations = mutableMapOf<String, SourceLocation>()
         val entryMap = sourceMapCache[entryFileKey].orEmpty()
-        sourceMapCache.forEach { (file, map) ->
-            if (file == entryFileKey) return@forEach
-            val displayPath = File(file).invariantSeparatorsPath
-            map.forEach { (pointer, node) ->
-                if (pointer !in entryMap) locations[pointer] = SourceLocation(displayPath, node.line, node.column)
-            }
-        }
         entryMap.forEach { (pointer, node) ->
             locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
         }
