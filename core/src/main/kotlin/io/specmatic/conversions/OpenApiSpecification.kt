@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.swagger.v3.core.util.Json
+import io.swagger.v3.core.util.Json31
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
@@ -109,7 +111,8 @@ class OpenApiSpecification(
     private val sourceMapCache: MutableMap<String, Map<String, YamlNodeLocation>> =
         mutableMapOf(entryFileKey to jsonPointerSourceMap)
     private val parsedOpenApiModel: JsonNode by lazy {
-        jsonMapper.valueToTree(parsedOpenApi)
+        val mapper = if (parsedOpenApi.specVersion == SpecVersion.V31) Json31.mapper() else Json.mapper()
+        mapper.valueToTree(parsedOpenApi)
     }
 
     init {
