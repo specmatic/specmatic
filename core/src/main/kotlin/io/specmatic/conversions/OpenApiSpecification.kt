@@ -2234,6 +2234,13 @@ class OpenApiSpecification(
         do {
             var changed = false
             externalRefUses.forEach { refUse ->
+                // A whole-document self ref ($ref: "#", common in recursive Node schemas) points the
+                // use site at its own file with an empty base. Projecting it would add an empty-base
+                // projection whose contains() matches every pointer in the file, re-feeding the fixpoint
+                // with ever-deeper paths until BCC hangs or exhausts memory. It also never carries a new
+                // source location: the file's own pointers are already mapped by the import that brought
+                // it in. Skip it.
+                if (refUse.targetFile == refUse.sourceFile && refUse.targetBasePointer.isEmpty()) return@forEach
                 modelPointersFor(refUse, projections).forEach { modelPointer ->
                     val modelRef = model.at(modelPointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
                     // When the parser left an internal ref at the use site, the import landed at that

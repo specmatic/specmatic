@@ -9,11 +9,13 @@ import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.reporter.api.client.OBJECT_MAPPER
 import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Disabled
@@ -5800,6 +5802,19 @@ paths:
             @Test
             fun `cyclic refs between two external files terminate and still locate the change`() =
                 assertLocated("cyclic-ref", ">> REQUEST.BODY.value", "new/commonA.yaml:10:9")
+
+            // An external schema (common.yaml#/components/schemas/Node) whose `next` recurses through
+            // the document root with $ref: "#" — an unresolvable whole-document self ref with an empty
+            // base. An empty-base projection matches every pointer in the file and used to re-feed the
+            // projection fixpoint with ever-deeper paths until toFeature hung or exhausted memory. The
+            // self ref is now skipped, so the malformed spec surfaces a clean unresolved-reference error
+            // instead of hanging. The assertion completing at all is the regression guard.
+            @Test
+            fun `a recursive ref to the document root terminates instead of hanging`() {
+                assertThatThrownBy { compare("root-self-ref") }
+                    .isInstanceOf(ContractException::class.java)
+                    .hasMessageContaining("Unresolved reference")
+            }
 
             // Two external files that share the same fragment (#/components/schemas/Payload) must each
             // keep their own source location. The bare pointer collides, so the resolved external file
