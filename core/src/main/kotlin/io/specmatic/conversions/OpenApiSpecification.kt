@@ -108,6 +108,9 @@ class OpenApiSpecification(
     private val entryFileKey: String = File(openApiFilePath).invariantSeparatorsPath
     private val sourceMapCache: MutableMap<String, Map<String, YamlNodeLocation>> =
         mutableMapOf(entryFileKey to jsonPointerSourceMap)
+    private val parsedOpenApiModel: JsonNode by lazy {
+        jsonMapper.valueToTree(parsedOpenApi)
+    }
 
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
@@ -1930,7 +1933,7 @@ class OpenApiSpecification(
 
     private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
         sourceMapCache.getOrPut(file) {
-            runCatching { JsonPointerSourceMap(File(file).readText()).build() }.getOrElse { emptyMap() }
+            JsonPointerSourceMap(File(file).readText()).build()
         }
 
     private fun resolveExternalFile(refFile: String, currentFile: String): String =
@@ -1990,9 +1993,13 @@ class OpenApiSpecification(
         val node = jsonPointerSourceMap[useSitePointer]
         node?.refTarget?.let { return it }
         internalRefPointer(ref)?.let { return it }
-        refFragment(node?.rawRef)?.let { return it }
-        refFragment(ref)?.let { return it }
+        internalModelRefPointer(useSitePointer)?.let { return it }
         return useSitePointer
+    }
+
+    private fun internalModelRefPointer(useSitePointer: String): String? {
+        val ref = parsedOpenApiModel.at(useSitePointer).path($$"$ref").asText("")
+        return internalRefPointer(ref)
     }
 
     private fun refFragment(ref: String?): String? =
@@ -2184,7 +2191,7 @@ class OpenApiSpecification(
             val (constituentPointer, constituentSchema) = constituent.`$ref`?.let { ref ->
                 val componentName = ref.substringAfterLast("/")
                 val refSchema = parsedOpenApi.components?.schemas?.get(componentName) ?: return@forEachIndexed
-                "/components/schemas/${escapeJsonPointer(componentName)}" to refSchema
+                sourcePointerForRefUseSite("$basePointer/allOf/$index", ref) to refSchema
             } ?: ("$basePointer/allOf/$index" to constituent)
             sources.putAll(collectPropertySources(constituentSchema, constituentPointer))
         }
@@ -2218,8 +2225,7 @@ class OpenApiSpecification(
     // breadcrumbs and source locations use the same pointer namespace.
     private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
         discoverExternalFiles()
-        val model = runCatching { jsonMapper.valueToTree<JsonNode>(parsedOpenApi) }.getOrNull()
-            ?: return@lazy emptySet()
+        val model = parsedOpenApiModel
         val projections = linkedSetOf<ExternalSourceProjection>()
 
         do {

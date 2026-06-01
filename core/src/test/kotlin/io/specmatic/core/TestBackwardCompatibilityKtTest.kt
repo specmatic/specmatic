@@ -5735,6 +5735,36 @@ paths:
                 assertLocated("path-item", ">> RESPONSE.BODY.state", "new/common.yaml:17:21")
 
             @Test
+            fun `two external path item files sharing a fragment each keep their own source location`() {
+                val results = compare("path-item-same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("path-item-same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("path-item-same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains(">> RESPONSE.BODY.state ($commonA:17:21)")
+                assertThat(results.report()).contains(">> RESPONSE.BODY.state ($commonB:18:21)")
+            }
+
+            @Test
+            fun `two external request body files sharing a fragment each keep their own source location`() {
+                val results = compare("requestbody-same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("requestbody-same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("requestbody-same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonA:14:15)")
+                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonB:15:15)")
+            }
+
+            @Test
+            fun `two external response files sharing a fragment each keep their own source location`() {
+                val results = compare("response-same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("response-same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("response-same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains(">> RESPONSE.BODY.name ($commonA:14:15)")
+                assertThat(results.report()).contains(">> RESPONSE.BODY.name ($commonB:15:15)")
+            }
+
+            @Test
             fun `the change is two ref hops away in a transitive chain`() =
                 assertLocated("transitive-chain", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
 

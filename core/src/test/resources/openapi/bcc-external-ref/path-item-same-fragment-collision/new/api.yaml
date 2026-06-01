@@ -1,0 +1,7 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /a:
+    $ref: "./commonA.yaml#/components/pathItems/Status"
+  /b:
+    $ref: "./commonB.yaml#/components/pathItems/Status"
