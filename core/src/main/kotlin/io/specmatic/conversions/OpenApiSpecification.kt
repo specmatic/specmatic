@@ -1952,9 +1952,6 @@ class OpenApiSpecification(
         return File(parent, refFile).toPath().normalize().toString().replace(File.separatorChar, '/')
     }
 
-    private var externalFilesDiscovered = false
-    private val externalRefUses = mutableListOf<ExternalRefUse>()
-
     private data class ExternalRefUse(
         val sourceFile: String,
         val sourcePointer: String,
@@ -1962,9 +1959,11 @@ class OpenApiSpecification(
         val targetBasePointer: String,
     )
 
-    private fun discoverExternalFiles() {
-        if (externalFilesDiscovered) return
-        externalFilesDiscovered = true
+    // BFS over external $refs, starting from the entry file. Populates sourceMapCache with every
+    // reachable external file as a by-product, so callers that iterate the cache can simply read
+    // this val first to ensure discovery has run.
+    private val externalRefUses: List<ExternalRefUse> by lazy {
+        val uses = mutableListOf<ExternalRefUse>()
         val queue = ArrayDeque(sourceMapCache.keys.toList())
         val visited = sourceMapCache.keys.toMutableSet()
         while (queue.isNotEmpty()) {
@@ -1973,7 +1972,7 @@ class OpenApiSpecification(
                 val rawRef = node.rawRef ?: return@forEach
                 val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() } ?: return@forEach
                 val resolved = resolveExternalFile(refFile, file)
-                externalRefUses += ExternalRefUse(
+                uses += ExternalRefUse(
                     sourceFile = file,
                     sourcePointer = pointer,
                     targetFile = resolved,
@@ -1982,6 +1981,7 @@ class OpenApiSpecification(
                 if (visited.add(resolved)) queue.addLast(resolved)
             }
         }
+        uses
     }
 
     private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
@@ -2219,7 +2219,6 @@ class OpenApiSpecification(
     // inlined at the use site. Project external file source maps under those resolved pointers so
     // breadcrumbs and source locations use the same pointer namespace.
     private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
-        discoverExternalFiles()
         val model = parsedOpenApiModel
         val projections = linkedSetOf<ExternalSourceProjection>()
 
@@ -2264,7 +2263,7 @@ class OpenApiSpecification(
     }
 
     private val sourceLocations: Map<String, SourceLocation> by lazy {
-        discoverExternalFiles()
+        externalRefUses // force discovery so sourceMapCache holds every reachable external file
         val locations = mutableMapOf<String, SourceLocation>()
         val entryMap = sourceMapCache[entryFileKey].orEmpty()
         sourceMapCache.forEach { (file, map) ->
