@@ -1,0 +1,12 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /p:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "./common.yaml#/components/schemas/ProductBase"

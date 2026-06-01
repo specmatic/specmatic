@@ -2166,6 +2166,69 @@ class BackwardCompatibilityCheckCommandV2Test {
         }
     }
 
+    @Nested
+    inner class SharedExternalFile {
+        // When a shared external schema file changes, the command flags EVERY spec that refers to it,
+        // and each referring spec's breadcrumb points at the change in that shared external file.
+        @Test
+        fun `a breaking change in a shared external file flags every referring spec at the external location`() {
+            tempDir.resolve("common.yaml").writeText(productBase("string"))
+            tempDir.resolve("apiA.yaml").writeText(referringSpec("A"))
+            tempDir.resolve("apiB.yaml").writeText(referringSpec("B"))
+            commit(tempDir, "Initial contracts")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+
+            ProcessBuilder("git", "switch", "-c", "break-shared-schema").directory(tempDir).inheritIO().start().waitFor()
+            tempDir.resolve("common.yaml").writeText(productBase("integer"))
+            commit(tempDir, "Change name type in the shared schema")
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = baseBranch
+                }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            val common = tempDir.resolve("common.yaml").canonicalFile.invariantSeparatorsPath
+            val apiA = tempDir.resolve("apiA.yaml").canonicalFile.invariantSeparatorsPath
+            val apiB = tempDir.resolve("apiB.yaml").canonicalFile.invariantSeparatorsPath
+
+            assertThat(stdOut).contains("Verdict for spec $apiA:")
+            assertThat(stdOut).contains("Verdict for spec $apiB:")
+            // Both referring specs are incompatible, each annotated at the change in the shared file.
+            assertThat(stdOut.split(">> REQUEST.BODY.name ($common:10:9)")).hasSize(3)
+        }
+
+        private fun productBase(type: String) = """
+            openapi: 3.0.0
+            info: { title: common, version: "1" }
+            paths: {}
+            components:
+              schemas:
+                ProductBase:
+                  type: object
+                  required: [name]
+                  properties:
+                    name: { type: $type }
+        """.trimIndent()
+
+        private fun referringSpec(title: String) = """
+            openapi: 3.0.0
+            info: { title: $title, version: "1" }
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          ${'$'}ref: "./common.yaml#/components/schemas/ProductBase"
+                  responses: { "200": { description: ok } }
+        """.trimIndent()
+    }
+
 }
 
 class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook {

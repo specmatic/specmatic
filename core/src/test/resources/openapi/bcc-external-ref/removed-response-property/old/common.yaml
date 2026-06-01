@@ -1,0 +1,11 @@
+openapi: 3.0.0
+info: { title: common, version: "1" }
+paths: {}
+components:
+  schemas:
+    Resp:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }

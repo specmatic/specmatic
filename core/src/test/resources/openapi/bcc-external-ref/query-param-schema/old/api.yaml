@@ -1,0 +1,12 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /search:
+    get:
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            $ref: "./common.yaml#/components/schemas/Scalar"
+      responses: { "200": { description: ok } }

@@ -51,34 +51,6 @@ internal class TestBackwardCompatibilityKtTest {
     }
 
     @Test
-    fun `breaking change in an externally referenced spec is annotated with the external file location`() {
-        val dir = "src/test/resources/openapi/bcc-breaking-changes-external"
-        val older = OpenApiSpecification.fromFile("$dir/old.yaml").toFeature()
-        val newer = OpenApiSpecification.fromFile("$dir/new.yaml").toFeature()
-
-        val results = testBackwardCompatibility(older, newer)
-        val report = results.distinctReport()
-
-        assertThat(results.success()).isFalse
-        val externalFile = File("$dir/common-new.yaml").canonicalFile.invariantSeparatorsPath
-        assertThat(report).contains(">> REQUEST.BODY.name ($externalFile:13:9)")
-    }
-
-    @Test
-    fun `breaking change behind an external path-item ref is annotated with the external file location`() {
-        val dir = "src/test/resources/openapi/bcc-breaking-changes-external"
-        val older = OpenApiSpecification.fromFile("$dir/pathitem-old.yaml").toFeature()
-        val newer = OpenApiSpecification.fromFile("$dir/pathitem-new.yaml").toFeature()
-
-        val results = testBackwardCompatibility(older, newer)
-        val report = results.distinctReport()
-
-        assertThat(results.success()).isFalse
-        val externalFile = File("$dir/pathitem-common-new.yaml").canonicalFile.invariantSeparatorsPath
-        assertThat(report).containsPattern(">> RESPONSE\\.BODY\\.state \\(\\Q$externalFile\\E:\\d+:\\d+\\)")
-    }
-
-    @Test
     fun `all breaking changes from the fixture pair are detected and annotated`() {
         val oldSpec = File("src/test/resources/openapi/bcc-breaking-changes/old.yaml").readText()
         val newSpec = File("src/test/resources/openapi/bcc-breaking-changes/new.yaml").readText()
@@ -5703,6 +5675,120 @@ paths:
         private fun operationsFrom(report: CtrfReport?): JsonNode {
             val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
             return json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
+        }
+
+        // When a breaking change lives in an externally $ref'd spec, the breadcrumb must be annotated
+        // with the line:col in THAT file. Each case is a fixture folder under
+        // resources/openapi/bcc-external-ref/<case>/ with an old/ and a new/ tree (entry spec "api.yaml"
+        // plus the external files it references). We load each entry via fromFile so the refs resolve
+        // off disk, then assert the located breadcrumb points at the exact file:line:col that changed.
+        @Nested
+        inner class ExternalRefSourceLocations {
+            private val fixtures = File("src/test/resources/openapi/bcc-external-ref")
+
+            @Test
+            fun `request body is a ref to an external schema`() =
+                assertLocated("request-body", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `response body is a ref to an external schema`() =
+                assertLocated("response-body", ">> RESPONSE.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `a property is a ref to an external schema`() =
+                assertLocated("nested-property", ">> REQUEST.BODY.product.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `array items are a ref to an external schema`() =
+                assertLocated("array-items", ">> REQUEST.BODY[0].name", "new/common.yaml:10:9")
+
+            @Test
+            fun `an allOf constituent is a ref to an external schema`() =
+                assertLocated("allof-constituent", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `a ref to an external schema that is itself an allOf of refs`() =
+                assertLocated("ref-to-allof", ">> REQUEST.BODY.count", "new/common.yaml:19:9")
+
+            @Test
+            fun `a oneOf branch is a ref to an external schema`() =
+                assertLocated("oneof-branch", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `an anyOf branch is a ref to an external schema`() =
+                assertLocated("anyof-branch", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `the request body is reffed out to an external requestBodies component`() =
+                assertLocated("requestbody-component", ">> REQUEST.BODY.name", "new/common.yaml:14:15")
+
+            @Test
+            fun `a response is reffed out to an external responses component`() =
+                assertLocated("response-component", ">> RESPONSE.BODY.name", "new/common.yaml:14:15")
+
+            @Test
+            fun `the whole parameter is reffed out to an external parameters component`() =
+                assertLocated("parameter-component", ">> REQUEST.PARAMETERS.QUERY.kind", "new/common.yaml:7:7")
+
+            @Test
+            fun `the whole path item is reffed out to an external pathItems component`() =
+                assertLocated("path-item", ">> RESPONSE.BODY.state", "new/common.yaml:17:21")
+
+            @Test
+            fun `the change is two ref hops away in a transitive chain`() =
+                assertLocated("transitive-chain", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
+
+            @Test
+            fun `a newly required property is added in an external schema`() =
+                assertLocated("added-required", ">> REQUEST.BODY.token", "new/common.yaml:11:9")
+
+            @Test
+            fun `a required response property is removed from an external schema, located in the old file`() =
+                assertLocated("removed-response-property", ">> RESPONSE.BODY.name", "old/common.yaml:11:9")
+
+            @Test
+            fun `a whole-file ref with no fragment resolves into the bare schema file`() =
+                assertLocated("whole-file", ">> REQUEST.BODY.name", "new/ProductBase.yaml:4:3")
+
+            @Test
+            fun `an operation removed behind an external path item, located in the old file`() =
+                assertLocated(
+                    "removed-operation",
+                    "This API exists in the old contract but not in the new contract",
+                    "old/common.yaml:7:7"
+                )
+
+            // A parameter is always declared in the referring spec, so its breadcrumb anchors on that
+            // declaration even when the parameter's schema is an external ref. Uniform across query,
+            // path and header parameters: the annotated file is the entry spec, not the external one.
+            @Test
+            fun `a query parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
+                assertLocated("query-param-schema", ">> REQUEST.PARAMETERS.QUERY.kind", "new/api.yaml:7:11")
+
+            @Test
+            fun `a path parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
+                assertLocated("path-param-schema", ">> REQUEST.PARAMETERS.PATH.id", "new/api.yaml:7:11")
+
+            @Test
+            fun `a header parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
+                assertLocated("header-param-schema", ">> REQUEST.PARAMETERS.HEADER.X-Tenant", "new/api.yaml:7:11")
+
+            private fun assertLocated(case: String, breadcrumb: String, fileLineCol: String) {
+                val results = compare(case)
+                assertThat(results.success()).isFalse()
+                val file = at(case, fileLineCol.substringBefore(":"))
+                val lineCol = fileLineCol.substringAfter(":")
+                assertThat(results.report()).contains("$breadcrumb ($file:$lineCol)")
+            }
+
+            private fun compare(case: String): Results {
+                val older = OpenApiSpecification.fromFile(fixtures.resolve("$case/old/api.yaml").canonicalPath).toFeature()
+                val newer = OpenApiSpecification.fromFile(fixtures.resolve("$case/new/api.yaml").canonicalPath).toFeature()
+                return backwardCompatibilityRecords(older, newer).first
+            }
+
+            private fun at(case: String, relativePath: String): String =
+                fixtures.resolve("$case/$relativePath").canonicalFile.invariantSeparatorsPath
         }
     }
 
