@@ -18,6 +18,15 @@ data class YamlNodeLocation(
     val rawRef: String? = null
 )
 
+// The JSON Pointer a $ref targets within the same document, or null for an external ref.
+// "#" (the whole document) maps to the root pointer "".
+internal fun internalRefTarget(rawRef: String?): String? = when {
+    rawRef == null -> null
+    rawRef == "#" -> ""
+    rawRef.startsWith("#/") -> rawRef.removePrefix("#")
+    else -> null
+}
+
 class JsonPointerSourceMap(private val yaml: String) {
     fun build(): Map<String, YamlNodeLocation> {
         val root = Yaml().compose(yaml.reader()) ?: return emptyMap()
@@ -55,13 +64,6 @@ class JsonPointerSourceMap(private val yaml: String) {
         return null
     }
 
-    private fun internalRefTargetOf(rawRef: String?): String? {
-        if (rawRef == null) return null
-        if (rawRef.startsWith("#/")) return rawRef.removePrefix("#")
-        if (rawRef == "#") return ""
-        return null
-    }
-
     private fun locationOf(node: Node, mark: Mark, rawRef: String?): YamlNodeLocation {
         val kind = when (node) {
             is MappingNode -> YamlNodeKind.MAPPING
@@ -70,7 +72,7 @@ class JsonPointerSourceMap(private val yaml: String) {
             is AnchorNode -> YamlNodeKind.ANCHOR
             else -> error("Unexpected YAML node type: ${node::class.java.name}")
         }
-        return YamlNodeLocation(mark.line + 1, mark.column + 1, kind, internalRefTargetOf(rawRef), rawRef)
+        return YamlNodeLocation(mark.line + 1, mark.column + 1, kind, internalRefTarget(rawRef), rawRef)
     }
 
     private fun escape(token: String): String =

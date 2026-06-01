@@ -1927,23 +1927,14 @@ class OpenApiSpecification(
     private fun escapeJsonPointer(token: String): String =
         token.replace("~", "~0").replace("/", "~1")
 
-    private fun internalRefPointer(ref: String?): String? {
-        if (ref == null) return null
-        if (ref == "#") return ""
-        if (ref.startsWith("#/")) return ref.removePrefix("#")
-        return null
-    }
-
     private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
         sourceMapCache.getOrPut(file) {
             readExternalFileContent(file)?.let { JsonPointerSourceMap(it).build() }.orEmpty()
         }
 
     private fun readExternalFileContent(file: String): String? =
-        sequenceOf(
-            { File(file).readText() },
-            { ClasspathHelper.loadFileFromClasspath(file) },
-        ).firstNotNullOfOrNull { runCatching { it.invoke() }.getOrNull() }
+        runCatching { File(file).readText() }.getOrNull()
+            ?: runCatching { ClasspathHelper.loadFileFromClasspath(file) }.getOrNull()
 
     private fun resolveExternalFile(refFile: String, currentFile: String): String {
         val resolved = File(currentFile).canonicalFile.parentFile.resolve(refFile)
@@ -1992,17 +1983,15 @@ class OpenApiSpecification(
         uses
     }
 
-    private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
-        val node = jsonPointerSourceMap[useSitePointer]
-        node?.refTarget?.let { return it }
-        internalRefPointer(ref)?.let { return it }
-        internalModelRefPointer(useSitePointer)?.let { return it }
-        return useSitePointer
-    }
+    private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String =
+        jsonPointerSourceMap[useSitePointer]?.refTarget
+            ?: internalRefTarget(ref)
+            ?: internalModelRefPointer(useSitePointer)
+            ?: useSitePointer
 
     private fun internalModelRefPointer(useSitePointer: String): String? {
         val ref = parsedOpenApiModel.at(useSitePointer).path($$"$ref").asText("")
-        return internalRefPointer(ref)
+        return internalRefTarget(ref)
     }
 
     private fun refFragment(ref: String?): String? =
