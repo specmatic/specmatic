@@ -5,7 +5,6 @@ import application.mcp.server.SpecmaticMcpServer
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.log.configureLogging
 import io.specmatic.license.core.cli.Category
-import kotlinx.coroutines.runBlocking
 import picocli.CommandLine
 import java.util.concurrent.Callable
 
@@ -34,9 +33,7 @@ class McpServerCommand : Callable<Int> {
         )
 
         return try {
-            runBlocking {
-                SpecmaticMcpServer().use { it.run(outputStream = originalOut) }
-            }
+            SpecmaticMcpServer(outputStream = originalOut).use { it.run() }
             0
         } catch (t: Throwable) {
             t.printStackTrace(System.err)
