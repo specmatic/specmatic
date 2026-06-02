@@ -1276,7 +1276,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coveragePercentage).isEqualTo(67)
         assertThat(report.missedOperations).isEqualTo(1)
 
-        val processor = OpenApiCoverageReportProcessor(coverage.generate(), tempDir.absolutePath)
+        val processor = OpenApiCoverageReportProcessor(coverage.generate())
         val reportConfiguration = loadSpecmaticConfig(configFile.absolutePath).getReport()!!
         assertThatThrownBy { processor.assertSuccessCriteria(reportConfiguration, report) }.isInstanceOf(AssertionError::class.java)
 
@@ -1288,7 +1288,7 @@ class OpenApiCoverageReportInputTest {
     }
 
     @Test
-    fun `should not generate legacy html coverage assets`(@TempDir tempDir: File) {
+    fun `should not generate legacy coverage assets`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml")
         configFile.writeText("""
         version: 2
@@ -1308,14 +1308,14 @@ class OpenApiCoverageReportInputTest {
         }
 
         OpenApiCoverageReportProcessor(
-            openApiCoverageReport = coverage.generate(),
-            reportBaseDirectory = tempDir.absolutePath
+            openApiCoverageReport = coverage.generate()
         ).process(
             specmaticConfig = loadSpecmaticConfig(configFileName = configFile.absolutePath)
         )
 
         val reportDir = tempDir.resolve("build/reports/specmatic")
         assertThat(reportDir.resolve("html")).doesNotExist()
+        assertThat(reportDir.resolve("coverage_report.json")).doesNotExist()
     }
 
     private class RecordingCoverageListener : TestReportListener {

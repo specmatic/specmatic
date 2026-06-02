@@ -1,24 +1,15 @@
 package io.specmatic.test.reports
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.ReportConfiguration
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.log.logger
-import io.specmatic.reporter.generated.dto.coverage.SpecmaticCoverageReport
 import io.specmatic.test.reports.coverage.OpenApiCoverageReport
 import io.specmatic.test.reports.coverage.console.OpenAPICoverageConsoleReport
-import io.specmatic.test.reports.coverage.json.LegacyTestJsonGenerator
 import io.specmatic.test.reports.renderers.CoverageReportTextRenderer
 import org.assertj.core.api.Assertions.assertThat
-import java.io.File
 
-class OpenApiCoverageReportProcessor(private val openApiCoverageReport: OpenApiCoverageReport, private val reportBaseDirectory: String): ReportProcessor<OpenAPICoverageConsoleReport> {
-    companion object {
-        const val JSON_REPORT_PATH = "./build/reports/specmatic"
-        const val JSON_REPORT_FILE_NAME = "coverage_report.json"
-    }
-
+class OpenApiCoverageReportProcessor(private val openApiCoverageReport: OpenApiCoverageReport): ReportProcessor<OpenAPICoverageConsoleReport> {
     override fun process(specmaticConfig: SpecmaticConfig) {
         val reportConfiguration = specmaticConfig.getReport()!!
         val openApiConsoleReport = openApiCoverageReport.toConsoleReport()
@@ -26,18 +17,8 @@ class OpenApiCoverageReportProcessor(private val openApiCoverageReport: OpenApiC
             logger.log("The Open API coverage report generated is blank.\nThis can happen if your open api specification does not have any paths documented.")
         } else {
             logger.log(CoverageReportTextRenderer().render(openApiConsoleReport, specmaticConfig))
-            saveAsJson(LegacyTestJsonGenerator(openApiCoverageReport).generateJsonReport())
         }
         assertSuccessCriteria(reportConfiguration, openApiConsoleReport)
-    }
-
-    private fun saveAsJson(openApiCoverageJsonReport: SpecmaticCoverageReport) {
-        println("Saving Coverage Report json to $JSON_REPORT_PATH ...")
-        val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)
-        val directory = File(reportBaseDirectory).resolve(JSON_REPORT_PATH)
-        directory.mkdirs()
-        val file = File(directory, JSON_REPORT_FILE_NAME)
-        file.writeText(reportJson)
     }
 
     override fun assertSuccessCriteria(
