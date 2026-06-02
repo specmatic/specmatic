@@ -18,6 +18,8 @@ import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
@@ -53,6 +55,20 @@ class InterpolatedPathsE2ETest {
 
         testBlock(listener)
         return events
+    }
+
+    companion object {
+        @BeforeAll
+        @JvmStatic
+        fun setup() {
+            System.setProperty("SPECMATIC_BCC_REPORT", "true")
+        }
+
+        @AfterAll
+        @JvmStatic
+        fun teardown() {
+            System.clearProperty("SPECMATIC_BCC_REPORT")
+        }
     }
 
     @ParameterizedTest
@@ -229,7 +245,7 @@ class InterpolatedPathsE2ETest {
 In scenario "Inline and external examples endpoint. Response: Inline success"
 API: GET /example/(id1:string),(id2:number)/status -> 200
 
-  >> REQUEST.PARAMETERS.PATH.id2
+  >> REQUEST.PARAMETERS.PATH.id2 (src/test/resources/openapi/interpolated_paths_e2e.yaml:54:11)
   
       R1001: Type mismatch
       Documentation: https://docs.specmatic.io/rules#r1001
@@ -240,7 +256,7 @@ API: GET /example/(id1:string),(id2:number)/status -> 200
 In scenario "Inline and external examples endpoint. Response: External success"
 API: GET /example/(id1:string),(id2:number)/status -> 202
 
-  >> REQUEST.PARAMETERS.PATH.id2
+  >> REQUEST.PARAMETERS.PATH.id2 (src/test/resources/openapi/interpolated_paths_e2e.yaml:54:11)
   
       R1001: Type mismatch
       Documentation: https://docs.specmatic.io/rules#r1001
@@ -251,7 +267,7 @@ API: GET /example/(id1:string),(id2:number)/status -> 202
 In scenario "Inline and external examples endpoint. Response: Inline not found"
 API: GET /example/(id1:string),(id2:number)/status -> 404
 
-  >> REQUEST.PARAMETERS.PATH.id2
+  >> REQUEST.PARAMETERS.PATH.id2 (src/test/resources/openapi/interpolated_paths_e2e.yaml:54:11)
   
       R1001: Type mismatch
       Documentation: https://docs.specmatic.io/rules#r1001

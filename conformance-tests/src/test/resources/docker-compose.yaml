@@ -9,7 +9,7 @@ services:
     volumes:
       - ${PATH_TO_OPEN_API_SPEC_FILE:?error}:/service.yaml:ro
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://mock:9000/actuator/health" ]
+      test: [ "CMD", "curl", "-fSsL", "http://mock:9000/actuator/health" ]
       interval: 2s
       timeout: 5s
       retries: 10

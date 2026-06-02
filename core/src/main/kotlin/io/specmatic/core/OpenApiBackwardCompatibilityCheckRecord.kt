@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.convertPathParameterStyle
+import io.specmatic.core.utilities.Flags
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.internal.dto.operation.APIOperation
@@ -45,7 +46,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     // 5-tuple, which otherwise share a name (most visibly for GETs with no request body).
     override val name: String =
         "${scenario.copy(requestChangeSummary = requestVariationSummary).fullApiTestDescription().trim()} (${phase.label})"
-    override val message: String = compatResult.reportString()
+    override val message: String = compatResult.reportString(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
         if (isWip) add("wip")

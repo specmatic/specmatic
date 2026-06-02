@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: Token API
+  version: '1.0'
+paths:
+  /token:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            examples:
+              valid-token-example:
+                value:
+                  client_id: client-123
+                  client_secret: secret-456
+                  grant_type: client_credentials
+                  scope: dummy/.default
+            schema:
+              type: object
+              required:
+                - client_id
+                - client_secret
+                - grant_type
+                - scope
+              properties:
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                grant_type:
+                  type: string
+                scope:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              examples:
+                valid-token-example:
+                  value:
+                    access_token: example-token
+              schema:
+                type: object
+                required:
+                  - access_token
+                properties:
+                  access_token:
+                    type: string

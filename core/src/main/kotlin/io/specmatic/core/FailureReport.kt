@@ -1,6 +1,6 @@
 package io.specmatic.core
 
-data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>): Report {
+data class FailureReport(val contractPath: String?, private val scenarioMessage: String?, val scenario: ScenarioDetailsForResult?, private val matchFailureDetailList: List<MatchFailureDetails>, private val addSourceLocation: Boolean = false): Report {
 
     fun groupingKey(): String {
         if(contractPath != null && scenario != null) return "$contractPath ${scenario.operationDescription()}"
@@ -64,9 +64,24 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
     }
 
     private fun matchFailureDetails(matchFailureDetails: MatchFailureDetails): String {
-        val breadCrumbString = startOfBreadCrumbPrefix(breadCrumbString(matchFailureDetails.breadCrumbs))
-        val matchFailureDetails = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
-        return listOf(breadCrumbString).plus(matchFailureDetails).filter(String::isNotBlank).joinToString("\n\n")
+        val crumbs = breadCrumbString(matchFailureDetails.breadCrumbs)
+        val locationSuffix = if (addSourceLocation) {
+            matchFailureDetails.sourceLocation?.let { loc ->
+                if (loc.filePath.isBlank()) null
+                else "(${loc.filePath}:${loc.line}:${loc.column})"
+            }
+        } else null
+        val crumbsWithLocation = when {
+            crumbs.isBlank() -> crumbs
+            locationSuffix != null -> "$crumbs $locationSuffix"
+            else -> crumbs
+        }
+        val breadCrumbString = startOfBreadCrumbPrefix(crumbsWithLocation)
+        val messageLines = matchFailureDetailsErrorMessage(matchFailureDetails).map { it.prependIndent("    ") }
+        val finalMessageLines = if (crumbs.isBlank() && locationSuffix != null && messageLines.isNotEmpty()) {
+            messageLines.dropLast(1) + (messageLines.last() + " " + locationSuffix)
+        } else messageLines
+        return listOf(breadCrumbString).plus(finalMessageLines).filter(String::isNotBlank).joinToString("\n\n")
     }
 
     private fun matchFailureDetailsErrorMessage(matchFailureDetails: MatchFailureDetails): List<String> {

@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.pattern.parsedValue
 
 class ExampleRequestBuilder(
@@ -47,6 +48,33 @@ class ExampleRequestBuilder(
         return allExamples
     }
 
+    fun examplesWithFormFields(exampleFormFields: Map<String, Map<String, String>>, contentType: String): Map<String, List<HttpRequest>> {
+        val examplesWithFormFields: Map<String, List<HttpRequest>> = exampleFormFields.mapValues { (exampleName, formFields) ->
+            val requests: List<HttpRequest> = if (exampleName in examplesBasedOnParameters) {
+                examplesBasedOnParameters.getValue(exampleName).map { exampleRequest ->
+                    exampleRequest.withFormFields(formFields, contentType)
+                }
+            } else {
+                val httpRequest = HttpRequest(
+                    method = httpMethod,
+                    path = httpPathPattern.toInternalPath(),
+                    headers = mapOf(CONTENT_TYPE to contentType),
+                    formFields = formFields
+                )
+
+                securitySchemes.map { securityScheme ->
+                    securityScheme.addTo(httpRequest)
+                }
+            }
+
+            requests
+        }
+
+        val examplesWithoutFormFields = (examplesBasedOnParameters.keys - exampleFormFields.keys).associateWith { key -> examplesBasedOnParameters.getValue(key) }
+
+        return examplesWithFormFields + examplesWithoutFormFields
+    }
+
     private val unionOfParameterKeys =
         (exampleQueryParams.keys + examplePathParams.keys + exampleHeaderParams.keys).distinct()
 
@@ -67,6 +95,20 @@ class ExampleRequestBuilder(
         requestsWithSecurityParams
     }
 
+}
+
+private fun HttpRequest.withFormFields(formFields: Map<String, String>, contentType: String): HttpRequest {
+    val contentTypeHeader = if (headers.keys.any { it.equals(CONTENT_TYPE, ignoreCase = true) }) {
+        emptyMap()
+    } else {
+        mapOf(CONTENT_TYPE to contentType)
+    }
+
+    return copy(
+        headers = headers + contentTypeHeader,
+        formFields = formFields,
+        body = NoBodyValue
+    )
 }
 
 private fun toConcretePath(

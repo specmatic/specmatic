@@ -60,7 +60,9 @@ data class HttpRequestPattern(
     val body: Pattern = EmptyStringPattern,
     val formFieldsPattern: Map<String, Pattern> = emptyMap(),
     val multiPartFormDataPattern: List<MultiPartFormDataPattern> = emptyList(),
-    val securitySchemes: List<OpenAPISecurityScheme> = listOf(NoSecurityScheme())
+    val securitySchemes: List<OpenAPISecurityScheme> = listOf(NoSecurityScheme()),
+    val formFieldPointers: Map<String, String> = emptyMap(),
+    val multiPartPointers: Map<String, String> = emptyMap()
 ) {
     fun getHeaderKeys() = headersPattern.headerNames
 
@@ -188,7 +190,7 @@ data class HttpRequestPattern(
                 type.matches(value, resolver)
             }
 
-            val result = results.find { it is Success } ?: results.find { it is Failure && it.failureReason != FailureReason.PartNameMisMatch }?.breadCrumb(type.name)?.breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
+            val result = results.find { it is Success } ?: results.find { it is Failure && it.failureReason != FailureReason.PartNameMisMatch }?.breadCrumb(type.name, resolver.locate(multiPartPointers[withoutOptionality(type.name)]))?.breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
             result ?: when {
                 isOptional(type.name) -> Success()
                 else -> null
@@ -212,7 +214,7 @@ data class HttpRequestPattern(
             Failure(
                 message = resolver.mismatchMessages.expectedKeyWasMissing("part", withoutOptionality(partName)),
                 ruleViolation = StandardRuleViolation.REQUIRED_PROPERTY_MISSING
-            ).breadCrumb(withoutOptionality(partName)).breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
+            ).breadCrumb(withoutOptionality(partName), resolver.locate(multiPartPointers[withoutOptionality(partName)])).breadCrumb(MULTIPART_FORMDATA_BREADCRUMB)
         }
 
         val allFailures: List<Failure> = missingInValue.plus(missingInType).plus(payloadFailures)
@@ -227,11 +229,9 @@ data class HttpRequestPattern(
         val (httpRequest, resolver, _: List<Failure>) = parameters
 
         val keyErrorResults: List<Failure> = resolver.findKeyErrorList(formFieldsPattern, httpRequest.formFields).map {
-            when {
-                httpRequest.formFields.contains(it.name) -> it.missingKeyToResult("form field", resolver.mismatchMessages)
-                httpRequest.formFields.contains(withOptionality(it.name)) -> it.missingOptionalKeyToResult("form field", resolver.mismatchMessages)
-                else -> it.unknownKeyToResult("form field", resolver.mismatchMessages)
-            }.breadCrumb(it.name).breadCrumb(FORM_FIELDS_BREADCRUMB)
+            it.toMatchFailure("form field", resolver.mismatchMessages)
+                .breadCrumb(it.name, resolver.locate(formFieldPointers[withoutOptionality(it.name)]))
+                .breadCrumb(FORM_FIELDS_BREADCRUMB)
         }
 
         val payloadResults: List<Result> = formFieldsPattern
@@ -248,7 +248,7 @@ data class HttpRequestPattern(
             }
             .map { (key, value, pattern) ->
                 when (val result = resolver.matchesPattern(key, pattern, value)) {
-                    is Failure -> result.breadCrumb(key).breadCrumb(FORM_FIELDS_BREADCRUMB)
+                    is Failure -> result.breadCrumb(key, resolver.locate(formFieldPointers[withoutOptionality(key)])).breadCrumb(FORM_FIELDS_BREADCRUMB)
                     else -> result
                 }
             }
@@ -305,7 +305,7 @@ data class HttpRequestPattern(
         val (httpRequest, resolver, failures) = parameters
 
         method.let {
-            return if (it != httpRequest.method)
+            return if (!it.equals(httpRequest.method, ignoreCase = true))
                 MatchFailure(
                     mismatchFailure(
                         expected = method.orEmpty(),

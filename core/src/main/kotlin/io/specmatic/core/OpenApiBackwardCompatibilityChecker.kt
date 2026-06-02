@@ -105,6 +105,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
+                .copy(sourceLocation = locateRemovedOperation(variationFromOldScenario))
             return listOf(newRecord(variationFromOldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationFromOldScenario.requestChangeSummary))
         }
 
@@ -135,6 +136,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
             val identifierMatches = newScenariosByStatusAndResContentType.findExactOrSingle(oldScenario.status, oldScenario.responseContentType)
             if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
+                    .copy(sourceLocation = locateRemovedResponse(oldScenario))
                 return@flatMap listOf(newRecord(oldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.RESPONSE))
             }
 
@@ -197,6 +199,26 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         val fallBackEntries = entries.asSequence().filter { it.key.first == first }.flatMap { it.value.asSequence() }
         return fallBackEntries.singleOrNull(valueFilter)?.let(::listOf).orEmpty()
     }
+
+    private fun locateRemovedOperation(scenario: Scenario): SourceLocation? {
+        val operationPointer = operationPointer(scenario) ?: return null
+        return scenario.resolver.locate(operationPointer)
+    }
+
+    private fun locateRemovedResponse(scenario: Scenario): SourceLocation? {
+        val operationPointer = operationPointer(scenario) ?: return null
+        val statusToken = if (scenario.status == DEFAULT_RESPONSE_CODE) "default" else scenario.status.toString()
+        return scenario.resolver.locate("$operationPointer/responses/$statusToken")
+            ?: scenario.resolver.locate(operationPointer)
+    }
+
+    private fun operationPointer(scenario: Scenario): String? {
+        val openApiPath = scenario.httpRequestPattern.httpPathPattern?.toOpenApiPath() ?: return null
+        return "/paths/${escapeJsonPointer(openApiPath)}/${scenario.method.lowercase()}"
+    }
+
+    private fun escapeJsonPointer(token: String): String =
+        token.replace("~", "~0").replace("/", "~1")
 
     companion object {
         private const val PROGRESSION_LOG_INCREMENT = 100

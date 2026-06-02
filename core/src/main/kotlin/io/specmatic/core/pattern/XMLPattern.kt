@@ -75,7 +75,9 @@ private fun isNamespaceDeclarationAttribute(attributeName: String): Boolean =
 
 data class XMLPattern(
     override val pattern: XMLTypeData = XMLTypeData(realName = ""),
-    override val typeAlias: String? = null
+    override val typeAlias: String? = null,
+    val schemaPointer: String? = null,
+    val attributePointers: Map<String, String> = emptyMap()
 ) : Pattern, SequenceType {
     constructor(
         node: XMLNode,
@@ -129,7 +131,7 @@ data class XMLPattern(
         sampleData: List<Value>,
         resolver: Resolver
     ): ConsumeResult<Value, Value> = if (xmlValues.isEmpty())
-        ConsumeResult(Failure("Didn't get enough values", breadCrumb = this.pattern.name), sampleData)
+        ConsumeResult(Failure("Didn't get enough values").breadCrumb(this.pattern.name, resolver.locate(schemaPointer)), sampleData)
     else
         ConsumeResult(matches(xmlValues.first(), resolver), xmlValues.drop(1))
 
@@ -179,7 +181,7 @@ data class XMLPattern(
             this,
             sampleData,
             resolver.mismatchMessages
-        ).breadCrumb(pattern.name)
+        ).breadCrumb(pattern.name, resolver.locate(schemaPointer))
 
         val cyclePreventionPattern = cyclePreventionPattern()
         if (cyclePreventionPattern != this && !resolver.hasCycle(cyclePreventionPattern)) {
@@ -222,7 +224,7 @@ data class XMLPattern(
                     matchingType.parse(sampleDataWithoutEmptyHeader.firstChild().toStringLiteral(), resolver)
                 matchingType.matches(valueToMatch, resolver)
             }
-        }.breadCrumb(pattern.name)
+        }.breadCrumb(pattern.name, resolver.locate(schemaPointer))
     }
 
     private fun dropEmptySOAPHeader(sampleData: XMLNode): XMLNode {
@@ -397,8 +399,11 @@ data class XMLPattern(
             ignoreXMLNamespaces(patternAttributesWithoutXmlns),
             ignoreXMLNamespaces(sampleAttributesForKeyCheck)
         )
-        if (missingKey != null)
+        if (missingKey != null) {
+            val keyLocation = resolver.locate(attributePointers[missingKey.name] ?: attributePointers[withoutOptionality(missingKey.name)])
             return missingKey.missingKeyToResult("attribute", resolver.mismatchMessages)
+                .breadCrumb(missingKey.name, keyLocation)
+        }
 
         return matchAttributes(patternAttributesWithoutXmlns, sampleAttributesWithoutXmlns, resolver)
     }
@@ -857,6 +862,38 @@ data class XMLPattern(
                 typeStack
             )
 
+            // TODO: BCC blind spot for top-level $ref XML bodies.
+            // When `application/xml` request/response bodies are `$ref`s to component schemas,
+            // toXMLPattern() returns a stub XMLPattern that only carries the `specmatic_type`
+            // attribute and has no child nodes. encompasses() then compares the two stubs:
+            // nodeNames match, attributes (both just `specmatic_type=Customer`) match, and
+            // memberList iteration is over empty lists — so any breakage *inside* the
+            // referenced component (e.g. a child property going from required to optional)
+            // goes undetected. Request matches() is unaffected because matchesXMLNode() calls
+            // dereferenceType() before deep-matching.
+            //
+            // Sketch of the fix (attempted in this PR, reverted because it needs more work):
+            //   1. In `encompasses`, before the deep compare, call
+            //      `this.dereferenceType(thisResolver)` and
+            //      `otherResolvedPattern.dereferenceType(otherResolver)`. If either changes,
+            //      recurse with the dereferenced patterns.
+            //   2. That alone yields correct *detection* but the source-location anchor lands
+            //      on the component header, not the child property. The component patterns
+            //      cached via `cacheComponentPattern` (see OpenApiSpecification.handleXmlReference
+            //      → convertAndCacheResolvedRef) are built by `toXMLPattern` but never passed
+            //      through `annotateXMLPattern`, so the cached Customer.name XMLPattern has no
+            //      `schemaPointer`. Fix: annotate at cache time using
+            //      `/components/schemas/<name>` as the base pointer (the existing JSON path
+            //      already does this — see annotateJsonObjectPattern call sites for shared
+            //      components).
+            //   3. mergeReferredPattern() in XMLPattern.kt copies `referred` and overrides
+            //      name/attributes from the referring stub — make sure it preserves the
+            //      referred pattern's `schemaPointer` and `attributePointers` (data-class copy
+            //      already does, but worth verifying after step 2).
+            //   4. Add BCC test fixtures back: ref-name-mandatory-old.yaml / -new.yaml with
+            //      response body $ref to a Customer component whose `name` toggles required.
+            //      Expected anchor: the new spec's `components.schemas.Customer.properties.name`
+            //      line (was 30:11 in the test fixture I drafted).
             is XMLPattern -> nodeNamesShouldBeEqual(otherResolvedPattern).ifSuccess {
                 attributesEncompass(otherResolvedPattern, thisResolver, otherResolver, typeStack)
             }.ifSuccess {
@@ -897,7 +934,12 @@ data class XMLPattern(
             }
 
             else -> patternMismatchResult(this, otherResolvedPattern, thisResolver.mismatchMessages)
-        }.breadCrumb(this.pattern.name)
+        }.breadCrumb(this.pattern.name, locateForEncompassFailure(otherResolvedPattern, thisResolver, otherResolver))
+    }
+
+    private fun locateForEncompassFailure(otherResolvedPattern: Pattern, thisResolver: Resolver, otherResolver: Resolver): SourceLocation? {
+        val otherPointer = (otherResolvedPattern as? XMLPattern)?.schemaPointer
+        return otherResolver.locate(otherPointer) ?: thisResolver.locate(schemaPointer)
     }
 
     private fun attributesEncompass(
@@ -917,16 +959,21 @@ data class XMLPattern(
             otherAttributes,
             thisResolver,
             otherResolver,
-            typeStack
+            typeStack,
+            otherPropertyPointers = otherResolvedPattern.attributePointers,
+            thisPropertyPointers = this.attributePointers
         )
 
         val thisAttributeNames = thisAttributes.keys.map(::withoutOptionality).toSet()
         val extraAttributeFailures =
             otherAttributes.keys.filter { withoutOptionality(it) !in thisAttributeNames }.mapNotNull { attributeName ->
                 val namespaceUri = otherResolvedPattern.pattern.attributeNamespaceUri(attributeName)
+                val rawName = withoutOptionality(attributeName)
+                val otherPointer = otherResolvedPattern.attributePointers[attributeName] ?: otherResolvedPattern.attributePointers[rawName]
                 when {
                     pattern.attributeWildcards.any { it.namespaceConstraint.allows(namespaceUri) } -> null
                     else -> Failure("XML attribute compatibility failed: attribute \"$attributeName\" is present in the other pattern, but this pattern does not declare it and has no anyAttribute wildcard that allows it.")
+                        .breadCrumb(rawName, otherResolver.locate(otherPointer))
                 }
             }
 

@@ -267,34 +267,34 @@ data class HttpRequest(
             httpRequestBuilder.headers.set(name = "Host", value = it.authority)
         }
 
-        if(body !is NoBodyValue) {
-            httpRequestBuilder.setBody(
-                when {
-                    formFields.isNotEmpty() -> {
-                        val parameters = formFields.mapValues { listOf(it.value) }.toList()
-                        FormDataContent(parametersOf(*parameters.toTypedArray()))
-                    }
+        when {
+            formFields.isNotEmpty() -> {
+                val parameters = formFields.mapValues { listOf(it.value) }.toList()
+                httpRequestBuilder.setBody(FormDataContent(parametersOf(*parameters.toTypedArray())))
+            }
 
-                    multiPartFormData.isNotEmpty() -> {
-                        MultiPartFormDataContent(formData {
-                            multiPartFormData.forEach { value ->
-                                value.addTo(this)
-                            }
-                        })
-                    }
-
-                    else -> {
-                        when {
-                            headers.containsKey(CONTENT_TYPE) -> TextContent(
-                                bodyString,
-                                ContentType.parse(headers[CONTENT_TYPE] as String)
-                            )
-
-                            else -> TextContent(bodyString, ContentType.parse(body.httpContentType))
+            multiPartFormData.isNotEmpty() -> {
+                httpRequestBuilder.setBody(
+                    MultiPartFormDataContent(formData {
+                        multiPartFormData.forEach { value ->
+                            value.addTo(this)
                         }
+                    })
+                )
+            }
+
+            body !is NoBodyValue -> {
+                httpRequestBuilder.setBody(
+                    when {
+                        headers.containsKey(CONTENT_TYPE) -> TextContent(
+                            bodyString,
+                            ContentType.parse(headers[CONTENT_TYPE] as String)
+                        )
+
+                        else -> TextContent(bodyString, ContentType.parse(body.httpContentType))
                     }
-                }
-            )
+                )
+            }
         }
     }
 

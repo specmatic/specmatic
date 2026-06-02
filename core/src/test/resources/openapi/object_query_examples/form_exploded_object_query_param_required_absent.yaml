@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: Required Object Query Param Invalid Absent Example API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+        - in: query
+          name: info
+          required: true
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+      responses:
+        '200':
+          description: OK

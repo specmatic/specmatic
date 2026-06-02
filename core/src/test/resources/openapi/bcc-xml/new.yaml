@@ -1,0 +1,113 @@
+openapi: 3.0.0
+info:
+  title: XML API
+  version: 1
+paths:
+  /attributes:
+    post:
+      summary: attribute breakage
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml:
+                name: order
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  xml:
+                    attribute: true
+                customer:
+                  type: object
+                  xml:
+                    name: customer
+                  properties:
+                    name:
+                      type: string
+      responses:
+        '200':
+          description: ok
+  /child-property:
+    post:
+      summary: child property breakage
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml:
+                name: order
+                namespace: http://example.com/order
+                prefix: ns2
+              required:
+                - customer
+              properties:
+                customer:
+                  type: object
+                  xml:
+                    name: customer
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+      responses:
+        '200':
+          description: ok
+  /array-items:
+    post:
+      summary: array item breakage
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: object
+              xml:
+                name: order
+              required:
+                - items
+              properties:
+                items:
+                  type: array
+                  xml:
+                    wrapped: true
+                    name: items
+                  items:
+                    type: object
+                    xml:
+                      name: item
+                    required:
+                      - name
+                    properties:
+                      name:
+                        type: string
+      responses:
+        '200':
+          description: ok
+  /response:
+    post:
+      summary: response breakage
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/xml:
+              schema:
+                type: object
+                xml:
+                  name: customer
+                properties:
+                  name:
+                    type: string

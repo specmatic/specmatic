@@ -14,7 +14,8 @@ data class HttpHeadersPattern(
     val pattern: Map<String, Pattern> = emptyMap(),
     val ancestorHeaders: Map<String, Pattern>? = null,
     val contentType: String? = null,
-    val preferEscapedSoapAction: Boolean = false
+    val preferEscapedSoapAction: Boolean = false,
+    val parameterPointers: Map<String, String> = emptyMap()
 ) {
     init {
         val uniqueHeaders = pattern.keys.map { it.lowercase() }.distinct()
@@ -126,7 +127,7 @@ data class HttpHeadersPattern(
                 lowerCasedPatternKeys.contains(it.name.lowercase()) -> it.missingKeyToResult("header", resolver.mismatchMessages)
                 lowerCasedPatternKeys.contains(withOptionality(it.name).lowercase()) -> it.missingOptionalKeyToResult("header", resolver.mismatchMessages)
                 else -> it.unknownKeyToResult("header", resolver.mismatchMessages)
-            }.breadCrumb(it.name)
+            }.breadCrumb(it.name, resolver.locate(parameterPointers[it.name]))
         }
 
         val lowercasedHeadersWithRelevantKeys = headersWithRelevantKeys.mapKeys { it.key.lowercase() }
@@ -149,7 +150,8 @@ data class HttpHeadersPattern(
                                 )
                             })
 
-                        result.breadCrumb(keyWithoutOptionality).failureReason(highlightIfSOAPActionMismatch(key))
+                        result.breadCrumb(keyWithoutOptionality, resolver.locate(parameterPointers[keyWithoutOptionality]))
+                            .failureReason(highlightIfSOAPActionMismatch(key))
                     } catch (e: ContractException) {
                         e.failure().copy(failureReason = highlightIfSOAPActionMismatch(key))
                     } catch (e: Throwable) {
@@ -352,7 +354,7 @@ data class HttpHeadersPattern(
         val myRequiredKeys = pattern.keys.filter { !isOptional(it) }
         val otherRequiredKeys = other.pattern.keys.filter { !isOptional(it) }
 
-        val missingHeaderResult: Result = checkAllMissingHeaders(myRequiredKeys, otherRequiredKeys, thisResolver)
+        val missingHeaderResult: Result = checkAllMissingHeaders(myRequiredKeys, otherRequiredKeys, thisResolver, parameterPointers)
 
         val otherWithoutOptionality = other.pattern.mapKeys { withoutOptionality(it.key) }
         val thisWithoutOptionality = pattern.filterKeys { withoutOptionality(it) in otherWithoutOptionality }
@@ -364,7 +366,7 @@ data class HttpHeadersPattern(
                     resolvedHop(otherWithoutOptionality.getValue(headerName), otherResolver),
                     thisResolver,
                     otherResolver
-                ).breadCrumb(headerName)
+                ).breadCrumb(headerName, otherResolver.locate(other.parameterPointers[headerName]))
             }
 
         val results = listOf(missingHeaderResult).plus(valueResults)
@@ -375,11 +377,12 @@ data class HttpHeadersPattern(
     private fun checkAllMissingHeaders(
         myRequiredKeys: List<String>,
         otherRequiredKeys: List<String>,
-        resolver: Resolver
+        resolver: Resolver,
+        thisParameterPointers: Map<String, String> = emptyMap()
     ): Result {
         val failures = myRequiredKeys.filter { it !in otherRequiredKeys }.map { missingFixedKey ->
             MissingKeyError(missingFixedKey).missingKeyToResult("header", resolver.mismatchMessages)
-                .breadCrumb(missingFixedKey)
+                .breadCrumb(missingFixedKey, resolver.locate(thisParameterPointers[missingFixedKey]))
         }
 
         return Result.fromFailures(failures)

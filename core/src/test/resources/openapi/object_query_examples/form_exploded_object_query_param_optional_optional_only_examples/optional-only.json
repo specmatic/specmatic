@@ -1,0 +1,9 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/data?description=buyer"
+  },
+  "http-response": {
+    "status": 200
+  }
+}

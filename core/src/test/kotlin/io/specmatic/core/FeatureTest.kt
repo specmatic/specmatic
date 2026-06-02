@@ -8,6 +8,7 @@ import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
@@ -3293,25 +3294,94 @@ paths:
     }
 
     @Test
-    fun `validate externalized examples for absent required-only and all optional form exploded object query params`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "absent.json", "/data")
-        writeExternalizedExample(examplesDir, "required-only.json", "/data?name=Jane")
-        writeExternalizedExample(examplesDir, "all.json", "/data?name=Jane&description=buyer")
+    fun `externalized form exploded object query example is loaded and validated using property keys`() {
+        val feature = OpenApiSpecification.fromFile(CUSTOMER_OBJECT_QUERY_PARAM_SPEC).toFeature().loadExternalisedExamples()
+        val externalRows = feature.scenarios.single().examples.flatMap { it.rows }
 
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+        assertThat(externalRows).singleElement().satisfies(Consumer { row ->
+            assertThat(row.name).isEqualTo("external-success")
+            assertThat(row.getField("customerId")).isEqualTo("external")
+            assertThat(row.getField("segment")).isEqualTo("live")
+            assertThat(row.containsField("info")).isFalse()
+        })
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+    }
+
+    @Test
+    fun `contract tests use serialized query property keys from externalized object query examples`() {
+        val feature = OpenApiSpecification.fromFile(CUSTOMER_OBJECT_QUERY_PARAM_SPEC).toFeature().loadExternalisedExamples()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"source":"external"}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("customerId", "external")
+            assertThat(queryParams).containsEntry("segment", "live")
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+    }
+
+    @Test
+    fun `ExampleValidationModule validates serialized query property keys in external object query examples`() {
+        val validationResults = validateExternalExample(
+            specPath = CUSTOMER_OBJECT_QUERY_PARAM_SPEC,
+            examplePath = CUSTOMER_OBJECT_QUERY_PARAM_SUCCESS_EXAMPLE
+        )
+
+        assertThat(validationResults.success).isTrue()
+        assertThat(validationResults.exampleValidationResults.values).singleElement().isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `ExampleValidationModule rejects external object query examples nested under object parameter name`() {
+        val validationResults = validateExternalExample(
+            specPath = CUSTOMER_OBJECT_QUERY_PARAM_SPEC,
+            examplePath = CUSTOMER_OBJECT_QUERY_PARAM_NESTED_INFO_EXAMPLE
+        )
+        val validationResult = validationResults.exampleValidationResults.values.single()
+
+        assertThat(validationResults.success).isFalse()
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(validationResult.reportString()).contains("REQUEST.PARAMETERS.QUERY.customerId")
+    }
+
+    @Test
+    fun `mock uses serialized query property keys from externalized object query examples`() {
+        createStubFromContracts(
+            contractPaths = listOf(CUSTOMER_OBJECT_QUERY_PARAM_SPEC),
+            dataDirPaths = listOf(CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR),
+            port = ServerSocket(0).use { it.localPort },
+            timeoutMillis = 0,
+        ).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/data",
+                    queryParams = QueryParameters(mapOf("customerId" to "external", "segment" to "live"))
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"source":"external"}"""))
+        }
+    }
+
+    @Test
+    fun `validate externalized examples for absent required-only and all optional form exploded object query params`() {
+        val feature = OpenApiSpecification.fromFile(OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC).toFeature().loadExternalisedExamples()
 
         assertDoesNotThrow { feature.validateExamplesOrException() }
     }
 
     @Test
-    fun `optional form exploded object query param example with only optional property should fail validation`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "optional-only.json", "/data?description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `optional form exploded object query param example with only optional property should fail validation`() {
+        val feature = OpenApiSpecification.fromFile(OPTIONAL_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC).toFeature().loadExternalisedExamples()
 
         assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
             assertThat(exceptionCauseMessage(exception)).contains("REQUEST.PARAMETERS.QUERY.name")
@@ -3319,24 +3389,15 @@ paths:
     }
 
     @Test
-    fun `validate externalized examples for required-only and all mandatory form exploded object query params`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "required-only.json", "/data?name=Jane")
-        writeExternalizedExample(examplesDir, "all.json", "/data?name=Jane&description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `validate externalized examples for required-only and all mandatory form exploded object query params`() {
+        val feature = OpenApiSpecification.fromFile(REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC).toFeature().loadExternalisedExamples()
 
         assertDoesNotThrow { feature.validateExamplesOrException() }
     }
 
     @Test
-    fun `mandatory form exploded object query param example with absent object should fail validation`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "absent.json", "/data")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `mandatory form exploded object query param example with absent object should fail validation`() {
+        val feature = OpenApiSpecification.fromFile(REQUIRED_OBJECT_QUERY_PARAM_ABSENT_SPEC).toFeature().loadExternalisedExamples()
 
         assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
             assertThat(exceptionCauseMessage(exception)).contains("REQUEST.PARAMETERS.QUERY.name")
@@ -3344,12 +3405,8 @@ paths:
     }
 
     @Test
-    fun `mandatory form exploded object query param example with only optional property should mention object query param name`(@TempDir tempDir: File) {
-        val specFile = writeFormExplodedObjectQueryParamSpec(tempDir, objectParamRequired = true)
-        val examplesDir = tempDir.resolve("object_query_param_examples").also { it.mkdirs() }
-        writeExternalizedExample(examplesDir, "optional-only.json", "/data?description=buyer")
-
-        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples()
+    fun `mandatory form exploded object query param example with only optional property should mention object query param name`() {
+        val feature = OpenApiSpecification.fromFile(REQUIRED_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC).toFeature().loadExternalisedExamples()
 
         assertThatThrownBy { feature.validateExamplesOrException() }.satisfies(Consumer { exception ->
             assertThat(exceptionCauseMessage(exception))
@@ -3966,7 +4023,24 @@ paths:
         assertThat(filtered.externalExamples).isEmpty()
     }
 
+    private fun validateExternalExample(specPath: String, examplePath: String) =
+        ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExamples(
+            feature = OpenApiSpecification.fromFile(specPath).toFeature(),
+            examples = listOf(File(examplePath))
+        )
+
     companion object {
+        private const val OBJECT_QUERY_EXAMPLES_BASE = "src/test/resources/openapi/object_query_examples"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param.yaml"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_examples"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_SUCCESS_EXAMPLE = "$CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR/external-success.json"
+        private const val CUSTOMER_OBJECT_QUERY_PARAM_NESTED_INFO_EXAMPLE = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_invalid_examples/nested-info.json"
+        private const val OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_valid.yaml"
+        private const val OPTIONAL_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_optional_only.yaml"
+        private const val REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_valid.yaml"
+        private const val REQUIRED_OBJECT_QUERY_PARAM_ABSENT_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_absent.yaml"
+        private const val REQUIRED_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_optional_only.yaml"
+
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
             val featureData = arrayOf(
@@ -4004,53 +4078,6 @@ paths:
                 .map { ScenarioStub.readFromFile(it) }
         }
 
-        private fun writeFormExplodedObjectQueryParamSpec(tempDir: File, objectParamRequired: Boolean = false): File {
-            return tempDir.resolve("object_query_param.yaml").apply {
-                writeText(
-                    """
-                    openapi: 3.0.0
-                    info:
-                      title: Object Query Param API
-                      version: 1.0.0
-                    paths:
-                      /data:
-                        get:
-                          parameters:
-                            - in: query
-                              name: info
-                              required: $objectParamRequired
-                              schema:
-                                type: object
-                                required:
-                                  - name
-                                properties:
-                                  name:
-                                    type: string
-                                  description:
-                                    type: string
-                          responses:
-                            '200':
-                              description: OK
-                    """.trimIndent()
-                )
-            }
-        }
-
-        private fun writeExternalizedExample(examplesDir: File, fileName: String, path: String) {
-            examplesDir.resolve(fileName).writeText(
-                """
-                {
-                  "http-request": {
-                    "method": "GET",
-                    "path": "$path"
-                  },
-                  "http-response": {
-                    "status": 200
-                  }
-                }
-                """.trimIndent()
-            )
-        }
     }
 
     @Nested

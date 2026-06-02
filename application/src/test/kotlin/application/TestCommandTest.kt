@@ -26,10 +26,10 @@ import org.junit.platform.launcher.TestExecutionListener
 import org.w3c.dom.Document
 import org.xml.sax.InputSource
 import picocli.CommandLine
+import java.io.File
 import java.io.StringReader
 import java.util.*
 import java.util.stream.Stream
-import java.io.File
 
 
 internal class TestCommandTest {
