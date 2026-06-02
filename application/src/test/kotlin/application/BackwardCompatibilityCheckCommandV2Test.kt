@@ -2200,7 +2200,11 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(normalizedOut).contains("Verdict for spec $apiA:")
             assertThat(normalizedOut).contains("Verdict for spec $apiB:")
             // Both referring specs are incompatible, each annotated at the change in the shared file.
-            assertThat(normalizedOut.split(">> REQUEST.BODY.name ($common:10:9)")).hasSize(3)
+            // The location is a chain that starts at each spec's own ref use-site and ends at the
+            // shared external change, so the tail is reached twice — once per referring spec.
+            assertThat(normalizedOut.split("-> $common:10:9)")).hasSize(3)
+            assertThat(normalizedOut).contains("($apiA:")
+            assertThat(normalizedOut).contains("($apiB:")
         }
 
         private fun productBase(type: String) = """

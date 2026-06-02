@@ -2213,18 +2213,28 @@ class OpenApiSpecification(
     private data class ProjectedExternalRefUse(
         val refUse: ExternalRefUse,
         val modelPointer: String,
+        // The $ref use-site hops taken to reach this ref, head-first (entry spec first), including
+        // this ref's own use-site. Becomes the `via` chain of every location under its projection.
+        val via: List<SourceLocation>,
     )
 
-    // Recovers where each external source subtree appears in the resolved parser model.
-    // External schemas may be imported as renamed internal refs (Payload -> Payload_1), while
-    // whole-file PathItem/response/requestBody refs are usually inlined at the use site.
-    private val externalSourceProjections: Set<ExternalSourceProjection> by lazy {
-        val projections = linkedSetOf<ExternalSourceProjection>()
+    private fun useSiteLocation(file: String, pointer: String): SourceLocation? {
+        val node = sourceMapFor(file)[pointer] ?: return null
+        return SourceLocation(File(file).invariantSeparatorsPath, node.line, node.column)
+    }
+
+    // Recovers where each external source subtree appears in the resolved parser model, along with
+    // the chain of $ref use-sites that led there (first-seen wins, so the chain is the shortest path
+    // discovered by the BFS). External schemas may be imported as renamed internal refs
+    // (Payload -> Payload_1), while whole-file PathItem/response/requestBody refs are usually
+    // inlined at the use site.
+    private val externalSourceProjections: Map<ExternalSourceProjection, List<SourceLocation>> by lazy {
+        val projections = LinkedHashMap<ExternalSourceProjection, List<SourceLocation>>()
         val refUsesBySourceFile = externalRefUses.groupBy { it.sourceFile }
         val queue = ArrayDeque(
             externalRefUses
                 .filter { it.sourceFile == entryFileKey }
-                .map { ProjectedExternalRefUse(it, it.sourcePointer) }
+                .map { ProjectedExternalRefUse(it, it.sourcePointer, listOfNotNull(useSiteLocation(it.sourceFile, it.sourcePointer))) }
         )
 
         while (queue.isNotEmpty()) {
@@ -2239,10 +2249,17 @@ class OpenApiSpecification(
                     targetPointer = targetPointer,
                 )
 
-                if (projections.add(projection)) {
+                if (projection !in projections) {
+                    projections[projection] = projectedRefUse.via
                     refUsesBySourceFile[projection.sourceFile].orEmpty()
                         .filter { projection.contains(it.sourceFile, it.sourcePointer) }
-                        .mapTo(queue) { ProjectedExternalRefUse(it, projection.targetPointerFor(it.sourcePointer)) }
+                        .mapTo(queue) { childRefUse ->
+                            ProjectedExternalRefUse(
+                                childRefUse,
+                                projection.targetPointerFor(childRefUse.sourcePointer),
+                                projectedRefUse.via + listOfNotNull(useSiteLocation(childRefUse.sourceFile, childRefUse.sourcePointer)),
+                            )
+                        }
                 }
             }
         }
@@ -2270,11 +2287,11 @@ class OpenApiSpecification(
         entryMap.forEach { (pointer, node) ->
             locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
         }
-        externalSourceProjections.forEach { projection ->
+        externalSourceProjections.forEach { (projection, via) ->
             val displayPath = File(projection.sourceFile).invariantSeparatorsPath
             sourceMapFor(projection.sourceFile).forEach { (pointer, node) ->
                 if (projection.contains(projection.sourceFile, pointer)) {
-                    locations[projection.targetPointerFor(pointer)] = SourceLocation(displayPath, node.line, node.column)
+                    locations[projection.targetPointerFor(pointer)] = SourceLocation(displayPath, node.line, node.column, via = via)
                 }
             }
         }
