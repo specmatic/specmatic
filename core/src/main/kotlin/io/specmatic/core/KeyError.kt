@@ -13,6 +13,14 @@ sealed interface KeyError {
     fun unknownKeyToResult(keyLabel: String, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure
 }
 
+fun KeyError.toMatchFailure(keyLabel: String, mismatchMessages: MismatchMessages = DefaultMismatchMessages): Failure {
+    return when (this) {
+        is MissingKeyError -> missingKeyToResult(keyLabel, mismatchMessages)
+        is UnexpectedKeyError -> unknownKeyToResult(keyLabel, mismatchMessages)
+        is FuzzyKeyError -> unknownKeyToResult(keyLabel, mismatchMessages)
+    }
+}
+
 data class MissingKeyError(override val name: String) : KeyError {
     override val canonicalKey: String = name
 

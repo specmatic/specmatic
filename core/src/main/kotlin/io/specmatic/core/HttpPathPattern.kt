@@ -19,6 +19,7 @@ data class HttpPathPattern(
     private val pathSegmentPatterns: List<URLPathSegmentPattern>,
     private val path: String,
     private val otherPathPatterns: Collection<HttpPathPattern> = emptyList(),
+    val parameterPointers: Map<String, String> = emptyMap(),
 ) {
     private val pathSegmentExtractor: TemplateTokenizer = createTokenizerFromPathSegments()
     private fun calculateSegmentCounts(): SegmentCounts = path.split('/').asSequence().filter(String::isNotBlank)
@@ -135,7 +136,7 @@ data class HttpPathPattern(
                     null -> result.breadCrumb("${BreadCrumb.PARAM_PATH.value} ($path)")
                         .withFailureReason(FailureReason.URLPathMisMatch)
 
-                    else -> result.breadCrumb(urlPathPattern.key).breadCrumb(BreadCrumb.PARAM_PATH.value)
+                    else -> result.breadCrumb(urlPathPattern.key, resolver.locate(parameterPointers[urlPathPattern.key])).breadCrumb(BreadCrumb.PARAM_PATH.value)
                 }
             } else {
                 Success()

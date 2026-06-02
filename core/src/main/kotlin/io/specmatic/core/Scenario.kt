@@ -79,7 +79,8 @@ data class Scenario(
     val exampleRow: Row? = null,
     val operationMetadata: OperationMetadata? = null,
     val requestChangeSummary: String? = null,
-    val generatedFrom: GeneratedScenarioOrigin? = null
+    val generatedFrom: GeneratedScenarioOrigin? = null,
+    val sourceLocations: Map<String, SourceLocation> = emptyMap()
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -112,7 +113,8 @@ data class Scenario(
         specification = scenarioInfo.specification,
         protocol = scenarioInfo.protocol,
         specType = scenarioInfo.specType,
-        operationMetadata = scenarioInfo.operationMetadata
+        operationMetadata = scenarioInfo.operationMetadata,
+        sourceLocations = scenarioInfo.sourceLocations
     )
 
     val apiIdentifier: String
@@ -401,6 +403,7 @@ data class Scenario(
     ): Result {
         if (httpResponsePattern.status == DEFAULT_RESPONSE_CODE || httpResponse.status != httpResponsePattern.status) {
             return Result.Failure(
+                message = "",
                 breadCrumb = "STATUS",
                 failureReason = FailureReason.StatusMismatch
             ).updateScenario(this)
@@ -731,7 +734,7 @@ data class Scenario(
         }
     }
 
-    val resolver: Resolver = Resolver(newPatterns = patterns, dictionary = dictionary)
+    val resolver: Resolver = Resolver(newPatterns = patterns, dictionary = dictionary, sourceLocations = sourceLocations)
 
     val serverState: Map<String, Value>
         get() = expectedFacts
@@ -961,33 +964,39 @@ data class Scenario(
     private fun matchingRows(externalisedJSONExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
         val patternMatchingResolver = resolver.copy(mockMode = true)
 
-        val examplesWithMatchingIdentifiers = externalisedJSONExamples.filter { (operationId, _) ->
-            operationId.requestMethod.equals(method, ignoreCase = true)
-                    && operationId.responseStatus == status
-                    && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let {
-                        it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure
-                    }
-                    && matchesRequestContentType(operationId)
-                    && matchesResponseContentType(operationId)
-        }
-
-        return examplesWithMatchingIdentifiers.mapValues { (_, rows) ->
-            rows.filter(this::matchesOperationIfWsdl)
-        }
+        return externalisedJSONExamples.mapValues { (operationId, rows) ->
+            rows.filter { row ->
+                requestBelongsToScenario(row, operationId, patternMatchingResolver)
+                        && responseBelongsToScenario(row, operationId, patternMatchingResolver)
+            }
+        }.filterValues { it.isNotEmpty() }
     }
 
-    private fun matchesOperationIfWsdl(row: Row): Boolean {
-        val soapActionPattern = this.httpRequestPattern.headersPattern.getSOAPActionPattern()
-        val hasSoapActionField = row.containsField(BreadCrumb.SOAP_ACTION.value)
-        if (soapActionPattern == null) return !hasSoapActionField
-        if (!hasSoapActionField) return false
+    private fun requestBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+        if (!matchesOperationIfWsdl(row)) return false
 
-        return runCatching {
-            val soapAction = soapActionPattern.parse(row.getField(BreadCrumb.SOAP_ACTION.value), resolver)
-            soapActionPattern.matches(soapAction, resolver).isSuccess()
-        }.getOrDefault(false)
+        return row.requestExample?.let { request ->
+            httpRequestPattern.matchesPathStructureMethodAndContentType(request, patternMatchingResolver).isSuccess()
+        } ?: matchesRequestOperationIdentifier(operationId, patternMatchingResolver)
     }
 
+    private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+        return row.responseExample?.let { response ->
+            httpResponsePattern.matchesStatusAndContentType(response, patternMatchingResolver).isSuccess()
+        } ?: matchesResponseOperationIdentifier(operationId)
+    }
+
+    private fun matchesRequestOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+        return operationId.requestMethod.equals(method, ignoreCase = true)
+                && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let {
+                    it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure
+                }
+                && matchesRequestContentType(operationId)
+    }
+
+    private fun matchesResponseOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier): Boolean {
+        return operationId.responseStatus == status && matchesResponseContentType(operationId)
+    }
 
     private fun matchesResponseContentType(operationId: OpenApiSpecification.OperationIdentifier): Boolean {
         val exampleResponseContentType = operationId.responseContentType ?: return true
@@ -1001,6 +1010,18 @@ data class Scenario(
         val patternRequestContentType = httpRequestPattern.headersPattern.contentType ?: return true
 
         return exampleRequestContentType == patternRequestContentType
+    }
+
+    private fun matchesOperationIfWsdl(row: Row): Boolean {
+        val soapActionPattern = this.httpRequestPattern.headersPattern.getSOAPActionPattern()
+        val hasSoapActionField = row.containsField(BreadCrumb.SOAP_ACTION.value)
+        if (soapActionPattern == null) return !hasSoapActionField
+        if (!hasSoapActionField) return false
+
+        return runCatching {
+            val soapAction = soapActionPattern.parse(row.getField(BreadCrumb.SOAP_ACTION.value), resolver)
+            soapActionPattern.matches(soapAction, resolver).isSuccess()
+        }.getOrDefault(false)
     }
 
     fun resolveSubstitutions(

@@ -2,7 +2,7 @@ package io.specmatic.core
 
 const val PATH_NOT_RECOGNIZED_ERROR = "Match not found"
 
-data class Results(val results: List<Result> = emptyList()) {
+data class Results(val results: List<Result> = emptyList(), val addSourceLocation: Boolean = false) {
     fun hasResults(): Boolean = results.isNotEmpty()
 
     fun hasFailures(): Boolean = results.any { it is Result.Failure }
@@ -36,7 +36,7 @@ data class Results(val results: List<Result> = emptyList()) {
     }
 
     fun toResultIfAnyWithCausesOrFailure(): Result {
-        if (results.isEmpty()) return Result.Failure()
+        if (results.isEmpty()) return Result.Failure(message = "")
         return toResultIfAnyWithCauses()
     }
 
@@ -71,13 +71,13 @@ data class Results(val results: List<Result> = emptyList()) {
         val filteredResults = withoutFluff().results.filterIsInstance<Result.Failure>()
 
         return when {
-            filteredResults.isNotEmpty() -> listToReport(filteredResults)
+            filteredResults.isNotEmpty() -> listToReport(filteredResults, addSourceLocation)
             else -> defaultMessage.trim()
         }
     }
 
     fun distinctReport(defaultMessage: String = PATH_NOT_RECOGNIZED_ERROR): String {
-        val failureReports = withoutFluff().results.filterIsInstance<Result.Failure>().map(Result.Failure::toFailureReport)
+        val failureReports = withoutFluff().results.filterIsInstance<Result.Failure>().map { it.toFailureReport(addSourceLocation = addSourceLocation) }
 
         if(failureReports.isEmpty()) {
             return when {
@@ -95,13 +95,13 @@ data class Results(val results: List<Result> = emptyList()) {
         }.joinToString("${System.lineSeparator()}${System.lineSeparator()}")
     }
 
-    fun plus(other: Results): Results = Results(results.plus(other.results))
+    fun plus(other: Results): Results = Results(results.plus(other.results), addSourceLocation || other.addSourceLocation)
 
     fun distinct(): Results {
         val filteredResults = withoutFluff().results
         val resultReports = filteredResults.map {
             when(it) {
-                is Result.Failure -> it.toFailureReport().toText()
+                is Result.Failure -> it.toFailureReport(addSourceLocation = addSourceLocation).toText()
                 else -> ""
             }
         }
@@ -119,7 +119,7 @@ data class Results(val results: List<Result> = emptyList()) {
             }
         }
 
-        return Results(uniqueResults)
+        return Results(uniqueResults, addSourceLocation)
     }
 
     fun getResultCounts(): Triple<Int, Int, Int> {
@@ -152,9 +152,9 @@ data class Results(val results: List<Result> = emptyList()) {
     }
 }
 
-private fun listToReport(results: List<Result>): String {
+private fun listToReport(results: List<Result>, addSourceLocation: Boolean = false): String {
     return results.filterIsInstance<Result.Failure>()
         .joinToString("${System.lineSeparator()}${System.lineSeparator()}") {
-            it.toFailureReport().toText()
+            it.toFailureReport(addSourceLocation = addSourceLocation).toText()
         }
 }

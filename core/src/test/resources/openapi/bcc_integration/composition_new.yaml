@@ -1,0 +1,180 @@
+openapi: 3.0.0
+info:
+  title: Composition source-location cases
+  version: 1.0.0
+# Nine endpoints covering the 3x3 matrix of composition keyword (allOf/oneOf/anyOf)
+# x form (inline members / $ref'd-out members / payload $ref to a composed schema).
+# Every endpoint carries a `count` property that is `boolean` here and `number` in
+# composition_old.yaml, so each operation turns backward-incompatible and the report
+# pins the source location the `count` breadcrumb resolves to.
+paths:
+  # allOf, inline members
+  /allof-inline:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+  # allOf, $ref'd-out members
+  /allof-reffed:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/MetricName'
+                - $ref: '#/components/schemas/MetricCount'
+      responses:
+        '200':
+          description: ok
+  # allOf, payload $ref to a composed schema
+  /allof-payload-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricPayloadAllOf'
+      responses:
+        '200':
+          description: ok
+  # oneOf, inline members
+  /oneof-inline:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+  # oneOf, $ref'd-out members
+  /oneof-reffed:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/MetricName'
+                - $ref: '#/components/schemas/MetricCount'
+      responses:
+        '200':
+          description: ok
+  # oneOf, payload $ref to a composed schema
+  /oneof-payload-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricPayloadOneOf'
+      responses:
+        '200':
+          description: ok
+  # anyOf, inline members
+  /anyof-inline:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                - type: object
+                  required: [count]
+                  properties:
+                    count:
+                      type: boolean
+      responses:
+        '200':
+          description: ok
+  # anyOf, $ref'd-out members
+  /anyof-reffed:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - $ref: '#/components/schemas/MetricName'
+                - $ref: '#/components/schemas/MetricCount'
+      responses:
+        '200':
+          description: ok
+  # anyOf, payload $ref to a composed schema
+  /anyof-payload-ref:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricPayloadAnyOf'
+      responses:
+        '200':
+          description: ok
+components:
+  schemas:
+    MetricName:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    MetricCount:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: boolean
+    MetricPayloadAllOf:
+      allOf:
+        - $ref: '#/components/schemas/MetricName'
+        - $ref: '#/components/schemas/MetricCount'
+    MetricPayloadOneOf:
+      oneOf:
+        - $ref: '#/components/schemas/MetricName'
+        - $ref: '#/components/schemas/MetricCount'
+    MetricPayloadAnyOf:
+      anyOf:
+        - $ref: '#/components/schemas/MetricName'
+        - $ref: '#/components/schemas/MetricCount'

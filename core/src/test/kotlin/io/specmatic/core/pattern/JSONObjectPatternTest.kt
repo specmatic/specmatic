@@ -1999,7 +1999,7 @@ components:
         @Test
         fun `pattern constrained encompasses should delegate check to pattern`() {
             val pattern = mockk<Pattern> {
-                every { encompasses(any<Pattern>(), any(), any(), any()) } returns Result.Failure()
+                every { encompasses(any<Pattern>(), any(), any(), any()) } returns Result.Failure(message = "")
             }
 
             val additionalProperties = AdditionalProperties.PatternConstrained(pattern)

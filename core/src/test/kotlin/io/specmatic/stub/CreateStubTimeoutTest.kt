@@ -1,12 +1,14 @@
 package io.specmatic.stub
 
+import io.mockk.every
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertThrows
-import io.specmatic.stub.createStub
 import io.specmatic.core.pattern.ContractException
-import org.junit.jupiter.api.condition.DisabledOnOs
-import org.junit.jupiter.api.condition.OS
+import io.specmatic.core.utilities.runWithTimeout
 import java.io.File
 
 internal class CreateStubTimeoutTest {
@@ -29,15 +31,24 @@ internal class CreateStubTimeoutTest {
     }
 
     @Test
-    @DisabledOnOs(OS.LINUX)
-    fun `createStub should throw ContractException when stub start timeout is 0`() {
+    fun `createStub should use configured stub start timeout and fatal timeout message`() {
         // Use the test resource config that sets stub.startTimeoutInMilliseconds to 0
         val configFile = File(javaClass.getResource("/create_stub_timeout/specmatic.json").toURI())
+        val timeoutMessage = "FATAL: Specmatic stub failed to start within 0 milliseconds. You can configure the stub start timeout from Specmatic configuration. The default timeout is 20 seconds."
+        val sentinelException = ContractException("sentinel timeout")
 
-        val exception = assertThrows(ContractException::class.java) {
-            createStub(host = "localhost", port = 9001, timeoutMillis = 0L, givenConfigFileName = configFile.path).use {}
+        mockkStatic("io.specmatic.core.utilities.Utilities")
+        try {
+            every { runWithTimeout<Any>(0L, timeoutMessage, any()) } throws sentinelException
+
+            val exception = assertThrows(ContractException::class.java) {
+                createStub(host = "localhost", port = 9001, timeoutMillis = 0L, givenConfigFileName = configFile.path).use {}
+            }
+
+            assertThat(exception).isSameAs(sentinelException)
+            verify(exactly = 1) { runWithTimeout<Any>(0L, timeoutMessage, any()) }
+        } finally {
+            unmockkStatic("io.specmatic.core.utilities.Utilities")
         }
-
-        assertThat(exception.message).contains("FATAL: Specmatic stub failed to start within 0 milliseconds")
     }
 }

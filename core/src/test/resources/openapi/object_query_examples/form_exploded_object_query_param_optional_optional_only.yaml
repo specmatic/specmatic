@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: Optional Object Query Param Invalid Optional-Only Example API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+        - in: query
+          name: info
+          required: false
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+      responses:
+        '200':
+          description: OK
