@@ -1287,6 +1287,37 @@ class OpenApiCoverageReportInputTest {
             .containsIgnoringWhitespaces("Total missed operations: 1 is greater than the maximum threshold of 0")
     }
 
+    @Test
+    fun `should not generate legacy html coverage assets`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText("""
+        version: 2
+        report:
+          types:
+            APICoverage:
+              OpenAPI:
+                successCriteria:
+                  minThresholdPercentage: 0
+                  maxMissedEndpointsInSpec: 0
+                  enforce: false
+        """.trimIndent())
+
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            specEndpoint("GET", "/pets", 200)
+            testResult(path = "/pets", method = "GET", responseCode = 200, result = TestResult.Success)
+        }
+
+        OpenApiCoverageReportProcessor(
+            openApiCoverageReport = coverage.generate(),
+            reportBaseDirectory = tempDir.absolutePath
+        ).process(
+            specmaticConfig = loadSpecmaticConfig(configFileName = configFile.absolutePath)
+        )
+
+        val reportDir = tempDir.resolve("build/reports/specmatic")
+        assertThat(reportDir.resolve("html")).doesNotExist()
+    }
+
     private class RecordingCoverageListener : TestReportListener {
         val actuatorApiCalls = mutableListOf<Pair<List<API>, List<API>>>()
         val endpointApiCalls = mutableListOf<Pair<List<Endpoint>, List<Endpoint>>>()
