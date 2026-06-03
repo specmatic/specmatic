@@ -42,10 +42,8 @@ dependencies {
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
-    implementation("io.modelcontextprotocol.sdk:mcp:1.1.2") {
-        exclude(group = "io.netty", module = "netty-transport-native-epoll")
-        exclude(group = "io.netty", module = "netty-transport-native-kqueue")
-    }
+    implementation("io.modelcontextprotocol.sdk:mcp-core:1.1.3")
+    implementation("io.modelcontextprotocol.sdk:mcp-json-jackson2:1.1.3")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
 
