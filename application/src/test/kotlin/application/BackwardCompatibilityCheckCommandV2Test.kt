@@ -1752,10 +1752,11 @@ class BackwardCompatibilityCheckCommandV2Test {
                 }
             }
 
+            // The report records the spec path relative to the repo root, not the absolute path.
             assertThat(operationsBySpec).containsOnly(
-                entry(compatibleSpecPath, "GET /compatible -> compatible"),
-                entry(hookPassedSpecPath, "GET /hook-passed -> incompatible"),
-                entry(hookFailedSpecPath, "GET /hook-failed -> incompatible")
+                entry("compatible.yaml", "GET /compatible -> compatible"),
+                entry(MixedResultBackwardCompatibilityCheckHook.PASSED_SPEC, "GET /hook-passed -> incompatible"),
+                entry(MixedResultBackwardCompatibilityCheckHook.FAILED_SPEC, "GET /hook-failed -> incompatible")
             )
         }
 
@@ -1912,9 +1913,10 @@ class BackwardCompatibilityCheckCommandV2Test {
                     "${it.path("method").asText()} ${it.path("path").asText()} -> ${it.path("status").asText()}"
                 }
             }
+            // The report records the spec path relative to the repo root, not the absolute path.
             assertThat(operationsBySpec).containsOnly(
-                entry(spec1Path, "GET /a -> incompatible"),
-                entry(spec2Path, "GET /b -> incompatible")
+                entry("spec1.yaml", "GET /a -> incompatible"),
+                entry("spec2.yaml", "GET /b -> incompatible")
             )
 
             // The breadcrumbs in the CTRF report carry the same source locations that appear in
@@ -2052,8 +2054,82 @@ class BackwardCompatibilityCheckCommandV2Test {
                 }
             }
             assertThat(operationsBySpec).containsOnly(
-                entry(specPath, "GET /a -> incompatible")
+                entry("spec.yaml", "GET /a -> incompatible")
             )
+        }
+
+        @Test
+        fun `report records every spec path relative to the repo root`() {
+            fun spec(path: String, type: String) = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  $path:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [value]
+                                properties: { value: { type: $type } }
+            """.trimIndent()
+
+            // Three specs at increasing depths under the repo root.
+            val rootSpec = tempDir.resolve("orders.yaml")
+            val nestedSpec = tempDir.resolve("api/products.yaml").apply { parentFile.mkdirs() }
+            val deeplyNestedSpec = tempDir.resolve("internal/v2/payments.yaml").apply { parentFile.mkdirs() }
+
+            rootSpec.writeText(spec("/orders", "string"))
+            nestedSpec.writeText(spec("/products", "string"))
+            deeplyNestedSpec.writeText(spec("/payments", "string"))
+            commit(tempDir, "Initial contracts")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+
+            ProcessBuilder("git", "switch", "-c", "breaking-change")
+                .directory(tempDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+
+            // Each spec changes its response body type from string to integer (a breaking change),
+            // so every spec shows up in the report.
+            rootSpec.writeText(spec("/orders", "integer"))
+            nestedSpec.writeText(spec("/products", "integer"))
+            deeplyNestedSpec.writeText(spec("/payments", "integer"))
+            commit(tempDir, "Make every spec breaking")
+
+            val configFile = remoteDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 2
+                    reportDirPath: ${tempDir.resolve("reports").canonicalPath}
+                    """.trimIndent()
+                )
+            }
+
+            captureStandardOutput(redirectStdErrToStdout = true) {
+                using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+                    BackwardCompatibilityCheckCommandV2().apply {
+                        options.repoDir = tempDir.canonicalPath
+                        options.baseBranch = baseBranch
+                    }.call()
+                }
+            }
+
+            val recordedSpecPaths = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
+                .path("results").path("summary").path("extra").path("executionDetails")
+                .map { it.path("specification").asText().replace('\\', '/') }
+                .toSet()
+
+            // The report records each spec as its path relative to the repo root (tempDir),
+            // never as an absolute path: orders.yaml, api/products.yaml, internal/v2/payments.yaml.
+            val repoRoot = tempDir.canonicalFile
+            assertThat(recordedSpecPaths).contains(rootSpec.canonicalFile.relativeTo(repoRoot).invariantSeparatorsPath)
+            assertThat(recordedSpecPaths).contains(nestedSpec.canonicalFile.relativeTo(repoRoot).invariantSeparatorsPath)
+            assertThat(recordedSpecPaths).contains(deeplyNestedSpec.canonicalFile.relativeTo(repoRoot).invariantSeparatorsPath)
         }
     }
 

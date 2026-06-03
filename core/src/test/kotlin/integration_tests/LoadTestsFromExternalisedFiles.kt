@@ -6,6 +6,9 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.source.CombinedSource
+import io.specmatic.core.examples.source.DirectoryExampleSource
+import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.ContractException
@@ -39,6 +42,8 @@ private val XML_ONEOF_EXTERNAL_EXAMPLES_DIR = XML_ONEOF_RESOURCE_DIR.resolve("ap
 private val XML_ONEOF_INVALID_INVOICE_EXAMPLE = XML_ONEOF_RESOURCE_DIR.resolve("invalid_examples/invoice.json")
 
 class LoadTestsFromExternalisedFiles {
+    @TempDir
+    lateinit var tempDir: File
 
     @BeforeEach
     fun setup() {
@@ -115,6 +120,80 @@ class LoadTestsFromExternalisedFiles {
         println(results.report())
         assertThat(results.successCount).isEqualTo(2)
         assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `should load examples from spec _examples and explicit example directories`() {
+        val specDir = tempDir.resolve("contract").apply { mkdirs() }
+        val specFile = specDir.resolve("order.yaml")
+        specFile.writeText("""
+        openapi: 3.0.0
+        info:
+          title: Order API
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                      required:
+                        - source
+              responses:
+                '200':
+                  description: ok
+        """.trimIndent())
+
+        val implicitExamplesDir = specDir.resolve("order_examples").apply { mkdirs() }
+        implicitExamplesDir.resolve("implicit.json").writeText("""
+        {
+          "http-request": {
+            "method": "POST",
+            "path": "/orders",
+            "body": { "source": "implicit" }
+          },
+          "http-response": { "status": 200 }
+        }
+        """.trimIndent())
+
+        val explicitExamplesDir = tempDir.resolve("explicit_examples").apply { mkdirs() }
+        explicitExamplesDir.resolve("explicit.json").writeText("""
+        {
+          "http-request": {
+            "method": "POST",
+            "path": "/orders",
+            "body": { "source": "explicit" }
+          },
+          "http-response": { "status": 200 }
+        }
+        """.trimIndent())
+
+        val feature = parseContractFileToFeature(specFile, exampleDirPaths = listOf(implicitExamplesDir.canonicalPath))
+        val (loadedFeature, unusedExamples) = feature.loadExternalisedExamplesAndListUnloadableExamples(
+            exampleSource = CombinedSource(
+                sources = listOf(
+                    DirectoryExampleSource(
+                        strictMode = true,
+                        exampleDirs = listOf(implicitExamplesDir.canonicalPath),
+                        specmaticConfig = feature.specmaticConfig
+                    ),
+                    PreLoadedExampleObjects(
+                        specmaticConfig = feature.specmaticConfig,
+                        examples = listOf(ScenarioStub.readFromFile(explicitExamplesDir.resolve("explicit.json"))),
+                    )
+                )
+            )
+        )
+
+        assertThat(loadedFeature.scenarios).hasSize(1)
+        assertThat(loadedFeature.scenarios.single().examples.single().rows).hasSize(2)
+        assertThat(unusedExamples).isEmpty()
     }
 
     @Test

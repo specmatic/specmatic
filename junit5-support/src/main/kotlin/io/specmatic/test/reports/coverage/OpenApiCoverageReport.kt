@@ -1,7 +1,6 @@
 package io.specmatic.test.reports.coverage
 
 import io.specmatic.core.Result
-import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.report.calculateAbsoluteCoverage
 import io.specmatic.core.report.calculateCoverage
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
@@ -44,14 +43,6 @@ data class OpenApiCoverageReport(
 
     fun onGovernanceResult(fromResults: Result) {
         coverageHooks.onEach { hook -> hook.onGovernance(fromResults) }
-    }
-
-    fun totalDuration(): Long {
-        return httpInteractionsLog.totalDuration()
-    }
-
-    fun findMatchingScenarios(logMessageSelector: (HttpLogMessage) -> Boolean): List<HttpLogMessage> {
-        return httpInteractionsLog.testHttpLogMessages.filter(logMessageSelector)
     }
 
     fun toConsoleReport(): OpenAPICoverageConsoleReport {
