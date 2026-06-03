@@ -65,7 +65,7 @@ jobs:
           ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
 
       - name: Trigger Specmatic Tests Orchestrator
-        if: matrix.os == 'ubuntu-latest' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')))
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'workflow_dispatch'
         shell: bash
         env:
           SPECMATIC_GITHUB_TOKEN: ${{ secrets.SPECMATIC_GITHUB_TOKEN }}
