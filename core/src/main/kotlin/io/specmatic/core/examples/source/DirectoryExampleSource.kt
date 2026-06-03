@@ -18,17 +18,19 @@ class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Bool
                 .mapValues { (_, lists) -> lists.flatten() }
         }
 
+    private fun filesIn(testsDirectory: File): List<File> {
+        if (!testsDirectory.exists()) return emptyList()
+        return testsDirectory.walk()
+            .filterNot { it.isDirectory }
+            .filter { it.extension == "json" }
+            .toList().sortedBy { it.name }
+    }
+
     private fun loadExternalisedJSONExamples(testsDirectory: File): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
-        if (!testsDirectory.exists())
-            return emptyMap()
-
-        val files = testsDirectory.walk().filterNot { it.isDirectory }.filter {
-            it.extension == "json"
-        }.toList().sortedBy { it.name }
-
-        if (files.isEmpty()) return emptyMap()
-
-        logger.log("Loading externalised examples in ${testsDirectory.path}: ")
+        val files = filesIn(testsDirectory)
+        logger.boundary()
+        logger.log("Loading externalised examples from ${testsDirectory.path}: ")
+        logger.withIndentation(count = 2) { logger.log("${files.size} examples(s) found in ${testsDirectory.path}") }
         logger.boundary()
 
         return files.asSequence()

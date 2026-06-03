@@ -1,12 +1,24 @@
 package io.specmatic.core.examples.source
 
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.log.CompositePrinter
+import io.specmatic.core.log.LogMessage
+import io.specmatic.core.log.NonVerbose
+import io.specmatic.core.log.withLogger
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class DirectoryExampleSourceTest {
+    private class BufferPrinter : io.specmatic.core.log.LogPrinter {
+        val buffer: MutableList<String> = mutableListOf()
+
+        override fun print(msg: LogMessage, indentation: String) {
+            buffer.add(msg.toLogString())
+        }
+    }
+
     @Test
     fun `should load examples from multiple directories without overwriting same operation`(@TempDir tempDir: File) {
         val firstDir = tempDir.resolve("first_examples").apply { mkdirs() }
@@ -30,6 +42,26 @@ class DirectoryExampleSourceTest {
             firstDir.resolve("first.json").canonicalPath,
             secondDir.resolve("second.json").canonicalPath
         )
+    }
+
+    @Test
+    fun `should log loaded example count and source path`(@TempDir tempDir: File) {
+        val firstDir = tempDir.resolve("first_examples").apply { mkdirs() }
+        firstDir.resolve("first.json").writeText(exampleFile("first"))
+
+        val bufferPrinter = BufferPrinter()
+        val exampleSource = DirectoryExampleSource(
+            strictMode = true,
+            exampleDirs = listOf(firstDir.canonicalPath),
+            specmaticConfig = SpecmaticConfigV1V2Common()
+        )
+
+        withLogger(NonVerbose(CompositePrinter(listOf(bufferPrinter)))) {
+            exampleSource.examples
+        }
+
+        assertThat(bufferPrinter.buffer.joinToString("\n"))
+            .contains("1 examples(s) found in ${firstDir.canonicalPath}")
     }
 
     @Test
