@@ -230,7 +230,7 @@ open class SpecmaticJUnitSupport {
         val report = openApiCoverage.generate()
 
         try {
-            val reportProcessors = listOf(OpenApiCoverageReportProcessor(report, settings.reportBaseDirectory ?: "."))
+            val reportProcessors = listOf(OpenApiCoverageReportProcessor(report))
             val config = specmaticConfig.updateReportConfiguration(reportConfiguration)
             reportProcessors.forEach { it.process(config) }
         } finally {

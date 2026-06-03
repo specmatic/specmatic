@@ -1,9 +1,7 @@
 package io.specmatic.test
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
-import io.specmatic.test.reports.coverage.json.LegacyTestJsonGenerator
 import io.specmatic.test.utils.OpenApiCoverageBuilder
 import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
@@ -233,34 +231,6 @@ class ApiCoverageReportInputTest {
             assertRow("GET", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC)
             assertRow("POST", "/route3/{route_id}", 0, 0, 0, CoverageStatus.MISSING_IN_SPEC)
         }
-    }
-
-    @Test
-    fun `test generates api coverage json report with partially covered and partially implemented endpoints`() {
-        val coverage = OpenApiCoverageBuilder.buildCoverage {
-            configFilePath(CONFIG_FILE_PATH)
-            applicationApi(method = "GET", path = "/route1")
-            applicationApi(method = "POST", path = "/route1")
-            applicationApi(method = "GET", path = "/route2")
-            applicationApi(method = "GET", path = "/route3/{route_id}")
-            applicationApi(method = "POST", path = "/route3/{route_id}")
-
-            specEndpoint(method = "GET", path = "/route1", responseCode = 200)
-            specEndpoint(method = "POST", path = "/route1", responseCode = 200)
-            specEndpoint(method = "GET", path = "/route2", responseCode = 200)
-            specEndpoint(method = "POST", path = "/route2", responseCode = 200)
-
-            testResult(path = "/route1", method = "GET", responseCode = 200, result = TestResult.Success)
-            testResult(path = "/route1", method = "POST", responseCode = 200, result = TestResult.Success)
-            testResult(path = "/route2", method = "GET", responseCode = 200, result = TestResult.Success)
-            testResult(path = "/route2", method = "POST", responseCode = 200, result = TestResult.Failed, actualResponseCode = 404)
-        }
-
-        val openApiCoverageJsonReport = LegacyTestJsonGenerator(coverage.generate()).generateJsonReport()
-        val reportJson = ObjectMapper().writeValueAsString(openApiCoverageJsonReport)
-        assertThat(reportJson).contains("\"specmaticConfigPath\":\"./specmatic.json\"")
-        assertThat(reportJson).contains("\"path\":\"/route3/{route_id}\",\"method\":\"GET\",\"responseCode\":0,\"coverageStatus\":\"missing in spec\"")
-        assertThat(reportJson).contains("\"path\":\"/route2\",\"method\":\"POST\",\"responseCode\":200,\"coverageStatus\":\"not implemented\"")
     }
 
     @Test
