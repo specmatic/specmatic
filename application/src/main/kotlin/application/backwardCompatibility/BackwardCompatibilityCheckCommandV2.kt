@@ -98,7 +98,7 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
         return try {
             val feature = OpenApiSpecification.fromFile(path).toFeature()
             val specificationPath = File(path).canonicalFile
-                .relativeTo(File(effectiveRepoDir).canonicalFile).path
+                .relativeTo(File(effectiveRepoDir).canonicalFile).invariantSeparatorsPath
             feature.copy(
                 specification = specificationPath,
                 scenarios = feature.scenarios.map { it.copy(specification = specificationPath) },
