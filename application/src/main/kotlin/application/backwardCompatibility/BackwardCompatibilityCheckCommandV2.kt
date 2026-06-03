@@ -95,7 +95,15 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
 
     override fun getFeatureFromSpecPath(path: String): Feature {
         logger.disableInfoLogging()
-        return OpenApiSpecification.fromFile(path).toFeature().also {
+        return try {
+            val feature = OpenApiSpecification.fromFile(path).toFeature()
+            val specificationPath = File(path).canonicalFile
+                .relativeTo(File(effectiveRepoDir).canonicalFile).path
+            feature.copy(
+                specification = specificationPath,
+                scenarios = feature.scenarios.map { it.copy(specification = specificationPath) },
+            )
+        } finally {
             logger.enableInfoLogging()
         }
     }
