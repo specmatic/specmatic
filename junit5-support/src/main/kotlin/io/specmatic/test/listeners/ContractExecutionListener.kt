@@ -16,9 +16,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.jvm.optionals.getOrNull
 
 fun getContractExecutionPrinter(): ContractExecutionPrinter {
-    return if(stdOutIsRedirected())
-        MonochromePrinter()
-    else if(colorIsRequested())
+    return if (colorIsRequested())
         ColorPrinter()
     else MonochromePrinter()
 }

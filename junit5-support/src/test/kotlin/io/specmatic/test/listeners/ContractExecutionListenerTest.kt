@@ -1,6 +1,7 @@
 package io.specmatic.test.listeners
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import io.specmatic.core.Result
 import io.specmatic.core.ScenarioDetailsForResult
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -11,6 +12,8 @@ import org.junit.platform.engine.TestExecutionResult
 import org.junit.platform.engine.UniqueId
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor
 import org.junit.platform.launcher.TestIdentifier
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.util.UUID
 
 class ContractExecutionListenerTest {

@@ -3,6 +3,7 @@ package application.mcp
 import io.mockk.coEvery
 import io.mockk.mockk
 import io.specmatic.core.config.McpTransport
+import io.specmatic.core.examples.module.FAILURE_EXIT_CODE
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.mcp.test.McpAutoTest
@@ -113,7 +114,32 @@ class McpTestCommandTest {
         assertThat(cmd.capturedSkipTools).isEmpty()
     }
 
+    @Test
+    fun `call fails when base url is absent from cli and config`() {
+        val cmd = McpTestCommandMock().apply {
+            transportKind = McpTransport.STREAMABLE_HTTP
+        }
+
+        val exitCode = cmd.call()
+
+        assertThat(exitCode).isEqualTo(FAILURE_EXIT_CODE)
+        assertThat(cmd.autoTestWasCreated).isFalse()
+    }
+
+    @Test
+    fun `call fails when transport kind is absent from cli and config`() {
+        val cmd = McpTestCommandMock().apply {
+            baseUrl = "http://localhost:8080"
+        }
+
+        val exitCode = cmd.call()
+
+        assertThat(exitCode).isEqualTo(FAILURE_EXIT_CODE)
+        assertThat(cmd.autoTestWasCreated).isFalse()
+    }
+
     class McpTestCommandMock : McpTestCommand() {
+        var autoTestWasCreated: Boolean = false
         lateinit var capturedBaseUrl: String
         lateinit var capturedTransport: McpTransport
         var capturedEnableResiliency: Boolean? = null
@@ -131,6 +157,7 @@ class McpTestCommandTest {
             filterTools: Set<String>,
             skipTools: Set<String>
         ): McpAutoTest {
+            autoTestWasCreated = true
             capturedBaseUrl = baseUrl
             capturedTransport = transport
             capturedEnableResiliency = enableResiliency
