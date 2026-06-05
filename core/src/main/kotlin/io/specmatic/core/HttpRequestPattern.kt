@@ -33,7 +33,6 @@ import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
-import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.withoutOptionality
 import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.EmptyString
@@ -496,26 +495,23 @@ data class HttpRequestPattern(
             name
         }
 
-        val paramsOutsidePattern = if(httpQueryParamPattern.additionalProperties != null) {
-            val results = paramsUnaccountedFor.map { (name, values) ->
-                values.map { (_, rawValue) ->
-                    val value = httpQueryParamPattern.additionalProperties.parse(rawValue, resolver)
-                    httpQueryParamPattern.additionalProperties.matches(value, resolver)
-                }
-            }.flatten()
-
-            val matchResult = Result.fromResults(results)
-
-            if (matchResult is Failure)
-                throw ContractException(matchResult.toFailureReport())
-
-            unaccountedQueryParamsToMap(paramsUnaccountedFor)
-        } else if (httpQueryParamPattern.extensibleQueryParams) {
-            unaccountedQueryParamsToMap(paramsUnaccountedFor)
-        } else {
-            emptyMap()
+        if (httpQueryParamPattern.additionalProperties == null) {
+            val paramsOutsidePattern = unaccountedQueryParamsToMap(paramsUnaccountedFor)
+            return paramsWithinPattern + paramsOutsidePattern
         }
 
+        val additionalPropertiesResult = paramsUnaccountedFor.map { (_, values) ->
+            values.map { (_, rawValue) ->
+                val value = httpQueryParamPattern.additionalProperties.parse(rawValue, resolver)
+                httpQueryParamPattern.additionalProperties.matches(value, resolver)
+            }
+        }.flatten()
+
+        val matchResult = Result.fromResults(additionalPropertiesResult)
+        if (matchResult is Failure)
+            throw ContractException(matchResult.toFailureReport())
+
+        val paramsOutsidePattern = unaccountedQueryParamsToMap(paramsUnaccountedFor)
         return paramsWithinPattern + paramsOutsidePattern
     }
 
