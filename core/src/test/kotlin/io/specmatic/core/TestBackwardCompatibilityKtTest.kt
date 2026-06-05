@@ -4838,7 +4838,6 @@ paths:
         val configFile = tempDir.resolve("specmatic.yaml").apply {
             writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
         }
-        // An optional request-body key produces multiple positive variations for the same 5-tuple.
         val spec = """
             openapi: 3.0.0
             info: { title: Widgets, version: 1.0.0 }
@@ -4867,12 +4866,8 @@ paths:
             val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
             val names = tests.map { it.path("name").asText() }
 
-            // No two tests collapse to the same display name.
             assertThat(names).doesNotHaveDuplicates()
 
-            // The two positive request variations of POST /widgets -> 200 are present and
-            // distinguishable, named like the contract-test/mock CTRF (scenario.testDescription) minus the
-            // +ve prefix, plus the request content type and the "(request)" compatibility-phase suffix.
             val base = "Scenario: POST /widgets -> 200 (requestContentType application/json)"
             assertThat(names).contains(
                 "$base with a request where REQUEST.BODY contains all the keys (request)",
@@ -4886,9 +4881,6 @@ paths:
         val configFile = tempDir.resolve("specmatic.yaml").apply {
             writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
         }
-        // Two required enum keys with 3 and 2 candidate values. The cartesian product would be 6
-        // request variations; backward compatibility generates only the prioritised set -- each value
-        // covered once, max(per-key count) = 3 -- so deep/enum-heavy specs don't explode.
         val spec = """
             openapi: 3.0.0
             info: { title: Things, version: 1.0.0 }
@@ -4915,7 +4907,6 @@ paths:
             val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
             val requestTests = tests.filter { it.path("tags").map { tag -> tag.asText() }.contains("compatibility:request") }
 
-            // 3 (= max(3, 2)) prioritised variations, not the 3 x 2 = 6 cartesian product.
             assertThat(requestTests).hasSize(3)
             assertThat(requestTests.map { it.path("name").asText() }).doesNotHaveDuplicates()
         }
@@ -4926,11 +4917,6 @@ paths:
         val configFile = tempDir.resolve("specmatic.yaml").apply {
             writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
         }
-        // BCC builds its generation strategy from scratch rather than copying DefaultStrategies (which is
-        // strategiesFromFlags(SpecmaticConfig()) and reads ambient system properties). Here the `kind`
-        // enum carries an `example`, so SCHEMA_EXAMPLE_DEFAULT=true would otherwise leak in as
-        // UseDefaultExample, collapse the enum to its example value, and silently stop exercising the
-        // 'food' value -- halving the request coverage. Both enum values must still be generated.
         val spec = """
             openapi: 3.0.0
             info: { title: Catalog, version: 1.0.0 }
@@ -5144,15 +5130,6 @@ paths:
             val operations = operationsFrom(report)
             val json = "application/json"
 
-            // Every CTRF test name. The base description matches contract-test/mock tests
-            // (scenario.testDescription, minus the +ve prefix), and BCC additionally carries the content
-            // type so 5-tuples that differ only by request/response media type stay distinguishable. Each
-            // 5-tuple yields a request-compatibility test and a response-compatibility test, distinguished
-            // by the "(request)"/"(response)" suffix; for GET (no request body) the two read the same apart
-            // from that suffix, while POST /orders carries the request-body key-combination summary on its
-            // request test (OrderInput and its nested Customer are fully required, so there is exactly one
-            // "contains all the keys" variation). 5-tuples removed from the new contract (GET /orders 500,
-            // DELETE /orders/{id}) yield only the records that detect their absence.
             val names = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
                 .map { it.path("name").asText() }
             assertThat(names).containsExactlyInAnyOrder(
@@ -5221,8 +5198,6 @@ paths:
                 "Scenario: GET /tokens -> 200 (responseContentType application/json) (response)",
             )
 
-            // Every CTRF test name is unique: the phase suffix separates request/response checks, and
-            // each positive request variation carries a distinct key-combination/enum summary.
             assertThat(names).doesNotHaveDuplicates()
 
             // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}, the anyOf/oneOf

@@ -31,9 +31,6 @@ class TabularPatternTest {
 
     @Test
     fun `newMapBasedOn restricts to prioritised combinations when the resolver flag is set`() {
-        // Two keys with two candidate values each. Default generation emits the full cartesian
-        // product (2x2); with the resolver's prioritisedRequestCombinationsOnly flag (used by backward
-        // compatibility checks) it collapses to the prioritised set -- max(per-key count) = 2.
         val patternMap = mapOf<String, Pattern>(
             Pair("a", AnyPattern(pattern = listOf(ExactValuePattern(StringValue("x")), ExactValuePattern(StringValue("y"))), extensions = emptyMap())),
             Pair("b", AnyPattern(pattern = listOf(ExactValuePattern(StringValue("p")), ExactValuePattern(StringValue("q"))), extensions = emptyMap())),

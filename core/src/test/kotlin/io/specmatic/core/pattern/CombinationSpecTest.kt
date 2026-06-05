@@ -136,8 +136,6 @@ class CombinationSpecTest {
 
     val spec = CombinationSpec(candidates, maxCombinations = 50, prioritisedOnly = true)
 
-    // Only the prioritised (lockstep) combinations -- max(per-key count) = 4 -- with every candidate
-    // value covered once; none of the cartesian-product fill that the default mode appends.
     assertThat(spec.selectedCombinations.map { it.value }.toList()).containsExactly(
       mapOf("k1" to 12L, "k2" to 25L, "k3" to 39L),
       mapOf("k1" to 14L, "k2" to 22L, "k3" to 33L),

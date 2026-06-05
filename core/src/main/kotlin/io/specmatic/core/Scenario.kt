@@ -504,11 +504,6 @@ data class Scenario(
 
                 val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
 
-                // The response status drives valid- vs invalid-request generation: a 4xx response
-                // definition has its request generated along the invalid path (omitting required
-                // params). requestSchemaOnly overrides this so callers that only care about the
-                // request schema (e.g. backward-compatibility checks) always get a valid request,
-                // regardless of which response status happens to be the representative one.
                 val requestStatus = if (flagsBased.requestSchemaOnly) 200 else httpResponsePattern.status
                 val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when (isNegative) {
                     false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, requestStatus), flagsBased.positivePrefix)
@@ -714,28 +709,14 @@ data class Scenario(
             reference.copy(variables = variables, baseURLs = testBaseURLs)
         }
 
-        // Reuse the standard request-variation generator, restricted to the prioritised combinations:
-        // each candidate value of each request parameter/body key is covered once, but the full
-        // cartesian product across keys is skipped. This keeps the generated set close to the legacy
-        // resolver-only path (no combinatorial explosion across headers x body x enums), while still
-        // carrying the per-variation valueDetails used for naming. NonGenerativeTests keeps it to
-        // structural (optional-key) variations.
-        //
-        // maxTestRequestCombinations is left uncapped (Int.MAX_VALUE): prioritisedRequestCombinationsOnly
-        // already bounds the set linearly to ~max(per-key candidate counts), so there is no explosion to
-        // cap. A finite cap here would instead silently drop legitimate per-value coverage -- e.g. with a
-        // required 51-value enum it would skip value 51, and BCC could then report an operation as
+        // maxTestRequestCombinations is left uncapped: prioritisedRequestCombinationsOnly already bounds
+        // the set to ~max(per-key candidate counts). A finite cap would silently drop per-value coverage
+        // (e.g. skip the 51st value of a required enum), so BCC could wrongly report an operation as
         // compatible even though a new schema that removed exactly that value would reject old clients.
         //
-        // Built from scratch rather than DefaultStrategies.copy(...): DefaultStrategies is
-        // strategiesFromFlags(SpecmaticConfig()), which reads system properties, so copying it leaks
-        // ambient flags into BCC and makes the generated variation set environment-dependent. Most
-        // concretely, SCHEMA_EXAMPLE_DEFAULT flips defaultExampleResolver to UseDefaultExample, which
-        // collapses an enum to its schema `example` value -- so a `kind: [book, food]` with `example:
-        // book` would generate only the 'book' variation and silently stop exercising 'food'. The other
-        // strategy/prefix/key-check fields are pinned for the same reason. These values reproduce the
-        // env-independent defaults the deleted newBasedOnBackwardCompatibility relied on (a plain
-        // Resolver), plus the intended prioritised-only set and the safety cap.
+        // Built from scratch rather than DefaultStrategies.copy(...), which reads ambient system
+        // properties: SCHEMA_EXAMPLE_DEFAULT would collapse an enum to its `example` value and silently
+        // stop exercising the rest.
         val backwardCompatibilityStrategies = FlagsBased(
             defaultExampleResolver = DoNotUseDefaultExample,
             generation = NonGenerativeTests,
@@ -759,10 +740,6 @@ data class Scenario(
                 }
             }.flatMap { row ->
                 newBasedOn(row, backwardCompatibilityStrategies).map { generated ->
-                    // Carry the generated variation's key-combination description (e.g. "REQUEST.BODY
-                    // contains only the mandatory keys") so each positive variation of a 5-tuple is
-                    // distinguishable downstream (notably in the backward-compatibility CTRF report).
-                    // Decorated lazily (no realise) so failures propagate to the consumer untouched.
                     generated.ifHasValue { result ->
                         HasValue(
                             result.value.copy(

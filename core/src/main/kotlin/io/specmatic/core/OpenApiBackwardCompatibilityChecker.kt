@@ -120,8 +120,6 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
         // This is a performance optimization: As there can be multiple scenarios with responseCode and contentTypes,
         // we can associate first result with remaining avoiding re-valuation as they will share the same request schema as per OAS
-        // The matched record uses the new scenario (for its 5-tuple/display), but carries the old
-        // request variation's summary so multiple positive variations of the same 5-tuple are distinguishable.
         return identifierMatches.map { newScenario ->
             newRecord(newScenario, matchResult, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationFromOldScenario.requestChangeSummary)
         }
