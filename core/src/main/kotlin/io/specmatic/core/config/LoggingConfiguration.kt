@@ -76,9 +76,10 @@ data class LoggingConfiguration(
         fun from(data: LoggingFromOpts): LoggingConfiguration {
             return LoggingConfiguration(
                 level = if (data.debug == true) ConfigLoggingLevel.DEBUG else null,
-                text = if (data.textConsoleLog != null && data.textLogDirectory != null) {
-                    LogOutputConfig(directory = data.textLogDirectory.path, console = data.textConsoleLog, logFilePrefix = data.logPrefix)
-                } else {
+                text = if(data.textConsoleLog != null){
+                    LogOutputConfig(directory = data.textLogDirectory?.path, console = data.textConsoleLog, logFilePrefix = data.logPrefix)
+                }
+                else{
                     null
                 },
                 json = if (data.jsonConsoleLog != null && data.jsonLogDirectory != null) {
