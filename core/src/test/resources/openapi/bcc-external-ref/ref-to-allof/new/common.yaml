@@ -1,0 +1,19 @@
+openapi: 3.0.0
+info: { title: common, version: "1" }
+paths: {}
+components:
+  schemas:
+    MetricPayload:
+      allOf:
+        - $ref: "#/components/schemas/MetricName"
+        - $ref: "#/components/schemas/MetricCount"
+    MetricName:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+    MetricCount:
+      type: object
+      required: [count]
+      properties:
+        count: { type: boolean }

@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.swagger.v3.core.util.Json
+import io.swagger.v3.core.util.Json31
 import io.cucumber.messages.types.Step
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.SchemaUtils.mergeResolvedIfJsonSchema
@@ -104,6 +106,14 @@ class OpenApiSpecification(
     private val extensibleQueryParams: Boolean = specmaticConfig.getExtensibleQueryParams()
     private val preferEscapedSoapAction: Boolean = specmaticConfig.getEscapeSoapAction()
     private val openApiPathTokenizer: TemplateTokenizer = TemplateTokenizer(TemplateTokenizer.openApiPathRegex)
+
+    private val entryFileKey: String = File(openApiFilePath).invariantSeparatorsPath
+    private val sourceMapCache: MutableMap<String, Map<String, YamlNodeLocation>> =
+        mutableMapOf(entryFileKey to jsonPointerSourceMap)
+    private val parsedOpenApiModel: JsonNode by lazy {
+        val mapper = if (parsedOpenApi.specVersion == SpecVersion.V31) Json31.mapper() else Json.mapper()
+        mapper.valueToTree(parsedOpenApi)
+    }
 
     init {
         StringProviders // Trigger early initialization of StringProviders to ensure all providers are loaded at startup
@@ -883,7 +893,8 @@ class OpenApiSpecification(
                             protocol = protocol,
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata,
-                            sourceLocations = sourceLocations
+                            sourceLocations = sourceLocations,
+                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
                         )
                     }
 
@@ -1916,18 +1927,75 @@ class OpenApiSpecification(
     private fun escapeJsonPointer(token: String): String =
         token.replace("~", "~0").replace("/", "~1")
 
-    private fun internalRefPointer(ref: String?): String? {
-        if (ref == null) return null
-        if (ref == "#") return ""
-        if (ref.startsWith("#/")) return ref.removePrefix("#")
-        return null
+    private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
+        sourceMapCache.getOrPut(file) {
+            readExternalFileContent(file)?.let { JsonPointerSourceMap(it).build() }.orEmpty()
+        }
+
+    private fun readExternalFileContent(file: String): String? =
+        runCatching { File(file).readText() }.getOrNull()
+            ?: runCatching { ClasspathHelper.loadFileFromClasspath(file) }.getOrNull()
+
+    private fun resolveExternalFile(refFile: String, currentFile: String): String {
+        val resolved = File(currentFile).canonicalFile.parentFile.resolve(refFile)
+        if (resolved.exists()) return resolved.canonicalPath
+        val parent = File(currentFile).parent ?: "."
+        return File(parent, refFile).toPath().normalize().toString().replace(File.separatorChar, '/')
     }
 
-    private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String {
-        return jsonPointerSourceMap[useSitePointer]?.refTarget
-            ?: internalRefPointer(ref)
-            ?: useSitePointer
+    private data class ExternalRefUse(
+        val sourceFile: String,
+        val sourcePointer: String,
+        val targetFile: String,
+        val targetBasePointer: String,
+    )
+
+    // BFS over external $refs, starting from the entry file. Populates sourceMapCache with every
+    // reachable external file as a by-product, so callers that iterate the cache can simply read
+    // this val first to ensure discovery has run.
+    private val externalRefUses: List<ExternalRefUse> by lazy {
+        val uses = mutableListOf<ExternalRefUse>()
+        val queue = ArrayDeque(sourceMapCache.keys.toList())
+        val visited = sourceMapCache.keys.toMutableSet()
+        while (queue.isNotEmpty()) {
+            val file = queue.removeFirst()
+            sourceMapFor(file).forEach { (pointer, node) ->
+                val rawRef = node.rawRef ?: return@forEach
+                val refFile = rawRef.substringBefore("#").takeIf { it.isNotEmpty() }
+                // A local $ref inside an external file targets that same file. The parser may rename
+                // its target on import (Payload -> Payload_1) to avoid colliding with an entry schema,
+                // so it still needs a projection. Entry-local refs are skipped: their schemas are
+                // never renamed and are already located via the entry source map.
+                val resolved = when {
+                    refFile != null -> resolveExternalFile(refFile, file)
+                    file != entryFileKey -> file
+                    else -> return@forEach
+                }
+                uses += ExternalRefUse(
+                    sourceFile = file,
+                    sourcePointer = pointer,
+                    targetFile = resolved,
+                    targetBasePointer = refFragment(rawRef).orEmpty(),
+                )
+                if (visited.add(resolved)) queue.addLast(resolved)
+            }
+        }
+        uses
     }
+
+    private fun sourcePointerForRefUseSite(useSitePointer: String, ref: String?): String =
+        jsonPointerSourceMap[useSitePointer]?.refTarget
+            ?: internalRefTarget(ref)
+            ?: internalModelRefPointer(useSitePointer)
+            ?: useSitePointer
+
+    private fun internalModelRefPointer(useSitePointer: String): String? {
+        val ref = parsedOpenApiModel.at(useSitePointer).path($$"$ref").asText("")
+        return internalRefTarget(ref)
+    }
+
+    private fun refFragment(ref: String?): String? =
+        ref?.substringAfter("#", "")?.ifEmpty { null }
 
     // A path item can itself be reffed out (paths./x.$ref -> #/components/pathItems/X).
     // The parser inlines it before building the model, so the operation is reachable, but
@@ -2115,7 +2183,7 @@ class OpenApiSpecification(
             val (constituentPointer, constituentSchema) = constituent.`$ref`?.let { ref ->
                 val componentName = ref.substringAfterLast("/")
                 val refSchema = parsedOpenApi.components?.schemas?.get(componentName) ?: return@forEachIndexed
-                "/components/schemas/${escapeJsonPointer(componentName)}" to refSchema
+                sourcePointerForRefUseSite("$basePointer/allOf/$index", ref) to refSchema
             } ?: ("$basePointer/allOf/$index" to constituent)
             sources.putAll(collectPropertySources(constituentSchema, constituentPointer))
         }
@@ -2142,11 +2210,92 @@ class OpenApiSpecification(
         return pattern.copy(pattern = annotatedInner, itemsPointer = itemsPointer)
     }
 
-    private val sourceLocations: Map<String, SourceLocation> by lazy {
-        val displayPath = File(openApiFilePath).invariantSeparatorsPath
-        jsonPointerSourceMap.mapValues { (_, node) ->
-            SourceLocation(displayPath, node.line, node.column)
+    private data class ProjectedExternalRefUse(
+        val refUse: ExternalRefUse,
+        val modelPointer: String,
+        // The $ref use-site hops taken to reach this ref, head-first (entry spec first), including
+        // this ref's own use-site. Becomes the `via` chain of every location under its projection.
+        val via: List<SourceLocation>,
+    )
+
+    private fun useSiteLocation(file: String, pointer: String): SourceLocation? {
+        val node = sourceMapFor(file)[pointer] ?: return null
+        return SourceLocation(File(file).invariantSeparatorsPath, node.line, node.column)
+    }
+
+    // Recovers where each external source subtree appears in the resolved parser model, along with
+    // the chain of $ref use-sites that led there (first-seen wins, so the chain is the shortest path
+    // discovered by the BFS). External schemas may be imported as renamed internal refs
+    // (Payload -> Payload_1), while whole-file PathItem/response/requestBody refs are usually
+    // inlined at the use site.
+    private val externalSourceProjections: Map<ExternalSourceProjection, List<SourceLocation>> by lazy {
+        val projections = LinkedHashMap<ExternalSourceProjection, List<SourceLocation>>()
+        val refUsesBySourceFile = externalRefUses.groupBy { it.sourceFile }
+        val queue = ArrayDeque(
+            externalRefUses
+                .filter { it.sourceFile == entryFileKey }
+                .map { ProjectedExternalRefUse(it, it.sourcePointer, listOfNotNull(useSiteLocation(it.sourceFile, it.sourcePointer))) }
+        )
+
+        while (queue.isNotEmpty()) {
+            val projectedRefUse = queue.removeFirst()
+            val refUse = projectedRefUse.refUse
+            if (refUse.isWholeDocumentSelfRef()) continue
+
+            targetPointersFor(refUse, projectedRefUse.modelPointer).forEach { targetPointer ->
+                val projection = ExternalSourceProjection(
+                    sourceFile = refUse.targetFile,
+                    sourceBasePointer = refUse.targetBasePointer,
+                    targetPointer = targetPointer,
+                )
+
+                if (projection !in projections) {
+                    projections[projection] = projectedRefUse.via
+                    refUsesBySourceFile[projection.sourceFile].orEmpty()
+                        .filter { projection.contains(it.sourceFile, it.sourcePointer) }
+                        .mapTo(queue) { childRefUse ->
+                            ProjectedExternalRefUse(
+                                childRefUse,
+                                projection.targetPointerFor(childRefUse.sourcePointer),
+                                projectedRefUse.via + listOfNotNull(useSiteLocation(childRefUse.sourceFile, childRefUse.sourcePointer)),
+                            )
+                        }
+                }
+            }
         }
+
+        projections
+    }
+
+    private fun ExternalRefUse.isWholeDocumentSelfRef(): Boolean =
+        targetFile == sourceFile && targetBasePointer.isEmpty()
+
+    private fun targetPointersFor(refUse: ExternalRefUse, modelPointer: String): List<String> {
+        val modelRef = parsedOpenApiModel.at(modelPointer).path($$"$ref").asText("").takeIf { it.startsWith("#/") }
+        if (modelRef != null) return listOf(modelRef.removePrefix("#"))
+
+        return listOfNotNull(
+            modelPointer,
+            refUse.targetBasePointer.takeIf { it.isNotEmpty() && it !in sourceMapCache[entryFileKey].orEmpty() },
+        ).distinct()
+    }
+
+    private val sourceLocations: Map<String, SourceLocation> by lazy {
+        externalRefUses // force discovery so sourceMapCache holds every reachable external file
+        val locations = mutableMapOf<String, SourceLocation>()
+        val entryMap = sourceMapCache[entryFileKey].orEmpty()
+        entryMap.forEach { (pointer, node) ->
+            locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
+        }
+        externalSourceProjections.forEach { (projection, via) ->
+            val displayPath = File(projection.sourceFile).invariantSeparatorsPath
+            sourceMapFor(projection.sourceFile).forEach { (pointer, node) ->
+                if (projection.contains(projection.sourceFile, pointer)) {
+                    locations[projection.targetPointerFor(pointer)] = SourceLocation(displayPath, node.line, node.column, via = via)
+                }
+            }
+        }
+        locations
     }
 
     private fun resolveRequestBody(operation: Operation, collectorContext: CollectorContext): Pair<RequestBody, CollectorContext>? {

@@ -440,7 +440,15 @@ data class MatchFailureDetails(
     val sourceLocation: SourceLocation? = null
 )
 
-data class SourceLocation(val filePath: String, val line: Int, val column: Int)
+// `via` holds the ordered $ref use-site hops that lead to this location, head-first (the use-site in
+// the spec under check), excluding this location itself which is the tail (the actual source of the
+// breakage). Empty for locations that live directly in the entry spec.
+data class SourceLocation(
+    val filePath: String,
+    val line: Int,
+    val column: Int,
+    val via: List<SourceLocation> = emptyList()
+)
 
 interface MismatchMessages {
     fun mismatchMessage(expected: String, actual: String): String

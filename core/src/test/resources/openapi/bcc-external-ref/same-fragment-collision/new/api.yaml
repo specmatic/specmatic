@@ -1,0 +1,21 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /a:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./commonA.yaml#/components/schemas/Payload"
+      responses: { "200": { description: ok } }
+  /b:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./commonB.yaml#/components/schemas/Payload"
+      responses: { "200": { description: ok } }

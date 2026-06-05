@@ -9,11 +9,13 @@ import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.reporter.api.client.OBJECT_MAPPER
 import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Disabled
@@ -5675,6 +5677,258 @@ paths:
         private fun operationsFrom(report: CtrfReport?): JsonNode {
             val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
             return json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
+        }
+
+        // When a breaking change lives in an externally $ref'd spec, the breadcrumb must be annotated
+        // with the line:col in THAT file. Each case is a fixture folder under
+        // resources/openapi/bcc-external-ref/<case>/ with an old/ and a new/ tree (entry spec "api.yaml"
+        // plus the external files it references). We load each entry via fromFile so the refs resolve
+        // off disk, then assert the located breadcrumb points at the exact file:line:col that changed.
+        @Nested
+        inner class ExternalRefSourceLocations {
+            private val fixtures = File("src/test/resources/openapi/bcc-external-ref")
+
+            @Test
+            fun `request body is a ref to an external schema`() =
+                assertLocated("request-body", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `response body is a ref to an external schema`() =
+                assertLocated("response-body", ">> RESPONSE.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `a property is a ref to an external schema`() =
+                assertLocated("nested-property", ">> REQUEST.BODY.product.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `array items are a ref to an external schema`() =
+                assertLocated("array-items", ">> REQUEST.BODY[0].name", "new/common.yaml:10:9")
+
+            @Test
+            fun `an allOf constituent is a ref to an external schema`() =
+                assertLocated("allof-constituent", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `a ref to an external schema that is itself an allOf of refs`() =
+                assertLocated("ref-to-allof", ">> REQUEST.BODY.count", "new/common.yaml:19:9")
+
+            @Test
+            fun `a oneOf branch is a ref to an external schema`() =
+                assertLocated("oneof-branch", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `an anyOf branch is a ref to an external schema`() =
+                assertLocated("anyof-branch", ">> REQUEST.BODY.name", "new/common.yaml:10:9")
+
+            @Test
+            fun `the request body is reffed out to an external requestBodies component`() =
+                assertLocated("requestbody-component", ">> REQUEST.BODY.name", "new/common.yaml:14:15")
+
+            @Test
+            fun `a response is reffed out to an external responses component`() =
+                assertLocated("response-component", ">> RESPONSE.BODY.name", "new/common.yaml:14:15")
+
+            @Test
+            fun `the whole parameter is reffed out to an external parameters component`() =
+                assertLocated("parameter-component", ">> REQUEST.PARAMETERS.QUERY.kind", "new/common.yaml:7:7")
+
+            @Test
+            fun `the whole path item is reffed out to an external pathItems component`() =
+                assertLocated("path-item", ">> RESPONSE.BODY.state", "new/common.yaml:17:21")
+
+            @Test
+            fun `two external path item files sharing a fragment each keep their own source location`() {
+                val results = compare("path-item-same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("path-item-same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("path-item-same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains("-> $commonA:17:21)")
+                assertThat(results.report()).contains("-> $commonB:18:21)")
+            }
+
+            // The entry spec owns #/components/pathItems/Status AND also refs an external file's
+            // identically-named fragment. A change inside the entry's own path item must stay anchored
+            // in the entry file: the external projection must not bleed over the entry component pointer.
+            @Test
+            fun `an entry path item is not relocated by an external ref sharing its fragment`() {
+                val results = compare("entry-owns-path-item-fragment")
+                assertThat(results.success()).isFalse()
+                val api = at("entry-owns-path-item-fragment", "new/api.yaml")
+                val common = at("entry-owns-path-item-fragment", "new/common.yaml")
+                // The entry owns this path item, so the change is anchored directly in the entry spec:
+                // a single-hop chain with no `->`, not relocated into the external file.
+                assertThat(results.report()).contains(">> RESPONSE.BODY.state ($api:21:21)")
+                assertThat(results.report()).doesNotContain("$common:18:21)")
+            }
+
+            @Test
+            fun `two external request body files sharing a fragment each keep their own source location`() {
+                val results = compare("requestbody-same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("requestbody-same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("requestbody-same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains("-> $commonA:14:15)")
+                assertThat(results.report()).contains("-> $commonB:15:15)")
+            }
+
+            @Test
+            fun `two external response files sharing a fragment each keep their own source location`() {
+                val results = compare("response-same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("response-same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("response-same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains("-> $commonA:14:15)")
+                assertThat(results.report()).contains("-> $commonB:15:15)")
+            }
+
+            @Test
+            fun `the change is two ref hops away in a transitive chain`() =
+                assertLocated("transitive-chain", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
+
+            // The full source-location chain is rendered head -> ... -> tail: the use-site in the entry
+            // spec, each intermediate $ref use-site, then the actual source of the change. This pins the
+            // whole rendering so the chain can be reduced to a single root downstream.
+            @Test
+            fun `a single external hop renders the entry use-site then the external source`() {
+                val results = compare("request-body")
+                val api = at("request-body", "new/api.yaml")
+                val common = at("request-body", "new/common.yaml")
+                assertThat(locationChainFor(results.report(), ">> REQUEST.BODY.name"))
+                    .isEqualTo("$api:10:13 -> $common:10:9")
+            }
+
+            @Test
+            fun `a transitive chain renders every ref hop from the entry spec to the source`() {
+                val results = compare("transitive-chain")
+                val api = at("transitive-chain", "new/api.yaml")
+                val commonA = at("transitive-chain", "new/commonA.yaml")
+                val commonB = at("transitive-chain", "new/commonB.yaml")
+                assertThat(locationChainFor(results.report(), ">> REQUEST.BODY.detail.value"))
+                    .isEqualTo("$api:10:13 -> $commonA:10:9 -> $commonB:10:9")
+            }
+
+            @Test
+            fun `a transitive ref renamed during import keeps its external source location`() =
+                assertLocated("transitive-renamed-import", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
+
+            // common.yaml#/Envelope has a LOCAL $ref to common.yaml#/Payload, and the entry spec
+            // already defines a Payload, so the parser imports the external one as Payload_1. The
+            // local ref is never a cross-file use, so projection has to still map the renamed local
+            // target back to its file, or the change inside it loses its external source location.
+            @Test
+            fun `a local ref renamed during import keeps its external source location`() =
+                assertLocated("local-ref-renamed-import", ">> REQUEST.BODY.detail.value", "new/common.yaml:16:9")
+
+            // commonA and commonB $ref each other (Node.next points across the cycle), so the ref
+            // graph has a loop. Discovery and the projection fixpoint must terminate rather than
+            // chase the cycle forever; the change still resolves to its file. If this hangs, the
+            // cycle guard regressed.
+            @Test
+            fun `cyclic refs between two external files terminate and still locate the change`() =
+                assertLocated("cyclic-ref", ">> REQUEST.BODY.value", "new/commonA.yaml:10:9")
+
+            // An external schema (common.yaml#/components/schemas/Node) whose `next` recurses through
+            // the document root with $ref: "#" — an unresolvable whole-document self ref with an empty
+            // base. An empty-base projection matches every pointer in the file and used to re-feed the
+            // projection fixpoint with ever-deeper paths until toFeature hung or exhausted memory. The
+            // self ref is now skipped, so the malformed spec surfaces a clean unresolved-reference error
+            // instead of hanging. The assertion completing at all is the regression guard.
+            @Test
+            fun `a recursive ref to the document root terminates instead of hanging`() {
+                assertThatThrownBy { compare("root-self-ref") }
+                    .isInstanceOf(ContractException::class.java)
+                    .hasMessageContaining("Unresolved reference")
+            }
+
+            // Two external files that share the same fragment (#/components/schemas/Payload) must each
+            // keep their own source location. The bare pointer collides, so the resolved external file
+            // has to remain part of the key or one file's change is reported at the other file's line.
+            @Test
+            fun `two external files sharing a fragment each keep their own source location`() {
+                val results = compare("same-fragment-collision")
+                assertThat(results.success()).isFalse()
+                val commonA = at("same-fragment-collision", "new/commonA.yaml")
+                val commonB = at("same-fragment-collision", "new/commonB.yaml")
+                assertThat(results.report()).contains("-> $commonA:10:9)")
+                assertThat(results.report()).contains("-> $commonB:12:9)")
+            }
+
+            @Test
+            fun `a newly required property is added in an external schema`() =
+                assertLocated("added-required", ">> REQUEST.BODY.token", "new/common.yaml:11:9")
+
+            @Test
+            fun `a required response property is removed from an external schema, located in the old file`() =
+                assertLocated("removed-response-property", ">> RESPONSE.BODY.name", "old/common.yaml:11:9")
+
+            @Test
+            fun `a whole-file ref with no fragment resolves into the bare schema file`() =
+                assertLocated("whole-file", ">> REQUEST.BODY.name", "new/ProductBase.yaml:4:3")
+
+            @Test
+            fun `a whole-file path item ref with no fragment is located in the path item file`() =
+                assertLocated("whole-file-path-item", ">> RESPONSE.BODY.state", "new/pathItem.yaml:11:15")
+
+            @Test
+            fun `a whole-file request body ref with no fragment is located in the request body file`() =
+                assertLocated("whole-file-request-body", ">> REQUEST.BODY.name", "new/requestBody.yaml:8:9")
+
+            @Test
+            fun `a whole-file response ref with no fragment is located in the response file`() =
+                assertLocated("whole-file-response", ">> RESPONSE.BODY.name", "new/response.yaml:8:9")
+
+            @Test
+            fun `an operation removed behind an external path item, located in the old file`() =
+                assertLocated(
+                    "removed-operation",
+                    "This API exists in the old contract but not in the new contract",
+                    "old/common.yaml:7:7"
+                )
+
+            // A parameter is always declared in the referring spec, so its breadcrumb anchors on that
+            // declaration even when the parameter's schema is an external ref. Uniform across query,
+            // path and header parameters: the annotated file is the entry spec, not the external one.
+            @Test
+            fun `a query parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
+                assertLocated("query-param-schema", ">> REQUEST.PARAMETERS.QUERY.kind", "new/api.yaml:7:11")
+
+            @Test
+            fun `a path parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
+                assertLocated("path-param-schema", ">> REQUEST.PARAMETERS.PATH.id", "new/api.yaml:7:11")
+
+            @Test
+            fun `a header parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
+                assertLocated("header-param-schema", ">> REQUEST.PARAMETERS.HEADER.X-Tenant", "new/api.yaml:7:11")
+
+            // The breadcrumb now carries a source-location chain `head -> ... -> tail`, where the tail
+            // is the actual source of the change. These cases assert tail correctness; the chain's
+            // head-to-tail rendering is pinned separately below.
+            private fun assertLocated(case: String, breadcrumb: String, fileLineCol: String) {
+                val results = compare(case)
+                assertThat(results.success()).isFalse()
+                val file = at(case, fileLineCol.substringBefore(":"))
+                val lineCol = fileLineCol.substringAfter(":")
+                assertThat(locationChainFor(results.report(), breadcrumb)).endsWith("$file:$lineCol")
+            }
+
+            // Returns the source-location chain rendered inside the parentheses after `breadcrumb`,
+            // e.g. "/a/api.yaml:10:13 -> /a/common.yaml:10:9". Chains contain no nested parens.
+            private fun locationChainFor(report: String, breadcrumb: String): String {
+                val marker = "$breadcrumb ("
+                val start = report.indexOf(marker)
+                require(start >= 0) { "Located breadcrumb '$breadcrumb' not found in report:\n$report" }
+                val open = start + marker.length
+                return report.substring(open, report.indexOf(')', open))
+            }
+
+            private fun compare(case: String): Results {
+                val older = OpenApiSpecification.fromFile(fixtures.resolve("$case/old/api.yaml").canonicalPath).toFeature()
+                val newer = OpenApiSpecification.fromFile(fixtures.resolve("$case/new/api.yaml").canonicalPath).toFeature()
+                return backwardCompatibilityRecords(older, newer).first
+            }
+
+            private fun at(case: String, relativePath: String): String =
+                fixtures.resolve("$case/$relativePath").canonicalFile.invariantSeparatorsPath
         }
     }
 

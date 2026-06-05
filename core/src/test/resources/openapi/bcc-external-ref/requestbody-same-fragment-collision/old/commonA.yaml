@@ -1,0 +1,14 @@
+openapi: 3.0.0
+info: { title: commonA, version: "1" }
+paths: {}
+components:
+  requestBodies:
+    Body:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }

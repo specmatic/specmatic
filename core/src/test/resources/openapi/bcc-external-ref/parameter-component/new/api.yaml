@@ -1,0 +1,8 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /search:
+    get:
+      parameters:
+        - $ref: "./common.yaml#/components/parameters/Kind"
+      responses: { "200": { description: ok } }

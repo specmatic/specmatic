@@ -1,0 +1,21 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /local:
+    $ref: "#/components/pathItems/Status"
+  /external:
+    $ref: "./common.yaml#/components/pathItems/Status"
+components:
+  pathItems:
+    Status:
+      get:
+        responses:
+          "200":
+            description: ok
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [state]
+                  properties:
+                    state: { type: integer }

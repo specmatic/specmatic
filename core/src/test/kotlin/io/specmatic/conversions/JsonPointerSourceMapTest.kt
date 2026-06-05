@@ -174,7 +174,7 @@ class JsonPointerSourceMapTest {
             "/paths/~1submissions/post/requestBody/required" to YamlNodeLocation(10, 9, SCALAR),
             "/paths/~1submissions/post/requestBody/content" to YamlNodeLocation(11, 9, MAPPING),
             "/paths/~1submissions/post/requestBody/content/application~1json" to YamlNodeLocation(12, 11, MAPPING),
-            "/paths/~1submissions/post/requestBody/content/application~1json/schema" to YamlNodeLocation(13, 13, MAPPING, refTarget = "/components/schemas/Submission"),
+            "/paths/~1submissions/post/requestBody/content/application~1json/schema" to YamlNodeLocation(13, 13, MAPPING, refTarget = "/components/schemas/Submission", rawRef = "#/components/schemas/Submission"),
             $$"/paths/~1submissions/post/requestBody/content/application~1json/schema/$ref" to YamlNodeLocation(14, 15, SCALAR),
             "/paths/~1submissions/post/responses" to YamlNodeLocation(15, 7, MAPPING),
             "/paths/~1submissions/post/responses/200" to YamlNodeLocation(16, 9, MAPPING),
@@ -221,6 +221,32 @@ class JsonPointerSourceMapTest {
             "/components/schemas/Submission/properties/items/items/properties/name/type" to YamlNodeLocation(55, 17, SCALAR),
         )
         assertThat(map).isEqualTo(expected)
+    }
+
+    @Test
+    fun `external ref records rawRef but no internal refTarget`() {
+        val yaml = """
+            openapi: 3.0.0
+            info:
+              title: t
+              version: "1"
+            paths:
+              /pets:
+                get:
+                  responses:
+                    "200":
+                      description: ok
+                      content:
+                        application/json:
+                          schema:
+                            ${'$'}ref: './common.yaml#/components/schemas/Pet'
+        """.trimIndent()
+
+        val node = JsonPointerSourceMap(yaml).build()
+            .getValue("/paths/~1pets/get/responses/200/content/application~1json/schema")
+
+        assertThat(node.rawRef).isEqualTo("./common.yaml#/components/schemas/Pet")
+        assertThat(node.refTarget).isNull()
     }
 
     private fun loadFixture(name: String): String =
