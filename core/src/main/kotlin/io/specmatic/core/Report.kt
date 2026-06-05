@@ -18,7 +18,9 @@ data class Issue(
     val path: List<String>,
     val ruleViolations: List<RuleViolationSnapshot>,
     val details: String,
-    val severity: IssueSeverity
+    val severity: IssueSeverity,
+    // Head-to-tail chain of $ref use-sites for this issue; the last element is the actual source.
+    val sourceLocations: List<SourceLocation> = emptyList()
 )
 
 interface Report {

@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.model.TestResult
+import kotlinx.serialization.Serializable
 
 sealed class Result {
     abstract val scenario: ScenarioDetailsForResult?
@@ -443,6 +444,7 @@ data class MatchFailureDetails(
 // `via` holds the ordered $ref use-site hops that lead to this location, head-first (the use-site in
 // the spec under check), excluding this location itself which is the tail (the actual source of the
 // breakage). Empty for locations that live directly in the entry spec.
+@Serializable
 data class SourceLocation(
     val filePath: String,
     val line: Int,

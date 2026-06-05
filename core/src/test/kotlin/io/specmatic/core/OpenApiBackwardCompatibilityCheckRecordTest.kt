@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfSourceLocation
 import io.specmatic.core.ChangeStatus
 import io.specmatic.reporter.model.BackwardCompatibilityStatus
 import io.specmatic.reporter.model.SpecType
@@ -62,6 +63,54 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         )
 
         assertThat(record.specification).isEqualTo(feature.path)
+    }
+
+    @Test
+    fun `should expose structured breakages with breadcrumb, rule and source-location chain`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        // The actual source of the break lives in common.yaml (tail); api.yaml is the $ref use-site (via head).
+        val location = SourceLocation(
+            filePath = "/specs/common.yaml", line = 38, column = 9,
+            via = listOf(SourceLocation(filePath = "/specs/api.yaml", line = 27, column = 13))
+        )
+        val failure = Result.Failure(
+            message = "This is type number in the new specification, but type string in the old specification",
+            ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+        ).breadCrumb("applicationNumber", location).breadCrumb("BODY").breadCrumb("REQUEST")
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = failure,
+            feature = feature.copy(scenarios = listOf(scenario)),
+        )
+
+        assertThat(record.breakages).hasSize(1)
+        val breakage = record.breakages.single()
+        assertThat(breakage.breadcrumb).isEqualTo("REQUEST.BODY.applicationNumber")
+        assertThat(breakage.rule?.id).isEqualTo("R1001")
+        assertThat(breakage.description).contains("type number in the new specification")
+        assertThat(breakage.side).isEqualTo("request")
+        assertThat(breakage.severity).isEqualTo("error")
+        assertThat(breakage.sourceLocations).containsExactly(
+            CtrfSourceLocation("/specs/api.yaml", 27, 13),
+            CtrfSourceLocation("/specs/common.yaml", 38, 9),
+        )
+    }
+
+    @Test
+    fun `should expose no breakages for a compatible scenario`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = Result.Success(),
+            feature = feature.copy(scenarios = listOf(scenario)),
+        )
+
+        assertThat(record.breakages).isEmpty()
     }
 
     @Test
