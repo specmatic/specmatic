@@ -72,6 +72,7 @@ import io.specmatic.core.config.v3.components.sources.GitAuthentication
 import io.specmatic.core.config.v3.specmatic.Governance
 import io.specmatic.core.config.v3.specmatic.SuccessCriterion
 import io.specmatic.core.defaultReportDirPath
+import io.specmatic.core.normalizeFilesystemSpecificationPath
 import io.specmatic.core.readEnvVarOrProperty
 import io.specmatic.core.utilities.ContractSource
 import io.specmatic.core.utilities.FileAssociation
@@ -236,11 +237,17 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(specFile)
             else -> stubSpecPathFromConfigFor(specFile)
         }
+        val normalizedSpecification =
+            normalizeFilesystemSpecificationPath(
+                specificationPath = specPathFromConfig,
+                sourceProvider = source?.toProviderType()?.name ?: SourceProvider.filesystem.name,
+                resolvedSpecFile = specFile,
+            )
 
         return CtrfSpecConfig(
             protocol = protocol,
             specType = specType,
-            specification = specPathFromConfig.orEmpty(),
+            specification = normalizedSpecification.orEmpty(),
             sourceProvider = source?.toProviderType()?.name ?: SourceProvider.filesystem.name,
             repository = source?.getGit()?.url.orEmpty(),
             branch = source?.getGit()?.branch ?: "main",

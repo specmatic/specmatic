@@ -93,6 +93,13 @@ fun parseContractFileToFeature(
     exampleDirPaths: List<String> = emptyList()
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
+    val normalizedSpecificationPath =
+        normalizeFilesystemSpecificationPath(
+            specificationPath = specificationPath,
+            sourceProvider = sourceProvider,
+            resolvedSpecFile = file,
+        )
+
     return when (file.extension) {
         in OPENAPI_FILE_EXTENSIONS -> OpenApiSpecification.fromYAML(
             hook.readContract(file.path),
@@ -100,7 +107,7 @@ fun parseContractFileToFeature(
             sourceProvider = sourceProvider,
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
-            specificationPath = specificationPath,
+            specificationPath = normalizedSpecificationPath,
             securityConfiguration = securityConfiguration,
             specmaticConfig = specmaticConfig,
             overlayContent = overlayContent,
@@ -119,7 +126,18 @@ fun parseContractFileToFeature(
             specmaticConfig = specmaticConfig
         ).copy(exampleDirPaths = exampleDirPaths)
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
+    }.withFilesystemCtrfSpecification(normalizedSpecificationPath)
+}
+
+private fun Feature.withFilesystemCtrfSpecification(specificationPath: String?): Feature {
+    if (specificationPath == null) {
+        return this
     }
+
+    return copy(
+        specification = specificationPath,
+        scenarios = scenarios.map { it.copy(specification = specificationPath) },
+    )
 }
 
 fun unsupportedFileExtensionContractException(
