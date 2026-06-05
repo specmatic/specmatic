@@ -55,7 +55,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
 
     private fun generatePositiveVariations(scenarios: List<Scenario>): List<Scenario> {
         return scenarios.flatMap { scenario ->
-            scenario.withoutExamples().generateBackwardCompatibilityScenarios()
+            scenario.withoutExamples().generateBackwardCompatibilityScenarios().map { it.value }
         }
     }
 
@@ -75,22 +75,23 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 
     private fun evaluateVariation(variationFromOldScenario: Scenario, changeStatusFor: (Scenario) -> ChangeStatus): List<OpenApiBackwardCompatibilityCheckRecord> {
+        val variationSummary = variationFromOldScenario.requestChangeSummary
         return try {
             val request = variationFromOldScenario.generateHttpRequest(backwardCompatibilityStrategies)
             requestMatches(request, variationFromOldScenario, changeStatusFor)
         } catch (contractException: ContractException) {
             val result = contractException.failure()
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationSummary))
         } catch (_: StackOverflowError) {
             val result = Result.Failure(STACK_OVERFLOW_MESSAGE)
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationSummary))
         } catch (_: EmptyContract) {
             val newFilePath = if (newFeature.path.isNotEmpty()) " at ${newFeature.path}" else ""
             val result = Result.Failure("The contract$newFilePath had no operations")
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationSummary))
         } catch (throwable: Throwable) {
             val result = Result.Failure("Exception: ${throwable.localizedMessage}")
-            listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            listOf(newRecord(variationFromOldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationSummary))
         }
     }
 
@@ -105,7 +106,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         if (identifierMatches.isEmpty()) {
             val result = Result.Failure("This API exists in the old contract but not in the new contract")
                 .copy(sourceLocation = locateRemovedOperation(variationFromOldScenario))
-            return listOf(newRecord(variationFromOldScenario, result, changeStatusFor))
+            return listOf(newRecord(variationFromOldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationFromOldScenario.requestChangeSummary))
         }
 
         // This is a performance optimization: If Path + Method + RequestContentType has many scenarios,
@@ -120,7 +121,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
         // This is a performance optimization: As there can be multiple scenarios with responseCode and contentTypes,
         // we can associate first result with remaining avoiding re-valuation as they will share the same request schema as per OAS
         return identifierMatches.map { newScenario ->
-            newRecord(newScenario, matchResult, changeStatusFor)
+            newRecord(newScenario, matchResult, changeStatusFor, BackwardCompatibilityCheckPhase.REQUEST, variationFromOldScenario.requestChangeSummary)
         }
     }
 
@@ -134,7 +135,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
             if (identifierMatches.isEmpty()) {
                 val result = Result.Failure("This API exists in the old contract but not in the new contract")
                     .copy(sourceLocation = locateRemovedResponse(oldScenario))
-                return@flatMap listOf(newRecord(oldScenario, result, changeStatusFor))
+                return@flatMap listOf(newRecord(oldScenario, result, changeStatusFor, BackwardCompatibilityCheckPhase.RESPONSE))
             }
 
             identifierMatches.map { newScenario -> checkResponseEncompasses(oldScenario, newScenario, changeStatusFor) }
@@ -156,20 +157,32 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
                     newerResolver = newScenario.resolver.copy(mismatchMessages = NewAndOldSpecificationResponseMismatches),
                 ),
                 changeStatusFor = changeStatusFor,
+                phase = BackwardCompatibilityCheckPhase.RESPONSE,
             )
         } catch (_: StackOverflowError) {
-            newRecord(newScenario, Result.Failure(STACK_OVERFLOW_MESSAGE), changeStatusFor)
+            newRecord(newScenario, Result.Failure(STACK_OVERFLOW_MESSAGE), changeStatusFor, BackwardCompatibilityCheckPhase.RESPONSE)
         } catch (throwable: Throwable) {
-            newRecord(newScenario, throwable.toFailure(), changeStatusFor)
+            newRecord(newScenario, throwable.toFailure(), changeStatusFor, BackwardCompatibilityCheckPhase.RESPONSE)
         }
     }
 
-    private fun newRecord(scenario: Scenario, result: Result, changeStatusFor: (Scenario) -> ChangeStatus): OpenApiBackwardCompatibilityCheckRecord {
+    private fun newRecord(
+        scenario: Scenario,
+        result: Result,
+        changeStatusFor: (Scenario) -> ChangeStatus,
+        phase: BackwardCompatibilityCheckPhase,
+        requestVariationSummary: String? = null,
+    ): OpenApiBackwardCompatibilityCheckRecord {
+        // Pass the old request variation's summary as a separate field rather than copying it onto
+        // the scenario: validateResponseCompatibility dedupes matched new scenarios by identity, so
+        // the scenario instance must be preserved.
         return OpenApiBackwardCompatibilityCheckRecord(
             feature = newFeature,
             scenario = scenario,
             compatResult = result.updateScenario(scenario).withoutFailureReasons(),
             changeStatus = changeStatusFor(scenario),
+            requestVariationSummary = requestVariationSummary,
+            phase = phase,
         )
     }
 

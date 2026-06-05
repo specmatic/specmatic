@@ -10,6 +10,13 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.openAPIOperationFrom
 import java.util.UUID
 
+enum class BackwardCompatibilityCheckPhase(val label: String) {
+    REQUEST("request"),
+    RESPONSE("response");
+
+    val tag: String get() = "compatibility:$label"
+}
+
 data class OpenApiBackwardCompatibilityCheckRecord(
     val feature: Feature,
     val scenario: Scenario,
@@ -17,6 +24,8 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     override val duration: Long = 0,
     override val id: UUID = UUID.randomUUID(),
     val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
+    val requestVariationSummary: String? = null,
+    val phase: BackwardCompatibilityCheckPhase = BackwardCompatibilityCheckPhase.REQUEST,
 ) : CtrfBackwardCompatibilityRecord {
     override val specType: SpecType = scenario.specType
     override val repository: String? = scenario.sourceRepository
@@ -25,8 +34,8 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     override val isWip: Boolean = scenario.ignoreFailure
 
-    // TODO: Need actual positive variation from generatedScenario
-    override val name: String = scenario.fullApiDescription
+    override val name: String =
+        "${scenario.copy(requestChangeSummary = requestVariationSummary).fullApiTestDescription().trim()} (${phase.label})"
     override val message: String = compatResult.reportString(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
@@ -36,6 +45,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
         add("path:${convertPathParameterStyle(scenario.path)}")
         scenario.requestContentType?.let { contentType -> add("content-type:$contentType") }
         scenario.responseContentType?.let { contentType -> add("response-content-type:$contentType") }
+        add(phase.tag)
     }
 
     override val result: BackwardCompatibilityStatus = when (compatResult) {

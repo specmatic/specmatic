@@ -149,6 +149,29 @@ paths:
                 properties:
                   code:
                     type: string
+  # Self-contained operation, identical in both specs (UNCHANGED + Compatible). Exercises multiple
+  # positive request variations from one request body: the optional `note` (present/absent) and the
+  # `kind` enum, each yielding a distinctly-named CTRF request test.
+  /catalog:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, kind]
+              properties:
+                name:
+                  type: string
+                kind:
+                  type: string
+                  enum: [book, food]
+                note:
+                  type: string
+      responses:
+        '201':
+          description: created
   # reffed path-param case: widgetId is $ref'd to a component parameter whose
   # schema is string here and integer in new (breaking). The breadcrumb must
   # resolve to the component parameter's `name` key even though the $ref

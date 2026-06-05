@@ -1155,7 +1155,7 @@ data class Feature(
 
     fun generateBackwardCompatibilityTestScenarios(): List<Scenario> =
         scenarios.flatMap { scenario ->
-            scenario.copy(examples = emptyList()).generateBackwardCompatibilityScenarios()
+            scenario.copy(examples = emptyList()).generateBackwardCompatibilityScenarios().map { it.value }
         }
 
     fun matchingStub(

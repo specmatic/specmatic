@@ -6,6 +6,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.flipkart.zjsonpatch.JsonPatch
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
+import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
 import io.specmatic.core.utilities.Flags.Companion.using
 import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
@@ -2126,7 +2127,14 @@ paths:
             """
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
+
+              >> REQUEST.BODY
+
+                  This is json object in the new specification, but an empty string or no body value in the old specification
+
+            In scenario "hello world. Response: Says hello"
+            API: POST /data -> 200
+
               >> REQUEST.BODY.data2 (new.yaml:21:17)
 
                   R2001: Missing required property
@@ -2134,17 +2142,10 @@ paths:
                   Summary: A required property defined in the specification is missing
 
                   New specification expects property "data2" in the request but it is missing from the old specification
-            
+
             In scenario "hello world. Response: Says hello"
             API: POST /data -> 200
-            
-              >> REQUEST.BODY
-              
-                  This is json object in the new specification, but an empty string or no body value in the old specification
-            
-            In scenario "hello world. Response: Says hello"
-            API: POST /data -> 200
-            
+
               >> RESPONSE.BODY
               
                   R1001: Type mismatch
@@ -4835,6 +4836,127 @@ paths:
     }
 
     @Test
+    fun `positive request variations of a 5-tuple get distinct names reflecting the key combination`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
+        }
+        val spec = """
+            openapi: 3.0.0
+            info: { title: Widgets, version: 1.0.0 }
+            paths:
+              /widgets:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [id]
+                          properties:
+                            id: { type: string }
+                            label: { type: string }
+                  responses:
+                    '200': { description: ok }
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "widgets.yaml").toFeature()
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val (result, report) = testBackwardCompatibilityWithReport(feature, feature)
+            assertThat(result.success()).withFailMessage(result.report()).isTrue
+
+            val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+            val names = tests.map { it.path("name").asText() }
+
+            assertThat(names).doesNotHaveDuplicates()
+
+            val base = "Scenario: POST /widgets -> 200 (requestContentType application/json)"
+            assertThat(names).contains(
+                "$base with a request where REQUEST.BODY contains all the keys (request)",
+                "$base with a request where REQUEST.BODY contains only the mandatory keys (request)",
+            )
+        }
+    }
+
+    @Test
+    fun `request variations use the prioritised combination set, not the cartesian product`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
+        }
+        val spec = """
+            openapi: 3.0.0
+            info: { title: Things, version: 1.0.0 }
+            paths:
+              /things:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [a, b]
+                          properties:
+                            a: { type: string, enum: [x, y, z] }
+                            b: { type: string, enum: [p, q] }
+                  responses:
+                    '200': { description: ok }
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "things.yaml").toFeature()
+
+        using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+            val (_, report) = testBackwardCompatibilityWithReport(feature, feature)
+            val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+            val requestTests = tests.filter { it.path("tags").map { tag -> tag.asText() }.contains("compatibility:request") }
+
+            assertThat(requestTests).hasSize(3)
+            assertThat(requestTests.map { it.path("name").asText() }).doesNotHaveDuplicates()
+        }
+    }
+
+    @Test
+    fun `ambient generation flags do not leak into backward compatibility request variations`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.canonicalPath}/reports")
+        }
+        val spec = """
+            openapi: 3.0.0
+            info: { title: Catalog, version: 1.0.0 }
+            paths:
+              /catalog:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          required: [name, kind]
+                          properties:
+                            name: { type: string }
+                            kind: { type: string, enum: [book, food], example: book }
+                  responses:
+                    '201': { description: created }
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "catalog.yaml").toFeature()
+
+        using(
+            CONFIG_FILE_PATH to configFile.canonicalPath,
+            SCHEMA_EXAMPLE_DEFAULT to "true",
+        ) {
+            val (_, report) = testBackwardCompatibilityWithReport(feature, feature)
+            val tests = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+            val names = tests.map { it.path("name").asText() }
+
+            val base = "Scenario: POST /catalog -> 201 (requestContentType application/json)"
+            assertThat(names).contains(
+                "$base with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'book' from enum (request)",
+                "$base with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'food' from enum (request)",
+            )
+        }
+    }
+
+    @Test
     fun `should generate backward compatibility report with mixed compatible and incompatible operations`(@TempDir tempDir: File) {
         val configFile = tempDir.resolve("specmatic.yaml").apply {
             writeText("""
@@ -5010,6 +5132,76 @@ paths:
             val operations = operationsFrom(report)
             val json = "application/json"
 
+            val names = OBJECT_MAPPER.valueToTree<JsonNode>(report).path("results").path("tests")
+                .map { it.path("name").asText() }
+            assertThat(names).containsExactlyInAnyOrder(
+                // GET /orders 200
+                "Scenario: GET /orders -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /orders -> 200 (responseContentType application/json) (response)",
+                // GET /orders 400
+                "Scenario: GET /orders -> 400 (responseContentType application/json) (request)",
+                "Scenario: GET /orders -> 400 (responseContentType application/json) (response)",
+                // GET /orders 500 - removed in new, only the response absence-detecting record
+                "Scenario: GET /orders -> 500 (responseContentType application/json) (response)",
+                // POST /orders 201 - response test, plus request test with the single body variation
+                "Scenario: POST /orders -> 201 (requestContentType application/json, responseContentType application/json) (response)",
+                "Scenario: POST /orders -> 201 (requestContentType application/json, responseContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
+                // POST /orders 400 - response test, plus request test with the single body variation
+                "Scenario: POST /orders -> 400 (requestContentType application/json, responseContentType application/json) (response)",
+                "Scenario: POST /orders -> 400 (requestContentType application/json, responseContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key customer contains all the keys (request)",
+                // POST /catalog 201 - response test, plus one request test per (key-combination x kind enum)
+                // variation, each with a distinct name.
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) (response)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'book' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains only the mandatory keys AND the key kind is set to 'food' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'book' from enum (request)",
+                "Scenario: POST /catalog -> 201 (requestContentType application/json) with a request where REQUEST.BODY contains all the keys AND the key kind is set to 'food' from enum (request)",
+                // GET /orders/{id} 200
+                "Scenario: GET /orders/(id:string) -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /orders/(id:string) -> 200 (responseContentType application/json) (response)",
+                // GET /orders/{id} 404
+                "Scenario: GET /orders/(id:string) -> 404 (responseContentType application/json) (request)",
+                "Scenario: GET /orders/(id:string) -> 404 (responseContentType application/json) (response)",
+                // DELETE /orders/{id} 204 - removed in new, request + response absence-detecting records
+                "Scenario: DELETE /orders/(id:string) -> 204 (request)",
+                "Scenario: DELETE /orders/(id:string) -> 204 (response)",
+                // GET /categories 200
+                "Scenario: GET /categories -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /categories -> 200 (responseContentType application/json) (response)",
+                // GET /health 200
+                "Scenario: GET /health -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /health -> 200 (responseContentType application/json) (response)",
+                // GET /promotions 200 - WIP operation
+                "Scenario: GET /promotions -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /promotions -> 200 (responseContentType application/json) (response)",
+                // GET /shipments 200 - allOf response (breaking)
+                "Scenario: GET /shipments -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /shipments -> 200 (responseContentType application/json) (response)",
+                // PUT /widgets/{widgetId} 200 - reffed path-param (breaking)
+                "Scenario: PUT /widgets/(widgetId:number) -> 200 (responseContentType application/json) (request)",
+                "Scenario: PUT /widgets/(widgetId:number) -> 200 (responseContentType application/json) (response)",
+                // GET /anyof 200 - anyOf response (breaking)
+                "Scenario: GET /anyof -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /anyof -> 200 (responseContentType application/json) (response)",
+                // GET /oneof 200 - oneOf response (breaking)
+                "Scenario: GET /oneof -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /oneof -> 200 (responseContentType application/json) (response)",
+                // POST /parcels 200 - reffed-out request body (breaking)
+                "Scenario: POST /parcels -> 200 (requestContentType application/json, responseContentType application/json) with a request where REQUEST.BODY contains all the keys (request)",
+                "Scenario: POST /parcels -> 200 (requestContentType application/json, responseContentType application/json) (response)",
+                // GET /inventory 200 - reffed-out response (breaking)
+                "Scenario: GET /inventory -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /inventory -> 200 (responseContentType application/json) (response)",
+                // GET /audit 200 - reffed-out path item (breaking)
+                "Scenario: GET /audit -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /audit -> 200 (responseContentType application/json) (response)",
+                // GET /tokens 200 - reffed-out response header (breaking)
+                "Scenario: GET /tokens -> 200 (responseContentType application/json) (request)",
+                "Scenario: GET /tokens -> 200 (responseContentType application/json) (response)",
+            )
+
+            assertThat(names).doesNotHaveDuplicates()
+
             // The real breaking changes (GET /orders 400/500, DELETE /orders/{id}, the anyOf/oneOf
             // unions, and the reffed-out request body/response/path-item/header) fail the check;
             // the breaking WIP operation does not contribute to this verdict.
@@ -5023,7 +5215,7 @@ paths:
             In scenario "GET /orders. Response: bad request"
             API: GET /orders -> 400
 
-              >> RESPONSE.BODY.code (new.yaml:283:9)
+              >> RESPONSE.BODY.code (new.yaml:306:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5044,7 +5236,7 @@ paths:
             In scenario "GET /shipments. Response: ok"
             API: GET /shipments -> 200
 
-              >> RESPONSE.BODY.weight (new.yaml:332:9)
+              >> RESPONSE.BODY.weight (new.yaml:355:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5052,7 +5244,7 @@ paths:
               
                   This is number in the new specification response but string in the old specification
               
-              >> RESPONSE.BODY.carrier (new.yaml:340:13)
+              >> RESPONSE.BODY.carrier (new.yaml:363:13)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5074,7 +5266,7 @@ paths:
             In scenario "PUT /widgets/(widgetId:number). Response: ok"
             API: PUT /widgets/(widgetId:number) -> 200
 
-              >> REQUEST.PARAMETERS.PATH.widgetId (new.yaml:344:7)
+              >> REQUEST.PARAMETERS.PATH.widgetId (new.yaml:367:7)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5085,7 +5277,7 @@ paths:
             In scenario "GET /anyof. Response: ok"
             API: GET /anyof -> 200
 
-              >> RESPONSE.BODY.alpha (old.yaml:186:23)
+              >> RESPONSE.BODY.alpha (old.yaml:209:23)
               
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
@@ -5096,7 +5288,7 @@ paths:
             In scenario "GET /oneof. Response: ok"
             API: GET /oneof -> 200
 
-              >> RESPONSE.BODY.gamma (new.yaml:174:23)
+              >> RESPONSE.BODY.gamma (new.yaml:197:23)
               
                   R2001: Missing required property
                   Documentation: https://docs.specmatic.io/rules#r2001
@@ -5107,7 +5299,7 @@ paths:
             In scenario "POST /parcels. Response: ok"
             API: POST /parcels -> 200
 
-              >> REQUEST.BODY.size (new.yaml:358:15)
+              >> REQUEST.BODY.size (new.yaml:381:15)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5118,7 +5310,7 @@ paths:
             In scenario "GET /inventory. Response: ok"
             API: GET /inventory -> 200
 
-              >> RESPONSE.BODY.count (new.yaml:369:15)
+              >> RESPONSE.BODY.count (new.yaml:392:15)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5129,7 +5321,7 @@ paths:
             In scenario "GET /audit. Response: ok"
             API: GET /audit -> 200
 
-              >> RESPONSE.BODY.event (new.yaml:383:21)
+              >> RESPONSE.BODY.event (new.yaml:406:21)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5140,7 +5332,7 @@ paths:
             In scenario "GET /tokens. Response: ok"
             API: GET /tokens -> 200
 
-              >> RESPONSE.HEADER.X-Rate-Limit (new.yaml:386:5)
+              >> RESPONSE.HEADER.X-Rate-Limit (new.yaml:409:5)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
@@ -5171,7 +5363,7 @@ paths:
             // NEW-SIDE N5 (breaking): PUT /widgets/{widgetId} takes its `widgetId` path parameter
             // via $ref to #/components/parameters/WidgetId, whose schema changes string -> integer.
             // The $ref use-site has no `name`, so the breadcrumb must resolve to the component
-            // parameter's `name` key (asserted at new.yaml:248:7 in the console report above) -
+            // parameter's `name` key (asserted at new.yaml:367:7 in the console report above) -
             // a regression guard that reffed-out path parameters are located at the component.
             operations.assertRow(OperationKey("PUT", "/widgets/{widgetId}", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
@@ -5192,6 +5384,10 @@ paths:
             // UNCHANGED standalone operation - GET /health is identical in both specs
             operations.assertRow(OperationKey("GET", "/health", null, 200, json), changeStatus = "UNCHANGED", result = "compatible")
 
+            // UNCHANGED standalone operation with an optional field and an enum - POST /catalog is
+            // identical in both specs; it exists to exercise multiple distinctly-named request variations.
+            operations.assertRow(OperationKey("POST", "/catalog", json, 201, null), changeStatus = "UNCHANGED", result = "compatible")
+
             // WIP operation: still executes and is change-tracked. `code` changes string -> integer
             // (breaking), so the operation is CHANGED + Incompatible and carries the `wip` qualifier.
             // It must NOT break the verdict (asserted separately below).
@@ -5202,44 +5398,44 @@ paths:
 
             // NEW-SIDE N6 (breaking): GET /anyof returns an anyOf of two inline object members;
             // member[1].beta changes type string -> integer. The located breadcrumb above
-            // (old.yaml:186:23) resolves to the `alpha` branch member, proving annotateAnyOfPattern
+            // (old.yaml:209:23) resolves to the `alpha` branch member, proving annotateAnyOfPattern
             // annotates per-branch property pointers.
             operations.assertRow(OperationKey("GET", "/anyof", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N7 (breaking): GET /oneof returns a oneOf of two inline object members;
             // member[1].delta changes type string -> integer. The located breadcrumb above
-            // (new.yaml:174:23) resolves to the `gamma` branch member, proving annotateAnyPattern
+            // (new.yaml:197:23) resolves to the `gamma` branch member, proving annotateAnyPattern
             // annotates per-branch property pointers.
             operations.assertRow(OperationKey("GET", "/oneof", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N8 (breaking): POST /parcels takes its request body via $ref to
             // #/components/requestBodies/ParcelBody, whose schema property `size` changes type
             // string -> integer. The REQUEST.BODY.size breadcrumb is annotated at the component
-            // requestBody's schema (new.yaml:358:15), not the use-site - a reffed-out request body.
+            // requestBody's schema (new.yaml:381:15), not the use-site - a reffed-out request body.
             operations.assertRow(OperationKey("POST", "/parcels", json, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N9 (breaking): GET /inventory returns a $ref to
             // #/components/responses/InventoryOk, whose schema property `count` changes type
             // string -> integer. The RESPONSE.BODY.count breadcrumb is annotated at the component
-            // response's schema (new.yaml:369:15) - a reffed-out response.
+            // response's schema (new.yaml:392:15) - a reffed-out response.
             operations.assertRow(OperationKey("GET", "/inventory", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N10 (breaking): /audit is a $ref to #/components/pathItems/Audit, whose
             // GET 200 response schema property `event` changes type string -> integer. The
             // RESPONSE.BODY.event breadcrumb resolves to the component pathItem's schema
-            // (new.yaml:383:21) - a reffed-out path item.
+            // (new.yaml:406:21) - a reffed-out path item.
             operations.assertRow(OperationKey("GET", "/audit", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // NEW-SIDE N11 (breaking): GET /tokens 200 declares a header via $ref to
             // #/components/headers/RateLimit, whose schema changes type string -> integer. The
             // RESPONSE.HEADER.X-Rate-Limit breadcrumb resolves to the component header definition
-            // (new.yaml:386:5) - a reffed-out response header.
+            // (new.yaml:409:5) - a reffed-out response header.
             operations.assertRow(OperationKey("GET", "/tokens", null, 200, json), changeStatus = "CHANGED", result = "incompatible")
 
             // Sanity: the report has exactly the rows we asserted above and no more
             assertThat(operations.toList())
-                .describedAs("expected 19 operation rows in the report")
-                .hasSize(19)
+                .describedAs("expected 20 operation rows in the report")
+                .hasSize(20)
         }
 
         @Test

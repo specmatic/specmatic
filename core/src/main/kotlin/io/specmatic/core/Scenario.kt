@@ -48,6 +48,7 @@ const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIEL
 const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM_KEY"
 
 enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
+
 data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
@@ -505,8 +506,9 @@ data class Scenario(
 
                 val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
 
+                val requestStatus = if (flagsBased.requestSchemaOnly) 200 else httpResponsePattern.status
                 val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when (isNegative) {
-                    false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
+                    false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, requestStatus), flagsBased.positivePrefix)
                     else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
@@ -554,19 +556,6 @@ data class Scenario(
         val resolvedRequest = ExampleProcessor.resolve(httpRequest, ExampleProcessor::defaultIfNotExits)
         val updatedResolver = resolver.copy(isNegative = httpResponsePattern.status in invalidRequestStatuses)
         return httpRequestPattern.fillInTheBlanks(resolvedRequest, updatedResolver)
-    }
-
-    private fun newBasedOnBackwardCompatibility(row: Row): Sequence<Scenario> {
-        val resolver = Resolver(expectedFacts, false, patterns)
-
-        val newExpectedServerState = newExpectedServerStateBasedOn(row, expectedFacts, fixtures, resolver)
-
-        return httpRequestPattern.newBasedOn(resolver).map { newHttpRequestPattern ->
-            this.copy(
-                httpRequestPattern = newHttpRequestPattern,
-                expectedFacts = newExpectedServerState
-            )
-        }
     }
 
     fun validateAndFilterExamples(flagsBased: FlagsBased): Pair<Scenario, Result> {
@@ -717,10 +706,31 @@ data class Scenario(
     fun generateBackwardCompatibilityScenarios(
         variables: Map<String, String> = emptyMap(),
         testBaseURLs: Map<String, String> = emptyMap()
-    ): List<Scenario> {
+    ): List<ReturnValue<Scenario>> {
         val referencesWithBaseURLs = references.mapValues { (_, reference) ->
             reference.copy(variables = variables, baseURLs = testBaseURLs)
         }
+
+        // maxTestRequestCombinations is left uncapped: prioritisedRequestCombinationsOnly already bounds
+        // the set to ~max(per-key candidate counts). A finite cap would silently drop per-value coverage
+        // (e.g. skip the 51st value of a required enum), so BCC could wrongly report an operation as
+        // compatible even though a new schema that removed exactly that value would reject old clients.
+        //
+        // Built from scratch rather than DefaultStrategies.copy(...), which reads ambient system
+        // properties: SCHEMA_EXAMPLE_DEFAULT would collapse an enum to its `example` value and silently
+        // stop exercising the rest.
+        val backwardCompatibilityStrategies = FlagsBased(
+            defaultExampleResolver = DoNotUseDefaultExample,
+            generation = NonGenerativeTests,
+            unexpectedKeyCheck = null,
+            positivePrefix = "",
+            negativePrefix = "",
+            allPatternsAreMandatory = false,
+            useFuzzyMatching = false,
+            maxTestRequestCombinations = Int.MAX_VALUE,
+            prioritisedRequestCombinationsOnly = true,
+            requestSchemaOnly = true,
+        )
 
         return scenarioBreadCrumb(this) {
             when (examples.size) {
@@ -731,7 +741,16 @@ data class Scenario(
                     }
                 }
             }.flatMap { row ->
-                newBasedOnBackwardCompatibility(row)
+                newBasedOn(row, backwardCompatibilityStrategies).map { generated ->
+                    generated.ifHasValue { result ->
+                        HasValue(
+                            result.value.copy(
+                                requestChangeSummary = result.valueDetails.singleLineDescription().takeIf { it.isNotBlank() }
+                            ),
+                            result.valueDetails
+                        )
+                    }
+                }
             }
         }
     }

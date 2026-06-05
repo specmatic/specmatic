@@ -147,6 +147,11 @@ data class AnyOfPattern(
     ): Sequence<ReturnValue<Pattern>> {
         val newPatterns = delegate.newBasedOn(row, resolver)
 
+        // Backward-compatibility checks compare each anyOf branch's request schema on its own; the
+        // synthesized union-of-branches object is not a distinct branch and only produces a redundant
+        // (and indistinguishable) positive variation, so skip it on that path.
+        if (resolver.prioritisedRequestCombinationsOnly) return newPatterns
+
         val resolvedPatterns = pattern.map { resolvedHop(it, resolver) }
         if (resolvedPatterns.all { it is JSONObjectPattern } && discriminator == null) {
             val combinedPattern = combineJSONPatterns(pattern.filterIsInstance<JSONObjectPattern>())
