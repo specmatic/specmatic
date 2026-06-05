@@ -10,9 +10,11 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.net.URI
@@ -451,6 +453,57 @@ internal class HttpRequestPatternTest {
 
         assertThat(newRequestType.httpQueryParamPattern.queryPatterns.keys.sorted()).isEqualTo(listOf("status"))
 
+    }
+
+    @Test
+    fun `should preserve additional query params when generating an exact request pattern`() {
+        val requestType = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern(pathToPattern("/"), "/"),
+            httpQueryParamPattern = HttpQueryParamPattern(mapOf("status" to QueryParameterScalarPattern(StringPattern())))
+        )
+
+        val request = HttpRequest(
+            path = "/",
+            method = "GET",
+            queryParametersMap = mapOf("status" to "available", "extra" to "extra-value")
+        )
+
+        val newRequestType = requestType.generateExactHttpRequestPatternFrom(request, Resolver())
+        assertThat(newRequestType.httpQueryParamPattern.queryPatterns).containsKeys("status", "extra")
+        assertThat(newRequestType.httpQueryParamPattern.queryPatterns["extra"])
+            .isEqualTo(QueryParameterScalarPattern(ExactValuePattern(StringValue("extra-value"))))
+    }
+
+    @Test
+    fun `should complain for additional query params when generating an exact request pattern and value does not match additional properties`() {
+        val requestType = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern(pathToPattern("/"), "/"),
+            httpQueryParamPattern = HttpQueryParamPattern(
+                additionalProperties = NumberPattern(),
+                queryPatterns = mapOf("status" to QueryParameterScalarPattern(StringPattern())),
+            )
+        )
+
+        val request = HttpRequest(
+            path = "/",
+            method = "GET",
+            queryParametersMap = mapOf("status" to "available", "extra" to "not-a-number")
+        )
+
+        val exception = assertThrows<ContractException> {
+            requestType.generateExactHttpRequestPatternFrom(request, Resolver())
+        }
+
+        assertThat(exception.report()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "REQUEST.URL",
+            details = """
+            Expected type number, actual was value "not-a-number" of type string
+            Expected number, actual was "not-a-number"
+            """.trimIndent(),
+            StandardRuleViolation.TYPE_MISMATCH
+        ))
     }
 
     @Test
