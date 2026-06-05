@@ -25,7 +25,7 @@ import kotlin.io.path.pathString
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
-        val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature)
+        val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature, effectiveRepoDir)
         return BackwardCompatibilityCheckResult(results, records)
     }
 

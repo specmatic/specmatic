@@ -48,4 +48,26 @@ class ResultTest {
             )
         )
     }
+
+    @Test
+    fun `mapSourceLocations rewrites file paths across the failure tree and via chains`() {
+        val leaf = Result.Failure(
+            message = "type mismatch",
+            ruleViolation = StandardRuleViolation.TYPE_MISMATCH,
+        ).breadCrumb(
+            "name",
+            SourceLocation(
+                filePath = "/repo/common.yaml", line = 38, column = 9,
+                via = listOf(SourceLocation(filePath = "/repo/api.yaml", line = 27, column = 13)),
+            ),
+        ).breadCrumb("BODY").breadCrumb("REQUEST")
+
+        val relativized = leaf.mapSourceLocations { it.removePrefix("/repo/") }
+
+        val location = relativized.toMatchFailureDetailList().single().sourceLocation!!
+        assertThat(location.filePath).isEqualTo("common.yaml")
+        assertThat(location.via.single().filePath).isEqualTo("api.yaml")
+        // original tree is untouched
+        assertThat(leaf.toMatchFailureDetailList().single().sourceLocation!!.filePath).isEqualTo("/repo/common.yaml")
+    }
 }

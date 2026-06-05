@@ -4,10 +4,15 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.test.asserts.toFailure
+import java.io.File
 import java.util.Collections
 import java.util.IdentityHashMap
 
-class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, private val newFeature: Feature) {
+class OpenApiBackwardCompatibilityChecker(
+    private val oldFeature: Feature,
+    private val newFeature: Feature,
+    private val repoDir: String? = null,
+) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
     private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
         .groupBy { it.path to it.method }
@@ -165,12 +170,27 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 
     private fun newRecord(scenario: Scenario, result: Result, changeStatusFor: (Scenario) -> ChangeStatus): OpenApiBackwardCompatibilityCheckRecord {
+        val compatResult = result.updateScenario(scenario).withoutFailureReasons().relativizeSourceLocations()
         return OpenApiBackwardCompatibilityCheckRecord(
             feature = newFeature,
             scenario = scenario,
-            compatResult = result.updateScenario(scenario).withoutFailureReasons(),
+            compatResult = compatResult,
             changeStatus = changeStatusFor(scenario),
         )
+    }
+
+    // Make every source-location path in a failure relative to the repo root, so the console report,
+    // the CTRF message and the structured breakages all show repo-relative paths. No-op when the repo
+    // dir is unknown (e.g. in-memory checks).
+    private fun Result.relativizeSourceLocations(): Result =
+        if (this is Result.Failure && !repoDir.isNullOrBlank()) mapSourceLocations(::relativizeToRepoRoot) else this
+
+    private fun relativizeToRepoRoot(filePath: String): String {
+        val root = repoDir
+        if (root.isNullOrBlank() || filePath.isBlank()) return filePath
+        return runCatching {
+            File(filePath).canonicalFile.relativeTo(File(root).canonicalFile).invariantSeparatorsPath
+        }.getOrDefault(filePath)
     }
 
     private fun <First, Second, Item> Map<Pair<First, Second?>, List<Item>>.findExactOrSingle(
