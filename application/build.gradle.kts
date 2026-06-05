@@ -64,4 +64,13 @@ tasks.test {
 
         listOf("-javaagent:$junit5SystemExit")
     })
+
+    // Keep tests hermetic from any developer license at ~/.specmatic/specmatic-license.txt: point the
+    // home-dir license loader (its documented "for test injection" hook) at a non-existent file so the
+    // suite always resolves the OSS license, matching CI. Without this, an ENTERPRISE/TRIAL license on
+    // the machine would make BCC tests emit an extra "Generating CTRF report" line and fail.
+    systemProperty(
+        "specmatic.license.file",
+        layout.buildDirectory.file("test-no-license.txt").get().asFile.absolutePath,
+    )
 }

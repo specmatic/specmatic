@@ -594,26 +594,26 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /orders. Response: bad request"
                 API: GET /orders -> 400
 
-                  >> RESPONSE.BODY.code (${spec.canonicalFile.invariantSeparatorsPath}:157:9)
+                  >> RESPONSE.BODY.code (${spec.name}:157:9)
 
                       This is number in the new specification response but string in the old specification
 
                 In scenario "GET /orders. Response: server error"
                 API: GET /orders -> 500
 
-                      This API exists in the old contract but not in the new contract (${spec.canonicalFile.invariantSeparatorsPath}:28:9)
+                      This API exists in the old contract but not in the new contract (${spec.name}:28:9)
 
                 In scenario "DELETE /orders/(id:string). Response: deleted"
                 API: DELETE /orders/(id:string) -> 204
 
-                      This API exists in the old contract but not in the new contract (${spec.canonicalFile.invariantSeparatorsPath}:87:5)
+                      This API exists in the old contract but not in the new contract (${spec.name}:87:5)
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
                 In scenario "GET /promotions. Response: ok"
                 API: GET /promotions -> 200
 
-                  >> RESPONSE.BODY.code (${spec.canonicalFile.invariantSeparatorsPath}:105:19)
+                  >> RESPONSE.BODY.code (${spec.name}:105:19)
 
                       This is number in the new specification response but string in the old specification
 
@@ -926,7 +926,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /b. Response: ok"
                 API: GET /b -> 200
 
-                  >> RESPONSE.BODY.code (${spec.canonicalFile.invariantSeparatorsPath}:26:31)
+                  >> RESPONSE.BODY.code (${spec.name}:26:31)
 
                       This is number in the new specification response but string in the old specification
               --------------------
@@ -1008,7 +1008,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value (${spec.canonicalFile.invariantSeparatorsPath}:14:31)
+                  >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1120,7 +1120,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value (${spec.canonicalFile.invariantSeparatorsPath}:14:31)
+                  >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1232,7 +1232,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value (${spec.canonicalFile.invariantSeparatorsPath}:14:31)
+                  >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
               ________________________________________
@@ -1241,7 +1241,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /b. Response: ok"
                 API: GET /b -> 200
 
-                  >> RESPONSE.BODY.code (${spec.canonicalFile.invariantSeparatorsPath}:26:31)
+                  >> RESPONSE.BODY.code (${spec.name}:26:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1327,7 +1327,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /b. Response: ok"
                 API: GET /b -> 200
 
-                  >> RESPONSE.BODY.code (${spec.canonicalFile.invariantSeparatorsPath}:15:31)
+                  >> RESPONSE.BODY.code (${spec.name}:15:31)
 
                       This is number in the new specification response but string in the old specification
               --------------------
@@ -1410,7 +1410,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value (${spec.canonicalFile.invariantSeparatorsPath}:15:31)
+                  >> RESPONSE.BODY.value (${spec.name}:15:31)
 
                       This is number in the new specification response but string in the old specification
               --------------------
@@ -1493,7 +1493,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value (${spec.canonicalFile.invariantSeparatorsPath}:14:31)
+                  >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1710,7 +1710,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /hook-failed. Response: ok"
                 API: GET /hook-failed -> 200
 
-                  >> RESPONSE.BODY.value ($hookFailedSpecPath:14:31)
+                  >> RESPONSE.BODY.value (${hookFailedSpec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1728,7 +1728,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /hook-passed. Response: ok"
                 API: GET /hook-passed -> 200
 
-                  >> RESPONSE.BODY.value ($hookPassedSpecPath:14:31)
+                  >> RESPONSE.BODY.value (${hookPassedSpec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1870,7 +1870,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value ($spec1Path:14:31)
+                  >> RESPONSE.BODY.value (${spec1.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1888,7 +1888,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /b. Response: ok"
                 API: GET /b -> 200
 
-                  >> RESPONSE.BODY.value ($spec2Path:14:31)
+                  >> RESPONSE.BODY.value (${spec2.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -1924,9 +1924,9 @@ class BackwardCompatibilityCheckCommandV2Test {
             val testMessages = reportJson.path("results").path("tests")
                 .map { it.path("message").asText().replace('\\', '/') }
             assertThat(testMessages)
-                .anyMatch { it.contains("RESPONSE.BODY.value") && it.contains("$spec1Path:14:31") }
+                .anyMatch { it.contains("RESPONSE.BODY.value") && it.contains("${spec1.name}:14:31") }
             assertThat(testMessages)
-                .anyMatch { it.contains("RESPONSE.BODY.value") && it.contains("$spec2Path:14:31") }
+                .anyMatch { it.contains("RESPONSE.BODY.value") && it.contains("${spec2.name}:14:31") }
         }
 
         @Test
@@ -2028,7 +2028,7 @@ class BackwardCompatibilityCheckCommandV2Test {
                 In scenario "GET /a. Response: ok"
                 API: GET /a -> 200
 
-                  >> RESPONSE.BODY.value ($specPath:14:31)
+                  >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
 
@@ -2266,7 +2266,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exitCode).isEqualTo(1)
-            val common = tempDir.resolve("common.yaml").canonicalFile.invariantSeparatorsPath
             val apiA = tempDir.resolve("apiA.yaml").canonicalFile.invariantSeparatorsPath
             val apiB = tempDir.resolve("apiB.yaml").canonicalFile.invariantSeparatorsPath
 
@@ -2277,10 +2276,11 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(normalizedOut).contains("Verdict for spec $apiB:")
             // Both referring specs are incompatible, each annotated at the change in the shared file.
             // The location is a chain that starts at each spec's own ref use-site and ends at the
-            // shared external change, so the tail is reached twice — once per referring spec.
-            assertThat(normalizedOut.split("-> $common:10:9)")).hasSize(3)
-            assertThat(normalizedOut).contains("($apiA:")
-            assertThat(normalizedOut).contains("($apiB:")
+            // shared external change, so the tail is reached twice — once per referring spec. Source
+            // locations are rendered relative to the repo root.
+            assertThat(normalizedOut.split("-> common.yaml:10:9)")).hasSize(3)
+            assertThat(normalizedOut).contains("(apiA.yaml:")
+            assertThat(normalizedOut).contains("(apiB.yaml:")
         }
 
         private fun productBase(type: String) = """
