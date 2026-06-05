@@ -218,13 +218,20 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         return soapParser.convertToGherkin(url)
     }
 
-    fun toFeature(path: String, specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Feature {
+    fun toFeature(
+        path: String,
+        specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
+        normalizedSpecificationPath: String? = null,
+    ): Feature {
+        val scenarioSpecificationPath = normalizedSpecificationPath ?: path
+
         return Feature(
             scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->
-                Scenario(scenarioInfo.copy(specification = path))
+                Scenario(scenarioInfo.copy(specification = scenarioSpecificationPath))
             },
             name = getServiceName().toStringLiteral(),
             path = path,
+            specification = normalizedSpecificationPath,
             specmaticConfig = specmaticConfig,
             protocol = SpecmaticProtocol.SOAP,
         )

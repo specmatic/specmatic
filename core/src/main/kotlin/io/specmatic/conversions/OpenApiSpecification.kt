@@ -560,6 +560,14 @@ class OpenApiSpecification(
     fun toFeatureLenient(): Pair<Feature, Result> {
         val rootContext = CollectorContext().combineImmutable(parseCollectorContext)
         val name = File(openApiFilePath).name
+        val normalizedSpecificationPath =
+            specificationPath?.let {
+                normalizeFilesystemSpecificationPath(
+                    specificationPath = it,
+                    sourceProvider = sourceProvider,
+                    resolvedSpecFile = File(openApiFilePath),
+                )
+            }
 
         val (scenarioInfos, inlineExamples) = toScenarioInfos(rootContext)
         val unreferencedSchemaPatterns = parseUnreferencedSchemas(rootContext)
@@ -569,13 +577,15 @@ class OpenApiSpecification(
                 attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
                 patterns = it.patterns + unreferencedSchemaPatterns
             )
+        }.map { scenario ->
+            scenario.copy(specification = normalizedSpecificationPath ?: scenario.specification)
         }
 
         val feature = Feature.from(
             updatedScenarios, name = name, path = openApiFilePath, sourceProvider = sourceProvider,
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
-            specification = specificationPath,
+            specification = normalizedSpecificationPath,
             inlineExamples = inlineExamples,
             specmaticConfig = specmaticConfig,
             strictMode = strictMode,

@@ -4,15 +4,15 @@ import io.specmatic.core.git.SystemGit
 import java.io.File
 
 internal fun normalizeFilesystemSpecificationPath(
-    specificationPath: String?,
+    specificationPath: String,
     sourceProvider: String?,
     resolvedSpecFile: File,
-): String? {
+): String {
     if (sourceProvider != SourceProvider.filesystem.name) {
         return specificationPath
     }
 
-    if (specificationPath.isNullOrBlank()) {
+    if (specificationPath.isBlank()) {
         return specificationPath
     }
 

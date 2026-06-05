@@ -94,11 +94,13 @@ fun parseContractFileToFeature(
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
     val normalizedSpecificationPath =
-        normalizeFilesystemSpecificationPath(
-            specificationPath = specificationPath,
-            sourceProvider = sourceProvider,
-            resolvedSpecFile = file,
-        )
+        specificationPath?.let {
+            normalizeFilesystemSpecificationPath(
+                specificationPath = it,
+                sourceProvider = sourceProvider,
+                resolvedSpecFile = file,
+            )
+        }
 
     return when (file.extension) {
         in OPENAPI_FILE_EXTENSIONS -> OpenApiSpecification.fromYAML(
@@ -118,7 +120,8 @@ fun parseContractFileToFeature(
         WSDL -> wsdlContentToFeature(
             checkExists(file).readText(),
             file.canonicalPath,
-            specmaticConfig
+            specmaticConfig,
+            normalizedSpecificationPath = normalizedSpecificationPath,
         ).copy(exampleDirPaths = exampleDirPaths)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
             checkExists(file).readText().trim(),
@@ -126,18 +129,7 @@ fun parseContractFileToFeature(
             specmaticConfig = specmaticConfig
         ).copy(exampleDirPaths = exampleDirPaths)
         else -> throw unsupportedFileExtensionContractException(file.path, file.extension)
-    }.withFilesystemCtrfSpecification(normalizedSpecificationPath)
-}
-
-private fun Feature.withFilesystemCtrfSpecification(specificationPath: String?): Feature {
-    if (specificationPath == null) {
-        return this
     }
-
-    return copy(
-        specification = specificationPath,
-        scenarios = scenarios.map { it.copy(specification = specificationPath) },
-    )
 }
 
 fun unsupportedFileExtensionContractException(
