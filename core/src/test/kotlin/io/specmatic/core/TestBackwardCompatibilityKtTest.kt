@@ -5601,81 +5601,8 @@ paths:
               
                   This is type boolean in the new specification, but type number in the old specification
 
-            In scenario "POST /anyof-inline. Response: ok"
-            API: POST /anyof-inline -> 200
-
-              >> REQUEST.BODY.count (new.yaml:124:21)
-              
-                  R3005: Property matches no schema option
-                  Documentation: https://docs.specmatic.io/rules#r3005
-                  Summary: The property does not satisfy any available schema options
-              
-                  Key 'count' did not match any anyOf option that declares it
-              
-              >> REQUEST.BODY.count (new.yaml:124:21)
-              
-                  R1001: Type mismatch
-                  Documentation: https://docs.specmatic.io/rules#r1001
-                  Summary: The value type does not match the expected type defined in the specification
-              
-                  This is type boolean in the new specification, but type number in the old specification
-
             In scenario "POST /anyof-reffed. Response: ok"
             API: POST /anyof-reffed -> 200
-
-              >> REQUEST.BODY.count (new.yaml:167:9)
-              
-                  R3005: Property matches no schema option
-                  Documentation: https://docs.specmatic.io/rules#r3005
-                  Summary: The property does not satisfy any available schema options
-              
-                  Key 'count' did not match any anyOf option that declares it
-              
-              >> REQUEST.BODY.count (new.yaml:167:9)
-              
-                  R1001: Type mismatch
-                  Documentation: https://docs.specmatic.io/rules#r1001
-                  Summary: The value type does not match the expected type defined in the specification
-              
-                  This is type boolean in the new specification, but type number in the old specification
-              
-              >> REQUEST.BODY (when MetricName object).name (new.yaml:161:9)
-              
-                  R2001: Missing required property
-                  Documentation: https://docs.specmatic.io/rules#r2001
-                  Summary: A required property defined in the specification is missing
-              
-                  New specification expects property "name" in the request but it is missing from the old specification
-              
-              >> REQUEST.BODY (when MetricCount object).count (new.yaml:167:9)
-              
-                  R1001: Type mismatch
-                  Documentation: https://docs.specmatic.io/rules#r1001
-                  Summary: The value type does not match the expected type defined in the specification
-              
-                  This is type boolean in the new specification, but type number in the old specification
-
-            In scenario "POST /anyof-reffed. Response: ok"
-            API: POST /anyof-reffed -> 200
-
-              >> REQUEST.BODY.count (new.yaml:167:9)
-              
-                  R3005: Property matches no schema option
-                  Documentation: https://docs.specmatic.io/rules#r3005
-                  Summary: The property does not satisfy any available schema options
-              
-                  Key 'count' did not match any anyOf option that declares it
-              
-              >> REQUEST.BODY.count (new.yaml:167:9)
-              
-                  R1001: Type mismatch
-                  Documentation: https://docs.specmatic.io/rules#r1001
-                  Summary: The value type does not match the expected type defined in the specification
-              
-                  This is type boolean in the new specification, but type number in the old specification
-
-            In scenario "POST /anyof-payload-ref. Response: ok"
-            API: POST /anyof-payload-ref -> 200
 
               >> REQUEST.BODY.count (new.yaml:167:9)
               
@@ -5721,6 +5648,22 @@ paths:
                   Key 'count' did not match any anyOf option that declares it
               
               >> REQUEST.BODY.count (new.yaml:167:9)
+              
+                  R1001: Type mismatch
+                  Documentation: https://docs.specmatic.io/rules#r1001
+                  Summary: The value type does not match the expected type defined in the specification
+              
+                  This is type boolean in the new specification, but type number in the old specification
+              
+              >> REQUEST.BODY (when MetricName object).name (new.yaml:161:9)
+              
+                  R2001: Missing required property
+                  Documentation: https://docs.specmatic.io/rules#r2001
+                  Summary: A required property defined in the specification is missing
+              
+                  New specification expects property "name" in the request but it is missing from the old specification
+              
+              >> REQUEST.BODY (when MetricCount object).count (new.yaml:167:9)
               
                   R1001: Type mismatch
                   Documentation: https://docs.specmatic.io/rules#r1001
