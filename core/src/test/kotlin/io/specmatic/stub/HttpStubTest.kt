@@ -1075,6 +1075,81 @@ components:
     }
 
     @Test
+    fun `should load a get stub with headers and query params including extra query params`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.0
+        info:
+          title: Query Stub
+          version: 1.0.0
+        paths:
+          /data:
+            get:
+              summary: query stub
+              parameters:
+                - name: id
+                  in: query
+                  required: true
+                  schema:
+                    type: string
+                - name: X-Mode
+                  in: header
+                  required: true
+                  schema:
+                    type: string
+              responses:
+                '200':
+                  description: Success
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                '422':
+                  description: Unprocessable
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+        """.trimIndent(), "").toFeature()
+
+        val invalid422Request = HttpRequest(
+            method = "GET",
+            path = "/data",
+            headers = mapOf("X-Mode" to "422"),
+            queryParametersMap = mapOf("id" to "123", "extra" to "abc")
+        )
+
+
+        val valid200Request = HttpRequest(
+            method = "GET",
+            path = "/data",
+            headers = mapOf("X-Mode" to "200"),
+            queryParametersMap = mapOf("id" to "123")
+        )
+
+        val invalid422RespBody = parsedJSONObject("""{"message":"unprocessable"}""")
+        val invalid422Example = ScenarioStub(invalid422Request, HttpResponse(422, body = invalid422RespBody))
+
+        val valid200RespBody = parsedJSONObject("""{"message":"valid"}""")
+        val valid200Example = ScenarioStub(valid200Request, HttpResponse(200, body = valid200RespBody))
+
+        HttpStub(feature, listOf(invalid422Example, valid200Example)).use { stub ->
+            val validResponse = stub.client.execute(valid200Request)
+            assertThat(validResponse.status).isEqualTo(200)
+            assertThat(validResponse.body).isEqualTo(valid200RespBody)
+
+            val invalidResponse = stub.client.execute(invalid422Request)
+            assertThat(invalidResponse.status).isEqualTo(422)
+            assertThat(invalidResponse.body).isEqualTo(invalid422RespBody)
+        }
+    }
+
+    @Test
     fun `stub should load an example for a spec with pattern as a path param`() {
         createStubFromContracts(listOf(("src/test/resources/openapi/spec_with_path_param.yaml")), timeoutMillis = 0).use { stub ->
             val request = HttpRequest("GET", "/users/abc123", queryParametersMap = mapOf("item" to "10"))

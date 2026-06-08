@@ -230,7 +230,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             inlineSuggestions = suggestions.takeIf(::isNotNullOrBlank),
             suggestionsPath = suggestionsPath.takeIf(::isNotNullOrBlank),
             variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
-            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port"),
+            isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port")
         )
 
         val settings = ContractTestSettings(

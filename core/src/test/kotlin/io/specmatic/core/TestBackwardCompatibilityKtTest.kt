@@ -6481,6 +6481,20 @@ paths:
                 """,
             ),
             ChangeStatusCase(
+                // Same patch as case 22 (GET /orders/{id}'s path parameter type changes), but
+                // asserted on the sibling GET /orders, whose own contract is untouched. Change
+                // status must be keyed on each operation's own contract - a path parameter change
+                // on one operation must not flip another operation that merely shares the method.
+                name = "22b. a path parameter type change on one operation leaves a sibling GET operation UNCHANGED",
+                path = "/orders", method = "GET",
+                expected = ChangeStatus.UNCHANGED,
+                newPatch = """
+                    - op: replace
+                      path: /paths/~1orders~1{id}/get/parameters/0/schema/type
+                      value: integer
+                """,
+            ),
+            ChangeStatusCase(
                 name = "23. add a security scheme requirement",
                 path = "/orders", method = "POST",
                 expected = ChangeStatus.CHANGED,

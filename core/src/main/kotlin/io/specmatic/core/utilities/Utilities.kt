@@ -441,16 +441,6 @@ internal fun withNumberType(resolver: Resolver) = resolver.copy(newPatterns = re
 
 fun String.capitalizeFirstChar() = this.replaceFirstChar { it.uppercase() }
 
-fun saveJsonFile(
-    jsonString: String,
-    path: String,
-    fileName: String,
-) {
-    val directory = File(path)
-    directory.mkdirs()
-    File(directory, fileName).writeText(jsonString)
-}
-
 fun examplesDirFor(
     openApiFilePath: String,
     alternateSuffix: String,

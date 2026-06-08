@@ -4,6 +4,33 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      orchestrator_repository:
+        description: Repository that hosts the orchestrator workflow
+        required: false
+        default: specmatic/specmatic-tests-orchestrator
+        type: string
+      orchestrator_event_type:
+        description: repository_dispatch event type to send
+        required: false
+        default: specmatic-enterprise-jar-ready
+        type: string
+      ENTERPRISE_VERSION:
+        description: Enterprise selector or direct jar URL to test. Blank is invalid.
+        required: false
+        default: SNAPSHOT
+        type: string
+      TEST_EXECUTOR_JSON_PATH:
+        description: Path to the caller-owned test executor JSON file to embed in the orchestrator payload.
+        required: false
+        default: .github/test-executor.json
+        type: string
+      orchestrator_configurations:
+        description: Comma-separated runner labels to trigger
+        required: false
+        default: ubuntu-latest,windows-latest
+        type: string
 jobs:
   build:
     strategy:
@@ -14,6 +41,7 @@ jobs:
       pull-requests: write
       contents: write # This is required so that the dependency check can push dependency graph to the github repository
       checks: write # Required for test reporting
+      statuses: write # Required for Specmatic Orchestrator Gate statuses
     steps:
       - uses: specmatic/specmatic-github-workflows/action-build-gradle@main
         with:
@@ -35,3 +63,136 @@ jobs:
           ORG_GRADLE_PROJECT_specmaticSnapshotsPassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
           ORG_GRADLE_PROJECT_specmaticPrivateUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
           ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
+
+      - name: Trigger Specmatic Tests Orchestrator
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          SPECMATIC_GITHUB_TOKEN: ${{ secrets.SPECMATIC_GITHUB_TOKEN }}
+          ORCHESTRATOR_REPOSITORY: ${{ inputs.orchestrator_repository || 'specmatic/specmatic-tests-orchestrator' }}
+          ORCHESTRATOR_EVENT_TYPE: ${{ inputs.orchestrator_event_type || 'specmatic-enterprise-jar-ready' }}
+          TEST_EXECUTOR_JSON_PATH: ${{ inputs.TEST_EXECUTOR_JSON_PATH || '.github/test-executor.json' }}
+          ENTERPRISE_VERSION: ${{ inputs.ENTERPRISE_VERSION || 'SNAPSHOT' }}
+          ORCHESTRATOR_CONFIGURATIONS: ${{ inputs.orchestrator_configurations || 'ubuntu-latest,windows-latest' }}
+          STATUS_TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPECMATIC_GITHUB_TOKEN:-}" ]; then
+            echo "Missing SPECMATIC_GITHUB_TOKEN repository secret."
+            echo "Add a PAT with access to update statuses in ${GITHUB_REPOSITORY} and dispatch ${ORCHESTRATOR_REPOSITORY}."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "${ENTERPRISE_VERSION}" | tr -d '[:space:]')" ]; then
+            echo "ENTERPRISE_VERSION is required. Provide an Enterprise selector such as SNAPSHOT, RELEASE, a version, repository URL, or direct jar URL."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "${ORCHESTRATOR_REPOSITORY}" | tr -d '[:space:]')" ]; then
+            echo "orchestrator_repository is required."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "${ORCHESTRATOR_EVENT_TYPE}" | tr -d '[:space:]')" ]; then
+            echo "orchestrator_event_type is required."
+            exit 1
+          fi
+          if [ -z "$(printf '%s' "${ORCHESTRATOR_CONFIGURATIONS}" | tr -d '[:space:],')" ]; then
+            echo "orchestrator_configurations must include at least one runner label."
+            exit 1
+          fi
+
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          repository_label="${repository_name^}"
+          status_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          echo "Triggering ${ORCHESTRATOR_REPOSITORY} from ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
+          echo "ENTERPRISE_VERSION=${ENTERPRISE_VERSION}"
+
+          test_executor_json=""
+          if [ -n "${TEST_EXECUTOR_JSON_PATH}" ]; then
+            if [ ! -f "${TEST_EXECUTOR_JSON_PATH}" ]; then
+              echo "Test executor JSON file not found: ${TEST_EXECUTOR_JSON_PATH}"
+              exit 1
+            fi
+            test_executor_json="$(cat "${TEST_EXECUTOR_JSON_PATH}")"
+            echo "Embedding test executor JSON from ${TEST_EXECUTOR_JSON_PATH}"
+          fi
+
+          IFS=',' read -r -a configurations <<< "${ORCHESTRATOR_CONFIGURATIONS}"
+          for raw_configuration in "${configurations[@]}"; do
+            configuration="$(printf '%s' "${raw_configuration}" | xargs)"
+            if [ -z "${configuration}" ]; then
+              continue
+            fi
+
+            case "${configuration}" in
+              ubuntu-latest) display_os="Ubuntu" ;;
+              windows-latest) display_os="Windows" ;;
+              macos-latest) display_os="macOS" ;;
+              *) display_os="${configuration}" ;;
+            esac
+            status_context="${display_os} - Specmatic Orchestrator Gate"
+
+            echo "Creating pending status '${status_context}' for ${configuration}"
+            curl -sS --fail-with-body -X POST \
+              -H "Authorization: Bearer ${SPECMATIC_GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -d '{"state":"pending","target_url":"'"${STATUS_TARGET_URL}"'","description":"Waiting for Specmatic orchestrator tests for '"${configuration}"'.","context":"'"${status_context}"'"}'
+
+            dispatch_payload="$(jq -n \
+              --arg event_type "${ORCHESTRATOR_EVENT_TYPE}" \
+              --arg repository "${GITHUB_REPOSITORY}" \
+              --arg repository_name "${repository_label}" \
+              --arg run_number "${GITHUB_RUN_NUMBER}" \
+              --arg sha "${GITHUB_SHA}" \
+              --arg run_id "${GITHUB_RUN_ID}" \
+              --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+              --arg version "${ENTERPRISE_VERSION}" \
+              --arg status_context "${status_context}" \
+              --arg status_target_url "${STATUS_TARGET_URL}" \
+              --arg configuration "${configuration}" \
+              --arg test_executor_json "${test_executor_json}" \
+              '{
+                event_type: $event_type,
+                client_payload: {
+                  enterprise_options: {
+                    repository: $repository,
+                    repository_name: $repository_name,
+                    run_number: $run_number,
+                    sha: $sha,
+                    run_id: $run_id,
+                    run_attempt: $run_attempt,
+                    version: $version,
+                    status_context: $status_context,
+                    status_target_url: $status_target_url,
+                    configuration: $configuration
+                  },
+                  orchestrator_options: (
+                    {}
+                    + (if $test_executor_json == "" then {} else {test_executor_json: $test_executor_json} end)
+                  )
+                }
+              }')"
+
+            echo "Repository dispatch payload for ${configuration}:"
+            echo "${dispatch_payload}"
+
+            curl -sS --fail-with-body -X POST \
+              -H "Authorization: Bearer ${SPECMATIC_GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${ORCHESTRATOR_REPOSITORY}/dispatches" \
+              -d "${dispatch_payload}"
+
+            {
+              echo "### ${status_context}"
+              echo ""
+              echo "- OS: ${display_os} (${configuration})"
+              echo "- Initial state: pending"
+              echo "- Enterprise selector: ${ENTERPRISE_VERSION}"
+              echo "- Manifest source: ${TEST_EXECUTOR_JSON_PATH}"
+              echo "- Commit status: [${GITHUB_SHA:0:7}](${status_url})"
+              echo "- Orchestrator workflow: https://github.com/${ORCHESTRATOR_REPOSITORY}/actions/workflows/specmatic-enterprise-jar-tests.yml"
+              echo "- Result details: the callback updates this gate's Details link to the exact specmatic-tests-orchestrator run."
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
