@@ -13,6 +13,27 @@ import org.junit.jupiter.api.Test
 
 class OpenApiMockUsageTest {
     @Test
+    fun `mock usage report should use the expected spec path`() {
+        val mockUsage = OpenApiMockUsage(SpecmaticConfig())
+        val endpoint = endpoint("/orders", "POST", "application/json", 201, "application/json")
+
+        mockUsage.addEndpoints(listOf(endpoint))
+        mockUsage.addTestResultRecord(
+            testResultRecord(
+                operation = endpoint.toOpenApiOperation(),
+                actualResponseStatus = 201,
+                actualResponseContentType = "application/json",
+            )
+        )
+
+        val report = mockUsage.generate()
+        val specPaths = report.specConfigs().map { it.specification }
+
+        assertThat(specPaths).hasSize(1)
+        assertThat(specPaths).containsExactly("specs/openapi.yaml")
+    }
+
+    @Test
     fun `should generate operations and calculate coverage percentage`() {
         val mockUsage = OpenApiMockUsage(SpecmaticConfig())
 
@@ -100,4 +121,7 @@ class OpenApiMockUsageTest {
         specification = "specs/openapi.yaml",
         testType = TestResultRecord.STUB_TEST_TYPE,
     )
+
+    private fun OpenApiMockUsageReport.specConfigs() =
+        coverageReportOperations.map { it.specConfig }.distinct()
 }
