@@ -1845,7 +1845,7 @@ internal class SpecmaticConfigKtTest {
 
                 assertThat(ctrfConfig.specification).isEqualTo("order.yaml")
                 assertThat(ctrfConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
-                assertThat(ctrfConfig.repository).isEmpty()
+                assertThat(ctrfConfig.repository).isNull()
                 assertThat(ctrfConfig.branch).isEqualTo("main")
             } finally {
                 Configuration.configFilePath = originalConfigPath

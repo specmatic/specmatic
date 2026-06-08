@@ -165,6 +165,7 @@ class CtrfSpecificationPathTest {
 
             assertThat(ctrfSpecConfig.specification).isEqualTo("specs/openapi/order_api.yaml")
             assertThat(ctrfSpecConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
+            assertThat(ctrfSpecConfig.repository).isNull()
         } finally {
             Configuration.configFilePath = originalConfigPath
         }
@@ -268,6 +269,7 @@ class CtrfSpecificationPathTest {
 
             assertThat(ctrfSpecConfig.specification).isEqualTo("specs/openapi/order_api.yaml")
             assertThat(ctrfSpecConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
+            assertThat(ctrfSpecConfig.repository).isNull()
         } finally {
             Configuration.configFilePath = originalConfigPath
         }

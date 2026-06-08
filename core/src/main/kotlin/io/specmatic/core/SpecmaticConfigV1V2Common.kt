@@ -604,7 +604,7 @@ data class SpecmaticConfigV1V2Common(
             specType = specType,
             specification = normalizedSpecificationPath.orEmpty(),
             sourceProvider = source.provider.name,
-            repository = source.repository.orEmpty(),
+            repository = source.repository,
             branch = source.branch ?: "main",
         )
     }

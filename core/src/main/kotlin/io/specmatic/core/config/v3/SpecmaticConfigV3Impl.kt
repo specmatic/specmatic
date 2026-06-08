@@ -251,7 +251,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             specType = specType,
             specification = normalizedSpecificationPath.orEmpty(),
             sourceProvider = source?.toProviderType()?.name.orEmpty(),
-            repository = source?.getGit()?.url.orEmpty(),
+            repository = source?.getGit()?.url,
             branch = source?.getGit()?.branch ?: "main",
         )
     }
