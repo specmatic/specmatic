@@ -67,8 +67,11 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
         val crumbs = breadCrumbString(matchFailureDetails.breadCrumbs)
         val locationSuffix = if (addSourceLocation) {
             matchFailureDetails.sourceLocation?.let { loc ->
-                if (loc.filePath.isBlank()) null
-                else "(${loc.filePath}:${loc.line}:${loc.column})"
+                val chain = (loc.via + loc).filterNot { it.filePath.isBlank() }
+                if (chain.isEmpty()) null
+                else chain.joinToString(separator = " -> ", prefix = "(", postfix = ")") {
+                    "${it.filePath}:${it.line}:${it.column}"
+                }
             }
         } else null
         val crumbsWithLocation = when {

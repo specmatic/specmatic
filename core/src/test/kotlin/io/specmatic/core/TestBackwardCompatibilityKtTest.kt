@@ -5742,8 +5742,8 @@ paths:
                 assertThat(results.success()).isFalse()
                 val commonA = at("path-item-same-fragment-collision", "new/commonA.yaml")
                 val commonB = at("path-item-same-fragment-collision", "new/commonB.yaml")
-                assertThat(results.report()).contains(">> RESPONSE.BODY.state ($commonA:17:21)")
-                assertThat(results.report()).contains(">> RESPONSE.BODY.state ($commonB:18:21)")
+                assertThat(results.report()).contains("-> $commonA:17:21)")
+                assertThat(results.report()).contains("-> $commonB:18:21)")
             }
 
             // The entry spec owns #/components/pathItems/Status AND also refs an external file's
@@ -5755,8 +5755,10 @@ paths:
                 assertThat(results.success()).isFalse()
                 val api = at("entry-owns-path-item-fragment", "new/api.yaml")
                 val common = at("entry-owns-path-item-fragment", "new/common.yaml")
+                // The entry owns this path item, so the change is anchored directly in the entry spec:
+                // a single-hop chain with no `->`, not relocated into the external file.
                 assertThat(results.report()).contains(">> RESPONSE.BODY.state ($api:21:21)")
-                assertThat(results.report()).doesNotContain(">> RESPONSE.BODY.state ($common:18:21)")
+                assertThat(results.report()).doesNotContain("$common:18:21)")
             }
 
             @Test
@@ -5765,8 +5767,8 @@ paths:
                 assertThat(results.success()).isFalse()
                 val commonA = at("requestbody-same-fragment-collision", "new/commonA.yaml")
                 val commonB = at("requestbody-same-fragment-collision", "new/commonB.yaml")
-                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonA:14:15)")
-                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonB:15:15)")
+                assertThat(results.report()).contains("-> $commonA:14:15)")
+                assertThat(results.report()).contains("-> $commonB:15:15)")
             }
 
             @Test
@@ -5775,13 +5777,35 @@ paths:
                 assertThat(results.success()).isFalse()
                 val commonA = at("response-same-fragment-collision", "new/commonA.yaml")
                 val commonB = at("response-same-fragment-collision", "new/commonB.yaml")
-                assertThat(results.report()).contains(">> RESPONSE.BODY.name ($commonA:14:15)")
-                assertThat(results.report()).contains(">> RESPONSE.BODY.name ($commonB:15:15)")
+                assertThat(results.report()).contains("-> $commonA:14:15)")
+                assertThat(results.report()).contains("-> $commonB:15:15)")
             }
 
             @Test
             fun `the change is two ref hops away in a transitive chain`() =
                 assertLocated("transitive-chain", ">> REQUEST.BODY.detail.value", "new/commonB.yaml:10:9")
+
+            // The full source-location chain is rendered head -> ... -> tail: the use-site in the entry
+            // spec, each intermediate $ref use-site, then the actual source of the change. This pins the
+            // whole rendering so the chain can be reduced to a single root downstream.
+            @Test
+            fun `a single external hop renders the entry use-site then the external source`() {
+                val results = compare("request-body")
+                val api = at("request-body", "new/api.yaml")
+                val common = at("request-body", "new/common.yaml")
+                assertThat(locationChainFor(results.report(), ">> REQUEST.BODY.name"))
+                    .isEqualTo("$api:10:13 -> $common:10:9")
+            }
+
+            @Test
+            fun `a transitive chain renders every ref hop from the entry spec to the source`() {
+                val results = compare("transitive-chain")
+                val api = at("transitive-chain", "new/api.yaml")
+                val commonA = at("transitive-chain", "new/commonA.yaml")
+                val commonB = at("transitive-chain", "new/commonB.yaml")
+                assertThat(locationChainFor(results.report(), ">> REQUEST.BODY.detail.value"))
+                    .isEqualTo("$api:10:13 -> $commonA:10:9 -> $commonB:10:9")
+            }
 
             @Test
             fun `a transitive ref renamed during import keeps its external source location`() =
@@ -5825,8 +5849,8 @@ paths:
                 assertThat(results.success()).isFalse()
                 val commonA = at("same-fragment-collision", "new/commonA.yaml")
                 val commonB = at("same-fragment-collision", "new/commonB.yaml")
-                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonA:10:9)")
-                assertThat(results.report()).contains(">> REQUEST.BODY.name ($commonB:12:9)")
+                assertThat(results.report()).contains("-> $commonA:10:9)")
+                assertThat(results.report()).contains("-> $commonB:12:9)")
             }
 
             @Test
@@ -5876,12 +5900,25 @@ paths:
             fun `a header parameter whose schema is an external ref is annotated at its declaration in the entry spec`() =
                 assertLocated("header-param-schema", ">> REQUEST.PARAMETERS.HEADER.X-Tenant", "new/api.yaml:7:11")
 
+            // The breadcrumb now carries a source-location chain `head -> ... -> tail`, where the tail
+            // is the actual source of the change. These cases assert tail correctness; the chain's
+            // head-to-tail rendering is pinned separately below.
             private fun assertLocated(case: String, breadcrumb: String, fileLineCol: String) {
                 val results = compare(case)
                 assertThat(results.success()).isFalse()
                 val file = at(case, fileLineCol.substringBefore(":"))
                 val lineCol = fileLineCol.substringAfter(":")
-                assertThat(results.report()).contains("$breadcrumb ($file:$lineCol)")
+                assertThat(locationChainFor(results.report(), breadcrumb)).endsWith("$file:$lineCol")
+            }
+
+            // Returns the source-location chain rendered inside the parentheses after `breadcrumb`,
+            // e.g. "/a/api.yaml:10:13 -> /a/common.yaml:10:9". Chains contain no nested parens.
+            private fun locationChainFor(report: String, breadcrumb: String): String {
+                val marker = "$breadcrumb ("
+                val start = report.indexOf(marker)
+                require(start >= 0) { "Located breadcrumb '$breadcrumb' not found in report:\n$report" }
+                val open = start + marker.length
+                return report.substring(open, report.indexOf(')', open))
             }
 
             private fun compare(case: String): Results {
