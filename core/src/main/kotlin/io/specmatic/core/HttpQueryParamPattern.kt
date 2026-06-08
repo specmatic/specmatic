@@ -16,12 +16,35 @@ data class FormExplodedObjectQueryParam(
     val requiredPropertyKeys: Set<String>
 )
 
+enum class QueryParameterCollisionOwnerKind {
+    ScalarParameter,
+    FormExplodedObjectProperty
+}
+
+data class QueryParameterCollisionOwner(
+    val wireKey: String,
+    val sourceName: String,
+    val kind: QueryParameterCollisionOwnerKind,
+    val pattern: Pattern,
+    val required: Boolean,
+    val parameterName: String,
+    val propertyName: String? = null,
+    val pointer: String? = null
+)
+
+data class QueryParameterCollisionGroup(
+    val wireKey: String,
+    val owners: List<QueryParameterCollisionOwner>,
+    val authoritativeOwner: QueryParameterCollisionOwner
+)
+
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
     val extensibleQueryParams: Boolean = false,
     val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList(),
-    val parameterPointers: Map<String, String> = emptyMap()
+    val parameterPointers: Map<String, String> = emptyMap(),
+    val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup> = emptyMap()
 ) {
 
     val queryKeyNames = queryPatterns.keys
@@ -56,7 +79,9 @@ data class HttpQueryParamPattern(
                         it.mapKeys { entry -> withoutOptionality(entry.key) },
                         additionalProperties = additionalProperties,
                         extensibleQueryParams = extensibleQueryParams,
-                        formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                        formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                        parameterPointers = parameterPointers,
+                        collisionGroupsByWireKey = collisionGroupsByWireKey
                     )
                 }
             }
@@ -77,7 +102,9 @@ data class HttpQueryParamPattern(
                     patternMap.mapKeys { entry -> withoutOptionality(entry.key) },
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
-                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    parameterPointers = parameterPointers,
+                    collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
             }
         }
@@ -200,7 +227,9 @@ data class HttpQueryParamPattern(
                     it,
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
-                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    parameterPointers = parameterPointers,
+                    collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
             }
         }
@@ -238,7 +267,9 @@ data class HttpQueryParamPattern(
                             it.mapKeys { entry -> withoutOptionality(entry.key) },
                             additionalProperties = additionalProperties,
                             extensibleQueryParams = extensibleQueryParams,
-                            formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                            formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                            parameterPointers = parameterPointers,
+                            collisionGroupsByWireKey = collisionGroupsByWireKey
                         )
                     }
                 }
@@ -263,7 +294,9 @@ data class HttpQueryParamPattern(
                     pattern.value,
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
-                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    parameterPointers = parameterPointers,
+                    collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
             }
         }

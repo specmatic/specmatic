@@ -54,6 +54,12 @@ enum class OpenApiLintViolations(override val id: String, override val title: St
         summary = "A required form-exploded object query parameter must have at least one required schema property to make a concrete query parameter mandatory"
     ),
 
+    QUERY_PARAMETER_TYPE_COLLISION(
+        id = "OAS0013",
+        title = "Query parameter type collision",
+        summary = "Query parameters that serialize to the same wire key should have compatible schemas"
+    ),
+
     /* -------- Security -------- */
     SECURITY_PROPERTY_REDEFINED(
         id = "OAS0020",

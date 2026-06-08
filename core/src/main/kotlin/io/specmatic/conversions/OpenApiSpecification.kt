@@ -743,7 +743,11 @@ class OpenApiSpecification(
             val existingQueryParamPattern = openApiScenario.httpRequestPattern.httpQueryParamPattern
             val httpQueryParamPattern = HttpQueryParamPattern(
                 queryPattern,
-                extensibleQueryParams = existingQueryParamPattern.extensibleQueryParams
+                additionalProperties = existingQueryParamPattern.additionalProperties,
+                extensibleQueryParams = existingQueryParamPattern.extensibleQueryParams,
+                formExplodedObjectQueryParams = existingQueryParamPattern.formExplodedObjectQueryParams,
+                parameterPointers = existingQueryParamPattern.parameterPointers,
+                collisionGroupsByWireKey = existingQueryParamPattern.collisionGroupsByWireKey
             )
 
             val httpRequestPattern = openApiScenario.httpRequestPattern.copy(
@@ -3257,20 +3261,14 @@ class OpenApiSpecification(
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
-        val objectPropertyEntries = queryPatternEntries.filter { it.source.isFormExplodedObjectProperty }
-        val objectPropertyEntriesByWireKey = objectPropertyEntries.groupBy(QueryParameterPatternEntry::wireKey)
+        val collisionResolution = resolveQueryParameterCollisions(
+            entries = queryPatternEntries,
+            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
+            patterns = patterns
+        )
 
-        val filteredQueryPatternEntries = queryPatternEntries.filter { entry ->
-            if (!entry.source.isFormExplodedObjectProperty && entry.wireKey in objectPropertyEntriesByWireKey) {
-                recordQueryParameterCollision(entry, objectPropertyEntriesByWireKey.getValue(entry.wireKey).first())
-                false
-            } else {
-                true
-            }
-        }
-
-        val queryPattern: Map<String, Pattern> = filteredQueryPatternEntries.associate { it.key to it.pattern }
-        val queryParameterPointers = parameterPointers + filteredQueryPatternEntries.mapNotNull { entry ->
+        val queryPattern: Map<String, Pattern> = collisionResolution.effectiveEntries.associate { it.key to it.pattern }
+        val queryParameterPointers = parameterPointers + collisionResolution.effectiveEntries.mapNotNull { entry ->
             entry.pointer?.let { pointer -> entry.wireKey to pointer }
         }
 
@@ -3279,24 +3277,11 @@ class OpenApiSpecification(
             queryPattern,
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
-            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
-            parameterPointers = queryParameterPointers
+            formExplodedObjectQueryParams = collisionResolution.formExplodedObjectQueryParams,
+            parameterPointers = queryParameterPointers,
+            collisionGroupsByWireKey = collisionResolution.collisionGroupsByWireKey
         )
     }
-
-    private data class QueryParameterPatternSource(val parameterName: String, val propertyName: String? = null) {
-        val isFormExplodedObjectProperty: Boolean = propertyName != null
-        val displayName: String = propertyName?.let { "$parameterName.$it" } ?: parameterName
-    }
-
-    private data class QueryParameterPatternEntry(
-        val key: String,
-        val wireKey: String,
-        val pattern: Pattern,
-        val source: QueryParameterPatternSource,
-        val collectorContext: CollectorContext,
-        val pointer: String? = null
-    )
 
     private data class QueryParameterParseResult(
         val entries: List<QueryParameterPatternEntry>,
@@ -3425,13 +3410,6 @@ class OpenApiSpecification(
         } else {
             QueryParameterScalarPattern(toSpecmaticPattern(schema = schema, typeStack = emptyList(), collectorContext = schemaContext))
         }
-    }
-
-    private fun recordQueryParameterCollision(entry: QueryParameterPatternEntry, objectPropertyEntry: QueryParameterPatternEntry) {
-        entry.collectorContext.record(
-            message = "Query parameter ${entry.source.displayName} conflicts with form-exploded object query parameter ${objectPropertyEntry.source.displayName}; ignoring ${entry.source.displayName}",
-            ruleViolation = OpenApiLintViolations.INVALID_PARAMETER_DEFINITION
-        )
     }
 
     private fun additionalPropertiesInQueryParam(parsedQueryParameters: List<QueryParameterParseResult>): Pattern? {
