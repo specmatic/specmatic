@@ -3,7 +3,7 @@ package io.specmatic.core
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.utilities.Flags
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
-import io.specmatic.reporter.ctrf.model.CtrfBreakage
+import io.specmatic.reporter.ctrf.model.CtrfBreakingChange
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
 import io.specmatic.reporter.ctrf.model.CtrfSourceLocation
@@ -31,15 +31,14 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     // TODO: Need actual positive variation from generatedScenario
     override val name: String = scenario.fullApiDescription
     override val message: String = compatResult.reportString(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
-    override val breakages: List<CtrfBreakage> = compatResult.toIssues().map { issue ->
-        CtrfBreakage(
+    override val breakingChanges: List<CtrfBreakingChange> = compatResult.toIssues().map { issue ->
+        CtrfBreakingChange(
             breadcrumb = issue.breadCrumb,
             sourceLocations = issue.sourceLocations.map { CtrfSourceLocation(it.filePath, it.line, it.column) },
             rule = issue.ruleViolations.firstOrNull()?.let {
                 CtrfRuleSnapshot(it.id, it.title, it.documentationUrl, it.summary)
             },
             description = issue.details,
-            side = if (issue.breadCrumb.startsWith("RESPONSE")) "response" else "request",
             severity = issue.severity.name.lowercase(),
         )
     }

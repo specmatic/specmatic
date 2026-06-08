@@ -86,12 +86,11 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
             feature = feature.copy(scenarios = listOf(scenario)),
         )
 
-        assertThat(record.breakages).hasSize(1)
-        val breakage = record.breakages.single()
+        assertThat(record.breakingChanges).hasSize(1)
+        val breakage = record.breakingChanges.single()
         assertThat(breakage.breadcrumb).isEqualTo("REQUEST.BODY.applicationNumber")
         assertThat(breakage.rule?.id).isEqualTo("R1001")
         assertThat(breakage.description).contains("type number in the new specification")
-        assertThat(breakage.side).isEqualTo("request")
         assertThat(breakage.severity).isEqualTo("error")
         assertThat(breakage.sourceLocations).containsExactly(
             CtrfSourceLocation("/specs/api.yaml", 27, 13),
@@ -110,7 +109,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
             feature = feature.copy(scenarios = listOf(scenario)),
         )
 
-        assertThat(record.breakages).isEmpty()
+        assertThat(record.breakingChanges).isEmpty()
     }
 
     @Test
