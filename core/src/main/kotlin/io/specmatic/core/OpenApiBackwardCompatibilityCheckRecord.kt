@@ -3,7 +3,11 @@ package io.specmatic.core
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.utilities.Flags
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
+import io.specmatic.reporter.ctrf.model.CtrfBreakingChange
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
+import io.specmatic.reporter.ctrf.model.CtrfSeverity
+import io.specmatic.reporter.ctrf.model.CtrfSourceLocation
 import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.BackwardCompatibilityStatus
 import io.specmatic.reporter.model.SpecType
@@ -28,6 +32,24 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     // TODO: Need actual positive variation from generatedScenario
     override val name: String = scenario.fullApiDescription
     override val message: String = compatResult.reportString(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
+    override val breakingChanges: List<CtrfBreakingChange> = compatResult.toIssues().flatMap { issue ->
+        val sourceLocations = issue.sourceLocations.map { CtrfSourceLocation(it.filePath, it.line, it.column) }
+        val rules: List<CtrfRuleSnapshot?> = issue.ruleViolations.map {
+            CtrfRuleSnapshot(it.id, it.title, it.documentationUrl, it.summary)
+        }.ifEmpty { listOf(null) }
+        rules.map { rule ->
+            CtrfBreakingChange(
+                breadcrumb = issue.breadCrumb,
+                sourceLocations = sourceLocations,
+                rule = rule,
+                description = issue.details,
+                severity = when (issue.severity) {
+                    IssueSeverity.ERROR -> CtrfSeverity.ERROR
+                    IssueSeverity.WARNING -> CtrfSeverity.WARNING
+                },
+            )
+        }
+    }
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
         if (isWip) add("wip")

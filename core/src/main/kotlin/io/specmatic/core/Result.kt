@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.model.TestResult
+import kotlinx.serialization.Serializable
 
 sealed class Result {
     abstract val scenario: ScenarioDetailsForResult?
@@ -272,6 +273,14 @@ sealed class Result {
             }
         }
 
+        // Rewrite the file path of every source location in this failure tree (and the `via` chains),
+        // e.g. to make absolute paths relative to a repo root before they reach a report.
+        fun mapSourceLocations(transform: (String) -> String): Failure =
+            copy(
+                sourceLocation = sourceLocation?.mapFilePath(transform),
+                causes = causes.map { it.copy(cause = it.cause?.mapSourceLocations(transform)) }
+            )
+
         override fun isAnyFluffy(acceptableFluffLevel: Int): Boolean {
             return failureReason?.let { it.fluffLevel > acceptableFluffLevel } == true || causes.any { it.cause?.isAnyFluffy(acceptableFluffLevel) == true }
         }
@@ -443,12 +452,16 @@ data class MatchFailureDetails(
 // `via` holds the ordered $ref use-site hops that lead to this location, head-first (the use-site in
 // the spec under check), excluding this location itself which is the tail (the actual source of the
 // breakage). Empty for locations that live directly in the entry spec.
+@Serializable
 data class SourceLocation(
     val filePath: String,
     val line: Int,
     val column: Int,
     val via: List<SourceLocation> = emptyList()
-)
+) {
+    fun mapFilePath(transform: (String) -> String): SourceLocation =
+        copy(filePath = transform(filePath), via = via.map { it.mapFilePath(transform) })
+}
 
 interface MismatchMessages {
     fun mismatchMessage(expected: String, actual: String): String

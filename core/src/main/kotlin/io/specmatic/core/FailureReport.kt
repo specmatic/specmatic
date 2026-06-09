@@ -50,7 +50,10 @@ data class FailureReport(val contractPath: String?, private val scenarioMessage:
                 breadCrumb = breadCrumbString(detail.breadCrumbs),
                 ruleViolations = detail.ruleViolationReport?.toSnapShots().orEmpty(),
                 details = errorMessagesToString(detail.errorMessages),
-                severity = if (detail.isPartial) IssueSeverity.WARNING else IssueSeverity.ERROR
+                severity = if (detail.isPartial) IssueSeverity.WARNING else IssueSeverity.ERROR,
+                sourceLocations = detail.sourceLocation?.let { loc ->
+                    (loc.via + loc).filterNot { it.filePath.isBlank() }
+                }.orEmpty()
             )
         }
     }
