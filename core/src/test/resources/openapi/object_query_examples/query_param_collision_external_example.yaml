@@ -1,0 +1,39 @@
+openapi: 3.0.0
+info:
+  title: Query Param Collision External Example API
+  version: 1.0.0
+paths:
+  /data:
+    get:
+      parameters:
+        - in: query
+          name: info
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              age:
+                type: integer
+              name:
+                type: string
+        - in: query
+          name: age
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - source
+                properties:
+                  source:
+                    type: string

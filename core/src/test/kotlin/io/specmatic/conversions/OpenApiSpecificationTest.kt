@@ -12725,6 +12725,207 @@ paths:
         assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
     }
 
+    @Test
+    fun `inline examples validate same-pattern query parameter collisions using serialized wire key`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Same Pattern Query Param Collision Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          age:
+                            type: integer
+                          name:
+                            type: string
+                      examples:
+                        SUCCESS:
+                          value:
+                            age: 45
+                            name: Jane
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val request = feature.inlineNamedStubs.single { it.name == "SUCCESS" }.stub.request
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+
+        assertThat(request.queryParams.asMap()).containsExactlyEntriesOf(mapOf("age" to "45", "name" to "Jane"))
+        assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `inline examples validate execute and mock through scalar-first authoritative collision owner in lenient mode`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Scalar First Query Param Collision Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: string
+                    - in: query
+                      name: info
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        properties:
+                          age:
+                            type: integer
+                      examples:
+                        SUCCESS:
+                          value:
+                            age: abc
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "", lenientMode = true).toFeature()
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("age", "abc")
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc")))
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+        }
+    }
+
+    @Test
+    fun `inline examples fail validation through object-first authoritative collision owner in lenient mode`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Object First Query Param Collision Invalid Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          age:
+                            type: integer
+                          name:
+                            type: string
+                      examples:
+                        SUCCESS:
+                          value:
+                            age: abc
+                            name: Jane
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "", lenientMode = true).toFeature()
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+        val validationResult = validationResults.getValue("SUCCESS")
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(validationResult.reportString()).contains("REQUEST.PARAMETERS.QUERY.age")
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `contract tests use serialized query property keys from inline examples`(case: FormExplodedObjectQueryExampleCase) {

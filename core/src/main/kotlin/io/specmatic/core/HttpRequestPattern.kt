@@ -375,7 +375,11 @@ data class HttpRequestPattern(
                     httpPathPattern = HttpPathPattern(pathTypes, path),
                     httpQueryParamPattern = HttpQueryParamPattern(
                         queryParamTypes,
-                        extensibleQueryParams = httpQueryParamPattern.extensibleQueryParams
+                        additionalProperties = httpQueryParamPattern.additionalProperties,
+                        extensibleQueryParams = httpQueryParamPattern.extensibleQueryParams,
+                        formExplodedObjectQueryParams = httpQueryParamPattern.formExplodedObjectQueryParams,
+                        parameterPointers = httpQueryParamPattern.parameterPointers,
+                        collisionGroupsByWireKey = httpQueryParamPattern.collisionGroupsByWireKey
                     )
                 )
             }
