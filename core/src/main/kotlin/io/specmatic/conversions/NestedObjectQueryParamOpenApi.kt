@@ -47,21 +47,13 @@ internal fun nestedObjectQueryParam(
 
 internal fun nestedObjectQueryStringExampleEntries(
     parameter: QueryParameter,
-    resolvedSchema: Schema<*>,
     exampleValue: Any,
-    resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
-    resolveExample: (Example?) -> Example?
+    nestedObjectQueryParam: NestedObjectQueryParam?
 ): Map<String, Any>? {
     val exampleString = exampleValue as? String ?: return null
-    val nestedObjectQueryParam = nestedObjectQueryParam(
-        parameter = parameter,
-        resolvedSchema = resolvedSchema,
-        parameterContext = CollectorContext(),
-        resolveSchemaReference = resolveSchemaReference,
-        resolveExample = resolveExample
-    ) ?: return null
+    val nestedQueryParam = nestedObjectQueryParam ?: return null
 
-    return mapOf(parameter.name to nestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(queryStringExampleEntries(exampleString)))
+    return mapOf(parameter.name to nestedQueryParam.reconstructObjectValueFromQueryParamPairs(queryStringExampleEntries(exampleString)))
 }
 
 private fun queryStringExampleEntries(exampleValue: String): List<Pair<String, String>> {

@@ -60,6 +60,10 @@ data class HttpQueryParamPattern(
 
     val queryKeyNames = queryPatternsWithAuthoritativeCollisionOwners.keys
 
+    fun nestedObjectQueryParamsByName(): Map<String, NestedObjectQueryParam> {
+        return nestedObjectQueryParams.associateBy { it.parameterName }
+    }
+
     fun generate(resolver: Resolver): List<Pair<String, String>> {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
