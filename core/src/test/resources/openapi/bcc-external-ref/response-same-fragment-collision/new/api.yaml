@@ -1,0 +1,13 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /a:
+    get:
+      responses:
+        "200":
+          $ref: "./commonA.yaml#/components/responses/OK"
+  /b:
+    get:
+      responses:
+        "200":
+          $ref: "./commonB.yaml#/components/responses/OK"

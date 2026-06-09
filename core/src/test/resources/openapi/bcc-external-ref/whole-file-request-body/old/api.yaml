@@ -1,0 +1,8 @@
+openapi: 3.0.0
+info: { title: api, version: "1" }
+paths:
+  /p:
+    post:
+      requestBody:
+        $ref: "./requestBody.yaml"
+      responses: { "200": { description: ok } }

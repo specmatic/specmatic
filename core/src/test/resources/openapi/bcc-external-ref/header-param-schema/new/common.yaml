@@ -1,0 +1,6 @@
+openapi: 3.0.0
+info: { title: common, version: "1" }
+paths: {}
+components:
+  schemas:
+    Scalar: { type: integer }

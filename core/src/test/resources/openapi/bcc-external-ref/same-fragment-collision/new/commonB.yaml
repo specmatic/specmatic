@@ -1,0 +1,12 @@
+openapi: 3.0.0
+info: { title: commonB, version: "1" }
+paths: {}
+components:
+  schemas:
+    Payload:
+      type: object
+      description: payload B
+      required: [name]
+      properties:
+        id: { type: string }
+        name: { type: integer }

@@ -198,6 +198,7 @@ class OpenApiBackwardCompatibilityChecker(private val oldFeature: Feature, priva
     }
 
     private fun operationPointer(scenario: Scenario): String? {
+        scenario.operationSourcePointer?.let { return it }
         val openApiPath = scenario.httpRequestPattern.httpPathPattern?.toOpenApiPath() ?: return null
         return "/paths/${escapeJsonPointer(openApiPath)}/${scenario.method.lowercase()}"
     }
