@@ -2,6 +2,7 @@ package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.IssueSeverity
 import io.specmatic.core.QueryParameterCollisionOwnerKind
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.Resolver
@@ -457,6 +458,11 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `query parameter type collision lint violation should be classified as an error`() {
+        assertThat(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.severity).isEqualTo(IssueSeverity.ERROR)
+    }
+
+    @Test
     fun `different type collision between standalone query parameter and form exploded object property should fail strict parsing with lint rule`() {
         val spec = """
             openapi: 3.0.0
@@ -493,9 +499,65 @@ class OpenApiSpecificationParseTest {
 
         val report = exception.report()
         assertThat(report).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(report).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
         assertThat(report).contains("type")
         assertThat(report).contains("info.type")
         assertThat(report).contains("first declared owner info.type")
+    }
+
+    @Test
+    fun `different type collision diagnostic should include every owner location and authoritative owner`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: boolean
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(spec, "").toFeature()
+        }
+
+        val report = exception.report()
+        assertThat(report).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(report).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(report).contains("wire key type")
+        assertThat(report).contains("info.type at /paths/~1orders/get/parameters/0/schema/properties/type")
+        assertThat(report).contains("filter.type at /paths/~1orders/get/parameters/1/schema/properties/type")
+        assertThat(report).contains("type at /paths/~1orders/get/parameters/2/name")
+        assertThat(report).contains("first declared owner info.type as authoritative")
     }
 
     @Test
@@ -535,7 +597,9 @@ class OpenApiSpecificationParseTest {
         val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("type")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.toIssues().single().severity).isEqualTo(IssueSeverity.ERROR)
         assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
         assertThat(result.reportString()).contains("type")
         assertThat(result.reportString()).contains("info.type")
         assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.type")
@@ -581,6 +645,11 @@ class OpenApiSpecificationParseTest {
         val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("type")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(result.reportString()).contains("type at /paths/~1orders/get/parameters/0/name")
+        assertThat(result.reportString()).contains("info.type at /paths/~1orders/get/parameters/1/schema/properties/type")
+        assertThat(result.reportString()).contains("first declared owner type as authoritative")
         assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("type", "info.type")
         assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("type")
         assertThat(collisionGroup.authoritativeOwner.kind).isEqualTo(QueryParameterCollisionOwnerKind.ScalarParameter)
@@ -698,6 +767,10 @@ class OpenApiSpecificationParseTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(result.reportString()).contains("info.age at /components/schemas/InfoParams/properties/age")
+        assertThat(result.reportString()).contains("filters.age at /components/schemas/FilterParams/properties/age")
+        assertThat(result.reportString()).contains("age at /paths/~1orders/get/parameters/2/name")
         assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("info.age", "filters.age", "age")
         assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.age")
         assertThat(agePattern).isInstanceOf(QueryParameterScalarPattern::class.java)

@@ -111,10 +111,15 @@ private fun recordQueryParameterTypeCollisionIfNeeded(entries: List<QueryParamet
     if (resolvedPatterns.distinct().size == 1) return
 
     val authoritativeEntry = entries.first()
+    val ownerDetails = entries.joinToString(", ") { it.diagnosticDisplayName() }
     authoritativeEntry.collectorContext.record(
-        message = "Query parameter wire key ${authoritativeEntry.wireKey} has conflicting declarations ${entries.joinToString(", ") { it.source.displayName }}. Their schemas produce different query parameter patterns. Specmatic will use the first declared owner ${authoritativeEntry.source.displayName} as authoritative if parsing continues.",
+        message = "Query parameter wire key ${authoritativeEntry.wireKey} has conflicting declarations $ownerDetails. Their schemas produce different query parameter patterns. Specmatic will use the first declared owner ${authoritativeEntry.source.displayName} as authoritative if parsing continues.",
         ruleViolation = OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION
     )
+}
+
+private fun QueryParameterPatternEntry.diagnosticDisplayName(): String {
+    return pointer?.let { "${source.displayName} at $it" } ?: source.displayName
 }
 
 private fun normalizedQueryParameterPattern(pattern: Pattern, patterns: Map<String, Pattern>): Pattern {
