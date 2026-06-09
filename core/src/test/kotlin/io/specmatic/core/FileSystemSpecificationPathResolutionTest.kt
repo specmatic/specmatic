@@ -405,6 +405,93 @@ class FileSystemSpecificationPathResolutionTest {
         }
     }
 
+    @Nested
+    inner class NormalizeFilesystemSpecificationPath {
+        @Nested
+        inner class FileSystemSource {
+            @Test
+            fun `paths for specs with source as filesystem are resolved relative to the git repo root`() {
+                val repoRoot = tempDir.resolve("normalize-filesystem").apply { mkdirs() }
+                runGit(repoRoot, "init")
+                val specFile =
+                    repoRoot.resolve("specs/openapi/order_api.yaml").apply {
+                        parentFile.mkdirs()
+                        writeText(minimalOpenApi())
+                    }
+
+                val normalizedPath =
+                    normalizeFilesystemSpecificationPath(
+                        specificationPath = "openapi/order_api.yaml",
+                        sourceProvider = SourceProvider.filesystem.name,
+                        resolvedSpecFile = specFile,
+                    )
+
+                assertThat(normalizedPath).isEqualTo("specs/openapi/order_api.yaml")
+            }
+
+            @Test
+            fun `blank paths for specs with source as filesystem are left unchanged`() {
+                val repoRoot = tempDir.resolve("normalize-blank").apply { mkdirs() }
+                runGit(repoRoot, "init")
+                val specFile =
+                    repoRoot.resolve("specs/openapi/order_api.yaml").apply {
+                        parentFile.mkdirs()
+                        writeText(minimalOpenApi())
+                    }
+
+                val normalizedPath =
+                    normalizeFilesystemSpecificationPath(
+                        specificationPath = "",
+                        sourceProvider = SourceProvider.filesystem.name,
+                        resolvedSpecFile = specFile,
+                    )
+
+                assertThat(normalizedPath).isEmpty()
+            }
+
+            @Test
+            fun `paths for specs with source as filesystem are left unchanged when the spec file is not in a git repo`() {
+                val specFile =
+                    tempDir.resolve("non-git/specs/openapi/order_api.yaml").apply {
+                        parentFile.mkdirs()
+                        writeText(minimalOpenApi())
+                    }
+
+                val normalizedPath =
+                    normalizeFilesystemSpecificationPath(
+                        specificationPath = "openapi/order_api.yaml",
+                        sourceProvider = SourceProvider.filesystem.name,
+                        resolvedSpecFile = specFile,
+                    )
+
+                assertThat(normalizedPath).isEqualTo("openapi/order_api.yaml")
+            }
+        }
+
+        @Nested
+        inner class NonFileSystemSource {
+            @Test
+            fun `paths for specs whose source is not filesystem are left unchanged`() {
+                val repoRoot = tempDir.resolve("normalize-git-source").apply { mkdirs() }
+                runGit(repoRoot, "init")
+                val specFile =
+                    repoRoot.resolve("specs/openapi/order_api.yaml").apply {
+                        parentFile.mkdirs()
+                        writeText(minimalOpenApi())
+                    }
+
+                val normalizedPath =
+                    normalizeFilesystemSpecificationPath(
+                        specificationPath = "openapi/order_api.yaml",
+                        sourceProvider = SourceProvider.git.name,
+                        resolvedSpecFile = specFile,
+                    )
+
+                assertThat(normalizedPath).isEqualTo("openapi/order_api.yaml")
+            }
+        }
+    }
+
     private fun runGit(directory: File, vararg args: String) {
         val process = ProcessBuilder(listOf("git", "-C", directory.absolutePath) + args).start()
         val exitCode = process.waitFor()
