@@ -3344,6 +3344,39 @@ class OpenApiSpecification(
         val schemaPointer = parameterPointer?.let {
             sourcePointerForRefUseSite("$it/schema", parameter.schema?.`$ref`)
         }
+        val nestedObjectQueryParam = nestedObjectQueryParam(
+            parameter = parameter,
+            resolvedSchema = resolvedSchema,
+            parameterContext = parameterContext,
+            resolveSchemaReference = { ref, context ->
+                resolveReferenceToSchema(ref, context).second
+            },
+            resolveExample = ::resolveExample
+        )
+
+        if (nestedObjectQueryParam != null) {
+            val optional = parameter.required != true
+            return QueryParameterParseResult(
+                entries = listOf(
+                    QueryParameterPatternEntry(
+                        key = toSpecmaticParamName(optional, parameter.name),
+                        wireKey = parameter.name,
+                        pattern = toQueryParameterPattern(
+                            parameterName = parameter.name,
+                            schema = parameter.schema,
+                            resolvedSchema = resolvedSchema,
+                            resolvedSchemaContext = schemaContext,
+                            schemaContext = parameterContext.at("schema")
+                        ),
+                        source = QueryParameterPatternSource(parameter.name),
+                        collectorContext = parameterContext,
+                        pointer = parameterPointer?.let { "$it/name" }
+                    )
+                ),
+                nestedObjectQueryParam = nestedObjectQueryParam,
+                additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
+            )
+        }
 
         if (parameter.required == true && requiredProperties.isEmpty()) {
             parameterContext.at("required").record(
@@ -3383,15 +3416,6 @@ class OpenApiSpecification(
                 required = parameter.required == true,
                 propertyKeys = schemaProperties.keys,
                 requiredPropertyKeys = requiredProperties
-            ),
-            nestedObjectQueryParam = nestedObjectQueryParam(
-                parameter = parameter,
-                resolvedSchema = resolvedSchema,
-                parameterContext = parameterContext,
-                resolveSchemaReference = { ref, context ->
-                    resolveReferenceToSchema(ref, context).second
-                },
-                resolveExample = ::resolveExample
             ),
             additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
         )

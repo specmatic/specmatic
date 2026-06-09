@@ -296,6 +296,7 @@ class OpenApiSpecificationParseTest {
         val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
 
         assertThat(nestedObjectQueryParam.parameterName).isEqualTo("details")
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactly("details")
         assertThat(nestedObjectQueryParam.syntax).isEqualTo(
             ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
         )

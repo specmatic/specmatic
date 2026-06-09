@@ -1,0 +1,244 @@
+package io.specmatic.core
+
+import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.AdditionalProperties
+import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.ListPattern
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.QueryParameterScalarPattern
+import io.specmatic.core.pattern.withOptionality
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
+
+internal data class ParsedNestedObjectQueryParams(
+    val remainingQueryParams: QueryParameters,
+    val reconstructedObjectValues: Map<String, Value>,
+    val failures: List<Result.Failure>
+)
+
+internal fun parseNestedObjectQueryParams(
+    queryParams: QueryParameters,
+    effectivePatterns: Map<String, Pattern>,
+    nestedObjectQueryParams: List<NestedObjectQueryParam>,
+    resolver: Resolver
+): ParsedNestedObjectQueryParams {
+    if (nestedObjectQueryParams.isEmpty()) {
+        return ParsedNestedObjectQueryParams(queryParams, emptyMap(), emptyList())
+    }
+
+    val parsedPairs = queryParams.paramPairs.map { (key, value) ->
+        val matchingNestedParam = nestedObjectQueryParams.firstOrNull { it.shouldAttemptParse(key) }
+            ?: return@map NestedQueryPair.Unconsumed(key to value)
+
+        try {
+            val parsedPath = ObjectQueryKeyParser.parse(
+                key = key,
+                parameterName = matchingNestedParam.parameterName,
+                schema = matchingNestedParam.schema,
+                syntax = matchingNestedParam.syntax
+            )
+            val parsedValue = try {
+                matchingNestedParam.parseValueAt(parsedPath, value, effectivePatterns, resolver)
+            } catch (exception: ContractException) {
+                return@map NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(matchingNestedParam.parameterName, parsedPath))
+            }
+
+            NestedQueryPair.Consumed(matchingNestedParam, parsedPath, parsedValue)
+        } catch (exception: ContractException) {
+            NestedQueryPair.Invalid(
+                failure = Result.Failure(
+                    message = exception.failure().reportString().ifBlank { exception.message.orEmpty() }
+                ).breadCrumb(key)
+            )
+        }
+    }
+
+    val reconstructedObjectsByNestedParam = parsedPairs
+        .filterIsInstance<NestedQueryPair.Consumed>()
+        .groupBy { it.nestedQueryParam }
+        .mapValues { (_, consumedPairs) ->
+            consumedPairs.fold(JSONObjectValue()) { value, consumed ->
+                value.insert(consumed.path, consumed.value) as JSONObjectValue
+            }
+        }
+
+    val reconstructedObjectValues = reconstructedObjectsByNestedParam.flatMap { (nestedQueryParam, objectValue) ->
+        val parameterName = nestedQueryParam.parameterName
+        if (effectivePatterns.containsNormalizedKey(parameterName)) {
+            listOf(parameterName to objectValue)
+        } else {
+            objectValue.jsonObject.toList()
+        }
+    }.toMap()
+
+    val remainingQueryParams = QueryParameters(
+        parsedPairs.mapNotNull {
+            when (it) {
+                is NestedQueryPair.Unconsumed -> it.pair
+                is NestedQueryPair.Consumed, is NestedQueryPair.Invalid -> null
+            }
+        }
+    )
+
+    return ParsedNestedObjectQueryParams(
+        remainingQueryParams = remainingQueryParams,
+        reconstructedObjectValues = reconstructedObjectValues,
+        failures = parsedPairs.filterIsInstance<NestedQueryPair.Invalid>().map { it.failure }
+    )
+}
+
+internal fun serializeNestedObjectQueryValues(
+    valuesMap: Map<String, Value>,
+    nestedObjectQueryParams: List<NestedObjectQueryParam>
+): List<Pair<String, String>> {
+    val nestedParameterNames = nestedObjectQueryParams.map { it.parameterName }.toSet()
+    val nestedPairs = nestedObjectQueryParams.flatMap { nestedQueryParam ->
+        val value = valuesMap[nestedQueryParam.parameterName] as? JSONObjectValue
+            ?: return@flatMap emptyList()
+
+        value.toQueryParamPairs(nestedQueryParam.parameterName, nestedQueryParam.syntax)
+    }
+
+    val ordinaryPairs = valuesMap
+        .filterKeys { it !in nestedParameterNames }
+        .map { (key, value) -> key to value.toStringLiteral() }
+
+    return ordinaryPairs + nestedPairs
+}
+
+private sealed class NestedQueryPair {
+    data class Unconsumed(val pair: Pair<String, String>) : NestedQueryPair()
+    data class Consumed(
+        val nestedQueryParam: NestedObjectQueryParam,
+        val path: QueryObjectPath,
+        val value: Value
+    ) : NestedQueryPair()
+    data class Invalid(val failure: Result.Failure) : NestedQueryPair()
+}
+
+private fun NestedObjectQueryParam.shouldAttemptParse(key: String): Boolean {
+    return when (syntax.root) {
+        ObjectQueryRoot.ParameterNameWrapped -> key.startsWith("$parameterName[")
+        ObjectQueryRoot.Unwrapped -> schema.properties.keys.any { propertyName ->
+            key == propertyName || key.startsWith("$propertyName.") || key.startsWith("$propertyName[")
+        }
+    }
+}
+
+private fun Map<String, Pattern>.containsNormalizedKey(key: String): Boolean {
+    return containsKey(key) || containsKey(withOptionality(key))
+}
+
+private fun NestedObjectQueryParam.parseValueAt(
+    path: QueryObjectPath,
+    value: String,
+    effectivePatterns: Map<String, Pattern>,
+    resolver: Resolver
+): Value {
+    val pattern = leafPatternAt(path, effectivePatterns) ?: return StringValue(value)
+    return pattern.parse(value, resolver)
+}
+
+private fun NestedObjectQueryParam.leafPatternAt(
+    path: QueryObjectPath,
+    effectivePatterns: Map<String, Pattern>
+): Pattern? {
+    val rootPattern = effectivePatterns[parameterName] ?: effectivePatterns[withOptionality(parameterName)] ?: return null
+    return rootPattern.patternAt(path.tokens)
+}
+
+private fun Pattern.patternAt(tokens: List<QueryObjectPathToken>): Pattern? {
+    if (tokens.isEmpty()) return this
+
+    return when (this) {
+        is QueryParameterScalarPattern -> pattern.patternAt(tokens)
+        is JSONObjectPattern -> childPattern(tokens.first())?.patternAt(tokens.drop(1))
+        is ListPattern -> {
+            if (tokens.first() !is QueryObjectPathToken.Index) return null
+            pattern.patternAt(tokens.drop(1))
+        }
+        else -> null
+    }
+}
+
+private fun JSONObjectPattern.childPattern(token: QueryObjectPathToken): Pattern? {
+    if (token !is QueryObjectPathToken.Property) return null
+
+    return pattern[token.name]
+        ?: pattern[withOptionality(token.name)]
+        ?: when (additionalProperties) {
+            is AdditionalProperties.PatternConstrained -> additionalProperties.pattern
+            AdditionalProperties.FreeForm, AdditionalProperties.NoAdditionalProperties -> null
+        }
+}
+
+private fun Result.Failure.withNestedObjectPathBreadcrumb(parameterName: String, path: QueryObjectPath): Result.Failure {
+    val breadcrumbs = listOf(parameterName) + path.tokens.map {
+        when (it) {
+            is QueryObjectPathToken.Property -> it.name
+            is QueryObjectPathToken.Index -> "[${it.index}]"
+        }
+    }
+
+    return breadcrumbs.asReversed().fold(this as Result) { result, breadcrumb ->
+        result.breadCrumb(breadcrumb)
+    } as Result.Failure
+}
+
+private fun JSONObjectValue.insert(path: QueryObjectPath, value: Value): Value {
+    return insertAt(tokens = path.tokens, value = value)
+}
+
+private fun Value.insertAt(tokens: List<QueryObjectPathToken>, value: Value): Value {
+    if (tokens.isEmpty()) return value
+
+    return when (val token = tokens.first()) {
+        is QueryObjectPathToken.Property -> {
+            val currentObject = this as? JSONObjectValue ?: JSONObjectValue()
+            val updatedPropertyValue = currentObject.jsonObject[token.name]
+                ?.insertAt(tokens.drop(1), value)
+                ?: JSONObjectValue().insertAt(tokens.drop(1), value)
+
+            JSONObjectValue(currentObject.jsonObject + (token.name to updatedPropertyValue))
+        }
+        is QueryObjectPathToken.Index -> {
+            val currentArray = this as? JSONArrayValue ?: JSONArrayValue()
+            val paddedValues = currentArray.list.padToIndex(token.index)
+            val updatedItemValue = paddedValues[token.index].insertAt(tokens.drop(1), value)
+
+            JSONArrayValue(paddedValues.updatedAt(token.index, updatedItemValue))
+        }
+    }
+}
+
+private fun List<Value>.padToIndex(index: Int): List<Value> {
+    return this + List((index + 1 - size).coerceAtLeast(0)) { NullValue }
+}
+
+private fun List<Value>.updatedAt(index: Int, value: Value): List<Value> {
+    return mapIndexed { itemIndex, itemValue ->
+        if (itemIndex == index) value else itemValue
+    }
+}
+
+private fun JSONObjectValue.toQueryParamPairs(parameterName: String, syntax: ObjectQuerySyntax): List<Pair<String, String>> {
+    return flattenQueryObjectValue(this, emptyList()).map { (path, value) ->
+        ObjectQueryKeySerializer.serialize(path, parameterName, syntax) to value.toStringLiteral()
+    }
+}
+
+private fun flattenQueryObjectValue(value: Value, path: List<QueryObjectPathToken>): List<Pair<QueryObjectPath, Value>> {
+    return when (value) {
+        is JSONObjectValue -> value.jsonObject.flatMap { (propertyName, propertyValue) ->
+            flattenQueryObjectValue(propertyValue, path + QueryObjectPathToken.Property(propertyName))
+        }
+        is JSONArrayValue -> value.list.flatMapIndexed { index, itemValue ->
+            flattenQueryObjectValue(itemValue, path + QueryObjectPathToken.Index(index))
+        }
+        is NullValue -> emptyList()
+        else -> listOf(QueryObjectPath(path) to value)
+    }
+}
