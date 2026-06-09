@@ -93,14 +93,6 @@ fun parseContractFileToFeature(
     exampleDirPaths: List<String> = emptyList()
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
-    val normalizedSpecificationPath =
-        specificationPath?.let {
-            normalizeFilesystemSpecificationPath(
-                specificationPath = it,
-                sourceProvider = sourceProvider,
-                resolvedSpecFile = file,
-            )
-        }
 
     return when (file.extension) {
         in OPENAPI_FILE_EXTENSIONS -> OpenApiSpecification.fromYAML(
@@ -109,7 +101,7 @@ fun parseContractFileToFeature(
             sourceProvider = sourceProvider,
             sourceRepository = sourceRepository,
             sourceRepositoryBranch = sourceRepositoryBranch,
-            specificationPath = normalizedSpecificationPath,
+            specificationPath = specificationPath,
             securityConfiguration = securityConfiguration,
             specmaticConfig = specmaticConfig,
             overlayContent = overlayContent,
@@ -121,7 +113,7 @@ fun parseContractFileToFeature(
             checkExists(file).readText(),
             file.canonicalPath,
             specmaticConfig,
-            normalizedSpecificationPath = normalizedSpecificationPath,
+            normalizedSpecificationPath = specificationPath,
         ).copy(exampleDirPaths = exampleDirPaths)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
             checkExists(file).readText().trim(),
