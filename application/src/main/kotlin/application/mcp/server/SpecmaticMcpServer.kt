@@ -1,5 +1,6 @@
 package application.mcp.server
 
+import application.mcp.server.spi.McpToolProvider
 import application.mcp.server.tools.BackwardCompatArgs
 import application.mcp.server.tools.BackwardCompatibilityTool
 import application.mcp.server.tools.ContractTestTool
@@ -20,10 +21,12 @@ import io.specmatic.specmatic.executable.VersionInfo
 import java.io.InputStream
 import java.io.OutputStream
 import java.time.Duration
+import java.util.ServiceLoader
 
 class SpecmaticMcpServer(
     inputStream: InputStream = System.`in`,
-    outputStream: OutputStream = System.out
+    outputStream: OutputStream = System.out,
+    private val toolProviders: Iterable<McpToolProvider> = ServiceLoader.load(McpToolProvider::class.java)
 ) : AutoCloseable {
     private val objectMapper = jacksonObjectMapper()
     private val contractTestTool = ContractTestTool()
@@ -39,7 +42,7 @@ class SpecmaticMcpServer(
                 .tools(true)
                 .build()
         )
-        .tools(tools())
+        .tools(tools() + serviceLoadedTools())
         .build()
 
     private fun tools(): List<McpServerFeatures.SyncToolSpecification> {
@@ -117,6 +120,17 @@ class SpecmaticMcpServer(
             }
         ).also {
             System.err.println("Successfully registered tools.")
+        }
+    }
+
+    private fun serviceLoadedTools(): List<McpServerFeatures.SyncToolSpecification> {
+        return toolProviders.flatMap { provider ->
+            runCatching {
+                provider.tools()
+            }.getOrElse { error ->
+                System.err.println("Failed to register MCP tools from ${provider::class.qualifiedName}: ${error.message}")
+                emptyList()
+            }
         }
     }
 
