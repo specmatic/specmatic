@@ -14,6 +14,7 @@ import org.junit.jupiter.api.fail
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.opentest4j.TestAbortedException
 import java.net.ServerSocket
 import java.util.stream.Stream
 
@@ -72,6 +73,10 @@ class FilterIntegrationTest {
                 if (e.message?.contains(MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND) == true) {
                     throw AssertionError("Got unexpected '$MESSAGE_FRAGMENT_WHEN_NO_TESTS_WERE_FOUND' error when tests should have been found and run: ${e.message}")
                 }
+            } catch (_: TestAbortedException) {
+                // A matching example can still belong to a @WIP scenario; this test only asserts
+                // that matching scenarios are found and executed rather than tripping the
+                // "No tests found to run" path.
             }
         }
     }

@@ -34,20 +34,17 @@ data class LocalFileSystemSource(
         workingDirectory: String,
         configFilePath: String
     ): List<ContractPathData> {
-        val configDirectory = configFilePath.takeIf { it.isNotBlank() }?.let { File(it).canonicalFile.parentFile }
-        val sourceRoot = directoryRelativeTo(configDirectory ?: File(workingDirectory)).canonicalFile
-
         return selector.select(this).map {
-            val resolvedPath = sourceRoot.resolve(it.path).canonicalFile
+            val resolvedPath = File(directory).resolve(it.path)
             val normalizedSpecificationPath =
                 normalizeFilesystemSpecificationPath(
                     specificationPath = it.path,
                     sourceProvider = type,
-                    resolvedSpecFile = resolvedPath,
+                    resolvedSpecFile = resolvedPath.canonicalFile,
                 )
 
             ContractPathData(
-                baseDir = sourceRoot.path,
+                baseDir = directory,
                 path = resolvedPath.path,
                 provider = type,
                 specificationPath = normalizedSpecificationPath,

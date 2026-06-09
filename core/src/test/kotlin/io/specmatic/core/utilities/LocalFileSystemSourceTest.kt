@@ -1,6 +1,5 @@
 package io.specmatic.core.utilities
 
-import io.specmatic.core.DEFAULT_WORKING_DIRECTORY
 import io.specmatic.toContractSourceEntries
 import java.io.File
 import org.assertj.core.api.Assertions.assertThat
@@ -26,13 +25,13 @@ class LocalFileSystemSourceTest {
 
         val source =
             LocalFileSystemSource(
-                directory = ".",
+                directory = repoRoot.canonicalPath,
                 testContracts = emptyList(),
                 stubContracts = listOf("specs/openapi/order_api.yaml").toContractSourceEntries(),
             )
 
         val contractPathData =
-            source.loadContracts({ it.stubContracts }, DEFAULT_WORKING_DIRECTORY, configFile.canonicalPath).single()
+            source.loadContracts({ it.stubContracts }, repoRoot.canonicalPath, configFile.canonicalPath).single()
 
         assertThat(contractPathData.path).isEqualTo(specFile.canonicalPath)
         assertThat(contractPathData.specificationPath).isEqualTo("specs/openapi/order_api.yaml")
@@ -53,13 +52,13 @@ class LocalFileSystemSourceTest {
 
         val source =
             LocalFileSystemSource(
-                directory = "specs",
+                directory = repoRoot.resolve("specs").canonicalPath,
                 testContracts = emptyList(),
                 stubContracts = listOf("openapi/order_api.yaml").toContractSourceEntries(),
             )
 
         val contractPathData =
-            source.loadContracts({ it.stubContracts }, DEFAULT_WORKING_DIRECTORY, configFile.canonicalPath).single()
+            source.loadContracts({ it.stubContracts }, repoRoot.canonicalPath, configFile.canonicalPath).single()
 
         assertThat(contractPathData.path).isEqualTo(specFile.canonicalPath)
         assertThat(contractPathData.specificationPath).isEqualTo("specs/openapi/order_api.yaml")
