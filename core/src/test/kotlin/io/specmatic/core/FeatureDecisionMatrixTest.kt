@@ -219,7 +219,7 @@ class FeatureDecisionMatrixTest {
 
             assertThat(generated).hasSize(1)
             val skip = generated.single() as Decision.Skip
-            assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd400(true))
+            assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.noExamples2xxAnd4xx(true))
             assertThat(skip.reasoning.otherReasons).isEmpty()
         }
 
@@ -235,11 +235,11 @@ class FeatureDecisionMatrixTest {
             assertThat(generated).hasSize(1)
             val skip = generated.single() as Decision.Skip<*>
             assertThat(skip.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
-            assertThat(skip.reasoning.otherReasons).containsExactly(TestSkipReason.noExamples2xxAnd400(true))
+            assertThat(skip.reasoning.otherReasons).containsExactly(TestSkipReason.noExamples2xxAnd4xx(true))
         }
 
         @Test
-        fun `strict mode should keep non-2xx non-400 no-example skips as no-examples violation`() {
+        fun `strict mode should keep non-2xx non-4xx no-example skips as no-examples violation`() {
             val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml").copy(strictMode = true)
             val scenario = firstScenario(feature, 500, hasExamples = false)
             val secondScenario = firstScenario(feature, 404, hasExamples = false)
@@ -248,10 +248,16 @@ class FeatureDecisionMatrixTest {
                 scenarios = sequenceOf(Decision.execute(scenario), Decision.execute(secondScenario))
             ).toList()
 
-            assertThat(generated).hasSize(2).allSatisfy {
+            assertThat(generated.filter { it.context.status == 500 }).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java); it as Decision.Skip
-                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.noExamplesNon2xxAndNon400())
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.noExamplesNon2xxAndNon4xx())
                 assertThat(it.reasoning.otherReasons).isEmpty()
+            }
+
+            assertThat(generated.filter { it.context.status == 404 }).hasSize(1).allSatisfy {
+                assertThat(it).isInstanceOf(Decision.Skip::class.java); it as Decision.Skip
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).contains(TestSkipReason.noExamples2xxAnd4xx(strictMode = true))
             }
         }
     }
@@ -337,7 +343,7 @@ class FeatureDecisionMatrixTest {
         }
 
         @Test
-        fun `non-2xx non-400 scenarios without examples should be skipped with no-examples violation`() {
+        fun `non-2xx non-4xx scenarios without examples should be skipped with no-examples violation`() {
             val feature = featureFromResourceOpenapi("feature_decision_matrix.yaml")
             val scenario = firstScenario(feature, 500, hasExamples = false)
             val secondScenario = firstScenario(feature, 404, hasExamples = false)
@@ -346,10 +352,16 @@ class FeatureDecisionMatrixTest {
                 scenarios = sequenceOf(Decision.execute(scenario), Decision.execute(secondScenario))
             ).toList()
 
-            assertThat(generated).hasSize(2).allSatisfy {
+            assertThat(generated.filter { it.context.status == 500 }).hasSize(1).allSatisfy {
                 assertThat(it).isInstanceOf(Decision.Skip::class.java); it as Decision.Skip
-                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.noExamplesNon2xxAndNon400())
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.noExamplesNon2xxAndNon4xx())
                 assertThat(it.reasoning.otherReasons).isEmpty()
+            }
+
+            assertThat(generated.filter { it.context.status == 404 }).hasSize(1).allSatisfy {
+                assertThat(it).isInstanceOf(Decision.Skip::class.java); it as Decision.Skip
+                assertThat(it.reasoning.mainReason).isEqualTo(TestSkipReason.GENERATIVE_DISABLED)
+                assertThat(it.reasoning.otherReasons).contains(TestSkipReason.noExamples2xxAnd4xx(false))
             }
         }
     }
@@ -409,7 +421,7 @@ class FeatureDecisionMatrixTest {
             val generated = feature.negativeTestScenariosWithDecision(
                 originalScenarios = listOf(successScenario, badRequestScenario),
                 scenarios = sequenceOf(
-                    Decision.Skip(context = successScenario, reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd400(true))),
+                    Decision.Skip(context = successScenario, reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd4xx(true))),
                     Decision.execute(badRequestScenario)
                 ),
             ).toList()
@@ -434,11 +446,11 @@ class FeatureDecisionMatrixTest {
                 scenarios = sequenceOf(
                     Decision.Skip(
                         context = successScenario,
-                        reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd400(true))
+                        reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd4xx(true))
                     ),
                     Decision.Skip(
                         context = badRequestScenario,
-                        reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd400(true))
+                        reasoning = Reasoning(mainReason = TestSkipReason.noExamples2xxAnd4xx(true))
                     )
                 ),
             ).toList()

@@ -9,7 +9,6 @@ import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.API
-import io.specmatic.test.ContractTest
 import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord
 import org.assertj.core.api.Assertions.assertThat
@@ -102,8 +101,8 @@ class CoverageContextTest {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun skipDecision(reasoning: Reasoning): Decision<ContractTest, Scenario> {
-        return Decision.Skip(context = Any(), reasoning = reasoning) as Decision<ContractTest, Scenario>
+    private fun skipDecision(reasoning: Reasoning): Decision<Scenario, OpenAPIOperation> {
+        return Decision.Skip(context = Any(), reasoning = reasoning) as Decision<Scenario, OpenAPIOperation>
     }
 
     private fun endpoint(

@@ -1,6 +1,5 @@
 package io.specmatic.test.reports.coverage
 
-import io.specmatic.core.Scenario
 import io.specmatic.core.report.closestMatchingEndpointFor
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
@@ -8,7 +7,6 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.API
-import io.specmatic.test.ContractTest
 import io.specmatic.test.TestResultRecord
 
 data class CoverageContext(
@@ -16,12 +14,12 @@ data class CoverageContext(
     val allSpecEndpoints: List<Endpoint>,
     val applicationEndpoints: List<API> = emptyList(),
     val endpointsApiAvailable: Boolean = false,
-    val decisions: Map<Endpoint, List<Decision<ContractTest, Scenario>>> = emptyMap(),
+    val decisions: Map<Endpoint, List<Decision<*, OpenAPIOperation>>> = emptyMap(),
     val previousCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
 ) {
     private val skipDecisionsByOperation: Map<OpenAPIOperation, Sequence<Reasoning>> by lazy(LazyThreadSafetyMode.NONE) {
         decisions.entries.associate { (endpoint, endpointDecisions) ->
-            val snapshots = endpointDecisions.asSequence().filterIsInstance<Decision.Skip<Scenario>>().map { it.reasoning }
+            val snapshots = endpointDecisions.asSequence().filterIsInstance<Decision.Skip<OpenAPIOperation>>().map { it.reasoning }
             endpoint.toOpenApiOperation() to snapshots
         }
     }
