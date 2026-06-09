@@ -6,9 +6,12 @@ import io.specmatic.core.NestedObjectQuerySyntaxInference
 import io.specmatic.core.NestedQueryParameterExamples
 import io.specmatic.core.NestedQuerySchema
 import io.specmatic.core.NestedQuerySyntaxInferenceResult
+import io.specmatic.core.reconstructObjectValueFromQueryParamPairs
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.QueryParameter
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 internal fun nestedObjectQueryParam(
     parameter: QueryParameter,
@@ -40,6 +43,39 @@ internal fun nestedObjectQueryParam(
             null
         }
     }
+}
+
+internal fun nestedObjectQueryStringExampleEntries(
+    parameter: QueryParameter,
+    resolvedSchema: Schema<*>,
+    exampleValue: Any,
+    resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
+    resolveExample: (Example?) -> Example?
+): Map<String, Any>? {
+    val exampleString = exampleValue as? String ?: return null
+    val nestedObjectQueryParam = nestedObjectQueryParam(
+        parameter = parameter,
+        resolvedSchema = resolvedSchema,
+        parameterContext = CollectorContext(),
+        resolveSchemaReference = resolveSchemaReference,
+        resolveExample = resolveExample
+    ) ?: return null
+
+    return mapOf(parameter.name to nestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(queryStringExampleEntries(exampleString)))
+}
+
+private fun queryStringExampleEntries(exampleValue: String): List<Pair<String, String>> {
+    return exampleValue.split("&")
+        .filter(String::isNotBlank)
+        .map { entry ->
+            val key = entry.substringBefore("=")
+            val value = entry.substringAfter("=", "")
+            urlDecode(key) to urlDecode(value)
+        }
+}
+
+private fun urlDecode(value: String): String {
+    return URLDecoder.decode(value, StandardCharsets.UTF_8)
 }
 
 private fun QueryParameter.nestedQueryExamples(resolveExample: (Example?) -> Example?): NestedQueryParameterExamples {

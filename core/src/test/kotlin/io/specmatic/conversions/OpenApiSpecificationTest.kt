@@ -13021,6 +13021,80 @@ paths:
     }
 
     @Test
+    fun `named nested object query parameter examples are used as concrete contract test requests`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Nested Object Query Named Example
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                          - address
+                        properties:
+                          name:
+                            type: string
+                          address:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - street
+                                - city
+                              properties:
+                                street:
+                                  type: string
+                                city:
+                                  type: string
+                      examples:
+                        SUCCESS:
+                          value: name=Jack&address[0].street=Baker Street&address[0].city=London
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("name", "Jack")
+            assertThat(queryParams).containsEntry("address[0].street", "Baker Street")
+            assertThat(queryParams).containsEntry("address[0].city", "London")
+            assertThat(queryParams).doesNotContainKey("details")
+        })
+    }
+
+    @Test
     fun `positive generated contract tests preserve inferred nested object and array query syntax`() {
         val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
 

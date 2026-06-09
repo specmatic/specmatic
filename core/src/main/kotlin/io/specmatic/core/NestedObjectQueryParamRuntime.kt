@@ -118,6 +118,21 @@ internal fun serializeNestedObjectQueryValue(
     return value.toQueryParamPairs(parameterName, nestedQueryParam.syntax)
 }
 
+internal fun NestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(
+    pairs: List<Pair<String, String>>
+): JSONObjectValue {
+    return pairs.fold(JSONObjectValue()) { value, (key, rawValue) ->
+        val path = ObjectQueryKeyParser.parse(
+            key = key,
+            parameterName = parameterName,
+            schema = schema,
+            syntax = syntax
+        )
+
+        value.insert(path, StringValue(rawValue)) as JSONObjectValue
+    }
+}
+
 private sealed class NestedQueryPair {
     data class Unconsumed(val pair: Pair<String, String>) : NestedQueryPair()
     data class Consumed(
@@ -128,7 +143,7 @@ private sealed class NestedQueryPair {
     data class Invalid(val failure: Result.Failure) : NestedQueryPair()
 }
 
-private fun NestedObjectQueryParam.shouldAttemptParse(key: String): Boolean {
+internal fun NestedObjectQueryParam.shouldAttemptParse(key: String): Boolean {
     return when (syntax.root) {
         ObjectQueryRoot.ParameterNameWrapped -> key.startsWith("$parameterName[")
         ObjectQueryRoot.Unwrapped -> schema.properties.keys.any { propertyName ->

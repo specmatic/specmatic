@@ -85,11 +85,12 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = effectiveQueryPatterns(row)
-            val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
+            val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples()
+            val queryParams = effectiveQueryPatterns(rowWithNestedObjectQueryExamples)
+            val patternMap = rowWithNestedObjectQueryExamples.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
-            queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(row)).flatMap { pattern ->
-                newMapBasedOn(pattern, row, withNullPattern(resolver))
+            queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(rowWithNestedObjectQueryExamples)).flatMap { pattern ->
+                newMapBasedOn(pattern, rowWithNestedObjectQueryExamples, withNullPattern(resolver))
             }.map { it: ReturnValue<Map<String, Pattern>> ->
                 it.ifValue {
                     HttpQueryParamPattern(
@@ -106,12 +107,33 @@ data class HttpQueryParamPattern(
         }
     }
 
+    private fun Row.withNestedObjectQueryParamExamples(): Row {
+        val nestedObjectFields = nestedObjectQueryParams
+            .filterNot { containsField(it.parameterName) }
+            .mapNotNull { nestedObjectQueryParam ->
+                val nestedPairs = columnNames.zip(values).filter { (key, _) ->
+                    nestedObjectQueryParam.shouldAttemptParse(key)
+                }
+
+                if (nestedPairs.isEmpty()) {
+                    null
+                } else {
+                    nestedObjectQueryParam.parameterName to
+                        nestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(nestedPairs).toStringLiteral()
+                }
+            }
+            .toMap()
+
+        return addFields(nestedObjectFields)
+    }
+
     fun addComplimentaryPatterns(basePatterns: Sequence<ReturnValue<HttpQueryParamPattern>>, row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
+        val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples()
         return addComplimentaryPatterns(
             basePatterns.map { rValue -> rValue.ifValue { it.queryPatterns } },
             effectiveQueryPatterns(row),
             null,
-            row,
+            rowWithNestedObjectQueryExamples,
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->

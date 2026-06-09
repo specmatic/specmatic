@@ -1894,6 +1894,15 @@ class OpenApiSpecification(
 
         return objectExampleEntries(exampleValue)
             ?.mapValues { it.value ?: "" }
+            ?: nestedObjectQueryStringExampleEntries(
+                parameter = parameter,
+                resolvedSchema = resolvedSchema,
+                exampleValue = exampleValue,
+                resolveSchemaReference = { ref, context ->
+                    resolveReferenceToSchema(ref, context).second
+                },
+                resolveExample = ::resolveExample
+            )
             ?: mapOf(parameter.name to exampleValue)
     }
 
