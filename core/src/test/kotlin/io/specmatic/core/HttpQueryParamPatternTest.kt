@@ -316,6 +316,321 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    fun `colliding query key should match using authoritative scalar owner without activating object query parameter`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "age?" to QueryParameterScalarPattern(StringPattern()),
+                "name?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = false,
+                    propertyKeys = setOf("age", "name"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            ),
+            collisionGroupsByWireKey = mapOf(
+                "age" to QueryParameterCollisionGroup(
+                    wireKey = "age",
+                    owners = listOf(
+                        QueryParameterCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = false,
+                            parameterName = "age"
+                        ),
+                        QueryParameterCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "info.age",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(StringPattern()),
+                            required = false,
+                            parameterName = "info",
+                            propertyName = "age"
+                        )
+                    ),
+                    authoritativeOwner = QueryParameterCollisionOwner(
+                        wireKey = "age",
+                        sourceName = "age",
+                        kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                        pattern = QueryParameterScalarPattern(NumberPattern()),
+                        required = false,
+                        parameterName = "age"
+                    )
+                )
+            )
+        )
+
+        assertThat(
+            queryPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(listOf("age" to "10"))), Resolver())
+        ).isInstanceOf(Success::class.java)
+        val scalarMismatchResult = queryPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(listOf("age" to "abc"))), Resolver())
+        assertThat(scalarMismatchResult).isInstanceOf(Failure::class.java)
+        assertThat((scalarMismatchResult as Failure).reportString()).contains("PARAMETERS.QUERY.age")
+        assertThat(scalarMismatchResult.reportString()).contains("number")
+    }
+
+    @Test
+    fun `colliding query key should match using authoritative object property and activate required sibling behavior`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "age?" to QueryParameterScalarPattern(StringPattern()),
+                "name?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            formExplodedObjectQueryParams = listOf(
+                FormExplodedObjectQueryParam(
+                    parameterName = "info",
+                    required = false,
+                    propertyKeys = setOf("age", "name"),
+                    requiredPropertyKeys = setOf("name")
+                )
+            ),
+            collisionGroupsByWireKey = mapOf(
+                "age" to QueryParameterCollisionGroup(
+                    wireKey = "age",
+                    owners = listOf(
+                        QueryParameterCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "info.age",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = false,
+                            parameterName = "info",
+                            propertyName = "age"
+                        ),
+                        QueryParameterCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern()),
+                            required = false,
+                            parameterName = "age"
+                        )
+                    ),
+                    authoritativeOwner = QueryParameterCollisionOwner(
+                        wireKey = "age",
+                        sourceName = "info.age",
+                        kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                        pattern = QueryParameterScalarPattern(NumberPattern()),
+                        required = false,
+                        parameterName = "info",
+                        propertyName = "age"
+                    )
+                )
+            )
+        )
+
+        val missingSiblingResult = queryPattern.matches(
+            HttpRequest("GET", "/", queryParams = QueryParameters(listOf("age" to "10"))),
+            Resolver()
+        )
+
+        assertThat(missingSiblingResult).isInstanceOf(Failure::class.java)
+        assertThat(missingSiblingResult.reportString()).contains("required property \"name\" must also be provided")
+        assertThat(
+            queryPattern.matches(
+                HttpRequest("GET", "/", queryParams = QueryParameters(listOf("age" to "10", "name" to "John"))),
+                Resolver()
+            )
+        ).isInstanceOf(Success::class.java)
+        val objectPropertyMismatchResult = queryPattern.matches(
+            HttpRequest("GET", "/", queryParams = QueryParameters(listOf("age" to "abc", "name" to "John"))),
+            Resolver()
+        )
+        assertThat(objectPropertyMismatchResult).isInstanceOf(Failure::class.java)
+        assertThat((objectPropertyMismatchResult as Failure).reportString()).contains("PARAMETERS.QUERY.age")
+        assertThat(objectPropertyMismatchResult.reportString()).contains("number")
+    }
+
+    @Test
+    fun `colliding repeated query key should match using authoritative array owner`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("ids?" to QueryParameterScalarPattern(StringPattern())),
+            collisionGroupsByWireKey = mapOf(
+                "ids" to QueryParameterCollisionGroup(
+                    wireKey = "ids",
+                    owners = listOf(
+                        queryCollisionOwner(
+                            wireKey = "ids",
+                            sourceName = "ids",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterArrayPattern(listOf(NumberPattern()), "ids")
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "ids",
+                            sourceName = "filter.ids",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(StringPattern()),
+                            parameterName = "filter",
+                            propertyName = "ids"
+                        )
+                    ),
+                    authoritativeOwner = queryCollisionOwner(
+                        wireKey = "ids",
+                        sourceName = "ids",
+                        kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                        pattern = QueryParameterArrayPattern(listOf(NumberPattern()), "ids")
+                    )
+                )
+            )
+        )
+
+        assertThat(
+            queryPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(listOf("ids" to "1", "ids" to "2"))), Resolver())
+        ).isInstanceOf(Success::class.java)
+        val arrayMismatchResult = queryPattern.matches(HttpRequest("GET", "/", queryParams = QueryParameters(listOf("ids" to "1", "ids" to "abc"))), Resolver())
+        assertThat(arrayMismatchResult).isInstanceOf(Failure::class.java)
+        assertThat((arrayMismatchResult as Failure).reportString()).contains("PARAMETERS.QUERY.ids")
+        assertThat(arrayMismatchResult.reportString()).contains("number")
+    }
+
+    @Test
+    fun `required authoritative scalar owner should make colliding key mandatory`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("age?" to QueryParameterScalarPattern(StringPattern())),
+            collisionGroupsByWireKey = mapOf(
+                "age" to QueryParameterCollisionGroup(
+                    wireKey = "age",
+                    owners = listOf(
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "info.age",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(StringPattern()),
+                            parameterName = "info",
+                            propertyName = "age"
+                        )
+                    ),
+                    authoritativeOwner = queryCollisionOwner(
+                        wireKey = "age",
+                        sourceName = "age",
+                        kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                        pattern = QueryParameterScalarPattern(NumberPattern()),
+                        required = true
+                    )
+                )
+            )
+        )
+
+        assertThat(queryPattern.matches(HttpRequest("GET", "/"), Resolver())).isInstanceOf(Failure::class.java)
+        assertThat(queryPattern.queryKeyNames).containsExactly("age")
+    }
+
+    @Test
+    fun `required authoritative object property owner should make colliding key mandatory`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("age?" to QueryParameterScalarPattern(StringPattern())),
+            collisionGroupsByWireKey = mapOf(
+                "age" to QueryParameterCollisionGroup(
+                    wireKey = "age",
+                    owners = listOf(
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "info.age",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true,
+                            parameterName = "info",
+                            propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        )
+                    ),
+                    authoritativeOwner = queryCollisionOwner(
+                        wireKey = "age",
+                        sourceName = "info.age",
+                        kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                        pattern = QueryParameterScalarPattern(NumberPattern()),
+                        required = true,
+                        parameterName = "info",
+                        propertyName = "age"
+                    )
+                )
+            )
+        )
+
+        assertThat(queryPattern.matches(HttpRequest("GET", "/"), Resolver())).isInstanceOf(Failure::class.java)
+        assertThat(queryPattern.queryKeyNames).containsExactly("age")
+    }
+
+    @Test
+    fun `generation should use authoritative collision owner pattern and key optionality`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf("age?" to QueryParameterScalarPattern(StringPattern())),
+            collisionGroupsByWireKey = mapOf(
+                "age" to QueryParameterCollisionGroup(
+                    wireKey = "age",
+                    owners = listOf(
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "info.age",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(StringPattern()),
+                            parameterName = "info",
+                            propertyName = "age"
+                        )
+                    ),
+                    authoritativeOwner = queryCollisionOwner(
+                        wireKey = "age",
+                        sourceName = "age",
+                        kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                        pattern = QueryParameterScalarPattern(NumberPattern()),
+                        required = true
+                    )
+                )
+            )
+        )
+
+        val generatedQueryParams = queryPattern.generate(Resolver())
+        val generatedPatternKeys = queryPattern.newBasedOn(Row(), Resolver()).toList().map { it.value.queryPatterns.keys }
+
+        assertThat(generatedQueryParams.map { it.first }).containsExactly("age")
+        assertThat(generatedQueryParams.map { it.second }).allSatisfy { assertThat(it.toIntOrNull()).isNotNull() }
+        assertThat(generatedPatternKeys).containsExactly(setOf("age"))
+    }
+
+    private fun queryCollisionOwner(
+        wireKey: String,
+        sourceName: String,
+        kind: QueryParameterCollisionOwnerKind,
+        pattern: Pattern,
+        required: Boolean = false,
+        parameterName: String = sourceName,
+        propertyName: String? = null
+    ): QueryParameterCollisionOwner {
+        return QueryParameterCollisionOwner(
+            wireKey = wireKey,
+            sourceName = sourceName,
+            kind = kind,
+            pattern = pattern,
+            required = required,
+            parameterName = parameterName,
+            propertyName = propertyName
+        )
+    }
+
+    @Test
     @Tag(GENERATION)
     fun `should generate required-only and all combinations for mandatory form exploded object query params from row`() {
         val queryPattern = HttpQueryParamPattern(
