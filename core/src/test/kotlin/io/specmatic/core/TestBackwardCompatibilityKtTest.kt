@@ -16,8 +16,6 @@ import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -36,20 +34,6 @@ internal class TestBackwardCompatibilityKtTest {
         }
         assertThat(stripTrailingWhitespacePerLine(results.report()))
             .isEqualToNormalizingNewlines(stripTrailingWhitespacePerLine(expectedReport.trimIndent()))
-    }
-
-    companion object {
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            System.setProperty("SPECMATIC_BCC_REPORT", "true")
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun teardown() {
-            System.clearProperty("SPECMATIC_BCC_REPORT")
-        }
     }
 
     @Test

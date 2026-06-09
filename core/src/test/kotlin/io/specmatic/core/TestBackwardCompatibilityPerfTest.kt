@@ -2,8 +2,6 @@ package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import java.io.File
@@ -11,20 +9,6 @@ import java.time.Duration.ofSeconds
 import kotlin.system.measureTimeMillis
 
 class TestBackwardCompatibilityPerfTest {
-    companion object {
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            System.setProperty("SPECMATIC_BCC_REPORT", "true")
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun teardown() {
-            System.clearProperty("SPECMATIC_BCC_REPORT")
-        }
-    }
-
     @Test
     fun `backward compatibility check performance should not regress`() {
         val specFile = File(javaClass.getResource("/openapi/multi_res_perf.yaml")!!.toURI())
