@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.URIUtils
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import java.net.URI
 import kotlin.collections.contains
@@ -65,7 +66,13 @@ data class HttpQueryParamPattern(
             queryPatternsWithAuthoritativeCollisionOwners.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
                 attempt(breadCrumb = parameterName) {
                     val generatedValue =  updatedResolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
-                    if(generatedValue is JSONArrayValue) {
+                    val nestedObjectQueryParamPairs = (generatedValue as? JSONObjectValue)?.let {
+                        serializeNestedObjectQueryValue(parameterName, it, nestedObjectQueryParams)
+                    }
+
+                    if (nestedObjectQueryParamPairs != null) {
+                        nestedObjectQueryParamPairs
+                    } else if(generatedValue is JSONArrayValue) {
                         generatedValue.list.map { parameterName to it.toString() }
                     }
                     else {
@@ -274,8 +281,7 @@ data class HttpQueryParamPattern(
                         it
                 }
                 val patternMap = queryParams.mapValues {
-                    if (it.value is QueryParameterScalarPattern) return@mapValues it.value.pattern as Pattern
-                    (it.value as QueryParameterArrayPattern).pattern.firstOrNull() ?: EmptyStringPattern
+                    negativeGenerationPattern(it.value)
                 }
 
                 allOrNothingCombinationIn(patternMap) { pattern ->
@@ -398,6 +404,14 @@ data class HttpQueryParamPattern(
             .filter { (key, _) -> key !in effectiveKeys }
             .filterNot(validAdditionalQueryParams::contains)
             .associate { (key, _) -> key to additionalProperties }
+    }
+
+    private fun negativeGenerationPattern(pattern: Pattern): Pattern {
+        return when (pattern) {
+            is QueryParameterScalarPattern -> pattern.pattern
+            is QueryParameterArrayPattern -> pattern.pattern.firstOrNull() ?: EmptyStringPattern
+            else -> pattern
+        }
     }
 
     private fun queryParamCombinationsRespectingFormExplodedObjects(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {

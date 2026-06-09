@@ -12948,6 +12948,114 @@ paths:
         })
     }
 
+    @Test
+    fun `contract tests use inferred nested object query syntax from parameter examples`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Nested Object Query Example
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                          - address
+                        properties:
+                          name:
+                            type: string
+                          address:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - street
+                                - city
+                              properties:
+                                street:
+                                  type: string
+                                city:
+                                  type: string
+                      example: name=Jack&address[0].street=Baker Street&address[0].city=London
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsKey("name")
+            assertThat(queryParams).containsKey("address[0].street")
+            assertThat(queryParams).containsKey("address[0].city")
+            assertThat(queryParams).doesNotContainKey("details")
+        })
+    }
+
+    @Test
+    fun `positive generated contract tests preserve inferred nested object and array query syntax`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        val queryParams = generatedPositiveRequests(feature).single().queryParams.asMap()
+
+        assertThat(queryParams).containsKey("category")
+        assertThat(queryParams).containsKey("price.min")
+        assertThat(queryParams).containsKey("price.max")
+        assertThat(queryParams.keys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.color")) }
+        assertThat(queryParams.keys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.sizes\\[[0-9]+]")) }
+        assertThat(queryParams).doesNotContainKey("filter")
+    }
+
+    @Test
+    fun `negative generated contract tests preserve inferred nested object and array query syntax`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+        val nonEmptyNegativeRequests = generatedNegativeRequests(feature).filter { it.queryParams.paramPairs.isNotEmpty() }
+
+        assertThat(nonEmptyNegativeRequests).isNotEmpty
+        assertThat(nonEmptyNegativeRequests).allSatisfy { request ->
+            val queryParams = request.queryParams.asMap()
+
+            assertThat(queryParams.keys).doesNotContain("filter")
+            assertThat(queryParams.keys).allSatisfy { queryKey ->
+                assertThat(queryKey).matches("category|price\\.min|price\\.max|variants\\[[0-9]+]\\.color|variants\\[[0-9]+]\\.sizes\\[[0-9]+]")
+            }
+        }
+        assertThat(nonEmptyNegativeRequests).anySatisfy(Consumer { request ->
+            val queryKeys = request.queryParams.keys
+
+            assertThat(queryKeys).contains("price.min")
+            assertThat(queryKeys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.sizes\\[[0-9]+]")) }
+        })
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `mock uses serialized query property keys from inline object query examples`(case: FormExplodedObjectQueryExampleCase) {
@@ -13217,6 +13325,72 @@ paths:
                   properties:
                     inventory:
                       type: integer
+        """.trimIndent()
+    }
+
+    private fun nestedObjectAndArrayQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Object And Array Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - category
+                          - price
+                          - variants
+                        properties:
+                          category:
+                            type: string
+                          price:
+                            type: object
+                            required:
+                              - min
+                              - max
+                            properties:
+                              min:
+                                type: number
+                              max:
+                                type: number
+                          variants:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - color
+                                - sizes
+                              properties:
+                                color:
+                                  type: string
+                                sizes:
+                                  type: array
+                                  items:
+                                    type: number
+                      example: category=shoes&price.min=50&price.max=150&variants[0].color=black&variants[0].sizes[0]=9
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
         """.trimIndent()
     }
 

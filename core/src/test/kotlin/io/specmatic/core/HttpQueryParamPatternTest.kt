@@ -412,6 +412,113 @@ class HttpQueryParamPatternTest {
         )
     }
 
+    @Test
+    @Tag(GENERATION)
+    fun `should generate nested object query params using every supported inferred syntax`() {
+        val generationCases = listOf(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket) to listOf(
+                "name" to "Jack",
+                "address[0][street]" to "Baker Street",
+                "address[0][city]" to "London"
+            ),
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket) to listOf(
+                "name" to "Jack",
+                "address[0].street" to "Baker Street",
+                "address[0].city" to "London"
+            ),
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket) to listOf(
+                "details[name]" to "Jack",
+                "details[address][0].street" to "Baker Street",
+                "details[address][0].city" to "London"
+            ),
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket) to listOf(
+                "details[name]" to "Jack",
+                "details[address][0][street]" to "Baker Street",
+                "details[address][0][city]" to "London"
+            )
+        )
+
+        generationCases.forEach { (syntax, expectedQueryParams) ->
+            val queryPattern = deterministicNestedDetailsQueryParamPattern(syntax)
+            val generatedValue = queryPattern.generate(Resolver())
+
+            assertThat(generatedValue).containsAll(expectedQueryParams)
+            assertThat(generatedValue.map { it.first }).doesNotContain("details")
+        }
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate nested object query params from newBasedOn using inferred syntax`() {
+        val queryPattern = deterministicNestedDetailsQueryParamPattern(
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
+        )
+
+        val generatedPattern = queryPattern.newBasedOn(Row(), Resolver()).first { it.value.queryPatterns.containsKey("details") }.value
+        val generatedValue = generatedPattern.generate(Resolver())
+
+        assertThat(generatedValue).contains(
+            "details[name]" to "Jack",
+            "details[address][0][street]" to "Baker Street",
+            "details[address][0][city]" to "London"
+        )
+        assertThat(generatedValue.map { it.first }).doesNotContain("details")
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate nested object query params from newBasedOn row values using inferred syntax`() {
+        val queryPattern = nestedDetailsQueryParamPattern(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+        val row = nestedDetailsRow()
+
+        val generatedPattern = queryPattern.newBasedOn(row, Resolver()).single().value
+        val generatedValue = generatedPattern.generate(Resolver())
+
+        assertThat(generatedValue).contains(
+            "name" to "Row Jack",
+            "address[0].street" to "Row Street",
+            "address[0].city" to "Row City"
+        )
+        assertThat(generatedValue.map { it.first }).allSatisfy { key ->
+            assertThat(key).matches("name|address\\[[0-9]+]\\.street|address\\[[0-9]+]\\.city")
+        }
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate negative nested object query params from row values using inferred syntax`() {
+        val queryPattern = nestedDetailsQueryParamPattern(
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+        val row = nestedDetailsRow()
+
+        val generatedPattern = queryPattern.negativeBasedOn(row, Resolver()).first { it.value.queryPatterns.containsKey("details") }.value
+        val generatedValue = generatedPattern.generate(Resolver())
+
+        assertThat(generatedValue.map { it.first }).allSatisfy { key ->
+            assertThat(key).matches("details\\[name]|details\\[address]\\[[0-9]+]\\.street|details\\[address]\\[[0-9]+]\\.city")
+        }
+        assertThat(generatedValue.map { it.first }).doesNotContain("details")
+    }
+
+    @Test
+    @Tag(GENERATION)
+    fun `should generate negative nested object query params using inferred syntax`() {
+        val queryPattern = deterministicNestedDetailsQueryParamPattern(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+
+        val generatedPattern = queryPattern.negativeBasedOn(Row(), Resolver()).first { it.value.queryPatterns.containsKey("details") }.value
+        val generatedValue = generatedPattern.generate(Resolver())
+
+        assertThat(generatedValue.map { it.first }).allSatisfy { key ->
+            assertThat(key).matches("name|address\\[[0-9]+]\\.street|address\\[[0-9]+]\\.city")
+        }
+        assertThat(generatedValue).isNotEmpty
+    }
+
     private fun ecommerceNestedFilterQueryParamPattern(): HttpQueryParamPattern {
         return HttpQueryParamPattern(
             queryPatterns = mapOf(
@@ -463,6 +570,66 @@ class HttpQueryParamPatternTest {
                         )
                     ),
                     syntax = ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+                )
+            )
+        )
+    }
+
+    private fun nestedDetailsRow(): Row {
+        val requestExample = parsedJSONObject(
+            """
+            {
+              "details": {
+                "name": "Row Jack",
+                "address": [
+                  {
+                    "street": "Row Street",
+                    "city": "Row City"
+                  }
+                ]
+              }
+            }
+            """.trimIndent()
+        )
+
+        return Row(requestBodyJSONExample = JSONExample(requestExample, Row()))
+    }
+
+    private fun deterministicNestedDetailsQueryParamPattern(syntax: ObjectQuerySyntax): HttpQueryParamPattern {
+        return HttpQueryParamPattern(
+            queryPatterns = mapOf(
+                "details" to JSONObjectPattern(
+                    mapOf(
+                        "name" to ExactValuePattern(StringValue("Jack")),
+                        "address" to ListPattern(
+                            JSONObjectPattern(
+                                mapOf(
+                                    "street" to ExactValuePattern(StringValue("Baker Street")),
+                                    "city" to ExactValuePattern(StringValue("London"))
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+            nestedObjectQueryParams = listOf(
+                NestedObjectQueryParam(
+                    parameterName = "details",
+                    required = true,
+                    schema = NestedQuerySchema.Object(
+                        properties = mapOf(
+                            "name" to NestedQuerySchema.Scalar,
+                            "address" to NestedQuerySchema.Array(
+                                itemSchema = NestedQuerySchema.Object(
+                                    properties = mapOf(
+                                        "street" to NestedQuerySchema.Scalar,
+                                        "city" to NestedQuerySchema.Scalar
+                                    )
+                                )
+                            )
+                        )
+                    ),
+                    syntax = syntax
                 )
             )
         )

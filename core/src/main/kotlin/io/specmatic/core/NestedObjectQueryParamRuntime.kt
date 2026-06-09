@@ -109,6 +109,15 @@ internal fun serializeNestedObjectQueryValues(
     return ordinaryPairs + nestedPairs
 }
 
+internal fun serializeNestedObjectQueryValue(
+    parameterName: String,
+    value: JSONObjectValue,
+    nestedObjectQueryParams: List<NestedObjectQueryParam>
+): List<Pair<String, String>>? {
+    val nestedQueryParam = nestedObjectQueryParams.firstOrNull { it.parameterName == parameterName } ?: return null
+    return value.toQueryParamPairs(parameterName, nestedQueryParam.syntax)
+}
+
 private sealed class NestedQueryPair {
     data class Unconsumed(val pair: Pair<String, String>) : NestedQueryPair()
     data class Consumed(
