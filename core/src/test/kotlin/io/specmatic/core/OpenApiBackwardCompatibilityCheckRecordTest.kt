@@ -99,6 +99,50 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
     }
 
     @Test
+    fun `should expose one breakage per rule violation on an issue`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        val failure = Result.Failure(
+            message = "type mismatch on applicationNumber",
+            ruleViolation = StandardRuleViolation.TYPE_MISMATCH
+        ).withRuleViolation(StandardRuleViolation.VALUE_MISMATCH)
+            .breadCrumb("applicationNumber").breadCrumb("BODY").breadCrumb("REQUEST")
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = failure,
+            feature = feature.copy(scenarios = listOf(scenario)),
+        )
+
+        assertThat(record.breakingChanges).hasSize(2)
+        assertThat(record.breakingChanges.map { it.rule?.id })
+            .containsExactlyInAnyOrder(
+                StandardRuleViolation.TYPE_MISMATCH.id,
+                StandardRuleViolation.VALUE_MISMATCH.id,
+            )
+        assertThat(record.breakingChanges.map { it.breadcrumb }.distinct())
+            .containsExactly("REQUEST.BODY.applicationNumber")
+    }
+
+    @Test
+    fun `should expose a breakage even when the issue has no rule violation`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        val failure = Result.Failure(message = "breaking change").breadCrumb("applicationNumber")
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            scenario = scenario,
+            compatResult = failure,
+            feature = feature.copy(scenarios = listOf(scenario)),
+        )
+
+        assertThat(record.breakingChanges).hasSize(1)
+        assertThat(record.breakingChanges.single().rule).isNull()
+    }
+
+    @Test
     fun `should expose no breakages for a compatible scenario`() {
         val feature = openApiFeature()
         val scenario = feature.scenarios.single()

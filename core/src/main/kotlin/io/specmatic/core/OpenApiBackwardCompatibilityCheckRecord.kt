@@ -31,16 +31,20 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     // TODO: Need actual positive variation from generatedScenario
     override val name: String = scenario.fullApiDescription
     override val message: String = compatResult.reportString(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
-    override val breakingChanges: List<CtrfBreakingChange> = compatResult.toIssues().map { issue ->
-        CtrfBreakingChange(
-            breadcrumb = issue.breadCrumb,
-            sourceLocations = issue.sourceLocations.map { CtrfSourceLocation(it.filePath, it.line, it.column) },
-            rule = issue.ruleViolations.firstOrNull()?.let {
-                CtrfRuleSnapshot(it.id, it.title, it.documentationUrl, it.summary)
-            },
-            description = issue.details,
-            severity = issue.severity.name.lowercase(),
-        )
+    override val breakingChanges: List<CtrfBreakingChange> = compatResult.toIssues().flatMap { issue ->
+        val sourceLocations = issue.sourceLocations.map { CtrfSourceLocation(it.filePath, it.line, it.column) }
+        val rules: List<CtrfRuleSnapshot?> = issue.ruleViolations.map {
+            CtrfRuleSnapshot(it.id, it.title, it.documentationUrl, it.summary)
+        }.ifEmpty { listOf(null) }
+        rules.map { rule ->
+            CtrfBreakingChange(
+                breadcrumb = issue.breadCrumb,
+                sourceLocations = sourceLocations,
+                rule = rule,
+                description = issue.details,
+                severity = issue.severity.name.lowercase(),
+            )
+        }
     }
     override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
     override val tags: List<String> = buildList {
