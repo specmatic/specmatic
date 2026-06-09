@@ -25,7 +25,7 @@ dependencies {
     implementation("io.ktor:ktor-network-tls-jvm:2.3.13")
     implementation("io.ktor:ktor-network-tls-certificates-jvm:2.3.13")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.4")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.0")
 
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
     implementation("org.junit.platform:junit-platform-reporting:1.14.4")
@@ -42,6 +42,8 @@ dependencies {
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
+    implementation("io.modelcontextprotocol.sdk:mcp-core:1.1.3")
+    implementation("io.modelcontextprotocol.sdk:mcp-json-jackson2:1.1.3")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
 

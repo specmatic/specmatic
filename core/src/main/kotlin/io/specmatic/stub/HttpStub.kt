@@ -63,7 +63,6 @@ import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.exitWithMessage
-import io.specmatic.core.utilities.saveJsonFile
 import io.specmatic.core.utilities.toMap
 import io.specmatic.core.utilities.validateTestOrStubUri
 import io.specmatic.core.value.EmptyString
@@ -80,15 +79,12 @@ import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.mock.TRANSIENT_MOCK
-import io.specmatic.reporter.generated.dto.stub.usage.SpecmaticStubUsageReport
-import io.specmatic.reporter.internal.dto.stub.usage.merge
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.OpenApiMockUsage
 import io.specmatic.stub.report.StubEndpoint
-import io.specmatic.stub.report.StubUsageReport
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
@@ -113,7 +109,6 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.Writer
@@ -131,8 +126,6 @@ import kotlin.text.toCharArray
 const val SPECMATIC_RESPONSE_CODE_HEADER = "Specmatic-Response-Code"
 const val HTTP_PORT = 80
 const val HTTPS_PORT = 443
-const val JSON_REPORT_PATH = "./build/reports/specmatic"
-const val JSON_REPORT_FILE_NAME = "stub_usage_report.json"
 private const val SWAGGER_SPEC_NOT_AVAILABLE_MESSAGE = "No OpenAPI specifications are loaded in this mock server"
 
 class HttpStub(
@@ -154,7 +147,6 @@ class HttpStub(
         it.path to endPointFromHostAndPort(host, port, keyDataRegistry.hasAny())
     },
     private val listeners: List<MockEventListener> = emptyList(),
-    private val reportBaseDirectoryPath: String = ".",
     private val startTime: Instant = Instant.now(),
     var requestHandlers: MutableList<RequestHandler> = mutableListOf()
 ) : ContractStub {
@@ -227,7 +219,6 @@ class HttpStub(
     private val loadedSpecmaticConfig = specmaticConfigSource.load()
     private val specmaticConfigInstance: SpecmaticConfig = loadedSpecmaticConfig.config
     private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
-    val specmaticConfigPath: String? = loadedSpecmaticConfig.path
 
     private val ctrfTestResultRecords = mutableListOf<TestResultRecord>()
 
@@ -1170,7 +1161,6 @@ class HttpStub(
     }
 
     private fun generateReports() {
-        generateStubUsageReport()
         synchronized(ctrfTestResultRecords) {
             val mockUsage = OpenApiMockUsage(specmaticConfigInstance)
             mockUsage.addEndpoints(_allEndpoints)
@@ -1228,36 +1218,6 @@ class HttpStub(
                     scenario.specType
                 )
             }
-        }
-    }
-
-
-    private fun generateStubUsageReport() {
-        specmaticConfigPath?.let {
-            val stubUsageReport = StubUsageReport(specmaticConfigPath, _allEndpoints, _logs)
-            println("Saving Stub Usage Report json to $JSON_REPORT_PATH ...")
-            val json = Json {
-                encodeDefaults = false
-            }
-            val generatedReport = stubUsageReport.generate()
-            val reportPath = File(reportBaseDirectoryPath).resolve(JSON_REPORT_PATH).canonicalFile
-            val reportJson: String = reportPath.resolve(JSON_REPORT_FILE_NAME).let { reportFile ->
-                val objectMapper = ObjectMapper()
-                if (reportFile.exists()) {
-                    try {
-                        val existingReport =
-                            objectMapper.readValue(reportFile.readText(), SpecmaticStubUsageReport::class.java)
-                        objectMapper.writeValueAsString(generatedReport.merge(existingReport))
-                    } catch (exception: Throwable) {
-                        logger.log("The existing report file is not a valid Stub Usage Report. ${exception.message}")
-                        objectMapper.writeValueAsString(generatedReport)
-                    }
-                } else {
-                    objectMapper.writeValueAsString(generatedReport)
-                }
-            }
-
-            saveJsonFile(reportJson, reportPath.canonicalPath, JSON_REPORT_FILE_NAME)
         }
     }
 

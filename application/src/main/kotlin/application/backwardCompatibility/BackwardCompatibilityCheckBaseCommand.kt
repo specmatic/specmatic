@@ -270,7 +270,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
                     val repoDirFile = File(effectiveRepoDir).absoluteFile
                     val olderFileExists =
-                        gitCommand.exists(baseBranch, File(specFilePath).relativeTo(repoDirFile).path)
+                        gitCommand.exists(baseBranch, File(specFilePath).relativeTo(repoDirFile).invariantSeparatorsPath)
 
                     if (!olderFileExists) {
                         // new file: mark as passed immediately
@@ -366,7 +366,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                         hook.check(
                             processed.backwardCompatibilityResult,
                             gitCommand.getRemoteUrl(),
-                            File(processed.specFilePath).relativeTo(repoDirFile).path
+                            File(processed.specFilePath).relativeTo(repoDirFile).invariantSeparatorsPath
                         )
                     } catch (e: Throwable) {
                         logger.log(e)

@@ -1276,7 +1276,7 @@ class OpenApiCoverageReportInputTest {
         assertThat(report.coveragePercentage).isEqualTo(67)
         assertThat(report.missedOperations).isEqualTo(1)
 
-        val processor = OpenApiCoverageReportProcessor(coverage.generate(), tempDir.absolutePath)
+        val processor = OpenApiCoverageReportProcessor(coverage.generate())
         val reportConfiguration = loadSpecmaticConfig(configFile.absolutePath).getReport()!!
         assertThatThrownBy { processor.assertSuccessCriteria(reportConfiguration, report) }.isInstanceOf(AssertionError::class.java)
 
@@ -1285,6 +1285,37 @@ class OpenApiCoverageReportInputTest {
         assertThat(listener.governanceCalls.single().reportString())
             .containsIgnoringWhitespaces("Total API coverage: 67% is less than the specified minimum threshold of 70%")
             .containsIgnoringWhitespaces("Total missed operations: 1 is greater than the maximum threshold of 0")
+    }
+
+    @Test
+    fun `should not generate legacy coverage assets`(@TempDir tempDir: File) {
+        val configFile = tempDir.resolve("specmatic.yaml")
+        configFile.writeText("""
+        version: 2
+        report:
+          types:
+            APICoverage:
+              OpenAPI:
+                successCriteria:
+                  minThresholdPercentage: 0
+                  maxMissedEndpointsInSpec: 0
+                  enforce: false
+        """.trimIndent())
+
+        val coverage = OpenApiCoverageBuilder.buildCoverage {
+            specEndpoint("GET", "/pets", 200)
+            testResult(path = "/pets", method = "GET", responseCode = 200, result = TestResult.Success)
+        }
+
+        OpenApiCoverageReportProcessor(
+            openApiCoverageReport = coverage.generate()
+        ).process(
+            specmaticConfig = loadSpecmaticConfig(configFileName = configFile.absolutePath)
+        )
+
+        val reportDir = tempDir.resolve("build/reports/specmatic")
+        assertThat(reportDir.resolve("html")).doesNotExist()
+        assertThat(reportDir.resolve("coverage_report.json")).doesNotExist()
     }
 
     private class RecordingCoverageListener : TestReportListener {

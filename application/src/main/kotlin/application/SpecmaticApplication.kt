@@ -1,7 +1,6 @@
 package application
 
 import io.specmatic.core.loadSpecmaticConfigOrNull
-import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.UncaughtExceptionHandler
 import io.specmatic.license.core.Executor
@@ -13,7 +12,13 @@ import picocli.CommandLine
 open class SpecmaticApplication {
     companion object {
         @JvmStatic
+        val originalStdout: java.io.PrintStream = System.out
+
+        @JvmStatic
         fun main(args: Array<String>) {
+            val commandLine = createCommandLine()
+            redirectStdoutToStderrIfMcpServer(args)
+
             LicenseResolver.setCurrentExecutorIfNotSet(Executor.JAR)
 
             val specmaticConfig = loadSpecmaticConfigOrNull()
@@ -25,8 +30,6 @@ open class SpecmaticApplication {
 
             Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
 
-            val commandLine = CommandLine(SpecmaticCommand())
-            SpecmaticCoreSubcommands.configure(commandLine)
             if (args.none { it == "-V" || it == "--version" || it == "generate-completion" }) {
                 commandLine.printVersionHelp(System.out)
                 println()
@@ -40,6 +43,30 @@ open class SpecmaticApplication {
                 }
             }
         }
+
+        private fun redirectStdoutToStderrIfMcpServer(args: Array<String>) {
+            val commandLine = createCommandLine().apply {
+                isUnmatchedArgumentsAllowed = true
+            }
+
+            val parseResult = try {
+                commandLine.parseArgs(*args)
+            } catch (_: CommandLine.ParameterException) {
+                null
+            }
+
+            val subcommandPath = parseResult
+                ?.asCommandLineList()
+                ?.drop(1)
+                ?.map { it.commandName }
+
+            if (subcommandPath == listOf("mcp", "server")) {
+                System.setOut(System.err)
+            }
+        }
+
+        private fun createCommandLine(): CommandLine =
+            CommandLine(SpecmaticCommand()).also(SpecmaticCoreSubcommands::configure)
 
         private fun setupPicoCli() {
             System.setProperty("picocli.usage.width", "auto")

@@ -12,35 +12,28 @@ import java.io.File
 class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Boolean, val specmaticConfig: SpecmaticConfig) : ExampleSource {
     override val examples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>
         get() {
-            return exampleDirs.flatMap { directory ->
-                loadExternalisedJSONExamples(File(directory)).entries
-            }.associate { it.toPair() }
+            return exampleDirs.map(::File).distinctBy { it.normalizedPath() }
+                .flatMap { directory -> loadExternalisedJSONExamples(directory).entries }
+                .groupBy(keySelector = { it.key }, valueTransform = { it.value })
+                .mapValues { (_, lists) -> lists.flatten() }
         }
 
-    private fun loadExternalisedJSONExamples(testsDirectory: File?): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
-        if (testsDirectory == null)
-            return emptyMap()
+    private fun filesIn(testsDirectory: File): List<File> {
+        if (!testsDirectory.exists()) return emptyList()
+        return testsDirectory.walk()
+            .filterNot { it.isDirectory }
+            .filter { it.extension == "json" }
+            .toList().sortedBy { it.name }
+    }
 
-        if (!testsDirectory.exists())
-            return emptyMap()
-
-        val files = testsDirectory.walk().filterNot { it.isDirectory }.filter {
-            it.extension == "json"
-        }.toList().sortedBy { it.name }
-
-        if (files.isEmpty()) return emptyMap()
-
-        val examplesInSubdirectories: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
-            files.filter {
-                it.isDirectory
-            }.fold(emptyMap()) { acc, item ->
-                acc + loadExternalisedJSONExamples(item)
-            }
-
-        logger.log("Loading externalised examples in ${testsDirectory.path}: ")
+    private fun loadExternalisedJSONExamples(testsDirectory: File): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
+        val files = filesIn(testsDirectory)
+        logger.boundary()
+        logger.log("Loading externalised examples from ${testsDirectory.path}: ")
+        logger.withIndentation(count = 2) { logger.log("${files.size} examples(s) found in ${testsDirectory.path}") }
         logger.boundary()
 
-        return examplesInSubdirectories + files.asSequence()
+        return files.asSequence()
             .filterNot { it.isDirectory }
             .mapNotNull { exampleFile ->
                 runCatching { ExampleFromFile(exampleFile) }.getOrElse { e ->
@@ -53,5 +46,9 @@ class DirectoryExampleSource(val exampleDirs: List<String>, val strictMode: Bool
             }.map { example -> OpenApiSpecification.OperationIdentifier(example) to example.toRow(specmaticConfig) }
             .groupBy { (operationIdentifier, _) -> operationIdentifier }
             .mapValues { (_, value) -> value.map { it.second } }
+    }
+
+    private fun File.normalizedPath(): String {
+        return runCatching { canonicalPath }.getOrElse { absolutePath }
     }
 }
