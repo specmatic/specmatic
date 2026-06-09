@@ -38,11 +38,19 @@ data class QueryParameterCollisionGroup(
     val authoritativeOwner: QueryParameterCollisionOwner
 )
 
+data class NestedObjectQueryParam(
+    val parameterName: String,
+    val required: Boolean,
+    val schema: NestedQuerySchema.Object,
+    val syntax: ObjectQuerySyntax
+)
+
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
     val extensibleQueryParams: Boolean = false,
     val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList(),
+    val nestedObjectQueryParams: List<NestedObjectQueryParam> = emptyList(),
     val parameterPointers: Map<String, String> = emptyMap(),
     val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup> = emptyMap()
 ) {
@@ -82,6 +90,7 @@ data class HttpQueryParamPattern(
                         additionalProperties = additionalProperties,
                         extensibleQueryParams = extensibleQueryParams,
                         formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                        nestedObjectQueryParams = nestedObjectQueryParams,
                         parameterPointers = parameterPointers,
                         collisionGroupsByWireKey = collisionGroupsByWireKey
                     )
@@ -105,6 +114,7 @@ data class HttpQueryParamPattern(
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    nestedObjectQueryParams = nestedObjectQueryParams,
                     parameterPointers = parameterPointers,
                     collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
@@ -230,6 +240,7 @@ data class HttpQueryParamPattern(
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    nestedObjectQueryParams = nestedObjectQueryParams,
                     parameterPointers = parameterPointers,
                     collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
@@ -270,6 +281,7 @@ data class HttpQueryParamPattern(
                             additionalProperties = additionalProperties,
                             extensibleQueryParams = extensibleQueryParams,
                             formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                            nestedObjectQueryParams = nestedObjectQueryParams,
                             parameterPointers = parameterPointers,
                             collisionGroupsByWireKey = collisionGroupsByWireKey
                         )
@@ -297,6 +309,7 @@ data class HttpQueryParamPattern(
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    nestedObjectQueryParams = nestedObjectQueryParams,
                     parameterPointers = parameterPointers,
                     collisionGroupsByWireKey = collisionGroupsByWireKey
                 )

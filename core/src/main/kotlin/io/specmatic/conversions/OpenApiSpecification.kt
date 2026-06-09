@@ -3278,6 +3278,7 @@ class OpenApiSpecification(
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
             formExplodedObjectQueryParams = collisionResolution.formExplodedObjectQueryParams,
+            nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam),
             parameterPointers = queryParameterPointers,
             collisionGroupsByWireKey = collisionResolution.collisionGroupsByWireKey
         )
@@ -3286,6 +3287,7 @@ class OpenApiSpecification(
     private data class QueryParameterParseResult(
         val entries: List<QueryParameterPatternEntry>,
         val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
+        val nestedObjectQueryParam: NestedObjectQueryParam? = null,
         val additionalProperties: Pattern? = null
     )
 
@@ -3381,6 +3383,15 @@ class OpenApiSpecification(
                 required = parameter.required == true,
                 propertyKeys = schemaProperties.keys,
                 requiredPropertyKeys = requiredProperties
+            ),
+            nestedObjectQueryParam = nestedObjectQueryParam(
+                parameter = parameter,
+                resolvedSchema = resolvedSchema,
+                parameterContext = parameterContext,
+                resolveSchemaReference = { ref, context ->
+                    resolveReferenceToSchema(ref, context).second
+                },
+                resolveExample = ::resolveExample
             ),
             additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
         )
