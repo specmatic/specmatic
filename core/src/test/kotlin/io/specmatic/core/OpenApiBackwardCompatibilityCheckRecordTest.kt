@@ -3,6 +3,7 @@ package io.specmatic.core
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
+import io.specmatic.reporter.ctrf.model.CtrfSeverity
 import io.specmatic.reporter.ctrf.model.CtrfSourceLocation
 import io.specmatic.core.ChangeStatus
 import io.specmatic.reporter.model.BackwardCompatibilityStatus
@@ -91,7 +92,7 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
         assertThat(breakage.breadcrumb).isEqualTo("REQUEST.BODY.applicationNumber")
         assertThat(breakage.rule?.id).isEqualTo("R1001")
         assertThat(breakage.description).contains("type number in the new specification")
-        assertThat(breakage.severity).isEqualTo("error")
+        assertThat(breakage.severity).isEqualTo(CtrfSeverity.ERROR)
         assertThat(breakage.sourceLocations).containsExactly(
             CtrfSourceLocation("/specs/api.yaml", 27, 13),
             CtrfSourceLocation("/specs/common.yaml", 38, 9),

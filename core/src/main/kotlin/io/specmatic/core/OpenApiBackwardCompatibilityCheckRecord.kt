@@ -6,6 +6,7 @@ import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfBreakingChange
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
 import io.specmatic.reporter.ctrf.model.CtrfRuleSnapshot
+import io.specmatic.reporter.ctrf.model.CtrfSeverity
 import io.specmatic.reporter.ctrf.model.CtrfSourceLocation
 import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.BackwardCompatibilityStatus
@@ -42,7 +43,10 @@ data class OpenApiBackwardCompatibilityCheckRecord(
                 sourceLocations = sourceLocations,
                 rule = rule,
                 description = issue.details,
-                severity = issue.severity.name.lowercase(),
+                severity = when (issue.severity) {
+                    IssueSeverity.ERROR -> CtrfSeverity.ERROR
+                    IssueSeverity.WARNING -> CtrfSeverity.WARNING
+                },
             )
         }
     }
