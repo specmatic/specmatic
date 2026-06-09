@@ -20,7 +20,6 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.entry
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -50,14 +49,6 @@ class BackwardCompatibilityCheckCommandV2Test {
                 feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
                 protocol = listOf(SpecmaticProtocol.HTTP)
             )
-
-            System.setProperty("SPECMATIC_BCC_REPORT", "true")
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun teardown() {
-            System.clearProperty("SPECMATIC_BCC_REPORT")
         }
     }
 

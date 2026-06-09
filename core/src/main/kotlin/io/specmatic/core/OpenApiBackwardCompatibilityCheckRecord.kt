@@ -1,7 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.convertPathParameterStyle
-import io.specmatic.core.utilities.Flags
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfBreakingChange
 import io.specmatic.reporter.ctrf.model.CtrfOperationQualifiers
@@ -31,7 +30,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
 
     // TODO: Need actual positive variation from generatedScenario
     override val name: String = scenario.fullApiDescription
-    override val message: String = compatResult.reportString(addSourceLocation = Flags.getBooleanValue(SPECMATIC_BCC_REPORT_FLAG))
+    override val message: String = compatResult.reportString(addSourceLocation = true)
     override val breakingChanges: List<CtrfBreakingChange> = compatResult.toIssues().flatMap { issue ->
         val sourceLocations = issue.sourceLocations.map { CtrfSourceLocation(it.filePath, it.line, it.column) }
         val rules: List<CtrfRuleSnapshot?> = issue.ruleViolations.map {

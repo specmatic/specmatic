@@ -18,8 +18,6 @@ import io.specmatic.stub.listener.MockEvent
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
@@ -55,20 +53,6 @@ class InterpolatedPathsE2ETest {
 
         testBlock(listener)
         return events
-    }
-
-    companion object {
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            System.setProperty("SPECMATIC_BCC_REPORT", "true")
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun teardown() {
-            System.clearProperty("SPECMATIC_BCC_REPORT")
-        }
     }
 
     @ParameterizedTest
