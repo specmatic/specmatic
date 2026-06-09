@@ -8,8 +8,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.PipedInputStream
-import java.io.PipedOutputStream
+import java.io.InputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class SpecmaticMcpServerTest {
@@ -49,8 +50,7 @@ class SpecmaticMcpServerTest {
 
     @Test
     fun `run should keep server process alive while stdio input is open`() {
-        val inputStream = PipedInputStream()
-        val inputWriter = PipedOutputStream(inputStream)
+        val inputStream = BlockingInputStream()
         val localServer = SpecmaticMcpServer(inputStream = inputStream, outputStream = ByteArrayOutputStream())
         val runReturned = AtomicBoolean(false)
         val runThread = Thread {
@@ -63,12 +63,11 @@ class SpecmaticMcpServerTest {
         runThread.start()
 
         try {
-            Thread.sleep(250)
-
+            assertThat(inputStream.readStarted.await(5, TimeUnit.SECONDS)).isTrue()
             assertThat(runReturned.get()).isFalse()
             assertThat(runThread.isAlive).isTrue()
         } finally {
-            inputWriter.close()
+            inputStream.close()
             runThread.join(5_000)
         }
     }
@@ -130,5 +129,20 @@ class SpecmaticMcpServerTest {
         val field = SpecmaticMcpServer::class.java.getDeclaredField("server")
         field.isAccessible = true
         return field.get(server) as McpSyncServer
+    }
+
+    private class BlockingInputStream : InputStream() {
+        val readStarted = CountDownLatch(1)
+        private val closeLatch = CountDownLatch(1)
+
+        override fun read(): Int {
+            readStarted.countDown()
+            closeLatch.await()
+            return -1
+        }
+
+        override fun close() {
+            closeLatch.countDown()
+        }
     }
 }
