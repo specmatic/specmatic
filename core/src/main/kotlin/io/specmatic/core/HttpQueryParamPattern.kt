@@ -47,12 +47,14 @@ data class HttpQueryParamPattern(
     val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup> = emptyMap()
 ) {
 
-    val queryKeyNames = queryPatternsWithAuthoritativeCollisionOwners().keys
+    private val queryPatternsWithAuthoritativeCollisionOwners = calculateQueryPatternsWithAuthoritativeCollisionOwners()
+
+    val queryKeyNames = queryPatternsWithAuthoritativeCollisionOwners.keys
 
     fun generate(resolver: Resolver): List<Pair<String, String>> {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            queryPatternsWithAuthoritativeCollisionOwners().map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
+            queryPatternsWithAuthoritativeCollisionOwners.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
                 attempt(breadCrumb = parameterName) {
                     val generatedValue =  updatedResolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
                     if(generatedValue is JSONArrayValue) {
@@ -218,7 +220,7 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = queryPatternsWithAuthoritativeCollisionOwners()
+            val queryParams = queryPatternsWithAuthoritativeCollisionOwners
 
             queryParamCombinationsRespectingFormExplodedObjects(queryParams, Row()).flatMap { entry ->
                 newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver)
@@ -237,7 +239,7 @@ data class HttpQueryParamPattern(
 
     override fun toString(): String {
         return if (queryPatterns.isNotEmpty()) {
-            "?" + queryPatterns.mapKeys { it.key.removeSuffix("?") }.map { (key, value) ->
+            "?" + queryPatternsWithAuthoritativeCollisionOwners.mapKeys { it.key.removeSuffix("?") }.map { (key, value) ->
                 "$key=$value"
             }.toList().joinToString(separator = "&")
         } else ""
@@ -413,7 +415,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(queryParams: QueryParameters): Map<String, Pattern> {
-        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners()) { patterns, objectQueryParam ->
+        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(queryParams::containsKey) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -425,7 +427,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(row: Row): Map<String, Pattern> {
-        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners()) { patterns, objectQueryParam ->
+        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(row::containsField) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -436,14 +438,41 @@ data class HttpQueryParamPattern(
         }
     }
 
-    private fun queryPatternsWithAuthoritativeCollisionOwners(): Map<String, Pattern> {
+    private fun calculateQueryPatternsWithAuthoritativeCollisionOwners(): Map<String, Pattern> {
         return collisionGroupsByWireKey.values.fold(queryPatterns) { patterns, collisionGroup ->
-            val authoritativeOwner = collisionGroup.authoritativeOwner
-            val authoritativeKey = if (authoritativeOwner.required) collisionGroup.wireKey else withOptionality(collisionGroup.wireKey)
-            patterns
-                .minus(collisionGroup.wireKey)
-                .minus(withOptionality(collisionGroup.wireKey))
-                .plus(authoritativeKey to authoritativeOwner.pattern)
+            val currentEntry = patterns.entryForWireKey(collisionGroup.wireKey)
+                ?: return@fold patterns
+
+            patterns.replaceWireKey(collisionGroup.wireKey, collisionGroup.replacementFor(currentEntry))
+        }
+    }
+
+    private fun Map<String, Pattern>.entryForWireKey(wireKey: String): QueryPatternEntry? {
+        val matchingEntry = entries.firstOrNull { (key, _) -> withoutOptionality(key) == wireKey } ?: return null
+        return QueryPatternEntry(matchingEntry.key, matchingEntry.value)
+    }
+
+    private fun Map<String, Pattern>.replaceWireKey(wireKey: String, replacement: QueryPatternEntry): Map<String, Pattern> {
+        return minus(wireKey)
+            .minus(withOptionality(wireKey))
+            .plus(replacement.key to replacement.pattern)
+    }
+
+    private fun QueryParameterCollisionGroup.replacementFor(currentEntry: QueryPatternEntry): QueryPatternEntry {
+        if (currentEntry.pattern.isExactQueryPattern()) return currentEntry
+
+        val authoritativeKey = if (authoritativeOwner.required) wireKey else withOptionality(wireKey)
+        return QueryPatternEntry(authoritativeKey, authoritativeOwner.pattern)
+    }
+
+    private data class QueryPatternEntry(val key: String, val pattern: Pattern)
+
+    private fun Pattern.isExactQueryPattern(): Boolean {
+        return when (this) {
+            is ExactValuePattern -> true
+            is QueryParameterScalarPattern -> pattern.isExactQueryPattern()
+            is QueryParameterArrayPattern -> pattern.any { it.isExactQueryPattern() }
+            else -> false
         }
     }
 
