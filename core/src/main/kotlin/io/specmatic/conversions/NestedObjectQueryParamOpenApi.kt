@@ -6,6 +6,10 @@ import io.specmatic.core.NestedObjectQuerySyntaxInference
 import io.specmatic.core.NestedQueryParameterExamples
 import io.specmatic.core.NestedQuerySchema
 import io.specmatic.core.NestedQuerySyntaxInferenceResult
+import io.specmatic.core.ObjectQueryRoot
+import io.specmatic.core.ObjectQuerySyntax
+import io.specmatic.core.QueryArrayIndexStyle
+import io.specmatic.core.QueryPropertyStyle
 import io.specmatic.core.reconstructObjectValueFromQueryParamPairs
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.media.Schema
@@ -25,7 +29,9 @@ internal fun nestedObjectQueryParam(
         resolveSchemaReference = resolveSchemaReference
     ) as? NestedQuerySchema.Object ?: return null
 
-    return when (val inferenceResult = NestedObjectQuerySyntaxInference.infer(parameter.name, nestedQuerySchema, parameter.nestedQueryExamples(resolveExample))) {
+    val parameterExamples = parameter.nestedQueryExamples(resolveExample)
+
+    return when (val inferenceResult = NestedObjectQuerySyntaxInference.infer(parameter.name, nestedQuerySchema, parameterExamples)) {
         is NestedQuerySyntaxInferenceResult.SyntaxInferred -> NestedObjectQueryParam(
             parameterName = parameter.name,
             required = parameter.required == true,
@@ -33,16 +39,17 @@ internal fun nestedObjectQueryParam(
             syntax = inferenceResult.syntax
         )
         is NestedQuerySyntaxInferenceResult.SyntaxNotRequired -> null
-        is NestedQuerySyntaxInferenceResult.Failure -> {
-            inferenceResult.messages.forEach { message ->
-                parameterContext.at("example").record(
-                    message = message,
-                    ruleViolation = OpenApiLintViolations.INVALID_PARAMETER_DEFINITION
-                )
-            }
-            null
-        }
+        is NestedQuerySyntaxInferenceResult.Failure -> NestedObjectQueryParam(
+            parameterName = parameter.name,
+            required = parameter.required == true,
+            schema = nestedQuerySchema,
+            syntax = defaultNestedObjectQuerySyntax()
+        )
     }
+}
+
+private fun defaultNestedObjectQuerySyntax(): ObjectQuerySyntax {
+    return ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
 }
 
 internal fun nestedObjectQueryStringExampleEntries(

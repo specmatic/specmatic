@@ -3288,7 +3288,12 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean, parameterPointers: Map<String, String> = emptyMap()): HttpQueryParamPattern {
+    private fun toSpecmaticQueryParam(
+        parameters: List<Parameter>,
+        collectorContext: CollectorContext,
+        extensibleQueryParams: Boolean,
+        parameterPointers: Map<String, String> = emptyMap()
+    ): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)

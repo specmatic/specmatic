@@ -13130,6 +13130,107 @@ paths:
         })
     }
 
+    @Test
+    fun `external examples do not establish nested object query syntax when inline examples are absent`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        val exampleFile = examplesDir.resolve("nested-query.json").apply {
+            writeText(nestedObjectAndArrayExternalExample(
+                queryParams = mapOf(
+                    "category" to "shoes",
+                    "price[min]" to "50",
+                    "price[max]" to "150",
+                    "variants[0][color]" to "black",
+                    "variants[0][sizes][0]" to "9"
+                )
+            ))
+        }
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectAndArrayQuerySpec(includeParameterExample = false),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val nestedObjectQueryParam = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern.nestedObjectQueryParams.single()
+        val validationResult = ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExample(feature, exampleFile)
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((validationResult as Result.Failure).reportString()).contains("does not match inferred dot property syntax")
+    }
+
+    @Test
+    fun `external examples conflicting with inline nested query syntax are rejected`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val exampleFile = tempDir.resolve("conflicting-nested-query.json").apply {
+            writeText(nestedObjectAndArrayExternalExample(
+                queryParams = mapOf(
+                    "category" to "shoes",
+                    "price[min]" to "50",
+                    "price[max]" to "150",
+                    "variants[0][color]" to "black",
+                    "variants[0][sizes][0]" to "9"
+                )
+            ))
+        }
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        val validationResult = ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExample(feature, exampleFile)
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((validationResult as Result.Failure).reportString()).contains("does not match inferred dot property syntax")
+    }
+
+    @Test
+    fun `mock matches nested object query params and coerces numeric leaves`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        listOf(
+                            "category" to "shoes",
+                            "price.min" to "50",
+                            "price.max" to "150",
+                            "variants[0].color" to "black",
+                            "variants[0].sizes[0]" to "9"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun `mock rejects nested object query params using syntax different from inline example`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        listOf(
+                            "category" to "shoes",
+                            "price[min]" to "50",
+                            "price[max]" to "150",
+                            "variants[0][color]" to "black",
+                            "variants[0][sizes][0]" to "9"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(400)
+        }
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `mock uses serialized query property keys from inline object query examples`(case: FormExplodedObjectQueryExampleCase) {
@@ -13402,7 +13503,13 @@ paths:
         """.trimIndent()
     }
 
-    private fun nestedObjectAndArrayQuerySpec(): String {
+    private fun nestedObjectAndArrayQuerySpec(includeParameterExample: Boolean = true): String {
+        val parameterExample = if (includeParameterExample) {
+            "                      example: category=shoes&price.min=50&price.max=150&variants[0].color=black&variants[0].sizes[0]=9"
+        } else {
+            ""
+        }
+
         return """
             openapi: 3.0.0
             info:
@@ -13448,7 +13555,7 @@ paths:
                                   type: array
                                   items:
                                     type: number
-                      example: category=shoes&price.min=50&price.max=150&variants[0].color=black&variants[0].sizes[0]=9
+$parameterExample
                   responses:
                     '200':
                       description: OK
@@ -13465,6 +13572,30 @@ paths:
                             SUCCESS:
                               value:
                                 id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedObjectAndArrayExternalExample(queryParams: Map<String, String>): String {
+        val queryParamJson = queryParams.entries.joinToString(",\n") { (key, value) ->
+            "            \"$key\": \"$value\""
+        }
+
+        return """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/products/search",
+                "query": {
+$queryParamJson
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "id": 10
+                }
+              }
+            }
         """.trimIndent()
     }
 

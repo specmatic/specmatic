@@ -382,35 +382,54 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `should report referenced query schema traversal when refs are circular`() {
-        val exception = assertThrows<ContractException> {
-            OpenApiSpecification.fromYAML(
-                nestedObjectQueryParamSpec(
-                    schema = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
-                        )
-                    ),
-                    parameterFields = mapOf(
-                        "required" to false,
-                        "example" to "node.child.name=abc"
-                    ),
-                    componentsSchemas = mapOf(
-                        "Node" to mapOf(
-                            "type" to "object",
-                            "properties" to mapOf(
-                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
-                                "name" to mapOf("type" to "string")
-                            )
-                        )
+    fun `should fallback to default nested object query syntax when refs are circular`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = mapOf(
+                    "type" to "object",
+                    "properties" to mapOf(
+                        "node" to mapOf("\$ref" to "#/components/schemas/Node")
                     )
                 ),
-                ""
-            ).toFeature()
-        }
+                parameterFields = mapOf(
+                    "required" to false,
+                    "example" to "node.child.name=abc"
+                ),
+                componentsSchemas = mapOf(
+                    "Node" to mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                            "name" to mapOf("type" to "string")
+                        )
+                    ),
+                )
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
 
-        assertThat(exception.report()).contains("Query parameter details has nested query keys that could not be parsed with any supported syntax.")
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+    }
+
+    @Test
+    fun `should fallback to default nested object query syntax when inline example is malformed`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = nestedDetailsSchema(),
+                parameterFields = mapOf("example" to "name=Jack&address[0][street")
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
     }
 
     @Test

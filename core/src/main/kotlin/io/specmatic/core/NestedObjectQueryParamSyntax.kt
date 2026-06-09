@@ -259,9 +259,20 @@ object NestedObjectQuerySyntaxInference {
         syntax: ObjectQuerySyntax,
         keys: List<String>
     ): List<ParsedQueryObjectPath>? {
+        val relevantKeys = keys.filter { key -> key.couldBelongTo(parameterName, schema) }
+        if (relevantKeys.isEmpty()) return null
+
         return runCatching {
-            keys.map { key -> ObjectQueryKeyParser.parseWithSchema(key, parameterName, schema, syntax) }
+            relevantKeys.map { key -> ObjectQueryKeyParser.parseWithSchema(key, parameterName, schema, syntax) }
         }.getOrNull()
+    }
+
+    private fun String.couldBelongTo(parameterName: String, schema: NestedQuerySchema.Object): Boolean {
+        if (startsWith("$parameterName[")) return true
+
+        return schema.properties.keys.any { propertyName ->
+            this == propertyName || startsWith("$propertyName.") || startsWith("$propertyName[")
+        }
     }
 
     private fun syntaxCandidates(): List<ObjectQuerySyntax> {
