@@ -93,7 +93,6 @@ fun parseContractFileToFeature(
     exampleDirPaths: List<String> = emptyList()
 ): Feature {
     logger.debug("Parsing spec file ${file.path}, absolute path ${file.canonicalPath}")
-
     return when (file.extension) {
         in OPENAPI_FILE_EXTENSIONS -> OpenApiSpecification.fromYAML(
             hook.readContract(file.path),
@@ -112,8 +111,7 @@ fun parseContractFileToFeature(
         WSDL -> wsdlContentToFeature(
             checkExists(file).readText(),
             file.canonicalPath,
-            specmaticConfig,
-            normalizedSpecificationPath = specificationPath,
+            specmaticConfig
         ).copy(exampleDirPaths = exampleDirPaths)
         in CONTRACT_EXTENSIONS -> parseGherkinStringToFeature(
             checkExists(file).readText().trim(),

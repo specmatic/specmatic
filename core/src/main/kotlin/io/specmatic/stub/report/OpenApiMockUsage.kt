@@ -1,14 +1,10 @@
 package io.specmatic.stub.report
 
-import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.report.calculateAbsoluteCoverage
 import io.specmatic.core.report.calculateCoverage
-import io.specmatic.core.report.ctrfSpecConfigsFrom
-import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.test.TestResultRecord
 
 class OpenApiMockUsage(
-    private val specmaticConfig: SpecmaticConfig,
     private val mockUsageReportGenerator: MockUsageReportGenerator = MockUsageReportGenerator(),
 ) {
     private val testResultRecords: MutableList<TestResultRecord> = mutableListOf()
@@ -38,9 +34,5 @@ class OpenApiMockUsage(
             coverage = coverageReportOperations.calculateCoverage(),
             absoluteCoverage = coverageReportOperations.calculateAbsoluteCoverage(),
         )
-    }
-
-    fun ctrfSpecConfigs(): List<CtrfSpecConfig> {
-        return ctrfSpecConfigsFrom(specmaticConfig, mockUsageContext().tests)
     }
 }

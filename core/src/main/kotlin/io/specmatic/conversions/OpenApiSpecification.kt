@@ -569,8 +569,6 @@ class OpenApiSpecification(
                 attributeSelectionPattern = specmaticConfig.getAttributeSelectionPattern(),
                 patterns = it.patterns + unreferencedSchemaPatterns
             )
-        }.map { scenario ->
-            scenario.copy(specification = specificationPath ?: scenario.specification)
         }
 
         val feature = Feature.from(

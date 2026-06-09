@@ -123,9 +123,8 @@ fun FeatureChild.unwrapBackground(): Background {
 fun wsdlContentToFeature(
     wsdlContent: String,
     path: String,
-    specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
-    normalizedSpecificationPath: String? = null,
+    specmaticConfig: SpecmaticConfig = SpecmaticConfig()
 ): Feature {
     val wsdl = WSDL(toXMLNode(wsdlContent), path)
-    return wsdl.toFeature(path, specmaticConfig, normalizedSpecificationPath)
+    return wsdl.toFeature(path, specmaticConfig)
 }
