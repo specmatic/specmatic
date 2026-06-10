@@ -107,7 +107,7 @@ class NestedObjectQueryParamSyntaxTest {
                 syntax = ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
             )
         }.isInstanceOf(ContractException::class.java)
-            .hasMessageContaining("Unknown query object property postcode")
+            .hasMessageContaining("Unknown query object property \"postcode\"")
     }
 
     @ParameterizedTest(name = "{0}")

@@ -96,7 +96,7 @@ object ObjectQueryKeyParser {
             token.value in schema.properties -> schema.properties.getValue(token.value)
             schema.additionalProperties != null -> schema.additionalProperties
             schema.allowsAnyAdditionalProperties -> NestedQuerySchema.Scalar
-            else -> throw ContractException("Unknown query object property ${token.value} at ${state.displayPath()}")
+            else -> throw ContractException("Unknown query object property \"${token.value}\" at ${state.displayPath()}")
         }
 
         return state.copy(
@@ -416,7 +416,7 @@ private data class QueryObjectPathParserState(
     val tokens: List<QueryObjectPathToken>
 ) {
     fun displayPath(): String {
-        if (tokens.isEmpty()) return "<root>"
+        if (tokens.isEmpty()) return "root"
 
         return tokens.joinToString(".") { token ->
             when (token) {

@@ -67,6 +67,18 @@ enum class OpenApiLintViolations(
         severity = IssueSeverity.WARNING
     ),
 
+    INVALID_NESTED_QUERY_PARAMETER_EXAMPLE(
+        id = "OAS0014",
+        title = "Invalid nested query parameter example",
+        summary = "Nested query parameter examples must use valid keys that match the parameter schema and inferred nested query syntax"
+    ),
+
+    UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA(
+        id = "OAS0015",
+        title = "Unsupported nested query parameter schema",
+        summary = "Nested query parameter schemas must resolve to unambiguous object, array, or scalar shapes"
+    ),
+
     /* -------- Security -------- */
     SECURITY_PROPERTY_REDEFINED(
         id = "OAS0020",

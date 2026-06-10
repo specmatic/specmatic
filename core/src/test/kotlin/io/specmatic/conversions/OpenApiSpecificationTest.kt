@@ -13399,6 +13399,38 @@ paths:
     }
 
     @Test
+    fun `invalid inline nested query parameter example reports an OpenAPI lint violation with a source path`() {
+        val report = nestedQuerySpecLoadFailureReport(
+            nestedObjectOnlyQuerySpec().replace(
+                "example: price.min=50&price.max=150",
+                "example: prize.min=50"
+            )
+        )
+
+        assertThat(report).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(report).contains("parameters[0].example")
+        assertThat(report).contains("nested query keys that could not be parsed")
+    }
+
+    @Test
+    fun `invalid named nested query parameter example reports an OpenAPI lint violation with a source path`() {
+        val report = nestedQuerySpecLoadFailureReport(invalidNamedNestedQueryExampleSpec())
+
+        assertThat(report).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(report).contains("parameters[0].examples.SUCCESS.value")
+        assertThat(report).contains("Unknown query object property \"prize\" at root")
+    }
+
+    @Test
+    fun `unsupported composed nested query parameter schema reports an OpenAPI lint violation with a source path`() {
+        val report = nestedQuerySpecLoadFailureReport(unsupportedComposedNestedQuerySchemaSpec())
+
+        assertThat(report).contains(OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA.id)
+        assertThat(report).contains("parameters[0].schema.properties.price")
+        assertThat(report).contains("Composed object query schemas are not supported")
+    }
+
+    @Test
     fun `mock matches nested object query params and coerces numeric leaves`() {
         val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
 
@@ -13933,6 +13965,104 @@ $parameterExample
                             SUCCESS:
                               value:
                                 id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedQuerySpecLoadFailureReport(spec: String): String {
+        var report = ""
+
+        assertThatThrownBy {
+            OpenApiSpecification.fromYAML(spec, "spec.yaml").toFeature()
+        }.isInstanceOf(ContractException::class.java)
+            .satisfies(Consumer { exception ->
+                report = (exception as ContractException).report()
+            })
+
+        return report
+    }
+
+    private fun invalidNamedNestedQueryExampleSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Invalid Named Nested Query Example
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - price
+                        properties:
+                          price:
+                            type: object
+                            properties:
+                              min:
+                                type: string
+                              max:
+                                type: string
+                      examples:
+                        SUCCESS:
+                          value: prize[min]=50&price[max]=150
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun unsupportedComposedNestedQuerySchemaSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Unsupported Composed Nested Query Schema
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        properties:
+                          price:
+                            oneOf:
+                              - type: object
+                                properties:
+                                  min:
+                                    type: string
+                              - type: object
+                                properties:
+                                  max:
+                                    type: string
+                      example: price.min=50
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
         """.trimIndent()
     }
 

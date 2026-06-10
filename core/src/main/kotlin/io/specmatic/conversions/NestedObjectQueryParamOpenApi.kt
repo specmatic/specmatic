@@ -10,6 +10,7 @@ import io.specmatic.core.ObjectQueryRoot
 import io.specmatic.core.ObjectQuerySyntax
 import io.specmatic.core.QueryArrayIndexStyle
 import io.specmatic.core.QueryPropertyStyle
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.reconstructObjectValueFromQueryParamPairs
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.media.Schema
@@ -39,12 +40,16 @@ internal fun nestedObjectQueryParam(
             syntax = inferenceResult.syntax
         )
         is NestedQuerySyntaxInferenceResult.SyntaxNotRequired -> null
-        is NestedQuerySyntaxInferenceResult.Failure -> NestedObjectQueryParam(
-            parameterName = parameter.name,
-            required = parameter.required == true,
-            schema = nestedQuerySchema,
-            syntax = defaultNestedObjectQuerySyntax()
-        )
+        is NestedQuerySyntaxInferenceResult.Failure -> {
+            recordInlineNestedQueryExampleFailures(parameterExamples, inferenceResult, parameterContext)
+
+            NestedObjectQueryParam(
+                parameterName = parameter.name,
+                required = parameter.required == true,
+                schema = nestedQuerySchema,
+                syntax = defaultNestedObjectQuerySyntax()
+            )
+        }
     }
 }
 
@@ -52,15 +57,47 @@ private fun defaultNestedObjectQuerySyntax(): ObjectQuerySyntax {
     return ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
 }
 
+private fun recordInlineNestedQueryExampleFailures(
+    parameterExamples: NestedQueryParameterExamples,
+    inferenceResult: NestedQuerySyntaxInferenceResult.Failure,
+    parameterContext: CollectorContext
+) {
+    if (parameterExamples.example == null || parameterExamples.examples.isNotEmpty()) return
+
+    inferenceResult.messages.forEach { message ->
+        parameterContext.at("example").record(
+            message = message,
+            ruleViolation = OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE
+        )
+    }
+}
+
 internal fun nestedObjectQueryStringExampleEntries(
     parameter: QueryParameter,
     exampleValue: Any,
-    nestedObjectQueryParam: NestedObjectQueryParam?
+    nestedObjectQueryParam: NestedObjectQueryParam?,
+    exampleContext: CollectorContext
 ): Map<String, Any>? {
     val exampleString = exampleValue as? String ?: return null
     val nestedQueryParam = nestedObjectQueryParam ?: return null
 
-    return mapOf(parameter.name to nestedQueryParam.reconstructObjectValueFromQueryParamPairs(queryStringExampleEntries(exampleString)))
+    return runCatching {
+        mapOf(parameter.name to nestedQueryParam.reconstructObjectValueFromQueryParamPairs(queryStringExampleEntries(exampleString)))
+    }.getOrElse { exception ->
+        exampleContext.record(
+            message = exception.message ?: "Invalid nested query parameter example",
+            ruleViolation = nestedQueryExampleViolation(exception)
+        )
+        null
+    }
+}
+
+private fun nestedQueryExampleViolation(exception: Throwable): OpenApiLintViolations {
+    return when {
+        exception is ContractException && exception.message.orEmpty().contains("Ambiguous query object schema") ->
+            OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA
+        else -> OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE
+    }
 }
 
 private fun queryStringExampleEntries(exampleValue: String): List<Pair<String, String>> {
@@ -93,14 +130,20 @@ private fun Schema<*>.toNestedQuerySchema(
 ): NestedQuerySchema {
     if (`$ref` != null) {
         val ref = `$ref`
-        if (ref in visitedRefs) return NestedQuerySchema.Ambiguous("Circular schema reference $ref")
+        if (ref in visitedRefs) {
+            val message = "Circular schema reference $ref"
+            collectorContext.record(message, ruleViolation = OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA)
+            return NestedQuerySchema.Ambiguous(message)
+        }
 
         val resolvedSchema = resolveSchemaReference(ref, collectorContext)
         return resolvedSchema.toNestedQuerySchema(collectorContext, resolveSchemaReference, visitedRefs + ref)
     }
 
     if (oneOf != null || anyOf != null || allOf != null) {
-        return NestedQuerySchema.Ambiguous("Composed object query schemas are not supported")
+        val message = "Composed object query schemas are not supported"
+        collectorContext.record(message, ruleViolation = OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA)
+        return NestedQuerySchema.Ambiguous(message)
     }
 
     return when {
@@ -120,10 +163,15 @@ private fun Schema<*>.toNestedQuerySchema(
                 collectorContext = collectorContext.at("items"),
                 resolveSchemaReference = resolveSchemaReference,
                 visitedRefs = visitedRefs
-            ) ?: NestedQuerySchema.Ambiguous("Array query schema does not define items")
+            ) ?: collectorContext.at("items").unsupportedNestedQuerySchema("Array query schema does not define items")
         )
         else -> NestedQuerySchema.Scalar
     }
+}
+
+private fun CollectorContext.unsupportedNestedQuerySchema(message: String): NestedQuerySchema.Ambiguous {
+    record(message, ruleViolation = OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA)
+    return NestedQuerySchema.Ambiguous(message)
 }
 
 private fun Schema<*>.nestedQueryAdditionalProperties(
