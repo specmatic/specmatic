@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.AdditionalProperties
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.QueryParameterArrayPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.resolvedHop
@@ -183,8 +184,16 @@ private fun NestedObjectQueryParam.parseValueAt(
 ): Value {
     emptyContainerValueAt(path, value)?.let { return it }
 
-    val pattern = leafPatternAt(path, effectivePatterns, resolver) ?: return StringValue(value)
+    val pattern = leafPatternAt(path, effectivePatterns, resolver)?.nestedQueryLeafPattern() ?: return StringValue(value)
     return pattern.parse(value, resolver)
+}
+
+private fun Pattern.nestedQueryLeafPattern(): Pattern {
+    return when (this) {
+        is QueryParameterScalarPattern -> pattern
+        is QueryParameterArrayPattern -> pattern.firstOrNull() ?: this
+        else -> this
+    }
 }
 
 private fun NestedObjectQueryParam.emptyContainerValueAt(path: QueryObjectPath, value: String): Value? {
@@ -222,12 +231,17 @@ private fun NestedObjectQueryParam.leafPatternAt(
     effectivePatterns: Map<String, Pattern>,
     resolver: Resolver
 ): Pattern? {
+    val firstProperty = path.tokens.firstOrNull() as? QueryObjectPathToken.Property
+    if (firstProperty != null) {
+        val propertyPattern = effectivePatterns[firstProperty.name] ?: effectivePatterns[withOptionality(firstProperty.name)]
+        val nestedPropertyPattern = propertyPattern?.patternAt(path.tokens.drop(1), resolver)
+        if (nestedPropertyPattern != null) return nestedPropertyPattern
+    }
+
     val rootPattern = effectivePatterns[parameterName] ?: effectivePatterns[withOptionality(parameterName)]
     if (rootPattern != null) return rootPattern.patternAt(path.tokens, resolver)
 
-    val firstProperty = path.tokens.firstOrNull() as? QueryObjectPathToken.Property ?: return null
-    val propertyPattern = effectivePatterns[firstProperty.name] ?: effectivePatterns[withOptionality(firstProperty.name)] ?: return null
-    return propertyPattern.patternAt(path.tokens.drop(1), resolver)
+    return null
 }
 
 private fun Pattern.patternAt(tokens: List<QueryObjectPathToken>, resolver: Resolver): Pattern? {

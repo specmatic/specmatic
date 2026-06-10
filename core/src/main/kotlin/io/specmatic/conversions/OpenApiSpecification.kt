@@ -1966,6 +1966,7 @@ class OpenApiSpecification(
                 exampleValue = exampleValue,
                 nestedObjectQueryParam = nestedObjectQueryParamsByName[parameter.name],
                 effectivePatterns = effectiveQueryPatterns,
+                resolver = Resolver(newPatterns = patterns, mockMode = true),
                 exampleContext = exampleContext
             )
             ?: mapOf(parameter.name to exampleValue)

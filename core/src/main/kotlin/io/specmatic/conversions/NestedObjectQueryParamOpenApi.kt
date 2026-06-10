@@ -79,6 +79,7 @@ internal fun nestedObjectQueryStringExampleEntries(
     exampleValue: Any,
     nestedObjectQueryParam: NestedObjectQueryParam?,
     effectivePatterns: Map<String, Pattern>,
+    resolver: Resolver,
     exampleContext: CollectorContext
 ): Map<String, Any>? {
     val exampleString = exampleValue as? String ?: return null
@@ -89,7 +90,7 @@ internal fun nestedObjectQueryStringExampleEntries(
             parameter.name to nestedQueryParam.reconstructObjectValueFromQueryParamPairs(
                 pairs = queryStringExampleEntries(exampleString),
                 effectivePatterns = effectivePatterns,
-                resolver = Resolver(mockMode = true)
+                resolver = resolver
             )
         )
     }.getOrElse { exception ->

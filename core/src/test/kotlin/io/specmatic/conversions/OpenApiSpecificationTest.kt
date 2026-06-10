@@ -13444,6 +13444,14 @@ paths:
     }
 
     @Test
+    fun `inline nested query parameter examples parse top level scalar leaves before validation`() {
+        val feature = OpenApiSpecification.fromYAML(nestedQueryTopLevelScalarExampleSpec(), "").toFeature()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
+    }
+
+    @Test
     fun `unsupported composed nested query parameter schema reports an OpenAPI lint violation with a source path`() {
         val report = nestedQuerySpecLoadFailureReport(unsupportedComposedNestedQuerySchemaSpec())
 
@@ -14329,6 +14337,72 @@ $parameterExample
                             SUCCESS:
                               value:
                                 id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedQueryTopLevelScalarExampleSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Query Top Level Scalar Example
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        SUCCESS:
+                          value: abc123
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      examples:
+                        SUCCESS:
+                          value: status=10&method.status=10&errors[0].code=10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                          examples:
+                            SUCCESS:
+                              value:
+                                status: 10
+                                method:
+                                  status: 10
+                                errors:
+                                  - code: "10"
+            components:
+              schemas:
+                HttpMethod:
+                  type: object
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    method:
+                      ${"$"}ref: '#/components/schemas/HttpMethod'
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
         """.trimIndent()
     }
 
