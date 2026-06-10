@@ -3423,6 +3423,45 @@ paths:
     }
 
     @Test
+    fun `contract tests without examples use generated colliding query params from object-first authoritative owner`() {
+        val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"source":"generated"}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsKey("age")
+            assertThat(queryParams).containsKey("name")
+            assertThat(queryParams["age"]?.toIntOrNull()).isNotNull()
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+    }
+
+    @Test
+    fun `mock without examples matches generated request through object-first authoritative collision owner`() {
+        val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
+
+        HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->
+            val matchingResponse = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "45", "name" to "Jane")))
+            )
+            val mismatchingResponse = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc", "name" to "Jane")))
+            )
+
+            assertThat(matchingResponse.status).isEqualTo(200)
+            assertThat((matchingResponse.body as JSONObjectValue).jsonObject).containsKey("source")
+            assertThat(mismatchingResponse.status).isEqualTo(400)
+        }
+    }
+
+    @Test
     fun `validate externalized examples for absent required-only and all optional form exploded object query params`() {
         val feature = OpenApiSpecification.fromFile(OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC).toFeature().loadExternalisedExamples()
 
@@ -4091,6 +4130,46 @@ paths:
         private const val REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_valid.yaml"
         private const val REQUIRED_OBJECT_QUERY_PARAM_ABSENT_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_absent.yaml"
         private const val REQUIRED_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_optional_only.yaml"
+        private val NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC = """
+            openapi: 3.0.0
+            info:
+              title: Query Param Collision Without Examples
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        required:
+                          - age
+                          - name
+                        properties:
+                          age:
+                            type: integer
+                          name:
+                            type: string
+                    - in: query
+                      name: age
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - source
+                            properties:
+                              source:
+                                type: string
+        """.trimIndent()
 
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {
