@@ -13468,6 +13468,17 @@ paths:
     }
 
     @Test
+    fun `contract tests with nested object and array query params pass against real mock`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val results = feature.executeTests(stub.client)
+
+            assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        }
+    }
+
+    @Test
     fun `mock rejects nested object query params using syntax different from inline example`() {
         val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
 
