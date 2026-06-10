@@ -590,13 +590,21 @@ data class SpecmaticConfigV1V2Common(
             CONTRACT_TEST_TEST_TYPE -> testSpecPathFromConfigFor(specFile)
             else -> stubSpecPathFromConfigFor(specFile)
         }
+        val normalizedSpecificationPath =
+            specPathFromConfig?.let {
+                normalizeFilesystemSpecificationPath(
+                    specificationPath = it,
+                    sourceProvider = source.provider,
+                    resolvedSpecFile = specFile,
+                )
+            }
 
         return CtrfSpecConfig(
             protocol = protocol,
             specType = specType,
-            specification = specPathFromConfig.orEmpty(),
+            specification = normalizedSpecificationPath.orEmpty(),
             sourceProvider = source.provider.name,
-            repository = source.repository.orEmpty(),
+            repository = source.repository,
             branch = source.branch ?: "main",
         )
     }

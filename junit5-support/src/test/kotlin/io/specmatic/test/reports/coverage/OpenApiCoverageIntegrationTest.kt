@@ -3,7 +3,10 @@ package io.specmatic.test.reports.coverage
 import io.ktor.http.HttpStatusCode
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.TestConfig
+import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.parsedJsonValue
+import io.specmatic.core.utilities.contractTestPathsFrom
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
 import io.specmatic.license.core.SpecmaticProtocol
@@ -12,13 +15,105 @@ import io.specmatic.reporter.ctrf.model.CtrfTestQualifiers
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.test.API
+import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.utils.ContractTestScope
+import io.specmatic.test.utils.OpenApiCoverageVerifier.Companion.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class OpenApiCoverageIntegrationTest {
+    @Test
+    fun `should preserve git root relative spec paths in spec and missing in spec operations`(@TempDir tempDir: File) {
+        val repoRoot = tempDir.resolve("repo").apply { mkdirs() }
+        runGit(repoRoot, "init")
+
+        val specFile = repoRoot.resolve("specs/orders.yaml").apply {
+            parentFile.mkdirs()
+            writeText(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Orders
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    get:
+                      responses:
+                        '200':
+                          description: OK
+                """.trimIndent()
+            )
+        }
+        val specsDirectory = repoRoot.resolve("specs").canonicalPath
+        val configFile =
+            repoRoot.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: $specsDirectory
+                              specs:
+                                - spec:
+                                    id: orders
+                                    path: orders.yaml
+                    """.trimIndent()
+                )
+            }
+
+        val loadedScenarios = loadScenariosFrom(configFile, repoRoot)
+
+        val coverage = OpenApiCoverage(configFilePath = "specmatic.yaml")
+        coverage.addEndpoints(
+            allEndpoints = loadedScenarios.allEndpoints,
+            filteredEndpoints = loadedScenarios.filteredEndpoints,
+        )
+        coverage.addAPIs(listOf(API(method = "GET", path = "/orders/search")))
+        coverage.setEndpointsAPIFlag(true)
+
+        val report = coverage.generate()
+        val expectedSpecificationPath = "specs/orders.yaml"
+
+        report.verify {
+            assertThat(report.getSpecConfigs()).hasSize(1)
+            assertThat(report.getSpecConfigs().single().specification).isEqualTo(expectedSpecificationPath)
+        }
+    }
+
+    private fun runGit(directory: File, vararg args: String) {
+        val process = ProcessBuilder(listOf("git", "-C", directory.absolutePath) + args).start()
+        val exitCode = process.waitFor()
+        assertThat(exitCode).isZero()
+    }
+
+    private fun loadScenariosFrom(configFile: File, repoRoot: File) =
+        contractTestPathsFrom(
+            configFilePath = configFile.canonicalPath,
+            workingDirectory = repoRoot.canonicalPath,
+        ).single().let { contractPathData ->
+            SpecmaticJUnitSupport().loadTestScenarios(
+                path = contractPathData.path,
+                suggestionsPath = "",
+                suggestionsData = "",
+                config = TestConfig(emptyMap(), emptyMap()),
+                sourceProvider = contractPathData.provider,
+                sourceRepository = contractPathData.repository,
+                sourceRepositoryBranch = contractPathData.branch,
+                specificationPath = contractPathData.specificationPath,
+                filterName = null,
+                filterNotName = null,
+                specmaticConfig = SpecmaticConfig(),
+                filter = ScenarioMetadataFilter.from(""),
+            )
+        }
+
     @Test
     fun `should report non-matching response identifiers for -ve generate tests to the nearest matching operations`(@TempDir tempDir: File) {
         val specYaml = """
@@ -253,4 +348,5 @@ class OpenApiCoverageIntegrationTest {
             }
         }
     }
+
 }

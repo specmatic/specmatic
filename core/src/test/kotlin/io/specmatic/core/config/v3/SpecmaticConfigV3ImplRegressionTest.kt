@@ -133,7 +133,7 @@ class SpecmaticConfigV3ImplRegressionTest {
 
         assertThat(ctrfSpecConfig.specification).isEqualTo(testFile.name)
         assertThat(ctrfSpecConfig.sourceProvider).isEqualTo("filesystem")
-        assertThat(ctrfSpecConfig.repository).isEmpty()
+        assertThat(ctrfSpecConfig.repository).isNull()
         assertThat(ctrfSpecConfig.branch).isEqualTo("main")
     }
 

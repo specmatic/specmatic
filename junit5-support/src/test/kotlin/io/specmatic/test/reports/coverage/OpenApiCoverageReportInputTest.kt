@@ -27,6 +27,32 @@ import java.io.File
 
 class OpenApiCoverageReportInputTest {
     @Test
+    fun `coverage report should use the expected spec path`() {
+        val input = OpenApiCoverageBuilder.buildCoverage {
+            configFilePath("specmatic.yaml")
+            specEndpoint(method = "POST", path = "/orders", responseCode = 200)
+            testResult(
+                TestResultRecord(
+                    path = "/orders",
+                    method = "POST",
+                    responseStatus = 200,
+                    request = null,
+                    response = null,
+                    result = TestResult.Success,
+                    specification = "specs/openapi.yaml",
+                    specType = SpecType.OPENAPI,
+                )
+            )
+        }
+
+        val report = input.generate()
+        val specPaths = report.getSpecConfigs().map { it.specification }
+
+        assertThat(specPaths).hasSize(1)
+        assertThat(specPaths).containsExactly("specs/openapi.yaml")
+    }
+
+    @Test
     fun `should generate report with only current records when no previous results are provided`() {
         val currentRecord = TestResultRecord(
             path = "/current",
