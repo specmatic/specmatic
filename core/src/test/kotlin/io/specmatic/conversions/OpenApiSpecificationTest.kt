@@ -13175,6 +13175,16 @@ paths:
     }
 
     @Test
+    fun `positive generated contract tests encode nested array query keys in request URLs`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        val url = generatedPositiveRequests(feature).single().getURL("http://localhost")
+
+        assertThat(url).contains("variants%5B")
+        assertThat(url).doesNotContain("variants[")
+    }
+
+    @Test
     fun `negative generated contract tests preserve inferred nested object and array query syntax`() {
         val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
         val nonEmptyNegativeRequests = generatedNegativeRequests(feature).filter { it.queryParams.paramPairs.isNotEmpty() }
