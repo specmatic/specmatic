@@ -262,7 +262,7 @@ class NestedObjectQueryParamSyntaxTest {
     }
 
     @Test
-    fun `syntax inference should log and pick the first example syntax when examples imply conflicting property styles`() {
+    fun `syntax inference should pick the first complete property syntax when examples imply conflicting property styles`() {
         val result = NestedObjectQuerySyntaxInference.infer(
             parameterName = "details",
             schema = personDetailsSchema,
@@ -280,7 +280,7 @@ class NestedObjectQueryParamSyntaxTest {
     }
 
     @Test
-    fun `syntax inference should log and pick the first example syntax when examples imply conflicting root styles`() {
+    fun `syntax inference should pick the first complete root syntax when examples imply conflicting root styles`() {
         val result = NestedObjectQuerySyntaxInference.infer(
             parameterName = "details",
             schema = personDetailsSchema,
@@ -332,6 +332,27 @@ class NestedObjectQueryParamSyntaxTest {
         assertThat(result).isEqualTo(
             NestedQuerySyntaxInferenceResult.SyntaxInferred(
                 ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
+            )
+        )
+    }
+
+    @Test
+    fun `syntax inference should collect root and property guidance across example and examples`() {
+        val result = NestedObjectQuerySyntaxInference.infer(
+            parameterName = "details",
+            schema = personDetailsSchema,
+            parameterExamples = NestedQueryParameterExamples(
+                example = "details[name]=Jack",
+                examples = listOf(
+                    "address[0][street]=Baker Street",
+                    "address[0].street=Downing Street"
+                )
+            )
+        )
+
+        assertThat(result).isEqualTo(
+            NestedQuerySyntaxInferenceResult.SyntaxInferred(
+                ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
             )
         )
     }

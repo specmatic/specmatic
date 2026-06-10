@@ -517,20 +517,19 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `should fallback to default nested object query syntax when inline example is malformed`() {
-        val queryParamPattern = OpenApiSpecification.fromYAML(
-            nestedObjectQueryParamSpec(
-                schema = nestedDetailsSchema(),
-                parameterFields = mapOf("example" to "name=Jack&address[0][street")
-            ),
-            ""
-        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+    fun `should report invalid nested object query syntax when inline example is malformed`() {
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = nestedDetailsSchema(),
+                    parameterFields = mapOf("example" to "name=Jack&address[0][street")
+                ),
+                ""
+            ).toFeature()
+        }
 
-        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
-
-        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
-            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
-        )
+        assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(exception.report()).contains("paths./people.get.parameters[0].example")
     }
 
     @Test

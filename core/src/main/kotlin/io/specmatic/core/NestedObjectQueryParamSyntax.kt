@@ -1,6 +1,5 @@
 package io.specmatic.core
 
-import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -187,7 +186,7 @@ data class NestedQueryParameterExamples(
     val examples: List<String> = emptyList()
 ) {
     fun examplesInPrecedenceOrder(): List<String> {
-        return examples + listOfNotNull(example)
+        return listOfNotNull(example) + examples
     }
 }
 
@@ -212,31 +211,21 @@ object NestedObjectQuerySyntaxInference {
             return NestedQuerySyntaxInferenceResult.Failure(listOf(missingExampleMessage(parameterName)))
         }
 
-        val keysByExample = examples.map(::queryKeysFrom)
-        val firstCompleteExample = keysByExample.asSequence()
-            .map { keys -> candidatesFor(parameterName, schema, keys) }
-            .firstOrNull { candidates -> candidates.any { candidate -> candidate.missingBranches(requiredBranches).isEmpty() } }
+        val requiredGuidance = RequiredSyntaxGuidance(
+            propertyStyle = schema.requiresNestedPropertyStyle()
+        )
 
-        if (firstCompleteExample != null) {
-            val candidatesWithCoverage = firstCompleteExample.filter { candidate ->
-                candidate.missingBranches(requiredBranches).isEmpty()
-            }
+        var inferredGuidance = InferredSyntaxGuidance()
+        for (keys in examples.map(::queryKeysFrom)) {
+            val candidates = candidatesFor(parameterName, schema, keys)
+            if (candidates.isEmpty()) continue
 
-            return when {
-                candidatesWithCoverage.size == 1 -> NestedQuerySyntaxInferenceResult.SyntaxInferred(candidatesWithCoverage.single().syntax)
-                else -> {
-                    logger.log("ERROR: ${ambiguousSyntaxMessage(parameterName)} Assuming dot property notation.")
-                    NestedQuerySyntaxInferenceResult.SyntaxInferred(candidatesWithCoverage.preferDotPropertySyntax().syntax)
-                }
-            }
+            inferredGuidance = inferredGuidance.with(candidates, requiredGuidance)
+            if (inferredGuidance.isComplete(requiredGuidance)) break
         }
 
-        val firstParseableExample = keysByExample.asSequence()
-            .map { keys -> candidatesFor(parameterName, schema, keys) }
-            .firstOrNull(List<CandidateParse>::isNotEmpty)
-
-        return if (firstParseableExample != null) {
-            NestedQuerySyntaxInferenceResult.SyntaxInferred(firstParseableExample.preferDotPropertySyntax().syntax)
+        return if (inferredGuidance.hasAnyGuidance()) {
+            NestedQuerySyntaxInferenceResult.SyntaxInferred(inferredGuidance.toSyntax())
         } else {
             NestedQuerySyntaxInferenceResult.Failure(listOf(missingExampleMessage(parameterName)))
         }
@@ -294,25 +283,78 @@ object NestedObjectQuerySyntaxInference {
         return "Query parameter $parameterName contains nested object or array properties, but no example demonstrates how nested query keys should be serialized."
     }
 
-    private fun conflictingSyntaxMessage(parameterName: String): String {
-        return "Query parameter $parameterName has conflicting nested query syntaxes across examples."
-    }
-
-    private fun ambiguousSyntaxMessage(parameterName: String): String {
-        return "Query parameter $parameterName has ambiguous nested query syntax across examples."
-    }
-}
-
-private fun List<CandidateParse>.preferDotPropertySyntax(): CandidateParse {
-    return firstOrNull { it.syntax.propertyStyle == QueryPropertyStyle.Dot } ?: first()
-}
-
-private fun List<ObjectQuerySyntax>.preferDotPropertySyntax(): ObjectQuerySyntax {
-    return firstOrNull { it.propertyStyle == QueryPropertyStyle.Dot } ?: first()
 }
 
 private fun NestedQuerySchema.Object.requiredSyntaxBranches(): Set<NestedQuerySyntaxBranch> {
     return requiredSyntaxBranches(prefix = emptyList(), displayPrefix = "")
+}
+
+private data class RequiredSyntaxGuidance(
+    val propertyStyle: Boolean
+)
+
+private data class InferredSyntaxGuidance(
+    val root: ObjectQueryRoot? = null,
+    val propertyStyle: QueryPropertyStyle? = null,
+    val sawParseableExample: Boolean = false
+) {
+    fun with(candidates: List<CandidateParse>, requiredGuidance: RequiredSyntaxGuidance): InferredSyntaxGuidance {
+        return copy(
+            root = root ?: candidates.singleRootOrNull(),
+            propertyStyle = propertyStyle ?: candidates.singlePropertyStyleOrNull(requiredGuidance),
+            sawParseableExample = true
+        )
+    }
+
+    fun isComplete(requiredGuidance: RequiredSyntaxGuidance): Boolean {
+        return root != null && (!requiredGuidance.propertyStyle || propertyStyle != null)
+    }
+
+    fun hasAnyGuidance(): Boolean {
+        return sawParseableExample || root != null || propertyStyle != null
+    }
+
+    fun toSyntax(): ObjectQuerySyntax {
+        return ObjectQuerySyntax(
+            root = root ?: ObjectQueryRoot.Unwrapped,
+            propertyStyle = propertyStyle ?: QueryPropertyStyle.Dot,
+            arrayIndexStyle = QueryArrayIndexStyle.Bracket
+        )
+    }
+}
+
+private fun List<CandidateParse>.singleRootOrNull(): ObjectQueryRoot? {
+    return map { it.syntax.root }.distinct().singleOrNull()
+}
+
+private fun List<CandidateParse>.singlePropertyStyleOrNull(requiredGuidance: RequiredSyntaxGuidance): QueryPropertyStyle? {
+    if (!requiredGuidance.propertyStyle) return null
+
+    return map { it.syntax.propertyStyle }.distinct().singleOrNull()
+}
+
+private fun NestedQuerySchema.Object.requiresNestedPropertyStyle(): Boolean {
+    return properties.values.any(NestedQuerySchema::requiresNestedPropertyStyle) ||
+        additionalProperties?.requiresNestedPropertyStyle() == true ||
+        allowsAnyAdditionalProperties
+}
+
+private fun NestedQuerySchema.requiresNestedPropertyStyle(): Boolean {
+    return when (this) {
+        is NestedQuerySchema.Scalar -> false
+        is NestedQuerySchema.Array -> itemSchema.requiresPropertyStyleInsideArray()
+        is NestedQuerySchema.Object -> properties.isNotEmpty() || additionalProperties != null || allowsAnyAdditionalProperties
+        is NestedQuerySchema.Ambiguous -> true
+    }
+}
+
+private fun NestedQuerySchema.requiresPropertyStyleInsideArray(): Boolean {
+    return when (this) {
+        is NestedQuerySchema.Scalar -> false
+        is NestedQuerySchema.Array -> itemSchema.requiresPropertyStyleInsideArray()
+        is NestedQuerySchema.Object -> properties.isNotEmpty() || additionalProperties != null || allowsAnyAdditionalProperties
+        is NestedQuerySchema.Ambiguous -> true
+    }
 }
 
 private fun NestedQuerySchema.requiredSyntaxBranches(
