@@ -3435,6 +3435,10 @@ paths:
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams.map { it.keys }).containsExactlyInAnyOrder(
+            setOf("age", "name"),
+            emptySet()
+        )
         assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
             assertThat(queryParams).containsKey("age")
             assertThat(queryParams).containsKey("name")
