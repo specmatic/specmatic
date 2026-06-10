@@ -5,10 +5,10 @@ import java.io.File
 
 internal fun normalizeFilesystemSpecificationPath(
     specificationPath: String,
-    sourceProvider: String?,
+    sourceProvider: SourceProvider?,
     resolvedSpecFile: File,
 ): String {
-    if (sourceProvider != SourceProvider.filesystem.name) {
+    if (sourceProvider != SourceProvider.filesystem) {
         return specificationPath
     }
 

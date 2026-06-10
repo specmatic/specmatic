@@ -594,7 +594,7 @@ data class SpecmaticConfigV1V2Common(
             specPathFromConfig?.let {
                 normalizeFilesystemSpecificationPath(
                     specificationPath = it,
-                    sourceProvider = source.provider.name,
+                    sourceProvider = source.provider,
                     resolvedSpecFile = specFile,
                 )
             }

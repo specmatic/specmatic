@@ -241,7 +241,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             specPathFromConfig?.let {
                 normalizeFilesystemSpecificationPath(
                     specificationPath = it,
-                    sourceProvider = source?.toProviderType()?.name,
+                    sourceProvider = source?.toProviderType(),
                     resolvedSpecFile = specFile,
                 )
             }
@@ -250,7 +250,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             protocol = protocol,
             specType = specType,
             specification = normalizedSpecificationPath.orEmpty(),
-            sourceProvider = source?.toProviderType()?.name.orEmpty(),
+            sourceProvider = source?.toProviderType()?.name ?: SourceProvider.filesystem.name,
             repository = source?.getGit()?.url,
             branch = source?.getGit()?.branch ?: "main",
         )

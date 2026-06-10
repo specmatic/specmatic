@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.normalizeFilesystemSpecificationPath
+import io.specmatic.core.SourceProvider
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import java.io.File
@@ -39,7 +40,7 @@ data class LocalFileSystemSource(
             val normalizedSpecificationPath =
                 normalizeFilesystemSpecificationPath(
                     specificationPath = it.path,
-                    sourceProvider = type,
+                    sourceProvider = SourceProvider.filesystem,
                     resolvedSpecFile = resolvedPath.canonicalFile,
                 )
 
