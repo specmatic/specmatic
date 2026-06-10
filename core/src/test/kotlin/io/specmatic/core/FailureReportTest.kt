@@ -228,22 +228,30 @@ internal class FailureReportTest {
         @Test
         fun `a chain renders every hop joined head to tail`() {
             val location = SourceLocation(
-                "common.yaml", 10, 9,
-                via = listOf(SourceLocation("api.yaml", 10, 13), SourceLocation("commonA.yaml", 10, 9))
+                filePath = "common.yaml", line = 10, column = 9, pointer = "",
+                via = listOf(
+                    SourceLocation("api.yaml", 10, 13, ""),
+                    SourceLocation("commonA.yaml", 10, 9, "")
+                )
             )
+
             assertThat(reportFor(location, addSourceLocation = true))
                 .contains(">> REQUEST.BODY.name (api.yaml:10:13 -> commonA.yaml:10:9 -> common.yaml:10:9)")
         }
 
         @Test
         fun `a location with no via renders as a single hop with no arrow`() {
-            assertThat(reportFor(SourceLocation("api.yaml", 7, 11), addSourceLocation = true))
+            assertThat(reportFor(SourceLocation("api.yaml", 7, 11, ""), addSourceLocation = true))
                 .contains(">> REQUEST.BODY.name (api.yaml:7:11)")
         }
 
         @Test
         fun `the chain is omitted when source locations are disabled`() {
-            val location = SourceLocation("common.yaml", 10, 9, via = listOf(SourceLocation("api.yaml", 10, 13)))
+            val location = SourceLocation(
+                filePath = "common.yaml", line = 10, column = 9, pointer = "",
+                via = listOf(SourceLocation("api.yaml", 10, 13, ""))
+            )
+
             assertThat(reportFor(location, addSourceLocation = false))
                 .contains(">> REQUEST.BODY.name").doesNotContain("->").doesNotContain("common.yaml")
         }

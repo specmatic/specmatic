@@ -28,6 +28,7 @@ import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
@@ -1419,6 +1420,66 @@ class OpenApiSpecificationParseTest {
         assertThat(feature.scenarios).hasSize(1)
     }
 
+    @Test
+    fun `internal ref source locations keep their own pointer`(@TempDir tempDir: File) {
+        val apiFile = tempDir.resolve("api.yaml")
+        apiFile.writeText(loadFixture("jsonPointerSourceMap/baseSpecWithComposition.yaml"))
+
+        val feature = OpenApiSpecification.fromFile(apiFile.canonicalPath).toFeature()
+        val sourceLocations = feature.scenarios.single().resolver.sourceLocations
+
+        val componentPointer = "/components/schemas/Submission/properties/id/type"
+        val componentLocation = sourceLocations.getValue(componentPointer)
+
+        assertThat(componentLocation.filePath).isEqualTo(apiFile.canonicalPath.replace('\\', '/'))
+        assertThat(componentLocation.pointer).isEqualTo(componentPointer)
+    }
+
+    @Test
+    fun `external ref source locations keep original source pointer`(@TempDir tempDir: File) {
+        val apiFile = tempDir.resolve("api.yaml")
+        val commonFile = tempDir.resolve("common.yaml")
+
+        apiFile.writeText($$"""
+        openapi: 3.0.0
+        info:
+          title: Pets
+          version: "1"
+        paths:
+          /pets:
+            get:
+              responses:
+                "200":
+                  description: ok
+                  content:
+                    application/json:
+                      schema:
+                        $ref: './common.yaml#/Pet'
+        """.trimIndent())
+
+        commonFile.writeText("""
+        Pet:
+          properties:
+            id:
+              type: string
+        """.trimIndent())
+
+        val feature = OpenApiSpecification.fromFile(apiFile.canonicalPath).toFeature()
+        val sourceLocations = feature.scenarios.single().resolver.sourceLocations
+        assertThat(sourceLocations.values).allSatisfy {
+            assertThat(it).satisfiesAnyOf(
+                { location ->
+                    assertThat(location.filePath).isEqualTo(apiFile.canonicalPath)
+                    assertThat(location.pointer).doesNotStartWith("/Pet")
+                },
+                { location ->
+                    assertThat(location.filePath).isEqualTo(commonFile.canonicalPath)
+                    assertThat(location.pointer).startsWith("/Pet")
+                }
+            )
+        }
+    }
+
     private fun queryParamPatternWithObjectAdditionalProperties(
         personAdditionalProperties: Any?,
         departmentAdditionalProperties: Any? = null
@@ -1547,6 +1608,9 @@ class OpenApiSpecificationParseTest {
                       description: OK
         """.trimIndent()
     }
+
+    @Suppress("SameParameterValue")
+    private fun loadFixture(name: String): String = this::class.java.classLoader.getResource(name)!!.readText()
 
     companion object {
         data class AdditionalPropsCase(val name: String, val version: OpenApiVersion, val additionalProperties: Any?, val check: (Any?) -> Unit) {

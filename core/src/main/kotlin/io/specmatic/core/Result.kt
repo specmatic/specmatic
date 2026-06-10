@@ -457,6 +457,7 @@ data class SourceLocation(
     val filePath: String,
     val line: Int,
     val column: Int,
+    val pointer: String,
     val via: List<SourceLocation> = emptyList()
 ) {
     fun mapFilePath(transform: (String) -> String): SourceLocation =

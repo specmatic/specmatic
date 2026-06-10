@@ -57,8 +57,8 @@ class ResultTest {
         ).breadCrumb(
             "name",
             SourceLocation(
-                filePath = "/repo/common.yaml", line = 38, column = 9,
-                via = listOf(SourceLocation(filePath = "/repo/api.yaml", line = 27, column = 13)),
+                filePath = "/repo/common.yaml", line = 38, column = 9, pointer = "",
+                via = listOf(SourceLocation(filePath = "/repo/api.yaml", line = 27, column = 13, pointer = "")),
             ),
         ).breadCrumb("BODY").breadCrumb("REQUEST")
 
