@@ -89,7 +89,7 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples()
+            val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples(resolver)
             val queryParams = effectiveQueryPatterns(rowWithNestedObjectQueryExamples)
             val patternMap = rowWithNestedObjectQueryExamples.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
@@ -111,7 +111,8 @@ data class HttpQueryParamPattern(
         }
     }
 
-    private fun Row.withNestedObjectQueryParamExamples(): Row {
+    private fun Row.withNestedObjectQueryParamExamples(resolver: Resolver): Row {
+        val effectivePatterns = effectiveQueryPatterns(this)
         val nestedObjectFields = nestedObjectQueryParams
             .filterNot { containsField(it.parameterName) }
             .mapNotNull { nestedObjectQueryParam ->
@@ -123,7 +124,7 @@ data class HttpQueryParamPattern(
                     null
                 } else {
                     nestedObjectQueryParam.parameterName to
-                        nestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(nestedPairs).toStringLiteral()
+                        nestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(nestedPairs, effectivePatterns, resolver).toStringLiteral()
                 }
             }
             .toMap()
@@ -132,7 +133,7 @@ data class HttpQueryParamPattern(
     }
 
     fun addComplimentaryPatterns(basePatterns: Sequence<ReturnValue<HttpQueryParamPattern>>, row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
-        val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples()
+        val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples(resolver)
         return addComplimentaryPatterns(
             basePatterns.map { rValue -> rValue.ifValue { it.queryPatterns } },
             effectiveQueryPatterns(row),

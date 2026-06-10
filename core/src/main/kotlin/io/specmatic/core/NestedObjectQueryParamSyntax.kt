@@ -236,13 +236,9 @@ object NestedObjectQuerySyntaxInference {
             .firstOrNull(List<CandidateParse>::isNotEmpty)
 
         return if (firstParseableExample != null) {
-            firstParseableExample.preferDotPropertySyntax().missingBranches(requiredBranches).map { branch ->
-                missingBranchMessage(parameterName, branch.displayName)
-            }.forEach { warning -> logger.log("ERROR: $warning Assuming dot property notation.") }
-
             NestedQuerySyntaxInferenceResult.SyntaxInferred(firstParseableExample.preferDotPropertySyntax().syntax)
         } else {
-            NestedQuerySyntaxInferenceResult.Failure(listOf("Query parameter $parameterName has nested query keys that could not be parsed with any supported syntax."))
+            NestedQuerySyntaxInferenceResult.Failure(listOf(missingExampleMessage(parameterName)))
         }
     }
 
@@ -296,10 +292,6 @@ object NestedObjectQuerySyntaxInference {
 
     private fun missingExampleMessage(parameterName: String): String {
         return "Query parameter $parameterName contains nested object or array properties, but no example demonstrates how nested query keys should be serialized."
-    }
-
-    private fun missingBranchMessage(parameterName: String, branch: String): String {
-        return "Query parameter $parameterName contains nested branch $branch, but no example includes a leaf under that branch."
     }
 
     private fun conflictingSyntaxMessage(parameterName: String): String {

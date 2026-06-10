@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.stub.captureStandardOutput
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -166,7 +167,7 @@ class NestedObjectQueryParamSyntaxTest {
     }
 
     @Test
-    fun `syntax inference should warn and assume dot notation when examples do not cover a nested branch`() {
+    fun `syntax inference should assume dot notation when examples do not cover a nested branch`() {
         val result = NestedObjectQuerySyntaxInference.infer(
             parameterName = "details",
             schema = personDetailsSchema,
@@ -212,7 +213,7 @@ class NestedObjectQueryParamSyntaxTest {
     }
 
     @Test
-    fun `syntax inference should warn and assume dot notation when an array object example does not reach a scalar leaf`() {
+    fun `syntax inference should assume dot notation when an array object example does not reach a scalar leaf`() {
         val result = NestedObjectQuerySyntaxInference.infer(
             parameterName = "details",
             schema = personDetailsSchema,
@@ -227,7 +228,7 @@ class NestedObjectQueryParamSyntaxTest {
     }
 
     @Test
-    fun `syntax inference should warn and assume dot notation when examples omit a deeper nested object branch`() {
+    fun `syntax inference should assume dot notation when examples omit a deeper nested object branch`() {
         val result = NestedObjectQuerySyntaxInference.infer(
             parameterName = "details",
             schema = nestedLocationSchema,
@@ -239,6 +240,25 @@ class NestedObjectQueryParamSyntaxTest {
                 ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
             )
         )
+    }
+
+    @Test
+    fun `syntax inference should not log a warning for each missing nested branch`() {
+        val (stdout, result) = captureStandardOutput {
+            NestedObjectQuerySyntaxInference.infer(
+                parameterName = "details",
+                schema = nestedLocationSchema,
+                examples = listOf("address.street=Baker Street")
+            )
+        }
+
+        assertThat(result).isEqualTo(
+            NestedQuerySyntaxInferenceResult.SyntaxInferred(
+                ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+            )
+        )
+        assertThat(stdout).doesNotContain("contains nested branch")
+        assertThat(stdout).doesNotContain("Assuming dot property notation")
     }
 
     @Test

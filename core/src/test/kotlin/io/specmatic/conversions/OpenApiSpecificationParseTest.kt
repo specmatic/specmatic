@@ -383,6 +383,39 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `should treat object query property schema with no properties as allowing arbitrary scalar properties`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = mapOf(
+                    "type" to "object",
+                    "properties" to mapOf(
+                        "method" to mapOf("\$ref" to "#/components/schemas/HttpMethod"),
+                        "errors" to mapOf(
+                            "type" to "array",
+                            "items" to mapOf("\$ref" to "#/components/schemas/MicroserviceError")
+                        )
+                    )
+                ),
+                parameterFields = mapOf("example" to "method.status=GET&errors[0].code=ERROR"),
+                componentsSchemas = mapOf(
+                    "HttpMethod" to mapOf("type" to "object"),
+                    "MicroserviceError" to mapOf(
+                        "type" to "object",
+                        "properties" to mapOf("code" to mapOf("type" to "string"))
+                    )
+                )
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+    }
+
+    @Test
     fun `should reject nested query examples that reference pruned circular branches`() {
         val exception = assertThrows<ContractException> {
             OpenApiSpecification.fromYAML(

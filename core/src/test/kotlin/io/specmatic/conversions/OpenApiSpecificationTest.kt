@@ -13555,6 +13555,84 @@ paths:
     }
 
     @Test
+    fun `external nested object query examples preserve numeric query leaf values during validation`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("nested-object-query.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/products/search",
+                "query": {
+                  "category": "shoes",
+                  "price.min": 50,
+                  "price.max": 150,
+                  "variants[0].color": "black",
+                  "variants[0].sizes[0]": 9
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "id": 10
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectAndArrayQuerySpec(),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
+    }
+
+    @Test
+    fun `external nested object query examples preserve numeric unwrapped root leaves during validation`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("my-day-details_200.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/my-day-details",
+                "query": {
+                  "mydayId": "TAAC041761259272ZSPB",
+                  "status": 200,
+                  "code": 200,
+                  "method.status": "GET",
+                  "errors[0].code": "ERROR",
+                  "data": "",
+                  "request": "",
+                  "header": ""
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "status": 200,
+                  "code": 0
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val feature = OpenApiSpecification.fromYAML(
+            telstraStyleNestedResponseQuerySpec(),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
+    }
+
+    @Test
     fun `mock matches loaded external nested array query examples`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
         val exampleFile = examplesDir.resolve("nested-array-query.json").apply {
@@ -13977,6 +14055,72 @@ $parameterExample
                             SUCCESS:
                               value:
                                 id: 10
+        """.trimIndent()
+    }
+
+    private fun telstraStyleNestedResponseQuerySpec(): String {
+        return """
+            openapi: 3.0.1
+            info:
+              title: Telstra Style Nested Response Query
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: method.status=GET&errors[0].code=ERROR
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                HttpMethod:
+                  type: object
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                      format: int32
+                    code:
+                      type: integer
+                      format: int32
+                      deprecated: true
+                    method:
+                      ${"$"}ref: '#/components/schemas/HttpMethod'
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+                    data:
+                      type: object
+                    request:
+                      type: object
+                    header:
+                      type: object
+                      additionalProperties:
+                        type: string
         """.trimIndent()
     }
 

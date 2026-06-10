@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.withOptionality
+import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -182,7 +183,7 @@ private fun NestedObjectQueryParam.parseValueAt(
 ): Value {
     emptyContainerValueAt(path, value)?.let { return it }
 
-    val pattern = leafPatternAt(path, effectivePatterns) ?: return StringValue(value)
+    val pattern = leafPatternAt(path, effectivePatterns, resolver) ?: return StringValue(value)
     return pattern.parse(value, resolver)
 }
 
@@ -218,21 +219,26 @@ private fun NestedQuerySchema.schemaAt(tokens: List<QueryObjectPathToken>): Nest
 
 private fun NestedObjectQueryParam.leafPatternAt(
     path: QueryObjectPath,
-    effectivePatterns: Map<String, Pattern>
+    effectivePatterns: Map<String, Pattern>,
+    resolver: Resolver
 ): Pattern? {
-    val rootPattern = effectivePatterns[parameterName] ?: effectivePatterns[withOptionality(parameterName)] ?: return null
-    return rootPattern.patternAt(path.tokens)
+    val rootPattern = effectivePatterns[parameterName] ?: effectivePatterns[withOptionality(parameterName)]
+    if (rootPattern != null) return rootPattern.patternAt(path.tokens, resolver)
+
+    val firstProperty = path.tokens.firstOrNull() as? QueryObjectPathToken.Property ?: return null
+    val propertyPattern = effectivePatterns[firstProperty.name] ?: effectivePatterns[withOptionality(firstProperty.name)] ?: return null
+    return propertyPattern.patternAt(path.tokens.drop(1), resolver)
 }
 
-private fun Pattern.patternAt(tokens: List<QueryObjectPathToken>): Pattern? {
+private fun Pattern.patternAt(tokens: List<QueryObjectPathToken>, resolver: Resolver): Pattern? {
     if (tokens.isEmpty()) return this
 
-    return when (this) {
-        is QueryParameterScalarPattern -> pattern.patternAt(tokens)
-        is JSONObjectPattern -> childPattern(tokens.first())?.patternAt(tokens.drop(1))
+    return when (val resolvedPattern = resolvedHop(this, resolver)) {
+        is QueryParameterScalarPattern -> resolvedPattern.pattern.patternAt(tokens, resolver)
+        is JSONObjectPattern -> resolvedPattern.childPattern(tokens.first())?.patternAt(tokens.drop(1), resolver)
         is ListPattern -> {
             if (tokens.first() !is QueryObjectPathToken.Index) return null
-            pattern.patternAt(tokens.drop(1))
+            resolvedPattern.pattern.patternAt(tokens.drop(1), resolver)
         }
         else -> null
     }

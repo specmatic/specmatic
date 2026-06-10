@@ -165,7 +165,7 @@ private fun Schema<*>.toNestedQuerySchema(
                 propertyName to propertyNestedQuerySchema
             }.toMap(),
             additionalProperties = nestedQueryAdditionalProperties(collectorContext, resolveSchemaReference, visitedRefs),
-            allowsAnyAdditionalProperties = extractAdditionalProperties() == true
+            allowsAnyAdditionalProperties = allowsAnyAdditionalProperties()
         )
         isSchema(ARRAY_TYPE) -> NestedQuerySchema.Array(
             itemSchema = (items ?: return collectorContext.at("items").unsupportedNestedQuerySchema("Array query schema does not define items"))
@@ -182,6 +182,10 @@ private fun Schema<*>.toNestedQuerySchema(
 private fun CollectorContext.unsupportedNestedQuerySchema(message: String): NestedQuerySchema.Ambiguous {
     record(message, ruleViolation = OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA)
     return NestedQuerySchema.Ambiguous(message)
+}
+
+private fun Schema<*>.allowsAnyAdditionalProperties(): Boolean {
+    return extractAdditionalProperties() == true || (properties.isNullOrEmpty() && extractAdditionalProperties() == null)
 }
 
 private fun Schema<*>.nestedQueryAdditionalProperties(
