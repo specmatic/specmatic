@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import integration_tests.OpenApiVersion
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.IssueSeverity
+import io.specmatic.core.NestedQuerySchema
 import io.specmatic.core.ObjectQueryRoot
 import io.specmatic.core.ObjectQuerySyntax
 import io.specmatic.core.QueryParameterCollisionOwnerKind
@@ -382,37 +383,104 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `should fallback to default nested object query syntax when refs are circular`() {
-        val queryParamPattern = OpenApiSpecification.fromYAML(
-            nestedObjectQueryParamSpec(
-                schema = mapOf(
-                    "type" to "object",
-                    "properties" to mapOf(
-                        "node" to mapOf("\$ref" to "#/components/schemas/Node")
-                    )
-                ),
-                parameterFields = mapOf(
-                    "required" to false,
-                    "example" to "node.child.name=abc"
-                ),
-                componentsSchemas = mapOf(
-                    "Node" to mapOf(
+    fun `should reject nested query examples that reference pruned circular branches`() {
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = mapOf(
                         "type" to "object",
                         "properties" to mapOf(
-                            "child" to mapOf("\$ref" to "#/components/schemas/Node"),
-                            "name" to mapOf("type" to "string")
+                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
                         )
                     ),
-                )
-            ),
-            ""
-        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+                    parameterFields = mapOf(
+                        "required" to false,
+                        "example" to "node.child.name=abc"
+                    ),
+                    componentsSchemas = mapOf(
+                        "Node" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                                "name" to mapOf("type" to "string")
+                            )
+                        ),
+                    )
+                ),
+                ""
+            ).toFeature()
+        }
+
+        assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(exception.report()).contains("parameters[0].example")
+        assertThat(exception.report()).contains("nested query keys that could not be parsed")
+    }
+
+    @Test
+    fun `should prune optional circular nested object query branches without reporting unsupported schema`() {
+        val (stdout, queryParamPattern) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
+                        )
+                    ),
+                    parameterFields = mapOf("example" to "node.name=abc"),
+                    componentsSchemas = mapOf(
+                        "Node" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                                "name" to mapOf("type" to "string")
+                            )
+                        )
+                    )
+                ),
+                "recursive-query.yaml"
+            ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+        }
 
         val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+        val nodeSchema = (nestedObjectQueryParam.schema.properties.getValue("node") as NestedQuerySchema.Object)
 
-        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
-            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
-        )
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA.id)
+        assertThat(nodeSchema.properties.keys).containsExactly("name")
+    }
+
+    @Test
+    fun `should prune unavoidable circular nested object query branches at the cycle boundary`() {
+        val (stdout, queryParamPattern) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
+                        )
+                    ),
+                    parameterFields = mapOf("example" to "node.name=abc"),
+                    componentsSchemas = mapOf(
+                        "Node" to mapOf(
+                            "type" to "object",
+                            "required" to listOf("child"),
+                            "properties" to mapOf(
+                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                                "name" to mapOf("type" to "string")
+                            )
+                        )
+                    )
+                ),
+                "recursive-query.yaml"
+            ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+        }
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+        val nodeSchema = (nestedObjectQueryParam.schema.properties.getValue("node") as NestedQuerySchema.Object)
+
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA.id)
+        assertThat(nodeSchema.properties.keys).containsExactly("name")
     }
 
     @Test

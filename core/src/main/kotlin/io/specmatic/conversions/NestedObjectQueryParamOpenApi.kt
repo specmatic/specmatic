@@ -136,13 +136,11 @@ private fun Schema<*>.toNestedQuerySchema(
     collectorContext: CollectorContext,
     resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
     visitedRefs: Set<String> = emptySet()
-): NestedQuerySchema {
+): NestedQuerySchema? {
     if (`$ref` != null) {
         val ref = `$ref`
         if (ref in visitedRefs) {
-            val message = "Circular schema reference $ref"
-            collectorContext.record(message, ruleViolation = OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA)
-            return NestedQuerySchema.Ambiguous(message)
+            return null
         }
 
         val resolvedSchema = resolveSchemaReference(ref, collectorContext)
@@ -157,22 +155,25 @@ private fun Schema<*>.toNestedQuerySchema(
 
     return when {
         isSchema(OBJECT_TYPE) -> NestedQuerySchema.Object(
-            properties = properties.orEmpty().mapValues { (propertyName, propertySchema) ->
-                propertySchema.toNestedQuerySchema(
+            properties = properties.orEmpty().mapNotNull { (propertyName, propertySchema) ->
+                val propertyNestedQuerySchema = propertySchema.toNestedQuerySchema(
                     collectorContext = collectorContext.at("properties").at(propertyName),
                     resolveSchemaReference = resolveSchemaReference,
                     visitedRefs = visitedRefs
-                )
-            },
+                ) ?: return@mapNotNull null
+
+                propertyName to propertyNestedQuerySchema
+            }.toMap(),
             additionalProperties = nestedQueryAdditionalProperties(collectorContext, resolveSchemaReference, visitedRefs),
             allowsAnyAdditionalProperties = extractAdditionalProperties() == true
         )
         isSchema(ARRAY_TYPE) -> NestedQuerySchema.Array(
-            itemSchema = items?.toNestedQuerySchema(
-                collectorContext = collectorContext.at("items"),
-                resolveSchemaReference = resolveSchemaReference,
-                visitedRefs = visitedRefs
-            ) ?: collectorContext.at("items").unsupportedNestedQuerySchema("Array query schema does not define items")
+            itemSchema = (items ?: return collectorContext.at("items").unsupportedNestedQuerySchema("Array query schema does not define items"))
+                .toNestedQuerySchema(
+                    collectorContext = collectorContext.at("items"),
+                    resolveSchemaReference = resolveSchemaReference,
+                    visitedRefs = visitedRefs
+                ) ?: return null
         )
         else -> NestedQuerySchema.Scalar
     }
