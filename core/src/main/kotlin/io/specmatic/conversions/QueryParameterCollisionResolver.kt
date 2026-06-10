@@ -113,7 +113,7 @@ private fun recordQueryParameterTypeCollisionIfNeeded(entries: List<QueryParamet
     val authoritativeEntry = entries.first()
     val ownerDetails = entries.joinToString(separator = "\n") { "- ${it.diagnosticDisplayName()}" }
     authoritativeEntry.collectorContext.record(
-        message = "Query parameter wire key ${authoritativeEntry.wireKey} has conflicting schemas:\n$ownerDetails\nSpecmatic will use the first declared query parameter ${authoritativeEntry.source.parameterName} as authoritative.",
+        message = "Query parameter wire key ${authoritativeEntry.wireKey} has conflicting schemas:\n$ownerDetails\nSpecmatic will use the first declared query parameter ${authoritativeEntry.source.displayName} as authoritative.",
         isWarning = true,
         ruleViolation = OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION
     )

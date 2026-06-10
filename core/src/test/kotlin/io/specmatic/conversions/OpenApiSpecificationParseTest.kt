@@ -502,7 +502,7 @@ class OpenApiSpecificationParseTest {
         assertThat(stdout).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
         assertThat(stdout).contains("type")
         assertThat(stdout).contains("info.type")
-        assertThat(stdout).contains("first declared query parameter info")
+        assertThat(stdout).contains("first declared query parameter info.type")
         assertThat(stdout).doesNotContain("if parsing continues")
         assertThat(queryParamPattern.collisionGroupsByWireKey.getValue("type").authoritativeOwner.sourceName).isEqualTo("info.type")
     }
@@ -560,7 +560,7 @@ class OpenApiSpecificationParseTest {
         assertThat(stdout).contains("- filter.type at paths./orders.get.parameters[1].schema.properties.type")
         assertThat(stdout).contains("- type at paths./orders.get.parameters[2].name")
         assertThat(stdout).doesNotContain("/paths/~1orders/get/parameters")
-        assertThat(stdout).contains("first declared query parameter info as authoritative")
+        assertThat(stdout).contains("first declared query parameter info.type as authoritative")
         assertThat(stdout).doesNotContain("if parsing continues")
         assertThat(queryParamPattern.collisionGroupsByWireKey.getValue("type").owners.map { it.sourceName }).containsExactly("info.type", "filter.type", "type")
     }
