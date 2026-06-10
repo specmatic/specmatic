@@ -6,6 +6,8 @@ import io.specmatic.GENERATION
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.toViolationReportString
@@ -185,6 +187,30 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    fun `should match parameter dot-wrapped nested object query params using inferred dot property syntax`() {
+        val matcher = nestedDetailsQueryParamPattern(
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+
+        val result = matcher.matches(
+            HttpRequest(
+                "GET",
+                "/people",
+                queryParams = QueryParameters(
+                    listOf(
+                        "details.name" to "Jack",
+                        "details.address[0].street" to "Baker Street",
+                        "details.address[0].city" to "London"
+                    )
+                )
+            ),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Success::class.java)
+    }
+
+    @Test
     fun `should reject nested object query params using syntax different from inferred syntax`() {
         val matcher = nestedDetailsQueryParamPattern(
             ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
@@ -256,6 +282,108 @@ class HttpQueryParamPatternTest {
 
         assertThat(result).isInstanceOf(Failure::class.java)
         assertThat((result as Failure).reportString()).contains("details", "address", "city")
+    }
+
+    @Test
+    fun `should treat empty query value as empty object when nested query path is an object`() {
+        val matcher = emptyContainerQueryParamPattern(
+            dataPattern = JSONObjectPattern(mapOf("name?" to StringPattern())),
+            dataSchema = NestedQuerySchema.Object(properties = mapOf("name" to NestedQuerySchema.Scalar))
+        )
+
+        val result = matcher.matches(
+            HttpRequest(
+                "GET",
+                "/people",
+                queryParams = QueryParameters(listOf("filter.data" to ""))
+            ),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Success::class.java)
+    }
+
+    @Test
+    fun `should validate empty object marker against mandatory nested object children`() {
+        val matcher = emptyContainerQueryParamPattern(
+            dataPattern = JSONObjectPattern(mapOf("name" to StringPattern())),
+            dataSchema = NestedQuerySchema.Object(properties = mapOf("name" to NestedQuerySchema.Scalar))
+        )
+
+        val result = matcher.matches(
+            HttpRequest(
+                "GET",
+                "/people",
+                queryParams = QueryParameters(listOf("filter.data" to ""))
+            ),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+        assertThat((result as Failure).reportString()).contains("details", "filter", "data", "name")
+    }
+
+    @Test
+    fun `should treat empty query value as empty array when nested query path is an array`() {
+        val matcher = emptyContainerQueryParamPattern(
+            dataPattern = ListPattern(JSONObjectPattern(mapOf("name?" to StringPattern()))),
+            dataSchema = NestedQuerySchema.Array(
+                itemSchema = NestedQuerySchema.Object(properties = mapOf("name" to NestedQuerySchema.Scalar))
+            )
+        )
+
+        val result = matcher.matches(
+            HttpRequest(
+                "GET",
+                "/people",
+                queryParams = QueryParameters(listOf("filter.data" to ""))
+            ),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Success::class.java)
+    }
+
+    @Test
+    fun `should serialize empty nested object and array query values as empty query params`() {
+        val nestedObjectQueryParams = listOf(
+            NestedObjectQueryParam(
+                parameterName = "details",
+                required = true,
+                schema = NestedQuerySchema.Object(
+                    properties = mapOf(
+                        "filter" to NestedQuerySchema.Object(
+                            properties = mapOf(
+                                "data" to NestedQuerySchema.Object(properties = mapOf("name" to NestedQuerySchema.Scalar)),
+                                "items" to NestedQuerySchema.Array(
+                                    itemSchema = NestedQuerySchema.Object(properties = mapOf("name" to NestedQuerySchema.Scalar))
+                                )
+                            )
+                        )
+                    )
+                ),
+                syntax = ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+            )
+        )
+        val valuesMap = mapOf(
+            "details" to JSONObjectValue(
+                mapOf(
+                    "filter" to JSONObjectValue(
+                        mapOf(
+                            "data" to JSONObjectValue(),
+                            "items" to JSONArrayValue()
+                        )
+                    )
+                )
+            )
+        )
+
+        val queryPairs = serializeNestedObjectQueryValues(valuesMap, nestedObjectQueryParams)
+
+        assertThat(queryPairs).containsExactlyInAnyOrder(
+            "filter.data" to "",
+            "filter.items" to ""
+        )
     }
 
     @Test
@@ -435,6 +563,16 @@ class HttpQueryParamPatternTest {
                 "details[name]" to "Jack",
                 "details[address][0][street]" to "Baker Street",
                 "details[address][0][city]" to "London"
+            ),
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket) to listOf(
+                "details.name" to "Jack",
+                "details.address[0].street" to "Baker Street",
+                "details.address[0].city" to "London"
+            ),
+            ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket) to listOf(
+                "details.name" to "Jack",
+                "details.address[0][street]" to "Baker Street",
+                "details.address[0][city]" to "London"
             )
         )
 
@@ -593,6 +731,37 @@ class HttpQueryParamPatternTest {
         )
 
         return Row(requestBodyJSONExample = JSONExample(requestExample, Row()))
+    }
+
+    private fun emptyContainerQueryParamPattern(
+        dataPattern: Pattern,
+        dataSchema: NestedQuerySchema
+    ): HttpQueryParamPattern {
+        return HttpQueryParamPattern(
+            queryPatterns = mapOf(
+                "details" to JSONObjectPattern(
+                    mapOf(
+                        "filter" to JSONObjectPattern(
+                            mapOf("data" to dataPattern)
+                        )
+                    )
+                )
+            ),
+            nestedObjectQueryParams = listOf(
+                NestedObjectQueryParam(
+                    parameterName = "details",
+                    required = true,
+                    schema = NestedQuerySchema.Object(
+                        properties = mapOf(
+                            "filter" to NestedQuerySchema.Object(
+                                properties = mapOf("data" to dataSchema)
+                            )
+                        )
+                    ),
+                    syntax = ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+                )
+            )
+        )
     }
 
     private fun deterministicNestedDetailsQueryParamPattern(syntax: ObjectQuerySyntax): HttpQueryParamPattern {

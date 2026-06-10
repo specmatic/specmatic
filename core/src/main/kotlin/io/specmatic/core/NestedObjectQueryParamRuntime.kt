@@ -128,8 +128,9 @@ internal fun NestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(
             schema = schema,
             syntax = syntax
         )
+        val parsedValue = emptyContainerValueAt(path, rawValue) ?: StringValue(rawValue)
 
-        value.insert(path, StringValue(rawValue)) as JSONObjectValue
+        value.insert(path, parsedValue) as JSONObjectValue
     }
 }
 
@@ -146,6 +147,7 @@ private sealed class NestedQueryPair {
 internal fun NestedObjectQueryParam.shouldAttemptParse(key: String): Boolean {
     return when (syntax.root) {
         ObjectQueryRoot.ParameterNameWrapped -> key.startsWith("$parameterName[")
+        ObjectQueryRoot.ParameterNameDotWrapped -> key.startsWith("$parameterName.")
         ObjectQueryRoot.Unwrapped -> schema.properties.keys.any { propertyName ->
             key == propertyName || key.startsWith("$propertyName.") || key.startsWith("$propertyName[")
         }
@@ -162,8 +164,40 @@ private fun NestedObjectQueryParam.parseValueAt(
     effectivePatterns: Map<String, Pattern>,
     resolver: Resolver
 ): Value {
+    emptyContainerValueAt(path, value)?.let { return it }
+
     val pattern = leafPatternAt(path, effectivePatterns) ?: return StringValue(value)
     return pattern.parse(value, resolver)
+}
+
+private fun NestedObjectQueryParam.emptyContainerValueAt(path: QueryObjectPath, value: String): Value? {
+    if (value.isNotEmpty()) return null
+
+    return when (schema.schemaAt(path.tokens)) {
+        is NestedQuerySchema.Object -> JSONObjectValue()
+        is NestedQuerySchema.Array -> JSONArrayValue()
+        NestedQuerySchema.Scalar, is NestedQuerySchema.Ambiguous, null -> null
+    }
+}
+
+private fun NestedQuerySchema.schemaAt(tokens: List<QueryObjectPathToken>): NestedQuerySchema? {
+    if (tokens.isEmpty()) return this
+
+    return when (this) {
+        is NestedQuerySchema.Object -> {
+            val token = tokens.first() as? QueryObjectPathToken.Property ?: return null
+            val childSchema = properties[token.name]
+                ?: additionalProperties
+                ?: if (allowsAnyAdditionalProperties) NestedQuerySchema.Scalar else null
+
+            childSchema?.schemaAt(tokens.drop(1))
+        }
+        is NestedQuerySchema.Array -> {
+            if (tokens.first() !is QueryObjectPathToken.Index) return null
+            itemSchema.schemaAt(tokens.drop(1))
+        }
+        NestedQuerySchema.Scalar, is NestedQuerySchema.Ambiguous -> null
+    }
 }
 
 private fun NestedObjectQueryParam.leafPatternAt(
@@ -256,11 +290,19 @@ private fun JSONObjectValue.toQueryParamPairs(parameterName: String, syntax: Obj
 
 private fun flattenQueryObjectValue(value: Value, path: List<QueryObjectPathToken>): List<Pair<QueryObjectPath, Value>> {
     return when (value) {
-        is JSONObjectValue -> value.jsonObject.flatMap { (propertyName, propertyValue) ->
-            flattenQueryObjectValue(propertyValue, path + QueryObjectPathToken.Property(propertyName))
+        is JSONObjectValue -> if (value.jsonObject.isEmpty() && path.isNotEmpty()) {
+            listOf(QueryObjectPath(path) to StringValue(""))
+        } else {
+            value.jsonObject.flatMap { (propertyName, propertyValue) ->
+                flattenQueryObjectValue(propertyValue, path + QueryObjectPathToken.Property(propertyName))
+            }
         }
-        is JSONArrayValue -> value.list.flatMapIndexed { index, itemValue ->
-            flattenQueryObjectValue(itemValue, path + QueryObjectPathToken.Index(index))
+        is JSONArrayValue -> if (value.list.isEmpty() && path.isNotEmpty()) {
+            listOf(QueryObjectPath(path) to StringValue(""))
+        } else {
+            value.list.flatMapIndexed { index, itemValue ->
+                flattenQueryObjectValue(itemValue, path + QueryObjectPathToken.Index(index))
+            }
         }
         is NullValue -> emptyList()
         else -> listOf(QueryObjectPath(path) to value)

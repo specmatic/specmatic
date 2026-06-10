@@ -13,6 +13,7 @@ data class ObjectQuerySyntax(
 
 enum class ObjectQueryRoot {
     ParameterNameWrapped,
+    ParameterNameDotWrapped,
     Unwrapped
 }
 
@@ -109,11 +110,12 @@ object ObjectQueryKeyParser {
         state: QueryObjectPathParserState,
         syntax: ObjectQuerySyntax
     ) {
-        val isWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameWrapped && state.tokens.isEmpty()
+        val isBracketWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameWrapped && state.tokens.isEmpty()
+        val isDotWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameDotWrapped && state.tokens.isEmpty()
         val validToken = when (token) {
             is RawQueryObjectPathToken.BareProperty -> syntax.root == ObjectQueryRoot.Unwrapped && state.tokens.isEmpty()
-            is RawQueryObjectPathToken.Bracket -> syntax.propertyStyle == QueryPropertyStyle.Bracket || isWrappedRootProperty
-            is RawQueryObjectPathToken.DotProperty -> syntax.propertyStyle == QueryPropertyStyle.Dot && !isWrappedRootProperty
+            is RawQueryObjectPathToken.Bracket -> syntax.propertyStyle == QueryPropertyStyle.Bracket || isBracketWrappedRootProperty
+            is RawQueryObjectPathToken.DotProperty -> (syntax.propertyStyle == QueryPropertyStyle.Dot && !isBracketWrappedRootProperty) || isDotWrappedRootProperty
         }
 
         if (!validToken) {
@@ -155,6 +157,7 @@ object ObjectQueryKeySerializer {
         val start = when (syntax.root) {
             ObjectQueryRoot.Unwrapped -> first.name
             ObjectQueryRoot.ParameterNameWrapped -> "$parameterName[${first.name}]"
+            ObjectQueryRoot.ParameterNameDotWrapped -> "$parameterName.${first.name}"
         }
 
         return path.tokens.drop(1).fold(start) { key, token ->
@@ -269,6 +272,7 @@ object NestedObjectQuerySyntaxInference {
 
     private fun String.couldBelongTo(parameterName: String, schema: NestedQuerySchema.Object): Boolean {
         if (startsWith("$parameterName[")) return true
+        if (startsWith("$parameterName.")) return true
 
         return schema.properties.keys.any { propertyName ->
             this == propertyName || startsWith("$propertyName.") || startsWith("$propertyName[")
@@ -436,7 +440,14 @@ private object QueryObjectKeyTokenizer {
         return when (root) {
             ObjectQueryRoot.Unwrapped -> tokenizeRemainder(key, allowBareStart = true)
             ObjectQueryRoot.ParameterNameWrapped -> {
-                if (!key.startsWith(parameterName)) {
+                if (!key.startsWith("$parameterName[")) {
+                    throw ContractException("Expected query key $key to be wrapped by parameter $parameterName")
+                }
+
+                tokenizeRemainder(key.removePrefix(parameterName), allowBareStart = false)
+            }
+            ObjectQueryRoot.ParameterNameDotWrapped -> {
+                if (!key.startsWith("$parameterName.")) {
                     throw ContractException("Expected query key $key to be wrapped by parameter $parameterName")
                 }
 

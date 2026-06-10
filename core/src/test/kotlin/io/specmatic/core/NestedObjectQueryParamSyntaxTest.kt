@@ -418,6 +418,18 @@ class NestedObjectQueryParamSyntaxTest {
                     "details[address][0][street]",
                     ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket),
                     addressStreetPath
+                ),
+                Arguments.of(
+                    "parameter dot-wrapped dot property syntax",
+                    "details.address[0].street",
+                    ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket),
+                    addressStreetPath
+                ),
+                Arguments.of(
+                    "parameter dot-wrapped bracket property syntax",
+                    "details.address[0][street]",
+                    ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket),
+                    addressStreetPath
                 )
             )
         }
@@ -454,6 +466,16 @@ class NestedObjectQueryParamSyntaxTest {
                     "parameter-wrapped root with bracket properties and bracket indexes",
                     "details[name]=Jack&details[address][0][street]=Baker Street",
                     ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
+                ),
+                Arguments.of(
+                    "parameter dot-wrapped root with dot properties and bracket indexes",
+                    "details.name=Jack&details.address[0].street=Baker Street",
+                    ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+                ),
+                Arguments.of(
+                    "parameter dot-wrapped root with bracket properties and bracket indexes",
+                    "details.name=Jack&details.address[0][street]=Baker Street",
+                    ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
                 )
             )
         }
@@ -480,6 +502,16 @@ class NestedObjectQueryParamSyntaxTest {
                     "parameter wrapped bracket property syntax",
                     ObjectQuerySyntax(ObjectQueryRoot.ParameterNameWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket),
                     "details[address][0][street]"
+                ),
+                Arguments.of(
+                    "parameter dot-wrapped dot property syntax",
+                    ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket),
+                    "details.address[0].street"
+                ),
+                Arguments.of(
+                    "parameter dot-wrapped bracket property syntax",
+                    ObjectQuerySyntax(ObjectQueryRoot.ParameterNameDotWrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket),
+                    "details.address[0][street]"
                 )
             )
         }
