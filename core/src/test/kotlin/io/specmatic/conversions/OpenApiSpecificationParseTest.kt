@@ -1437,8 +1437,8 @@ class OpenApiSpecificationParseTest {
 
     @Test
     fun `external ref source locations keep original source pointer`(@TempDir tempDir: File) {
-        val apiFile = tempDir.resolve("api.yaml")
-        val commonFile = tempDir.resolve("common.yaml")
+        val apiFile = tempDir.resolve("api.yaml").canonicalFile
+        val commonFile = tempDir.resolve("common.yaml").canonicalFile
 
         apiFile.writeText($$"""
         openapi: 3.0.0
@@ -1469,11 +1469,11 @@ class OpenApiSpecificationParseTest {
         assertThat(sourceLocations.values).allSatisfy {
             assertThat(it).satisfiesAnyOf(
                 { location ->
-                    assertThat(location.filePath).isEqualTo(apiFile.canonicalPath)
+                    assertThat(location.filePath).isEqualTo(apiFile.invariantSeparatorsPath)
                     assertThat(location.pointer).doesNotStartWith("/Pet")
                 },
                 { location ->
-                    assertThat(location.filePath).isEqualTo(commonFile.canonicalPath)
+                    assertThat(location.filePath).isEqualTo(commonFile.invariantSeparatorsPath)
                     assertThat(location.pointer).startsWith("/Pet")
                 }
             )
