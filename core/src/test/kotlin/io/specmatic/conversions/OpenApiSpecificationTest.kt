@@ -13633,6 +13633,88 @@ paths:
     }
 
     @Test
+    fun `external nested object query example reports missing required key inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to 50,
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to 9
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).contains("R2001: Missing required property")
+    }
+
+    @Test
+    fun `external nested object query example reports missing required key inside level two array item`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to 50,
+                "price.max" to 150,
+                "variants[0].sizes[0]" to 9
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].color")
+        assertThat(report).contains("R2001: Missing required property")
+    }
+
+    @Test
+    fun `external nested object query example reports scalar type mismatch inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to "abc",
+                "price.max" to 150,
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to 9
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.min")
+        assertThat(report).contains("Specification expected type number")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.filter.price.max")
+    }
+
+    @Test
+    fun `external nested object query example reports scalar type mismatch inside level two array item`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to 50,
+                "price.max" to 150,
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to "abc"
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].sizes[0]")
+        assertThat(report).contains("Specification expected type number")
+    }
+
+    @Test
+    fun `external nested query empty container marker fails when level two container cannot be empty`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val objectReport = emptyContainerExternalExampleValidationReport(tempDir, nestedEmptyObjectWithRequiredChildQuerySpec())
+        val arrayReport = emptyContainerExternalExampleValidationReport(
+            tempDir,
+            nestedEmptyArrayItemWithRequiredChildQuerySpec(),
+            queryParams = mapOf("filter.data[0]" to "")
+        )
+
+        assertThat(objectReport).contains("REQUEST.PARAMETERS.QUERY.details.filter.data.name")
+        assertThat(objectReport).contains("R2001: Missing required property")
+        assertThat(arrayReport).contains("REQUEST.PARAMETERS.QUERY.details.filter.data[0].name")
+        assertThat(arrayReport).contains("R2001: Missing required property")
+    }
+
+    @Test
     fun `mock matches loaded external nested array query examples`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
         val exampleFile = examplesDir.resolve("nested-array-query.json").apply {
@@ -14479,6 +14561,108 @@ $parameterExample
         """.trimIndent()
     }
 
+    private fun nestedEmptyObjectWithRequiredChildQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Empty Object Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - filter
+                        properties:
+                          filter:
+                            type: object
+                            required:
+                              - data
+                            properties:
+                              data:
+                                type: object
+                                required:
+                                  - name
+                                properties:
+                                  name:
+                                    type: string
+                      example: filter.data=
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedEmptyArrayItemWithRequiredChildQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Empty Array Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - filter
+                        properties:
+                          filter:
+                            type: object
+                            required:
+                              - data
+                            properties:
+                              data:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                    - name
+                                  properties:
+                                    name:
+                                      type: string
+                      example: filter.data[0]=
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
     private fun nestedQueryExternalExample(queryParams: Map<String, String>): String {
         return ScenarioStub(
             request = HttpRequest(
@@ -14490,9 +14674,10 @@ $parameterExample
         ).toJSON().toStringLiteral()
     }
 
-    private fun nestedObjectAndArrayExternalExample(queryParams: Map<String, String>): String {
+    private fun nestedObjectAndArrayExternalExample(queryParams: Map<String, Any?>): String {
+        val objectMapper = ObjectMapper()
         val queryParamJson = queryParams.entries.joinToString(",\n") { (key, value) ->
-            "            \"$key\": \"$value\""
+            "            \"$key\": ${objectMapper.writeValueAsString(value)}"
         }
 
         return """
@@ -14512,6 +14697,38 @@ $queryParamJson
               }
             }
         """.trimIndent()
+    }
+
+    private fun nestedObjectAndArrayExternalExampleValidationReport(tempDir: File, queryParams: Map<String, Any?>): String {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("nested-query.json").writeText(nestedObjectAndArrayExternalExample(queryParams))
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectAndArrayQuerySpec(),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        return validationResult.reportString()
+    }
+
+    private fun emptyContainerExternalExampleValidationReport(
+        tempDir: File,
+        spec: String,
+        queryParams: Map<String, String> = mapOf("filter.data" to "")
+    ): String {
+        val examplesDir = tempDir.resolve("examples-${UUID.randomUUID()}").also(File::mkdirs)
+        examplesDir.resolve("empty-container-query.json").writeText(nestedQueryExternalExample(queryParams = queryParams))
+        val feature = OpenApiSpecification.fromYAML(
+            spec,
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        return validationResult.reportString()
     }
 
     private fun generatedPositiveRequests(feature: Feature): List<HttpRequest> {
