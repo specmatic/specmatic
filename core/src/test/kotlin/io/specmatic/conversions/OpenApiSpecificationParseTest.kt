@@ -3,8 +3,13 @@ package io.specmatic.conversions
 import integration_tests.OpenApiVersion
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.IssueSeverity
+import io.specmatic.core.NestedQuerySchema
+import io.specmatic.core.ObjectQueryRoot
+import io.specmatic.core.ObjectQuerySyntax
 import io.specmatic.core.QueryParameterCollisionOwnerKind
+import io.specmatic.core.QueryArrayIndexStyle
 import io.specmatic.core.QueryParameters
+import io.specmatic.core.QueryPropertyStyle
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnythingPattern
@@ -277,6 +282,295 @@ class OpenApiSpecificationParseTest {
             Resolver()
         )
         assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should infer nested object query parameter syntax from inline example`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = nestedDetailsSchema(),
+                parameterFields = mapOf("example" to "name=Jack&address[0].street=Baker Street")
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.parameterName).isEqualTo("details")
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactly("details")
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+    }
+
+    @Test
+    fun `should not infer nested object query parameter syntax for scalar-only object query parameter`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Scalar Object Query Param
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        assertThat(queryParamPattern.nestedObjectQueryParams).isEmpty()
+        assertThat(queryParamPattern.queryPatterns.keys).containsExactly("name?")
+    }
+
+    @Test
+    fun `should traverse referenced object query property schema when inferring nested syntax`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = mapOf(
+                    "type" to "object",
+                    "properties" to mapOf(
+                        "info" to mapOf("\$ref" to "#/components/schemas/Info")
+                    )
+                ),
+                parameterFields = mapOf("example" to "info.data=abc"),
+                componentsSchemas = mapOf("Info" to infoComponentSchema())
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+    }
+
+    @Test
+    fun `should traverse referenced array item schema when inferring nested syntax`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = mapOf(
+                    "type" to "object",
+                    "properties" to mapOf(
+                        "items" to mapOf(
+                            "type" to "array",
+                            "items" to mapOf("\$ref" to "#/components/schemas/Info")
+                        )
+                    )
+                ),
+                parameterFields = mapOf("example" to "items[0][data]=abc"),
+                componentsSchemas = mapOf("Info" to infoComponentSchema())
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
+        )
+    }
+
+    @Test
+    fun `should treat object query property schema with no properties as allowing arbitrary scalar properties`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = mapOf(
+                    "type" to "object",
+                    "properties" to mapOf(
+                        "method" to mapOf("\$ref" to "#/components/schemas/HttpMethod"),
+                        "errors" to mapOf(
+                            "type" to "array",
+                            "items" to mapOf("\$ref" to "#/components/schemas/MicroserviceError")
+                        )
+                    )
+                ),
+                parameterFields = mapOf("example" to "method.status=GET&errors[0].code=ERROR"),
+                componentsSchemas = mapOf(
+                    "HttpMethod" to mapOf("type" to "object"),
+                    "MicroserviceError" to mapOf(
+                        "type" to "object",
+                        "properties" to mapOf("code" to mapOf("type" to "string"))
+                    )
+                )
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+    }
+
+    @Test
+    fun `should reject nested query examples that reference pruned circular branches`() {
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
+                        )
+                    ),
+                    parameterFields = mapOf(
+                        "required" to false,
+                        "example" to "node.child.name=abc"
+                    ),
+                    componentsSchemas = mapOf(
+                        "Node" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                                "name" to mapOf("type" to "string")
+                            )
+                        ),
+                    )
+                ),
+                ""
+            ).toFeature()
+        }
+
+        assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(exception.report()).contains("parameters[0].example")
+        assertThat(exception.report()).contains("nested query key \"node.child.name\" that could not be parsed")
+    }
+
+    @Test
+    fun `should prune optional circular nested object query branches without reporting unsupported schema`() {
+        val (stdout, queryParamPattern) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
+                        )
+                    ),
+                    parameterFields = mapOf("example" to "node.name=abc"),
+                    componentsSchemas = mapOf(
+                        "Node" to mapOf(
+                            "type" to "object",
+                            "properties" to mapOf(
+                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                                "name" to mapOf("type" to "string")
+                            )
+                        )
+                    )
+                ),
+                "recursive-query.yaml"
+            ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+        }
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+        val nodeSchema = (nestedObjectQueryParam.schema.properties.getValue("node") as NestedQuerySchema.Object)
+
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA.id)
+        assertThat(nodeSchema.properties.keys).containsExactly("name")
+    }
+
+    @Test
+    fun `should prune unavoidable circular nested object query branches at the cycle boundary`() {
+        val (stdout, queryParamPattern) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "node" to mapOf("\$ref" to "#/components/schemas/Node")
+                        )
+                    ),
+                    parameterFields = mapOf("example" to "node.name=abc"),
+                    componentsSchemas = mapOf(
+                        "Node" to mapOf(
+                            "type" to "object",
+                            "required" to listOf("child"),
+                            "properties" to mapOf(
+                                "child" to mapOf("\$ref" to "#/components/schemas/Node"),
+                                "name" to mapOf("type" to "string")
+                            )
+                        )
+                    )
+                ),
+                "recursive-query.yaml"
+            ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+        }
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+        val nodeSchema = (nestedObjectQueryParam.schema.properties.getValue("node") as NestedQuerySchema.Object)
+
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA.id)
+        assertThat(nodeSchema.properties.keys).containsExactly("name")
+    }
+
+    @Test
+    fun `should report invalid nested object query syntax when inline example is malformed`() {
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = nestedDetailsSchema(),
+                    parameterFields = mapOf("example" to "name=Jack&address[0][street")
+                ),
+                ""
+            ).toFeature()
+        }
+
+        assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(exception.report()).contains("paths./people.get.parameters[0].example")
+    }
+
+    @Test
+    fun `should report conflicting nested object query property syntax in inline example`() {
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = nestedDetailsSchema(),
+                    parameterFields = mapOf("example" to "address[0].street=Baker Street&address[0][city]=London")
+                ),
+                ""
+            ).toFeature()
+        }
+
+        assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(exception.report()).contains("paths./people.get.parameters[0].example")
+        assertThat(exception.report()).contains("Examples use conflicting property serialization styles for nested query parameters")
+        assertThat(exception.report()).contains("\"address[0].street\" uses dot property notation")
+        assertThat(exception.report()).contains("\"address[0][city]\" uses bracket property notation")
+    }
+
+    @Test
+    fun `should scan examples until one demonstrates nested object query syntax during conversion`() {
+        val queryParamPattern = OpenApiSpecification.fromYAML(
+            nestedObjectQueryParamSpec(
+                schema = nestedDetailsSchema(),
+                parameterFields = mapOf(
+                    "examples" to mapOf(
+                        "first" to mapOf("value" to "name=Jack"),
+                        "second" to mapOf("value" to "name=Jill&address[0][street]=Baker Street")
+                    )
+                )
+            ),
+            ""
+        ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        val nestedObjectQueryParam = queryParamPattern.nestedObjectQueryParams.single()
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Bracket, QueryArrayIndexStyle.Bracket)
+        )
     }
 
     @Test
@@ -1156,6 +1450,69 @@ class OpenApiSpecificationParseTest {
         ),
         "test-api.yaml"
     ).toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+    private fun nestedObjectQueryParamSpec(
+        schema: Map<String, Any?>,
+        parameterFields: Map<String, Any?>,
+        componentsSchemas: Map<String, Any?> = emptyMap()
+    ): String {
+        val parameter = mapOf(
+            "in" to "query",
+            "name" to "details",
+            "required" to true,
+            "schema" to schema
+        ) + parameterFields
+
+        return yamlMapper.writeValueAsString(
+            buildMap {
+                put("openapi", "3.0.0")
+                put("info", mapOf("title" to "Nested Object Query Param", "version" to "1.0.0"))
+                put(
+                    "paths",
+                    mapOf(
+                        "/people" to mapOf(
+                            "get" to mapOf(
+                                "parameters" to listOf(parameter),
+                                "responses" to mapOf("200" to mapOf("description" to "OK"))
+                            )
+                        )
+                    )
+                )
+
+                if (componentsSchemas.isNotEmpty()) {
+                    put("components", mapOf("schemas" to componentsSchemas))
+                }
+            }
+        )
+    }
+
+    private fun nestedDetailsSchema(): Map<String, Any?> {
+        return mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "name" to mapOf("type" to "string"),
+                "address" to mapOf(
+                    "type" to "array",
+                    "items" to mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "street" to mapOf("type" to "string"),
+                            "city" to mapOf("type" to "string")
+                        )
+                    )
+                )
+            )
+        )
+    }
+
+    private fun infoComponentSchema(): Map<String, Any?> {
+        return mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "data" to mapOf("type" to "string")
+            )
+        )
+    }
 
     private fun objectSchema(propertyName: String, additionalProperties: Any?): Map<String, Any?> {
         return buildMap {

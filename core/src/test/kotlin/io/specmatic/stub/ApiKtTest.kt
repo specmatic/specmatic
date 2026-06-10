@@ -749,6 +749,54 @@ Feature: Math API
     }
 
     @Test
+    fun `loadContractStubsFromFilesAsResults should not duplicate inline-only features when implicit stubs are enabled`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("products.yaml").apply {
+            writeText("""
+                openapi: 3.0.0
+                info:
+                  title: Products
+                  version: 1.0.0
+                paths:
+                  /products/search:
+                    get:
+                      parameters:
+                        - in: query
+                          name: filter
+                          schema:
+                            type: object
+                            properties:
+                              price:
+                                type: object
+                                properties:
+                                  min:
+                                    type: string
+                          examples:
+                            SUCCESS:
+                              value: price[min]=50
+                      responses:
+                        "200":
+                          description: OK
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                properties:
+                                  id:
+                                    type: integer
+                              examples:
+                                SUCCESS:
+                                  value:
+                                    id: 10
+            """.trimIndent())
+        }
+        val contractPathData = listOf(ContractPathData("", specFile.path))
+
+        val result = loadContractStubsFromFilesAsResults(contractPathData, emptyList(), SpecmaticConfig(), withImplicitStubs = true)
+
+        assertThat(result.filterIsInstance<FeatureStubsResult.Success>()).hasSize(1)
+    }
+
+    @Test
     fun `loadContractStubsFromFilesAsResults should load WSDL examples from directory not ending with underscore examples`(@TempDir tempDir: File) {
         val specFile = File("src/test/resources/wsdl/with_examples/order_api.wsdl")
         val sourceExample = File("src/test/resources/wsdl/with_examples/order_api_examples/create_product.json")

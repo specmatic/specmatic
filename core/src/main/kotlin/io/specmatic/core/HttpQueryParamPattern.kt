@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.URIUtils
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import java.net.URI
 import kotlin.collections.contains
@@ -38,11 +39,19 @@ data class QueryParameterCollisionGroup(
     val authoritativeOwner: QueryParameterCollisionOwner
 )
 
+data class NestedObjectQueryParam(
+    val parameterName: String,
+    val required: Boolean,
+    val schema: NestedQuerySchema.Object,
+    val syntax: ObjectQuerySyntax
+)
+
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
     val extensibleQueryParams: Boolean = false,
     val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList(),
+    val nestedObjectQueryParams: List<NestedObjectQueryParam> = emptyList(),
     val parameterPointers: Map<String, String> = emptyMap(),
     val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup> = emptyMap()
 ) {
@@ -51,13 +60,23 @@ data class HttpQueryParamPattern(
 
     val queryKeyNames = queryPatternsWithAuthoritativeCollisionOwners.keys
 
+    fun nestedObjectQueryParamsByName(): Map<String, NestedObjectQueryParam> {
+        return nestedObjectQueryParams.associateBy { it.parameterName }
+    }
+
     fun generate(resolver: Resolver): List<Pair<String, String>> {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
             queryPatternsWithAuthoritativeCollisionOwners.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
                 attempt(breadCrumb = parameterName) {
                     val generatedValue =  updatedResolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
-                    if(generatedValue is JSONArrayValue) {
+                    val nestedObjectQueryParamPairs = (generatedValue as? JSONObjectValue)?.let {
+                        serializeNestedObjectQueryValue(parameterName, it, nestedObjectQueryParams)
+                    }
+
+                    if (nestedObjectQueryParamPairs != null) {
+                        nestedObjectQueryParamPairs
+                    } else if(generatedValue is JSONArrayValue) {
                         generatedValue.list.map { parameterName to it.toString() }
                     }
                     else {
@@ -70,11 +89,12 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = effectiveQueryPatterns(row)
-            val patternMap = row.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
+            val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples(resolver)
+            val queryParams = effectiveQueryPatterns(rowWithNestedObjectQueryExamples)
+            val patternMap = rowWithNestedObjectQueryExamples.withoutOmittedKeys(queryParams, resolver.defaultExampleResolver)
 
-            queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(row)).flatMap { pattern ->
-                newMapBasedOn(pattern, row, withNullPattern(resolver))
+            queryParamCombinationsRespectingFormExplodedObjects(patternMap, resolver.resolveRow(rowWithNestedObjectQueryExamples)).flatMap { pattern ->
+                newMapBasedOn(pattern, rowWithNestedObjectQueryExamples, withNullPattern(resolver))
             }.map { it: ReturnValue<Map<String, Pattern>> ->
                 it.ifValue {
                     HttpQueryParamPattern(
@@ -82,6 +102,7 @@ data class HttpQueryParamPattern(
                         additionalProperties = additionalProperties,
                         extensibleQueryParams = extensibleQueryParams,
                         formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                        nestedObjectQueryParams = nestedObjectQueryParams,
                         parameterPointers = parameterPointers,
                         collisionGroupsByWireKey = collisionGroupsByWireKey
                     )
@@ -90,12 +111,34 @@ data class HttpQueryParamPattern(
         }
     }
 
+    private fun Row.withNestedObjectQueryParamExamples(resolver: Resolver): Row {
+        val effectivePatterns = effectiveQueryPatterns(this)
+        val nestedObjectFields = nestedObjectQueryParams
+            .filterNot { containsField(it.parameterName) }
+            .mapNotNull { nestedObjectQueryParam ->
+                val nestedPairs = columnNames.zip(values).filter { (key, _) ->
+                    nestedObjectQueryParam.shouldAttemptParse(key)
+                }
+
+                if (nestedPairs.isEmpty()) {
+                    null
+                } else {
+                    nestedObjectQueryParam.parameterName to
+                        nestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(nestedPairs, effectivePatterns, resolver).toStringLiteral()
+                }
+            }
+            .toMap()
+
+        return addFields(nestedObjectFields)
+    }
+
     fun addComplimentaryPatterns(basePatterns: Sequence<ReturnValue<HttpQueryParamPattern>>, row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
+        val rowWithNestedObjectQueryExamples = row.withNestedObjectQueryParamExamples(resolver)
         return addComplimentaryPatterns(
             basePatterns.map { rValue -> rValue.ifValue { it.queryPatterns } },
             effectiveQueryPatterns(row),
             null,
-            row,
+            rowWithNestedObjectQueryExamples,
             resolver,
             breadCrumb = BreadCrumb.PARAM_QUERY.value
         ).map { it: ReturnValue<Map<String, Pattern>> ->
@@ -105,6 +148,7 @@ data class HttpQueryParamPattern(
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    nestedObjectQueryParams = nestedObjectQueryParams,
                     parameterPointers = parameterPointers,
                     collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
@@ -114,13 +158,16 @@ data class HttpQueryParamPattern(
 
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val effectivePatterns = effectiveQueryPatterns(httpRequest.queryParams)
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(httpRequest.queryParams, effectivePatterns, nestedObjectQueryParams, resolver)
         val queryParams = if(additionalProperties != null) {
-            httpRequest.queryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
+            parsedNestedObjectQueryParams.remainingQueryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
         } else {
-            httpRequest.queryParams
+            parsedNestedObjectQueryParams.remainingQueryParams
         }
 
-        val keyErrors = resolver.findKeyErrorList(effectivePatterns, queryParams.asMap().mapValues { StringValue(it.value) })
+        val queryValueMapWithReconstructedNestedObjects =
+            queryParams.asMap().mapValues { StringValue(it.value) } + parsedNestedObjectQueryParams.reconstructedObjectValues
+        val keyErrors = resolver.findKeyErrorList(effectivePatterns, queryValueMapWithReconstructedNestedObjects)
         val keyErrorList: List<Result.Failure> = keyErrors.map {
             keyErrorToResult(it, effectivePatterns, httpRequest.queryParams, resolver)
                 .breadCrumb(it.name, resolver.locate(parameterPointers[it.name]))
@@ -146,11 +193,16 @@ data class HttpQueryParamPattern(
         // Matching incoming request to stubbed out API
 
         val results: List<Result?> = effectivePatterns.mapNotNull { (key, parameterPattern) ->
-            val requestValues = queryParams.getValues(withoutOptionality(key))
+            val keyWithoutOptionality = withoutOptionality(key)
+            val reconstructedNestedObjectValue = parsedNestedObjectQueryParams.reconstructedObjectValues[keyWithoutOptionality]
+            if (reconstructedNestedObjectValue != null) {
+                return@mapNotNull resolver.matchesPattern(keyWithoutOptionality, parameterPattern, reconstructedNestedObjectValue)
+                    .breadCrumb(keyWithoutOptionality, resolver.locate(parameterPointers[keyWithoutOptionality]))
+            }
+
+            val requestValues = queryParams.getValues(keyWithoutOptionality)
 
             if (requestValues.isEmpty()) return@mapNotNull null
-
-            val keyWithoutOptionality = withoutOptionality(key)
 
             val requestValuesList = JSONArrayValue(requestValues.map {
                 StringValue(it)
@@ -161,7 +213,7 @@ data class HttpQueryParamPattern(
 
         }
 
-        val failures = keyErrorList.plus(results).filterIsInstance<Result.Failure>()
+        val failures = parsedNestedObjectQueryParams.failures.plus(keyErrorList).plus(results).filterIsInstance<Result.Failure>()
 
         return if (failures.isNotEmpty())
             Result.Failure.fromFailures(failures).breadCrumb(BreadCrumb.PARAM_QUERY.value)
@@ -230,6 +282,7 @@ data class HttpQueryParamPattern(
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    nestedObjectQueryParams = nestedObjectQueryParams,
                     parameterPointers = parameterPointers,
                     collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
@@ -255,8 +308,7 @@ data class HttpQueryParamPattern(
                         it
                 }
                 val patternMap = queryParams.mapValues {
-                    if (it.value is QueryParameterScalarPattern) return@mapValues it.value.pattern as Pattern
-                    (it.value as QueryParameterArrayPattern).pattern.firstOrNull() ?: EmptyStringPattern
+                    negativeGenerationPattern(it.value)
                 }
 
                 allOrNothingCombinationIn(patternMap) { pattern ->
@@ -270,6 +322,7 @@ data class HttpQueryParamPattern(
                             additionalProperties = additionalProperties,
                             extensibleQueryParams = extensibleQueryParams,
                             formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                            nestedObjectQueryParams = nestedObjectQueryParams,
                             parameterPointers = parameterPointers,
                             collisionGroupsByWireKey = collisionGroupsByWireKey
                         )
@@ -297,6 +350,7 @@ data class HttpQueryParamPattern(
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
                     formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    nestedObjectQueryParams = nestedObjectQueryParams,
                     parameterPointers = parameterPointers,
                     collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
@@ -310,13 +364,14 @@ data class HttpQueryParamPattern(
     fun fixValue(queryParams: QueryParameters?, resolver: Resolver): QueryParameters {
         val queryParamsToFix = queryParams ?: QueryParameters(emptyMap())
         val effectivePatterns = effectiveQueryPatterns(queryParamsToFix)
-        val additionalQueryParams = matchingAdditionalQueryParams(queryParamsToFix, effectivePatterns, resolver)
-        val invalidAdditionalQueryPatterns = invalidAdditionalQueryParamPatterns(queryParamsToFix, effectivePatterns, resolver)
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFix, effectivePatterns, nestedObjectQueryParams, resolver)
+        val additionalQueryParams = matchingAdditionalQueryParams(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
+        val invalidAdditionalQueryPatterns = invalidAdditionalQueryParamPatterns(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
         val patternsToFix = effectivePatterns + invalidAdditionalQueryPatterns
         val adjustedQueryParams = when {
             queryParamsToFix.paramPairs.isEmpty() -> QueryParameters(emptyMap())
-            additionalProperties != null -> queryParamsToFix.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
-            else -> queryParamsToFix
+            additionalProperties != null -> parsedNestedObjectQueryParams.remainingQueryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
+            else -> parsedNestedObjectQueryParams.remainingQueryParams
         }
 
         val updatedResolver = if (extensibleQueryParams) {
@@ -324,22 +379,23 @@ data class HttpQueryParamPattern(
         } else resolver.withUnexpectedKeyCheck(ValidateUnexpectedKeys)
 
         val fixedQueryParams = fix(
-            jsonPatternMap = patternsToFix, jsonValueMap = adjustedQueryParams.asValueMap(),
+            jsonPatternMap = patternsToFix, jsonValueMap = adjustedQueryParams.asValueMap() + parsedNestedObjectQueryParams.reconstructedObjectValues,
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value).withoutAllPatternsAsMandatory(),
             jsonPattern = JSONObjectPattern(patternsToFix, typeAlias = null)
         )
 
-        return QueryParameters(fixedQueryParams.mapValues { it.value.toStringLiteral() }.toList() + additionalQueryParams.paramPairs)
+        return QueryParameters(serializeNestedObjectQueryValues(fixedQueryParams, nestedObjectQueryParams) + additionalQueryParams.paramPairs)
     }
 
     fun fillInTheBlanks(queryParams: QueryParameters?, resolver: Resolver): ReturnValue<QueryParameters> {
         val queryParamsToFill = queryParams ?: QueryParameters(emptyMap())
         val effectivePatterns = effectiveQueryPatterns(queryParamsToFill)
-        val additionalQueryParams = matchingAdditionalQueryParams(queryParamsToFill, effectivePatterns, resolver)
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFill, effectivePatterns, nestedObjectQueryParams, resolver)
+        val additionalQueryParams = matchingAdditionalQueryParams(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
         val adjustedQueryParams = when {
             queryParamsToFill.paramPairs.isEmpty() -> QueryParameters(emptyMap())
-            additionalProperties != null -> queryParamsToFill.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
-            else -> queryParamsToFill
+            additionalProperties != null -> parsedNestedObjectQueryParams.remainingQueryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
+            else -> parsedNestedObjectQueryParams.remainingQueryParams
         }
 
         val updatedResolver = if (extensibleQueryParams) {
@@ -349,14 +405,14 @@ data class HttpQueryParamPattern(
         val parsedQueryParams = adjustedQueryParams.asValueMap().mapValues { (key, value) ->
             val pattern = effectivePatterns[key] ?: effectivePatterns["${key}?"] ?: return@mapValues value
             runCatching { pattern.parse(value.toStringLiteral(), resolver) }.getOrDefault(value)
-        }
+        } + parsedNestedObjectQueryParams.reconstructedObjectValues
 
         return fill(
             jsonPatternMap = effectivePatterns, jsonValueMap = parsedQueryParams,
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value),
             typeAlias = null
         ).realise(
-            hasValue = { valuesMap, _ -> HasValue(QueryParameters(valuesMap.mapValues { it.value.toStringLiteral() }.toList() + additionalQueryParams.paramPairs)) },
+            hasValue = { valuesMap, _ -> HasValue(QueryParameters(serializeNestedObjectQueryValues(valuesMap, nestedObjectQueryParams) + additionalQueryParams.paramPairs)) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
     }
@@ -375,6 +431,14 @@ data class HttpQueryParamPattern(
             .filter { (key, _) -> key !in effectiveKeys }
             .filterNot(validAdditionalQueryParams::contains)
             .associate { (key, _) -> key to additionalProperties }
+    }
+
+    private fun negativeGenerationPattern(pattern: Pattern): Pattern {
+        return when (pattern) {
+            is QueryParameterScalarPattern -> pattern.pattern
+            is QueryParameterArrayPattern -> pattern.pattern.firstOrNull() ?: EmptyStringPattern
+            else -> pattern
+        }
     }
 
     private fun queryParamCombinationsRespectingFormExplodedObjects(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {

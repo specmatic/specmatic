@@ -67,6 +67,10 @@ data class HttpRequestPattern(
 
     fun getQueryParamKeys() = httpQueryParamPattern.queryKeyNames
 
+    fun nestedObjectQueryParamsByName(): Map<String, NestedObjectQueryParam> {
+        return httpQueryParamPattern.nestedObjectQueryParamsByName()
+    }
+
     fun matches(incomingHttpRequest: HttpRequest, resolver: Resolver, headersResolver: Resolver? = null, requestBodyReqex: Regex? = null): Result {
         val result = incomingHttpRequest to resolver to
                 ::matchPath then

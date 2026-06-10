@@ -869,7 +869,16 @@ class OpenApiSpecification(
                         val (response, _: MediaType, httpResponsePattern, responseExamples: Map<String, HttpResponse>) = responsePatternData
 
                         val specmaticExampleRows: List<Row> =
-                            testRowsFromExamples(responseExamples, requestExamples, openApiOperation, parameters, openApiRequest, first2xxResponseStatus)
+                            testRowsFromExamples(
+                                responseExamples,
+                                requestExamples,
+                                openApiOperation,
+                                parameters,
+                                openApiRequest,
+                                first2xxResponseStatus,
+                                httpRequestPattern.nestedObjectQueryParamsByName(),
+                                httpRequestPattern.httpQueryParamPattern.queryPatterns
+                            )
                         val scenarioName = scenarioName(openApiOperation, response, httpRequestPattern)
 
                         val ignoreFailure = openApiOperation.tags.orEmpty().map { it.trim() }.contains("WIP")
@@ -1045,7 +1054,14 @@ class OpenApiSpecification(
             requests.map { request ->
                 val paramExamples = (request.headers + request.queryParams.asMap()).toList()
                 val pathParameterExamples = try {
-                    serializedParameterExamples(parameters, key).mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
+                    serializedParameterExamples(
+                        parameters,
+                        key,
+                        scenarioInfo.httpRequestPattern.nestedObjectQueryParamsByName(),
+                        scenarioInfo.httpRequestPattern.httpQueryParamPattern.queryPatterns,
+                        CollectorContext()
+                    )
+                        .mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
                 } catch (_: Exception) {
                     emptyMap()
                 }.entries.map { it.key to it.value }
@@ -1175,11 +1191,13 @@ class OpenApiSpecification(
         operation: Operation,
         parameters: List<Parameter>,
         openApiRequest: Pair<String, MediaType>?,
-        first2xxResponseStatus: Int?
+        first2xxResponseStatus: Int?,
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern> = emptyMap()
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName)
+            val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, effectiveQueryPatterns, CollectorContext())
 
             val requestBodyExample: Map<String, Any> =
                 requestBodyExample(openApiRequest, exampleName, operation.summary)
@@ -1297,15 +1315,27 @@ class OpenApiSpecification(
         } ?: example
     }
 
-    private fun serializedParameterExamples(parameters: List<Parameter>, exampleName: String): Map<String, Any> {
-        return parameters.safeFilter<Parameter>(CollectorContext()).filter { parameterWithContext ->
+    private fun serializedParameterExamples(
+        parameters: List<Parameter>,
+        exampleName: String,
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
+        collectorContext: CollectorContext
+    ): Map<String, Any> {
+        return parameters.safeFilter<Parameter>(collectorContext).filter { parameterWithContext ->
             val parameter = parameterWithContext.parameter
             parameter.examples.orEmpty().any { it.key == exampleName }
         }.flatMap { parameterWithContext ->
             val parameter = parameterWithContext.parameter
             // TODO: Collect as error
             val exampleValue: Example = parameter.examples[exampleName] ?: throw ContractException("The value of ${parameter.name} in example $exampleName was unexpectedly found to be null.")
-            serializedParameterExample(parameter, resolveExample(exampleValue)?.value ?: "").entries
+            serializedParameterExample(
+                parameter = parameter,
+                exampleValue = resolveExample(exampleValue)?.value ?: "",
+                nestedObjectQueryParamsByName = nestedObjectQueryParamsByName,
+                effectiveQueryPatterns = effectiveQueryPatterns,
+                exampleContext = parameterWithContext.collectorContext.at("examples").at(exampleName).at("value")
+            ).entries
         }.associate { it.key to it.value }
     }
 
@@ -1590,7 +1620,12 @@ class OpenApiSpecification(
             securitySchemes = effectiveSecuritySchemes
         )
 
-        val exampleQueryParams = namedQueryExampleParams(parameters)
+        val exampleQueryParams = namedQueryExampleParams(
+            parameters,
+            requestPattern.nestedObjectQueryParamsByName(),
+            requestPattern.httpQueryParamPattern.queryPatterns,
+            collectorContext
+        )
         val examplePathParams = namedExampleParams<PathParameter>(parameters)
         val exampleHeaderParams = namedExampleParams<HeaderParameter>(parameters)
 
@@ -1845,10 +1880,21 @@ class OpenApiSpecification(
         }
     }
 
-    private fun namedQueryExampleParams(parameters: List<Parameter>): Map<String, Map<String, String>> {
+    private fun namedQueryExampleParams(
+        parameters: List<Parameter>,
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
+        collectorContext: CollectorContext
+    ): Map<String, Map<String, String>> {
         if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
-        return parameters.safeFilter<QueryParameter>(CollectorContext()).map { it.parameter }.fold(emptyMap()) { acc, parameter ->
-            extractQueryParameterExamples(parameter, acc)
+        return parameters.safeFilter<QueryParameter>(collectorContext).fold(emptyMap()) { acc, parameterWithContext ->
+            extractQueryParameterExamples(
+                parameterWithContext.parameter,
+                acc,
+                nestedObjectQueryParamsByName,
+                effectiveQueryPatterns,
+                parameterWithContext.collectorContext
+            )
         }
     }
 
@@ -1868,32 +1914,61 @@ class OpenApiSpecification(
 
     private fun extractQueryParameterExamples(
         parameter: QueryParameter,
-        examplesAccumulatedSoFar: Map<String, Map<String, String>>
+        examplesAccumulatedSoFar: Map<String, Map<String, String>>,
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
+        parameterContext: CollectorContext
     ): Map<String, Map<String, String>> {
         return parameter.examples.orEmpty()
             .entries.filter { it.value.value?.toString().orEmpty() !in OMIT }
             .fold(examplesAccumulatedSoFar) { acc, (exampleName, example) ->
                 val exampleValue = resolveExample(example)?.value ?: ""
                 val exampleMap = acc[exampleName] ?: emptyMap()
-                val serializedExamples = serializedQueryParameterExample(parameter, exampleValue).mapValues { it.value.toExampleString() }
+                val serializedExamples = serializedQueryParameterExample(
+                    parameter = parameter,
+                    exampleValue = exampleValue,
+                    nestedObjectQueryParamsByName = nestedObjectQueryParamsByName,
+                    effectiveQueryPatterns = effectiveQueryPatterns,
+                    exampleContext = parameterContext.at("examples").at(exampleName).at("value")
+                ).mapValues { it.value.toExampleString() }
                 acc.plus(exampleName to exampleMap.plus(serializedExamples))
             }
     }
 
-    private fun serializedParameterExample(parameter: Parameter, exampleValue: Any): Map<String, Any> {
+    private fun serializedParameterExample(
+        parameter: Parameter,
+        exampleValue: Any,
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
+        exampleContext: CollectorContext
+    ): Map<String, Any> {
         return when (parameter) {
-            is QueryParameter -> serializedQueryParameterExample(parameter, exampleValue)
+            is QueryParameter -> serializedQueryParameterExample(parameter, exampleValue, nestedObjectQueryParamsByName, effectiveQueryPatterns, exampleContext)
             else -> mapOf(parameter.name to exampleValue)
         }
     }
 
-    private fun serializedQueryParameterExample(parameter: QueryParameter, exampleValue: Any): Map<String, Any> {
+    private fun serializedQueryParameterExample(
+        parameter: QueryParameter,
+        exampleValue: Any,
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
+        exampleContext: CollectorContext
+    ): Map<String, Any> {
         val schema = parameter.schema ?: return mapOf(parameter.name to exampleValue)
         val (resolvedSchema, _) = resolveSchemaIfRefElseAtSchema(schema, CollectorContext())
         if (!resolvedSchema.isSchema(OBJECT_TYPE) || !parameter.isFormExploded()) return mapOf(parameter.name to exampleValue)
 
         return objectExampleEntries(exampleValue)
             ?.mapValues { it.value ?: "" }
+            ?: nestedObjectQueryStringExampleEntries(
+                parameter = parameter,
+                exampleValue = exampleValue,
+                nestedObjectQueryParam = nestedObjectQueryParamsByName[parameter.name],
+                effectivePatterns = effectiveQueryPatterns,
+                resolver = Resolver(newPatterns = patterns, mockMode = true),
+                exampleContext = exampleContext
+            )
             ?: mapOf(parameter.name to exampleValue)
     }
 
@@ -3257,7 +3332,12 @@ class OpenApiSpecification(
 
     private fun componentNameFromReference(component: String) = component.substringAfterLast("/")
 
-    private fun toSpecmaticQueryParam(parameters: List<Parameter>, collectorContext: CollectorContext, extensibleQueryParams: Boolean, parameterPointers: Map<String, String> = emptyMap()): HttpQueryParamPattern {
+    private fun toSpecmaticQueryParam(
+        parameters: List<Parameter>,
+        collectorContext: CollectorContext,
+        extensibleQueryParams: Boolean,
+        parameterPointers: Map<String, String> = emptyMap()
+    ): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
@@ -3278,6 +3358,7 @@ class OpenApiSpecification(
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
             formExplodedObjectQueryParams = collisionResolution.formExplodedObjectQueryParams,
+            nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam),
             parameterPointers = queryParameterPointers,
             collisionGroupsByWireKey = collisionResolution.collisionGroupsByWireKey
         )
@@ -3286,6 +3367,7 @@ class OpenApiSpecification(
     private data class QueryParameterParseResult(
         val entries: List<QueryParameterPatternEntry>,
         val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
+        val nestedObjectQueryParam: NestedObjectQueryParam? = null,
         val additionalProperties: Pattern? = null
     )
 
@@ -3341,6 +3423,39 @@ class OpenApiSpecification(
         val schemaProperties = resolvedSchema.properties.orEmpty()
         val schemaPointer = parameterPointer?.let {
             sourcePointerForRefUseSite("$it/schema", parameter.schema?.`$ref`)
+        }
+        val nestedObjectQueryParam = nestedObjectQueryParam(
+            parameter = parameter,
+            resolvedSchema = resolvedSchema,
+            parameterContext = parameterContext,
+            resolveSchemaReference = { ref, context ->
+                resolveReferenceToSchema(ref, context).second
+            },
+            resolveExample = ::resolveExample
+        )
+
+        if (nestedObjectQueryParam != null) {
+            val optional = parameter.required != true
+            return QueryParameterParseResult(
+                entries = listOf(
+                    QueryParameterPatternEntry(
+                        key = toSpecmaticParamName(optional, parameter.name),
+                        wireKey = parameter.name,
+                        pattern = toQueryParameterPattern(
+                            parameterName = parameter.name,
+                            schema = parameter.schema,
+                            resolvedSchema = resolvedSchema,
+                            resolvedSchemaContext = schemaContext,
+                            schemaContext = parameterContext.at("schema")
+                        ),
+                        source = QueryParameterPatternSource(parameter.name),
+                        collectorContext = parameterContext,
+                        pointer = parameterPointer?.let { "$it/name" }
+                    )
+                ),
+                nestedObjectQueryParam = nestedObjectQueryParam,
+                additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
+            )
         }
 
         if (parameter.required == true && requiredProperties.isEmpty()) {

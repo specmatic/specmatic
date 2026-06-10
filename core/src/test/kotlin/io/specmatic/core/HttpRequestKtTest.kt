@@ -67,6 +67,21 @@ internal class HttpRequestKtTest {
     }
 
     @Test
+    fun `request URL should percent encode square brackets in query parameter names`() {
+        val request = HttpRequest(
+            method = "GET",
+            path = "/my-day-details",
+            queryParametersMap = mapOf(
+                "method.status" to "10",
+                "errors[0].code" to "10"
+            )
+        )
+
+        assertThat(request.getURL("http://localhost:19091/v1/act-bff"))
+            .isEqualTo("http://localhost:19091/v1/act-bff/my-day-details?method.status=10&errors%5B0%5D.code=10")
+    }
+
+    @Test
     fun `gherkin clauses from request with headers`() {
         val request = HttpRequest("POST", "/data", mapOf("X-Custom" to "data"), EmptyString)
         val (clauses, _) = toGherkinClauses(request)
