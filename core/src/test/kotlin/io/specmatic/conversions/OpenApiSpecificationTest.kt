@@ -13422,6 +13422,18 @@ paths:
     }
 
     @Test
+    fun `inline nested query parameter examples parse scalar leaves before validation`() {
+        val feature = OpenApiSpecification.fromYAML(invalidNestedQueryScalarExampleSpec(), "").toFeature()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+        val report = (validationResult as Result.Failure).reportString()
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.min")
+        assertThat(report).contains("""example "SUCCESS" contained value "50EUR" of type string""")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).doesNotContain("""example "SUCCESS" contained value "150" of type string""")
+    }
+
+    @Test
     fun `unsupported composed nested query parameter schema reports an OpenAPI lint violation with a source path`() {
         val report = nestedQuerySpecLoadFailureReport(unsupportedComposedNestedQuerySchemaSpec())
 
@@ -14016,6 +14028,53 @@ $parameterExample
                         application/json:
                           schema:
                             type: object
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun invalidNestedQueryScalarExampleSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Invalid Nested Query Scalar Example
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - price
+                        properties:
+                          price:
+                            type: object
+                            properties:
+                              min:
+                                type: integer
+                              max:
+                                type: integer
+                      examples:
+                        SUCCESS:
+                          value: price[min]=50EUR&price[max]=150
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
                             properties:
                               id:
                                 type: integer

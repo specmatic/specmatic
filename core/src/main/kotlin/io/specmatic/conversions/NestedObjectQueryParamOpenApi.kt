@@ -10,7 +10,9 @@ import io.specmatic.core.ObjectQueryRoot
 import io.specmatic.core.ObjectQuerySyntax
 import io.specmatic.core.QueryArrayIndexStyle
 import io.specmatic.core.QueryPropertyStyle
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.reconstructObjectValueFromQueryParamPairs
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.media.Schema
@@ -76,13 +78,20 @@ internal fun nestedObjectQueryStringExampleEntries(
     parameter: QueryParameter,
     exampleValue: Any,
     nestedObjectQueryParam: NestedObjectQueryParam?,
+    effectivePatterns: Map<String, Pattern>,
     exampleContext: CollectorContext
 ): Map<String, Any>? {
     val exampleString = exampleValue as? String ?: return null
     val nestedQueryParam = nestedObjectQueryParam ?: return null
 
     return runCatching {
-        mapOf(parameter.name to nestedQueryParam.reconstructObjectValueFromQueryParamPairs(queryStringExampleEntries(exampleString)))
+        mapOf(
+            parameter.name to nestedQueryParam.reconstructObjectValueFromQueryParamPairs(
+                pairs = queryStringExampleEntries(exampleString),
+                effectivePatterns = effectivePatterns,
+                resolver = Resolver(mockMode = true)
+            )
+        )
     }.getOrElse { exception ->
         exampleContext.record(
             message = exception.message ?: "Invalid nested query parameter example",

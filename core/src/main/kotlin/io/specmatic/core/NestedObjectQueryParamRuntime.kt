@@ -119,7 +119,9 @@ internal fun serializeNestedObjectQueryValue(
 }
 
 internal fun NestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(
-    pairs: List<Pair<String, String>>
+    pairs: List<Pair<String, String>>,
+    effectivePatterns: Map<String, Pattern> = emptyMap(),
+    resolver: Resolver = Resolver()
 ): JSONObjectValue {
     return pairs.fold(JSONObjectValue()) { value, (key, rawValue) ->
         val path = ObjectQueryKeyParser.parse(
@@ -128,10 +130,24 @@ internal fun NestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(
             schema = schema,
             syntax = syntax
         )
-        val parsedValue = emptyContainerValueAt(path, rawValue) ?: StringValue(rawValue)
+        val parsedValue = emptyContainerValueAt(path, rawValue)
+            ?: parseValueAtOrString(path, rawValue, effectivePatterns, resolver)
 
         value.insert(path, parsedValue) as JSONObjectValue
     }
+}
+
+private fun NestedObjectQueryParam.parseValueAtOrString(
+    path: QueryObjectPath,
+    value: String,
+    effectivePatterns: Map<String, Pattern>,
+    resolver: Resolver
+): Value {
+    if (effectivePatterns.isEmpty()) return StringValue(value)
+
+    return runCatching {
+        parseValueAt(path, value, effectivePatterns, resolver)
+    }.getOrDefault(StringValue(value))
 }
 
 private sealed class NestedQueryPair {

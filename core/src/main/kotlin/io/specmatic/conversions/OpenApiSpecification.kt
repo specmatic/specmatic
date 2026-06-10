@@ -876,7 +876,8 @@ class OpenApiSpecification(
                                 parameters,
                                 openApiRequest,
                                 first2xxResponseStatus,
-                                httpRequestPattern.nestedObjectQueryParamsByName()
+                                httpRequestPattern.nestedObjectQueryParamsByName(),
+                                httpRequestPattern.httpQueryParamPattern.queryPatterns
                             )
                         val scenarioName = scenarioName(openApiOperation, response, httpRequestPattern)
 
@@ -1053,7 +1054,13 @@ class OpenApiSpecification(
             requests.map { request ->
                 val paramExamples = (request.headers + request.queryParams.asMap()).toList()
                 val pathParameterExamples = try {
-                    serializedParameterExamples(parameters, key, scenarioInfo.httpRequestPattern.nestedObjectQueryParamsByName(), CollectorContext())
+                    serializedParameterExamples(
+                        parameters,
+                        key,
+                        scenarioInfo.httpRequestPattern.nestedObjectQueryParamsByName(),
+                        scenarioInfo.httpRequestPattern.httpQueryParamPattern.queryPatterns,
+                        CollectorContext()
+                    )
                         .mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
                 } catch (_: Exception) {
                     emptyMap()
@@ -1185,11 +1192,12 @@ class OpenApiSpecification(
         parameters: List<Parameter>,
         openApiRequest: Pair<String, MediaType>?,
         first2xxResponseStatus: Int?,
-        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap()
+        nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern> = emptyMap()
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, CollectorContext())
+            val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, effectiveQueryPatterns, CollectorContext())
 
             val requestBodyExample: Map<String, Any> =
                 requestBodyExample(openApiRequest, exampleName, operation.summary)
@@ -1311,6 +1319,7 @@ class OpenApiSpecification(
         parameters: List<Parameter>,
         exampleName: String,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
         collectorContext: CollectorContext
     ): Map<String, Any> {
         return parameters.safeFilter<Parameter>(collectorContext).filter { parameterWithContext ->
@@ -1324,6 +1333,7 @@ class OpenApiSpecification(
                 parameter = parameter,
                 exampleValue = resolveExample(exampleValue)?.value ?: "",
                 nestedObjectQueryParamsByName = nestedObjectQueryParamsByName,
+                effectiveQueryPatterns = effectiveQueryPatterns,
                 exampleContext = parameterWithContext.collectorContext.at("examples").at(exampleName).at("value")
             ).entries
         }.associate { it.key to it.value }
@@ -1610,7 +1620,12 @@ class OpenApiSpecification(
             securitySchemes = effectiveSecuritySchemes
         )
 
-        val exampleQueryParams = namedQueryExampleParams(parameters, requestPattern.nestedObjectQueryParamsByName(), collectorContext)
+        val exampleQueryParams = namedQueryExampleParams(
+            parameters,
+            requestPattern.nestedObjectQueryParamsByName(),
+            requestPattern.httpQueryParamPattern.queryPatterns,
+            collectorContext
+        )
         val examplePathParams = namedExampleParams<PathParameter>(parameters)
         val exampleHeaderParams = namedExampleParams<HeaderParameter>(parameters)
 
@@ -1868,11 +1883,18 @@ class OpenApiSpecification(
     private fun namedQueryExampleParams(
         parameters: List<Parameter>,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
         collectorContext: CollectorContext
     ): Map<String, Map<String, String>> {
         if (specmaticConfig.getIgnoreInlineExamples()) return emptyMap()
         return parameters.safeFilter<QueryParameter>(collectorContext).fold(emptyMap()) { acc, parameterWithContext ->
-            extractQueryParameterExamples(parameterWithContext.parameter, acc, nestedObjectQueryParamsByName, parameterWithContext.collectorContext)
+            extractQueryParameterExamples(
+                parameterWithContext.parameter,
+                acc,
+                nestedObjectQueryParamsByName,
+                effectiveQueryPatterns,
+                parameterWithContext.collectorContext
+            )
         }
     }
 
@@ -1894,6 +1916,7 @@ class OpenApiSpecification(
         parameter: QueryParameter,
         examplesAccumulatedSoFar: Map<String, Map<String, String>>,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
         parameterContext: CollectorContext
     ): Map<String, Map<String, String>> {
         return parameter.examples.orEmpty()
@@ -1905,6 +1928,7 @@ class OpenApiSpecification(
                     parameter = parameter,
                     exampleValue = exampleValue,
                     nestedObjectQueryParamsByName = nestedObjectQueryParamsByName,
+                    effectiveQueryPatterns = effectiveQueryPatterns,
                     exampleContext = parameterContext.at("examples").at(exampleName).at("value")
                 ).mapValues { it.value.toExampleString() }
                 acc.plus(exampleName to exampleMap.plus(serializedExamples))
@@ -1915,10 +1939,11 @@ class OpenApiSpecification(
         parameter: Parameter,
         exampleValue: Any,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
         exampleContext: CollectorContext
     ): Map<String, Any> {
         return when (parameter) {
-            is QueryParameter -> serializedQueryParameterExample(parameter, exampleValue, nestedObjectQueryParamsByName, exampleContext)
+            is QueryParameter -> serializedQueryParameterExample(parameter, exampleValue, nestedObjectQueryParamsByName, effectiveQueryPatterns, exampleContext)
             else -> mapOf(parameter.name to exampleValue)
         }
     }
@@ -1927,6 +1952,7 @@ class OpenApiSpecification(
         parameter: QueryParameter,
         exampleValue: Any,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
+        effectiveQueryPatterns: Map<String, Pattern>,
         exampleContext: CollectorContext
     ): Map<String, Any> {
         val schema = parameter.schema ?: return mapOf(parameter.name to exampleValue)
@@ -1939,6 +1965,7 @@ class OpenApiSpecification(
                 parameter = parameter,
                 exampleValue = exampleValue,
                 nestedObjectQueryParam = nestedObjectQueryParamsByName[parameter.name],
+                effectivePatterns = effectiveQueryPatterns,
                 exampleContext = exampleContext
             )
             ?: mapOf(parameter.name to exampleValue)
