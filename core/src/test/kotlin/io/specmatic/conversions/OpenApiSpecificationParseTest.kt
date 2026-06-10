@@ -458,12 +458,12 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `query parameter type collision lint violation should be classified as an error`() {
-        assertThat(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.severity).isEqualTo(IssueSeverity.ERROR)
+    fun `query parameter type collision lint violation should be classified as a warning`() {
+        assertThat(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.severity).isEqualTo(IssueSeverity.WARNING)
     }
 
     @Test
-    fun `different type collision between standalone query parameter and form exploded object property should fail strict parsing with lint rule`() {
+    fun `different type collision between standalone query parameter and form exploded object property should warn in strict parsing`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -493,16 +493,18 @@ class OpenApiSpecificationParseTest {
                       description: OK
         """.trimIndent()
 
-        val exception = assertThrows<ContractException> {
+        val (stdout, feature) = captureStandardOutput {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
 
-        val report = exception.report()
-        assertThat(report).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
-        assertThat(report).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
-        assertThat(report).contains("type")
-        assertThat(report).contains("info.type")
-        assertThat(report).contains("first declared owner info.type")
+        assertThat(stdout).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(stdout).contains("type")
+        assertThat(stdout).contains("info.type")
+        assertThat(stdout).contains("first declared owner info.type")
+        assertThat(stdout).doesNotContain("if parsing continues")
+        assertThat(queryParamPattern.collisionGroupsByWireKey.getValue("type").authoritativeOwner.sourceName).isEqualTo("info.type")
     }
 
     @Test
@@ -546,18 +548,20 @@ class OpenApiSpecificationParseTest {
                       description: OK
         """.trimIndent()
 
-        val exception = assertThrows<ContractException> {
+        val (stdout, feature) = captureStandardOutput {
             OpenApiSpecification.fromYAML(spec, "").toFeature()
         }
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
 
-        val report = exception.report()
-        assertThat(report).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
-        assertThat(report).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
-        assertThat(report).contains("wire key type")
-        assertThat(report).contains("info.type at /paths/~1orders/get/parameters/0/schema/properties/type")
-        assertThat(report).contains("filter.type at /paths/~1orders/get/parameters/1/schema/properties/type")
-        assertThat(report).contains("type at /paths/~1orders/get/parameters/2/name")
-        assertThat(report).contains("first declared owner info.type as authoritative")
+        assertThat(stdout).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(stdout).contains("wire key type")
+        assertThat(stdout).contains("info.type at /paths/~1orders/get/parameters/0/schema/properties/type")
+        assertThat(stdout).contains("filter.type at /paths/~1orders/get/parameters/1/schema/properties/type")
+        assertThat(stdout).contains("type at /paths/~1orders/get/parameters/2/name")
+        assertThat(stdout).contains("first declared owner info.type as authoritative")
+        assertThat(stdout).doesNotContain("if parsing continues")
+        assertThat(queryParamPattern.collisionGroupsByWireKey.getValue("type").owners.map { it.sourceName }).containsExactly("info.type", "filter.type", "type")
     }
 
     @Test
@@ -597,7 +601,7 @@ class OpenApiSpecificationParseTest {
         val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("type")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.toIssues().single().severity).isEqualTo(IssueSeverity.ERROR)
+        assertThat(result.toIssues().single().severity).isEqualTo(IssueSeverity.WARNING)
         assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
         assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
         assertThat(result.reportString()).contains("type")

@@ -64,7 +64,7 @@ enum class OpenApiLintViolations(
         id = "OAS0013",
         title = "Query parameter type collision",
         summary = "Query parameters that serialize to the same wire key should have compatible schemas",
-        severity = IssueSeverity.ERROR
+        severity = IssueSeverity.WARNING
     ),
 
     /* -------- Security -------- */
