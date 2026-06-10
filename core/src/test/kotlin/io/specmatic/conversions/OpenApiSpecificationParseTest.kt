@@ -446,7 +446,7 @@ class OpenApiSpecificationParseTest {
 
         assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
         assertThat(exception.report()).contains("parameters[0].example")
-        assertThat(exception.report()).contains("nested query keys that could not be parsed")
+        assertThat(exception.report()).contains("nested query key \"node.child.name\" that could not be parsed")
     }
 
     @Test

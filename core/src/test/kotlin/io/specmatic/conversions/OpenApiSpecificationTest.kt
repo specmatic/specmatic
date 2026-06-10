@@ -13419,7 +13419,7 @@ paths:
 
         assertThat(report).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
         assertThat(report).contains("parameters[0].example")
-        assertThat(report).contains("nested query keys that could not be parsed")
+        assertThat(report).contains("No example of query parameter filter demonstrates how nested properties should be serialized as query parameters.")
     }
 
     @Test
