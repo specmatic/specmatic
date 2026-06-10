@@ -163,7 +163,7 @@ class NestedObjectQueryParamSyntaxTest {
 
         assertThat(result).isInstanceOf(NestedQuerySyntaxInferenceResult.Failure::class.java)
         assertThat((result as NestedQuerySyntaxInferenceResult.Failure).messages)
-            .contains("Query parameter details contains nested object or array properties, but no example demonstrates how nested query keys should be serialized.")
+            .contains("No example of query parameter details demonstrates how nested properties should be serialized as query parameters.")
     }
 
     @Test

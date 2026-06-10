@@ -280,7 +280,7 @@ object NestedObjectQuerySyntaxInference {
     }
 
     private fun missingExampleMessage(parameterName: String): String {
-        return "Query parameter $parameterName contains nested object or array properties, but no example demonstrates how nested query keys should be serialized."
+        return "No example of query parameter $parameterName demonstrates how nested properties should be serialized as query parameters."
     }
 
 }
