@@ -533,6 +533,25 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `should report conflicting nested object query property syntax in inline example`() {
+        val exception = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(
+                nestedObjectQueryParamSpec(
+                    schema = nestedDetailsSchema(),
+                    parameterFields = mapOf("example" to "address[0].street=Baker Street&address[0][city]=London")
+                ),
+                ""
+            ).toFeature()
+        }
+
+        assertThat(exception.report()).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(exception.report()).contains("paths./people.get.parameters[0].example")
+        assertThat(exception.report()).contains("Examples use conflicting property serialization styles for nested query parameters")
+        assertThat(exception.report()).contains("\"address[0].street\" uses dot property notation")
+        assertThat(exception.report()).contains("\"address[0][city]\" uses bracket property notation")
+    }
+
+    @Test
     fun `should scan examples until one demonstrates nested object query syntax during conversion`() {
         val queryParamPattern = OpenApiSpecification.fromYAML(
             nestedObjectQueryParamSpec(

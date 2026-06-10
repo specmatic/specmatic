@@ -217,11 +217,21 @@ object NestedObjectQuerySyntaxInference {
 
         var inferredGuidance = InferredSyntaxGuidance()
         for (keys in examples.map(::queryKeysFrom)) {
-            val candidates = candidatesFor(parameterName, schema, keys)
-            if (candidates.isEmpty()) continue
+            val exampleGuidance = guidanceFrom(parameterName, schema, keys, requiredGuidance)
 
-            inferredGuidance = inferredGuidance.with(candidates, requiredGuidance)
-            if (inferredGuidance.isComplete(requiredGuidance)) break
+            when (exampleGuidance) {
+                is SyntaxGuidanceResult.Conflict -> return NestedQuerySyntaxInferenceResult.Failure(listOf(exampleGuidance.message))
+                SyntaxGuidanceResult.NoGuidance -> continue
+                is SyntaxGuidanceResult.Guidance -> {
+                    val mergeResult = inferredGuidance.with(exampleGuidance.guidance)
+                    if (mergeResult is GuidanceMergeResult.Conflict) {
+                        return NestedQuerySyntaxInferenceResult.Failure(listOf(mergeResult.message))
+                    }
+
+                    inferredGuidance = (mergeResult as GuidanceMergeResult.Merged).guidance
+                    if (inferredGuidance.isComplete(requiredGuidance)) break
+                }
+            }
         }
 
         return if (inferredGuidance.hasAnyGuidance()) {
@@ -229,6 +239,48 @@ object NestedObjectQuerySyntaxInference {
         } else {
             NestedQuerySyntaxInferenceResult.Failure(listOf(missingExampleMessage(parameterName)))
         }
+    }
+
+    private fun guidanceFrom(
+        parameterName: String,
+        schema: NestedQuerySchema.Object,
+        keys: List<String>,
+        requiredGuidance: RequiredSyntaxGuidance
+    ): SyntaxGuidanceResult {
+        val relevantKeys = keys.filter { key -> key.couldBelongTo(parameterName, schema) }
+        if (relevantKeys.isEmpty()) return SyntaxGuidanceResult.NoGuidance
+
+        var exampleGuidance = InferredSyntaxGuidance()
+        relevantKeys.forEach { key ->
+            val keyGuidance = guidanceFromKey(parameterName, schema, key, requiredGuidance)
+                ?: return SyntaxGuidanceResult.Conflict(unparseableNestedQueryKeyMessage(parameterName, key))
+            val mergeResult = exampleGuidance.with(keyGuidance)
+            if (mergeResult is GuidanceMergeResult.Conflict) return SyntaxGuidanceResult.Conflict(mergeResult.message)
+
+            exampleGuidance = (mergeResult as GuidanceMergeResult.Merged).guidance
+        }
+
+        return if (exampleGuidance.hasAnyGuidance()) {
+            SyntaxGuidanceResult.Guidance(exampleGuidance)
+        } else {
+            SyntaxGuidanceResult.NoGuidance
+        }
+    }
+
+    private fun guidanceFromKey(
+        parameterName: String,
+        schema: NestedQuerySchema.Object,
+        key: String,
+        requiredGuidance: RequiredSyntaxGuidance
+    ): InferredSyntaxGuidance? {
+        val candidates = candidatesFor(parameterName, schema, listOf(key))
+        if (candidates.isEmpty()) return null
+
+        return InferredSyntaxGuidance(
+            root = key.explicitRootGuidance(parameterName)?.let { InferredValue(it, key) },
+            propertyStyle = candidates.singlePropertyStyleOrNull(requiredGuidance)?.let { InferredValue(it, key) },
+            sawParseableExample = true
+        )
     }
 
     private fun candidatesFor(
@@ -264,6 +316,14 @@ object NestedObjectQuerySyntaxInference {
         }
     }
 
+    private fun String.explicitRootGuidance(parameterName: String): ObjectQueryRoot? {
+        return when {
+            startsWith("$parameterName[") -> ObjectQueryRoot.ParameterNameWrapped
+            startsWith("$parameterName.") -> ObjectQueryRoot.ParameterNameDotWrapped
+            else -> null
+        }
+    }
+
     private fun syntaxCandidates(): List<ObjectQuerySyntax> {
         return ObjectQueryRoot.entries.flatMap { root ->
             QueryPropertyStyle.entries.map { propertyStyle ->
@@ -283,6 +343,10 @@ object NestedObjectQuerySyntaxInference {
         return "No example of query parameter $parameterName demonstrates how nested properties should be serialized as query parameters."
     }
 
+    private fun unparseableNestedQueryKeyMessage(parameterName: String, key: String): String {
+        return "Example of query parameter $parameterName contains nested query key \"$key\" that could not be parsed with any supported nested query syntax."
+    }
+
 }
 
 private fun NestedQuerySchema.Object.requiredSyntaxBranches(): Set<NestedQuerySyntaxBranch> {
@@ -293,21 +357,34 @@ private data class RequiredSyntaxGuidance(
     val propertyStyle: Boolean
 )
 
+private data class InferredValue<T>(
+    val value: T,
+    val key: String
+)
+
 private data class InferredSyntaxGuidance(
-    val root: ObjectQueryRoot? = null,
-    val propertyStyle: QueryPropertyStyle? = null,
+    val root: InferredValue<ObjectQueryRoot>? = null,
+    val propertyStyle: InferredValue<QueryPropertyStyle>? = null,
     val sawParseableExample: Boolean = false
 ) {
-    fun with(candidates: List<CandidateParse>, requiredGuidance: RequiredSyntaxGuidance): InferredSyntaxGuidance {
-        return copy(
-            root = root ?: candidates.singleRootOrNull(),
-            propertyStyle = propertyStyle ?: candidates.singlePropertyStyleOrNull(requiredGuidance),
-            sawParseableExample = true
+    fun with(other: InferredSyntaxGuidance): GuidanceMergeResult {
+        val mergedRoot = mergeGuidance(root, other.root, ::conflictingRootStyleMessage)
+        if (mergedRoot is MergeValueResult.Conflict) return GuidanceMergeResult.Conflict(mergedRoot.message)
+
+        val mergedPropertyStyle = mergeGuidance(propertyStyle, other.propertyStyle, ::conflictingPropertyStyleMessage)
+        if (mergedPropertyStyle is MergeValueResult.Conflict) return GuidanceMergeResult.Conflict(mergedPropertyStyle.message)
+
+        return GuidanceMergeResult.Merged(
+            copy(
+                root = (mergedRoot as MergeValueResult.Merged).value,
+                propertyStyle = (mergedPropertyStyle as MergeValueResult.Merged).value,
+                sawParseableExample = sawParseableExample || other.sawParseableExample
+            )
         )
     }
 
     fun isComplete(requiredGuidance: RequiredSyntaxGuidance): Boolean {
-        return root != null && (!requiredGuidance.propertyStyle || propertyStyle != null)
+        return !requiredGuidance.propertyStyle || propertyStyle != null
     }
 
     fun hasAnyGuidance(): Boolean {
@@ -316,15 +393,62 @@ private data class InferredSyntaxGuidance(
 
     fun toSyntax(): ObjectQuerySyntax {
         return ObjectQuerySyntax(
-            root = root ?: ObjectQueryRoot.Unwrapped,
-            propertyStyle = propertyStyle ?: QueryPropertyStyle.Dot,
+            root = root?.value ?: ObjectQueryRoot.Unwrapped,
+            propertyStyle = propertyStyle?.value ?: QueryPropertyStyle.Dot,
             arrayIndexStyle = QueryArrayIndexStyle.Bracket
         )
     }
 }
 
-private fun List<CandidateParse>.singleRootOrNull(): ObjectQueryRoot? {
-    return map { it.syntax.root }.distinct().singleOrNull()
+private sealed class SyntaxGuidanceResult {
+    data object NoGuidance : SyntaxGuidanceResult()
+    data class Guidance(val guidance: InferredSyntaxGuidance) : SyntaxGuidanceResult()
+    data class Conflict(val message: String) : SyntaxGuidanceResult()
+}
+
+private sealed class GuidanceMergeResult {
+    data class Merged(val guidance: InferredSyntaxGuidance) : GuidanceMergeResult()
+    data class Conflict(val message: String) : GuidanceMergeResult()
+}
+
+private sealed class MergeValueResult<out T> {
+    data class Merged<T>(val value: InferredValue<T>?) : MergeValueResult<T>()
+    data class Conflict(val message: String) : MergeValueResult<Nothing>()
+}
+
+private fun <T> mergeGuidance(
+    existing: InferredValue<T>?,
+    candidate: InferredValue<T>?,
+    conflictMessage: (InferredValue<T>, InferredValue<T>) -> String
+): MergeValueResult<T> {
+    return when {
+        existing == null -> MergeValueResult.Merged(candidate)
+        candidate == null || existing.value == candidate.value -> MergeValueResult.Merged(existing)
+        else -> MergeValueResult.Conflict(conflictMessage(existing, candidate))
+    }
+}
+
+private fun conflictingRootStyleMessage(existing: InferredValue<ObjectQueryRoot>, candidate: InferredValue<ObjectQueryRoot>): String {
+    return "Examples use conflicting root serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName()}, but \"${candidate.key}\" uses ${candidate.value.displayName()}."
+}
+
+private fun conflictingPropertyStyleMessage(existing: InferredValue<QueryPropertyStyle>, candidate: InferredValue<QueryPropertyStyle>): String {
+    return "Examples use conflicting property serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName()}, but \"${candidate.key}\" uses ${candidate.value.displayName()}."
+}
+
+private fun ObjectQueryRoot.displayName(): String {
+    return when (this) {
+        ObjectQueryRoot.ParameterNameWrapped -> "parameter-name bracket wrapping"
+        ObjectQueryRoot.ParameterNameDotWrapped -> "parameter-name dot wrapping"
+        ObjectQueryRoot.Unwrapped -> "unwrapped query keys"
+    }
+}
+
+private fun QueryPropertyStyle.displayName(): String {
+    return when (this) {
+        QueryPropertyStyle.Bracket -> "bracket property notation"
+        QueryPropertyStyle.Dot -> "dot property notation"
+    }
 }
 
 private fun List<CandidateParse>.singlePropertyStyleOrNull(requiredGuidance: RequiredSyntaxGuidance): QueryPropertyStyle? {

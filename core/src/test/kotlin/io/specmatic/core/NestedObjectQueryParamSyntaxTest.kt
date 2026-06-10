@@ -358,6 +358,19 @@ class NestedObjectQueryParamSyntaxTest {
     }
 
     @Test
+    fun `syntax inference should report conflicting property guidance from the same example`() {
+        val result = NestedObjectQuerySyntaxInference.infer(
+            parameterName = "msResponse",
+            schema = msResponseSchema,
+            examples = listOf("errors[0].code=10&method[status]=10")
+        )
+
+        assertThat(result).isInstanceOf(NestedQuerySyntaxInferenceResult.Failure::class.java)
+        assertThat((result as NestedQuerySyntaxInferenceResult.Failure).messages.single())
+            .isEqualTo("Examples use conflicting property serialization styles for nested query parameters: \"errors[0].code\" uses dot property notation, but \"method[status]\" uses bracket property notation.")
+    }
+
+    @Test
     fun `syntax inference should use example when no examples entry demonstrates nested notation`() {
         val result = NestedObjectQuerySyntaxInference.infer(
             parameterName = "details",
@@ -410,6 +423,19 @@ class NestedObjectQueryParamSyntaxTest {
                         "location" to NestedQuerySchema.Object(
                             properties = mapOf("city" to NestedQuerySchema.Scalar)
                         )
+                    )
+                )
+            )
+        )
+
+        private val msResponseSchema = NestedQuerySchema.Object(
+            properties = mapOf(
+                "method" to NestedQuerySchema.Object(
+                    properties = mapOf("status" to NestedQuerySchema.Scalar)
+                ),
+                "errors" to NestedQuerySchema.Array(
+                    itemSchema = NestedQuerySchema.Object(
+                        properties = mapOf("code" to NestedQuerySchema.Scalar)
                     )
                 )
             )
