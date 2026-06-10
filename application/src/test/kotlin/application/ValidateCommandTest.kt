@@ -10,11 +10,16 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.specmatic.core.Result
+import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
+import io.specmatic.core.QueryParameters
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.GitRepo
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.loader.RecursiveSpecificationAndExampleClassifier
+import io.specmatic.mock.ScenarioStub
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -328,6 +333,62 @@ class ValidateCommandTest {
     }
 
     @Test
+    fun `validate command validates inline nested object query examples`(@TempDir tempDir: File) {
+        val specFile = writeNestedObjectQueryOpenApiFile(
+            file = tempDir.resolve("nested-object-query.yaml"),
+            inlineExample = "price.min=50&price.max=150"
+        )
+
+        val exitCode = CommandLine(openApiValidateCommand(tempDir)).execute("--spec-file", specFile.canonicalPath)
+
+        assertThat(exitCode).isZero()
+    }
+
+    @Test
+    fun `validate command validates inline nested array query examples`(@TempDir tempDir: File) {
+        val specFile = writeNestedArrayQueryOpenApiFile(
+            file = tempDir.resolve("nested-array-query.yaml"),
+            inlineExample = "variants[0].color=black&variants[0].sizes[0]=9"
+        )
+
+        val exitCode = CommandLine(openApiValidateCommand(tempDir)).execute("--spec-file", specFile.canonicalPath)
+
+        assertThat(exitCode).isZero()
+    }
+
+    @Test
+    fun `validate command validates external nested object query examples`(@TempDir tempDir: File) {
+        val specFile = writeNestedObjectQueryOpenApiFile(tempDir.resolve("nested-object-query.yaml"))
+        writeExternalExample(
+            examplesDir = tempDir.resolve("nested-object-query_examples"),
+            queryParams = mapOf(
+                "price.min" to "50",
+                "price.max" to "150"
+            )
+        )
+
+        val exitCode = CommandLine(openApiValidateCommand(tempDir)).execute("--spec-file", specFile.canonicalPath)
+
+        assertThat(exitCode).isZero()
+    }
+
+    @Test
+    fun `validate command validates external nested array query examples`(@TempDir tempDir: File) {
+        val specFile = writeNestedArrayQueryOpenApiFile(tempDir.resolve("nested-array-query.yaml"))
+        writeExternalExample(
+            examplesDir = tempDir.resolve("nested-array-query_examples"),
+            queryParams = mapOf(
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to "9"
+            )
+        )
+
+        val exitCode = CommandLine(openApiValidateCommand(tempDir)).execute("--spec-file", specFile.canonicalPath)
+
+        assertThat(exitCode).isZero()
+    }
+
+    @Test
     fun `when malformed spec exists only under dot specmatic scan does not report it`(@TempDir tempDir: File) {
         val scannedSpec = writeOpenApiFile(tempDir.resolve("contracts/kept.yaml"))
         val malformedSpec = tempDir.resolve(".specmatic/repos/broken.yaml")
@@ -365,6 +426,14 @@ class ValidateCommandTest {
         )
     }
 
+    private fun openApiValidateCommand(baseDir: File): ValidateCommand {
+        return ValidateCommand(
+            validator = OpenApiValidator(),
+            specmaticConfig = SpecmaticConfig(),
+            currentDirectoryProvider = { baseDir.canonicalFile }
+        )
+    }
+
     private fun loadedConfig(baseDir: File): SpecmaticConfig {
         val configFile = baseDir.resolve("specmatic.yaml")
         System.setProperty(CONFIG_FILE_PATH, configFile.canonicalPath)
@@ -387,6 +456,121 @@ class ValidateCommandTest {
             """.trimIndent()
         )
         return file
+    }
+
+    private fun writeNestedObjectQueryOpenApiFile(file: File, inlineExample: String? = null): File {
+        return writeNestedQueryOpenApiFile(
+            file = file,
+            parameterSchema = """
+                type: object
+                required:
+                  - price
+                properties:
+                  price:
+                    type: object
+                    required:
+                      - min
+                      - max
+                    properties:
+                      min:
+                        type: string
+                      max:
+                        type: string
+            """.trimIndent(),
+            inlineExample = inlineExample
+        )
+    }
+
+    private fun writeNestedArrayQueryOpenApiFile(file: File, inlineExample: String? = null): File {
+        return writeNestedQueryOpenApiFile(
+            file = file,
+            parameterSchema = """
+                type: object
+                required:
+                  - variants
+                properties:
+                  variants:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - color
+                        - sizes
+                      properties:
+                        color:
+                          type: string
+                        sizes:
+                          type: array
+                          items:
+                            type: string
+            """.trimIndent(),
+            inlineExample = inlineExample
+        )
+    }
+
+    private fun writeNestedQueryOpenApiFile(file: File, parameterSchema: String, inlineExample: String?): File {
+        val examples = if (inlineExample != null) {
+            """
+            examples:
+              SUCCESS:
+                value: $inlineExample
+            """.trimIndent().prependIndent("                      ")
+        } else {
+            ""
+        }
+
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            openapi: 3.0.0
+            info:
+              title: Nested Query API
+              version: "1"
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+${parameterSchema.prependIndent("                        ")}
+${examples}
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+            """.trimIndent()
+        )
+        return file
+    }
+
+    private fun writeExternalExample(examplesDir: File, queryParams: Map<String, String>): File {
+        examplesDir.mkdirs()
+        return examplesDir.resolve("success.json").also { exampleFile ->
+            exampleFile.writeText(
+                ScenarioStub(
+                    request = HttpRequest(
+                        method = "GET",
+                        path = "/products/search",
+                        queryParams = QueryParameters(queryParams)
+                    ),
+                    response = HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+                ).toJSON().toStringLiteral()
+            )
+        }
     }
 
     private class TrackingValidator(
