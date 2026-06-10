@@ -2,6 +2,8 @@ package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.IssueSeverity
+import io.specmatic.core.QueryParameterCollisionOwnerKind
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
@@ -368,7 +370,203 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `standalone query parameter colliding with form exploded object property should be reported and dropped`() {
+    fun `same type collision between standalone query parameter and form exploded object property should be accepted`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+        val queryPatterns = queryParamPattern.queryPatterns
+        val typePattern = queryPatterns["type"]
+        val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("type")
+
+        assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("info.type", "type")
+        assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.type")
+        assertThat(collisionGroup.authoritativeOwner.kind).isEqualTo(QueryParameterCollisionOwnerKind.FormExplodedObjectProperty)
+        assertThat(queryPatterns.keys).containsExactly("type")
+        assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
+    }
+
+    @Test
+    fun `collision detection should resolve top level scalar query parameter refs before reading names`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Referenced Scalar Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - age
+                        properties:
+                          age:
+                            type: integer
+                    - ${"$"}ref: '#/components/parameters/AgeQueryParam'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              parameters:
+                AgeQueryParam:
+                  in: query
+                  name: age
+                  required: false
+                  schema:
+                    type: integer
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+        val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("age")
+
+        assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("info.age", "age")
+        assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.age")
+    }
+
+    @Test
+    fun `query parameter type collision lint violation should be classified as a warning`() {
+        assertThat(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.severity).isEqualTo(IssueSeverity.WARNING)
+    }
+
+    @Test
+    fun `different type collision between standalone query parameter and form exploded object property should warn in strict parsing`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val (stdout, feature) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "").toFeature()
+        }
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        assertThat(stdout).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(stdout).contains("type")
+        assertThat(stdout).contains("info.type")
+        assertThat(stdout).contains("first declared query parameter info.type")
+        assertThat(stdout).doesNotContain("if parsing continues")
+        assertThat(queryParamPattern.collisionGroupsByWireKey.getValue("type").authoritativeOwner.sourceName).isEqualTo("info.type")
+    }
+
+    @Test
+    fun `different type collision diagnostic should include every owner location and authoritative owner`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: boolean
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val (stdout, feature) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "").toFeature()
+        }
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+
+        assertThat(stdout).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(stdout).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(stdout).contains("wire key type")
+        assertThat(stdout).contains("- info.type at paths./orders.get.parameters[0].schema.properties.type")
+        assertThat(stdout).contains("- filter.type at paths./orders.get.parameters[1].schema.properties.type")
+        assertThat(stdout).contains("- type at paths./orders.get.parameters[2].name")
+        assertThat(stdout).doesNotContain("/paths/~1orders/get/parameters")
+        assertThat(stdout).contains("first declared query parameter info.type as authoritative")
+        assertThat(stdout).doesNotContain("if parsing continues")
+        assertThat(queryParamPattern.collisionGroupsByWireKey.getValue("type").owners.map { it.sourceName }).containsExactly("info.type", "filter.type", "type")
+    }
+
+    @Test
+    fun `different type collision should select object property as authoritative when declared first in lenient parsing`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -399,14 +597,190 @@ class OpenApiSpecificationParseTest {
         """.trimIndent()
 
         val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
-        val queryPatterns = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern.queryPatterns
-        val typePattern = queryPatterns["type"]
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+        val typePattern = queryParamPattern.queryPatterns["type"]
+        val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("type")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("conflicts with form-exploded object query parameter info.type")
-        assertThat(queryPatterns.keys).containsExactly("type")
+        assertThat(result.toIssues().single().severity).isEqualTo(IssueSeverity.WARNING)
+        assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(result.reportString()).contains("type")
+        assertThat(result.reportString()).contains("info.type")
+        assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.type")
+        assertThat(collisionGroup.authoritativeOwner.kind).isEqualTo(QueryParameterCollisionOwnerKind.FormExplodedObjectProperty)
         assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
+    }
+
+    @Test
+    fun `different type collision should select standalone scalar as authoritative when declared first in lenient parsing`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Param
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: type
+                      required: false
+                      schema:
+                        type: string
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: integer
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+        val typePattern = queryParamPattern.queryPatterns["type?"]
+        val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("type")
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(result.reportString()).contains("- type at paths./orders.get.parameters[0].name")
+        assertThat(result.reportString()).contains("- info.type at paths./orders.get.parameters[1].schema.properties.type")
+        assertThat(result.reportString()).contains("first declared query parameter type as authoritative")
+        assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("type", "info.type")
+        assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("type")
+        assertThat(collisionGroup.authoritativeOwner.kind).isEqualTo(QueryParameterCollisionOwnerKind.ScalarParameter)
+        assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(StringPattern::class.java)
+        assertThat(queryParamPattern.matches(HttpRequest("GET", "/orders"), Resolver())).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `same type collision across multiple form exploded object query params should resolve refs before comparing`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Params
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/InfoParams'
+                    - in: query
+                      name: filters
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/FilterParams'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                InfoParams:
+                  type: object
+                  required:
+                    - age
+                  properties:
+                    age:
+                      ${"$"}ref: '#/components/schemas/Age'
+                FilterParams:
+                  type: object
+                  required:
+                    - age
+                  properties:
+                    age:
+                      type: integer
+                Age:
+                  type: integer
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
+        val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("age")
+
+        assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("info.age", "filters.age")
+        assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.age")
+    }
+
+    @Test
+    fun `different type collision across three query parameter owners should preserve owner order`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Colliding Form Exploded Object Query Params
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/InfoParams'
+                    - in: query
+                      name: filters
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/FilterParams'
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: boolean
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                InfoParams:
+                  type: object
+                  required:
+                    - age
+                  properties:
+                    age:
+                      ${"$"}ref: '#/components/schemas/Age'
+                FilterParams:
+                  type: object
+                  required:
+                    - age
+                  properties:
+                    age:
+                      type: string
+                Age:
+                  type: integer
+        """.trimIndent()
+
+        val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
+        val scenario = feature.scenarios.single()
+        val queryParamPattern = scenario.httpRequestPattern.httpQueryParamPattern
+        val agePattern = queryParamPattern.queryPatterns["age"]
+        val collisionGroup = queryParamPattern.collisionGroupsByWireKey.getValue("age")
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
+        assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
+        assertThat(result.reportString()).contains("- info.age at components.schemas.InfoParams.properties.age")
+        assertThat(result.reportString()).contains("- filters.age at components.schemas.FilterParams.properties.age")
+        assertThat(result.reportString()).contains("- age at paths./orders.get.parameters[2].name")
+        assertThat(result.reportString()).doesNotContain("/paths/~1orders/get/parameters")
+        assertThat(collisionGroup.owners.map { it.sourceName }).containsExactly("info.age", "filters.age", "age")
+        assertThat(collisionGroup.authoritativeOwner.sourceName).isEqualTo("info.age")
+        assertThat(agePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat(resolvedHop((agePattern as QueryParameterScalarPattern).pattern, scenario.resolver)).isInstanceOf(NumberPattern::class.java)
     }
 
     @ParameterizedTest(name = "openapi {0}")

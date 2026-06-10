@@ -16,20 +16,45 @@ data class FormExplodedObjectQueryParam(
     val requiredPropertyKeys: Set<String>
 )
 
+enum class QueryParameterCollisionOwnerKind {
+    ScalarParameter,
+    FormExplodedObjectProperty
+}
+
+data class QueryParameterCollisionOwner(
+    val wireKey: String,
+    val sourceName: String,
+    val kind: QueryParameterCollisionOwnerKind,
+    val pattern: Pattern,
+    val required: Boolean,
+    val parameterName: String,
+    val propertyName: String? = null,
+    val pointer: String? = null
+)
+
+data class QueryParameterCollisionGroup(
+    val wireKey: String,
+    val owners: List<QueryParameterCollisionOwner>,
+    val authoritativeOwner: QueryParameterCollisionOwner
+)
+
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
     val extensibleQueryParams: Boolean = false,
     val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList(),
-    val parameterPointers: Map<String, String> = emptyMap()
+    val parameterPointers: Map<String, String> = emptyMap(),
+    val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup> = emptyMap()
 ) {
 
-    val queryKeyNames = queryPatterns.keys
+    private val queryPatternsWithAuthoritativeCollisionOwners = calculateQueryPatternsWithAuthoritativeCollisionOwners()
+
+    val queryKeyNames = queryPatternsWithAuthoritativeCollisionOwners.keys
 
     fun generate(resolver: Resolver): List<Pair<String, String>> {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            queryPatterns.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
+            queryPatternsWithAuthoritativeCollisionOwners.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
                 attempt(breadCrumb = parameterName) {
                     val generatedValue =  updatedResolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
                     if(generatedValue is JSONArrayValue) {
@@ -56,7 +81,9 @@ data class HttpQueryParamPattern(
                         it.mapKeys { entry -> withoutOptionality(entry.key) },
                         additionalProperties = additionalProperties,
                         extensibleQueryParams = extensibleQueryParams,
-                        formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                        formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                        parameterPointers = parameterPointers,
+                        collisionGroupsByWireKey = collisionGroupsByWireKey
                     )
                 }
             }
@@ -66,7 +93,7 @@ data class HttpQueryParamPattern(
     fun addComplimentaryPatterns(basePatterns: Sequence<ReturnValue<HttpQueryParamPattern>>, row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
         return addComplimentaryPatterns(
             basePatterns.map { rValue -> rValue.ifValue { it.queryPatterns } },
-            queryPatterns,
+            effectiveQueryPatterns(row),
             null,
             row,
             resolver,
@@ -77,7 +104,9 @@ data class HttpQueryParamPattern(
                     patternMap.mapKeys { entry -> withoutOptionality(entry.key) },
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
-                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    parameterPointers = parameterPointers,
+                    collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
             }
         }
@@ -151,7 +180,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun missingRequiredFormExplodedObjectPropertyToResult(missingPropertyKey: String, queryParams: QueryParameters): Result.Failure? {
-        val objectQueryParam = formExplodedObjectQueryParams.firstOrNull { objectQueryParam ->
+        val objectQueryParam = activeFormExplodedObjectQueryParams().firstOrNull { objectQueryParam ->
             missingPropertyKey in objectQueryParam.requiredPropertyKeys &&
                 objectQueryParam.propertyKeys.any(queryParams::containsKey)
         } ?: return null
@@ -191,7 +220,7 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = queryPatterns
+            val queryParams = queryPatternsWithAuthoritativeCollisionOwners
 
             queryParamCombinationsRespectingFormExplodedObjects(queryParams, Row()).flatMap { entry ->
                 newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver)
@@ -200,7 +229,9 @@ data class HttpQueryParamPattern(
                     it,
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
-                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    parameterPointers = parameterPointers,
+                    collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
             }
         }
@@ -208,7 +239,7 @@ data class HttpQueryParamPattern(
 
     override fun toString(): String {
         return if (queryPatterns.isNotEmpty()) {
-            "?" + queryPatterns.mapKeys { it.key.removeSuffix("?") }.map { (key, value) ->
+            "?" + queryPatternsWithAuthoritativeCollisionOwners.mapKeys { it.key.removeSuffix("?") }.map { (key, value) ->
                 "$key=$value"
             }.toList().joinToString(separator = "&")
         } else ""
@@ -238,7 +269,9 @@ data class HttpQueryParamPattern(
                             it.mapKeys { entry -> withoutOptionality(entry.key) },
                             additionalProperties = additionalProperties,
                             extensibleQueryParams = extensibleQueryParams,
-                            formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                            formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                            parameterPointers = parameterPointers,
+                            collisionGroupsByWireKey = collisionGroupsByWireKey
                         )
                     }
                 }
@@ -263,7 +296,9 @@ data class HttpQueryParamPattern(
                     pattern.value,
                     additionalProperties = additionalProperties,
                     extensibleQueryParams = extensibleQueryParams,
-                    formExplodedObjectQueryParams = formExplodedObjectQueryParams
+                    formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+                    parameterPointers = parameterPointers,
+                    collisionGroupsByWireKey = collisionGroupsByWireKey
                 )
             }
         }
@@ -360,11 +395,13 @@ data class HttpQueryParamPattern(
     }
 
     private fun requiredOnlyVariantForPresentFormExplodedObjects(patternMap: Map<String, Pattern>): Map<String, Pattern>? {
-        val requiredOnlyPatternMap = formExplodedObjectQueryParams.fold(patternMap) { patterns, objectQueryParam ->
+        val requiredOnlyPatternMap = activeFormExplodedObjectQueryParams().fold(patternMap) { patterns, objectQueryParam ->
             if (objectQueryParam.requiredPropertyKeys.isEmpty()) return@fold patterns
             if (objectQueryParam.propertyKeys.none { propertyKey -> patterns.containsNormalizedKey(propertyKey) }) return@fold patterns
 
             val optionalPropertyKeys = objectQueryParam.propertyKeys - objectQueryParam.requiredPropertyKeys
+            if (optionalPropertyKeys.isEmpty()) return@fold patterns
+
             val patternsWithoutOptionalObjectProperties = patterns.filterKeys { key -> withoutOptionality(key) !in optionalPropertyKeys }
 
             objectQueryParam.requiredPropertyKeys.fold(patternsWithoutOptionalObjectProperties) { updatedPatterns, propertyKey ->
@@ -380,7 +417,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(queryParams: QueryParameters): Map<String, Pattern> {
-        return formExplodedObjectQueryParams.fold(queryPatterns) { patterns, objectQueryParam ->
+        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(queryParams::containsKey) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -392,7 +429,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(row: Row): Map<String, Pattern> {
-        return formExplodedObjectQueryParams.fold(queryPatterns) { patterns, objectQueryParam ->
+        return activeFormExplodedObjectQueryParams().fold(queryPatternsWithAuthoritativeCollisionOwners) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(row::containsField) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -401,6 +438,65 @@ data class HttpQueryParamPattern(
                 else -> patterns
             }
         }
+    }
+
+    private fun calculateQueryPatternsWithAuthoritativeCollisionOwners(): Map<String, Pattern> {
+        return collisionGroupsByWireKey.values.fold(queryPatterns) { patterns, collisionGroup ->
+            val currentEntry = patterns.entryForWireKey(collisionGroup.wireKey)
+                ?: return@fold patterns
+
+            patterns.replaceWireKey(collisionGroup.wireKey, collisionGroup.replacementFor(currentEntry))
+        }
+    }
+
+    private fun Map<String, Pattern>.entryForWireKey(wireKey: String): QueryPatternEntry? {
+        val matchingEntry = entries.firstOrNull { (key, _) -> withoutOptionality(key) == wireKey } ?: return null
+        return QueryPatternEntry(matchingEntry.key, matchingEntry.value)
+    }
+
+    private fun Map<String, Pattern>.replaceWireKey(wireKey: String, replacement: QueryPatternEntry): Map<String, Pattern> {
+        return minus(wireKey)
+            .minus(withOptionality(wireKey))
+            .plus(replacement.key to replacement.pattern)
+    }
+
+    private fun QueryParameterCollisionGroup.replacementFor(currentEntry: QueryPatternEntry): QueryPatternEntry {
+        if (currentEntry.pattern.isExactQueryPattern()) return currentEntry
+
+        val authoritativeKey = if (authoritativeOwner.required) wireKey else withOptionality(wireKey)
+        return QueryPatternEntry(authoritativeKey, authoritativeOwner.pattern)
+    }
+
+    private data class QueryPatternEntry(val key: String, val pattern: Pattern)
+
+    private fun Pattern.isExactQueryPattern(): Boolean {
+        return when (this) {
+            is ExactValuePattern -> true
+            is QueryParameterScalarPattern -> pattern.isExactQueryPattern()
+            is QueryParameterArrayPattern -> pattern.any { it.isExactQueryPattern() }
+            else -> false
+        }
+    }
+
+    private fun activeFormExplodedObjectQueryParams(): List<FormExplodedObjectQueryParam> {
+        val nonAuthoritativeObjectPropertiesByParameter = collisionGroupsByWireKey.values
+            .flatMap { collisionGroup -> collisionGroup.owners.drop(1).filter { it.kind == QueryParameterCollisionOwnerKind.FormExplodedObjectProperty } }
+            .mapNotNull { owner -> owner.propertyName?.let { propertyName -> owner.parameterName to propertyName } }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, propertyNames) -> propertyNames.toSet() }
+
+        return formExplodedObjectQueryParams.map { objectQueryParam ->
+            objectQueryParam.withoutProperties(nonAuthoritativeObjectPropertiesByParameter[objectQueryParam.parameterName].orEmpty())
+        }
+    }
+
+    private fun FormExplodedObjectQueryParam.withoutProperties(propertyNames: Set<String>): FormExplodedObjectQueryParam {
+        if (propertyNames.isEmpty()) return this
+
+        return copy(
+            propertyKeys = propertyKeys - propertyNames,
+            requiredPropertyKeys = requiredPropertyKeys - propertyNames
+        )
     }
 
     private fun Map<String, Pattern>.makeKeyMandatory(key: String): Map<String, Pattern> {

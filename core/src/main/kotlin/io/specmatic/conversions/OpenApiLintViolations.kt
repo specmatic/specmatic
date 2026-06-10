@@ -1,8 +1,14 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.RuleViolation
+import io.specmatic.core.IssueSeverity
 
-enum class OpenApiLintViolations(override val id: String, override val title: String, override val summary: String? = null): RuleViolation {
+enum class OpenApiLintViolations(
+    override val id: String,
+    override val title: String,
+    override val summary: String? = null,
+    override val severity: IssueSeverity = IssueSeverity.ERROR
+): RuleViolation {
     /* -------- Length constraints -------- */
     INVALID_MIN_LENGTH(
         id = "OAS0001",
@@ -52,6 +58,13 @@ enum class OpenApiLintViolations(override val id: String, override val title: St
         id = "OAS0012",
         title = "Required query object conflict",
         summary = "A required form-exploded object query parameter must have at least one required schema property to make a concrete query parameter mandatory"
+    ),
+
+    QUERY_PARAMETER_TYPE_COLLISION(
+        id = "OAS0013",
+        title = "Query parameter type collision",
+        summary = "Query parameters that serialize to the same wire key should have compatible schemas",
+        severity = IssueSeverity.WARNING
     ),
 
     /* -------- Security -------- */

@@ -476,6 +476,74 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
+    fun `should preserve query parameter metadata when generating an exact request pattern`() {
+        val collisionGroup = QueryParameterCollisionGroup(
+            wireKey = "age",
+            owners = listOf(
+                QueryParameterCollisionOwner(
+                    wireKey = "age",
+                    sourceName = "info.age",
+                    kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                    pattern = QueryParameterScalarPattern(NumberPattern()),
+                    required = false,
+                    parameterName = "info",
+                    propertyName = "age"
+                ),
+                QueryParameterCollisionOwner(
+                    wireKey = "age",
+                    sourceName = "age",
+                    kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                    pattern = QueryParameterScalarPattern(StringPattern()),
+                    required = false,
+                    parameterName = "age"
+                )
+            ),
+            authoritativeOwner = QueryParameterCollisionOwner(
+                wireKey = "age",
+                sourceName = "info.age",
+                kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                pattern = QueryParameterScalarPattern(NumberPattern()),
+                required = false,
+                parameterName = "info",
+                propertyName = "age"
+            )
+        )
+        val formExplodedObjectQueryParam = FormExplodedObjectQueryParam(
+            parameterName = "info",
+            required = false,
+            propertyKeys = setOf("age", "name"),
+            requiredPropertyKeys = setOf("name")
+        )
+        val queryPattern = HttpQueryParamPattern(
+            queryPatterns = mapOf(
+                "age?" to QueryParameterScalarPattern(StringPattern()),
+                "name?" to QueryParameterScalarPattern(StringPattern())
+            ),
+            additionalProperties = StringPattern(),
+            extensibleQueryParams = true,
+            formExplodedObjectQueryParams = listOf(formExplodedObjectQueryParam),
+            parameterPointers = mapOf("age" to "/paths/~1data/get/parameters/0/schema/properties/age"),
+            collisionGroupsByWireKey = mapOf("age" to collisionGroup)
+        )
+        val requestType = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = HttpPathPattern(pathToPattern("/"), "/"),
+            httpQueryParamPattern = queryPattern
+        )
+
+        val exactRequestType = requestType.generateExactHttpRequestPatternFrom(
+            HttpRequest("GET", "/", queryParams = QueryParameters(mapOf("age" to "45", "name" to "Jane"))),
+            Resolver()
+        )
+
+        assertThat(exactRequestType.httpQueryParamPattern.additionalProperties).isEqualTo(StringPattern())
+        assertThat(exactRequestType.httpQueryParamPattern.extensibleQueryParams).isTrue()
+        assertThat(exactRequestType.httpQueryParamPattern.formExplodedObjectQueryParams).containsExactly(formExplodedObjectQueryParam)
+        assertThat(exactRequestType.httpQueryParamPattern.parameterPointers).containsEntry("age", "/paths/~1data/get/parameters/0/schema/properties/age")
+        assertThat(exactRequestType.httpQueryParamPattern.collisionGroupsByWireKey).containsEntry("age", collisionGroup)
+    }
+
+    @Test
     fun `should complain for additional query params when generating an exact request pattern and value does not match additional properties`() {
         val requestType = HttpRequestPattern(
             method = "GET",

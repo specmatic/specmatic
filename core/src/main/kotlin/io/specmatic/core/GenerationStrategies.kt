@@ -28,7 +28,7 @@ internal fun noOverlapBetween(
     resolver: Resolver
 ): Map<String, Pattern>? {
     val otherMapsWithSameKeys = otherMaps.filter {
-        it.keys.map(::withoutOptionality) == map.keys.map(::withoutOptionality)
+        it.keys.map(::withoutOptionality).toSet() == map.keys.map(::withoutOptionality).toSet()
     }.map {
         it.mapKeys { withoutOptionality(it.key) }
     }
