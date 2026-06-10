@@ -111,16 +111,31 @@ private fun recordQueryParameterTypeCollisionIfNeeded(entries: List<QueryParamet
     if (resolvedPatterns.distinct().size == 1) return
 
     val authoritativeEntry = entries.first()
-    val ownerDetails = entries.joinToString(", ") { it.diagnosticDisplayName() }
+    val ownerDetails = entries.joinToString(separator = "\n") { "- ${it.diagnosticDisplayName()}" }
     authoritativeEntry.collectorContext.record(
-        message = "Query parameter wire key ${authoritativeEntry.wireKey} has conflicting declarations $ownerDetails. Their schemas produce different query parameter patterns. Specmatic will use the first declared owner ${authoritativeEntry.source.displayName} as authoritative.",
+        message = "Query parameter wire key ${authoritativeEntry.wireKey} has conflicting schemas:\n$ownerDetails\nSpecmatic will use the first declared query parameter ${authoritativeEntry.source.parameterName} as authoritative.",
         isWarning = true,
         ruleViolation = OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION
     )
 }
 
 private fun QueryParameterPatternEntry.diagnosticDisplayName(): String {
-    return pointer?.let { "${source.displayName} at $it" } ?: source.displayName
+    return pointer?.let { "${source.displayName} at ${it.toBreadcrumbPath()}" } ?: source.displayName
+}
+
+private fun String.toBreadcrumbPath(): String {
+    val decodedSegments = trimStart('/')
+        .split('/')
+        .filter(String::isNotBlank)
+        .map { it.replace("~1", "/").replace("~0", "~") }
+
+    return decodedSegments.fold("") { path, segment ->
+        when {
+            path.isBlank() -> segment
+            segment.toIntOrNull() != null -> "$path[$segment]"
+            else -> "$path.$segment"
+        }
+    }
 }
 
 private fun normalizedQueryParameterPattern(pattern: Pattern, patterns: Map<String, Pattern>): Pattern {
