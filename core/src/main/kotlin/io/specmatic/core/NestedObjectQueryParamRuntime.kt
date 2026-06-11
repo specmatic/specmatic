@@ -45,7 +45,7 @@ internal fun parseNestedObjectQueryParams(
             val parsedValue = try {
                 matchingNestedParam.parseValueAt(parsedPath, value, effectivePatterns, resolver)
             } catch (exception: ContractException) {
-                return@map NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(matchingNestedParam.parameterName, parsedPath))
+                return@map NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(matchingNestedParam, parsedPath))
             }
 
             NestedQueryPair.Consumed(matchingNestedParam, parsedPath, parsedValue)
@@ -269,12 +269,40 @@ private fun JSONObjectPattern.childPattern(token: QueryObjectPathToken): Pattern
         }
 }
 
-private fun Result.Failure.withNestedObjectPathBreadcrumb(parameterName: String, path: QueryObjectPath): Result.Failure {
-    val breadcrumbs = listOf(parameterName) + path.tokens.map {
+internal fun Result.rewriteUnwrappedNestedObjectBreadcrumb(nestedObjectQueryParam: NestedObjectQueryParam?): Result {
+    if (nestedObjectQueryParam?.syntax?.root != ObjectQueryRoot.Unwrapped) return this
+
+    return when (this) {
+        is Result.Failure -> dropLeadingBreadCrumb(nestedObjectQueryParam.parameterName)
+        else -> this
+    }
+}
+
+private fun Result.Failure.dropLeadingBreadCrumb(target: String, hasSeenNonBlankBreadCrumb: Boolean = false): Result.Failure {
+    val shouldDropHere = !hasSeenNonBlankBreadCrumb && breadCrumb == target
+    val nextSeenNonBlankBreadCrumb = hasSeenNonBlankBreadCrumb || (breadCrumb.isNotBlank() && !shouldDropHere)
+
+    return copy(
+        breadCrumb = if (shouldDropHere) "" else breadCrumb,
+        causes = causes.map { failureCause ->
+            failureCause.copy(cause = failureCause.cause?.dropLeadingBreadCrumb(target, nextSeenNonBlankBreadCrumb))
+        }
+    )
+}
+
+private fun Result.Failure.withNestedObjectPathBreadcrumb(
+    nestedObjectQueryParam: NestedObjectQueryParam,
+    path: QueryObjectPath
+): Result.Failure {
+    val pathBreadcrumbs = path.tokens.map {
         when (it) {
             is QueryObjectPathToken.Property -> it.name
             is QueryObjectPathToken.Index -> "[${it.index}]"
         }
+    }
+    val breadcrumbs = when (nestedObjectQueryParam.syntax.root) {
+        ObjectQueryRoot.Unwrapped -> pathBreadcrumbs
+        else -> listOf(nestedObjectQueryParam.parameterName) + pathBreadcrumbs
     }
 
     return breadcrumbs.asReversed().fold(this as Result) { result, breadcrumb ->

@@ -13651,7 +13651,22 @@ paths:
             """.trimIndent()
         )
         val feature = OpenApiSpecification.fromYAML(
-            telstraStyleNestedResponseQuerySpec(),
+            telstraStyleNestedResponseQuerySpec().replace(
+                """
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                """.trimIndent(),
+                """
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: integer
+                """.trimIndent()
+            ),
             "",
             exampleDirPaths = listOf(examplesDir.canonicalPath)
         ).toFeature().loadExternalisedExamples()
@@ -13661,7 +13676,6 @@ paths:
         assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
     }
 
-    @Test
     fun `external nested object query example reports missing required key inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val report = nestedObjectAndArrayExternalExampleValidationReport(
             tempDir,
@@ -13673,7 +13687,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.price.max")
         assertThat(report).contains("R2001: Missing required property")
     }
 
@@ -13689,7 +13703,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].color")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.variants[0].color")
         assertThat(report).contains("R2001: Missing required property")
     }
 
@@ -13706,9 +13720,9 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.min")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.price.min")
         assertThat(report).contains("Specification expected type number")
-        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.price.max")
     }
 
     @Test
@@ -13724,7 +13738,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].sizes[0]")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.variants[0].sizes[0]")
         assertThat(report).contains("Specification expected type number")
     }
 
@@ -13737,9 +13751,9 @@ paths:
             queryParams = mapOf("filter.data[0]" to "")
         )
 
-        assertThat(objectReport).contains("REQUEST.PARAMETERS.QUERY.details.filter.data.name")
+        assertThat(objectReport).contains("REQUEST.PARAMETERS.QUERY.filter.data.name")
         assertThat(objectReport).contains("R2001: Missing required property")
-        assertThat(arrayReport).contains("REQUEST.PARAMETERS.QUERY.details.filter.data[0].name")
+        assertThat(arrayReport).contains("REQUEST.PARAMETERS.QUERY.filter.data[0].name")
         assertThat(arrayReport).contains("R2001: Missing required property")
     }
 
