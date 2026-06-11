@@ -6,6 +6,7 @@ import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.v2.SpecExecutionConfig
+import io.specmatic.core.config.v3.components.Adapter
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -79,5 +80,31 @@ class LegacySpecmaticConfigToV3UpgraderTest {
         assertThat(proxyHooks["pre_specmatic_response_processor"]).isEqualTo("cat proxy-response.txt")
         assertThat(proxyHooks["custom_hook"]).isEqualTo("cat custom.txt")
         assertThat(proxyHooks["post_specmatic_response_processor"]).isNull()
+    }
+
+    @Test
+    fun `upgrade lets proxy adapters override global proxy hooks`() {
+        val config = SpecmaticConfigV1V2Common(
+            proxy = ProxyConfig(
+                baseUrl = "http://localhost:9090",
+                targetUrl = "http://upstream:8080",
+                adapters = Adapter(
+                    mapOf(
+                        "stub_load_contract" to "cat proxy-stub-contract.txt",
+                        "test_load_contract" to "cat proxy-test-contract.txt",
+                    )
+                )
+            ),
+            hooks = mapOf(
+                "stub_load_contract" to "cat global-stub-contract.txt",
+                "test_load_contract" to "cat global-test-contract.txt",
+            )
+        )
+
+        val upgraded = LegacySpecmaticConfigToV3Upgrader().upgrade(config)
+        val proxyHooks = upgraded.proxies?.single()?.proxy?.adapters?.getUnsafe()?.hooks.orEmpty()
+
+        assertThat(proxyHooks["stub_load_contract"]).isEqualTo("cat proxy-stub-contract.txt")
+        assertThat(proxyHooks["test_load_contract"]).isEqualTo("cat proxy-test-contract.txt")
     }
 }

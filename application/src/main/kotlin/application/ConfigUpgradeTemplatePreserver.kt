@@ -1,0 +1,599 @@
+package application
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import io.specmatic.core.config.ConfigTemplateUtils
+
+internal class ConfigUpgradeTemplatePreserver(private val objectMapper: ObjectMapper) {
+    fun preserveTemplates(originalConfigYaml: String, upgradedConfigYaml: String): String {
+        val originalTree = objectMapper.readTree(originalConfigYaml)
+        val upgradedTree = objectMapper.readTree(upgradedConfigYaml)
+        val templates = TemplateCollector().collect(originalTree)
+        if (templates.isEmpty()) return upgradedConfigYaml
+
+        TemplateApplier(templates).applyTo(upgradedTree)
+        return objectMapper.writeValueAsString(upgradedTree)
+    }
+
+    private class TemplateCollector {
+        fun collect(node: JsonNode): TemplateSet {
+            val fieldTemplates = mutableListOf<FieldTemplate>()
+            val valueTemplates = mutableListOf<ValueTemplate>()
+            collectFrom(node, node, emptyList(), fieldTemplates, valueTemplates)
+            return TemplateSet(
+                fieldTemplates = fieldTemplates.toUnambiguousTemplates().sortedBy { it.targetContainers == null },
+                valueTemplates = valueTemplates.toUniqueResolvedValueTemplates(),
+            )
+        }
+
+        private fun collectFrom(
+            root: JsonNode,
+            node: JsonNode,
+            path: List<String>,
+            fieldTemplates: MutableList<FieldTemplate>,
+            valueTemplates: MutableList<ValueTemplate>,
+        ) {
+            when {
+                node.isObject -> node.properties().asSequence().forEach { entry ->
+                    collectFrom(root, entry.value, path + entry.key, fieldTemplates, valueTemplates)
+                }
+
+                node.isArray -> node.elements().asSequence().forEachIndexed { index, element ->
+                    collectFrom(root, element, path + index.toString(), fieldTemplates, valueTemplates)
+                }
+
+                node.isTextual && ConfigTemplateUtils.isConfigTemplate(node.asText()) -> {
+                    val rawText = node.asText()
+                    val resolvedText = ConfigTemplateUtils.resolveTemplateValue(node).scalarValueText() ?: return
+                    val sourceFieldName = path.sourceFieldName()
+                    if (sourceFieldName != null) {
+                        fieldTemplates.add(fieldTemplateFor(root, path, sourceFieldName, rawText, resolvedText))
+                    } else {
+                        valueTemplates.add(ValueTemplate(rawText, resolvedText))
+                    }
+                }
+            }
+        }
+
+        private fun fieldTemplateFor(
+            root: JsonNode,
+            path: List<String>,
+            sourceFieldName: String,
+            rawText: String,
+            resolvedText: String,
+        ): FieldTemplate {
+            val targetContainers = targetContainersFor(path, sourceFieldName)
+            return FieldTemplate(
+                rawText = targetRawTextFor(path, sourceFieldName, rawText),
+                resolvedText = targetResolvedTextFor(path, sourceFieldName, resolvedText),
+                targetFieldNames = targetFieldNamesFor(path, sourceFieldName),
+                targetContainers = targetContainers,
+                targetParentPathSuffix = targetParentPathSuffixFor(path),
+                contractEntryIndexHint = contractEntryIndexHintFor(root, path, targetContainers),
+            )
+        }
+
+        private fun targetRawTextFor(path: List<String>, sourceFieldName: String, rawText: String): String {
+            return when {
+                path.firstOrNull() == "stub" && sourceFieldName == "hotReload" ->
+                    rewriteSwitchTemplateDefault(rawText)
+                else -> rawText
+            }
+        }
+
+        private fun targetFieldNamesFor(path: List<String>, sourceFieldName: String): Set<String> {
+            if (path.endsWith("resiliencyTests", "enable")) return setOf("schemaResiliencyTests")
+
+            return when (sourceFieldName) {
+                "swaggerUIBaseURL" -> setOf("swaggerUiBaseUrl")
+                "disable_telemetry" -> setOf("disableTelemetry")
+                "fuzzy" -> setOf("fuzzyMatcherForPayloads")
+                "license_path", "licensePath" -> setOf("path")
+                "report_dir_path", "reportDirPath" -> setOf("junitReportDir")
+                "dictionary" -> setOf("path")
+                "targetUrl" -> setOf("target")
+                "outputDirectory" -> setOf("recordingsDirectory", "outputDirectory")
+                "minThresholdPercentage" -> setOf("minCoveragePercentage")
+                "maxMissedEndpointsInSpec" -> setOf("maxMissedOperationsInSpec")
+                "basePath" -> setOf("urlPathPrefix")
+                "pre_specmatic_request_processor" -> setOf("preSpecmaticRequestProcessor")
+                "post_specmatic_response_processor" -> setOf("postSpecmaticResponseProcessor")
+                "pre_specmatic_response_processor" -> setOf("preSpecmaticResponseProcessor")
+                "bearer-file" -> setOf("bearerFile")
+                "bearer-environment-variable" -> setOf("bearerEnvironmentVariable")
+                "personal-access-token" -> setOf("personalAccessToken")
+                "value" -> if (path.firstOrNull() == "security") setOf("token") else setOf(sourceFieldName)
+                else -> setOf(sourceFieldName)
+            }
+        }
+
+        private fun targetContainersFor(path: List<String>, sourceFieldName: String): Set<TargetContainer>? {
+            val root = path.firstOrNull()
+            return when (root) {
+                "test" if sourceFieldName in testSettingsFields ->
+                    setOf(TargetContainer.TEST_SETTINGS)
+
+                "test" if path.endsWith("resiliencyTests", "enable") ->
+                    setOf(TargetContainer.TEST_SETTINGS)
+
+                "contracts" if "provides" in path && path.endsWith("resiliencyTests", "enable") ->
+                    setOf(TargetContainer.TEST_SETTINGS)
+
+                "test" ->
+                    setOf(TargetContainer.TEST_RUN_OPTIONS)
+
+                "stub" if sourceFieldName in mockSettingsFields ->
+                    setOf(TargetContainer.MOCK_SETTINGS)
+
+                "stub" if sourceFieldName == "dictionary" ->
+                    setOf(TargetContainer.DATA_DICTIONARY)
+
+                "stub" ->
+                    setOf(TargetContainer.MOCK_RUN_OPTIONS)
+
+                "proxy" ->
+                    setOf(TargetContainer.PROXY)
+
+                "mcp" ->
+                    setOf(TargetContainer.MCP)
+
+                "report" ->
+                    setOf(TargetContainer.GOVERNANCE)
+
+                "license_path", "licensePath" ->
+                    setOf(TargetContainer.LICENSE)
+
+                "report_dir_path", "reportDirPath" ->
+                    setOf(TargetContainer.TEST_SETTINGS)
+
+                "hooks" ->
+                    setOf(TargetContainer.ADAPTERS)
+
+                "security" ->
+                    setOf(TargetContainer.SECURITY)
+
+                "workflow" ->
+                    setOf(TargetContainer.TEST_RUN_OPTIONS)
+
+                "auth" ->
+                    setOf(TargetContainer.AUTH)
+
+                "backwardCompatibility" ->
+                    setOf(TargetContainer.BACKWARD_COMPATIBILITY)
+
+                "logging" ->
+                    setOf(TargetContainer.GENERAL_SETTINGS)
+
+                "schemaExampleDefault", "fuzzy", "escapeSoapAction" ->
+                    setOf(TargetContainer.GENERAL_FEATURE_FLAGS)
+
+                in generalSettingsFields ->
+                    setOf(TargetContainer.GENERAL_SETTINGS)
+
+                "globalSettings" ->
+                    setOf(TargetContainer.GENERAL_SETTINGS)
+
+                "contracts" if "provides" in path ->
+                    setOf(TargetContainer.TEST_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
+
+                "contracts" if "consumes" in path ->
+                    setOf(TargetContainer.MOCK_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
+
+                "default_pattern_values" ->
+                    setOf(TargetContainer.DATA_DICTIONARY)
+
+                else -> null
+            }
+        }
+
+        private fun targetResolvedTextFor(path: List<String>, sourceFieldName: String, resolvedText: String): String {
+            return when {
+                path.firstOrNull() == "stub" && sourceFieldName == "hotReload" ->
+                    when (resolvedText) {
+                        "enabled" -> "true"
+                        "disabled" -> "false"
+                        else -> resolvedText
+                    }
+                else -> resolvedText
+            }
+        }
+
+        private fun rewriteSwitchTemplateDefault(rawText: String): String {
+            return ConfigTemplateUtils.findVariableTokens(rawText).asReversed().fold(rawText) { text, token ->
+                val booleanDefault = when (token.default) {
+                    "enabled" -> "true"
+                    "disabled" -> "false"
+                    else -> token.default
+                }
+
+                if (booleanDefault == token.default) return@fold text
+                text.replaceRange(
+                    startIndex = token.startIndex,
+                    endIndex = token.endIndex + 1,
+                    replacement = ConfigTemplateUtils.createTemplate(token.names, booleanDefault),
+                )
+            }
+        }
+
+        private fun targetParentPathSuffixFor(path: List<String>): List<String>? {
+            if (path.firstOrNull() != "workflow") return null
+            return path.dropLast(1)
+        }
+
+        private fun contractEntryIndexHintFor(
+            root: JsonNode,
+            path: List<String>,
+            targetContainers: Set<TargetContainer>?,
+        ): ContractEntryIndexHint? {
+            if (path.firstOrNull() != "contracts") return null
+            if (targetContainers?.any { container -> container.isRunOptionsContainer() } != true) return null
+
+            return when {
+                "provides" in path -> providerContractEntryIndexHintFor(root, path)
+                "consumes" in path -> contractEntryIndexHintFor(path, ContractEntryKind.CONSUMES)
+                else -> null
+            }
+        }
+
+        private fun providerContractEntryIndexHintFor(root: JsonNode, path: List<String>): ContractEntryIndexHint? {
+            val providesIndex = path.indexOf(ContractEntryKind.PROVIDES.v2FieldName)
+            val entryIndex = path.getOrNull(providesIndex + 1)?.toIntOrNull() ?: return null
+            val providesArray = root.nodeAt(path.take(providesIndex + 1))
+                ?.takeIf(JsonNode::isArray)
+                ?: return null
+            providesArray.get(entryIndex)?.takeIf { entry -> entry.isProviderRunOptionsEntry() } ?: return null
+
+            val precedingRunOptionEntries = (0 until entryIndex)
+                .count { index -> providesArray.get(index)?.isProviderRunOptionsEntry() == true }
+            return ContractEntryIndexHint(ContractEntryKind.PROVIDES, precedingRunOptionEntries)
+        }
+
+        private fun contractEntryIndexHintFor(path: List<String>, kind: ContractEntryKind): ContractEntryIndexHint? {
+            val kindIndex = path.indexOf(kind.v2FieldName)
+            val contractEntryIndex = path.getOrNull(kindIndex + 1)?.toIntOrNull() ?: return null
+            return ContractEntryIndexHint(kind, contractEntryIndex)
+        }
+
+        private fun List<ValueTemplate>.toUniqueResolvedValueTemplates(): List<ValueTemplate> {
+            return groupBy(ValueTemplate::resolvedText)
+                .filterValues { templates -> templates.map(ValueTemplate::rawText).distinct().size == 1 }
+                .values
+                .map { templates -> templates.first() }
+        }
+
+        private fun List<FieldTemplate>.toUnambiguousTemplates(): List<FieldTemplate> {
+            return groupBy { template ->
+                FieldTemplateIdentity(
+                    targetFieldNames = template.targetFieldNames,
+                    targetContainers = template.targetContainers,
+                    targetParentPathSuffix = template.targetParentPathSuffix,
+                    contractEntryIndexHint = template.contractEntryIndexHint,
+                    resolvedText = template.resolvedText,
+                )
+            }.filterValues { templates ->
+                templates.map(FieldTemplate::rawText).distinct().size == 1
+            }.values.map { templates ->
+                templates.first()
+            }
+        }
+    }
+
+    private class TemplateApplier(private val templates: TemplateSet) {
+        fun applyTo(node: JsonNode) {
+            applyTo(node, emptyList())
+        }
+
+        private fun applyTo(node: JsonNode, path: List<String>) {
+            when (node) {
+                is ObjectNode -> applyToObject(node, path)
+                is ArrayNode -> applyToArray(node, path)
+            }
+        }
+
+        private fun applyToObject(objectNode: ObjectNode, path: List<String>) {
+            objectNode.properties().toList().forEach { entry ->
+                val childPath = path + entry.key
+
+                if (replaceTemplateForFieldMatchedByPathHints(objectNode, entry, path)) return@forEach
+                if (replaceTemplateForScalarFieldPromotedFromArrayValue(objectNode, entry)) return@forEach
+
+                applyTo(entry.value, childPath)
+            }
+        }
+
+        private fun applyToArray(arrayNode: ArrayNode, path: List<String>) {
+            arrayNode.elements().asSequence().toList().forEachIndexed { index, element ->
+                if (replaceTemplateForScalarArrayElement(arrayNode, index, element)) return@forEachIndexed
+
+                applyTo(element, path + index.toString())
+            }
+        }
+
+        private fun replaceTemplateForFieldMatchedByPathHints(
+            objectNode: ObjectNode,
+            entry: MutableMap.MutableEntry<String, JsonNode>,
+            parentPath: List<String>,
+        ): Boolean {
+            val replacement = unambiguousFieldTemplateReplacementFor(entry.key, entry.value, parentPath) ?: return false
+            objectNode.put(entry.key, replacement)
+            return true
+        }
+
+        private fun unambiguousFieldTemplateReplacementFor(
+            fieldName: String,
+            value: JsonNode,
+            parentPath: List<String>,
+        ): String? {
+            return templates.fieldTemplates.asSequence()
+                .filter { template -> template.matches(fieldName, value, parentPath) }
+                .map(FieldTemplate::rawText)
+                .distinct()
+                .singleOrNull()
+        }
+
+        private fun replaceTemplateForScalarFieldPromotedFromArrayValue(
+            objectNode: ObjectNode,
+            entry: MutableMap.MutableEntry<String, JsonNode>,
+        ): Boolean {
+            if (!entry.isScalarFieldCreatedFromV2ArrayValue()) return false
+
+            val replacement = valueTemplateReplacementFor(entry.value) ?: return false
+            objectNode.put(entry.key, replacement.rawText)
+            return true
+        }
+
+        private fun replaceTemplateForScalarArrayElement(arrayNode: ArrayNode, index: Int, element: JsonNode): Boolean {
+            val replacement = valueTemplateReplacementFor(element) ?: return false
+            arrayNode.set(index, arrayNode.textNode(replacement.rawText))
+            return true
+        }
+
+        private fun MutableMap.MutableEntry<String, JsonNode>.isScalarFieldCreatedFromV2ArrayValue(): Boolean {
+            return key in arrayValueTargetFieldNames && value.isScalarValue()
+        }
+
+        private fun valueTemplateReplacementFor(value: JsonNode): ValueTemplate? {
+            return templates.valueTemplates.firstOrNull { template ->
+                template.resolvedText == value.scalarValueText()
+            }
+        }
+    }
+
+    private data class TemplateSet(
+        val fieldTemplates: List<FieldTemplate>,
+        val valueTemplates: List<ValueTemplate>,
+    ) {
+        fun isEmpty(): Boolean = fieldTemplates.isEmpty() && valueTemplates.isEmpty()
+    }
+
+    private data class FieldTemplate(
+        val rawText: String,
+        val resolvedText: String,
+        val targetFieldNames: Set<String>,
+        val targetContainers: Set<TargetContainer>?,
+        val targetParentPathSuffix: List<String>?,
+        val contractEntryIndexHint: ContractEntryIndexHint?,
+    ) {
+        fun matches(fieldName: String, value: JsonNode, parentPath: List<String>): Boolean {
+            return matchesTargetFieldName(fieldName) &&
+                matchesTargetContainerHint(parentPath) &&
+                matchesParentPathSuffixHint(parentPath) &&
+                matchesContractEntryIndexHint(parentPath) &&
+                matchesResolvedScalarValue(value)
+        }
+
+        private fun matchesTargetFieldName(fieldName: String): Boolean {
+            return fieldName in targetFieldNames
+        }
+
+        private fun matchesTargetContainerHint(parentPath: List<String>): Boolean {
+            val actualContainer = targetContainerFor(parentPath)
+            return targetContainers?.let { allowedContainers ->
+                actualContainer in allowedContainers
+            } ?: (actualContainer == null)
+        }
+
+        private fun matchesParentPathSuffixHint(parentPath: List<String>): Boolean {
+            return targetParentPathSuffix?.let { suffix -> parentPath.endsWith(suffix) } ?: true
+        }
+
+        private fun matchesContractEntryIndexHint(parentPath: List<String>): Boolean {
+            return contractEntryIndexHint?.matches(parentPath) ?: true
+        }
+
+        private fun matchesResolvedScalarValue(value: JsonNode): Boolean {
+            return value.scalarValueText() == resolvedText
+        }
+    }
+
+    private data class ValueTemplate(val rawText: String, val resolvedText: String)
+
+    private data class FieldTemplateIdentity(
+        val targetFieldNames: Set<String>,
+        val targetContainers: Set<TargetContainer>?,
+        val targetParentPathSuffix: List<String>?,
+        val contractEntryIndexHint: ContractEntryIndexHint?,
+        val resolvedText: String,
+    )
+
+    private data class ContractEntryIndexHint(val kind: ContractEntryKind, val index: Int) {
+        fun matches(parentPath: List<String>): Boolean {
+            return when (kind) {
+                ContractEntryKind.PROVIDES ->
+                    parentPath.isProviderContractEntryAt(index)
+                ContractEntryKind.CONSUMES ->
+                    parentPath.isConsumerContractEntryAt(index)
+            }
+        }
+    }
+
+    private enum class ContractEntryKind(val v2FieldName: String) {
+        PROVIDES("provides"),
+        CONSUMES("consumes"),
+    }
+
+    private enum class TargetContainer {
+        TEST_SETTINGS,
+        MOCK_SETTINGS,
+        GENERAL_SETTINGS,
+        GENERAL_FEATURE_FLAGS,
+        TEST_RUN_OPTIONS,
+        MOCK_RUN_OPTIONS,
+        DATA_DICTIONARY,
+        ADAPTERS,
+        PROXY,
+        MCP,
+        LICENSE,
+        GOVERNANCE,
+        GOVERNANCE_REPORT,
+        SECURITY,
+        AUTH,
+        BACKWARD_COMPATIBILITY,
+        RUN_OPTIONS,
+    }
+
+    private companion object {
+        val testSettingsFields = setOf(
+            "validateResponseValues",
+            "timeoutInMilliseconds",
+            "strictMode",
+            "lenientMode",
+            "parallelism",
+            "maxTestRequestCombinations",
+            "maxTestCount",
+            "junitReportDir",
+        )
+
+        val mockSettingsFields = setOf(
+            "generative",
+            "delayInMilliseconds",
+            "strictMode",
+            "lenientMode",
+            "hotReload",
+            "startTimeoutInMilliseconds",
+            "gracefulRestartTimeoutInMilliseconds",
+        )
+
+        val generalSettingsFields = setOf(
+            "ignoreInlineExamples",
+            "ignoreInlineExampleWarnings",
+            "prettyPrint",
+            "disable_telemetry",
+            "disableTelemetry",
+        )
+
+        val arrayValueTargetFieldNames = setOf("path")
+
+        fun targetContainerFor(path: List<String>): TargetContainer? {
+            return when {
+                path.lastOrNull() == "test" && "settings" in path ->
+                    TargetContainer.TEST_SETTINGS
+                (path.lastOrNull() == "mock" && "settings" in path) || path.endsWith("dependencies", "settings") ->
+                    TargetContainer.MOCK_SETTINGS
+                path.lastOrNull() == "general" && "settings" in path ->
+                    TargetContainer.GENERAL_SETTINGS
+                path.any { it == "logging" } ->
+                    TargetContainer.GENERAL_SETTINGS
+                path.endsWith("featureFlags") ->
+                    TargetContainer.GENERAL_FEATURE_FLAGS
+                path.endsWith("dictionary") ->
+                    TargetContainer.DATA_DICTIONARY
+                path.lastOrNull() == "settings" && "systemUnderTest" in path ->
+                    TargetContainer.TEST_SETTINGS
+                path.any { it == "adapters" } ->
+                    TargetContainer.ADAPTERS
+                path.any { it == "proxies" } ->
+                    TargetContainer.PROXY
+                path.firstOrNull() == "mcp" ->
+                    TargetContainer.MCP
+                path.endsWith("specmatic", "license") ->
+                    TargetContainer.LICENSE
+                path.endsWith("governance", "report") ->
+                    TargetContainer.GOVERNANCE_REPORT
+                path.any { it == "governance" } ->
+                    TargetContainer.GOVERNANCE
+                path.any { it == "securitySchemes" } ->
+                    TargetContainer.SECURITY
+                path.endsWith("auth") ->
+                    TargetContainer.AUTH
+                path.any { it == "backwardCompatibility" } ->
+                    TargetContainer.BACKWARD_COMPATIBILITY
+                "systemUnderTest" in path && "definitions" in path && "specs" in path ->
+                    TargetContainer.TEST_RUN_OPTIONS
+                "dependencies" in path && "definitions" in path && "specs" in path ->
+                    TargetContainer.MOCK_RUN_OPTIONS
+                "systemUnderTest" in path && "runOptions" in path ->
+                    TargetContainer.TEST_RUN_OPTIONS
+                "dependencies" in path && "runOptions" in path ->
+                    TargetContainer.MOCK_RUN_OPTIONS
+                path.firstOrNull() == "components" && "runOptions" in path ->
+                    TargetContainer.RUN_OPTIONS
+                else -> null
+            }
+        }
+
+        fun List<String>.endsWith(vararg values: String): Boolean {
+            if (size < values.size) return false
+            return takeLast(values.size) == values.toList()
+        }
+
+        fun List<String>.endsWith(values: List<String>): Boolean {
+            if (size < values.size) return false
+            return takeLast(values.size) == values
+        }
+
+        fun List<String>.sourceFieldName(): String? {
+            return lastOrNull()?.takeUnless { it.toIntOrNull() != null }
+        }
+
+        fun List<String>.isProviderContractEntryAt(index: Int): Boolean {
+            return when {
+                firstOrNull() == "systemUnderTest" ->
+                    arrayIndexAfter("specs") == index
+                firstOrNull() == "components" && "runOptions" in this ->
+                    arrayIndexAfter("specs") == index
+                else -> false
+            }
+        }
+
+        fun List<String>.isConsumerContractEntryAt(index: Int): Boolean {
+            return firstOrNull() == "dependencies" && arrayIndexAfter("services") == index
+        }
+
+        fun List<String>.arrayIndexAfter(fieldName: String): Int? {
+            val fieldIndex = indexOf(fieldName)
+            return getOrNull(fieldIndex + 1)?.toIntOrNull()
+        }
+
+        fun TargetContainer.isRunOptionsContainer(): Boolean {
+            return this in setOf(TargetContainer.TEST_RUN_OPTIONS, TargetContainer.MOCK_RUN_OPTIONS, TargetContainer.RUN_OPTIONS)
+        }
+
+        fun JsonNode.nodeAt(path: List<String>): JsonNode? {
+            return path.fold(this as JsonNode?) { node, segment ->
+                when {
+                    node == null -> null
+                    node.isArray -> segment.toIntOrNull()?.let(node::get)
+                    else -> node.get(segment)
+                }
+            }
+        }
+
+        fun JsonNode.isProviderRunOptionsEntry(): Boolean {
+            return isObject && (has("config") || has("baseUrl") || has("host") || has("port") || has("basePath"))
+        }
+
+        fun JsonNode.isScalarValue(): Boolean {
+            return isTextual || isNumber || isBoolean
+        }
+
+        fun JsonNode.scalarValueText(): String? {
+            return when {
+                isScalarValue() -> asText()
+                else -> null
+            }
+        }
+    }
+}

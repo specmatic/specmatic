@@ -1,0 +1,135 @@
+---
+additionalExampleParamsFilePath: value
+allPatternsMandatory: value
+attributeSelectionPattern:
+  default_fields:
+  - value
+  query_param_key: value
+auth:
+  bearer-environment-variable: value
+  bearer-file: value
+contracts:
+- consumes:
+  - value
+  - basePath: value
+    baseUrl: value
+    config:
+      sample:
+      - value
+      sampleScalar: value
+    host: value
+    port: 1
+    resiliencyTests:
+      enable: true
+    specType: value
+    specs:
+    - value
+  filesystem:
+    directory: value
+  git:
+    branch: value
+    matchBranch: true
+    url: value
+  provides:
+  - value
+  - basePath: value
+    baseUrl: value
+    config:
+      sample:
+      - value
+      sampleScalar: value
+    host: value
+    port: 1
+    resiliencyTests:
+      enable: true
+    specType: value
+    specs:
+    - value
+  web:
+    url: value
+disable_telemetry: true
+environments:
+  sample:
+    baseurls:
+      sample: value
+    variables:
+      sample: value
+examples:
+- value
+hooks:
+  sample: value
+ignoreInlineExamples: true
+pipeline:
+  definitionId: 1
+  organization: value
+  project: value
+  provider: value
+report:
+  formatters:
+  - heading: value
+    layout: value
+    lite: true
+    logo: value
+    logoAltText: value
+    outputDirectory: value
+    title: value
+    type: value
+  types:
+    APICoverage:
+      OpenAPI:
+        excludedEndpoints:
+        - 1
+        successCriteria:
+          enforce: true
+          maxMissedEndpointsInSpec: 1
+          minThresholdPercentage: 1
+repository:
+  collectionName: value
+  provider: value
+security:
+  OpenAPI:
+    securitySchemes:
+      sample:
+        token: value
+        type: value
+        value: value
+stub:
+  delayInMilliseconds: value
+  dictionary: value
+  generative: true
+  hotReload: value
+  https:
+    keyStore:
+      alias: value
+      directory: value
+      file: value
+      password: value
+    keyStorePassword: value
+    mtlsEnabled: true
+  includeMandatoryAndRequestedKeysInResponse: value
+  startTimeoutInMilliseconds: 1
+  strictMode: true
+test:
+  allowExtensibleSchema: value
+  https:
+    keyStore:
+      alias: value
+      directory: value
+      file: value
+      password: value
+    keyStorePassword: value
+    mtlsEnabled: true
+  resiliencyTests:
+    enable: true
+  strictMode: true
+  timeoutInMilliseconds: 1
+  validateResponseValues: true
+version: 2
+virtualService:
+  nonPatchableKeys:
+  - value
+workflow:
+  ids:
+    sample:
+      extract: value
+      use: value

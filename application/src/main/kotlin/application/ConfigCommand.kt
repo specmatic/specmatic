@@ -73,16 +73,19 @@ class ConfigCommand : Callable<Int> {
         }
 
         private fun upgrade(configFile: File) {
+            val objectMapper = getObjectMapper()
             val upgradedConfigYaml =
-                getObjectMapper().writeValueAsString(convertToLatestVersionedConfig(configFile.toSpecmaticConfig()))
+                objectMapper.writeValueAsString(convertToLatestVersionedConfig(configFile.toSpecmaticConfig()))
+            val templatePreservedYaml = ConfigUpgradeTemplatePreserver(objectMapper)
+                .preserveTemplates(configFile.readText(), upgradedConfigYaml)
 
             if(outputFile == null) {
-                logger.log(upgradedConfigYaml)
+                logger.log(templatePreservedYaml)
                 return
             }
 
             logger.log("Writing upgraded $SPECMATIC_CONFIGURATION to ${outputFile.path}")
-            outputFile.writeText(upgradedConfigYaml)
+            outputFile.writeText(templatePreservedYaml)
             logger.log("The upgraded $SPECMATIC_CONFIGURATION is written successfully to ${outputFile.path}")
         }
 
