@@ -78,6 +78,10 @@ internal fun missingResponseExampleErrorMessageForTest(exampleName: String): Str
 private const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
 
 data class ParameterWithContext<T: Parameter>(val parameter: T, val collectorContext: CollectorContext)
+
+internal fun escapeJsonPointer(token: String): String =
+    token.replace("~", "~0").replace("/", "~1")
+
 data class OperationMetadata(
     val tags: List<String> = emptyList(),
     val summary: String = "",
@@ -2003,9 +2007,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun escapeJsonPointer(token: String): String =
-        token.replace("~", "~0").replace("/", "~1")
-
     private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
         sourceMapCache.getOrPut(file) {
             readExternalFileContent(file)?.let { JsonPointerSourceMap(it).build() }.orEmpty()
@@ -3341,14 +3342,16 @@ class OpenApiSpecification(
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
+        val queryParameterCollisionEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::collisionEntries)
         val collisionResolution = resolveQueryParameterCollisions(
-            entries = queryPatternEntries,
+            entries = queryParameterCollisionEntries,
             formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
             patterns = patterns
         )
 
-        val queryPattern: Map<String, Pattern> = collisionResolution.effectiveEntries.associate { it.key to it.pattern }
-        val queryParameterPointers = parameterPointers + collisionResolution.effectiveEntries.mapNotNull { entry ->
+        val effectiveQueryPatternEntries = queryPatternEntries.filterNot(collisionResolution.nonAuthoritativeEntries::contains)
+        val queryPattern: Map<String, Pattern> = effectiveQueryPatternEntries.associate { it.key to it.pattern }
+        val queryParameterPointers = parameterPointers + effectiveQueryPatternEntries.mapNotNull { entry ->
             entry.pointer?.let { pointer -> entry.wireKey to pointer }
         }
 
@@ -3366,6 +3369,7 @@ class OpenApiSpecification(
 
     private data class QueryParameterParseResult(
         val entries: List<QueryParameterPatternEntry>,
+        val collisionEntries: List<QueryParameterPatternEntry> = entries,
         val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
         val nestedObjectQueryParam: NestedObjectQueryParam? = null,
         val additionalProperties: Pattern? = null
@@ -3436,22 +3440,35 @@ class OpenApiSpecification(
 
         if (nestedObjectQueryParam != null) {
             val optional = parameter.required != true
+            val entries = listOf(
+                QueryParameterPatternEntry(
+                    key = toSpecmaticParamName(optional, parameter.name),
+                    wireKey = parameter.name,
+                    pattern = toQueryParameterPattern(
+                        parameterName = parameter.name,
+                        schema = parameter.schema,
+                        resolvedSchema = resolvedSchema,
+                        resolvedSchemaContext = schemaContext,
+                        schemaContext = parameterContext.at("schema")
+                    ),
+                    source = QueryParameterPatternSource(parameter.name),
+                    collectorContext = parameterContext,
+                    pointer = parameterPointer?.let { "$it/name" }
+                )
+            )
             return QueryParameterParseResult(
-                entries = listOf(
-                    QueryParameterPatternEntry(
-                        key = toSpecmaticParamName(optional, parameter.name),
-                        wireKey = parameter.name,
-                        pattern = toQueryParameterPattern(
-                            parameterName = parameter.name,
-                            schema = parameter.schema,
-                            resolvedSchema = resolvedSchema,
-                            resolvedSchemaContext = schemaContext,
-                            schemaContext = parameterContext.at("schema")
-                        ),
-                        source = QueryParameterPatternSource(parameter.name),
-                        collectorContext = parameterContext,
-                        pointer = parameterPointer?.let { "$it/name" }
-                    )
+                entries = entries,
+                collisionEntries = entries + unwrappedNestedObjectScalarPropertyCollisionEntries(
+                    parameter = parameter,
+                    schemaProperties = schemaProperties,
+                    schemaContext = schemaContext,
+                    parameterContext = parameterContext,
+                    nestedObjectQueryParam = nestedObjectQueryParam,
+                    parameterPointer = schemaPointer,
+                    requiredProperties = requiredProperties,
+                    resolveSchema = ::resolveSchemaIfRefElseAtSchema,
+                    toSpecmaticParamName = ::toSpecmaticParamName,
+                    toQueryParameterPattern = ::toQueryParameterPattern
                 ),
                 nestedObjectQueryParam = nestedObjectQueryParam,
                 additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)

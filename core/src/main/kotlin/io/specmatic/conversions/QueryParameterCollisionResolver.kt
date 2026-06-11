@@ -28,7 +28,8 @@ internal data class QueryParameterPatternEntry(
 internal data class QueryParameterCollisionResolution(
     val effectiveEntries: List<QueryParameterPatternEntry>,
     val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam>,
-    val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup>
+    val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup>,
+    val nonAuthoritativeEntries: List<QueryParameterPatternEntry>
 )
 
 internal fun resolveQueryParameterCollisions(
@@ -45,7 +46,8 @@ internal fun resolveQueryParameterCollisions(
         recordQueryParameterTypeCollisionIfNeeded(collidingEntries, patterns)
     }
 
-    val nonAuthoritativeObjectPropertiesByParameter = nonAuthoritativeFormExplodedObjectPropertiesByParameter(collisionEntriesByWireKey)
+    val nonAuthoritativeEntries = collisionEntriesByWireKey.values.flatMap { entries -> entries.drop(1) }
+    val nonAuthoritativeObjectPropertiesByParameter = nonAuthoritativeFormExplodedObjectPropertiesByParameter(nonAuthoritativeEntries)
     val effectiveEntries = entries.filter { entry ->
         entry.wireKey !in collisionEntriesByWireKey || collisionEntriesByWireKey.getValue(entry.wireKey).first() == entry
     }
@@ -55,13 +57,13 @@ internal fun resolveQueryParameterCollisions(
         formExplodedObjectQueryParams = formExplodedObjectQueryParams.map {
             it.withoutProperties(nonAuthoritativeObjectPropertiesByParameter[it.parameterName].orEmpty())
         },
-        collisionGroupsByWireKey = collisionGroupsByWireKey
+        collisionGroupsByWireKey = collisionGroupsByWireKey,
+        nonAuthoritativeEntries = nonAuthoritativeEntries
     )
 }
 
-private fun nonAuthoritativeFormExplodedObjectPropertiesByParameter(collisionEntriesByWireKey: Map<String, List<QueryParameterPatternEntry>>): Map<String, Set<String>> {
-    return collisionEntriesByWireKey.values
-        .flatMap { entries -> entries.drop(1) }
+private fun nonAuthoritativeFormExplodedObjectPropertiesByParameter(nonAuthoritativeEntries: List<QueryParameterPatternEntry>): Map<String, Set<String>> {
+    return nonAuthoritativeEntries
         .mapNotNull { entry ->
             entry.source.propertyName?.let { propertyName ->
                 entry.source.parameterName to propertyName

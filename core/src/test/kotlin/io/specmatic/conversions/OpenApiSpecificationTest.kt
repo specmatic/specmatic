@@ -18,6 +18,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
@@ -13662,6 +13663,77 @@ paths:
     }
 
     @Test
+    fun `generated requests use authoritative nested object property when unwrapped object query collides with standalone scalar`() {
+        val feature = OpenApiSpecification.fromYAML(telstraStyleNestedResponseQueryWithStatusCollisionSpec(), "").toFeature()
+
+        val generatedRequests = generatedPositiveRequests(feature)
+
+        assertThat(generatedRequests).isNotEmpty
+        generatedRequests.forEach { generatedRequest ->
+            val statusValues = generatedRequest.queryParams.getValues("status")
+
+            assertThat(statusValues).hasSize(1)
+            assertThat(statusValues.single().toIntOrNull()).isNotNull()
+            assertThat(generatedRequest.queryParams.asValueMap()["status"]).isNotInstanceOf(JSONArrayValue::class.java)
+        }
+    }
+
+    @Test
+    fun `generated requests use authoritative standalone scalar when it precedes colliding unwrapped object query property`() {
+        val feature = OpenApiSpecification.fromYAML(telstraStyleScalarFirstNestedResponseQueryWithStatusCollisionSpec(), "").toFeature()
+
+        val generatedRequests = generatedPositiveRequests(feature)
+
+        assertThat(generatedRequests).isNotEmpty
+        generatedRequests.forEach { generatedRequest ->
+            val statusValues = generatedRequest.queryParams.getValues("status")
+
+            assertThat(statusValues).containsExactly("GATE_OPEN")
+            assertThat(generatedRequest.queryParams.asValueMap()["status"]).isNotInstanceOf(JSONArrayValue::class.java)
+        }
+    }
+
+    @Test
+    fun `external unwrapped nested object query mismatch points to physical example key`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("my-day-details_200.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/my-day-details",
+                "query": {
+                  "mydayId": "TAAC041761259272ZSPB",
+                  "status": 200,
+                  "errors[0].code": "abc"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "status": 200
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val feature = OpenApiSpecification.fromYAML(
+            telstraStyleNestedResponseQueryWithIntegerErrorCodeSpec(),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+        val failureReport = (validationResult as Result.Failure).toFailureReport()
+        val issue = failureReport.toIssues(BreadCrumbToJsonPathConverter()).single()
+
+        assertThat(failureReport.toText()).contains("""REQUEST.PARAMETERS.QUERY["errors[0].code"]""")
+        assertThat(issue.path.takeLast(3)).containsExactly("http-request", "query", "errors[0].code")
+        assertThat(failureReport.toText()).doesNotContain("msResponse.errors")
+        assertThat(failureReport.toText()).doesNotContain("QUERY.errors[0].code")
+    }
+
+    @Test
     fun `external nested object query example reports missing required key inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val report = nestedObjectAndArrayExternalExampleValidationReport(
             tempDir,
@@ -13724,7 +13796,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].sizes[0]")
+        assertThat(report).contains("""REQUEST.PARAMETERS.QUERY["variants[0].sizes[0]"]""")
         assertThat(report).contains("Specification expected type number")
     }
 
@@ -14232,6 +14304,175 @@ $parameterExample
                       type: object
                       additionalProperties:
                         type: string
+        """.trimIndent()
+    }
+
+    private fun telstraStyleNestedResponseQueryWithStatusCollisionSpec(): String {
+        return """
+            openapi: 3.0.1
+            info:
+              title: Telstra Style Nested Response Query With Status Collision
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: status=474&errors[0].code=10
+                    - name: status
+                      in: query
+                      required: false
+                      schema:
+                        type: string
+                        enum:
+                          - GATE_OPEN
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                MicroserviceError:
+                  type: object
+                  required:
+                    - code
+                  properties:
+                    code:
+                      type: integer
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                      format: int32
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+        """.trimIndent()
+    }
+
+    private fun telstraStyleScalarFirstNestedResponseQueryWithStatusCollisionSpec(): String {
+        return """
+            openapi: 3.0.1
+            info:
+              title: Telstra Style Scalar First Nested Response Query With Status Collision
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: status
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                        enum:
+                          - GATE_OPEN
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: status=474&errors[0].code=10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                MicroserviceError:
+                  type: object
+                  required:
+                    - code
+                  properties:
+                    code:
+                      type: integer
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                      format: int32
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+        """.trimIndent()
+    }
+
+    private fun telstraStyleNestedResponseQueryWithIntegerErrorCodeSpec(): String {
+        return """
+            openapi: 3.0.1
+            info:
+              title: Telstra Style Nested Response Query With Integer Error Code
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: status=200&errors[0].code=10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                MicroserviceError:
+                  type: object
+                  required:
+                    - code
+                  properties:
+                    code:
+                      type: integer
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
         """.trimIndent()
     }
 

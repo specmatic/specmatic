@@ -32,6 +32,14 @@ class BreadCrumbToJsonPathConverterTest {
     }
 
     @Test
+    fun `should preserve literal map keys that contain dots and brackets`() {
+        val breadcrumbs = listOf("REQUEST", "PARAMETERS.QUERY", literalMapKeyBreadcrumb("errors[0].code"))
+
+        assertThat(converter.toJsonPath(breadcrumbs)).isEqualTo("/http-request/query/errors[0].code")
+        assertThat(converter.convert(breadcrumbs)).isEqualTo(listOf("http-request", "query", "errors[0].code"))
+    }
+
+    @Test
     fun `should filter out tilde breadcrumbs from the final path`() {
         // Tilde breadcrumbs like (~~~ ABC) are used for descriptions but should not appear in the JSON path
         val breadcrumbs = listOf(

@@ -25,7 +25,8 @@ internal fun parseNestedObjectQueryParams(
     queryParams: QueryParameters,
     effectivePatterns: Map<String, Pattern>,
     nestedObjectQueryParams: List<NestedObjectQueryParam>,
-    resolver: Resolver
+    resolver: Resolver,
+    collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup> = emptyMap()
 ): ParsedNestedObjectQueryParams {
     if (nestedObjectQueryParams.isEmpty()) {
         return ParsedNestedObjectQueryParams(queryParams, emptyMap(), emptyList())
@@ -42,10 +43,14 @@ internal fun parseNestedObjectQueryParams(
                 schema = matchingNestedParam.schema,
                 syntax = matchingNestedParam.syntax
             )
+            if (!matchingNestedParam.isAuthoritativeOwnerOf(key, parsedPath, collisionGroupsByWireKey)) {
+                return@map NestedQueryPair.Unconsumed(key to value)
+            }
+
             val parsedValue = try {
                 matchingNestedParam.parseValueAt(parsedPath, value, effectivePatterns, resolver)
             } catch (exception: ContractException) {
-                return@map NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(matchingNestedParam.parameterName, parsedPath))
+                return@map NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(matchingNestedParam, key, parsedPath))
             }
 
             NestedQueryPair.Consumed(matchingNestedParam, parsedPath, parsedValue)
@@ -172,6 +177,21 @@ internal fun NestedObjectQueryParam.shouldAttemptParse(key: String): Boolean {
     }
 }
 
+private fun NestedObjectQueryParam.isAuthoritativeOwnerOf(
+    key: String,
+    path: QueryObjectPath,
+    collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup>
+): Boolean {
+    val collisionGroup = collisionGroupsByWireKey[key] ?: return true
+    if (syntax.root != ObjectQueryRoot.Unwrapped) return true
+
+    val firstProperty = (path.tokens.firstOrNull() as? QueryObjectPathToken.Property)?.name ?: return true
+    val owner = collisionGroup.authoritativeOwner
+    return owner.kind == QueryParameterCollisionOwnerKind.FormExplodedObjectProperty &&
+        owner.parameterName == parameterName &&
+        owner.propertyName == firstProperty
+}
+
 private fun Map<String, Pattern>.containsNormalizedKey(key: String): Boolean {
     return containsKey(key) || containsKey(withOptionality(key))
 }
@@ -269,8 +289,12 @@ private fun JSONObjectPattern.childPattern(token: QueryObjectPathToken): Pattern
         }
 }
 
-private fun Result.Failure.withNestedObjectPathBreadcrumb(parameterName: String, path: QueryObjectPath): Result.Failure {
-    val breadcrumbs = listOf(parameterName) + path.tokens.map {
+private fun Result.Failure.withNestedObjectPathBreadcrumb(nestedObjectQueryParam: NestedObjectQueryParam, key: String, path: QueryObjectPath): Result.Failure {
+    if (nestedObjectQueryParam.syntax.root == ObjectQueryRoot.Unwrapped) {
+        return breadCrumb(literalMapKeyBreadcrumb(key))
+    }
+
+    val breadcrumbs = listOf(nestedObjectQueryParam.parameterName) + path.tokens.map {
         when (it) {
             is QueryObjectPathToken.Property -> it.name
             is QueryObjectPathToken.Index -> "[${it.index}]"

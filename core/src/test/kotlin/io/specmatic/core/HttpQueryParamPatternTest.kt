@@ -1130,6 +1130,75 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    fun `unwrapped nested object should not consume colliding query key owned by standalone scalar`() {
+        val queryPattern = HttpQueryParamPattern(
+            mapOf(
+                "status?" to QueryParameterScalarPattern(StringPattern()),
+                "msResponse?" to QueryParameterScalarPattern(
+                    JSONObjectPattern(
+                        mapOf(
+                            "status" to NumberPattern(),
+                            "code?" to NumberPattern()
+                        )
+                    )
+                )
+            ),
+            nestedObjectQueryParams = listOf(
+                NestedObjectQueryParam(
+                    parameterName = "msResponse",
+                    required = false,
+                    schema = NestedQuerySchema.Object(
+                        properties = mapOf(
+                            "status" to NestedQuerySchema.Scalar,
+                            "code" to NestedQuerySchema.Scalar
+                        )
+                    ),
+                    syntax = ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+                )
+            ),
+            collisionGroupsByWireKey = mapOf(
+                "status" to QueryParameterCollisionGroup(
+                    wireKey = "status",
+                    owners = listOf(
+                        QueryParameterCollisionOwner(
+                            wireKey = "status",
+                            sourceName = "status",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern()),
+                            required = false,
+                            parameterName = "status"
+                        ),
+                        QueryParameterCollisionOwner(
+                            wireKey = "status",
+                            sourceName = "msResponse.status",
+                            kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true,
+                            parameterName = "msResponse",
+                            propertyName = "status"
+                        )
+                    ),
+                    authoritativeOwner = QueryParameterCollisionOwner(
+                        wireKey = "status",
+                        sourceName = "status",
+                        kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                        pattern = QueryParameterScalarPattern(StringPattern()),
+                        required = false,
+                        parameterName = "status"
+                    )
+                )
+            )
+        )
+
+        val result = queryPattern.matches(
+            HttpRequest("GET", "/", queryParams = QueryParameters(listOf("status" to "GATE_OPEN", "code" to "10"))),
+            Resolver()
+        )
+
+        assertThat(result).isInstanceOf(Success::class.java)
+    }
+
+    @Test
     fun `colliding query key should match using authoritative object property and activate required sibling behavior`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(

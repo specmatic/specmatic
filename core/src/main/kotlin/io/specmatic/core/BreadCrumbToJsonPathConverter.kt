@@ -35,6 +35,7 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = e
     }
 
     private fun applyTransformations(breadcrumb: String): String {
+        if (breadcrumb.startsWith(LITERAL_COMPONENT_PREFIX)) return breadcrumb.removePrefix(LITERAL_COMPONENT_PREFIX)
         return config.transformations.fold(breadcrumb) { acc, mapping ->
             mapping.transform(acc)
         }
@@ -49,11 +50,13 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = e
     }
 
     private fun String.splitBySeparators(): List<String> {
+        if (isLiteralMapKeyBreadcrumb()) return listOf(LITERAL_COMPONENT_PREFIX + unescapedLiteralMapKey())
         return this.replace(ARRAY_START_BRACKET, "|$ARRAY_START_BRACKET").split(".", "|")
     }
 
     companion object {
         private const val ARRAY_START_BRACKET = "["
+        private const val LITERAL_COMPONENT_PREFIX = "__SPECMATIC_LITERAL_MAP_KEY__:"
         val commonConfig = TransformationConfig(
             transformations = listOf(
                 // Tilde transformations
@@ -90,4 +93,30 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = e
             ).plus(commonConfig.transformations)
         )
     }
+}
+
+internal fun literalMapKeyBreadcrumb(key: String): String {
+    return "[\"${key.replace("\\", "\\\\").replace("\"", "\\\"")}\"]"
+}
+
+private fun String.isLiteralMapKeyBreadcrumb(): Boolean = startsWith("[\"") && endsWith("\"]")
+
+private fun String.unescapedLiteralMapKey(): String {
+    val content = substring(2, length - 2)
+    val result = StringBuilder()
+    var escaping = false
+
+    content.forEach { character ->
+        when {
+            escaping -> {
+                result.append(character)
+                escaping = false
+            }
+            character == '\\' -> escaping = true
+            else -> result.append(character)
+        }
+    }
+
+    if (escaping) result.append('\\')
+    return result.toString()
 }
