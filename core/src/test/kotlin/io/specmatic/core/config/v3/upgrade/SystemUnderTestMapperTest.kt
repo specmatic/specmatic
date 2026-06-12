@@ -72,4 +72,23 @@ class SystemUnderTestMapperTest {
         assertThat(firstSpec.specification).isEqualTo("a.yaml")
         assertThat(secondSpec.spec.id).isEqualTo("b.yaml")
     }
+
+    @Test
+    fun `should not move global test settings under sut settings, they belong under specmatic settings test instead`() {
+        val source = Source(
+            directory = "./specs",
+            provider = SourceProvider.filesystem,
+            test = listOf(SpecExecutionConfig.StringValue("orders.yaml"))
+        )
+
+        val view = LegacyConfigView.from(
+            legacyConfig = SpecmaticConfigV1V2Common(
+                sources = listOf(source),
+                test = TestConfiguration(baseUrl = "http://localhost:9000", overlayFilePath = "overlay.yaml"),
+            )
+        )
+
+        val result = SystemUnderTestMapper().mapFrom(view, SourceMigrationBuilder(null))!!
+        assertThat(result.service.getUnsafe().settings).isNull()
+    }
 }
