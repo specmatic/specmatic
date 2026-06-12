@@ -671,6 +671,20 @@ class PostmanKtTests {
     }
 
     @Test
+    fun `postman request with an explicit default port normalizes it away from the base URL`() {
+        val (baseURL, request) = postmanItemRequest(parsedJSON("""{
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                                "raw": "http://localhost:80/square"
+                            }
+                        }""") as JSONObjectValue)
+
+        assertThat(baseURL).isEqualTo("http://localhost")
+        assertThat(request.path).isEqualTo("/square")
+    }
+
+    @Test
     fun `postman request with headers to HttpRequest object with body`() {
         val (baseURL, request) = postmanItemRequest(parsedJSON("""{
 						"method": "GET",

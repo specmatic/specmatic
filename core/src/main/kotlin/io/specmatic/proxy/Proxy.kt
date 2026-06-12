@@ -29,10 +29,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.Closeable
 import java.io.File
 import java.net.URI
-import java.net.URL
 import java.util.*
 
 fun interface RequestObserver {
@@ -379,13 +379,7 @@ class Proxy(
         }
 
     private fun isFullURL(path: String?): Boolean =
-        path != null &&
-            try {
-                URL(URLParts(path).withEncodedPathSegments())
-                true
-            } catch (e: Throwable) {
-                false
-            }
+        path != null && URLParts(path).withEncodedPathSegments().toHttpUrlOrNull() != null
 
     init {
         val initializers = ServiceLoader.load(ProxyInitializer::class.java)

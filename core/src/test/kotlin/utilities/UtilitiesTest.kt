@@ -33,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.net.ServerSocket
 import java.util.concurrent.Callable
@@ -584,6 +585,13 @@ internal class UtilitiesTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = ["http://localhost:8080", "https://example.com", "HTTP://localhost:8080", "Https://example.com"])
+    fun `validateURI should accept valid URLs regardless of scheme casing`(url: String) {
+        val result = validateTestOrStubUri(url)
+        assertThat(result).isEqualTo(URIValidationResult.Success)
+    }
+
+    @ParameterizedTest
     @CsvSource(
         "http://example.com/api/v1/user, http://example.com/api/v1, GET, 200, user_GET_200",
         "http://localhost:8080/users/Specmatic Test/details, http://localhost:8080, GET, 200, users_Specmatic_Test_details_GET_200",
@@ -741,6 +749,8 @@ internal class UtilitiesTest {
             return Stream.of(
                 Arguments.of("ftp://localhost", URIValidationResult.InvalidURLSchemeError),
                 Arguments.of("file:///C:/path", URIValidationResult.InvalidURLSchemeError),
+
+                Arguments.of("https:///api", URIValidationResult.MissingHostError),
 
                 Arguments.of("http://127.0.0.1:0", URIValidationResult.InvalidPortError),
                 Arguments.of("https://localhost:99999", URIValidationResult.InvalidPortError),

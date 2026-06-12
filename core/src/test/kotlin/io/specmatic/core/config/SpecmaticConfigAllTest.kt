@@ -24,6 +24,7 @@ import io.specmatic.core.loadSpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.utilities.ContractSourceEntry
+import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.GitRepo
 import io.specmatic.core.utilities.LocalFileSystemSource
 import io.specmatic.core.utilities.ResolvedWebSource
@@ -301,6 +302,45 @@ internal class SpecmaticConfigAllTest {
         val loadedSources = config.loadSources()
 
         assertThat(loadedSources.single()).isInstanceOf(ResolvedWebSource::class.java)
+    }
+
+    @Test
+    fun `resolveSpecFile should map an absolute web spec URL to a host-and-path cache file`(@TempDir tempDir: File) {
+        // A web source without a base URL derives the local cache path from the spec
+        // URL's host and path (SpecmaticConfigV1V2Common.resolveSpecFile).
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
+
+        val originalConfigPath = System.getProperty(CONFIG_FILE_PATH)
+        try {
+            System.setProperty(CONFIG_FILE_PATH, configFile.canonicalPath)
+
+            val resolved = Source(provider = web).resolveSpecFile("http://specmatic.io/specifications/spec1.yaml")
+
+            assertThat(resolved).isEqualTo(
+                tempDir.resolve("web").resolve("specmatic.io").resolve("specifications/spec1.yaml").canonicalFile
+            )
+        } finally {
+            if (originalConfigPath != null) System.setProperty(CONFIG_FILE_PATH, originalConfigPath)
+            else System.clearProperty(CONFIG_FILE_PATH)
+        }
+    }
+
+    @Test
+    fun `resolveSpecFile should fall back to a local path for a non-http web spec path`(@TempDir tempDir: File) {
+        // A relative (non-URL) spec path is resolved directly under the source base directory.
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
+
+        val originalConfigPath = System.getProperty(CONFIG_FILE_PATH)
+        try {
+            System.setProperty(CONFIG_FILE_PATH, configFile.canonicalPath)
+
+            val resolved = Source(provider = web).resolveSpecFile("specifications/spec1.yaml")
+
+            assertThat(resolved).isEqualTo(tempDir.resolve("specifications/spec1.yaml").canonicalFile)
+        } finally {
+            if (originalConfigPath != null) System.setProperty(CONFIG_FILE_PATH, originalConfigPath)
+            else System.clearProperty(CONFIG_FILE_PATH)
+        }
     }
 
     @CsvSource(

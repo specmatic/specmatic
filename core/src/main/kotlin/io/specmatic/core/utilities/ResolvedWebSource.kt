@@ -4,10 +4,10 @@ import io.specmatic.core.DEFAULT_WORKING_DIRECTORY
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.File
-import java.net.MalformedURLException
 import java.net.URI
-import java.net.URL
 
 data class ResolvedWebSource(
     val baseUrl: String,
@@ -36,7 +36,7 @@ data class ResolvedWebSource(
         val resolvedPath = downloadRoot(File(workingDirectory), configFilePath)
 
         return selector.select(this).map { entry ->
-            val resolvedUrl = URL(resolveSpecUrl(entry.path))
+            val resolvedUrl = resolveSpecUrl(entry.path).toHttpUrl()
             val initialDownloadPath = localPathFor(resolvedPath, baseUrl, entry.path).canonicalFile
             initialDownloadPath.parentFile.mkdirs()
 
@@ -65,16 +65,7 @@ data class ResolvedWebSource(
 
     companion object {
         fun validateRelativeSpecPath(specPath: String) {
-            try {
-                val url = URL(specPath)
-                if (url.protocol.isNotBlank()) {
-                    throw ContractException("Web source specifications must be relative paths, but got \"$specPath\"")
-                }
-            } catch (_: MalformedURLException) {
-                // Relative paths are not valid URLs and are allowed here.
-            }
-
-            val parsed = runCatching { URI(specPath) }.getOrNull()
+            val parsed = runCatching { URI(specPath.replace('\\', '/')) }.getOrNull()
             if (parsed?.isAbsolute == true) {
                 throw ContractException("Web source specifications must be relative paths, but got \"$specPath\"")
             }
@@ -103,8 +94,8 @@ data class ResolvedWebSource(
             return root.resolve("web")
         }
 
-        private fun download(url: URL, specificationFile: File): File {
-            val connection = url.openConnection()
+        private fun download(url: HttpUrl, specificationFile: File): File {
+            val connection = url.toUrl().openConnection()
             connection.setRequestProperty("User-Agent", "Mozilla/5.0")
             connection.connect()
 

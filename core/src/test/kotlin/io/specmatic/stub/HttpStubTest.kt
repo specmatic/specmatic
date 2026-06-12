@@ -3782,7 +3782,7 @@ Then status 200
             assertThat(exception.code).isEqualTo(1)
             assertThat(exception.message).isEqualToNormalizingWhitespace("""
             >> Invalid baseURL "localhost:9001/api" for ${File(".").resolve("hello.yaml").path}
-            Please specify a valid URL in 'scheme://host[:port][path]' format
+            Please specify a valid scheme / protocol (http or https)
             """.trimIndent())
         }
 
