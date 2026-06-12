@@ -36,7 +36,7 @@ class BoundedByteArrayOutputStream(private val maxBytes: Int) : OutputStream() {
     fun toString(charset: Charset): String = buffer.toString(charset)
 }
 
-internal fun <T> captureStandardStreams(block: () -> T): Triple<T, String, String> = synchronized(systemIoLock) {
+fun <T> captureStandardStreams(block: () -> T): Triple<T, String, String> = synchronized(systemIoLock) {
     val originalOut = System.out
     val originalErr = System.err
 
