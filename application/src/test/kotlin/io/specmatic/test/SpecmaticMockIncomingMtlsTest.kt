@@ -10,6 +10,7 @@ import io.specmatic.core.parseGherkinStringToFeature
 import io.specmatic.stub.HttpStub
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -184,7 +185,7 @@ class SpecmaticMockIncomingMtlsTest {
 
     private fun openConnection(url: String, keyData: KeyData?): java.net.URLConnection {
         if (!url.startsWith("https://")) {
-            return java.net.URL(url).openConnection()
+            return url.toHttpUrl().toUrl().openConnection()
         }
 
         val keyManagers: Array<KeyManager>? = keyData?.let {
@@ -203,7 +204,7 @@ class SpecmaticMockIncomingMtlsTest {
             init(keyManagers, trustManagers, null)
         }
 
-        return (java.net.URL(url).openConnection() as HttpsURLConnection).apply {
+        return (url.toHttpUrl().toUrl().openConnection() as HttpsURLConnection).apply {
             sslSocketFactory = sslContext.socketFactory
             hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
         }

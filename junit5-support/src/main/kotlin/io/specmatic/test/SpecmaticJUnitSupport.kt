@@ -30,6 +30,7 @@ import io.specmatic.test.reports.OpenApiCoverageReportProcessor
 import io.specmatic.test.reports.coverage.Endpoint
 import io.specmatic.test.reports.coverage.OpenApiCoverage
 import kotlinx.serialization.Serializable
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
@@ -40,7 +41,6 @@ import org.opentest4j.TestAbortedException
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -896,7 +896,7 @@ fun <T, U> selectTestsToRunWithDecision(
 fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000, keyData: KeyData? = null): Boolean {
     return try {
         val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        val connection = URL(url).openConnection() as HttpURLConnection
+        val connection = url.toHttpUrl().toUrl().openConnection() as HttpURLConnection
 
         if (connection is HttpsURLConnection) {
             val trustAllCerts = arrayOf<TrustManager>(

@@ -251,7 +251,7 @@ class PostmanKtTests {
         val request = stub.second.stub
         assertThat(request.request.method).isEqualTo("POST")
         assertThat(request.request.headers).isEqualTo(mapOf("X-Header" to "10"))
-        assertThat(request.request.path).isEqualTo("")
+        assertThat(request.request.path).isEqualTo("/")
 
         val response = stub.second.stub.response
         assertThat(response.status).isEqualTo(200)

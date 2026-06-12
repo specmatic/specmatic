@@ -2314,7 +2314,7 @@ paths:
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToIgnoringWhitespace("""
         >> Invalid baseURL "httd://localhost:8080/api" for spec1.yaml
-        Please specify a valid URL in 'scheme://host[:port][path]' format
+        Please specify a valid scheme / protocol (http or https)
         >> Invalid baseURL "ftp://localhost:8080/api" for spec2.yaml
         Please specify a valid scheme / protocol (http or https)
         >> Invalid baseURL "http://localhost:99999/api" for spec3.yaml
