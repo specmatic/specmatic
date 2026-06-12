@@ -2299,7 +2299,7 @@ class OpenApiSpecification(
 
     private fun useSiteLocation(file: String, pointer: String): SourceLocation? {
         val node = sourceMapFor(file)[pointer] ?: return null
-        return SourceLocation(File(file).invariantSeparatorsPath, node.line, node.column)
+        return SourceLocation(File(file).invariantSeparatorsPath, node.line, node.column, pointer)
     }
 
     // Recovers where each external source subtree appears in the resolved parser model, along with
@@ -2364,13 +2364,14 @@ class OpenApiSpecification(
         val locations = mutableMapOf<String, SourceLocation>()
         val entryMap = sourceMapCache[entryFileKey].orEmpty()
         entryMap.forEach { (pointer, node) ->
-            locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
+            locations[pointer] = SourceLocation(entryFileKey, node.line, node.column, pointer)
         }
         externalSourceProjections.forEach { (projection, via) ->
             val displayPath = File(projection.sourceFile).invariantSeparatorsPath
             sourceMapFor(projection.sourceFile).forEach { (pointer, node) ->
                 if (projection.contains(projection.sourceFile, pointer)) {
-                    locations[projection.targetPointerFor(pointer)] = SourceLocation(displayPath, node.line, node.column, via = via)
+                    val targetPointer = projection.targetPointerFor(pointer)
+                    locations[targetPointer] = SourceLocation(displayPath, node.line, node.column, pointer, via = via)
                 }
             }
         }
