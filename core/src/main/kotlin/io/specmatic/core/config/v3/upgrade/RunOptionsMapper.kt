@@ -59,7 +59,7 @@ data class RunOptionsMapper(
     private fun SpecExecutionConfig.ConfigValue.toUrlMergeInput(): UrlMergeInput {
         val baseUrl = config["baseUrl"] as? String
         if (baseUrl != null) return UrlMergeInput.BaseUrl(baseUrl)
-        val port = config["port"] as? Int
+        val port = config["port"]?.toString()?.toIntOrNull()
         val host = config["host"] as? String
         return if (port != null) {
             UrlMergeInput.HostPort(host = host, port = port)
