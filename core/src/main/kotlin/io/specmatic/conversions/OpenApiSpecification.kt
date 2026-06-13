@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.http.HttpStatusCode
 import io.swagger.v3.core.util.Json
 import io.swagger.v3.core.util.Json31
 import io.cucumber.messages.types.Step
@@ -777,6 +778,7 @@ class OpenApiSpecification(
 
         val data: List<ParsedOperation> =
             openApiPaths().flatMap { (openApiPath, pathItem) ->
+                val methodsForPath = openApiOperations(pathItem).keys.map(String::uppercase).toSet()
                 openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                     logger.debug("${System.lineSeparator()}Processing $httpMethod $openApiPath")
 
@@ -806,6 +808,9 @@ class OpenApiSpecification(
                             openApiPath = openApiPath,
                             httpMethod = httpMethod
                         )
+                    }
+                    httpResponsePatterns.forEach {
+                        recordMethodNotAllowedResponseIgnored(methodContext, httpMethod, openApiPath, it.responsePattern)
                     }
 
                     val first2xxResponseStatus =
@@ -907,7 +912,8 @@ class OpenApiSpecification(
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata,
                             sourceLocations = sourceLocations,
-                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
+                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
+                            requestRejectionMetadata = RequestRejectionMetadata(methodsForPath = methodsForPath)
                         )
                     }
 
@@ -1085,8 +1091,9 @@ class OpenApiSpecification(
         responseExamplesList: List<Map<String, HttpResponse>>
     ): List<NamedStub> {
         return responseExamplesList.flatMap { responseExamples ->
-            responseExamples.filter { (key, _) ->
+            responseExamples.filter { (key, responseExample) ->
                 key in requestExamples
+                        && responseExample.status != HttpStatusCode.MethodNotAllowed.value
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
                     NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
@@ -1140,6 +1147,21 @@ class OpenApiSpecification(
             message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
             isWarning = true,
             ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+        )
+    }
+
+    private fun recordMethodNotAllowedResponseIgnored(
+        collectorContext: CollectorContext,
+        httpMethod: String,
+        openApiPath: String,
+        responsePattern: HttpResponsePattern
+    ) {
+        if (responsePattern.status != HttpStatusCode.MethodNotAllowed.value) return
+
+        collectorContext.at("responses").at(HttpStatusCode.MethodNotAllowed.value.toString()).record(
+            message = "Ignoring OpenAPI 405 response for generated tests and inline mock data for $httpMethod $openApiPath. 405 responses are supported only through external examples because inline OpenAPI examples cannot specify a disallowed request method.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_IGNORED
         )
     }
 
@@ -1197,6 +1219,10 @@ class OpenApiSpecification(
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
+            if (responseExample.status == HttpStatusCode.MethodNotAllowed.value) {
+                return@mapNotNull null
+            }
+
             val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, effectiveQueryPatterns, CollectorContext())
 
             val requestBodyExample: Map<String, Any> =
@@ -3608,7 +3634,9 @@ class OpenApiSpecification(
             "PATCH" to pathItem.patch,
             "PUT" to pathItem.put,
             "DELETE" to pathItem.delete,
-            "HEAD" to pathItem.head
+            "HEAD" to pathItem.head,
+            "OPTIONS" to pathItem.options,
+            "TRACE" to pathItem.trace
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to value!! }.toMap()
     }
 

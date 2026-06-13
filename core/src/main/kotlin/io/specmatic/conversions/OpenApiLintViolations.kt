@@ -106,6 +106,13 @@ enum class OpenApiLintViolations(
         summary = "Response status must be a valid integer or literal default"
     ),
 
+    METHOD_NOT_ALLOWED_RESPONSE_IGNORED(
+        id = "OAS0032",
+        title = "Method Not Allowed response ignored",
+        summary = "405 responses are supported only through external examples because inline OpenAPI examples cannot specify a disallowed request method",
+        severity = IssueSeverity.WARNING
+    ),
+
     /* -------- Schema & references -------- */
     UNRESOLVED_REFERENCE(
         id = "OAS0041",

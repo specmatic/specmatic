@@ -384,10 +384,17 @@ data class Feature(
         }
     }
 
-    private fun getMatchingAndSortedScenarios(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
-        val expectedResponseCode = httpRequest.expectedResponseCode()
+    private fun getMatchingAndSortedScenarios(
+        httpRequest: HttpRequest,
+        scenarios: List<Scenario>,
+        responseStatus: Int? = null
+    ): List<Scenario> {
+        val expectedResponseCode = responseStatus ?: httpRequest.expectedResponseCode()
         val statusSortedScenarios = sortByExpectedResponseStatus(expectedResponseCode, scenarios)
-        val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario -> scenario.matchesPathStructureAndMethod(httpRequest) }
+        val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario ->
+            scenario.matchesPathStructureAndMethod(httpRequest) ||
+                    scenario.matchesPathStructureWithMethodNotAllowed(httpRequest, expectedResponseCode, responseStatus)
+        }
 
         if (expectedResponseCode != null) {
             return applyAcceptHeaderSelection(httpRequest, pathAndMethodMatchedScenarios)
@@ -821,6 +828,7 @@ data class Feature(
             return matchRequestScenariosWithEarlySuccess(
                 request = request,
                 scenarios = attributeSelectedScenarios,
+                responseStatus = response.status,
                 match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
                 onSuccess = { scenario ->
                     scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
@@ -843,9 +851,19 @@ data class Feature(
         }
     }
 
-    private fun <T> matchRequestScenariosWithEarlySuccess(request: HttpRequest, scenarios: List<Scenario> = this.scenarios, match: (Scenario) -> Result, onSuccess: (Scenario) -> T): ScenarioMatchResult<T> {
+    private fun <T> matchRequestScenariosWithEarlySuccess(
+        request: HttpRequest,
+        scenarios: List<Scenario> = this.scenarios,
+        responseStatus: Int? = null,
+        match: (Scenario) -> Result,
+        onSuccess: (Scenario) -> T
+    ): ScenarioMatchResult<T> {
         val failures = mutableListOf<Result>()
-        val filteredScenarios = getMatchingAndSortedScenarios(request, scenarios)
+        val filteredScenarios = getMatchingAndSortedScenarios(
+            request,
+            scenarios,
+            responseStatus
+        )
 
         for (scenario in filteredScenarios) {
             try {

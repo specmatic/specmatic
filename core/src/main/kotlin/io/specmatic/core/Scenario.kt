@@ -81,7 +81,8 @@ data class Scenario(
     val requestChangeSummary: String? = null,
     val generatedFrom: GeneratedScenarioOrigin? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
-    val operationSourcePointer: String? = null
+    val operationSourcePointer: String? = null,
+    val requestRejectionMetadata: RequestRejectionMetadata = RequestRejectionMetadata()
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -116,7 +117,8 @@ data class Scenario(
         specType = scenarioInfo.specType,
         operationMetadata = scenarioInfo.operationMetadata,
         sourceLocations = scenarioInfo.sourceLocations,
-        operationSourcePointer = scenarioInfo.operationSourcePointer
+        operationSourcePointer = scenarioInfo.operationSourcePointer,
+        requestRejectionMetadata = scenarioInfo.requestRejectionMetadata
     )
 
     val apiIdentifier: String
@@ -211,6 +213,19 @@ data class Scenario(
     fun matchesPathStructureAndMethod(httpRequest: HttpRequest): Boolean {
         val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
         return result.isSuccess()
+    }
+
+    fun matchesPathStructureWithMethodNotAllowed(
+        httpRequest: HttpRequest,
+        expectedResponseCode: Int?,
+        explicitResponseStatus: Int?
+    ): Boolean {
+        if (status != HttpStatusCode.MethodNotAllowed.value) return false
+        if (expectedResponseCode != HttpStatusCode.MethodNotAllowed.value && explicitResponseStatus != HttpStatusCode.MethodNotAllowed.value) return false
+        val requestedMethod = httpRequest.method.orEmpty().uppercase()
+        if (requestedMethod.isBlank() || requestedMethod in requestRejectionMetadata.methodsForPath) return false
+        val requestWithScenarioMethod = httpRequest.copy(method = method)
+        return matchesPathStructureAndMethod(requestWithScenarioMethod)
     }
 
     fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
@@ -362,12 +377,19 @@ data class Scenario(
 
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
-            httpRequestPattern.generate(
+            val generatedRequest = httpRequestPattern.generate(
                 flagsBased.update(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             )
+            val methodFromExample = methodFromMethodNotAllowedExample()
+            if (methodFromExample == null) generatedRequest else generatedRequest.copy(method = methodFromExample)
         }
+
+    private fun methodFromMethodNotAllowedExample(): String? {
+        if (status != HttpStatusCode.MethodNotAllowed.value) return null
+        return exampleRow?.requestExample?.method
+    }
 
     fun generateHttpRequestV2(
         flagsBased: FlagsBased = DefaultStrategies,
@@ -422,9 +444,14 @@ data class Scenario(
         }
 
         val updatedScenario = newBasedOnAttributeSelectionFields(httpRequest.queryParams)
-        val requestMatch = when(httpResponse.status in invalidRequestStatuses) {
-            false -> updatedScenario.matches(httpRequest, updatedResolver)
-            else -> updatedScenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updatedResolver)
+        val requestMatch = when (httpResponse.status) {
+            HttpStatusCode.MethodNotAllowed.value ->
+                updatedScenario.matchesMethodNotAllowedRequest(httpRequest, updatedResolver)
+
+            in invalidRequestStatuses ->
+                updatedScenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updatedResolver)
+
+            else -> updatedScenario.matches(httpRequest, updatedResolver)
         }
 
         val fieldsSelected = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
@@ -671,8 +698,13 @@ data class Scenario(
 
     private fun validateRequestExample(row: Row, resolverForExample: Resolver): Result {
         if(row.requestExample != null) {
-            val result = httpRequestPattern.matches(row.requestExample, resolverForExample, resolverForExample)
+            val result = if (status == HttpStatusCode.MethodNotAllowed.value)
+                matchesMethodNotAllowedRequest(row.requestExample, resolverForExample)
+            else
+                httpRequestPattern.matches(row.requestExample, resolverForExample, resolverForExample)
             if(result is Result.Failure && !status.toString().startsWith("4"))
+                return result
+            if(result is Result.Failure && status == HttpStatusCode.MethodNotAllowed.value)
                 return result
         } else {
             httpRequestPattern.newBasedOn(row, resolverForExample, status).first().value
@@ -757,8 +789,15 @@ data class Scenario(
             )
 
             val requestMatchResult = attempt(breadCrumb = "REQUEST") {
-                if (response.status !in invalidRequestStatuses) return@attempt httpRequestPattern.matches(request, resolver)
-                httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+                when (response.status) {
+                    HttpStatusCode.MethodNotAllowed.value ->
+                        matchesMethodNotAllowedRequest(request, resolver)
+
+                    in invalidRequestStatuses ->
+                        httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+
+                    else -> httpRequestPattern.matches(request, resolver)
+                }
             }
 
             if (requestMatchResult is Result.Failure)
@@ -967,6 +1006,9 @@ data class Scenario(
         val patternMatchingResolver = resolver.copy(mockMode = true)
 
         return externalisedJSONExamples.mapValues { (operationId, rows) ->
+            if (operationId.responseStatus == HttpStatusCode.MethodNotAllowed.value && operationId.requestMethod.isBlank())
+                return@mapValues emptyList()
+
             rows.filter { row ->
                 requestBelongsToScenario(row, operationId, patternMatchingResolver)
                         && responseBelongsToScenario(row, operationId, patternMatchingResolver)
@@ -976,10 +1018,28 @@ data class Scenario(
 
     private fun requestBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         if (!matchesOperationIfWsdl(row)) return false
+        if (status == HttpStatusCode.MethodNotAllowed.value && operationId.requestMethod.isBlank()) return false
 
         return row.requestExample?.let { request ->
-            httpRequestPattern.matchesPathStructureMethodAndContentType(request, patternMatchingResolver).isSuccess()
+            if (status == HttpStatusCode.MethodNotAllowed.value)
+                matchesMethodNotAllowedRequest(request, patternMatchingResolver).isSuccess()
+            else
+                httpRequestPattern.matchesPathStructureMethodAndContentType(request, patternMatchingResolver).isSuccess()
         } ?: matchesRequestOperationIdentifier(operationId, patternMatchingResolver)
+    }
+
+    private fun matchesMethodNotAllowedRequest(request: HttpRequest, resolver: Resolver): Result {
+        val requestedMethod = request.method.orEmpty().uppercase()
+        if (requestedMethod.isBlank() || requestedMethod in requestRejectionMetadata.methodsForPath) {
+            return Result.Failure(
+                message = "Expected method not to be one of ${requestRejectionMetadata.methodsForPath.sorted().joinToString()}",
+                breadCrumb = BreadCrumb.REQUEST.plus(METHOD_BREAD_CRUMB).value,
+                failureReason = FailureReason.MethodMismatch
+            ).updateScenario(this)
+        }
+
+        val requestWithScenarioMethod = request.copy(method = method)
+        return httpRequestPattern.matches(requestWithScenarioMethod, resolver, resolver)
     }
 
     private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
