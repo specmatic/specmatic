@@ -159,8 +159,9 @@ class UnsupportedMediaTypeExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_IGNORED.id)
+        assertThat(warningReport).contains(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
         assertThat(warningReport).contains("paths./orders.post.responses.415")
+        assertThat(warningReport).contains("External 415 examples are still loaded and used")
 
         val feature = specification.toFeature()
 
@@ -177,6 +178,16 @@ class UnsupportedMediaTypeExamplesTest {
 
         assertThat(results.successCount).isEqualTo(0)
         assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `415 response schemas without inline examples do not produce ignored response warnings`() {
+        val specification = OpenApiSpecification.fromFile(writeSpec(ordersSpec()).canonicalPath)
+        val collectorContext = CollectorContext()
+        specification.toScenarioInfos(collectorContext)
+
+        val warningReport = collectorContext.toCollector().toResult().reportString()
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
     }
 
     @Test

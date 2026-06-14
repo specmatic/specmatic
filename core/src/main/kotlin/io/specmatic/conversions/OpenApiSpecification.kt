@@ -810,7 +810,7 @@ class OpenApiSpecification(
                         )
                     }
                     httpResponsePatterns.forEach {
-                        recordRequestRejectionResponseIgnored(methodContext, httpMethod, openApiPath, it.responsePattern)
+                        recordInlineRequestRejectionExamplesIgnored(methodContext, httpMethod, openApiPath, it)
                     }
 
                     val first2xxResponseStatus =
@@ -1158,12 +1158,15 @@ class OpenApiSpecification(
         )
     }
 
-    private fun recordRequestRejectionResponseIgnored(
+    private fun recordInlineRequestRejectionExamplesIgnored(
         collectorContext: CollectorContext,
         httpMethod: String,
         openApiPath: String,
-        responsePattern: HttpResponsePattern
+        responsePatternData: ResponsePatternData
     ) {
+        if (responsePatternData.examples.isEmpty()) return
+
+        val responsePattern = responsePatternData.responsePattern
         val unsupportedInlineExampleReason = when (responsePattern.status) {
             HttpStatusCode.MethodNotAllowed.value -> "inline OpenAPI examples cannot specify a disallowed request method"
             HttpStatusCode.UnsupportedMediaType.value -> "inline OpenAPI examples cannot specify an unsupported request media type"
@@ -1171,9 +1174,9 @@ class OpenApiSpecification(
         }
 
         collectorContext.at("responses").at(responsePattern.status.toString()).record(
-            message = "Ignoring OpenAPI ${responsePattern.status} response for generated tests and inline mock data for $httpMethod $openApiPath. ${responsePattern.status} responses are supported only through external examples because $unsupportedInlineExampleReason.",
+            message = "Inline OpenAPI ${responsePattern.status} examples for $httpMethod $openApiPath are not used to generate tests or inline mock data. External ${responsePattern.status} examples are still loaded and used. This is required because $unsupportedInlineExampleReason.",
             isWarning = true,
-            ruleViolation = OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_IGNORED
+            ruleViolation = OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
         )
     }
 
