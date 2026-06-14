@@ -6,10 +6,7 @@ import io.specmatic.core.NestedObjectQuerySyntaxInference
 import io.specmatic.core.NestedQueryParameterExamples
 import io.specmatic.core.NestedQuerySchema
 import io.specmatic.core.NestedQuerySyntaxInferenceResult
-import io.specmatic.core.ObjectQueryRoot
 import io.specmatic.core.ObjectQuerySyntax
-import io.specmatic.core.QueryArrayIndexStyle
-import io.specmatic.core.QueryPropertyStyle
 import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
@@ -33,30 +30,30 @@ internal fun nestedObjectQueryParam(
     ) as? NestedQuerySchema.Object ?: return null
 
     val parameterExamples = parameter.nestedQueryExamples(resolveExample)
+    val syntax = nestedObjectQuerySyntax(parameter.name, nestedQuerySchema, parameterExamples, parameterContext) ?: return null
 
-    return when (val inferenceResult = NestedObjectQuerySyntaxInference.infer(parameter.name, nestedQuerySchema, parameterExamples)) {
-        is NestedQuerySyntaxInferenceResult.SyntaxInferred -> NestedObjectQueryParam(
-            parameterName = parameter.name,
-            required = parameter.required == true,
-            schema = nestedQuerySchema,
-            syntax = inferenceResult.syntax
-        )
+    return NestedObjectQueryParam(
+        parameterName = parameter.name,
+        required = parameter.required == true,
+        schema = nestedQuerySchema,
+        syntax = syntax
+    )
+}
+
+private fun nestedObjectQuerySyntax(
+    parameterName: String,
+    schema: NestedQuerySchema.Object,
+    parameterExamples: NestedQueryParameterExamples,
+    parameterContext: CollectorContext
+): ObjectQuerySyntax? {
+    return when (val inferenceResult = NestedObjectQuerySyntaxInference.infer(parameterName, schema, parameterExamples)) {
+        is NestedQuerySyntaxInferenceResult.SyntaxInferred -> inferenceResult.syntax
         is NestedQuerySyntaxInferenceResult.SyntaxNotRequired -> null
         is NestedQuerySyntaxInferenceResult.Failure -> {
             recordInlineNestedQueryExampleFailures(parameterExamples, inferenceResult, parameterContext)
-
-            NestedObjectQueryParam(
-                parameterName = parameter.name,
-                required = parameter.required == true,
-                schema = nestedQuerySchema,
-                syntax = defaultNestedObjectQuerySyntax()
-            )
+            ObjectQuerySyntax.Default
         }
     }
-}
-
-private fun defaultNestedObjectQuerySyntax(): ObjectQuerySyntax {
-    return ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
 }
 
 private fun recordInlineNestedQueryExampleFailures(
@@ -64,7 +61,7 @@ private fun recordInlineNestedQueryExampleFailures(
     inferenceResult: NestedQuerySyntaxInferenceResult.Failure,
     parameterContext: CollectorContext
 ) {
-    if (parameterExamples.example == null || parameterExamples.examples.isNotEmpty()) return
+    if (!parameterExamples.hasOnlyInlineExample()) return
 
     inferenceResult.messages.forEach { message ->
         parameterContext.at("example").record(
@@ -72,6 +69,10 @@ private fun recordInlineNestedQueryExampleFailures(
             ruleViolation = OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE
         )
     }
+}
+
+private fun NestedQueryParameterExamples.hasOnlyInlineExample(): Boolean {
+    return example != null && examples.isEmpty()
 }
 
 internal fun nestedObjectQueryStringExampleEntries(
@@ -138,46 +139,78 @@ private fun Schema<*>.toNestedQuerySchema(
     resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
     visitedRefs: Set<String> = emptySet()
 ): NestedQuerySchema? {
-    if (`$ref` != null) {
-        val ref = `$ref`
-        if (ref in visitedRefs) {
-            return null
-        }
-
-        val resolvedSchema = resolveSchemaReference(ref, collectorContext)
-        return resolvedSchema.toNestedQuerySchema(collectorContext, resolveSchemaReference, visitedRefs + ref)
+    val ref = `$ref`
+    if (ref != null) {
+        return nestedQuerySchemaFromReference(ref, collectorContext, resolveSchemaReference, visitedRefs)
     }
 
-    if (oneOf != null || anyOf != null || allOf != null) {
+    if (hasComposedSchema()) {
         val message = "Composed object query schemas are not supported"
         collectorContext.record(message, ruleViolation = OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA)
         return NestedQuerySchema.Ambiguous(message)
     }
 
     return when {
-        isSchema(OBJECT_TYPE) -> NestedQuerySchema.Object(
-            properties = properties.orEmpty().mapNotNull { (propertyName, propertySchema) ->
-                val propertyNestedQuerySchema = propertySchema.toNestedQuerySchema(
-                    collectorContext = collectorContext.at("properties").at(propertyName),
-                    resolveSchemaReference = resolveSchemaReference,
-                    visitedRefs = visitedRefs
-                ) ?: return@mapNotNull null
-
-                propertyName to propertyNestedQuerySchema
-            }.toMap(),
-            additionalProperties = nestedQueryAdditionalProperties(collectorContext, resolveSchemaReference, visitedRefs),
-            allowsAnyAdditionalProperties = allowsAnyAdditionalProperties()
-        )
-        isSchema(ARRAY_TYPE) -> NestedQuerySchema.Array(
-            itemSchema = (items ?: return collectorContext.at("items").unsupportedNestedQuerySchema("Array query schema does not define items"))
-                .toNestedQuerySchema(
-                    collectorContext = collectorContext.at("items"),
-                    resolveSchemaReference = resolveSchemaReference,
-                    visitedRefs = visitedRefs
-                ) ?: return null
-        )
+        isSchema(OBJECT_TYPE) -> toNestedQueryObjectSchema(collectorContext, resolveSchemaReference, visitedRefs)
+        isSchema(ARRAY_TYPE) -> toNestedQueryArraySchema(collectorContext, resolveSchemaReference, visitedRefs)
         else -> NestedQuerySchema.Scalar
     }
+}
+
+private fun nestedQuerySchemaFromReference(
+    ref: String,
+    collectorContext: CollectorContext,
+    resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
+    visitedRefs: Set<String>
+): NestedQuerySchema? {
+    if (ref in visitedRefs) return null
+
+    val resolvedSchema = resolveSchemaReference(ref, collectorContext)
+    return resolvedSchema.toNestedQuerySchema(collectorContext, resolveSchemaReference, visitedRefs + ref)
+}
+
+private fun Schema<*>.toNestedQueryObjectSchema(
+    collectorContext: CollectorContext,
+    resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
+    visitedRefs: Set<String>
+): NestedQuerySchema.Object {
+    return NestedQuerySchema.Object(
+        properties = nestedQueryProperties(collectorContext, resolveSchemaReference, visitedRefs),
+        additionalProperties = nestedQueryAdditionalProperties(collectorContext, resolveSchemaReference, visitedRefs),
+        allowsAnyAdditionalProperties = allowsAnyAdditionalProperties()
+    )
+}
+
+private fun Schema<*>.nestedQueryProperties(
+    collectorContext: CollectorContext,
+    resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
+    visitedRefs: Set<String>
+): Map<String, NestedQuerySchema> {
+    return properties.orEmpty().mapNotNull { (propertyName, propertySchema) ->
+        val propertyNestedQuerySchema = propertySchema.toNestedQuerySchema(
+            collectorContext = collectorContext.at("properties").at(propertyName),
+            resolveSchemaReference = resolveSchemaReference,
+            visitedRefs = visitedRefs
+        ) ?: return@mapNotNull null
+
+        propertyName to propertyNestedQuerySchema
+    }.toMap()
+}
+
+private fun Schema<*>.toNestedQueryArraySchema(
+    collectorContext: CollectorContext,
+    resolveSchemaReference: (String, CollectorContext) -> Schema<*>,
+    visitedRefs: Set<String>
+): NestedQuerySchema? {
+    val nestedItemSchema = (items
+        ?: return collectorContext.at("items").unsupportedNestedQuerySchema("Array query schema does not define items"))
+        .toNestedQuerySchema(
+            collectorContext = collectorContext.at("items"),
+            resolveSchemaReference = resolveSchemaReference,
+            visitedRefs = visitedRefs
+        ) ?: return null
+
+    return NestedQuerySchema.Array(itemSchema = nestedItemSchema)
 }
 
 private fun CollectorContext.unsupportedNestedQuerySchema(message: String): NestedQuerySchema.Ambiguous {
@@ -186,7 +219,8 @@ private fun CollectorContext.unsupportedNestedQuerySchema(message: String): Nest
 }
 
 private fun Schema<*>.allowsAnyAdditionalProperties(): Boolean {
-    return extractAdditionalProperties() == true || (properties.isNullOrEmpty() && extractAdditionalProperties() == null)
+    val additionalProperties = extractAdditionalProperties()
+    return additionalProperties == true || (properties.isNullOrEmpty() && additionalProperties == null)
 }
 
 private fun Schema<*>.nestedQueryAdditionalProperties(
@@ -210,14 +244,16 @@ private fun Schema<*>.extractAdditionalProperties(): Any? {
 }
 
 private fun Schema<*>.isSchema(type: String): Boolean {
-    return type in schemaMeta().effectiveTypes
+    return type in effectiveTypes()
 }
 
-private data class SchemaMeta(val effectiveTypes: List<String>)
+private fun Schema<*>.hasComposedSchema(): Boolean {
+    return oneOf != null || anyOf != null || allOf != null
+}
 
-private fun Schema<*>.schemaMeta(): SchemaMeta {
+private fun Schema<*>.effectiveTypes(): List<String> {
     val declared = types ?: setOfNotNull(this.type)
-    return SchemaMeta(declared.filterNot { it == NULL_TYPE })
+    return declared.filterNot { it == NULL_TYPE }
 }
 
 private const val OBJECT_TYPE = "object"

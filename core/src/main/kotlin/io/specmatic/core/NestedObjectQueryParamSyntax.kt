@@ -8,20 +8,61 @@ data class ObjectQuerySyntax(
     val root: ObjectQueryRoot,
     val propertyStyle: QueryPropertyStyle,
     val arrayIndexStyle: QueryArrayIndexStyle
-)
+) {
+    companion object {
+        val Default = ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
 
-enum class ObjectQueryRoot(val displayName: String) {
-    ParameterNameWrapped("parameter-name bracket wrapping") {
+        fun supportedSyntaxes(): List<ObjectQuerySyntax> {
+            return ObjectQueryRoot.entries.flatMap { root ->
+                QueryPropertyStyle.entries.map { propertyStyle ->
+                    ObjectQuerySyntax(root, propertyStyle, QueryArrayIndexStyle.Bracket)
+                }
+            }
+        }
+    }
+}
+
+enum class ObjectQueryRoot(
+    val displayName: String,
+    internal val allowBareStart: Boolean,
+    private val wrapperSeparator: String?
+) {
+    ParameterNameWrapped("parameter-name bracket wrapping", allowBareStart = false, wrapperSeparator = "[") {
         override fun keyForRootProperty(parameterName: String, propertyName: String): String = "$parameterName[$propertyName]"
     },
-    ParameterNameDotWrapped("parameter-name dot wrapping") {
+    ParameterNameDotWrapped("parameter-name dot wrapping", allowBareStart = false, wrapperSeparator = ".") {
         override fun keyForRootProperty(parameterName: String, propertyName: String): String = "$parameterName.$propertyName"
     },
-    Unwrapped("unwrapped query keys") {
+    Unwrapped("unwrapped query keys", allowBareStart = true, wrapperSeparator = null) {
         override fun keyForRootProperty(parameterName: String, propertyName: String): String = propertyName
     };
 
     abstract fun keyForRootProperty(parameterName: String, propertyName: String): String
+
+    internal fun isExplicitRootFor(key: String, parameterName: String): Boolean {
+        val prefix = wrapperPrefix(parameterName) ?: return false
+        return key.startsWith(prefix)
+    }
+
+    internal fun tokenizerRemainder(key: String, parameterName: String): String {
+        if (wrapperSeparator == null) return key
+
+        if (!isExplicitRootFor(key, parameterName)) {
+            throw ContractException("Expected query key $key to be wrapped by parameter $parameterName")
+        }
+
+        return key.removePrefix(parameterName)
+    }
+
+    private fun wrapperPrefix(parameterName: String): String? {
+        return wrapperSeparator?.let { separator -> "$parameterName$separator" }
+    }
+
+    companion object {
+        fun explicitRootFor(key: String, parameterName: String): ObjectQueryRoot? {
+            return entries.firstOrNull { root -> root.isExplicitRootFor(key, parameterName) }
+        }
+    }
 }
 
 enum class QueryPropertyStyle(val displayName: String) {
@@ -36,15 +77,48 @@ enum class QueryPropertyStyle(val displayName: String) {
 }
 
 enum class QueryArrayIndexStyle {
-    Bracket
+    Bracket {
+        override fun appendIndex(key: String, index: Int): String = "$key[$index]"
+    };
+
+    abstract fun appendIndex(key: String, index: Int): String
 }
 
 sealed class QueryObjectPathToken {
-    data class Property(val name: String) : QueryObjectPathToken()
-    data class Index(val index: Int) : QueryObjectPathToken()
+    abstract fun appendTo(key: String, syntax: ObjectQuerySyntax): String
+    abstract fun displaySegment(): String
+
+    data class Property(val name: String) : QueryObjectPathToken() {
+        fun rootKey(parameterName: String, syntax: ObjectQuerySyntax): String {
+            return syntax.root.keyForRootProperty(parameterName, name)
+        }
+
+        override fun appendTo(key: String, syntax: ObjectQuerySyntax): String {
+            return syntax.propertyStyle.appendProperty(key, name)
+        }
+
+        override fun displaySegment(): String = name
+    }
+
+    data class Index(val index: Int) : QueryObjectPathToken() {
+        override fun appendTo(key: String, syntax: ObjectQuerySyntax): String {
+            return syntax.arrayIndexStyle.appendIndex(key, index)
+        }
+
+        override fun displaySegment(): String = "[$index]"
+    }
 }
 
-data class QueryObjectPath(val tokens: List<QueryObjectPathToken>)
+data class QueryObjectPath(val tokens: List<QueryObjectPathToken>) {
+    fun serialize(parameterName: String, syntax: ObjectQuerySyntax): String {
+        val first = tokens.firstOrNull() as? QueryObjectPathToken.Property
+            ?: throw ContractException("Query object path must start with a property")
+
+        return tokens.drop(1).fold(first.rootKey(parameterName, syntax)) { key, token ->
+            token.appendTo(key, syntax)
+        }
+    }
+}
 
 sealed class NestedQuerySchema {
     fun schemaAt(path: QueryObjectPath): NestedQuerySchema? {
@@ -181,15 +255,7 @@ object ObjectQueryKeyParser {
         state: QueryObjectPathParserState,
         syntax: ObjectQuerySyntax
     ) {
-        val isBracketWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameWrapped && state.tokens.isEmpty()
-        val isDotWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameDotWrapped && state.tokens.isEmpty()
-        val validToken = when (token) {
-            is RawQueryObjectPathToken.BareProperty -> syntax.root == ObjectQueryRoot.Unwrapped && state.tokens.isEmpty()
-            is RawQueryObjectPathToken.Bracket -> syntax.propertyStyle == QueryPropertyStyle.Bracket || isBracketWrappedRootProperty
-            is RawQueryObjectPathToken.DotProperty -> (syntax.propertyStyle == QueryPropertyStyle.Dot && !isBracketWrappedRootProperty) || isDotWrappedRootProperty
-        }
-
-        if (!validToken) {
+        if (!token.isValidObjectProperty(syntax, isRootProperty = state.tokens.isEmpty())) {
             throw ContractException("Query object property ${token.value} does not match inferred ${syntax.propertyStyle.name.lowercase()} property syntax")
         }
     }
@@ -199,11 +265,7 @@ object ObjectQueryKeyParser {
         schema: NestedQuerySchema.Array,
         state: QueryObjectPathParserState
     ): QueryObjectPathParserState {
-        val index = when (token) {
-            is RawQueryObjectPathToken.Bracket -> token.value.toIntOrNull()
-            else -> null
-        }
-
+        val index = token.arrayIndexOrNull()
         if (index == null || index < 0) {
             throw ContractException("Expected an array index at ${state.displayPath()}, but found ${token.value}")
         }
@@ -217,17 +279,7 @@ object ObjectQueryKeyParser {
 
 object ObjectQueryKeySerializer {
     fun serialize(path: QueryObjectPath, parameterName: String, syntax: ObjectQuerySyntax): String {
-        val first = path.tokens.firstOrNull() as? QueryObjectPathToken.Property
-            ?: throw ContractException("Query object path must start with a property")
-
-        val start = syntax.root.keyForRootProperty(parameterName, first.name)
-
-        return path.tokens.drop(1).fold(start) { key, token ->
-            when (token) {
-                is QueryObjectPathToken.Index -> "$key[${token.index}]"
-                is QueryObjectPathToken.Property -> syntax.propertyStyle.appendProperty(key, token.name)
-            }
-        }
+        return path.serialize(parameterName, syntax)
     }
 }
 
@@ -279,12 +331,13 @@ object NestedObjectQuerySyntaxInference {
                 SyntaxGuidanceResult.NoGuidance -> continue
                 is SyntaxGuidanceResult.Guidance -> {
                     val mergeResult = inferredGuidance.with(exampleGuidance.guidance)
-                    if (mergeResult is GuidanceMergeResult.Conflict) {
-                        return NestedQuerySyntaxInferenceResult.Failure(listOf(mergeResult.message))
+                    when (mergeResult) {
+                        is GuidanceMergeResult.Conflict -> return NestedQuerySyntaxInferenceResult.Failure(listOf(mergeResult.message))
+                        is GuidanceMergeResult.Merged -> {
+                            inferredGuidance = mergeResult.guidance
+                            if (inferredGuidance.isComplete(requiredGuidance)) break
+                        }
                     }
-
-                    inferredGuidance = (mergeResult as GuidanceMergeResult.Merged).guidance
-                    if (inferredGuidance.isComplete(requiredGuidance)) break
                 }
             }
         }
@@ -310,9 +363,10 @@ object NestedObjectQuerySyntaxInference {
             val keyGuidance = guidanceFromKey(parameterName, schema, key, requiredGuidance)
                 ?: return SyntaxGuidanceResult.Conflict(unparseableNestedQueryKeyMessage(parameterName, key))
             val mergeResult = exampleGuidance.with(keyGuidance)
-            if (mergeResult is GuidanceMergeResult.Conflict) return SyntaxGuidanceResult.Conflict(mergeResult.message)
-
-            exampleGuidance = (mergeResult as GuidanceMergeResult.Merged).guidance
+            when (mergeResult) {
+                is GuidanceMergeResult.Conflict -> return SyntaxGuidanceResult.Conflict(mergeResult.message)
+                is GuidanceMergeResult.Merged -> exampleGuidance = mergeResult.guidance
+            }
         }
 
         return if (exampleGuidance.hasAnyGuidance()) {
@@ -332,7 +386,7 @@ object NestedObjectQuerySyntaxInference {
         if (candidates.isEmpty()) return null
 
         return InferredSyntaxGuidance(
-            root = key.explicitRootGuidance(parameterName)?.let { InferredValue(it, key) },
+            root = ObjectQueryRoot.explicitRootFor(key, parameterName)?.let { InferredValue(it, key) },
             propertyStyle = candidates.singlePropertyStyleOrNull(requiredGuidance)?.let { InferredValue(it, key) },
             sawParseableExample = true
         )
@@ -342,9 +396,9 @@ object NestedObjectQuerySyntaxInference {
         parameterName: String,
         schema: NestedQuerySchema.Object,
         keys: List<String>
-    ): List<CandidateParse> {
-        return syntaxCandidates().mapNotNull { syntax ->
-            if (canParseAll(parameterName, schema, syntax, keys)) CandidateParse(syntax) else null
+    ): List<ObjectQuerySyntax> {
+        return ObjectQuerySyntax.supportedSyntaxes().filter { syntax ->
+            canParseAll(parameterName, schema, syntax, keys)
         }
     }
 
@@ -368,22 +422,6 @@ object NestedObjectQuerySyntaxInference {
 
         return schema.properties.keys.any { propertyName ->
             this == propertyName || startsWith("$propertyName.") || startsWith("$propertyName[")
-        }
-    }
-
-    private fun String.explicitRootGuidance(parameterName: String): ObjectQueryRoot? {
-        return when {
-            startsWith("$parameterName[") -> ObjectQueryRoot.ParameterNameWrapped
-            startsWith("$parameterName.") -> ObjectQueryRoot.ParameterNameDotWrapped
-            else -> null
-        }
-    }
-
-    private fun syntaxCandidates(): List<ObjectQuerySyntax> {
-        return ObjectQueryRoot.entries.flatMap { root ->
-            QueryPropertyStyle.entries.map { propertyStyle ->
-                ObjectQuerySyntax(root, propertyStyle, QueryArrayIndexStyle.Bracket)
-            }
         }
     }
 
@@ -419,19 +457,21 @@ private data class InferredSyntaxGuidance(
     val sawParseableExample: Boolean = false
 ) {
     fun with(other: InferredSyntaxGuidance): GuidanceMergeResult {
-        val mergedRoot = mergeGuidance(root, other.root, ::conflictingRootStyleMessage)
-        if (mergedRoot is MergeValueResult.Conflict) return GuidanceMergeResult.Conflict(mergedRoot.message)
+        val mergedRoot = when (val result = mergeGuidance(root, other.root, ::conflictingRootStyleMessage)) {
+            is MergeValueResult.Conflict -> return GuidanceMergeResult.Conflict(result.message)
+            is MergeValueResult.Merged -> result.value
+        }
 
-        val mergedPropertyStyle = mergeGuidance(propertyStyle, other.propertyStyle, ::conflictingPropertyStyleMessage)
-        if (mergedPropertyStyle is MergeValueResult.Conflict) return GuidanceMergeResult.Conflict(mergedPropertyStyle.message)
+        val mergedPropertyStyle = when (val result = mergeGuidance(propertyStyle, other.propertyStyle, ::conflictingPropertyStyleMessage)) {
+            is MergeValueResult.Conflict -> return GuidanceMergeResult.Conflict(result.message)
+            is MergeValueResult.Merged -> result.value
+        }
 
-        return GuidanceMergeResult.Merged(
-            copy(
-                root = (mergedRoot as MergeValueResult.Merged).value,
-                propertyStyle = (mergedPropertyStyle as MergeValueResult.Merged).value,
-                sawParseableExample = sawParseableExample || other.sawParseableExample
-            )
-        )
+        return GuidanceMergeResult.Merged(copy(
+            root = mergedRoot,
+            propertyStyle = mergedPropertyStyle,
+            sawParseableExample = sawParseableExample || other.sawParseableExample
+        ))
     }
 
     fun isComplete(requiredGuidance: RequiredSyntaxGuidance): Boolean {
@@ -443,10 +483,9 @@ private data class InferredSyntaxGuidance(
     }
 
     fun toSyntax(): ObjectQuerySyntax {
-        return ObjectQuerySyntax(
-            root = root?.value ?: ObjectQueryRoot.Unwrapped,
-            propertyStyle = propertyStyle?.value ?: QueryPropertyStyle.Dot,
-            arrayIndexStyle = QueryArrayIndexStyle.Bracket
+        return ObjectQuerySyntax.Default.copy(
+            root = root?.value ?: ObjectQuerySyntax.Default.root,
+            propertyStyle = propertyStyle?.value ?: ObjectQuerySyntax.Default.propertyStyle
         )
     }
 }
@@ -487,13 +526,11 @@ private fun conflictingPropertyStyleMessage(existing: InferredValue<QueryPropert
     return "Examples use conflicting property serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName}, but \"${candidate.key}\" uses ${candidate.value.displayName}."
 }
 
-private fun List<CandidateParse>.singlePropertyStyleOrNull(requiredGuidance: RequiredSyntaxGuidance): QueryPropertyStyle? {
+private fun List<ObjectQuerySyntax>.singlePropertyStyleOrNull(requiredGuidance: RequiredSyntaxGuidance): QueryPropertyStyle? {
     if (!requiredGuidance.propertyStyle) return null
 
-    return map { it.syntax.propertyStyle }.distinct().singleOrNull()
+    return map(ObjectQuerySyntax::propertyStyle).distinct().singleOrNull()
 }
-
-private data class CandidateParse(val syntax: ObjectQuerySyntax)
 
 private data class QueryObjectPathParserState(
     val schema: NestedQuerySchema,
@@ -502,42 +539,42 @@ private data class QueryObjectPathParserState(
     fun displayPath(): String {
         if (tokens.isEmpty()) return "root"
 
-        return tokens.joinToString(".") { token ->
-            when (token) {
-                is QueryObjectPathToken.Property -> token.name
-                is QueryObjectPathToken.Index -> "[${token.index}]"
-            }
-        }
+        return tokens.joinToString(".") { token -> token.displaySegment() }
     }
 }
 
 private sealed class RawQueryObjectPathToken {
     abstract val value: String
+    abstract fun isValidObjectProperty(syntax: ObjectQuerySyntax, isRootProperty: Boolean): Boolean
+    open fun arrayIndexOrNull(): Int? = null
 
-    data class BareProperty(override val value: String) : RawQueryObjectPathToken()
-    data class Bracket(override val value: String) : RawQueryObjectPathToken()
-    data class DotProperty(override val value: String) : RawQueryObjectPathToken()
+    data class BareProperty(override val value: String) : RawQueryObjectPathToken() {
+        override fun isValidObjectProperty(syntax: ObjectQuerySyntax, isRootProperty: Boolean): Boolean {
+            return syntax.root == ObjectQueryRoot.Unwrapped && isRootProperty
+        }
+    }
+
+    data class Bracket(override val value: String) : RawQueryObjectPathToken() {
+        override fun isValidObjectProperty(syntax: ObjectQuerySyntax, isRootProperty: Boolean): Boolean {
+            val isBracketWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameWrapped && isRootProperty
+            return syntax.propertyStyle == QueryPropertyStyle.Bracket || isBracketWrappedRootProperty
+        }
+
+        override fun arrayIndexOrNull(): Int? = value.toIntOrNull()
+    }
+
+    data class DotProperty(override val value: String) : RawQueryObjectPathToken() {
+        override fun isValidObjectProperty(syntax: ObjectQuerySyntax, isRootProperty: Boolean): Boolean {
+            val isBracketWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameWrapped && isRootProperty
+            val isDotWrappedRootProperty = syntax.root == ObjectQueryRoot.ParameterNameDotWrapped && isRootProperty
+            return (syntax.propertyStyle == QueryPropertyStyle.Dot && !isBracketWrappedRootProperty) || isDotWrappedRootProperty
+        }
+    }
 }
 
 private object QueryObjectKeyTokenizer {
     fun tokenize(key: String, parameterName: String, root: ObjectQueryRoot): List<RawQueryObjectPathToken> {
-        return when (root) {
-            ObjectQueryRoot.Unwrapped -> tokenizeRemainder(key, allowBareStart = true)
-            ObjectQueryRoot.ParameterNameWrapped -> {
-                if (!key.startsWith("$parameterName[")) {
-                    throw ContractException("Expected query key $key to be wrapped by parameter $parameterName")
-                }
-
-                tokenizeRemainder(key.removePrefix(parameterName), allowBareStart = false)
-            }
-            ObjectQueryRoot.ParameterNameDotWrapped -> {
-                if (!key.startsWith("$parameterName.")) {
-                    throw ContractException("Expected query key $key to be wrapped by parameter $parameterName")
-                }
-
-                tokenizeRemainder(key.removePrefix(parameterName), allowBareStart = false)
-            }
-        }
+        return tokenizeRemainder(root.tokenizerRemainder(key, parameterName), root.allowBareStart)
     }
 
     private fun tokenizeRemainder(remainder: String, allowBareStart: Boolean): List<RawQueryObjectPathToken> {
