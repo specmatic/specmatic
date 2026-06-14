@@ -21,6 +21,100 @@ internal data class ParsedNestedObjectQueryParams(
     val failures: List<Result.Failure>
 )
 
+data class NestedObjectQueryParam(
+    val parameterName: String,
+    val required: Boolean,
+    val schema: NestedQuerySchema.Object,
+    val syntax: ObjectQuerySyntax
+) {
+    internal fun shouldAttemptParse(key: String): Boolean {
+        return when (syntax.root) {
+            ObjectQueryRoot.Unwrapped -> schema.couldStartWithRootProperty(key)
+            else -> syntax.root.isExplicitRootFor(key, parameterName)
+        }
+    }
+
+    internal fun parseKey(key: String): QueryObjectPath {
+        return ObjectQueryKeyParser.parse(
+            key = key,
+            parameterName = parameterName,
+            schema = schema,
+            syntax = syntax
+        )
+    }
+
+    internal fun queryKeyFor(path: QueryObjectPath): String {
+        return path.serialize(parameterName, syntax)
+    }
+
+    internal fun reconstructObjectValueFromQueryParamPairs(
+        pairs: List<Pair<String, String>>,
+        effectivePatterns: Map<String, Pattern> = emptyMap(),
+        resolver: Resolver = Resolver()
+    ): JSONObjectValue {
+        return pairs.fold(JSONObjectValue()) { value, (key, rawValue) ->
+            val path = parseKey(key)
+            val parsedValue = emptyContainerValueAt(path, rawValue)
+                ?: parseValueAtOrString(path, rawValue, effectivePatterns, resolver)
+
+            value.insert(path, parsedValue) as JSONObjectValue
+        }
+    }
+
+    internal fun parseValueAt(
+        path: QueryObjectPath,
+        value: String,
+        effectivePatterns: Map<String, Pattern>,
+        resolver: Resolver
+    ): Value {
+        emptyContainerValueAt(path, value)?.let { return it }
+
+        val pattern = leafPatternAt(path, effectivePatterns, resolver)?.nestedQueryLeafPattern() ?: return StringValue(value)
+        return pattern.parse(value, resolver)
+    }
+
+    private fun parseValueAtOrString(
+        path: QueryObjectPath,
+        value: String,
+        effectivePatterns: Map<String, Pattern>,
+        resolver: Resolver
+    ): Value {
+        if (effectivePatterns.isEmpty()) return StringValue(value)
+
+        return runCatching {
+            parseValueAt(path, value, effectivePatterns, resolver)
+        }.getOrDefault(StringValue(value))
+    }
+
+    private fun emptyContainerValueAt(path: QueryObjectPath, value: String): Value? {
+        if (value.isNotEmpty()) return null
+
+        return when (schema.schemaAt(path)) {
+            is NestedQuerySchema.Object -> JSONObjectValue()
+            is NestedQuerySchema.Array -> JSONArrayValue()
+            NestedQuerySchema.Scalar, is NestedQuerySchema.Ambiguous, null -> null
+        }
+    }
+
+    private fun leafPatternAt(
+        path: QueryObjectPath,
+        effectivePatterns: Map<String, Pattern>,
+        resolver: Resolver
+    ): Pattern? {
+        val firstProperty = path.tokens.firstOrNull() as? QueryObjectPathToken.Property
+        if (firstProperty != null) {
+            val propertyPattern = effectivePatterns[firstProperty.name] ?: effectivePatterns[withOptionality(firstProperty.name)]
+            val nestedPropertyPattern = propertyPattern?.patternAt(path.tokens.drop(1), resolver)
+            if (nestedPropertyPattern != null) return nestedPropertyPattern
+        }
+
+        val rootPattern = effectivePatterns[parameterName] ?: effectivePatterns[withOptionality(parameterName)]
+        if (rootPattern != null) return rootPattern.patternAt(path.tokens, resolver)
+
+        return null
+    }
+}
+
 internal fun parseNestedObjectQueryParams(
     queryParams: QueryParameters,
     effectivePatterns: Map<String, Pattern>,
@@ -79,29 +173,25 @@ private fun parseNestedQueryPair(
     val matchingNestedParam = nestedObjectQueryParams.firstOrNull { it.shouldAttemptParse(key) }
         ?: return NestedQueryPair.Unconsumed(key to value)
 
-    return matchingNestedParam.parseNestedQueryPair(key, value, effectivePatterns, resolver)
+    return parseNestedQueryPair(matchingNestedParam, key, value, effectivePatterns, resolver)
 }
 
-private fun NestedObjectQueryParam.parseNestedQueryPair(
+private fun parseNestedQueryPair(
+    nestedObjectQueryParam: NestedObjectQueryParam,
     key: String,
     value: String,
     effectivePatterns: Map<String, Pattern>,
     resolver: Resolver
 ): NestedQueryPair {
     return try {
-        val parsedPath = ObjectQueryKeyParser.parse(
-            key = key,
-            parameterName = parameterName,
-            schema = schema,
-            syntax = syntax
-        )
+        val parsedPath = nestedObjectQueryParam.parseKey(key)
         val parsedValue = try {
-            parseValueAt(parsedPath, value, effectivePatterns, resolver)
+            nestedObjectQueryParam.parseValueAt(parsedPath, value, effectivePatterns, resolver)
         } catch (exception: ContractException) {
-            return NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(this, parsedPath))
+            return NestedQueryPair.Invalid(exception.failure().withNestedObjectPathBreadcrumb(nestedObjectQueryParam, parsedPath))
         }
 
-        NestedQueryPair.Consumed(this, parsedPath, parsedValue)
+        NestedQueryPair.Consumed(nestedObjectQueryParam, parsedPath, parsedValue)
     } catch (exception: ContractException) {
         NestedQueryPair.Invalid(exception.toNestedQueryKeyFailure(key))
     }
@@ -141,38 +231,6 @@ internal fun serializeNestedObjectQueryValue(
     return value.toQueryParamPairs(parameterName, nestedQueryParam.syntax)
 }
 
-internal fun NestedObjectQueryParam.reconstructObjectValueFromQueryParamPairs(
-    pairs: List<Pair<String, String>>,
-    effectivePatterns: Map<String, Pattern> = emptyMap(),
-    resolver: Resolver = Resolver()
-): JSONObjectValue {
-    return pairs.fold(JSONObjectValue()) { value, (key, rawValue) ->
-        val path = ObjectQueryKeyParser.parse(
-            key = key,
-            parameterName = parameterName,
-            schema = schema,
-            syntax = syntax
-        )
-        val parsedValue = emptyContainerValueAt(path, rawValue)
-            ?: parseValueAtOrString(path, rawValue, effectivePatterns, resolver)
-
-        value.insert(path, parsedValue) as JSONObjectValue
-    }
-}
-
-private fun NestedObjectQueryParam.parseValueAtOrString(
-    path: QueryObjectPath,
-    value: String,
-    effectivePatterns: Map<String, Pattern>,
-    resolver: Resolver
-): Value {
-    if (effectivePatterns.isEmpty()) return StringValue(value)
-
-    return runCatching {
-        parseValueAt(path, value, effectivePatterns, resolver)
-    }.getOrDefault(StringValue(value))
-}
-
 private sealed class NestedQueryPair {
     data class Unconsumed(val pair: Pair<String, String>) : NestedQueryPair()
     data class Consumed(
@@ -183,27 +241,8 @@ private sealed class NestedQueryPair {
     data class Invalid(val failure: Result.Failure) : NestedQueryPair()
 }
 
-internal fun NestedObjectQueryParam.shouldAttemptParse(key: String): Boolean {
-    return when (syntax.root) {
-        ObjectQueryRoot.Unwrapped -> schema.couldStartWithRootProperty(key)
-        else -> syntax.root.isExplicitRootFor(key, parameterName)
-    }
-}
-
 private fun Map<String, Pattern>.containsNormalizedKey(key: String): Boolean {
     return containsKey(key) || containsKey(withOptionality(key))
-}
-
-private fun NestedObjectQueryParam.parseValueAt(
-    path: QueryObjectPath,
-    value: String,
-    effectivePatterns: Map<String, Pattern>,
-    resolver: Resolver
-): Value {
-    emptyContainerValueAt(path, value)?.let { return it }
-
-    val pattern = leafPatternAt(path, effectivePatterns, resolver)?.nestedQueryLeafPattern() ?: return StringValue(value)
-    return pattern.parse(value, resolver)
 }
 
 private fun Pattern.nestedQueryLeafPattern(): Pattern {
@@ -212,34 +251,6 @@ private fun Pattern.nestedQueryLeafPattern(): Pattern {
         is QueryParameterArrayPattern -> pattern.firstOrNull() ?: this
         else -> this
     }
-}
-
-private fun NestedObjectQueryParam.emptyContainerValueAt(path: QueryObjectPath, value: String): Value? {
-    if (value.isNotEmpty()) return null
-
-    return when (schema.schemaAt(path)) {
-        is NestedQuerySchema.Object -> JSONObjectValue()
-        is NestedQuerySchema.Array -> JSONArrayValue()
-        NestedQuerySchema.Scalar, is NestedQuerySchema.Ambiguous, null -> null
-    }
-}
-
-private fun NestedObjectQueryParam.leafPatternAt(
-    path: QueryObjectPath,
-    effectivePatterns: Map<String, Pattern>,
-    resolver: Resolver
-): Pattern? {
-    val firstProperty = path.tokens.firstOrNull() as? QueryObjectPathToken.Property
-    if (firstProperty != null) {
-        val propertyPattern = effectivePatterns[firstProperty.name] ?: effectivePatterns[withOptionality(firstProperty.name)]
-        val nestedPropertyPattern = propertyPattern?.patternAt(path.tokens.drop(1), resolver)
-        if (nestedPropertyPattern != null) return nestedPropertyPattern
-    }
-
-    val rootPattern = effectivePatterns[parameterName] ?: effectivePatterns[withOptionality(parameterName)]
-    if (rootPattern != null) return rootPattern.patternAt(path.tokens, resolver)
-
-    return null
 }
 
 private fun Pattern.patternAt(tokens: List<QueryObjectPathToken>, resolver: Resolver): Pattern? {
@@ -305,7 +316,7 @@ private data class NestedObjectQueryBreadcrumbPath(
         get() {
             if (tokens.isEmpty()) return null
 
-            return QueryObjectPath(tokens).serialize(nestedObjectQueryParam.parameterName, nestedObjectQueryParam.syntax)
+            return nestedObjectQueryParam.queryKeyFor(QueryObjectPath(tokens))
         }
 }
 
@@ -347,7 +358,7 @@ private fun Result.Failure.withNestedObjectPathBreadcrumb(
     nestedObjectQueryParam: NestedObjectQueryParam,
     path: QueryObjectPath
 ): Result.Failure {
-    return breadCrumb(path.serialize(nestedObjectQueryParam.parameterName, nestedObjectQueryParam.syntax))
+    return breadCrumb(nestedObjectQueryParam.queryKeyFor(path))
 }
 
 private fun JSONObjectValue.insert(path: QueryObjectPath, value: Value): Value {

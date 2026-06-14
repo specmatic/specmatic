@@ -39,13 +39,6 @@ data class QueryParameterCollisionGroup(
     val authoritativeOwner: QueryParameterCollisionOwner
 )
 
-data class NestedObjectQueryParam(
-    val parameterName: String,
-    val required: Boolean,
-    val schema: NestedQuerySchema.Object,
-    val syntax: ObjectQuerySyntax
-)
-
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,

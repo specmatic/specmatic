@@ -10,7 +10,6 @@ import io.specmatic.core.ObjectQuerySyntax
 import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.reconstructObjectValueFromQueryParamPairs
 import io.swagger.v3.oas.models.examples.Example
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.QueryParameter
