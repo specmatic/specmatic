@@ -107,7 +107,7 @@ class MethodNotAllowedExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_IGNORED.id)
+        assertThat(warningReport).contains(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_IGNORED.id)
         assertThat(warningReport).contains("paths./orders.post.responses.405")
 
         val feature = specification.toFeature()

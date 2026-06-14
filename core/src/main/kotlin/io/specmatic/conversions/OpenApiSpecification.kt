@@ -810,7 +810,7 @@ class OpenApiSpecification(
                         )
                     }
                     httpResponsePatterns.forEach {
-                        recordMethodNotAllowedResponseIgnored(methodContext, httpMethod, openApiPath, it.responsePattern)
+                        recordRequestRejectionResponseIgnored(methodContext, httpMethod, openApiPath, it.responsePattern)
                     }
 
                     val first2xxResponseStatus =
@@ -843,12 +843,16 @@ class OpenApiSpecification(
 
                     val requestMediaTypes = httpRequestPatternDataGroupedByContentType.keys
 
-                    val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (_, responses) ->
+                    val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (status, responses) ->
                         val responsesGrouped = responses.groupBy {
                             it.responsePattern.headersPattern.contentType
                         }
 
-                        if (responsesGrouped.keys.filterNotNull().toSet() == requestMediaTypes.filterNotNull().toSet()) {
+                        if (status == HttpStatusCode.UnsupportedMediaType.value) {
+                            responses.map { responsePatternData ->
+                                httpRequestPatterns.first() to responsePatternData
+                            }
+                        } else if (responsesGrouped.keys.filterNotNull().toSet() == requestMediaTypes.filterNotNull().toSet()) {
                             responsesGrouped.map { (contentType, responsesData) ->
                                 httpRequestPatternDataGroupedByContentType.getValue(contentType)
                                     .single() to responsesData.single()
@@ -913,7 +917,10 @@ class OpenApiSpecification(
                             operationMetadata = operationMetadata,
                             sourceLocations = sourceLocations,
                             operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
-                            requestRejectionMetadata = RequestRejectionMetadata(methodsForPath = methodsForPath)
+                            requestRejectionMetadata = RequestRejectionMetadata(
+                                methodsForPath = methodsForPath,
+                                requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
+                            )
                         )
                     }
 
@@ -1094,6 +1101,7 @@ class OpenApiSpecification(
             responseExamples.filter { (key, responseExample) ->
                 key in requestExamples
                         && responseExample.status != HttpStatusCode.MethodNotAllowed.value
+                        && responseExample.status != HttpStatusCode.UnsupportedMediaType.value
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
                     NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
@@ -1150,18 +1158,22 @@ class OpenApiSpecification(
         )
     }
 
-    private fun recordMethodNotAllowedResponseIgnored(
+    private fun recordRequestRejectionResponseIgnored(
         collectorContext: CollectorContext,
         httpMethod: String,
         openApiPath: String,
         responsePattern: HttpResponsePattern
     ) {
-        if (responsePattern.status != HttpStatusCode.MethodNotAllowed.value) return
+        val unsupportedInlineExampleReason = when (responsePattern.status) {
+            HttpStatusCode.MethodNotAllowed.value -> "inline OpenAPI examples cannot specify a disallowed request method"
+            HttpStatusCode.UnsupportedMediaType.value -> "inline OpenAPI examples cannot specify an unsupported request media type"
+            else -> return
+        }
 
-        collectorContext.at("responses").at(HttpStatusCode.MethodNotAllowed.value.toString()).record(
-            message = "Ignoring OpenAPI 405 response for generated tests and inline mock data for $httpMethod $openApiPath. 405 responses are supported only through external examples because inline OpenAPI examples cannot specify a disallowed request method.",
+        collectorContext.at("responses").at(responsePattern.status.toString()).record(
+            message = "Ignoring OpenAPI ${responsePattern.status} response for generated tests and inline mock data for $httpMethod $openApiPath. ${responsePattern.status} responses are supported only through external examples because $unsupportedInlineExampleReason.",
             isWarning = true,
-            ruleViolation = OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_IGNORED
+            ruleViolation = OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_IGNORED
         )
     }
 
@@ -1219,7 +1231,7 @@ class OpenApiSpecification(
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            if (responseExample.status == HttpStatusCode.MethodNotAllowed.value) {
+            if (responseExample.status == HttpStatusCode.MethodNotAllowed.value || responseExample.status == HttpStatusCode.UnsupportedMediaType.value) {
                 return@mapNotNull null
             }
 

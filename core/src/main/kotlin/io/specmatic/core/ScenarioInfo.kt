@@ -69,5 +69,6 @@ data class ScenarioInfo(
 }
 
 data class RequestRejectionMetadata(
-    val methodsForPath: Set<String> = emptySet()
+    val methodsForPath: Set<String> = emptySet(),
+    val requestContentTypesForOperation: Set<String> = emptySet()
 )

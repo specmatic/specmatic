@@ -106,10 +106,10 @@ enum class OpenApiLintViolations(
         summary = "Response status must be a valid integer or literal default"
     ),
 
-    METHOD_NOT_ALLOWED_RESPONSE_IGNORED(
+    REQUEST_REJECTION_RESPONSE_IGNORED(
         id = "OAS0032",
-        title = "Method Not Allowed response ignored",
-        summary = "405 responses are supported only through external examples because inline OpenAPI examples cannot specify a disallowed request method",
+        title = "Request rejection response ignored",
+        summary = "Request rejection responses such as 405 and 415 are supported only through external examples because inline OpenAPI examples cannot express the rejected request variant",
         severity = IssueSeverity.WARNING
     ),
 

@@ -108,6 +108,92 @@ class OpenApiCoverageIntegrationTest {
     }
 
     @Test
+    fun `should report 415 external example test against original operation request content type`(@TempDir tempDir: File) {
+        val specFile = tempDir.resolve("orders.yaml").apply {
+            writeText(
+                """
+                openapi: 3.0.0
+                info:
+                  title: Orders
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - data
+                              properties:
+                                data:
+                                  type: string
+                      responses:
+                        '200':
+                          description: ok
+                        '415':
+                          description: unsupported media type
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - error
+                                properties:
+                                  error:
+                                    type: string
+                """.trimIndent()
+            )
+        }
+        tempDir.resolve("orders_examples").apply {
+            mkdirs()
+            resolve("post-orders-415.json").writeText(
+                """
+                {
+                  "http-request": {
+                    "method": "POST",
+                    "path": "/orders",
+                    "headers": {
+                      "Content-Type": "text/plain"
+                    },
+                    "body": "request sent here"
+                  },
+                  "http-response": {
+                    "status": 415,
+                    "headers": {
+                      "Content-Type": "application/json"
+                    },
+                    "body": {
+                      "error": "occurred"
+                    }
+                  }
+                }
+                """.trimIndent()
+            )
+        }
+
+        ContractTestScope(specFile, tempDir).execute { server ->
+            server.on("/orders", "POST") {
+                header("Content-Type", "text/plain")
+                body("request sent here")
+                respond(HttpResponse(status = 415, headers = mapOf("Content-Type" to "application/json"), body = parsedJsonValue("""{"error":"occurred"}""")))
+            }
+            server.on("/orders", "POST") {
+                respond(HttpResponse.OK)
+            }
+        }.verifyOpenApiCoverage {
+            val unsupportedMediaType = single("POST", "/orders", 415, requestType = "application/json", responseType = "application/json")
+            assertThat(unsupportedMediaType.tests).hasSize(1).allSatisfy { test ->
+                assertThat(test.result).isEqualTo(TestResult.Success)
+                assertThat(test.method).isEqualTo("POST")
+                assertThat(test.request?.headers?.get("Content-Type")).isEqualTo("text/plain")
+            }
+        }
+    }
+
+    @Test
     fun `should preserve git root relative spec paths in spec and missing in spec operations`(@TempDir tempDir: File) {
         val repoRoot = tempDir.resolve("repo").apply { mkdirs() }
         runGit(repoRoot, "init")

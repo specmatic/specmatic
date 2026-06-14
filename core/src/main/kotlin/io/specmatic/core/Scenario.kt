@@ -82,7 +82,8 @@ data class Scenario(
     val generatedFrom: GeneratedScenarioOrigin? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val operationSourcePointer: String? = null,
-    val requestRejectionMetadata: RequestRejectionMetadata = RequestRejectionMetadata()
+    val requestRejectionMetadata: RequestRejectionMetadata = RequestRejectionMetadata(),
+    private val requestContentTypeForReport: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -144,9 +145,7 @@ data class Scenario(
         }
 
     val requestContentType: String?
-        get() {
-            return httpRequestPattern.headersPattern.contentType
-        }
+        get() = requestContentTypeForReporting()
 
     val responseContentType: String?
         get() {
@@ -215,17 +214,29 @@ data class Scenario(
         return result.isSuccess()
     }
 
-    fun matchesPathStructureWithMethodNotAllowed(
-        httpRequest: HttpRequest,
-        expectedResponseCode: Int?,
-        explicitResponseStatus: Int?
-    ): Boolean {
-        if (status != HttpStatusCode.MethodNotAllowed.value) return false
-        if (expectedResponseCode != HttpStatusCode.MethodNotAllowed.value && explicitResponseStatus != HttpStatusCode.MethodNotAllowed.value) return false
+    private fun matchesPathStructureWithMethodNotAllowed(httpRequest: HttpRequest): Boolean {
         val requestedMethod = httpRequest.method.orEmpty().uppercase()
         if (requestedMethod.isBlank() || requestedMethod in requestRejectionMetadata.methodsForPath) return false
         val requestWithScenarioMethod = httpRequest.copy(method = method)
         return matchesPathStructureAndMethod(requestWithScenarioMethod)
+    }
+
+    private fun matchesPathStructureWithUnsupportedMediaType(httpRequest: HttpRequest): Boolean {
+        if (!isUnsupportedMediaTypeScenario()) return false
+        return matchesUnsupportedMediaTypeRequest(httpRequest, resolver).isSuccess()
+    }
+
+    fun matchesPathStructureWithRequestRejection(
+        httpRequest: HttpRequest,
+        requestedResponseStatus: Int?
+    ): Boolean {
+        if (requestedResponseStatus != status) return false
+
+        return when (status) {
+            HttpStatusCode.MethodNotAllowed.value -> matchesPathStructureWithMethodNotAllowed(httpRequest)
+            HttpStatusCode.UnsupportedMediaType.value -> matchesPathStructureWithUnsupportedMediaType(httpRequest)
+            else -> false
+        }
     }
 
     fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
@@ -377,6 +388,9 @@ data class Scenario(
 
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
+            val unsupportedMediaTypeRequest = unsupportedMediaTypeRequestExample()
+            if (unsupportedMediaTypeRequest != null) return@scenarioBreadCrumb unsupportedMediaTypeRequest
+
             val generatedRequest = httpRequestPattern.generate(
                 flagsBased.update(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
@@ -389,6 +403,19 @@ data class Scenario(
     private fun methodFromMethodNotAllowedExample(): String? {
         if (status != HttpStatusCode.MethodNotAllowed.value) return null
         return exampleRow?.requestExample?.method
+    }
+
+    private fun unsupportedMediaTypeRequestExample(): HttpRequest? {
+        if (!isUnsupportedMediaTypeScenario()) return null
+        return exampleRow?.requestExample
+    }
+
+    fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
+        if (isUnsupportedMediaTypeScenario()) {
+            return httpRequestPattern.generateExactHttpRequestPatternUsingWrongContentType(request, resolver)
+        }
+
+        return httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
     }
 
     fun generateHttpRequestV2(
@@ -444,15 +471,7 @@ data class Scenario(
         }
 
         val updatedScenario = newBasedOnAttributeSelectionFields(httpRequest.queryParams)
-        val requestMatch = when (httpResponse.status) {
-            HttpStatusCode.MethodNotAllowed.value ->
-                updatedScenario.matchesMethodNotAllowedRequest(httpRequest, updatedResolver)
-
-            in invalidRequestStatuses ->
-                updatedScenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updatedResolver)
-
-            else -> updatedScenario.matches(httpRequest, updatedResolver)
-        }
+        val requestMatch = updatedScenario.matchesRequestForResponseStatus(httpRequest, httpResponse.status, updatedResolver)
 
         val fieldsSelected = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
         if (fieldsSelected.isNotEmpty()) {
@@ -524,6 +543,22 @@ data class Scenario(
 
         return scenarioBreadCrumb(this) {
             attempt {
+                if (isUnsupportedMediaTypeScenario() && row.requestExample != null) {
+                    val newResponsePattern = this.httpResponsePattern.withResponseExampleValue(row, resolver)
+                    return@attempt sequenceOf(
+                        HasValue(
+                            useWrongContentType(
+                                row = row,
+                                resolver = resolver,
+                                newResponsePattern = newResponsePattern,
+                                newExpectedFacts = newExpectedServerState,
+                                ignoreFailure = ignoreFailure,
+                                generativePrefix = flagsBased.positivePrefix
+                            )
+                        )
+                    )
+                }
+
                 val rowValue =  when(val resolvedRow = fillInTheBlanksAndResolvePatterns(row, resolver)) {
                     is HasValue -> resolvedRow.value
                     is HasException -> return@attempt sequenceOf(resolvedRow.cast())
@@ -532,9 +567,12 @@ data class Scenario(
 
                 val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
 
-                val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when (isNegative) {
-                    false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
-                    else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
+                val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when {
+                    !isNegative ->
+                        Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
+
+                    else ->
+                        Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
                 newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
@@ -698,19 +736,40 @@ data class Scenario(
 
     private fun validateRequestExample(row: Row, resolverForExample: Resolver): Result {
         if(row.requestExample != null) {
-            val result = if (status == HttpStatusCode.MethodNotAllowed.value)
-                matchesMethodNotAllowedRequest(row.requestExample, resolverForExample)
-            else
-                httpRequestPattern.matches(row.requestExample, resolverForExample, resolverForExample)
+            val result = matchesRequestExample(row.requestExample, resolverForExample)
             if(result is Result.Failure && !status.toString().startsWith("4"))
                 return result
-            if(result is Result.Failure && status == HttpStatusCode.MethodNotAllowed.value)
+            if(result is Result.Failure && status in setOf(HttpStatusCode.MethodNotAllowed.value, HttpStatusCode.UnsupportedMediaType.value))
                 return result
         } else {
             httpRequestPattern.newBasedOn(row, resolverForExample, status).first().value
         }
 
         return Result.Success()
+    }
+
+    private fun useWrongContentType(
+        row: Row,
+        resolver: Resolver,
+        newResponsePattern: HttpResponsePattern,
+        newExpectedFacts: Map<String, Value>,
+        ignoreFailure: Boolean,
+        generativePrefix: String
+    ): Scenario {
+        val requestExample = row.requestExample
+            ?: throw ContractException("A 415 external example must contain an HTTP request")
+
+        return copy(
+            httpRequestPattern = httpRequestPattern.generateExactHttpRequestPatternUsingWrongContentType(requestExample, resolver),
+            httpResponsePattern = newResponsePattern,
+            expectedFacts = newExpectedFacts,
+            ignoreFailure = ignoreFailure,
+            exampleName = row.name,
+            exampleRow = row,
+            generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW,
+            generativePrefix = generativePrefix,
+            requestContentTypeForReport = httpRequestPattern.headersPattern.contentType,
+        )
     }
 
     fun generateTestScenarios(
@@ -789,15 +848,7 @@ data class Scenario(
             )
 
             val requestMatchResult = attempt(breadCrumb = "REQUEST") {
-                when (response.status) {
-                    HttpStatusCode.MethodNotAllowed.value ->
-                        matchesMethodNotAllowedRequest(request, resolver)
-
-                    in invalidRequestStatuses ->
-                        httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
-
-                    else -> httpRequestPattern.matches(request, resolver)
-                }
+                matchesRequestForResponseStatus(request, response.status, resolver)
             }
 
             if (requestMatchResult is Result.Failure)
@@ -1021,11 +1072,33 @@ data class Scenario(
         if (status == HttpStatusCode.MethodNotAllowed.value && operationId.requestMethod.isBlank()) return false
 
         return row.requestExample?.let { request ->
-            if (status == HttpStatusCode.MethodNotAllowed.value)
-                matchesMethodNotAllowedRequest(request, patternMatchingResolver).isSuccess()
-            else
-                httpRequestPattern.matchesPathStructureMethodAndContentType(request, patternMatchingResolver).isSuccess()
+            requestExampleBelongsToScenario(request, patternMatchingResolver)
         } ?: matchesRequestOperationIdentifier(operationId, patternMatchingResolver)
+    }
+
+    private fun matchesRequestForResponseStatus(request: HttpRequest, responseStatus: Int, resolver: Resolver): Result {
+        return when (responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value -> matchesMethodNotAllowedRequest(request, resolver)
+            HttpStatusCode.UnsupportedMediaType.value -> matchesUnsupportedMediaTypeRequest(request, resolver)
+            in invalidRequestStatuses -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+            else -> matches(request, resolver)
+        }
+    }
+
+    private fun matchesRequestExample(request: HttpRequest, resolver: Resolver): Result {
+        return when (status) {
+            HttpStatusCode.MethodNotAllowed.value -> matchesMethodNotAllowedRequest(request, resolver)
+            HttpStatusCode.UnsupportedMediaType.value -> matchesUnsupportedMediaTypeRequest(request, resolver)
+            else -> httpRequestPattern.matches(request, resolver, resolver)
+        }
+    }
+
+    private fun requestExampleBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
+        return when (status) {
+            HttpStatusCode.MethodNotAllowed.value -> matchesMethodNotAllowedRequest(request, resolver).isSuccess()
+            HttpStatusCode.UnsupportedMediaType.value -> matchesUnsupportedMediaTypeRequest(request, resolver).isSuccess()
+            else -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
+        }
     }
 
     private fun matchesMethodNotAllowedRequest(request: HttpRequest, resolver: Resolver): Result {
@@ -1041,6 +1114,50 @@ data class Scenario(
         val requestWithScenarioMethod = request.copy(method = method)
         return httpRequestPattern.matches(requestWithScenarioMethod, resolver, resolver)
     }
+
+    private fun matchesUnsupportedMediaTypeRequest(request: HttpRequest, resolver: Resolver): Result {
+        if (!isUnsupportedMediaTypeScenario()) {
+            return httpRequestPattern.matches(request, resolver, resolver)
+        }
+
+        val identifierMatch = httpRequestPattern.matchesRequestIdentityIgnoringMediaType(request, resolver)
+        if (identifierMatch is Result.Failure) return identifierMatch.updateScenario(this)
+
+        val requestContentType = request.contentType().normalizedContentType()
+        val supportedContentTypes = requestRejectionMetadata.requestContentTypesForOperation.normalizedContentTypes()
+        if (requestContentType.isNullOrBlank()) {
+            if (supportedContentTypes.isNotEmpty()) return Result.Success()
+
+            return Result.Failure(
+                message = "Request Content-Type is required for a 415 unsupported media type example",
+                breadCrumb = BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).plus(CONTENT_TYPE).value,
+                failureReason = FailureReason.ContentTypeMismatch
+            ).updateScenario(this)
+        }
+
+        if (supportedContentTypes.contains(requestContentType.lowercase())) {
+            return Result.Failure(
+                message = "Request Content-Type \"$requestContentType\" is supported by the specification, so this example should not return 415",
+                breadCrumb = BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).plus(CONTENT_TYPE).value,
+                failureReason = FailureReason.ContentTypeMismatch
+            ).updateScenario(this)
+        }
+
+        return Result.Success()
+    }
+
+    private fun isUnsupportedMediaTypeScenario(): Boolean {
+        return specType == SpecType.OPENAPI && status == HttpStatusCode.UnsupportedMediaType.value
+    }
+
+    private fun requestContentTypeForReporting(): String? =
+        requestContentTypeForReport ?: httpRequestPattern.headersPattern.contentType
+
+    private fun String?.normalizedContentType(): String? =
+        this?.substringBefore(";")?.trim()?.takeIf(String::isNotBlank)
+
+    private fun Set<String>.normalizedContentTypes(): Set<String> =
+        mapNotNull { it.normalizedContentType()?.lowercase() }.toSet()
 
     private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         return row.responseExample?.let { response ->

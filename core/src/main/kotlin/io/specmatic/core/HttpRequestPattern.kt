@@ -63,6 +63,11 @@ data class HttpRequestPattern(
     val formFieldPointers: Map<String, String> = emptyMap(),
     val multiPartPointers: Map<String, String> = emptyMap()
 ) {
+    private data class ExactRequestPatternOverride(
+        val contentType: String?,
+        val bodyPattern: Pattern
+    )
+
     fun getHeaderKeys() = headersPattern.headerNames
 
     fun getQueryParamKeys() = httpQueryParamPattern.queryKeyNames
@@ -132,6 +137,41 @@ data class HttpRequestPattern(
 
         return matchesPathStructureAndMethod(incomingHttpRequest, resolver)
     }
+
+    fun matchesRequestIdentityIgnoringMediaType(incomingHttpRequest: HttpRequest, resolver: Resolver): Result {
+        val requestWithoutPayload = dropPayloadFromRequest(incomingHttpRequest)
+        val patternWithoutPayload = dropPayloadFromRequestPattern()
+
+        return patternWithoutPayload.matches(requestWithoutPayload, resolver, resolver)
+    }
+
+    private fun dropPayloadFromRequestPattern(): HttpRequestPattern = copy(
+        headersPattern = headersPattern.copy(
+            pattern = headersPattern.pattern.filterKeys {
+                !it.equals(
+                    CONTENT_TYPE,
+                    ignoreCase = true
+                ) && !it.equals("$CONTENT_TYPE?", ignoreCase = true)
+            },
+            ancestorHeaders = headersPattern.ancestorHeaders?.filterKeys {
+                !it.equals(
+                    CONTENT_TYPE,
+                    ignoreCase = true
+                ) && !it.equals("$CONTENT_TYPE?", ignoreCase = true)
+            },
+            contentType = null
+        ),
+        body = NoBodyPattern,
+        formFieldsPattern = emptyMap(),
+        multiPartFormDataPattern = emptyList()
+    )
+
+    private fun dropPayloadFromRequest(incomingHttpRequest: HttpRequest): HttpRequest = incomingHttpRequest.copy(
+        headers = incomingHttpRequest.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) },
+        body = NoBodyValue,
+        formFields = emptyMap(),
+        multiPartFormData = emptyList()
+    )
 
     fun matchesPathStructureAndMethod(incomingHttpRequest: HttpRequest, resolver: Resolver): Result {
         val result = matchesPathAndMethod(incomingHttpRequest, resolver)
@@ -357,7 +397,24 @@ data class HttpRequestPattern(
             MatchSuccess(parameters)
     }
 
-    fun generateExactHttpRequestPatternFrom(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
+    fun generateExactHttpRequestPatternFrom(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        generateExactHttpRequestPatternFrom(request, resolver, exactRequestPatternOverride = null)
+
+    fun generateExactHttpRequestPatternUsingWrongContentType(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        generateExactHttpRequestPatternFrom(
+            request,
+            resolver,
+            exactRequestPatternOverride = ExactRequestPatternOverride(
+                contentType = request.contentType(),
+                bodyPattern = request.body.exactMatchElseType()
+            )
+        )
+
+    private fun generateExactHttpRequestPatternFrom(
+        request: HttpRequest,
+        resolver: Resolver,
+        exactRequestPatternOverride: ExactRequestPatternOverride?
+    ): HttpRequestPattern {
         var requestPattern = HttpRequestPattern()
         val parseValueToType: (Value) -> Pattern = { it.exactMatchElseType() }
 
@@ -402,18 +459,20 @@ data class HttpRequestPattern(
                     resolver,
                 )
 
+                val exactHeadersPattern = headersPattern.copy(
+                    pattern = headersFromRequest,
+                    ancestorHeaders = headersFromRequest.mergeIgnoringCaseAndOptionalsWith(headersPattern.pattern),
+                )
+
                 requestPattern.copy(
-                    headersPattern =
-                        headersPattern.copy(
-                            pattern = headersFromRequest,
-                            ancestorHeaders = headersFromRequest.mergeIgnoringCaseAndOptionalsWith(headersPattern.pattern),
-                        ),
+                    headersPattern = exactRequestPatternOverride?.let { exactHeadersPattern.copy(contentType = it.contentType) }
+                        ?: exactHeadersPattern
                 )
             }
 
             requestPattern = attempt(breadCrumb = "BODY") {
                 requestPattern.copy(
-                    body = when (request.body) {
+                    body = exactRequestPatternOverride?.bodyPattern ?: when (request.body) {
                         EmptyString -> EmptyStringPattern
                         NoBodyValue -> NoBodyPattern
                         is StringValue -> exactEncompassedType(request.bodyString, null, body, resolver)

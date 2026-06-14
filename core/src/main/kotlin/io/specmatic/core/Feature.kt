@@ -389,14 +389,14 @@ data class Feature(
         scenarios: List<Scenario>,
         responseStatus: Int? = null
     ): List<Scenario> {
-        val expectedResponseCode = responseStatus ?: httpRequest.expectedResponseCode()
-        val statusSortedScenarios = sortByExpectedResponseStatus(expectedResponseCode, scenarios)
+        val requestedResponseStatus = responseStatus ?: httpRequest.expectedResponseCode()
+        val statusSortedScenarios = sortByExpectedResponseStatus(requestedResponseStatus, scenarios)
         val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario ->
             scenario.matchesPathStructureAndMethod(httpRequest) ||
-                    scenario.matchesPathStructureWithMethodNotAllowed(httpRequest, expectedResponseCode, responseStatus)
+                    scenario.matchesPathStructureWithRequestRejection(httpRequest, requestedResponseStatus)
         }
 
-        if (expectedResponseCode != null) {
+        if (requestedResponseStatus != null) {
             return applyAcceptHeaderSelection(httpRequest, pathAndMethodMatchedScenarios)
         }
 
@@ -832,7 +832,7 @@ data class Feature(
                 match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
                 onSuccess = { scenario ->
                     scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        val newRequestType = scenario.httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
+                        val newRequestType = scenario.generateHttpRequestPatternForStub(request, resolver)
                         HttpStubData(
                             requestType = newRequestType,
                             response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),
