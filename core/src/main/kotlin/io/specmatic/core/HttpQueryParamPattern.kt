@@ -39,13 +39,6 @@ data class QueryParameterCollisionGroup(
     val authoritativeOwner: QueryParameterCollisionOwner
 )
 
-data class NestedObjectQueryParam(
-    val parameterName: String,
-    val required: Boolean,
-    val schema: NestedQuerySchema.Object,
-    val syntax: ObjectQuerySyntax
-)
-
 data class HttpQueryParamPattern(
     val queryPatterns: Map<String, Pattern>,
     val additionalProperties: Pattern? = null,
@@ -196,8 +189,9 @@ data class HttpQueryParamPattern(
             val keyWithoutOptionality = withoutOptionality(key)
             val reconstructedNestedObjectValue = parsedNestedObjectQueryParams.reconstructedObjectValues[keyWithoutOptionality]
             if (reconstructedNestedObjectValue != null) {
+                val nestedObjectQueryParam = nestedObjectQueryParamsByName()[keyWithoutOptionality]
                 return@mapNotNull resolver.matchesPattern(keyWithoutOptionality, parameterPattern, reconstructedNestedObjectValue)
-                    .breadCrumb(keyWithoutOptionality, resolver.locate(parameterPointers[keyWithoutOptionality]))
+                    .withNestedObjectQueryKeyBreadcrumb(nestedObjectQueryParam)
             }
 
             val requestValues = queryParams.getValues(keyWithoutOptionality)

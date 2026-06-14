@@ -13651,7 +13651,22 @@ paths:
             """.trimIndent()
         )
         val feature = OpenApiSpecification.fromYAML(
-            telstraStyleNestedResponseQuerySpec(),
+            telstraStyleNestedResponseQuerySpec().replace(
+                """
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                """.trimIndent(),
+                """
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: integer
+                """.trimIndent()
+            ),
             "",
             exampleDirPaths = listOf(examplesDir.canonicalPath)
         ).toFeature().loadExternalisedExamples()
@@ -13661,7 +13676,6 @@ paths:
         assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
     }
 
-    @Test
     fun `external nested object query example reports missing required key inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val report = nestedObjectAndArrayExternalExampleValidationReport(
             tempDir,
@@ -13673,7 +13687,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.price.max")
         assertThat(report).contains("R2001: Missing required property")
     }
 
@@ -13689,7 +13703,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].color")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.variants[0].color")
         assertThat(report).contains("R2001: Missing required property")
     }
 
@@ -13706,9 +13720,94 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.min")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.price.min")
         assertThat(report).contains("Specification expected type number")
-        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.price.max")
+    }
+
+    @Test
+    fun `external bracket-wrapped nested object query example reports serialized query key breadcrumb`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("my-day-details_200.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/my-day-details",
+                "query": {
+                  "mydayId": "TAAC041761259272ZSPB",
+                  "msResponse[status]": 200,
+                  "msResponse[errors][0][code]": "ERROR"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "status": 200
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val spec = """
+            openapi: 3.0.1
+            info:
+              title: Bracket Wrapped Nested Query Breadcrumb
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: msResponse[status]=200&msResponse[errors][0][message]=ERROR
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                MicroserviceError:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(
+            spec,
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+        val report = validationResult.reportString()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.msResponse[errors][0][code]")
+        assertThat(report).contains("Unknown query object property \"code\"")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.msResponse.errors[0].code")
     }
 
     @Test
@@ -13724,7 +13823,7 @@ paths:
             )
         )
 
-        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.variants[0].sizes[0]")
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.variants[0].sizes[0]")
         assertThat(report).contains("Specification expected type number")
     }
 
@@ -13737,9 +13836,9 @@ paths:
             queryParams = mapOf("filter.data[0]" to "")
         )
 
-        assertThat(objectReport).contains("REQUEST.PARAMETERS.QUERY.details.filter.data.name")
+        assertThat(objectReport).contains("REQUEST.PARAMETERS.QUERY.filter.data.name")
         assertThat(objectReport).contains("R2001: Missing required property")
-        assertThat(arrayReport).contains("REQUEST.PARAMETERS.QUERY.details.filter.data[0].name")
+        assertThat(arrayReport).contains("REQUEST.PARAMETERS.QUERY.filter.data[0].name")
         assertThat(arrayReport).contains("R2001: Missing required property")
     }
 
