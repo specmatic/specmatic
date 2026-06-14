@@ -33,6 +33,34 @@ sealed class QueryObjectPathToken {
 data class QueryObjectPath(val tokens: List<QueryObjectPathToken>)
 
 sealed class NestedQuerySchema {
+    fun schemaAt(path: QueryObjectPath): NestedQuerySchema? {
+        return schemaAt(path.tokens)
+    }
+
+    private fun schemaAt(tokens: List<QueryObjectPathToken>): NestedQuerySchema? {
+        if (tokens.isEmpty()) return this
+
+        return when (this) {
+            is Object -> childSchema(tokens.first())?.schemaAt(tokens.drop(1))
+            is Array -> itemSchemaFor(tokens.first())?.schemaAt(tokens.drop(1))
+            Scalar, is Ambiguous -> null
+        }
+    }
+
+    private fun Object.childSchema(token: QueryObjectPathToken): NestedQuerySchema? {
+        val property = token as? QueryObjectPathToken.Property ?: return null
+
+        return properties[property.name]
+            ?: additionalProperties
+            ?: if (allowsAnyAdditionalProperties) Scalar else null
+    }
+
+    private fun Array.itemSchemaFor(token: QueryObjectPathToken): NestedQuerySchema? {
+        if (token !is QueryObjectPathToken.Index) return null
+
+        return itemSchema
+    }
+
     data object Scalar : NestedQuerySchema()
 
     data class Object(
@@ -53,7 +81,7 @@ object ObjectQueryKeyParser {
         schema: NestedQuerySchema.Object,
         syntax: ObjectQuerySyntax
     ): QueryObjectPath {
-        return parseWithSchema(key, parameterName, schema, syntax).path
+        return parseWithSchema(key, parameterName, schema, syntax)
     }
 
     internal fun parseWithSchema(
@@ -61,13 +89,13 @@ object ObjectQueryKeyParser {
         parameterName: String,
         schema: NestedQuerySchema.Object,
         syntax: ObjectQuerySyntax
-    ): ParsedQueryObjectPath {
+    ): QueryObjectPath {
         val rawTokens = QueryObjectKeyTokenizer.tokenize(key, parameterName, syntax.root)
         val parserState = rawTokens.fold(QueryObjectPathParserState(schema = schema, tokens = emptyList())) { state, token ->
             parseToken(token, state, syntax)
         }
 
-        return ParsedQueryObjectPath(QueryObjectPath(parserState.tokens), parserState.schema)
+        return QueryObjectPath(parserState.tokens)
     }
 
     private fun parseToken(
@@ -142,11 +170,6 @@ object ObjectQueryKeyParser {
         )
     }
 }
-
-data class ParsedQueryObjectPath(
-    val path: QueryObjectPath,
-    val terminalSchema: NestedQuerySchema
-)
 
 object ObjectQueryKeySerializer {
     fun serialize(path: QueryObjectPath, parameterName: String, syntax: ObjectQuerySyntax): String {
@@ -289,22 +312,22 @@ object NestedObjectQuerySyntaxInference {
         keys: List<String>
     ): List<CandidateParse> {
         return syntaxCandidates().mapNotNull { syntax ->
-            parseAll(parameterName, schema, syntax, keys)?.let { CandidateParse(syntax, it) }
+            if (canParseAll(parameterName, schema, syntax, keys)) CandidateParse(syntax) else null
         }
     }
 
-    private fun parseAll(
+    private fun canParseAll(
         parameterName: String,
         schema: NestedQuerySchema.Object,
         syntax: ObjectQuerySyntax,
         keys: List<String>
-    ): List<ParsedQueryObjectPath>? {
+    ): Boolean {
         val relevantKeys = keys.filter { key -> key.couldBelongTo(parameterName, schema) }
-        if (relevantKeys.isEmpty()) return null
+        if (relevantKeys.isEmpty()) return false
 
         return runCatching {
-            relevantKeys.map { key -> ObjectQueryKeyParser.parseWithSchema(key, parameterName, schema, syntax) }
-        }.getOrNull()
+            relevantKeys.forEach { key -> ObjectQueryKeyParser.parseWithSchema(key, parameterName, schema, syntax) }
+        }.isSuccess
     }
 
     private fun String.couldBelongTo(parameterName: String, schema: NestedQuerySchema.Object): Boolean {
@@ -545,29 +568,7 @@ private data class NestedQuerySyntaxBranch(
     val displayName: String
 )
 
-private data class CandidateParse(val syntax: ObjectQuerySyntax, val paths: List<ParsedQueryObjectPath>) {
-    fun missingBranches(requiredBranches: Set<NestedQuerySyntaxBranch>): Set<NestedQuerySyntaxBranch> {
-        return requiredBranches.filterNot { branch ->
-            paths.any { parsedPath -> parsedPath.covers(branch) }
-        }.toSet()
-    }
-}
-
-private fun ParsedQueryObjectPath.covers(branch: NestedQuerySyntaxBranch): Boolean {
-    return terminalSchema is NestedQuerySchema.Scalar && path.tokens.matches(branch.tokens)
-}
-
-private fun List<QueryObjectPathToken>.matches(branchTokens: List<NestedQuerySyntaxBranchToken>): Boolean {
-    if (size < branchTokens.size) return false
-
-    return branchTokens.zip(take(branchTokens.size)).all { (branchToken, pathToken) ->
-        when (branchToken) {
-            is NestedQuerySyntaxBranchToken.Property -> pathToken is QueryObjectPathToken.Property && pathToken.name == branchToken.name
-            NestedQuerySyntaxBranchToken.AnyProperty -> pathToken is QueryObjectPathToken.Property
-            NestedQuerySyntaxBranchToken.AnyIndex -> pathToken is QueryObjectPathToken.Index
-        }
-    }
-}
+private data class CandidateParse(val syntax: ObjectQuerySyntax)
 
 private data class QueryObjectPathParserState(
     val schema: NestedQuerySchema,
