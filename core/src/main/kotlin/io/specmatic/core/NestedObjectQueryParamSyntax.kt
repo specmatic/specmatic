@@ -10,15 +10,29 @@ data class ObjectQuerySyntax(
     val arrayIndexStyle: QueryArrayIndexStyle
 )
 
-enum class ObjectQueryRoot {
-    ParameterNameWrapped,
-    ParameterNameDotWrapped,
-    Unwrapped
+enum class ObjectQueryRoot(val displayName: String) {
+    ParameterNameWrapped("parameter-name bracket wrapping") {
+        override fun keyForRootProperty(parameterName: String, propertyName: String): String = "$parameterName[$propertyName]"
+    },
+    ParameterNameDotWrapped("parameter-name dot wrapping") {
+        override fun keyForRootProperty(parameterName: String, propertyName: String): String = "$parameterName.$propertyName"
+    },
+    Unwrapped("unwrapped query keys") {
+        override fun keyForRootProperty(parameterName: String, propertyName: String): String = propertyName
+    };
+
+    abstract fun keyForRootProperty(parameterName: String, propertyName: String): String
 }
 
-enum class QueryPropertyStyle {
-    Bracket,
-    Dot
+enum class QueryPropertyStyle(val displayName: String) {
+    Bracket("bracket property notation") {
+        override fun appendProperty(key: String, propertyName: String): String = "$key[$propertyName]"
+    },
+    Dot("dot property notation") {
+        override fun appendProperty(key: String, propertyName: String): String = "$key.$propertyName"
+    };
+
+    abstract fun appendProperty(key: String, propertyName: String): String
 }
 
 enum class QueryArrayIndexStyle {
@@ -40,38 +54,68 @@ sealed class NestedQuerySchema {
     private fun schemaAt(tokens: List<QueryObjectPathToken>): NestedQuerySchema? {
         if (tokens.isEmpty()) return this
 
-        return when (this) {
-            is Object -> childSchema(tokens.first())?.schemaAt(tokens.drop(1))
-            is Array -> itemSchemaFor(tokens.first())?.schemaAt(tokens.drop(1))
-            Scalar, is Ambiguous -> null
-        }
+        return childSchema(tokens.first())?.schemaAt(tokens.drop(1))
     }
 
-    private fun Object.childSchema(token: QueryObjectPathToken): NestedQuerySchema? {
-        val property = token as? QueryObjectPathToken.Property ?: return null
+    protected abstract fun childSchema(token: QueryObjectPathToken): NestedQuerySchema?
+    internal abstract fun requiresSyntaxExampleAtPath(): Boolean
+    internal abstract fun requiresPropertyStyleGuidance(): Boolean
 
-        return properties[property.name]
-            ?: additionalProperties
-            ?: if (allowsAnyAdditionalProperties) Scalar else null
+    data object Scalar : NestedQuerySchema() {
+        override fun childSchema(token: QueryObjectPathToken): NestedQuerySchema? = null
+        override fun requiresSyntaxExampleAtPath(): Boolean = false
+        override fun requiresPropertyStyleGuidance(): Boolean = false
     }
-
-    private fun Array.itemSchemaFor(token: QueryObjectPathToken): NestedQuerySchema? {
-        if (token !is QueryObjectPathToken.Index) return null
-
-        return itemSchema
-    }
-
-    data object Scalar : NestedQuerySchema()
 
     data class Object(
         val properties: Map<String, NestedQuerySchema>,
         val additionalProperties: NestedQuerySchema? = null,
         val allowsAnyAdditionalProperties: Boolean = false
-    ) : NestedQuerySchema()
+    ) : NestedQuerySchema() {
+        override fun childSchema(token: QueryObjectPathToken): NestedQuerySchema? {
+            val property = token as? QueryObjectPathToken.Property ?: return null
 
-    data class Array(val itemSchema: NestedQuerySchema) : NestedQuerySchema()
+            return properties[property.name]
+                ?: additionalProperties
+                ?: if (allowsAnyAdditionalProperties) Scalar else null
+        }
 
-    data class Ambiguous(val reason: String) : NestedQuerySchema()
+        override fun requiresSyntaxExampleAtPath(): Boolean = true
+
+        override fun requiresPropertyStyleGuidance(): Boolean {
+            return properties.isNotEmpty() || additionalProperties != null || allowsAnyAdditionalProperties
+        }
+
+        fun requiresSyntaxExamples(): Boolean {
+            return syntaxGuidanceChildSchemas().any { schema -> schema.requiresSyntaxExampleAtPath() }
+        }
+
+        fun requiresNestedPropertyStyle(): Boolean {
+            return syntaxGuidanceChildSchemas().any { schema -> schema.requiresPropertyStyleGuidance() } ||
+                allowsAnyAdditionalProperties
+        }
+
+        private fun syntaxGuidanceChildSchemas(): List<NestedQuerySchema> {
+            return properties.values.toList() + listOfNotNull(additionalProperties)
+        }
+    }
+
+    data class Array(val itemSchema: NestedQuerySchema) : NestedQuerySchema() {
+        override fun childSchema(token: QueryObjectPathToken): NestedQuerySchema? {
+            if (token !is QueryObjectPathToken.Index) return null
+
+            return itemSchema
+        }
+
+        override fun requiresSyntaxExampleAtPath(): Boolean = true
+        override fun requiresPropertyStyleGuidance(): Boolean = itemSchema.requiresPropertyStyleGuidance()
+    }
+
+    data class Ambiguous(val reason: String) : NestedQuerySchema() {
+        override fun childSchema(token: QueryObjectPathToken): NestedQuerySchema? = null
+        override fun requiresSyntaxExampleAtPath(): Boolean = true
+        override fun requiresPropertyStyleGuidance(): Boolean = true
+    }
 }
 
 object ObjectQueryKeyParser {
@@ -176,24 +220,13 @@ object ObjectQueryKeySerializer {
         val first = path.tokens.firstOrNull() as? QueryObjectPathToken.Property
             ?: throw ContractException("Query object path must start with a property")
 
-        val start = when (syntax.root) {
-            ObjectQueryRoot.Unwrapped -> first.name
-            ObjectQueryRoot.ParameterNameWrapped -> "$parameterName[${first.name}]"
-            ObjectQueryRoot.ParameterNameDotWrapped -> "$parameterName.${first.name}"
-        }
+        val start = syntax.root.keyForRootProperty(parameterName, first.name)
 
         return path.tokens.drop(1).fold(start) { key, token ->
             when (token) {
                 is QueryObjectPathToken.Index -> "$key[${token.index}]"
-                is QueryObjectPathToken.Property -> appendProperty(key, token.name, syntax.propertyStyle)
+                is QueryObjectPathToken.Property -> syntax.propertyStyle.appendProperty(key, token.name)
             }
-        }
-    }
-
-    private fun appendProperty(key: String, propertyName: String, propertyStyle: QueryPropertyStyle): String {
-        return when (propertyStyle) {
-            QueryPropertyStyle.Bracket -> "$key[$propertyName]"
-            QueryPropertyStyle.Dot -> "$key.$propertyName"
         }
     }
 }
@@ -227,8 +260,7 @@ object NestedObjectQuerySyntaxInference {
         schema: NestedQuerySchema.Object,
         examples: List<String>
     ): NestedQuerySyntaxInferenceResult {
-        val requiredBranches = schema.requiredSyntaxBranches()
-        if (requiredBranches.isEmpty()) return NestedQuerySyntaxInferenceResult.SyntaxNotRequired
+        if (!schema.requiresSyntaxExamples()) return NestedQuerySyntaxInferenceResult.SyntaxNotRequired
 
         if (examples.isEmpty()) {
             return NestedQuerySyntaxInferenceResult.Failure(listOf(missingExampleMessage(parameterName)))
@@ -372,10 +404,6 @@ object NestedObjectQuerySyntaxInference {
 
 }
 
-private fun NestedQuerySchema.Object.requiredSyntaxBranches(): Set<NestedQuerySyntaxBranch> {
-    return requiredSyntaxBranches(prefix = emptyList(), displayPrefix = "")
-}
-
 private data class RequiredSyntaxGuidance(
     val propertyStyle: Boolean
 )
@@ -452,26 +480,11 @@ private fun <T> mergeGuidance(
 }
 
 private fun conflictingRootStyleMessage(existing: InferredValue<ObjectQueryRoot>, candidate: InferredValue<ObjectQueryRoot>): String {
-    return "Examples use conflicting root serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName()}, but \"${candidate.key}\" uses ${candidate.value.displayName()}."
+    return "Examples use conflicting root serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName}, but \"${candidate.key}\" uses ${candidate.value.displayName}."
 }
 
 private fun conflictingPropertyStyleMessage(existing: InferredValue<QueryPropertyStyle>, candidate: InferredValue<QueryPropertyStyle>): String {
-    return "Examples use conflicting property serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName()}, but \"${candidate.key}\" uses ${candidate.value.displayName()}."
-}
-
-private fun ObjectQueryRoot.displayName(): String {
-    return when (this) {
-        ObjectQueryRoot.ParameterNameWrapped -> "parameter-name bracket wrapping"
-        ObjectQueryRoot.ParameterNameDotWrapped -> "parameter-name dot wrapping"
-        ObjectQueryRoot.Unwrapped -> "unwrapped query keys"
-    }
-}
-
-private fun QueryPropertyStyle.displayName(): String {
-    return when (this) {
-        QueryPropertyStyle.Bracket -> "bracket property notation"
-        QueryPropertyStyle.Dot -> "dot property notation"
-    }
+    return "Examples use conflicting property serialization styles for nested query parameters: \"${existing.key}\" uses ${existing.value.displayName}, but \"${candidate.key}\" uses ${candidate.value.displayName}."
 }
 
 private fun List<CandidateParse>.singlePropertyStyleOrNull(requiredGuidance: RequiredSyntaxGuidance): QueryPropertyStyle? {
@@ -479,94 +492,6 @@ private fun List<CandidateParse>.singlePropertyStyleOrNull(requiredGuidance: Req
 
     return map { it.syntax.propertyStyle }.distinct().singleOrNull()
 }
-
-private fun NestedQuerySchema.Object.requiresNestedPropertyStyle(): Boolean {
-    return properties.values.any(NestedQuerySchema::requiresNestedPropertyStyle) ||
-        additionalProperties?.requiresNestedPropertyStyle() == true ||
-        allowsAnyAdditionalProperties
-}
-
-private fun NestedQuerySchema.requiresNestedPropertyStyle(): Boolean {
-    return when (this) {
-        is NestedQuerySchema.Scalar -> false
-        is NestedQuerySchema.Array -> itemSchema.requiresPropertyStyleInsideArray()
-        is NestedQuerySchema.Object -> properties.isNotEmpty() || additionalProperties != null || allowsAnyAdditionalProperties
-        is NestedQuerySchema.Ambiguous -> true
-    }
-}
-
-private fun NestedQuerySchema.requiresPropertyStyleInsideArray(): Boolean {
-    return when (this) {
-        is NestedQuerySchema.Scalar -> false
-        is NestedQuerySchema.Array -> itemSchema.requiresPropertyStyleInsideArray()
-        is NestedQuerySchema.Object -> properties.isNotEmpty() || additionalProperties != null || allowsAnyAdditionalProperties
-        is NestedQuerySchema.Ambiguous -> true
-    }
-}
-
-private fun NestedQuerySchema.requiredSyntaxBranches(
-    prefix: List<NestedQuerySyntaxBranchToken>,
-    displayPrefix: String
-): Set<NestedQuerySyntaxBranch> {
-    return when (this) {
-        is NestedQuerySchema.Scalar -> emptySet()
-        is NestedQuerySchema.Ambiguous -> setOf(NestedQuerySyntaxBranch(prefix, displayPrefix))
-        is NestedQuerySchema.Array -> {
-            val branchPrefix = prefix + NestedQuerySyntaxBranchToken.AnyIndex
-            val branchDisplayName = "$displayPrefix[]"
-            setOf(NestedQuerySyntaxBranch(branchPrefix, branchDisplayName)) +
-                itemSchema.requiredSyntaxBranches(branchPrefix, branchDisplayName)
-        }
-        is NestedQuerySchema.Object -> {
-            val declaredPropertyBranches = properties.flatMap { (propertyName, propertySchema) ->
-                val propertyPrefix = prefix + NestedQuerySyntaxBranchToken.Property(propertyName)
-                val propertyDisplayName = displayName(displayPrefix, propertyName)
-                propertySchema.requiredBranchesAt(propertyPrefix, propertyDisplayName)
-            }
-
-            val additionalPropertyBranches = additionalProperties?.let { additionalPropertiesSchema ->
-                val propertyPrefix = prefix + NestedQuerySyntaxBranchToken.AnyProperty
-                val propertyDisplayName = displayName(displayPrefix, "<additionalProperty>")
-                additionalPropertiesSchema.requiredBranchesAt(propertyPrefix, propertyDisplayName)
-            }.orEmpty()
-
-            (declaredPropertyBranches + additionalPropertyBranches).toSet()
-        }
-    }
-}
-
-private fun NestedQuerySchema.requiredBranchesAt(
-    prefix: List<NestedQuerySyntaxBranchToken>,
-    displayName: String
-): Set<NestedQuerySyntaxBranch> {
-    return when (this) {
-        is NestedQuerySchema.Scalar -> emptySet()
-        is NestedQuerySchema.Array -> {
-            val arrayBranchPrefix = prefix + NestedQuerySyntaxBranchToken.AnyIndex
-            val arrayBranchDisplayName = "$displayName[]"
-            setOf(NestedQuerySyntaxBranch(arrayBranchPrefix, arrayBranchDisplayName)) +
-                itemSchema.requiredSyntaxBranches(arrayBranchPrefix, arrayBranchDisplayName)
-        }
-        is NestedQuerySchema.Object -> setOf(NestedQuerySyntaxBranch(prefix, displayName)) +
-            requiredSyntaxBranches(prefix, displayName)
-        is NestedQuerySchema.Ambiguous -> setOf(NestedQuerySyntaxBranch(prefix, displayName))
-    }
-}
-
-private fun displayName(prefix: String, token: String): String {
-    return if (prefix.isBlank()) token else "$prefix.$token"
-}
-
-private sealed class NestedQuerySyntaxBranchToken {
-    data class Property(val name: String) : NestedQuerySyntaxBranchToken()
-    data object AnyProperty : NestedQuerySyntaxBranchToken()
-    data object AnyIndex : NestedQuerySyntaxBranchToken()
-}
-
-private data class NestedQuerySyntaxBranch(
-    val tokens: List<NestedQuerySyntaxBranchToken>,
-    val displayName: String
-)
 
 private data class CandidateParse(val syntax: ObjectQuerySyntax)
 
