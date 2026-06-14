@@ -8,17 +8,21 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.FeatureStubsResult
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
+import io.specmatic.stub.loadContractStubsAsResults
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.api.assertThrows
 import java.io.File
 
 class MethodNotAllowedExamplesTest {
@@ -197,8 +201,12 @@ class MethodNotAllowedExamplesTest {
 
         val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
 
-        assertThat(unusedExamples).containsExactly(exampleFile.canonicalPath)
+        assertThat(unusedExamples).isEmpty()
         val scenario = feature.scenarios.single { it.method == "GET" && it.status == 405 }
+        assertThat(scenario.hasExamples()).isTrue()
+        assertThat(feature.scenarios.filter { it.status == 405 && it.hasExamples() }.map { it.method })
+            .containsExactly("GET")
+
         val matchResult = scenario.matches(
             HttpRequest(method = "GET", path = "/orders/10"),
             HttpResponse(
@@ -211,7 +219,27 @@ class MethodNotAllowedExamplesTest {
         )
 
         assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
-        assertThat((matchResult as Result.Failure).reportString()).contains("Expected method not to be one of DELETE, GET")
+        val expectedMethodError = "Expected method not to be one of DELETE, GET"
+        assertThat((matchResult as Result.Failure).reportString()).contains(expectedMethodError)
+
+        val validationException = assertThrows<ContractException> { feature.validateExamplesOrException() }
+        val validationExceptionMessage = validationException.message.orEmpty()
+        assertThat(validationExceptionMessage).contains(expectedMethodError)
+        assertThat(Regex(Regex.escape(expectedMethodError)).findAll(validationExceptionMessage).count()).isEqualTo(1)
+
+        val validationMessage = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExample(specFile, exampleFile)
+            .errorMessage
+        assertThat(validationMessage).contains(expectedMethodError)
+        assertThat(validationMessage).doesNotContain("No matching specification found for this example")
+
+        val stubLoadFailure = loadContractStubsAsResults(
+            features = listOf(specFile.canonicalPath to feature),
+            stubData = listOf(exampleFile.canonicalPath to ScenarioStub.readFromFile(exampleFile)),
+            logIgnoredFiles = true
+        ).filterIsInstance<FeatureStubsResult.Failure>().single()
+        assertThat(stubLoadFailure.errorMessage).contains(expectedMethodError)
+        assertThat(stubLoadFailure.errorMessage).doesNotContain("No matching REST stub or contract found")
     }
 
     @Test
@@ -255,7 +283,16 @@ class MethodNotAllowedExamplesTest {
             val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
             val exampleStub = ScenarioStub.readFromFile(exampleFile)
 
-            assertThat(unusedExamples).containsExactly(exampleFile.canonicalPath)
+            assertThat(unusedExamples).isEmpty()
+            assertThat(feature.scenarios.filter { it.status == 405 && it.hasExamples() }.map { it.method })
+                .containsExactly(rejectedExample.requestMethod)
+
+            val expectedMethodError = "Expected method not to be one of POST, PUT"
+            val validationException = assertThrows<ContractException> { feature.validateExamplesOrException() }
+            val validationExceptionMessage = validationException.message.orEmpty()
+            assertThat(validationExceptionMessage).contains(expectedMethodError)
+            assertThat(Regex(Regex.escape(expectedMethodError)).findAll(validationExceptionMessage).count()).isEqualTo(1)
+
             val matchResult = feature.scenarios
                 .filter { it.status == 405 }
                 .map {
@@ -269,7 +306,7 @@ class MethodNotAllowedExamplesTest {
 
             assertThat(matchResult).allSatisfy {
                 assertThat(it).isInstanceOf(Result.Failure::class.java)
-                assertThat((it as Result.Failure).reportString()).contains("Expected method not to be one of POST, PUT")
+                assertThat((it as Result.Failure).reportString()).contains(expectedMethodError)
             }
         }
     }

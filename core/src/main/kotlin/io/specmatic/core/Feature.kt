@@ -392,8 +392,7 @@ data class Feature(
         val requestedResponseStatus = responseStatus ?: httpRequest.expectedResponseCode()
         val statusSortedScenarios = sortByExpectedResponseStatus(requestedResponseStatus, scenarios)
         val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario ->
-            scenario.matchesPathStructureAndMethod(httpRequest) ||
-                    scenario.matchesPathStructureWithRequestRejection(httpRequest, requestedResponseStatus)
+            scenario.matchesPathStructureConsideringRequestRejection(httpRequest, requestedResponseStatus)
         }
 
         if (requestedResponseStatus != null) {

@@ -9,6 +9,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
@@ -21,6 +22,7 @@ import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.api.assertThrows
 import java.io.File
 
 class UnsupportedMediaTypeExamplesTest {
@@ -205,9 +207,12 @@ class UnsupportedMediaTypeExamplesTest {
 
         val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
 
-        assertThat(unusedExamples).containsExactly(exampleFile.canonicalPath)
+        assertThat(unusedExamples).isEmpty()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.method == "POST" && it.status == 415 }
+        assertThat(unsupportedMediaTypeScenario.hasExamples()).isTrue()
+
         val exampleStub = ScenarioStub.readFromFile(exampleFile)
-        val matchResult = feature.scenarios.single { it.method == "POST" && it.status == 415 }.matches(
+        val matchResult = unsupportedMediaTypeScenario.matches(
             exampleStub.request,
             exampleStub.response,
             mismatchMessages = DefaultMismatchMessages,
@@ -215,8 +220,20 @@ class UnsupportedMediaTypeExamplesTest {
         )
 
         assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
+        val expectedMediaTypeError = "Request Content-Type \"application/json\" is supported by the specification"
         assertThat((matchResult as Result.Failure).reportString())
-            .contains("Request Content-Type \"application/json\" is supported by the specification")
+            .contains(expectedMediaTypeError)
+
+        val validationException = assertThrows<ContractException> { feature.validateExamplesOrException() }
+        val validationExceptionMessage = validationException.message.orEmpty()
+        assertThat(validationExceptionMessage).contains(expectedMediaTypeError)
+        assertThat(Regex(Regex.escape(expectedMediaTypeError)).findAll(validationExceptionMessage).count()).isEqualTo(1)
+
+        val validationMessage = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExample(specFile, exampleFile)
+            .errorMessage
+        assertThat(validationMessage).contains(expectedMediaTypeError)
+        assertThat(validationMessage).doesNotContain("No matching specification found for this example")
     }
 
     @Test
