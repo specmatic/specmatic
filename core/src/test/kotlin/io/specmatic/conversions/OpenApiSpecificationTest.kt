@@ -13726,6 +13726,91 @@ paths:
     }
 
     @Test
+    fun `external bracket-wrapped nested object query example reports serialized query key breadcrumb`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("my-day-details_200.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/my-day-details",
+                "query": {
+                  "mydayId": "TAAC041761259272ZSPB",
+                  "msResponse[status]": 200,
+                  "msResponse[errors][0][code]": "ERROR"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "status": 200
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val spec = """
+            openapi: 3.0.1
+            info:
+              title: Bracket Wrapped Nested Query Breadcrumb
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: msResponse[status]=200&msResponse[errors][0][message]=ERROR
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                MicroserviceError:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(
+            spec,
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+        val report = validationResult.reportString()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.msResponse[errors][0][code]")
+        assertThat(report).contains("Unknown query object property \"code\"")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.msResponse.errors[0].code")
+    }
+
+    @Test
     fun `external nested object query example reports scalar type mismatch inside level two array item`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val report = nestedObjectAndArrayExternalExampleValidationReport(
             tempDir,

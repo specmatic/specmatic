@@ -269,45 +269,58 @@ private fun JSONObjectPattern.childPattern(token: QueryObjectPathToken): Pattern
         }
 }
 
-internal fun Result.rewriteUnwrappedNestedObjectBreadcrumb(nestedObjectQueryParam: NestedObjectQueryParam?): Result {
-    if (nestedObjectQueryParam?.syntax?.root != ObjectQueryRoot.Unwrapped) return this
+internal fun Result.withNestedObjectQueryKeyBreadcrumb(nestedObjectQueryParam: NestedObjectQueryParam?): Result {
+    if (nestedObjectQueryParam == null) return this
 
     return when (this) {
-        is Result.Failure -> dropLeadingBreadCrumb(nestedObjectQueryParam.parameterName)
+        is Result.Failure -> collapseSchemaPathBreadcrumbToQueryKey(nestedObjectQueryParam, emptyList())
         else -> this
     }
 }
 
-private fun Result.Failure.dropLeadingBreadCrumb(target: String, hasSeenNonBlankBreadCrumb: Boolean = false): Result.Failure {
-    val shouldDropHere = !hasSeenNonBlankBreadCrumb && breadCrumb == target
-    val nextSeenNonBlankBreadCrumb = hasSeenNonBlankBreadCrumb || (breadCrumb.isNotBlank() && !shouldDropHere)
+private fun Result.Failure.collapseSchemaPathBreadcrumbToQueryKey(
+    nestedObjectQueryParam: NestedObjectQueryParam,
+    pathTokens: List<QueryObjectPathToken>
+): Result.Failure {
+    val breadcrumbToken = breadCrumb.toQueryObjectPathTokenOrNull()
+    val updatedPathTokens = breadcrumbToken?.let { pathTokens + it } ?: pathTokens
+    val updatedCauses = causes.map { failureCause ->
+        failureCause.copy(cause = failureCause.cause?.collapseSchemaPathBreadcrumbToQueryKey(nestedObjectQueryParam, updatedPathTokens))
+    }
 
-    return copy(
-        breadCrumb = if (shouldDropHere) "" else breadCrumb,
-        causes = causes.map { failureCause ->
-            failureCause.copy(cause = failureCause.cause?.dropLeadingBreadCrumb(target, nextSeenNonBlankBreadCrumb))
-        }
-    )
+    return when {
+        updatedCauses.any { it.cause != null } -> copy(breadCrumb = if (breadcrumbToken == null) breadCrumb else "", causes = updatedCauses)
+        updatedPathTokens.isNotEmpty() -> copy(
+            breadCrumb = ObjectQueryKeySerializer.serialize(
+                QueryObjectPath(updatedPathTokens),
+                nestedObjectQueryParam.parameterName,
+                nestedObjectQueryParam.syntax
+            ),
+            causes = updatedCauses
+        )
+        else -> copy(causes = updatedCauses)
+    }
+}
+
+private fun String.toQueryObjectPathTokenOrNull(): QueryObjectPathToken? {
+    val arrayIndex = removePrefix("[").removeSuffix("]").toIntOrNull()
+    if (startsWith("[") && endsWith("]") && arrayIndex != null) return QueryObjectPathToken.Index(arrayIndex)
+    if (isBlank() || contains(".")) return null
+
+    return QueryObjectPathToken.Property(this)
 }
 
 private fun Result.Failure.withNestedObjectPathBreadcrumb(
     nestedObjectQueryParam: NestedObjectQueryParam,
     path: QueryObjectPath
 ): Result.Failure {
-    val pathBreadcrumbs = path.tokens.map {
-        when (it) {
-            is QueryObjectPathToken.Property -> it.name
-            is QueryObjectPathToken.Index -> "[${it.index}]"
-        }
-    }
-    val breadcrumbs = when (nestedObjectQueryParam.syntax.root) {
-        ObjectQueryRoot.Unwrapped -> pathBreadcrumbs
-        else -> listOf(nestedObjectQueryParam.parameterName) + pathBreadcrumbs
-    }
-
-    return breadcrumbs.asReversed().fold(this as Result) { result, breadcrumb ->
-        result.breadCrumb(breadcrumb)
-    } as Result.Failure
+    return breadCrumb(
+        ObjectQueryKeySerializer.serialize(
+            path,
+            nestedObjectQueryParam.parameterName,
+            nestedObjectQueryParam.syntax
+        )
+    )
 }
 
 private fun JSONObjectValue.insert(path: QueryObjectPath, value: Value): Value {

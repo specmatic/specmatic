@@ -196,9 +196,9 @@ data class HttpQueryParamPattern(
             val keyWithoutOptionality = withoutOptionality(key)
             val reconstructedNestedObjectValue = parsedNestedObjectQueryParams.reconstructedObjectValues[keyWithoutOptionality]
             if (reconstructedNestedObjectValue != null) {
+                val nestedObjectQueryParam = nestedObjectQueryParamsByName()[keyWithoutOptionality]
                 return@mapNotNull resolver.matchesPattern(keyWithoutOptionality, parameterPattern, reconstructedNestedObjectValue)
-                    .breadCrumb(keyWithoutOptionality, resolver.locate(parameterPointers[keyWithoutOptionality]))
-                    .rewriteUnwrappedNestedObjectBreadcrumb(nestedObjectQueryParamsByName()[keyWithoutOptionality])
+                    .withNestedObjectQueryKeyBreadcrumb(nestedObjectQueryParam)
             }
 
             val requestValues = queryParams.getValues(keyWithoutOptionality)
