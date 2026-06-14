@@ -169,6 +169,16 @@ sealed class NestedQuerySchema {
                 allowsAnyAdditionalProperties
         }
 
+        internal fun couldOwnQueryKey(key: String, parameterName: String): Boolean {
+            return ObjectQueryRoot.explicitRootFor(key, parameterName) != null || couldStartWithRootProperty(key)
+        }
+
+        internal fun couldStartWithRootProperty(key: String): Boolean {
+            return properties.keys.any { propertyName ->
+                key == propertyName || key.startsWith("$propertyName.") || key.startsWith("$propertyName[")
+            }
+        }
+
         private fun syntaxGuidanceChildSchemas(): List<NestedQuerySchema> {
             return properties.values.toList() + listOfNotNull(additionalProperties)
         }
@@ -417,12 +427,7 @@ object NestedObjectQuerySyntaxInference {
     }
 
     private fun String.couldBelongTo(parameterName: String, schema: NestedQuerySchema.Object): Boolean {
-        if (startsWith("$parameterName[")) return true
-        if (startsWith("$parameterName.")) return true
-
-        return schema.properties.keys.any { propertyName ->
-            this == propertyName || startsWith("$propertyName.") || startsWith("$propertyName[")
-        }
+        return schema.couldOwnQueryKey(this, parameterName)
     }
 
     private fun queryKeysFrom(example: String): List<String> {

@@ -281,7 +281,7 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Failure::class.java)
-        assertThat((result as Failure).reportString()).contains("details", "address", "city")
+        assertThat((result as Failure).reportString()).contains("address[0].city")
     }
 
     @Test
@@ -320,7 +320,7 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Failure::class.java)
-        assertThat((result as Failure).reportString()).contains("details", "filter", "data", "name")
+        assertThat((result as Failure).reportString()).contains("filter.data.name")
     }
 
     @Test
@@ -485,7 +485,7 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Failure::class.java)
-        assertThat((result as Failure).reportString()).contains("filter.price.min", "number")
+        assertThat((result as Failure).reportString()).contains("price.min", "number")
     }
 
     @Test
