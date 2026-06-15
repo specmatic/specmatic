@@ -12789,21 +12789,16 @@ paths:
     }
 
     @Test
-    fun `inline examples validate execute and mock through scalar-first authoritative collision owner in lenient mode`() {
+    fun `inline examples validate execute and mock through scalar declared last collision owner in lenient mode`() {
         val spec = """
             openapi: 3.0.0
             info:
-              title: Scalar First Query Param Collision Inline Example
+              title: Scalar Last Query Param Collision Inline Example
               version: 1.0.0
             paths:
               /data:
                 get:
                   parameters:
-                    - in: query
-                      name: age
-                      required: false
-                      schema:
-                        type: string
                     - in: query
                       name: info
                       required: false
@@ -12818,6 +12813,11 @@ paths:
                         SUCCESS:
                           value:
                             age: abc
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: string
                   responses:
                     '200':
                       description: OK
@@ -12865,16 +12865,21 @@ paths:
     }
 
     @Test
-    fun `inline examples fail validation through object-first authoritative collision owner in lenient mode`() {
+    fun `inline examples fail validation through object property declared last collision owner in lenient mode`() {
         val spec = """
             openapi: 3.0.0
             info:
-              title: Object First Query Param Collision Invalid Inline Example
+              title: Object Last Query Param Collision Invalid Inline Example
               version: 1.0.0
             paths:
               /data:
                 get:
                   parameters:
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: string
                     - in: query
                       name: info
                       required: false
@@ -12894,11 +12899,6 @@ paths:
                           value:
                             age: abc
                             name: Jane
-                    - in: query
-                      name: age
-                      required: false
-                      schema:
-                        type: string
                   responses:
                     '200':
                       description: OK

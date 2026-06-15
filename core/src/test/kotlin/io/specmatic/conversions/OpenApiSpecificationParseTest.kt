@@ -227,6 +227,49 @@ class OpenApiSpecificationParseTest {
         assertThat(headerPattern).isInstanceOf(NumberPattern::class.java)
     }
 
+    @Test
+    fun `scalar only query parameters with unique wire keys should not create collision groups`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Scalar Query Params
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: page
+                      required: true
+                      schema:
+                        type: integer
+                    - in: query
+                      name: status
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+        """.trimIndent()
+
+        val queryParamPattern = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().httpRequestPattern.httpQueryParamPattern
+        val queryPatterns = queryParamPattern.queryPatterns
+
+        assertThat(queryPatterns.keys).containsExactlyInAnyOrder("page", "status?")
+        assertThat(queryPatterns["page"]).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((queryPatterns["page"] as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
+        assertThat(queryPatterns["status?"]).isInstanceOf(QueryParameterScalarPattern::class.java)
+        assertThat((queryPatterns["status?"] as QueryParameterScalarPattern).pattern).isInstanceOf(StringPattern::class.java)
+        assertThat(queryParamPattern.collisionGroupsByWireKey).isEmpty()
+        assertThat(
+            queryParamPattern.matches(
+                HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("page" to "1", "status" to "open"))),
+                Resolver()
+            )
+        ).isInstanceOf(Result.Success::class.java)
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
     fun `should parse form exploded object query parameter properties as query params`(explicitSerialization: Boolean) {
