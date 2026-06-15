@@ -10,11 +10,12 @@ import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.modelcontextprotocol.server.McpServerFeatures
 
-class SpecmaticMcpToolProvider : McpToolProvider {
+class SpecmaticMcpToolProvider(
+    private val contractTestTool: ContractTestTool = ContractTestTool(),
+    private val mockServerTool: MockServerTool = MockServerTool(),
+    private val backwardCompatibilityTool: BackwardCompatibilityTool = BackwardCompatibilityTool()
+) : McpToolProvider {
     private val objectMapper = jacksonObjectMapper()
-    private val contractTestTool = ContractTestTool()
-    private val mockServerTool = MockServerTool()
-    private val backwardCompatibilityTool = BackwardCompatibilityTool()
 
     override fun tools(): List<McpServerFeatures.SyncToolSpecification> {
         return listOf(

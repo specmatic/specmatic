@@ -31,9 +31,7 @@ class SpecmaticMcpServer(
     private fun tools(): List<McpServerFeatures.SyncToolSpecification> {
         System.err.println("Registering Specmatic MCP tools...")
         val providers = ServiceLoader.load(McpToolProvider::class.java).toList()
-        if(!providers.isEmpty()){
-           return  providers.flatMap {  it.tools() }
-        }
+        if (!providers.isEmpty()) return providers.flatMap { it.tools() }
         return SpecmaticMcpToolProvider().tools()
     }
 
@@ -66,8 +64,8 @@ class SpecmaticMcpServer(
     private fun findStdioThread(): Thread? {
         return Thread.getAllStackTraces().entries.firstOrNull { (thread, stackTrace) ->
             !thread.isDaemon &&
-                thread != Thread.currentThread() &&
-                stackTrace.any { it.className.startsWith("io.modelcontextprotocol.server.transport.StdioServerTransportProvider") }
+                    thread != Thread.currentThread() &&
+                    stackTrace.any { it.className.startsWith("io.modelcontextprotocol.server.transport.StdioServerTransportProvider") }
         }?.key
     }
 
