@@ -392,7 +392,7 @@ data class Feature(
         val requestedResponseStatus = responseStatus ?: httpRequest.expectedResponseCode()
         val statusSortedScenarios = sortByExpectedResponseStatus(requestedResponseStatus, scenarios)
         val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario ->
-            scenario.matchesPathStructureConsideringRequestRejection(httpRequest, requestedResponseStatus)
+            scenario.canOwnRequestForExpectedStatus(httpRequest, requestedResponseStatus)
         }
 
         if (requestedResponseStatus != null) {
@@ -1255,8 +1255,9 @@ data class Feature(
 
     fun identifierMatchingScenario(httpRequest: HttpRequest, httpResponse: HttpResponse, furtherPredicate: (Scenario) -> Boolean = { true }, updateResolver: (Resolver) -> Resolver = { it }): Scenario? {
         return scenarios.firstOrNull { scenario ->
-            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updateResolver(scenario.resolver)).isSuccess()
-            && scenario.httpResponsePattern.matchesStatusAndContentType(httpResponse, updateResolver(scenario.resolver)).isSuccess()
+            val resolver = updateResolver(scenario.resolver)
+            scenario.identifierMatchesRequestForResponseStatus(httpRequest, httpResponse.status, resolver)
+            && scenario.httpResponsePattern.matchesStatusAndContentType(httpResponse, resolver).isSuccess()
             && furtherPredicate(scenario)
         }
     }
