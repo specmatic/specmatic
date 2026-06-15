@@ -2003,9 +2003,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun escapeJsonPointer(token: String): String =
-        token.replace("~", "~0").replace("/", "~1")
-
     private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
         sourceMapCache.getOrPut(file) {
             readExternalFileContent(file)?.let { JsonPointerSourceMap(it).build() }.orEmpty()
@@ -2703,7 +2700,7 @@ class OpenApiSpecification(
         return resolveSchema(schemaToProcess, collectorContext)
     }
 
-    private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
+    internal fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
         val schemaToProcess = collectorContext.requirePojo(
             message = { "No schema defined, defaulting to empty schema" },
             extract = { schema },
@@ -3282,11 +3279,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun toSpecmaticParamName(optional: Boolean, name: String) = when (optional) {
-        true -> "${name}?"
-        false -> name
-    }
-
     private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext): Pair<String, Schema<*>> {
         val componentName = extractComponentName(component, collectorContext)
         val components = parsedOpenApi.components ?: Components()
@@ -3342,9 +3334,13 @@ class OpenApiSpecification(
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
+        val nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam)
+        val collisionEntries = parsedQueryParameters.flatMap { it.entries + it.nestedObjectPropertyEntries }
         val collisionResolution = resolveQueryParameterCollisions(
             entries = queryPatternEntries,
+            collisionEntries = collisionEntries,
             formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
+            nestedObjectQueryParams = nestedObjectQueryParams,
             patterns = patterns
         )
 
@@ -3359,7 +3355,7 @@ class OpenApiSpecification(
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
             formExplodedObjectQueryParams = collisionResolution.formExplodedObjectQueryParams,
-            nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam),
+            nestedObjectQueryParams = collisionResolution.nestedObjectQueryParams,
             parameterPointers = queryParameterPointers,
             collisionGroupsByWireKey = collisionResolution.collisionGroupsByWireKey
         )
@@ -3369,6 +3365,7 @@ class OpenApiSpecification(
         val entries: List<QueryParameterPatternEntry>,
         val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
         val nestedObjectQueryParam: NestedObjectQueryParam? = null,
+        val nestedObjectPropertyEntries: List<QueryParameterPatternEntry> = emptyList(),
         val additionalProperties: Pattern? = null
     )
 
@@ -3455,6 +3452,13 @@ class OpenApiSpecification(
                     )
                 ),
                 nestedObjectQueryParam = nestedObjectQueryParam,
+                nestedObjectPropertyEntries = nestedObjectRootPropertyEntries(
+                    parameter = parameter,
+                    resolvedSchema = resolvedSchema,
+                    schemaContext = schemaContext,
+                    nestedObjectQueryParam = nestedObjectQueryParam,
+                    schemaPointer = schemaPointer
+                ),
                 additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
             )
         }
@@ -3506,7 +3510,7 @@ class OpenApiSpecification(
         return (style == null || style == Parameter.StyleEnum.FORM) && explode != false
     }
 
-    private fun toQueryParameterPattern(
+    internal fun toQueryParameterPattern(
         parameterName: String,
         schema: Schema<*>,
         resolvedSchema: Schema<*>,
