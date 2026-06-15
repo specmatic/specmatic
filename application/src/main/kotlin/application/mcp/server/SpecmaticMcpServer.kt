@@ -16,7 +16,6 @@ class SpecmaticMcpServer(
     inputStream: InputStream = System.`in`,
     outputStream: OutputStream = System.out
 ) : AutoCloseable {
-    private val enterpriseToolProviderIdentifier = "specmatic-enterprise-tools"
     private val server: McpSyncServer = McpServer.sync(
         StdioServerTransportProvider(McpJsonDefaults.getMapper(), inputStream, outputStream)
     )
@@ -30,21 +29,12 @@ class SpecmaticMcpServer(
         .build()
 
     private fun tools(): List<McpServerFeatures.SyncToolSpecification> {
-
         System.err.println("Registering Specmatic MCP tools...")
         val providers = ServiceLoader.load(McpToolProvider::class.java).toList()
-        val hasEnterpriseProvider = providers.any { it.identifier == enterpriseToolProviderIdentifier }
-
-        return providers.flatMap { provider ->
-            val tools = provider.tools()
-            if (hasEnterpriseProvider && provider is SpecmaticMcpToolProvider) {
-                tools.filterNot { it.tool().name() == "run_contract_test" }
-            } else {
-                tools
-            }
-        }.also {
-            System.err.println("Successfully registered ${it.size} tools.")
+        if(!providers.isEmpty()){
+           return  providers.flatMap {  it.tools() }
         }
+        return SpecmaticMcpToolProvider().tools()
     }
 
     fun run() {
