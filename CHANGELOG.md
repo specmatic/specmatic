@@ -11,9 +11,6 @@ Each release section should stand on its own and describe the behavior shipped i
 3. Do not call out noise such as workflow edits, `ci skip`, raw version bumps, dependency churn, or minor refactors unless they materially change product behavior.
 4. Keep each section standalone. Do not tell readers to look in another repo for the real notes.
 5. When this repo rolls in bundled reporting or licensing changes, describe the shipped effect here instead of pointing to another changelog.
-6. Load bad examples where the response is 422
-7. Make handling of collisions between scalar query param and query param object property names more pragmatic. No complaint if the type is the same, else a warning is printed, and the last declared parameter type is what is honored by Specmatic.
-8. Added support for nested objects and arrays in a query param object
 
 ## Dependency Fold Instructions
 
@@ -25,7 +22,7 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased (2.46.6)
+## Unreleased (2.47.0)
 
 ### Changed
 
@@ -34,6 +31,9 @@ Each release section should stand on its own and describe the behavior shipped i
 - Improved `specmatic config upgrade` output for legacy configurations by keeping global mock and test settings under top-level `specmatic.settings` instead of moving them into dependency or system-under-test sections.
 - Updated bundled reporting and licensing flows so license-aware CLI operations can use `--debug` for trace logging while retaining backward-compatible support for the older `--log-level` flag.
 - Improved bundled license CLI output with clearer success, warning, and error cues, including colorized level labels on ANSI-capable terminals.
+- Load bad examples where the response is 422
+- Make handling of collisions between scalar query param and query param object property names more pragmatic. No complaint if the type is the same, else a warning is printed, and the last declared parameter type is what is honored by Specmatic.
+- Added support for nested objects and arrays in a query param object
 
 ## 2.46.5 (2026-06-11)
 
