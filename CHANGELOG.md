@@ -11,6 +11,9 @@ Each release section should stand on its own and describe the behavior shipped i
 3. Do not call out noise such as workflow edits, `ci skip`, raw version bumps, dependency churn, or minor refactors unless they materially change product behavior.
 4. Keep each section standalone. Do not tell readers to look in another repo for the real notes.
 5. When this repo rolls in bundled reporting or licensing changes, describe the shipped effect here instead of pointing to another changelog.
+6. Load bad examples where the response is 422
+7. Make handling of collisions between scalar query param and query param object property names more pragmatic. No complaint if the type is the same, else a warning is printed, and the last declared parameter type is what is honored by Specmatic.
+8. Added support for nested objects and arrays in a query param object
 
 ## Dependency Fold Instructions
 
