@@ -243,6 +243,44 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
+    fun `405 example using declared method without required request content type is left unloadable`() {
+        val specFile = writeSpec(ordersSpec())
+        val exampleFile = writeExample(
+            name = "post-without-content-type",
+            requestMethod = "POST",
+            requestPath = "/orders",
+            requestBody = """"body": { "data": "found" }""",
+            responseStatus = 405,
+            responseBody = """"body": { "error": "occurred" }""",
+            requestContentType = null
+        )
+
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+
+        assertThat(unusedExamples).containsExactly(exampleFile.canonicalPath)
+        assertThat(feature.scenarios.filter { it.status == 405 && it.hasExamples() }).isEmpty()
+    }
+
+    @Test
+    fun `405 example using declared method with another operation request content type is left unloadable`() {
+        val specFile = writeSpec(ordersSpecWithTextPlainPut())
+        val exampleFile = writeExample(
+            name = "post-with-text-plain-put-body",
+            requestMethod = "POST",
+            requestPath = "/orders",
+            requestBody = """"body": "stuff goes here"""",
+            responseStatus = 405,
+            responseBody = """"body": { "error": "occurred" }""",
+            requestContentType = "text/plain"
+        )
+
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+
+        assertThat(unusedExamples).containsExactly(exampleFile.canonicalPath)
+        assertThat(feature.scenarios.filter { it.status == 405 && it.hasExamples() }).isEmpty()
+    }
+
+    @Test
     fun `405 examples using declared methods are rejected even when the payload matches another operation`() {
         val cases = listOf(
             RejectedExample(
@@ -258,13 +296,6 @@ class MethodNotAllowedExamplesTest {
                 requestMethod = "POST",
                 requestBody = """"body": { "content": "is great" }""",
                 requestContentType = "application/json"
-            ),
-            RejectedExample(
-                name = "post-with-text-plain-put-body",
-                spec = ordersSpecWithTextPlainPut(),
-                requestMethod = "POST",
-                requestBody = """"body": "stuff goes here"""",
-                requestContentType = "text/plain"
             )
         )
 

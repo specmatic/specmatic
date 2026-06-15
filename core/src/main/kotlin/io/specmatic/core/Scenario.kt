@@ -258,7 +258,7 @@ data class Scenario(
 
     private fun requestWithScenarioMethodCanOwnInvalid405Example(httpRequest: HttpRequest, resolver: Resolver): Boolean {
         return matchesPathStructureAndMethod(httpRequest, resolver) &&
-                requestContentTypeSelectsThisMethodNotAllowedScenario(httpRequest.contentType())
+                requestMediaTypeIdentifiesThisScenario(httpRequest)
     }
 
     private fun requestWithDifferentMethodCanBeValid405Example(httpRequest: HttpRequest, resolver: Resolver): Boolean {
@@ -1099,7 +1099,7 @@ data class Scenario(
         if (status == HttpStatusCode.MethodNotAllowed.value && operationId.requestMethod.isBlank()) return false
 
         return row.requestExample?.let { request ->
-            requestExampleBelongsToScenario(request, operationId, patternMatchingResolver)
+            requestExampleBelongsToScenario(request, patternMatchingResolver)
         } ?: matchesRequestOperationIdentifier(operationId, patternMatchingResolver)
     }
 
@@ -1122,11 +1122,10 @@ data class Scenario(
 
     private fun requestExampleBelongsToScenario(
         request: HttpRequest,
-        operationId: OpenApiSpecification.OperationIdentifier,
         resolver: Resolver
     ): Boolean {
         return when (status) {
-            HttpStatusCode.MethodNotAllowed.value -> methodNotAllowedRequestBelongsToScenario(request, operationId, resolver)
+            HttpStatusCode.MethodNotAllowed.value -> methodNotAllowedRequestBelongsToScenario(request, resolver)
             HttpStatusCode.UnsupportedMediaType.value -> unsupportedMediaTypeRequestBelongsToScenario(request, resolver)
             else -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
         }
@@ -1134,7 +1133,6 @@ data class Scenario(
 
     private fun methodNotAllowedRequestBelongsToScenario(
         request: HttpRequest,
-        operationId: OpenApiSpecification.OperationIdentifier,
         resolver: Resolver
     ): Boolean {
         val requestedMethod = request.method.orEmpty().uppercase()
@@ -1143,7 +1141,6 @@ data class Scenario(
         return when {
             requestedMethod == method.uppercase() -> requestExampleWithScenarioMethodCanOwnInvalid405Example(
                 request = request,
-                contentType = operationId.requestContentType,
                 resolver = resolver
             )
             requestedMethod in requestRejectionMetadata.methodsForPath -> false
@@ -1153,26 +1150,22 @@ data class Scenario(
 
     private fun requestExampleWithScenarioMethodCanOwnInvalid405Example(
         request: HttpRequest,
-        contentType: String?,
         resolver: Resolver
     ): Boolean {
         return httpRequestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess() &&
-                requestContentTypeSelectsThisMethodNotAllowedScenario(contentType)
+                requestMediaTypeIdentifiesThisScenario(request)
     }
 
-    private fun requestContentTypeSelectsThisMethodNotAllowedScenario(contentType: String?): Boolean {
-        if (!methodNotAllowedHasMultipleRequestContentTypeVariants()) return true
-
-        val requestContentType = contentType.normalizedContentType()
-            ?: return false
-
+    private fun requestMediaTypeIdentifiesThisScenario(request: HttpRequest): Boolean {
         val scenarioContentType = httpRequestPattern.headersPattern.contentType.normalizedContentType()
+        val requestContentType = request.contentType().normalizedContentType()
 
-        return scenarioContentType.equals(requestContentType, ignoreCase = true)
+        return when {
+            scenarioContentType == null -> requestContentType == null
+            requestContentType == null -> false
+            else -> scenarioContentType.equals(requestContentType, ignoreCase = true)
+        }
     }
-
-    private fun methodNotAllowedHasMultipleRequestContentTypeVariants(): Boolean =
-        requestRejectionMetadata.requestContentTypesForOperation.size > 1
 
     private fun unsupportedMediaTypeRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
         val requestContentType = request.contentType().normalizedContentType()
