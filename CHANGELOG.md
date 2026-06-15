@@ -24,7 +24,13 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased (2.46.6)
 
-No customer-facing changes documented yet.
+### Changed
+
+- Improved nested object query validation and example diagnostics so failure paths now point to the actual serialized query keys, including bracketed and array-style segments, instead of less accurate synthesized breadcrumbs.
+- Improved OpenAPI source-location tracking for referenced schemas so validation failures can retain the original JSON pointer from the source file that defined the schema.
+- Improved `specmatic config upgrade` output for legacy configurations by keeping global mock and test settings under top-level `specmatic.settings` instead of moving them into dependency or system-under-test sections.
+- Updated bundled reporting and licensing flows so license-aware CLI operations can use `--debug` for trace logging while retaining backward-compatible support for the older `--log-level` flag.
+- Improved bundled license CLI output with clearer success, warning, and error cues, including colorized level labels on ANSI-capable terminals.
 
 ## 2.46.5 (2026-06-11)
 
