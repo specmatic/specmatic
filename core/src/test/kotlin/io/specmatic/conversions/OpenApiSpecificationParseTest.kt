@@ -755,6 +755,11 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `required query object conflict lint violation should be classified as a warning`() {
+        assertThat(OpenApiLintViolations.REQUIRED_QUERY_OBJECT_CONFLICT.severity).isEqualTo(IssueSeverity.WARNING)
+    }
+
+    @Test
     fun `query parameter type collision lint violation should be classified as a warning`() {
         assertThat(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.severity).isEqualTo(IssueSeverity.WARNING)
     }
