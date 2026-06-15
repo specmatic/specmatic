@@ -33,6 +33,12 @@ data class NestedObjectQueryParam(
         return path.serialize(parameterName, syntax)
     }
 
+    internal fun withoutRootProperties(propertyNames: Set<String>): NestedObjectQueryParam {
+        if (propertyNames.isEmpty()) return this
+
+        return copy(schema = schema.copy(properties = schema.properties - propertyNames))
+    }
+
     internal fun reconstructObjectValueFromQueryParamPairs(
         pairs: List<Pair<String, String>>,
         effectivePatterns: Map<String, Pattern> = emptyMap(),

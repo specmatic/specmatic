@@ -3374,7 +3374,7 @@ paths:
     }
 
     @Test
-    fun `externalized query example validates through object-first authoritative collision owner in lenient mode`() {
+    fun `externalized query example validates through scalar declared last collision owner in lenient mode`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3383,7 +3383,7 @@ paths:
     }
 
     @Test
-    fun `contract tests use externalized colliding query example with object-first authoritative owner`() {
+    fun `contract tests use externalized colliding query example with scalar declared last collision owner`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3404,7 +3404,7 @@ paths:
     }
 
     @Test
-    fun `mock matches externalized colliding query example with object-first authoritative owner`() {
+    fun `mock matches externalized colliding query example with scalar declared last collision owner`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3413,17 +3413,17 @@ paths:
             val matchingResponse = stub.client.execute(
                 HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "45", "name" to "Jane")))
             )
-            val mismatchingResponse = stub.client.execute(
+            val scalarStringResponse = stub.client.execute(
                 HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc", "name" to "Jane")))
             )
 
             assertThat(matchingResponse.status).isEqualTo(200)
-            assertThat(mismatchingResponse.status).isEqualTo(400)
+            assertThat(scalarStringResponse.status).isEqualTo(200)
         }
     }
 
     @Test
-    fun `contract tests without examples use generated colliding query params from object-first authoritative owner`() {
+    fun `contract tests without examples use generated colliding query params from object property declared last collision owner`() {
         val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
         val seenQueryParams = mutableListOf<Map<String, String>>()
 
@@ -3448,7 +3448,7 @@ paths:
     }
 
     @Test
-    fun `mock without examples matches generated request through object-first authoritative collision owner`() {
+    fun `mock without examples matches generated request through object property declared last collision owner`() {
         val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
 
         HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->
@@ -4144,6 +4144,10 @@ paths:
                 get:
                   parameters:
                     - in: query
+                      name: age
+                      schema:
+                        type: string
+                    - in: query
                       name: info
                       style: form
                       explode: true
@@ -4157,10 +4161,6 @@ paths:
                             type: integer
                           name:
                             type: string
-                    - in: query
-                      name: age
-                      schema:
-                        type: string
                   responses:
                     '200':
                       description: OK

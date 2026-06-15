@@ -57,7 +57,8 @@ enum class OpenApiLintViolations(
     REQUIRED_QUERY_OBJECT_CONFLICT(
         id = "OAS0012",
         title = "Required query object conflict",
-        summary = "A required form-exploded object query parameter must have at least one required schema property to make a concrete query parameter mandatory"
+        summary = "A required form-exploded object query parameter must have at least one required schema property to make a concrete query parameter mandatory",
+        severity = IssueSeverity.WARNING
     ),
 
     QUERY_PARAMETER_TYPE_COLLISION(

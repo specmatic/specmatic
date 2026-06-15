@@ -19,7 +19,8 @@ data class FormExplodedObjectQueryParam(
 
 enum class QueryParameterCollisionOwnerKind {
     ScalarParameter,
-    FormExplodedObjectProperty
+    FormExplodedObjectProperty,
+    NestedObjectProperty
 }
 
 data class QueryParameterCollisionOwner(
@@ -538,7 +539,12 @@ data class HttpQueryParamPattern(
 
     private fun activeFormExplodedObjectQueryParams(): List<FormExplodedObjectQueryParam> {
         val nonAuthoritativeObjectPropertiesByParameter = collisionGroupsByWireKey.values
-            .flatMap { collisionGroup -> collisionGroup.owners.drop(1).filter { it.kind == QueryParameterCollisionOwnerKind.FormExplodedObjectProperty } }
+            .flatMap { collisionGroup ->
+                collisionGroup.owners.filter {
+                    it.kind == QueryParameterCollisionOwnerKind.FormExplodedObjectProperty &&
+                        it != collisionGroup.authoritativeOwner
+                }
+            }
             .mapNotNull { owner -> owner.propertyName?.let { propertyName -> owner.parameterName to propertyName } }
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, propertyNames) -> propertyNames.toSet() }
