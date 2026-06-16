@@ -32,7 +32,7 @@ class SpecmaticMcpServer(
         System.err.println("Registering Specmatic MCP tools...")
         val providers = ServiceLoader.load(McpToolProvider::class.java).toList()
         if (!providers.isEmpty()) return providers.flatMap { it.tools() }
-        return SpecmaticMcpToolProvider().tools()
+        return DefaultSpecmaticMcpToolProvider().tools()
     }
 
     fun run() {

@@ -8,11 +8,11 @@ import io.modelcontextprotocol.spec.McpSchema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class SpecmaticMcpToolProviderTest {
+class DefaultSpecmaticMcpToolProviderTest {
     private val contractTestTool = mockk<ContractTestTool>()
     private val mockServerTool = mockk<MockServerTool>()
     private val backwardCompatibilityTool = mockk<BackwardCompatibilityTool>()
-    private val provider = SpecmaticMcpToolProvider(contractTestTool, mockServerTool, backwardCompatibilityTool)
+    private val provider = DefaultSpecmaticMcpToolProvider(contractTestTool, mockServerTool, backwardCompatibilityTool)
 
     @Test
     fun `should register all expected tools`() {

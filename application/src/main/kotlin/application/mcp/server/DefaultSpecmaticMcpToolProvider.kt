@@ -10,7 +10,7 @@ import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.modelcontextprotocol.server.McpServerFeatures
 
-class SpecmaticMcpToolProvider(
+class DefaultSpecmaticMcpToolProvider(
     private val contractTestTool: ContractTestTool = ContractTestTool(),
     private val mockServerTool: MockServerTool = MockServerTool(),
     private val backwardCompatibilityTool: BackwardCompatibilityTool = BackwardCompatibilityTool()
