@@ -51,7 +51,7 @@ dependencies {
 
     testImplementation("io.mockk:mockk-jvm:1.14.9")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("com.ginsberg:junit5-system-exit:2.0.2")
+    testImplementation("com.ginsberg:junit5-system-exit:2.0.3")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
     testImplementation("io.kotest:kotest-assertions-core-jvm:6.1.11")
