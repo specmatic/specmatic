@@ -143,6 +143,10 @@ class BackwardCompatibilityCheckBaseCommandTest {
             TODO("Not yet implemented")
         }
 
+        override fun File.isExternalisedExample(): Boolean {
+            TODO("Not yet implemented")
+        }
+
         override fun getFeatureFromSpecPath(path: String): IFeature {
             TODO("Not yet implemented")
         }

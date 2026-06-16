@@ -1,6 +1,5 @@
 package application.backwardCompatibility
 
-import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand.ProcessedSpec
 import io.specmatic.core.Results
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 
