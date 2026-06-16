@@ -34,6 +34,7 @@ data class SpecificationSource(
 data class SpecificationSourceEntry(
     val specFile: File,
     val specPathInConfig: String,
+    val host: String?,
     val port: Int?,
     val baseUrl: String?,
     val webSourceUrl: String? = null,
@@ -49,9 +50,10 @@ data class SpecificationSourceEntry(
         return ContractSourceEntry(specPathInConfig, baseUrl, resiliencyTestSuite, exampleDirs)
     }
 
-    constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String?, port: Int?, resiliencyTestSuite: ResiliencyTestSuite?) : this(
+    constructor(source: Source, specFile: File, specPathInConfig: String, baseUrl: String?, host: String?, port: Int?, resiliencyTestSuite: ResiliencyTestSuite?) : this(
         specFile = specFile,
         specPathInConfig = specPathInConfig,
+        host = host,
         port = port,
         baseUrl = baseUrl,
         webSourceUrl = source.webBaseUrl,
