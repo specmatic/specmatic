@@ -415,26 +415,61 @@ data class Scenario(
 
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
-            val unsupportedMediaTypeRequest = unsupportedMediaTypeRequestExample()
-            if (unsupportedMediaTypeRequest != null) return@scenarioBreadCrumb unsupportedMediaTypeRequest
+            val unsupportedMediaTypeRequestExample = unsupportedMediaTypeRequestExample()
+            if (unsupportedMediaTypeRequestExample != null) return@scenarioBreadCrumb unsupportedMediaTypeRequestExample
 
             val generatedRequest = httpRequestPattern.generate(
                 flagsBased.update(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             )
-            val methodFromExample = methodFromMethodNotAllowedExample()
-            if (methodFromExample == null) generatedRequest else generatedRequest.copy(method = methodFromExample)
+            generatedRequest.useRequestRejectionExampleIdentity()
         }
 
     private fun methodFromMethodNotAllowedExample(): String? {
-        if (status != HttpStatusCode.MethodNotAllowed.value) return null
         return exampleRow?.requestExample?.method
     }
 
     private fun unsupportedMediaTypeRequestExample(): HttpRequest? {
         if (!isUnsupportedMediaTypeScenario()) return null
         return exampleRow?.requestExample
+    }
+
+    private fun HttpRequest.useRequestRejectionExampleIdentity(): HttpRequest {
+        return when {
+            isMethodNotAllowedScenario() -> useMethodNotAllowedMethod()
+            isUnsupportedMediaTypeScenario() -> useUnsupportedContentType()
+            else -> this
+        }
+    }
+
+    private fun HttpRequest.useMethodNotAllowedMethod(): HttpRequest {
+        val methodFromExample = methodFromMethodNotAllowedExample()
+        if (methodFromExample != null) return copy(method = methodFromExample)
+
+        val supportedMethods = (requestRejectionMetadata.methodsForPath + this@Scenario.method).map { it.uppercase() }.toSet()
+        val unsupportedMethod = listOf("PATCH", "POST", "PUT", "DELETE", "GET", "HEAD", "OPTIONS", "TRACE")
+            .firstOrNull { it !in supportedMethods }
+            ?: "SPECMATIC-UNSUPPORTED"
+
+        return copy(method = unsupportedMethod)
+    }
+
+    private fun HttpRequest.useUnsupportedContentType(): HttpRequest {
+        val unsupportedContentType = unsupportedContentTypeForGeneratedExample()
+        val headersWithUnsupportedContentType = headers
+            .filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
+            .plus(CONTENT_TYPE to unsupportedContentType)
+
+        return copy(headers = headersWithUnsupportedContentType)
+    }
+
+    private fun unsupportedContentTypeForGeneratedExample(): String {
+        val supportedContentTypes = requestRejectionMetadata.requestContentTypesForOperation.normalizedContentTypes()
+
+        return listOf("text/plain", "application/xml", "application/octet-stream", "application/x-www-form-urlencoded")
+            .firstOrNull { it.normalizedContentType()?.lowercase() !in supportedContentTypes }
+            ?: "application/x-specmatic-unsupported"
     }
 
     fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
@@ -459,7 +494,9 @@ data class Scenario(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             }
-            httpRequestPattern.generateV2(updatedResolver)
+            httpRequestPattern.generateV2(updatedResolver).map { discriminatorBasedRequest ->
+                discriminatorBasedRequest.copy(value = discriminatorBasedRequest.value.useRequestRejectionExampleIdentity())
+            }
         }
 
     fun matchesResponse(httpRequest: HttpRequest, httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null): Result {
@@ -1183,9 +1220,8 @@ data class Scenario(
         if (requestedMethod.isBlank() || requestedMethod in requestRejectionMetadata.methodsForPath) {
             return Result.Failure(
                 message = "Expected method not to be one of ${requestRejectionMetadata.methodsForPath.sorted().joinToString()}",
-                breadCrumb = BreadCrumb.REQUEST.plus(METHOD_BREAD_CRUMB).value,
                 failureReason = FailureReason.RequestRejectionMismatch
-            ).updateScenario(this)
+            ).withRequestMethodBreadCrumbs().updateScenario(this)
         }
 
         val requestWithScenarioMethod = request.copy(method = method)
@@ -1207,20 +1243,33 @@ data class Scenario(
 
             return Result.Failure(
                 message = "Request Content-Type is required for a 415 unsupported media type example",
-                breadCrumb = BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).plus(CONTENT_TYPE).value,
                 failureReason = FailureReason.RequestRejectionMismatch
-            ).updateScenario(this)
+            ).withRequestContentTypeBreadCrumbs().updateScenario(this)
         }
 
         if (supportedContentTypes.contains(requestContentType.lowercase())) {
             return Result.Failure(
                 message = "Request Content-Type \"$requestContentType\" is supported by the specification, so this example should not return 415",
-                breadCrumb = BreadCrumb.REQUEST.plus(BreadCrumb.PARAM_HEADER).plus(CONTENT_TYPE).value,
                 failureReason = FailureReason.RequestRejectionMismatch
-            ).updateScenario(this)
+            ).withRequestContentTypeBreadCrumbs().updateScenario(this)
         }
 
         return Result.Success()
+    }
+
+    private fun Result.Failure.withRequestMethodBreadCrumbs(): Result.Failure {
+        return breadCrumb(METHOD_BREAD_CRUMB).breadCrumb(BreadCrumb.REQUEST.value)
+    }
+
+    private fun Result.Failure.withRequestContentTypeBreadCrumbs(): Result.Failure {
+        return breadCrumb(CONTENT_TYPE)
+            .breadCrumb(BreadCrumb.HEADER.value)
+            .breadCrumb(BreadCrumb.PARAMETERS.value)
+            .breadCrumb(BreadCrumb.REQUEST.value)
+    }
+
+    private fun isMethodNotAllowedScenario(): Boolean {
+        return specType == SpecType.OPENAPI && status == HttpStatusCode.MethodNotAllowed.value
     }
 
     private fun isUnsupportedMediaTypeScenario(): Boolean {

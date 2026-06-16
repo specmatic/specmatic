@@ -86,6 +86,18 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
+    fun `generated 415 request uses a content type not supported by the operation`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(ordersSpecWithParameterizedTextPlainRequestContentType()).canonicalPath).toFeature()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+
+        val generatedRequest = unsupportedMediaTypeScenario.generateHttpRequest()
+        val generatedRequestV2 = unsupportedMediaTypeScenario.generateHttpRequestV2().single().value
+
+        assertThat(generatedRequest.contentType()?.normalizedContentType()).isEqualTo("application/xml")
+        assertThat(generatedRequestV2.contentType()?.normalizedContentType()).isEqualTo("application/xml")
+    }
+
+    @Test
     fun `external 415 example with unsupported request content type is served by mock`() {
         val specFile = writeSpec(ordersSpec())
         val exampleFile = writeExample(
@@ -221,8 +233,10 @@ class UnsupportedMediaTypeExamplesTest {
 
         assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
         val expectedMediaTypeError = "Request Content-Type \"application/json\" is supported by the specification"
-        assertThat((matchResult as Result.Failure).reportString())
-            .contains(expectedMediaTypeError)
+        val matchFailure = matchResult as Result.Failure
+        assertThat(matchFailure.reportString()).contains(expectedMediaTypeError)
+        assertThat(matchFailure.toMatchFailureDetails().breadCrumbs)
+            .containsExactly("REQUEST", "PARAMETERS", "HEADER", "Content-Type")
 
         val validationException = assertThrows<ContractException> { feature.validateExamplesOrException() }
         val validationExceptionMessage = validationException.message.orEmpty()
@@ -507,6 +521,42 @@ class UnsupportedMediaTypeExamplesTest {
                             type: string
     """
 
+    private fun ordersSpecWithParameterizedTextPlainRequestContentType() = """
+        openapi: 3.0.4
+        info:
+          title: Orders
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - data
+                      properties:
+                        data:
+                          type: string
+                  "text/plain; charset=utf-8":
+                    schema:
+                      type: string
+              responses:
+                "415":
+                  description: unsupported media type
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                            type: string
+    """
+
     private fun orderByIdSpec() = """
         openapi: 3.0.4
         info:
@@ -691,4 +741,7 @@ class UnsupportedMediaTypeExamplesTest {
                           error:
                             type: string
     """
+
+    private fun String.normalizedContentType(): String =
+        substringBefore(";").trim().lowercase()
 }

@@ -77,6 +77,21 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
+    fun `generated 405 request uses a method not declared for the path`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(only405Spec()).canonicalPath).toFeature()
+        val methodNotAllowedScenario = feature.scenarios.single { it.status == 405 }
+
+        val generatedRequest = methodNotAllowedScenario.generateHttpRequest()
+        val generatedRequestV2 = methodNotAllowedScenario.generateHttpRequestV2().single().value
+        val declaredMethods = methodNotAllowedScenario.requestRejectionMetadata.methodsForPath.map { it.uppercase() }
+
+        assertThat(generatedRequest.method).isNotBlank()
+        assertThat(generatedRequest.method?.uppercase()).isNotIn(declaredMethods)
+        assertThat(generatedRequestV2.method).isNotBlank()
+        assertThat(generatedRequestV2.method?.uppercase()).isNotIn(declaredMethods)
+    }
+
+    @Test
     fun `external 405 example with undeclared method is served by mock`() {
         val specFile = writeSpec(ordersSpec())
         val exampleFile = writeExample(
@@ -220,7 +235,9 @@ class MethodNotAllowedExamplesTest {
 
         assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
         val expectedMethodError = "Expected method not to be one of DELETE, GET"
-        assertThat((matchResult as Result.Failure).reportString()).contains(expectedMethodError)
+        val matchFailure = matchResult as Result.Failure
+        assertThat(matchFailure.reportString()).contains(expectedMethodError)
+        assertThat(matchFailure.toMatchFailureDetails().breadCrumbs).containsExactly("REQUEST", "METHOD")
 
         val validationException = assertThrows<ContractException> { feature.validateExamplesOrException() }
         val validationExceptionMessage = validationException.message.orEmpty()
