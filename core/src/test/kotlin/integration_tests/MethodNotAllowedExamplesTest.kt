@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.core.FailureReason
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.ResiliencyTestSuite
@@ -141,11 +142,13 @@ class MethodNotAllowedExamplesTest {
             methodNotAllowedScenario.generateHttpRequest()
         }
         assertThat(exception.message).contains("all known HTTP methods are already declared for this path")
+        assertThat(exception.failure().hasReason(FailureReason.MethodNotAllowedNoDisallowedMethod)).isTrue()
 
         val v2Exception = assertThrows<ContractException> {
             methodNotAllowedScenario.generateHttpRequestV2()
         }
         assertThat(v2Exception.message).contains("all known HTTP methods are already declared for this path")
+        assertThat(v2Exception.failure().hasReason(FailureReason.MethodNotAllowedNoDisallowedMethod)).isTrue()
     }
 
     @Test

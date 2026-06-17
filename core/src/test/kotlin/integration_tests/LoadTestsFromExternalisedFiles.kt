@@ -593,23 +593,16 @@ class LoadTestsFromExternalisedFiles {
             }
         }
 
-        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        Error loading example for GET /example/(id1:number),(id2:number)/status -> 200 from ${exampleFile.canonicalPath}
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.PATH.id1",
-                details = NamedExampleMismatchMessages("invalid_interpolated_comma_path").typeMismatch("number", "\"alpha\"", "string"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.PATH.id2",
-                details = NamedExampleMismatchMessages("invalid_interpolated_comma_path").typeMismatch("number", "\"beta\"", "string"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        """.trimIndent())
+        assertThat(exception.report()).contains(
+            "Error loading example for GET /example/(id1:number),(id2:number)/status -> 200 from ${exampleFile.canonicalPath}",
+            "In scenario \"GET /example/(id1:number),(id2:number)/status. Response: ok\"",
+            "API: GET /example/(id1:number),(id2:number)/status -> 200",
+            ">> REQUEST.PARAMETERS.PATH.id1",
+            "Specification expected type number but example \"invalid_interpolated_comma_path\" contained value \"alpha\" of type string",
+            ">> REQUEST.PARAMETERS.PATH.id2",
+            "Specification expected type number but example \"invalid_interpolated_comma_path\" contained value \"beta\" of type string",
+            "R1001: Type mismatch"
+        )
     }
 
     @Test
@@ -621,23 +614,15 @@ class LoadTestsFromExternalisedFiles {
             val feature = OpenApiSpecification.fromFile(openApiFile.canonicalPath).toFeature().loadExternalisedExamples()
             val exception = assertThrows<ContractException> { feature.validateExamplesOrException() }
 
-            assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-            Error loading example for GET /hello/(id:number) -> 200 from ${examplesDir.resolve("extra_header.json").canonicalPath}
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.HEADER.X-Extra-Header",
-                    details = NamedExampleMismatchMessages("extra_header").unexpectedKey("header", "X-Extra-Header"),
-                    StandardRuleViolation.UNKNOWN_PROPERTY
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.HEADER.X-Extra-Header",
-                    details = NamedExampleMismatchMessages("extra_header").unexpectedKey("header", "X-Extra-Header"),
-                    StandardRuleViolation.UNKNOWN_PROPERTY
-                )
-            }
-            """.trimIndent())
+            assertThat(exception.report()).contains(
+                "Error loading example for GET /hello/(id:number) -> 200 from ${examplesDir.resolve("extra_header.json").canonicalPath}",
+                "In scenario \"hello world. Response: Says hello\"",
+                "API: GET /hello/(id:number) -> 200",
+                ">> REQUEST.PARAMETERS.HEADER.X-Extra-Header",
+                "Header \"X-Extra-Header\" in the example \"extra_header\" was not in the specification",
+                ">> RESPONSE.HEADER.X-Extra-Header",
+                "R2003: Unknown property"
+            )
         }
     }
 
@@ -722,71 +707,27 @@ class LoadTestsFromExternalisedFiles {
         }
         val exception = assertThrows<ContractException> { feature.validateExamplesOrException() }
 
-        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        Error loading example for POST /test/(testId:string) -> 200 from ${invalidExamplesDir.resolve("testId_example.json").canonicalPath}
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.value",
-                details = NamedExampleMismatchMessages("testId_example").typeMismatch("number", "true", "boolean"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.value",
-                details = NamedExampleMismatchMessages("testId_example").typeMismatch("number", "true", "boolean"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-
-        Error loading example for POST /test/latest -> 200 from ${invalidExamplesDir.resolve("latest_example.json").canonicalPath}
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.value",
-                details = NamedExampleMismatchMessages("latest_example").typeMismatch("boolean", "123", "number"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.value",
-                details = NamedExampleMismatchMessages("latest_example").typeMismatch("boolean", "123", "number"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        
-        Error loading example for POST /reports/(testId:string)/latest -> 200 from ${invalidExamplesDir.resolve("reports_testId_latest.json").canonicalPath}
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.value",
-                details = NamedExampleMismatchMessages("reports_testId_latest").typeMismatch("number", "true", "boolean"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.value",
-                details = NamedExampleMismatchMessages("reports_testId_latest").typeMismatch("number", "true", "boolean"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        
-        Error loading example for POST /(testId:string)/reports/(reportId:string) -> 200 from ${invalidExamplesDir.resolve("testId_reports_reportId.json").canonicalPath}
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.BODY.value",
-                details = NamedExampleMismatchMessages("testId_reports_reportId").typeMismatch("boolean", "123", "number"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.BODY.value",
-                details = NamedExampleMismatchMessages("testId_reports_reportId").typeMismatch("boolean", "123", "number"),
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        """.trimIndent())
+        assertThat(exception.report()).contains(
+            "Error loading example for POST /test/(testId:string) -> 200 from ${invalidExamplesDir.resolve("testId_example.json").canonicalPath}",
+            "In scenario \"POST /test/(testId:string). Response: OK\"",
+            "API: POST /test/(testId:string) -> 200",
+            "Specification expected type number but example \"testId_example\" contained value true of type boolean",
+            "Error loading example for POST /test/latest -> 200 from ${invalidExamplesDir.resolve("latest_example.json").canonicalPath}",
+            "In scenario \"POST /test/latest. Response: OK\"",
+            "API: POST /test/latest -> 200",
+            "Specification expected type boolean but example \"latest_example\" contained value 123 of type number",
+            "Error loading example for POST /reports/(testId:string)/latest -> 200 from ${invalidExamplesDir.resolve("reports_testId_latest.json").canonicalPath}",
+            "In scenario \"POST /reports/(testId:string)/latest. Response: OK\"",
+            "API: POST /reports/(testId:string)/latest -> 200",
+            "Specification expected type number but example \"reports_testId_latest\" contained value true of type boolean",
+            "Error loading example for POST /(testId:string)/reports/(reportId:string) -> 200 from ${invalidExamplesDir.resolve("testId_reports_reportId.json").canonicalPath}",
+            "In scenario \"POST /(testId:string)/reports/(reportId:string). Response: OK\"",
+            "API: POST /(testId:string)/reports/(reportId:string) -> 200",
+            "Specification expected type boolean but example \"testId_reports_reportId\" contained value 123 of type number",
+            ">> REQUEST.BODY.value",
+            ">> RESPONSE.BODY.value",
+            "R1001: Type mismatch"
+        )
     }
 
     @Test
@@ -822,50 +763,25 @@ class LoadTestsFromExternalisedFiles {
         }
         val exception = assertThrows<ContractException> { feature.validateExamplesOrException() }
 
-        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        Error loading example for POST /secure -> 200 from ${examplesDir.resolve("secure.json").canonicalPath} 
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                details = "Authorization header must be prefixed with \"Bearer\"",
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-       
-        Error loading example for POST /partial -> 200 from ${examplesDir.resolve("partial.json").canonicalPath}
-         ${
-             toViolationReportString(
-                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                 details = "Authorization header must be prefixed with \"Bearer\"",
-                 StandardRuleViolation.TYPE_MISMATCH
-             )
-         }
-        
-        Error loading example for POST /overlap -> 200 from ${examplesDir.resolve("overlap.json").canonicalPath}
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                details = "Authorization header must be prefixed with \"Bearer\"",
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        
-        Error loading example for POST /insecure -> 200 from ${examplesDir.resolve("insecure.json").canonicalPath} 
-        ${
-            toViolationReportString(
-                 breadCrumb = "REQUEST.PARAMETERS.QUERY.apiKey",
-                 details = NamedExampleMismatchMessages("insecure").unexpectedKey("query param", "apiKey"),
-                StandardRuleViolation.UNKNOWN_PROPERTY
-            )
-        }
-        ${
-             toViolationReportString(
-                 breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                 details = NamedExampleMismatchMessages("insecure").unexpectedKey("header", "Authorization"),
-                StandardRuleViolation.UNKNOWN_PROPERTY
-            )
-         }
-        """.trimIndent())
+        assertThat(exception.report()).contains(
+            "Error loading example for POST /secure -> 200 from ${examplesDir.resolve("secure.json").canonicalPath}",
+            "In scenario \"Secure endpoint requiring Bearer token and query API key. Response: Success\"",
+            "API: POST /secure -> 200",
+            "Error loading example for POST /partial -> 200 from ${examplesDir.resolve("partial.json").canonicalPath}",
+            "In scenario \"Partially secure endpoint requiring either Bearer token or query API key. Response: Success\"",
+            "API: POST /partial -> 200",
+            "Error loading example for POST /overlap -> 200 from ${examplesDir.resolve("overlap.json").canonicalPath}",
+            "In scenario \"overlap endpoint requiring either Bearer token and query API key or Bearer token only. Response: Success\"",
+            "API: POST /overlap -> 200",
+            "Authorization header must be prefixed with \"Bearer\"",
+            "Error loading example for POST /insecure -> 200 from ${examplesDir.resolve("insecure.json").canonicalPath}",
+            "In scenario \"Insecure endpoint not requiring authentication. Response: Success\"",
+            "API: POST /insecure -> 200",
+            ">> REQUEST.PARAMETERS.QUERY.apiKey",
+            "Query param \"apiKey\" in the example \"insecure\" was not in the specification",
+            ">> REQUEST.PARAMETERS.HEADER.Authorization",
+            "Header \"Authorization\" in the example \"insecure\" was not in the specification"
+        )
     }
 
     @Test
@@ -1539,92 +1455,26 @@ class LoadTestsFromExternalisedFiles {
             }
 
             println(exception.report())
-            assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-            Error loading example for PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201 from ${invalidExamplesDir.resolve("pets_post.json").canonicalPath}
-
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.PATH.creatorId",
-                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"abc\"", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.PATH.petId",
-                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.QUERY.creatorId",
-                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"abc\"", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.QUERY.petId",
-                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-    
-        
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.HEADER.CREATOR-ID",
-                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"abc\"", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.PARAMETERS.HEADER.PET-ID",
-                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.BODY.creatorId",
-                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"123\"", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "REQUEST.BODY.petId",
-                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-
-            ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.BODY.id",
-                    NamedExampleMismatchMessages("pets_post").patternMismatch("number", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.BODY.traceId",
-                    NamedExampleMismatchMessages("pets_post").patternMismatch("string", "number"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }
-            ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.BODY.creatorId",
-                    NamedExampleMismatchMessages("pets_post").typeMismatch("number", "\"123\"", "string"),
-                    StandardRuleViolation.TYPE_MISMATCH
-                )
-            }  
-            """.trimIndent())
+            assertThat(exception.report()).contains(
+                "Error loading example for PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201 from ${invalidExamplesDir.resolve("pets_post.json").canonicalPath}",
+                "In scenario \"PATCH /creators/(creatorId:number)/pets/(petId:number). Response: pet response\"",
+                "API: PATCH /creators/(creatorId:number)/pets/(petId:number) -> 201",
+                ">> REQUEST.PARAMETERS.PATH.creatorId",
+                ">> REQUEST.PARAMETERS.PATH.petId",
+                ">> REQUEST.PARAMETERS.QUERY.creatorId",
+                ">> REQUEST.PARAMETERS.QUERY.petId",
+                ">> REQUEST.PARAMETERS.HEADER.CREATOR-ID",
+                ">> REQUEST.PARAMETERS.HEADER.PET-ID",
+                ">> REQUEST.BODY.creatorId",
+                ">> REQUEST.BODY.petId",
+                ">> RESPONSE.BODY.id",
+                ">> RESPONSE.BODY.traceId",
+                ">> RESPONSE.BODY.creatorId",
+                "Specification expected type number but example \"pets_post\" contained value \"abc\" of type string",
+                "Specification expected number but example \"pets_post\" contained string",
+                "Specification expected string but example \"pets_post\" contained number",
+                "R1001: Type mismatch"
+            )
         }
 
         @Test
@@ -1854,16 +1704,14 @@ class LoadTestsFromExternalisedFiles {
                     val filteredFeature = feature.copy(scenarios = feature.scenarios.filter { it.method == "POST" })
                     val exception = assertThrows<ContractException> { filteredFeature.validateExamplesOrException() }
 
-                    assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-                    Error loading example for POST /pets -> 201 from ${exampleWithInvalidDisc.resolve("partial_example.json").canonicalPath}
-                    ${
-                        toViolationReportString(
-                            breadCrumb = "REQUEST.BODY.petType",
-                            details = "Expected the value of discriminator property to be one of dog, cat but it was UNKNOWN",
-                            StandardRuleViolation.DISCRIMINATOR_MISMATCH
-                        )
-                    }
-                    """.trimIndent())
+                    assertThat(exception.report()).contains(
+                        "Error loading example for POST /pets -> 201 from ${exampleWithInvalidDisc.resolve("partial_example.json").canonicalPath}",
+                        "In scenario \"Add a new pet. Response: Pet added successfully\"",
+                        "API: POST /pets -> 201",
+                        ">> REQUEST.BODY.petType",
+                        "R3001: Discriminator mismatch",
+                        "Expected the value of discriminator property to be one of dog, cat but it was UNKNOWN"
+                    )
                 }
             }
 

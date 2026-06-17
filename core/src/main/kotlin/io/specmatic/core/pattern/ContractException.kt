@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.FailureReport
+import io.specmatic.core.FailureReason
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.Result
 import io.specmatic.core.RuleViolation
@@ -20,6 +21,7 @@ data class ContractException(
     val breadCrumb: String = "",
     val exceptionCause: Throwable? = null,
     val scenario: ScenarioDetailsForResult? = null,
+    val failureReason: FailureReason? = null,
     val isCycle: Boolean = isCycle(exceptionCause),
     val ruleViolationReport: RuleViolationReport? = null,
 ) : Exception(errorMessage, exceptionCause) {
@@ -29,18 +31,20 @@ data class ContractException(
         ruleViolationReport = ruleViolationReport
     )
 
-    fun failure(): Result.Failure =
-        Result.Failure(
+    fun failure(): Result.Failure {
+        val failure = Result.Failure(
             message = errorMessage,
             cause = when (exceptionCause) {
                 is ContractException -> exceptionCause.failure()
                 is Throwable -> Result.Failure(exceptionCauseMessage(exceptionCause))
                 else -> null
             },
-            breadCrumb = breadCrumb
-        ).withRuleViolationReport(ruleViolationReport).also { result ->
-            if (scenario != null) result.updateScenario(scenario)
-        }
+            breadCrumb = breadCrumb,
+            failureReason = failureReason
+        ).withRuleViolationReport(ruleViolationReport)
+
+        return scenario?.let(failure::updateScenario) ?: failure
+    }
 
     fun report(): String = failure().toReport().toText()
 }

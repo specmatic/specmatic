@@ -14,7 +14,10 @@ internal class UndeclaredMethod405Variant(
         if (methodFromExample != null) return request.copy(method = methodFromExample)
 
         val generatedMethod = unsupportedMethod()
-            ?: throw ContractException(noDisallowedMethodError())
+            ?: throw ContractException(
+                errorMessage = noDisallowedMethodError(),
+                failureReason = FailureReason.MethodNotAllowedNoDisallowedMethod
+            )
 
         return request.copy(method = generatedMethod)
     }

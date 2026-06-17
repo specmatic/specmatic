@@ -79,7 +79,14 @@ data class HasException<T>(val t: Throwable, val message: String = "", val bread
         t: Throwable
     ): Throwable {
         val newE = when (t) {
-            is ContractException -> ContractException(errorMessage, breadCrumb, t, t.scenario, t.isCycle)
+            is ContractException -> ContractException(
+                errorMessage = errorMessage,
+                breadCrumb = breadCrumb,
+                exceptionCause = t,
+                scenario = t.scenario,
+                failureReason = t.failureReason,
+                isCycle = t.isCycle
+            )
             else -> ContractException(errorMessage, breadCrumb, t)
         }
 
