@@ -87,9 +87,9 @@ data class Scenario(
     private val requestContentTypeForReport: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     private val undeclaredRequestVariant: UndeclaredRequestVariant? by lazy(LazyThreadSafetyMode.NONE) {
-        when {
-            isOpenApiMethodNotAllowedScenario() -> UndeclaredMethodVariant(this)
-            isOpenApiUnsupportedMediaTypeScenario() -> UndeclaredMediaTypeVariant(this)
+        when (status) {
+            HttpStatusCode.MethodNotAllowed.value -> UndeclaredMethod405Variant(this)
+            HttpStatusCode.UnsupportedMediaType.value -> UndeclaredMediaType415Variant(this)
             else -> null
         }
     }
@@ -1205,13 +1205,6 @@ data class Scenario(
     private fun undeclaredRequestVariantFor(responseStatus: Int?): UndeclaredRequestVariant? =
         undeclaredRequestVariant?.takeIf { it.responseStatus == responseStatus }
 
-    private fun isOpenApiMethodNotAllowedScenario(): Boolean {
-        return specType == SpecType.OPENAPI && status == HttpStatusCode.MethodNotAllowed.value
-    }
-
-    private fun isOpenApiUnsupportedMediaTypeScenario(): Boolean {
-        return specType == SpecType.OPENAPI && status == HttpStatusCode.UnsupportedMediaType.value
-    }
 }
 
 fun testDescription(

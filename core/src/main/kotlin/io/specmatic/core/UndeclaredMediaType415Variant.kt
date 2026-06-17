@@ -4,7 +4,7 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.value.Value
 
-internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : UndeclaredRequestVariant {
+internal class UndeclaredMediaType415Variant(private val scenario: Scenario) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.UnsupportedMediaType.value
 
     override fun requestExampleForGeneration(): HttpRequest? =
@@ -53,8 +53,8 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
         scenario.httpRequestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess()
 
     override fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        val requestContentType = request.contentType().baseMediaType()
-        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
+        val requestContentType = requestMediaType(request)
+        val supportedContentTypes = supportedMediaTypes()
 
         return if (!requestContentType.isNullOrBlank() && supportedContentTypes.contains(requestContentType.lowercase())) {
             scenario.httpRequestPattern.matches(request, resolver, resolver).isSuccess()
@@ -67,8 +67,8 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
         val identifierMatch = scenario.httpRequestPattern.matchesRequestIdentityIgnoringMediaType(request, resolver)
         if (identifierMatch is Result.Failure) return identifierMatch.updateScenario(scenario)
 
-        val requestContentType = request.contentType().baseMediaType()
-        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
+        val requestContentType = requestMediaType(request)
+        val supportedContentTypes = supportedMediaTypes()
         if (requestContentType.isNullOrBlank()) {
             if (supportedContentTypes.isNotEmpty()) return Result.Success()
 
@@ -89,12 +89,18 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
     }
 
     private fun unsupportedContentTypeForGeneratedExample(): String {
-        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
+        val supportedContentTypes = supportedMediaTypes()
 
         return listOf("text/plain", "application/xml", "application/octet-stream", "application/x-www-form-urlencoded")
             .firstOrNull { it.baseMediaType()?.lowercase() !in supportedContentTypes }
             ?: "application/x-specmatic-unsupported"
     }
+
+    private fun requestMediaType(request: HttpRequest): String? =
+        request.contentType().baseMediaType()
+
+    private fun supportedMediaTypes(): Set<String> =
+        scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
 }
 
 private fun Result.Failure.withRequestContentTypeBreadCrumbs(): Result.Failure {

@@ -4,7 +4,7 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.value.Value
 
-internal class UndeclaredMethodVariant(private val scenario: Scenario) : UndeclaredRequestVariant {
+internal class UndeclaredMethod405Variant(private val scenario: Scenario) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.MethodNotAllowed.value
 
     override fun toUndeclaredRequest(request: HttpRequest): HttpRequest {
@@ -40,30 +40,28 @@ internal class UndeclaredMethodVariant(private val scenario: Scenario) : Undecla
     }
 
     override fun requestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        val requestedMethod = request.method.orEmpty().uppercase()
-        if (requestedMethod.isBlank()) return false
+        val requestedMethod = requestedMethod(request) ?: return false
 
         return when (requestedMethod) {
             scenario.method.uppercase() -> requestWithScenarioMethodIdentifiesScenario(request, resolver)
-            in scenario.undeclaredRequestVariantMetadata.methodsForPath -> false
+            in declaredMethodsForPath() -> false
             else -> requestWithRejectedMethodIdentifiesScenario(request, resolver)
         }
     }
 
     override fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        val requestedMethod = request.method.orEmpty().uppercase()
-        if (requestedMethod.isBlank()) return false
+        val requestedMethod = requestedMethod(request) ?: return false
 
         return when (requestedMethod) {
             scenario.method.uppercase() -> requestWithScenarioMethodIdentifiesScenario(request, resolver)
-            in scenario.undeclaredRequestVariantMetadata.methodsForPath -> false
+            in declaredMethodsForPath() -> false
             else -> matchesUndeclaredRequest(request, resolver).isSuccess()
         }
     }
 
     override fun matchesUndeclaredRequest(request: HttpRequest, resolver: Resolver): Result {
-        val requestedMethod = request.method.orEmpty().uppercase()
-        if (requestedMethod.isBlank() || requestedMethod in scenario.undeclaredRequestVariantMetadata.methodsForPath) {
+        val requestedMethod = requestedMethod(request)
+        if (requestedMethod == null || requestedMethod in declaredMethodsForPath()) {
             return Result.Failure(
                 message = "Expected method not to be one of ${scenario.undeclaredRequestVariantMetadata.methodsForPath.sorted().joinToString()}",
                 failureReason = FailureReason.UndeclaredRequestVariantMismatch
@@ -86,7 +84,7 @@ internal class UndeclaredMethodVariant(private val scenario: Scenario) : Undecla
 
     private fun requestWithScenarioMethodIdentifiesScenario(request: HttpRequest, resolver: Resolver): Boolean {
         return scenario.httpRequestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess() &&
-                requestMediaTypeIdentifiesScenario(request)
+                requestMediaTypeMatchesScenario(request)
     }
 
     private fun requestWithRejectedMethodIdentifiesScenario(request: HttpRequest, resolver: Resolver): Boolean {
@@ -94,14 +92,20 @@ internal class UndeclaredMethodVariant(private val scenario: Scenario) : Undecla
         return scenario.httpRequestPattern.matchesPathStructureAndMethod(requestWithScenarioMethod, resolver).isSuccess()
     }
 
-    private fun requestMediaTypeIdentifiesScenario(request: HttpRequest): Boolean {
-        val scenarioContentType = scenario.httpRequestPattern.headersPattern.contentType.baseMediaType()
-        val requestContentType = request.contentType().baseMediaType()
+    private fun requestedMethod(request: HttpRequest): String? =
+        request.method.orEmpty().uppercase().takeUnless { it.isBlank() }
+
+    private fun declaredMethodsForPath(): Set<String> =
+        scenario.undeclaredRequestVariantMetadata.methodsForPath
+
+    private fun requestMediaTypeMatchesScenario(request: HttpRequest): Boolean {
+        val scenarioMediaType = scenario.httpRequestPattern.headersPattern.contentType.baseMediaType()
+        val requestMediaType = request.contentType().baseMediaType()
 
         return when {
-            scenarioContentType == null -> requestContentType == null
-            requestContentType == null -> false
-            else -> scenarioContentType.equals(requestContentType, ignoreCase = true)
+            scenarioMediaType == null -> requestMediaType == null
+            requestMediaType == null -> false
+            else -> scenarioMediaType.equals(requestMediaType, ignoreCase = true)
         }
     }
 }
