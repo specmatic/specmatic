@@ -118,6 +118,8 @@ class MethodNotAllowedExamplesTest {
         val generatedRequestV2 = methodNotAllowedScenario.generateHttpRequestV2().single().value
         val declaredMethods = methodNotAllowedScenario.undeclaredRequestVariantMetadata.methodsForPath.map { it.uppercase() }
 
+        assertThat(methodNotAllowedScenario.disallowedMethodFor405Example()).isEqualTo(generatedRequest.method)
+        assertThat(methodNotAllowedScenario.unsupportedContentTypeFor415Example()).isNull()
         assertThat(generatedRequest.method).isNotBlank()
         assertThat(generatedRequest.method?.uppercase()).isNotIn(declaredMethods)
         assertThat(generatedRequestV2.method).isNotBlank()

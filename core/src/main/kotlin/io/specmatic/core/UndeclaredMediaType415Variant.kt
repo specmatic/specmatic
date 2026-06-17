@@ -88,6 +88,9 @@ internal class UndeclaredMediaType415Variant(private val scenario: Scenario) : U
         return Result.Success()
     }
 
+    override fun unsupportedContentTypeFor415Example(): String =
+        unsupportedContentTypeForGeneratedExample()
+
     private fun unsupportedContentTypeForGeneratedExample(): String {
         val supportedContentTypes = supportedMediaTypes()
 

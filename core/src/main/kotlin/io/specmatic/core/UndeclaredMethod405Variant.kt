@@ -72,6 +72,9 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
         return scenario.httpRequestPattern.matches(requestWithScenarioMethod, resolver, resolver)
     }
 
+    override fun disallowedMethodFor405Example(): String =
+        unsupportedMethod()
+
     private fun unsupportedMethod(): String {
         val supportedMethods = (scenario.undeclaredRequestVariantMetadata.methodsForPath + scenario.method)
             .map { it.uppercase() }

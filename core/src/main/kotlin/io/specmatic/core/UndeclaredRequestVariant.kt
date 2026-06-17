@@ -18,6 +18,8 @@ internal interface UndeclaredRequestVariant {
     fun requestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean
     fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean
     fun matchesUndeclaredRequest(request: HttpRequest, resolver: Resolver): Result
+    fun disallowedMethodFor405Example(): String? = null
+    fun unsupportedContentTypeFor415Example(): String? = null
 }
 
 internal fun String?.baseMediaType(): String? =

@@ -127,6 +127,9 @@ class UnsupportedMediaTypeExamplesTest {
         val generatedRequest = unsupportedMediaTypeScenario.generateHttpRequest()
         val generatedRequestV2 = unsupportedMediaTypeScenario.generateHttpRequestV2().single().value
 
+        assertThat(unsupportedMediaTypeScenario.unsupportedContentTypeFor415Example())
+            .isEqualTo(generatedRequest.contentType()?.normalizedContentType())
+        assertThat(unsupportedMediaTypeScenario.disallowedMethodFor405Example()).isNull()
         assertThat(generatedRequest.contentType()?.normalizedContentType()).isEqualTo("application/xml")
         assertThat(generatedRequestV2.contentType()?.normalizedContentType()).isEqualTo("application/xml")
     }

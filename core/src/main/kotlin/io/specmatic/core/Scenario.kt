@@ -406,6 +406,12 @@ data class Scenario(
             undeclaredRequestVariant?.toUndeclaredRequest(generatedRequest) ?: generatedRequest
         }
 
+    fun disallowedMethodFor405Example(): String? =
+        undeclaredRequestVariant?.disallowedMethodFor405Example()
+
+    fun unsupportedContentTypeFor415Example(): String? =
+        undeclaredRequestVariant?.unsupportedContentTypeFor415Example()
+
     fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
         return undeclaredRequestVariant?.stubRequestPatternFor(request, resolver)
             ?: httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
