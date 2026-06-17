@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.ktor.http.HttpStatusCode
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.value.Value
 
@@ -11,7 +12,10 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
         val methodFromExample = scenario.exampleRow?.requestExample?.method
         if (methodFromExample != null) return request.copy(method = methodFromExample)
 
-        return request.copy(method = unsupportedMethod())
+        val generatedMethod = unsupportedMethod()
+            ?: throw ContractException(noDisallowedMethodError())
+
+        return request.copy(method = generatedMethod)
     }
 
     override fun scenarioFromExampleRow(
@@ -72,17 +76,16 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
         return scenario.httpRequestPattern.matches(requestWithScenarioMethod, resolver, resolver)
     }
 
-    override fun disallowedMethodFor405Example(): String =
+    override fun disallowedMethodFor405Example(): String? =
         unsupportedMethod()
 
-    private fun unsupportedMethod(): String {
+    private fun unsupportedMethod(): String? {
         val supportedMethods = (scenario.undeclaredRequestVariantMetadata.methodsForPath + scenario.method)
             .map { it.uppercase() }
             .toSet()
 
         return listOf("PATCH", "POST", "PUT", "DELETE", "GET", "HEAD", "OPTIONS", "TRACE")
             .firstOrNull { it !in supportedMethods }
-            ?: "SPECMATIC-UNSUPPORTED"
     }
 
     private fun requestWithScenarioMethodIdentifiesScenario(request: HttpRequest, resolver: Resolver): Boolean {
@@ -111,6 +114,9 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
             else -> scenarioMediaType.equals(requestMediaType, ignoreCase = true)
         }
     }
+
+    private fun noDisallowedMethodError(): String =
+        "Cannot generate a 405 request for ${scenario.method} ${scenario.path}: all known HTTP methods are already declared for this path."
 }
 
 private fun Result.Failure.withRequestMethodBreadCrumbs(): Result.Failure {

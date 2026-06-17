@@ -135,6 +135,39 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
+    fun `custom 415 fallback content type works across mock and contract test execution`() {
+        val specFile = writeSpec(ordersSpecWithAllPreferredUnsupportedRequestContentTypes())
+        val exampleFile = writeExample(
+            name = "post-specmatic-unsupported",
+            requestMethod = "POST",
+            requestPath = "/orders",
+            requestBody = """"body": "request sent here"""",
+            responseStatus = 415,
+            responseBody = """"body": { "error": "occurred" }""",
+            requestContentType = "application/x-specmatic-unsupported"
+        )
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+
+        assertThat(unusedExamples).isEmpty()
+        assertThat(unsupportedMediaTypeScenario.unsupportedContentTypeFor415Example())
+            .isEqualTo("application/x-specmatic-unsupported")
+
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+            val results = feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse =
+                    stub.client.execute(request)
+
+                override fun setServerState(serverState: Map<String, Value>) {
+                }
+            })
+
+            assertThat(results.failureCount).isEqualTo(0)
+            assertThat(results.successCount).isEqualTo(1)
+        }
+    }
+
+    @Test
     fun `external 415 example with unsupported request content type is served by mock`() {
         val specFile = writeSpec(ordersSpec())
         val exampleFile = writeExample(
@@ -610,6 +643,59 @@ class UnsupportedMediaTypeExamplesTest {
                   "text/plain; charset=utf-8":
                     schema:
                       type: string
+              responses:
+                "415":
+                  description: unsupported media type
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                        type: string
+    """
+
+    private fun ordersSpecWithAllPreferredUnsupportedRequestContentTypes() = """
+        openapi: 3.0.4
+        info:
+          title: Orders
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - data
+                      properties:
+                        data:
+                          type: string
+                  text/plain:
+                    schema:
+                      type: string
+                  application/xml:
+                    schema:
+                      type: object
+                      xml:
+                        name: order
+                      properties:
+                        data:
+                          type: string
+                  application/octet-stream:
+                    schema:
+                      type: string
+                  application/x-www-form-urlencoded:
+                    schema:
+                      type: object
+                      properties:
+                        data:
+                          type: string
               responses:
                 "415":
                   description: unsupported media type

@@ -127,6 +127,24 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
+    fun `generated 405 request fails clearly when every preferred HTTP method is declared`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(allMethods405Spec()).canonicalPath).toFeature()
+        val methodNotAllowedScenario = feature.scenarios.first { it.status == 405 }
+
+        assertThat(methodNotAllowedScenario.disallowedMethodFor405Example()).isNull()
+
+        val exception = assertThrows<ContractException> {
+            methodNotAllowedScenario.generateHttpRequest()
+        }
+        assertThat(exception.message).contains("all known HTTP methods are already declared for this path")
+
+        val v2Exception = assertThrows<ContractException> {
+            methodNotAllowedScenario.generateHttpRequestV2()
+        }
+        assertThat(v2Exception.message).contains("all known HTTP methods are already declared for this path")
+    }
+
+    @Test
     fun `external 405 example with undeclared method is served by mock`() {
         val specFile = writeSpec(ordersSpec())
         val exampleFile = writeExample(
@@ -824,6 +842,79 @@ class MethodNotAllowedExamplesTest {
                   required: true
                   schema:
                     type: integer
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+    """
+
+    private fun allMethods405Spec() = """
+        openapi: 3.0.4
+        info:
+          title: Orders
+          version: 1.0.0
+        paths:
+          /orders:
+            get:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            post:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            put:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            delete:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            patch:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            head:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            options:
+              responses:
+                "405":
+                  description: method not allowed
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+            trace:
               responses:
                 "405":
                   description: method not allowed
