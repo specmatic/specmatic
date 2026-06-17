@@ -397,6 +397,12 @@ data class Scenario(
     fun unsupportedContentTypeFor415Example(): String? =
         httpRequestPattern.unsupportedContentTypeFor415Example()
 
+    fun requestWithUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
+        httpRequestPattern.requestWithUnsupportedContentTypeFor415Example(request)
+
+    fun requestWithValidUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
+        httpRequestPattern.requestWithValidUnsupportedContentTypeFor415Example(request)
+
     fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
         httpRequestPattern.generateExactRequestPatternForStub(request, resolver)
 

@@ -16,8 +16,10 @@ import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.Decision
+import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.value.XMLNode
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
@@ -27,7 +29,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.util.stream.Stream
 
 class UnsupportedMediaTypeExamplesTest {
     @TempDir
@@ -136,6 +141,85 @@ class UnsupportedMediaTypeExamplesTest {
         assertThat(unsupportedMediaTypeScenario.disallowedMethodFor405Example()).isNull()
         assertThat(generatedRequest.contentType()?.normalizedContentType()).isEqualTo("application/xml")
         assertThat(generatedRequestV2.contentType()?.normalizedContentType()).isEqualTo("application/xml")
+    }
+
+    @Test
+    fun `415 fix request preserves unsupported request content type when body can be generated for it`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(ordersSpecWithSupportedRequestContentTypes(listOf("application/json"))).canonicalPath).toFeature()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+        val requestWithUnsupportedContentType = HttpRequest(
+            method = "POST",
+            path = "/orders",
+            headers = mapOf("Content-Type" to "application/octet-stream"),
+            body = parsedJSONObject("""{"data":"found"}""")
+        )
+
+        val fixedRequest = unsupportedMediaTypeScenario.requestWithValidUnsupportedContentTypeFor415Example(requestWithUnsupportedContentType)
+
+        assertThat(fixedRequest?.contentType()).isEqualTo("application/octet-stream")
+        assertThat(fixedRequest?.body).isEqualTo(StringValue("unsupported request body"))
+    }
+
+    @Test
+    fun `415 fix request falls back to generated unsupported content type when current content type cannot be generated`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(ordersSpecWithSupportedRequestContentTypes(listOf("application/json", "text/plain"))).canonicalPath).toFeature()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+        val requestWithUnknownContentType = HttpRequest(
+            method = "POST",
+            path = "/orders",
+            headers = mapOf("Content-Type" to "application/vnd.unknown"),
+            body = parsedJSONObject("""{"data":"found"}""")
+        )
+
+        val fixedRequest = unsupportedMediaTypeScenario.requestWithValidUnsupportedContentTypeFor415Example(requestWithUnknownContentType)
+
+        assertThat(fixedRequest?.contentType()).isEqualTo("application/xml")
+        assertThat(fixedRequest?.body).isInstanceOf(XMLNode::class.java)
+    }
+
+    @Test
+    fun `415 fix request falls back to generated unsupported content type when current content type is supported`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(ordersSpecWithSupportedRequestContentTypes(listOf("application/json"))).canonicalPath).toFeature()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+        val requestWithSupportedContentType = HttpRequest(
+            method = "POST",
+            path = "/orders",
+            headers = mapOf("Content-Type" to "application/json"),
+            body = StringValue("wrong")
+        )
+
+        val fixedRequest = unsupportedMediaTypeScenario.requestWithValidUnsupportedContentTypeFor415Example(requestWithSupportedContentType)
+
+        assertThat(fixedRequest?.contentType()).isEqualTo("text/plain")
+        assertThat(fixedRequest?.body).isEqualTo(StringValue("unsupported request body"))
+    }
+
+    @ParameterizedTest(name = "generated 415 example with {0} is served by mock")
+    @MethodSource("generated415MockCases")
+    fun `generated 415 request body matches unsupported content type and is served by mock`(testCase: Generated415MockCase) {
+        val specFile = writeSpec(ordersSpecWithSupportedRequestContentTypes(testCase.supportedRequestContentTypes))
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+
+        val generatedRequest = unsupportedMediaTypeScenario.generateHttpRequest()
+        val generatedRequestV2 = unsupportedMediaTypeScenario.generateHttpRequestV2().single().value
+
+        assertThat(generatedRequest.contentType()).isEqualTo(testCase.expectedUnsupportedContentType)
+        assertThat(generatedRequestV2.contentType()).isEqualTo(testCase.expectedUnsupportedContentType)
+        assertGenerated415RequestBodyMatchesContentType(generatedRequest)
+        assertGenerated415RequestBodyMatchesContentType(generatedRequestV2)
+
+        val exampleFile = writeExampleFromRequest(
+            name = "post-${testCase.expectedUnsupportedContentType.replace("/", "-")}",
+            request = generatedRequest
+        )
+
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile))).use { stub ->
+            val response = stub.client.execute(generatedRequest)
+
+            assertThat(response.status).isEqualTo(415)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"error":"occurred"}"""))
+        }
     }
 
     @Test
@@ -342,6 +426,51 @@ class UnsupportedMediaTypeExamplesTest {
         assertThat(unusedExamples).containsExactly(exampleFile.canonicalPath)
     }
 
+    @ParameterizedTest(name = "415 example with {0} and mismatched body is rejected by validation")
+    @MethodSource("invalid415PayloadCases")
+    fun `415 example with unsupported request content type but mismatched body is rejected by validation`(
+        testCase: Invalid415PayloadCase
+    ) {
+        val specFile = writeSpec(ordersSpecWithSupportedRequestContentTypes(listOf("application/json")))
+        val exampleFile = writeExample(
+            name = "post-${testCase.requestContentType.replace("/", "-")}-invalid-body",
+            requestMethod = "POST",
+            requestPath = "/orders",
+            requestBody = """"body": { "data": "found" }""",
+            responseStatus = 415,
+            responseBody = """"body": { "error": "occurred" }""",
+            requestContentType = testCase.requestContentType
+        )
+
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+
+        assertThat(unusedExamples).isEmpty()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.method == "POST" && it.status == 415 }
+        assertThat(unsupportedMediaTypeScenario.hasExamples()).isTrue()
+
+        val exampleStub = ScenarioStub.readFromFile(exampleFile)
+        val matchResult = unsupportedMediaTypeScenario.matches(
+            exampleStub.request,
+            exampleStub.response,
+            mismatchMessages = DefaultMismatchMessages,
+            flagsBased = feature.flagsBased
+        )
+
+        assertThat(matchResult).isInstanceOf(Result.Failure::class.java)
+        val expectedBodyError =
+            "Request body for Content-Type \"${testCase.requestContentType}\" must be ${testCase.expectedBodyDescription}"
+        val matchFailure = matchResult as Result.Failure
+        assertThat(matchFailure.reportString()).contains(expectedBodyError)
+        assertThat(matchFailure.toMatchFailureDetails().breadCrumbs)
+            .containsExactly("REQUEST", "BODY")
+
+        val validationMessage = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateExample(specFile, exampleFile)
+            .errorMessage
+        assertThat(validationMessage).contains(expectedBodyError)
+        assertThat(validationMessage).doesNotContain("No matching specification found for this example")
+    }
+
     @Test
     fun `415 example with unsupported request content type but invalid path parameter is rejected`() {
         val specFile = writeSpec(orderByIdSpec())
@@ -493,6 +622,22 @@ class UnsupportedMediaTypeExamplesTest {
     private fun writeSpec(spec: String): File =
         tempDir.resolve("api-${System.nanoTime()}.yaml").also { it.writeText(spec.trimIndent()) }
 
+    private fun writeExampleFromRequest(name: String, request: HttpRequest): File {
+        val examplesDir = tempDir.resolve("examples-$name").also(File::mkdirs)
+        return examplesDir.resolve("$name.json").also { file ->
+            file.writeText(
+                ScenarioStub(
+                    request = request,
+                    response = HttpResponse(
+                        status = 415,
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = parsedJSONObject("""{"error":"occurred"}""")
+                    )
+                ).withName(name).toJSON().toStringLiteral()
+            )
+        }
+    }
+
     private fun writeExample(
         name: String,
         requestMethod: String,
@@ -555,6 +700,23 @@ class UnsupportedMediaTypeExamplesTest {
     private fun HttpRequest.hasHeader(name: String, value: String): Boolean =
         headers.any { (headerName, headerValue) -> headerName.equals(name, ignoreCase = true) && headerValue == value }
 
+    private fun assertGenerated415RequestBodyMatchesContentType(request: HttpRequest) {
+        when (request.contentType()) {
+            "application/xml" -> {
+                assertThat(request.body).isInstanceOf(XMLNode::class.java)
+                assertThat(request.formFields).isEmpty()
+            }
+            "application/x-www-form-urlencoded" -> {
+                assertThat(request.body).isEqualTo(EmptyString)
+                assertThat(request.formFields).containsEntry("specmatic", "unsupported")
+            }
+            else -> {
+                assertThat(request.body).isInstanceOf(StringValue::class.java)
+                assertThat(request.formFields).isEmpty()
+            }
+        }
+    }
+
     private fun ordersSpec() = """
         openapi: 3.0.4
         info:
@@ -589,6 +751,76 @@ class UnsupportedMediaTypeExamplesTest {
                           error:
                             type: string
     """
+
+    private fun ordersSpecWithSupportedRequestContentTypes(contentTypes: List<String>) = """
+        openapi: 3.0.4
+        info:
+          title: Orders
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+${requestContentTypes(contentTypes)}
+              responses:
+                "415":
+                  description: unsupported media type
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                            type: string
+    """
+
+    private fun requestContentTypes(contentTypes: List<String>): String =
+        contentTypes.joinToString("\n") { requestContentType(it) }
+
+    private fun requestContentType(contentType: String): String =
+        requestContentTypeSchema(contentType).prependIndent("                  ")
+
+    private fun requestContentTypeSchema(contentType: String): String {
+        return when (contentType) {
+            "application/json" -> """
+                "$contentType":
+                  schema:
+                    type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        type: string
+            """
+            "application/xml" -> """
+                "$contentType":
+                  schema:
+                    type: object
+                    xml:
+                      name: order
+                    properties:
+                      data:
+                        type: string
+            """
+            "application/x-www-form-urlencoded" -> """
+                "$contentType":
+                  schema:
+                    type: object
+                    properties:
+                      data:
+                        type: string
+            """
+            else -> """
+                "$contentType":
+                  schema:
+                    type: string
+            """
+        }.trimIndent()
+    }
 
     private fun ordersSpecWithMultipleRequestContentTypes() = """
         openapi: 3.0.4
@@ -904,4 +1136,79 @@ class UnsupportedMediaTypeExamplesTest {
 
     private fun String.normalizedContentType(): String =
         substringBefore(";").trim().lowercase()
+
+    data class Generated415MockCase(
+        val supportedRequestContentTypes: List<String>,
+        val expectedUnsupportedContentType: String
+    ) {
+        override fun toString(): String = expectedUnsupportedContentType
+    }
+
+    data class Invalid415PayloadCase(
+        val requestContentType: String,
+        val expectedBodyDescription: String
+    ) {
+        override fun toString(): String = requestContentType
+    }
+
+    companion object {
+        @JvmStatic
+        fun generated415MockCases(): Stream<Generated415MockCase> = Stream.of(
+            Generated415MockCase(
+                supportedRequestContentTypes = listOf("application/json"),
+                expectedUnsupportedContentType = "text/plain"
+            ),
+            Generated415MockCase(
+                supportedRequestContentTypes = listOf("application/json", "text/plain"),
+                expectedUnsupportedContentType = "application/xml"
+            ),
+            Generated415MockCase(
+                supportedRequestContentTypes = listOf("application/json", "text/plain", "application/xml"),
+                expectedUnsupportedContentType = "application/octet-stream"
+            ),
+            Generated415MockCase(
+                supportedRequestContentTypes = listOf(
+                    "application/json",
+                    "text/plain",
+                    "application/xml",
+                    "application/octet-stream"
+                ),
+                expectedUnsupportedContentType = "application/x-www-form-urlencoded"
+            ),
+            Generated415MockCase(
+                supportedRequestContentTypes = listOf(
+                    "application/json",
+                    "text/plain",
+                    "application/xml",
+                    "application/octet-stream",
+                    "application/x-www-form-urlencoded"
+                ),
+                expectedUnsupportedContentType = "application/x-specmatic-unsupported"
+            )
+        )
+
+        @JvmStatic
+        fun invalid415PayloadCases(): Stream<Invalid415PayloadCase> = Stream.of(
+            Invalid415PayloadCase(
+                requestContentType = "text/plain",
+                expectedBodyDescription = "a string value"
+            ),
+            Invalid415PayloadCase(
+                requestContentType = "application/xml",
+                expectedBodyDescription = "XML"
+            ),
+            Invalid415PayloadCase(
+                requestContentType = "application/octet-stream",
+                expectedBodyDescription = "a string value"
+            ),
+            Invalid415PayloadCase(
+                requestContentType = "application/x-www-form-urlencoded",
+                expectedBodyDescription = "form fields"
+            ),
+            Invalid415PayloadCase(
+                requestContentType = "application/x-specmatic-unsupported",
+                expectedBodyDescription = "a string value"
+            )
+        )
+    }
 }

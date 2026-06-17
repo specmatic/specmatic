@@ -486,6 +486,12 @@ data class HttpRequestPattern(
     internal fun unsupportedContentTypeFor415Example(): String? =
         undeclaredMediaTypeVariant()?.unsupportedContentTypeForExample()
 
+    internal fun requestWithUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
+        undeclaredMediaTypeVariant()?.requestWithUnsupportedContentTypeForExample(request)
+
+    internal fun requestWithValidUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
+        undeclaredMediaTypeVariant()?.requestWithValidUnsupportedContentTypeForExample(request)
+
     private fun requestBelongsToUndeclaredVariantFor(
         requestedResponseStatus: Int?,
         request: HttpRequest,
