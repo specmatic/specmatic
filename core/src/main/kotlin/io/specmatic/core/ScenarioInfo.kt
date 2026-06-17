@@ -69,6 +69,7 @@ data class ScenarioInfo(
 }
 
 data class UndeclaredRequestVariantMetadata(
+    val responseStatus: Int? = null,
     val methodsForPath: Set<String> = emptySet(),
     val requestContentTypesForOperation: Set<String> = emptySet()
 )

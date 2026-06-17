@@ -843,6 +843,10 @@ class OpenApiSpecification(
                     }
 
                     val requestMediaTypes = httpRequestPatternDataGroupedByContentType.keys
+                    val undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(
+                        methodsForPath = methodsForPath,
+                        requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
+                    )
 
                     val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (status, responses) ->
                         val responsesGrouped = responses.groupBy {
@@ -918,10 +922,7 @@ class OpenApiSpecification(
                             operationMetadata = operationMetadata,
                             sourceLocations = sourceLocations,
                             operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
-                            undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(
-                                methodsForPath = methodsForPath,
-                                requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
-                            )
+                            undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
                         )
                     }
 

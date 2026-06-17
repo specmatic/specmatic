@@ -2,14 +2,15 @@ package io.specmatic.core
 
 import io.ktor.http.HttpStatusCode
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.Row
-import io.specmatic.core.value.Value
 
-internal class UndeclaredMethod405Variant(private val scenario: Scenario) : UndeclaredRequestVariant {
+internal class UndeclaredMethod405Variant(
+    private val requestPattern: HttpRequestPattern,
+    private val metadata: UndeclaredRequestVariantMetadata
+) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.MethodNotAllowed.value
 
-    override fun toUndeclaredRequest(request: HttpRequest): HttpRequest {
-        val methodFromExample = scenario.exampleRow?.requestExample?.method
+    override fun applyToGeneratedRequest(request: HttpRequest, requestExample: HttpRequest?): HttpRequest {
+        val methodFromExample = requestExample?.method
         if (methodFromExample != null) return request.copy(method = methodFromExample)
 
         val generatedMethod = unsupportedMethod()
@@ -18,46 +19,27 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
         return request.copy(method = generatedMethod)
     }
 
-    override fun scenarioFromExampleRow(
-        row: Row,
-        resolver: Resolver,
-        newExpectedFacts: Map<String, Value>,
-        ignoreFailure: Boolean,
-        generativePrefix: String
-    ): Scenario? {
-        val requestExample = row.requestExample ?: return null
-        val newResponsePattern = scenario.httpResponsePattern.withResponseExampleValue(row, resolver)
+    override fun exactRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        requestPattern.generateExactHttpRequestPatternUsingWrongMethod(request, resolver)
 
-        return scenario.copy(
-            httpRequestPattern = scenario.httpRequestPattern.generateExactHttpRequestPatternUsingWrongMethod(
-                requestExample,
-                resolver
-            ),
-            httpResponsePattern = newResponsePattern,
-            expectedFacts = newExpectedFacts,
-            ignoreFailure = ignoreFailure,
-            exampleName = row.name,
-            exampleRow = row,
-            generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW,
-            generativePrefix = generativePrefix,
-        )
-    }
+    override fun stubRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        requestPattern.generateExactHttpRequestPatternFrom(request, resolver)
 
-    override fun requestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
+    override fun requestBelongsToPattern(request: HttpRequest, resolver: Resolver): Boolean {
         val requestedMethod = requestedMethod(request) ?: return false
 
         return when (requestedMethod) {
-            scenario.method.uppercase() -> requestWithScenarioMethodIdentifiesScenario(request, resolver)
+            requestPattern.method.orEmpty().uppercase() -> requestWithPatternMethodIdentifiesRequestPattern(request, resolver)
             in declaredMethodsForPath() -> false
-            else -> requestWithRejectedMethodIdentifiesScenario(request, resolver)
+            else -> requestWithRejectedMethodIdentifiesRequestPattern(request, resolver)
         }
     }
 
-    override fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
+    override fun exampleRequestBelongsToPattern(request: HttpRequest, resolver: Resolver): Boolean {
         val requestedMethod = requestedMethod(request) ?: return false
 
         return when (requestedMethod) {
-            scenario.method.uppercase() -> requestWithScenarioMethodIdentifiesScenario(request, resolver)
+            requestPattern.method.orEmpty().uppercase() -> requestWithPatternMethodIdentifiesRequestPattern(request, resolver)
             in declaredMethodsForPath() -> false
             else -> matchesUndeclaredRequest(request, resolver).isSuccess()
         }
@@ -67,41 +49,41 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
         val requestedMethod = requestedMethod(request)
         if (requestedMethod == null || requestedMethod in declaredMethodsForPath()) {
             return Result.Failure(
-                message = "Expected method not to be one of ${scenario.undeclaredRequestVariantMetadata.methodsForPath.sorted().joinToString()}",
+                message = "Expected method not to be one of ${metadata.methodsForPath.sorted().joinToString()}",
                 failureReason = FailureReason.UndeclaredRequestVariantMismatch
-            ).withRequestMethodBreadCrumbs().updateScenario(scenario)
+            ).withRequestMethodBreadCrumbs()
         }
 
-        val requestWithScenarioMethod = request.copy(method = scenario.method)
-        return scenario.httpRequestPattern.matches(requestWithScenarioMethod, resolver, resolver)
+        val requestWithPatternMethod = request.copy(method = requestPattern.method)
+        return requestPattern.matches(requestWithPatternMethod, resolver, resolver)
     }
 
     override fun disallowedMethodFor405Example(): String? =
         unsupportedMethod()
 
     private fun unsupportedMethod(): String? {
-        return (scenario.undeclaredRequestVariantMetadata.methodsForPath + scenario.method)
+        return (metadata.methodsForPath + requestPattern.method.orEmpty())
             .firstMethodNotDeclaredForPath()
     }
 
-    private fun requestWithScenarioMethodIdentifiesScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        return scenario.httpRequestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess() &&
-                requestMediaTypeMatchesScenario(request)
+    private fun requestWithPatternMethodIdentifiesRequestPattern(request: HttpRequest, resolver: Resolver): Boolean {
+        return requestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess() &&
+                requestMediaTypeMatchesPattern(request)
     }
 
-    private fun requestWithRejectedMethodIdentifiesScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        val requestWithScenarioMethod = request.copy(method = scenario.method)
-        return scenario.httpRequestPattern.matchesPathStructureAndMethod(requestWithScenarioMethod, resolver).isSuccess()
+    private fun requestWithRejectedMethodIdentifiesRequestPattern(request: HttpRequest, resolver: Resolver): Boolean {
+        val requestWithPatternMethod = request.copy(method = requestPattern.method)
+        return requestPattern.matchesPathStructureAndMethod(requestWithPatternMethod, resolver).isSuccess()
     }
 
     private fun requestedMethod(request: HttpRequest): String? =
         request.method.orEmpty().uppercase().takeUnless { it.isBlank() }
 
     private fun declaredMethodsForPath(): Set<String> =
-        scenario.undeclaredRequestVariantMetadata.methodsForPath
+        metadata.methodsForPath
 
-    private fun requestMediaTypeMatchesScenario(request: HttpRequest): Boolean {
-        val scenarioMediaType = scenario.httpRequestPattern.headersPattern.contentType.baseMediaType()
+    private fun requestMediaTypeMatchesPattern(request: HttpRequest): Boolean {
+        val scenarioMediaType = requestPattern.headersPattern.contentType.baseMediaType()
         val requestMediaType = request.contentType().baseMediaType()
 
         return when {
@@ -112,7 +94,8 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
     }
 
     private fun noDisallowedMethodError(): String =
-        "Cannot generate a 405 request for ${scenario.method} ${scenario.path}: all known HTTP methods are already declared for this path."
+        "Cannot generate a 405 request for ${requestPattern.method} ${requestPattern.httpPathPattern?.toInternalPath()}: " +
+                "all known HTTP methods are already declared for this path."
 }
 
 private fun Result.Failure.withRequestMethodBreadCrumbs(): Result.Failure {

@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
 import io.ktor.util.*
 import io.specmatic.conversions.NoSecurityScheme
 import io.specmatic.conversions.OpenAPISecurityScheme
@@ -61,7 +62,8 @@ data class HttpRequestPattern(
     val multiPartFormDataPattern: List<MultiPartFormDataPattern> = emptyList(),
     val securitySchemes: List<OpenAPISecurityScheme> = listOf(NoSecurityScheme()),
     val formFieldPointers: Map<String, String> = emptyMap(),
-    val multiPartPointers: Map<String, String> = emptyMap()
+    val multiPartPointers: Map<String, String> = emptyMap(),
+    val undeclaredRequestVariantMetadata: UndeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata()
 ) {
     private data class ExactRequestPatternOverride(
         val contentType: String?,
@@ -411,17 +413,129 @@ data class HttpRequestPattern(
         )
 
     fun generateExactHttpRequestPatternUsingWrongMethod(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
-        generateExactHttpRequestPatternFrom(request, resolver).useContractMethodForReporting()
+        useContractMethodForReporting(generateExactHttpRequestPatternFrom(request, resolver))
 
-    private fun HttpRequestPattern.useContractMethodForReporting(): HttpRequestPattern =
-        copy(method = this@HttpRequestPattern.method)
+    internal fun withUndeclaredRequestVariantFor(
+        responseStatus: Int,
+        metadata: UndeclaredRequestVariantMetadata
+    ): HttpRequestPattern =
+        copy(undeclaredRequestVariantMetadata = metadata.forUndeclaredRequestVariantResponse(responseStatus))
+
+    internal fun hasUndeclaredRequestVariant(): Boolean =
+        undeclaredRequestVariantMetadata.isUndeclaredRequestVariantResponse()
+
+    internal fun isUndeclaredMethodVariant(): Boolean =
+        undeclaredRequestVariantMetadata.responseStatus == HttpStatusCode.MethodNotAllowed.value
+
+    internal fun requestBelongsToPatternForExpectedStatus(
+        requestedResponseStatus: Int?,
+        request: HttpRequest,
+        resolver: Resolver
+    ): Boolean =
+        requestBelongsToUndeclaredVariantFor(requestedResponseStatus, request, resolver)
+            ?: matchesPathStructureAndMethod(request, resolver).isSuccess()
+
+    internal fun requestIdentityMatchesForResponseStatus(
+        responseStatus: Int,
+        request: HttpRequest,
+        resolver: Resolver
+    ): Boolean =
+        requestBelongsToUndeclaredVariantFor(responseStatus, request, resolver)
+            ?: matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
+
+    internal fun matchesUndeclaredRequestFor(
+        responseStatus: Int,
+        request: HttpRequest,
+        resolver: Resolver
+    ): Result? =
+        undeclaredRequestVariantFor(responseStatus)?.matchesUndeclaredRequest(request, resolver)
+
+    internal fun matchesExampleRequest(request: HttpRequest, resolver: Resolver): Result =
+        undeclaredRequestVariant()?.matchesUndeclaredRequest(request, resolver)
+            ?: matches(request, resolver, resolver)
+
+    internal fun exampleRequestBelongsToPattern(
+        request: HttpRequest,
+        resolver: Resolver
+    ): Boolean =
+        undeclaredRequestVariant()?.exampleRequestBelongsToPattern(request, resolver)
+            ?: matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
+
+    internal fun externalRequestExampleForUndeclaredGeneration(requestExample: HttpRequest?): HttpRequest? =
+        undeclaredRequestVariant()?.requestExampleForGeneration(requestExample)
+
+    internal fun applyUndeclaredVariantToGeneratedRequest(request: HttpRequest, requestExample: HttpRequest?): HttpRequest =
+        undeclaredRequestVariant()?.applyToGeneratedRequest(request, requestExample) ?: request
+
+    internal fun exactRequestPatternForUndeclaredRequest(
+        request: HttpRequest,
+        resolver: Resolver
+    ): HttpRequestPattern? =
+        undeclaredRequestVariant()?.exactRequestPatternFor(request, resolver)
+
+    internal fun generateExactRequestPatternForStub(
+        request: HttpRequest,
+        resolver: Resolver
+    ): HttpRequestPattern =
+        undeclaredRequestVariant()?.stubRequestPatternFor(request, resolver)
+            ?: generateExactHttpRequestPatternFrom(request, resolver)
+
+    internal fun disallowedMethodFor405Example(): String? =
+        undeclaredRequestVariant()?.disallowedMethodFor405Example()
+
+    internal fun unsupportedContentTypeFor415Example(): String? =
+        undeclaredRequestVariant()?.unsupportedContentTypeFor415Example()
+
+    internal fun requestContentTypeForUndeclaredReport(): String? =
+        undeclaredRequestVariant()?.requestContentTypeForReport()
+
+    private fun requestBelongsToUndeclaredVariantFor(
+        requestedResponseStatus: Int?,
+        request: HttpRequest,
+        resolver: Resolver
+    ): Boolean? =
+        undeclaredRequestVariantFor(requestedResponseStatus)?.requestBelongsToPattern(request, resolver)
+
+    private fun undeclaredRequestVariantFor(responseStatus: Int?): UndeclaredRequestVariant? =
+        undeclaredRequestVariant()?.takeIf { it.responseStatus == responseStatus }
+
+    private fun undeclaredRequestVariant(): UndeclaredRequestVariant? {
+        return when (undeclaredRequestVariantMetadata.responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value ->
+                UndeclaredMethod405Variant(this, undeclaredRequestVariantMetadata)
+            HttpStatusCode.UnsupportedMediaType.value ->
+                UndeclaredMediaType415Variant(this, undeclaredRequestVariantMetadata)
+            else -> null
+        }
+    }
+
+    private fun UndeclaredRequestVariantMetadata.forUndeclaredRequestVariantResponse(
+        responseStatus: Int
+    ): UndeclaredRequestVariantMetadata {
+        return when (responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value,
+            HttpStatusCode.UnsupportedMediaType.value -> copy(responseStatus = responseStatus)
+            else -> UndeclaredRequestVariantMetadata()
+        }
+    }
+
+    private fun UndeclaredRequestVariantMetadata.isUndeclaredRequestVariantResponse(): Boolean {
+        return when (responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value,
+            HttpStatusCode.UnsupportedMediaType.value -> true
+            else -> false
+        }
+    }
+
+    private fun useContractMethodForReporting(requestPattern: HttpRequestPattern): HttpRequestPattern =
+        requestPattern.copy(method = method)
 
     private fun generateExactHttpRequestPatternFrom(
         request: HttpRequest,
         resolver: Resolver,
         exactRequestPatternOverride: ExactRequestPatternOverride?
     ): HttpRequestPattern {
-        var requestPattern = HttpRequestPattern()
+        var requestPattern = HttpRequestPattern(undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata)
         val parseValueToType: (Value) -> Pattern = { it.exactMatchElseType() }
 
         return attempt(breadCrumb = "REQUEST") {
@@ -812,7 +926,8 @@ data class HttpRequestPattern(
                                         method = method,
                                         body = bodyPattern,
                                         formFieldsPattern = formFieldsPattern,
-                                        multiPartFormDataPattern = formDataPartList
+                                        multiPartFormDataPattern = formDataPartList,
+                                        undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
                                     )
 
                                     val schemeInRow = securitySchemes.find { it.isInRow(row) }
@@ -903,7 +1018,8 @@ data class HttpRequestPattern(
                                         method = method,
                                         body = newBody,
                                         formFieldsPattern = newFormFieldsPattern,
-                                        multiPartFormDataPattern = newFormDataPartList
+                                        multiPartFormDataPattern = newFormDataPartList,
+                                        undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
                                     )
 
                                     securitySchemes.map {

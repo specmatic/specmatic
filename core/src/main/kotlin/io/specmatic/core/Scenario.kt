@@ -83,17 +83,8 @@ data class Scenario(
     val generatedFrom: GeneratedScenarioOrigin? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val operationSourcePointer: String? = null,
-    val undeclaredRequestVariantMetadata: UndeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(),
     private val requestContentTypeForReport: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
-    private val undeclaredRequestVariant: UndeclaredRequestVariant? by lazy(LazyThreadSafetyMode.NONE) {
-        when (status) {
-            HttpStatusCode.MethodNotAllowed.value -> UndeclaredMethod405Variant(this)
-            HttpStatusCode.UnsupportedMediaType.value -> UndeclaredMediaType415Variant(this)
-            else -> null
-        }
-    }
-
     data class RequestDetails(
         private val method: String,
         private val requestContentType: String,
@@ -109,7 +100,10 @@ data class Scenario(
 
     constructor(scenarioInfo: ScenarioInfo) : this(
         name = scenarioInfo.scenarioName,
-        httpRequestPattern = scenarioInfo.httpRequestPattern,
+        httpRequestPattern = scenarioInfo.httpRequestPattern.withUndeclaredRequestVariantFor(
+            responseStatus = scenarioInfo.httpResponsePattern.status,
+            metadata = scenarioInfo.undeclaredRequestVariantMetadata
+        ),
         httpResponsePattern = scenarioInfo.httpResponsePattern,
         expectedFacts = scenarioInfo.expectedServerState,
         patterns = scenarioInfo.patterns,
@@ -127,8 +121,7 @@ data class Scenario(
         specType = scenarioInfo.specType,
         operationMetadata = scenarioInfo.operationMetadata,
         sourceLocations = scenarioInfo.sourceLocations,
-        operationSourcePointer = scenarioInfo.operationSourcePointer,
-        undeclaredRequestVariantMetadata = scenarioInfo.undeclaredRequestVariantMetadata
+        operationSourcePointer = scenarioInfo.operationSourcePointer
     )
 
     val apiIdentifier: String
@@ -227,24 +220,15 @@ data class Scenario(
         httpRequest: HttpRequest,
         requestedResponseStatus: Int?,
         resolver: Resolver = this.resolver
-    ): Boolean {
-        return undeclaredRequestVariantFor(requestedResponseStatus)?.requestBelongsToScenario(httpRequest, resolver)
-            ?: matchesPathStructureAndMethod(httpRequest, resolver)
-    }
+    ): Boolean =
+        httpRequestPattern.requestBelongsToPatternForExpectedStatus(requestedResponseStatus, httpRequest, resolver)
 
     fun identifierMatchesRequestForResponseStatus(
         httpRequest: HttpRequest,
         responseStatus: Int,
         resolver: Resolver = this.resolver
-    ): Boolean {
-        return undeclaredRequestVariantFor(responseStatus)?.requestBelongsToScenario(httpRequest, resolver)
-            ?: httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, resolver).isSuccess()
-    }
-
-    private fun matchesPathStructureAndMethod(httpRequest: HttpRequest, resolver: Resolver): Boolean {
-        val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
-        return result.isSuccess()
-    }
+    ): Boolean =
+        httpRequestPattern.requestIdentityMatchesForResponseStatus(responseStatus, httpRequest, resolver)
 
     fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
         if (this.status !in setOf(DEFAULT_RESPONSE_CODE, httpResponse.status)) return false
@@ -395,27 +379,26 @@ data class Scenario(
 
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
-            val requestExampleForUndeclaredVariant = undeclaredRequestVariant?.requestExampleForGeneration()
-            if (requestExampleForUndeclaredVariant != null) return@scenarioBreadCrumb requestExampleForUndeclaredVariant
+            val externalRequestExample =
+                httpRequestPattern.externalRequestExampleForUndeclaredGeneration(exampleRow?.requestExample)
+            if (externalRequestExample != null) return@scenarioBreadCrumb externalRequestExample
 
             val generatedRequest = httpRequestPattern.generate(
                 flagsBased.update(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             )
-            undeclaredRequestVariant?.toUndeclaredRequest(generatedRequest) ?: generatedRequest
+            httpRequestPattern.applyUndeclaredVariantToGeneratedRequest(generatedRequest, exampleRow?.requestExample)
         }
 
     fun disallowedMethodFor405Example(): String? =
-        undeclaredRequestVariant?.disallowedMethodFor405Example()
+        httpRequestPattern.disallowedMethodFor405Example()
 
     fun unsupportedContentTypeFor415Example(): String? =
-        undeclaredRequestVariant?.unsupportedContentTypeFor415Example()
+        httpRequestPattern.unsupportedContentTypeFor415Example()
 
-    fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
-        return undeclaredRequestVariant?.stubRequestPatternFor(request, resolver)
-            ?: httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
-    }
+    fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        httpRequestPattern.generateExactRequestPatternForStub(request, resolver)
 
     fun generateHttpRequestV2(
         flagsBased: FlagsBased = DefaultStrategies,
@@ -433,8 +416,10 @@ data class Scenario(
             }
             httpRequestPattern.generateV2(updatedResolver).map { discriminatorBasedRequest ->
                 discriminatorBasedRequest.copy(
-                    value = undeclaredRequestVariant?.toUndeclaredRequest(discriminatorBasedRequest.value)
-                        ?: discriminatorBasedRequest.value
+                    value = httpRequestPattern.applyUndeclaredVariantToGeneratedRequest(
+                        discriminatorBasedRequest.value,
+                        exampleRow?.requestExample
+                    )
                 )
             }
         }
@@ -547,7 +532,7 @@ data class Scenario(
 
         return scenarioBreadCrumb(this) {
             attempt {
-                val undeclaredVariantScenario = undeclaredRequestVariant?.scenarioFromExampleRow(
+                val undeclaredVariantScenario = scenarioFromUndeclaredRequestExample(
                     row = row,
                     resolver = resolver,
                     newExpectedFacts = newExpectedServerState,
@@ -597,6 +582,32 @@ data class Scenario(
                 }
             }
         }
+    }
+
+    private fun scenarioFromUndeclaredRequestExample(
+        row: Row,
+        resolver: Resolver,
+        newExpectedFacts: Map<String, Value>,
+        ignoreFailure: Boolean,
+        generativePrefix: String
+    ): Scenario? {
+        val requestExample = row.requestExample ?: return null
+        val requestPattern = httpRequestPattern.exactRequestPatternForUndeclaredRequest(requestExample, resolver)
+            ?: return null
+        val newResponsePattern = httpResponsePattern.withResponseExampleValue(row, resolver)
+
+        return copy(
+            httpRequestPattern = requestPattern,
+            httpResponsePattern = newResponsePattern,
+            expectedFacts = newExpectedFacts,
+            ignoreFailure = ignoreFailure,
+            exampleName = row.name,
+            exampleRow = row,
+            generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW,
+            generativePrefix = generativePrefix,
+            requestContentTypeForReport = httpRequestPattern.requestContentTypeForUndeclaredReport()
+                ?: requestContentTypeForReport,
+        )
     }
 
     private fun fillInTheBlanksAndResolvePatterns(row: Row, resolver: Resolver): ReturnValue<Row> {
@@ -738,7 +749,7 @@ data class Scenario(
             val result = matchesRequestExample(row.requestExample, resolverForExample)
             if(result is Result.Failure && !status.toString().startsWith("4"))
                 return result
-            if(result is Result.Failure && status in setOf(HttpStatusCode.MethodNotAllowed.value, HttpStatusCode.UnsupportedMediaType.value))
+            if(result is Result.Failure && httpRequestPattern.hasUndeclaredRequestVariant())
                 return result
         } else {
             httpRequestPattern.newBasedOn(row, resolverForExample, status).first().value
@@ -918,7 +929,7 @@ data class Scenario(
         val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
         val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
 
-        if (undeclaredRequestVariant != null && !hasExamples) {
+        if (httpRequestPattern.hasUndeclaredRequestVariant() && !hasExamples) {
             return Decision.Skip(
                 context = this,
                 reasoning = Reasoning(mainReason = TestSkipReason.UNDECLARED_REQUEST_VARIANT_EXAMPLE_REQUIRED)
@@ -1039,7 +1050,7 @@ data class Scenario(
         val patternMatchingResolver = resolver.copy(mockMode = true)
 
         return externalisedJSONExamples.mapValues { (operationId, rows) ->
-            if (operationId.responseStatus == HttpStatusCode.MethodNotAllowed.value && operationId.requestMethod.isBlank())
+            if (httpRequestPattern.isUndeclaredMethodVariant() && operationId.requestMethod.isBlank())
                 return@mapValues emptyList()
 
             rows.filter { row ->
@@ -1051,7 +1062,7 @@ data class Scenario(
 
     private fun requestBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         if (!matchesOperationIfWsdl(row)) return false
-        if (status == HttpStatusCode.MethodNotAllowed.value && operationId.requestMethod.isBlank()) return false
+        if (httpRequestPattern.isUndeclaredMethodVariant() && operationId.requestMethod.isBlank()) return false
 
         return row.requestExample?.let { request ->
             requestExampleBelongsToScenario(request, patternMatchingResolver)
@@ -1059,24 +1070,22 @@ data class Scenario(
     }
 
     private fun matchesRequestForResponseStatus(request: HttpRequest, responseStatus: Int, resolver: Resolver): Result {
-        return undeclaredRequestVariantFor(responseStatus)?.matchesUndeclaredRequest(request, resolver)
+        return httpRequestPattern.matchesUndeclaredRequestFor(responseStatus, request, resolver)?.updateScenario(this)
             ?: when (responseStatus) {
-            in invalidRequestStatuses -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
-            else -> matches(request, resolver)
-        }
+                in invalidRequestStatuses -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+                else -> matches(request, resolver)
+            }
     }
 
     private fun matchesRequestExample(request: HttpRequest, resolver: Resolver): Result {
-        return undeclaredRequestVariant?.matchesUndeclaredRequest(request, resolver)
-            ?: httpRequestPattern.matches(request, resolver, resolver)
+        return httpRequestPattern.matchesExampleRequest(request, resolver).updateScenario(this)
     }
 
     private fun requestExampleBelongsToScenario(
         request: HttpRequest,
         resolver: Resolver
     ): Boolean {
-        return undeclaredRequestVariant?.exampleRequestBelongsToScenario(request, resolver)
-            ?: httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
+        return httpRequestPattern.exampleRequestBelongsToPattern(request, resolver)
     }
 
     private fun requestContentTypeForReporting(): String? =
@@ -1207,9 +1216,6 @@ data class Scenario(
 
         return responsePattern.fillInTheBlanks(resolver, "failure")
     }
-
-    private fun undeclaredRequestVariantFor(responseStatus: Int?): UndeclaredRequestVariant? =
-        undeclaredRequestVariant?.takeIf { it.responseStatus == responseStatus }
 
 }
 
