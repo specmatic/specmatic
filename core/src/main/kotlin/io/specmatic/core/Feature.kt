@@ -1049,14 +1049,12 @@ data class Feature(
 
     // TODO: Should this filter include requestContentType to find matchingScenarios ?
     internal fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
-        val targetPath = scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
-        val targetMethod = scenario.httpRequestPattern.method
-        val matchingScenarios = scenariosToLookInto.filter {
-            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == targetPath
-            && it.httpRequestPattern.method == targetMethod
-        }
+        val matchingScenarios = scenariosMatchingPathAndMethod(scenario, scenariosToLookInto)
 
-        val badRequestResponses = matchingScenarios.filter { it.httpResponsePattern.status in 400..499 }
+        val badRequestResponses = matchingScenarios.filter {
+            it.httpResponsePattern.status in 400..499 &&
+                    !it.httpRequestPattern.hasUndeclaredRequestVariant()
+        }
         val defaultResponses = matchingScenarios.filter { it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE }
 
         if (badRequestResponses.isEmpty() && defaultResponses.isEmpty()) return null
@@ -1064,6 +1062,28 @@ data class Feature(
             badRequestResponses = badRequestResponses.groupBy(keySelector = { it.httpResponsePattern.status }),
             defaultResponses = defaultResponses
         )
+    }
+
+    private fun scenariosMatchingPathAndMethod(
+        scenario: Scenario,
+        scenariosToLookInto: List<Scenario> = scenarios
+    ): List<Scenario> {
+        val targetPath = scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
+        val targetMethod = scenario.httpRequestPattern.method
+
+        return scenariosToLookInto.filter {
+            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == targetPath &&
+                    it.httpRequestPattern.method == targetMethod
+        }
+    }
+
+    private fun hasOnlyUndeclaredRequestVariant4xxResponses(scenario: Scenario): Boolean {
+        val badRequestResponses = scenariosMatchingPathAndMethod(scenario).filter {
+            it.httpResponsePattern.status in 400..499
+        }
+
+        return badRequestResponses.isNotEmpty() &&
+                badRequestResponses.all { it.httpRequestPattern.hasUndeclaredRequestVariant() }
     }
 
     fun generateContractTestScenarios(
@@ -1134,6 +1154,9 @@ data class Feature(
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
             val badRequestOrDefault = getBadRequestsOrDefault(scenario)
             if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
+                return@mapNotNull null
+            }
+            if (badRequestOrDefault == null && hasOnlyUndeclaredRequestVariant4xxResponses(scenario)) {
                 return@mapNotNull null
             }
 

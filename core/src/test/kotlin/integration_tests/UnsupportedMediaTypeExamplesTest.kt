@@ -106,13 +106,16 @@ class UnsupportedMediaTypeExamplesTest {
         assertThat(unusedExamples).isEmpty()
 
         resiliencyModes().forEach { resiliencyMode ->
-            val generated415Scenarios = feature
+            val generatedScenarios = feature
                 .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
                 .generateContractTestScenarios(emptyList())
-                .filter { (originalScenario, _) -> originalScenario.status == 415 && originalScenario.hasExamples() }
                 .toList()
+            val generated415Scenarios = generatedScenarios
+                .filter { (originalScenario, _) -> originalScenario.status == 415 && originalScenario.hasExamples() }
 
             assertThat(generated415Scenarios).hasSize(1)
+            assertThat(generatedScenarios.map { (_, generatedScenario) -> generatedScenario.value }.filter { it.isNegative })
+                .isEmpty()
             val generatedRequest = generated415Scenarios.single().second.value.generateHttpRequest()
             assertThat(generatedRequest.contentType()).isEqualTo("text/plain")
             assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()

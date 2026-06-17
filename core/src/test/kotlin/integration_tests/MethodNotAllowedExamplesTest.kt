@@ -96,13 +96,16 @@ class MethodNotAllowedExamplesTest {
         assertThat(unusedExamples).isEmpty()
 
         resiliencyModes().forEach { resiliencyMode ->
-            val generated405Scenarios = feature
+            val generatedScenarios = feature
                 .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
                 .generateContractTestScenarios(emptyList())
-                .filter { (originalScenario, _) -> originalScenario.status == 405 && originalScenario.hasExamples() }
                 .toList()
+            val generated405Scenarios = generatedScenarios
+                .filter { (originalScenario, _) -> originalScenario.status == 405 && originalScenario.hasExamples() }
 
             assertThat(generated405Scenarios).hasSize(1)
+            assertThat(generatedScenarios.map { (_, generatedScenario) -> generatedScenario.value }.filter { it.isNegative })
+                .isEmpty()
             val generatedRequest = generated405Scenarios.single().second.value.generateHttpRequest()
             assertThat(generatedRequest.method).isEqualTo("PATCH")
             assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
