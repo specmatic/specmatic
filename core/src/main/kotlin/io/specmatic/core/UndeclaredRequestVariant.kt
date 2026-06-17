@@ -27,3 +27,11 @@ internal fun String?.baseMediaType(): String? =
 
 internal fun Set<String>.baseMediaTypes(): Set<String> =
     mapNotNull { it.baseMediaType()?.lowercase() }.toSet()
+
+internal val PREFERRED_HTTP_METHODS_FOR_405: List<String> =
+    listOf("PATCH", "POST", "PUT", "DELETE", "GET", "HEAD", "OPTIONS", "TRACE")
+
+internal fun Collection<String>.firstMethodNotDeclaredForPath(): String? {
+    val declaredMethods = map { it.uppercase() }.toSet()
+    return PREFERRED_HTTP_METHODS_FOR_405.firstOrNull { it !in declaredMethods }
+}

@@ -80,12 +80,8 @@ internal class UndeclaredMethod405Variant(private val scenario: Scenario) : Unde
         unsupportedMethod()
 
     private fun unsupportedMethod(): String? {
-        val supportedMethods = (scenario.undeclaredRequestVariantMetadata.methodsForPath + scenario.method)
-            .map { it.uppercase() }
-            .toSet()
-
-        return listOf("PATCH", "POST", "PUT", "DELETE", "GET", "HEAD", "OPTIONS", "TRACE")
-            .firstOrNull { it !in supportedMethods }
+        return (scenario.undeclaredRequestVariantMetadata.methodsForPath + scenario.method)
+            .firstMethodNotDeclaredForPath()
     }
 
     private fun requestWithScenarioMethodIdentifiesScenario(request: HttpRequest, resolver: Resolver): Boolean {

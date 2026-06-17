@@ -145,6 +145,19 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
+    fun `405 response warns at parse time when every known HTTP method is declared for the path`() {
+        val specification = OpenApiSpecification.fromFile(writeSpec(allMethods405Spec()).canonicalPath)
+        val collectorContext = CollectorContext()
+        specification.toScenarioInfos(collectorContext)
+
+        val warningReport = collectorContext.toCollector().toResult().reportString()
+        assertThat(warningReport).contains(OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_HAS_NO_DISALLOWED_METHOD.id)
+        assertThat(warningReport).contains("paths./orders.get.responses.405")
+        assertThat(warningReport).contains("all known HTTP methods are already declared for /orders")
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+    }
+
+    @Test
     fun `external 405 example with undeclared method is served by mock`() {
         val specFile = writeSpec(ordersSpec())
         val exampleFile = writeExample(

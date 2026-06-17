@@ -811,6 +811,7 @@ class OpenApiSpecification(
                     }
                     httpResponsePatterns.forEach {
                         recordInlineUndeclaredRequestVariantExamplesIgnored(methodContext, httpMethod, openApiPath, it)
+                        recordMethodNotAllowedResponseWithoutDisallowedMethod(methodContext, httpMethod, openApiPath, methodsForPath, it)
                     }
 
                     val first2xxResponseStatus =
@@ -1177,6 +1178,23 @@ class OpenApiSpecification(
             message = "Inline OpenAPI ${responsePattern.status} examples for $httpMethod $openApiPath are not used to generate tests or inline mock data. External ${responsePattern.status} examples are still loaded and used. This is required because $unsupportedInlineExampleReason.",
             isWarning = true,
             ruleViolation = OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
+        )
+    }
+
+    private fun recordMethodNotAllowedResponseWithoutDisallowedMethod(
+        collectorContext: CollectorContext,
+        httpMethod: String,
+        openApiPath: String,
+        methodsForPath: Set<String>,
+        responsePatternData: ResponsePatternData
+    ) {
+        if (responsePatternData.responsePattern.status != HttpStatusCode.MethodNotAllowed.value) return
+        if (methodsForPath.firstMethodNotDeclaredForPath() != null) return
+
+        collectorContext.at("responses").at(HttpStatusCode.MethodNotAllowed.value.toString()).record(
+            message = "405 response for $httpMethod $openApiPath may never occur because all known HTTP methods are already declared for $openApiPath.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_HAS_NO_DISALLOWED_METHOD
         )
     }
 

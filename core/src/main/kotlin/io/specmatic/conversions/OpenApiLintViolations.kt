@@ -113,6 +113,13 @@ enum class OpenApiLintViolations(
         severity = IssueSeverity.WARNING
     ),
 
+    METHOD_NOT_ALLOWED_RESPONSE_HAS_NO_DISALLOWED_METHOD(
+        id = "OAS0033",
+        title = "Method Not Allowed response has no disallowed method",
+        summary = "405 response may never occur as all HTTP methods have been declared in the spec",
+        severity = IssueSeverity.WARNING
+    ),
+
     /* -------- Schema & references -------- */
     UNRESOLVED_REFERENCE(
         id = "OAS0041",
