@@ -9,6 +9,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Result
+import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.examples.source.DirectoryExampleSource
@@ -453,7 +454,10 @@ class UnsupportedMediaTypeExamplesTest {
             )
 
             assertThat(responseWithoutHint.status).isNotEqualTo(415)
-            assertThat(responseWithHint.status).isNotEqualTo(415)
+            assertThat(responseWithHint.status).isEqualTo(400)
+            assertThat(responseWithHint.headers).containsEntry(SPECMATIC_RESULT_HEADER, "failure")
+            assertThat(responseWithHint.body.toStringLiteral())
+                .contains("Cannot respond with 415 because no external 415 example was found.")
         }
     }
 
