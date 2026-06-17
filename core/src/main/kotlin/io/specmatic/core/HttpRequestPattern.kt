@@ -410,6 +410,12 @@ data class HttpRequestPattern(
             )
         )
 
+    fun generateExactHttpRequestPatternUsingWrongMethod(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        generateExactHttpRequestPatternFrom(request, resolver).useContractMethodForReporting()
+
+    private fun HttpRequestPattern.useContractMethodForReporting(): HttpRequestPattern =
+        copy(method = this@HttpRequestPattern.method)
+
     private fun generateExactHttpRequestPatternFrom(
         request: HttpRequest,
         resolver: Resolver,

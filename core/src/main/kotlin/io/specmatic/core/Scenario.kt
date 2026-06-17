@@ -906,6 +906,13 @@ data class Scenario(
         val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
         val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
 
+        if (requestRejectionBehavior() != null && !hasExamples) {
+            return Decision.Skip(
+                context = this,
+                reasoning = Reasoning(mainReason = TestSkipReason.REQUEST_REJECTION_EXAMPLE_REQUIRED)
+            )
+        }
+
         if (badRequestHasNoExample && negativeGenerationEnabled) {
             if (!strictMode) return null
             val ruleViolation = TestSkipReason.noExamples2xxAnd400(true)

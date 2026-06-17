@@ -6,12 +6,14 @@ import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.utilities.Decision
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.FeatureStubsResult
@@ -19,6 +21,7 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.stub.loadContractStubsAsResults
 import io.specmatic.test.TestExecutor
+import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -74,6 +77,36 @@ class MethodNotAllowedExamplesTest {
 
         assertThat(results.successCount).isEqualTo(3)
         assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `external 405 example generates exactly one 405 test in every resiliency mode`() {
+        val specFile = writeSpec(ordersSpec())
+        val exampleFile = writeExample(
+            name = "patch-with-post-body",
+            requestMethod = "PATCH",
+            requestPath = "/orders",
+            requestBody = """"body": { "data": "found" }""",
+            responseStatus = 405,
+            responseBody = """"body": { "error": "occurred" }""",
+            extraRequestHeaders = mapOf("X-Request-Mode" to "example")
+        )
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+
+        assertThat(unusedExamples).isEmpty()
+
+        resiliencyModes().forEach { resiliencyMode ->
+            val generated405Scenarios = feature
+                .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
+                .generateContractTestScenarios(emptyList())
+                .filter { (originalScenario, _) -> originalScenario.status == 405 && originalScenario.hasExamples() }
+                .toList()
+
+            assertThat(generated405Scenarios).hasSize(1)
+            val generatedRequest = generated405Scenarios.single().second.value.generateHttpRequest()
+            assertThat(generatedRequest.method).isEqualTo("PATCH")
+            assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
+        }
     }
 
     @Test
@@ -410,20 +443,31 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
-    fun `405 without examples is not generated as a contract test`() {
+    fun `405 without examples is not generated as a contract test in any resiliency mode`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only405Spec()).canonicalPath).toFeature()
 
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                throw ContractException("No tests should be generated")
-            }
+        resiliencyModes().forEach { resiliencyMode ->
+            val featureWithResiliency = feature.copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
+            val generatedScenarios = featureWithResiliency.generateContractTestScenarios(emptyList()).toList()
 
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-        })
+            assertThat(generatedScenarios).isEmpty()
+        }
+    }
 
-        assertThat(results.successCount).isEqualTo(0)
-        assertThat(results.failureCount).isEqualTo(0)
+    @Test
+    fun `405 without examples is skipped with request rejection example required reason`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(only405Spec()).canonicalPath).toFeature()
+        val methodNotAllowedScenario = feature.scenarios.single { it.status == 405 }
+
+        resiliencyModes().forEach { resiliencyMode ->
+            val decision = methodNotAllowedScenario.newBasedOnWithDecision(
+                strictMode = false,
+                resiliencyTestSuite = resiliencyMode
+            )
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java)
+            assertThat(decision!!.reasoning.mainReason).isEqualTo(TestSkipReason.REQUEST_REJECTION_EXAMPLE_REQUIRED)
+        }
     }
 
     @Test
@@ -475,14 +519,19 @@ class MethodNotAllowedExamplesTest {
         responseStatus: Int,
         responseBody: String,
         requestContentType: String? = "application/json",
-        responseContentType: String = "application/json"
+        responseContentType: String = "application/json",
+        extraRequestHeaders: Map<String, String> = emptyMap()
     ): File {
         val examplesDir = tempDir.resolve("examples-$name").also(File::mkdirs)
         return examplesDir.resolve("$name.json").also { file ->
-            val requestHeaders = requestContentType?.let {
+            val requestHeaderEntries = listOfNotNull(
+                requestContentType?.let { """"Content-Type": "$it"""" }
+            ).plus(extraRequestHeaders.map { (name, value) -> """"$name": "$value"""" })
+
+            val requestHeaders = requestHeaderEntries.takeIf { it.isNotEmpty() }?.let {
                 """
                     "headers": {
-                      "Content-Type": "$it"
+                      ${it.joinToString(",\n")}
                     }
                 """.trimIndent()
             }
@@ -505,6 +554,19 @@ class MethodNotAllowedExamplesTest {
             )
         }
     }
+
+    private fun resiliencyModes(): List<ResiliencyTestSuite> =
+        listOf(ResiliencyTestSuite.none, ResiliencyTestSuite.positiveOnly, ResiliencyTestSuite.all)
+
+    private fun specmaticConfigWith(resiliencyTestSuite: ResiliencyTestSuite): SpecmaticConfig =
+        when (resiliencyTestSuite) {
+            ResiliencyTestSuite.none -> SpecmaticConfig()
+            ResiliencyTestSuite.positiveOnly -> SpecmaticConfig().enableResiliencyTests(onlyPositive = true)
+            ResiliencyTestSuite.all -> SpecmaticConfig().enableResiliencyTests(onlyPositive = false)
+        }
+
+    private fun HttpRequest.hasHeader(name: String, value: String): Boolean =
+        headers.any { (headerName, headerValue) -> headerName.equals(name, ignoreCase = true) && headerValue == value }
 
     private fun ordersSpec() = """
         openapi: 3.0.4

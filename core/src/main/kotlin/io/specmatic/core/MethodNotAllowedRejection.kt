@@ -1,6 +1,8 @@
 package io.specmatic.core
 
 import io.ktor.http.HttpStatusCode
+import io.specmatic.core.pattern.Row
+import io.specmatic.core.value.Value
 
 internal class MethodNotAllowedRejection(private val scenario: Scenario) : RequestRejectionBehavior {
     override val responseStatus: Int = HttpStatusCode.MethodNotAllowed.value
@@ -10,6 +12,31 @@ internal class MethodNotAllowedRejection(private val scenario: Scenario) : Reque
         if (methodFromExample != null) return request.copy(method = methodFromExample)
 
         return request.copy(method = unsupportedMethod())
+    }
+
+    override fun scenarioFromRequestExampleRow(
+        row: Row,
+        resolver: Resolver,
+        newExpectedFacts: Map<String, Value>,
+        ignoreFailure: Boolean,
+        generativePrefix: String
+    ): Scenario? {
+        val requestExample = row.requestExample ?: return null
+        val newResponsePattern = scenario.httpResponsePattern.withResponseExampleValue(row, resolver)
+
+        return scenario.copy(
+            httpRequestPattern = scenario.httpRequestPattern.generateExactHttpRequestPatternUsingWrongMethod(
+                requestExample,
+                resolver
+            ),
+            httpResponsePattern = newResponsePattern,
+            expectedFacts = newExpectedFacts,
+            ignoreFailure = ignoreFailure,
+            exampleName = row.name,
+            exampleRow = row,
+            generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW,
+            generativePrefix = generativePrefix,
+        )
     }
 
     override fun canOwnRequest(request: HttpRequest, resolver: Resolver): Boolean {

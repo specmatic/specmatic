@@ -7,18 +7,21 @@ import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.utilities.Decision
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.TestExecutor
+import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -83,6 +86,37 @@ class UnsupportedMediaTypeExamplesTest {
         assertThat(sawUnsupportedMediaTypeRequest).isTrue()
         assertThat(results.successCount).isEqualTo(2)
         assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @Test
+    fun `external 415 example generates exactly one 415 test in every resiliency mode`() {
+        val specFile = writeSpec(ordersSpec())
+        val exampleFile = writeExample(
+            name = "post-text-plain",
+            requestMethod = "POST",
+            requestPath = "/orders",
+            requestBody = """"body": "request sent here"""",
+            responseStatus = 415,
+            responseBody = """"body": { "error": "occurred" }""",
+            requestContentType = "text/plain",
+            extraRequestHeaders = mapOf("X-Request-Mode" to "example")
+        )
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+
+        assertThat(unusedExamples).isEmpty()
+
+        resiliencyModes().forEach { resiliencyMode ->
+            val generated415Scenarios = feature
+                .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
+                .generateContractTestScenarios(emptyList())
+                .filter { (originalScenario, _) -> originalScenario.status == 415 && originalScenario.hasExamples() }
+                .toList()
+
+            assertThat(generated415Scenarios).hasSize(1)
+            val generatedRequest = generated415Scenarios.single().second.value.generateHttpRequest()
+            assertThat(generatedRequest.contentType()).isEqualTo("text/plain")
+            assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
+        }
     }
 
     @Test
@@ -330,20 +364,31 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
-    fun `415 without examples is not generated as a contract test`() {
+    fun `415 without examples is not generated as a contract test in any resiliency mode`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only415Spec()).canonicalPath).toFeature()
 
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                throw ContractException("No tests should be generated")
-            }
+        resiliencyModes().forEach { resiliencyMode ->
+            val featureWithResiliency = feature.copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
+            val generatedScenarios = featureWithResiliency.generateContractTestScenarios(emptyList()).toList()
 
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-        })
+            assertThat(generatedScenarios).isEmpty()
+        }
+    }
 
-        assertThat(results.successCount).isEqualTo(0)
-        assertThat(results.failureCount).isEqualTo(0)
+    @Test
+    fun `415 without examples is skipped with request rejection example required reason`() {
+        val feature = OpenApiSpecification.fromFile(writeSpec(only415Spec()).canonicalPath).toFeature()
+        val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
+
+        resiliencyModes().forEach { resiliencyMode ->
+            val decision = unsupportedMediaTypeScenario.newBasedOnWithDecision(
+                strictMode = false,
+                resiliencyTestSuite = resiliencyMode
+            )
+
+            assertThat(decision).isInstanceOf(Decision.Skip::class.java)
+            assertThat(decision!!.reasoning.mainReason).isEqualTo(TestSkipReason.REQUEST_REJECTION_EXAMPLE_REQUIRED)
+        }
     }
 
     @Test
@@ -413,7 +458,8 @@ class UnsupportedMediaTypeExamplesTest {
         responseStatus: Int,
         responseBody: String,
         requestContentType: String? = "application/json",
-        responseContentType: String = "application/json"
+        responseContentType: String = "application/json",
+        extraRequestHeaders: Map<String, String> = emptyMap()
     ): File {
         val examplesDir = tempDir.resolve("examples-$name").also(File::mkdirs)
         return examplesDir.resolve("$name.json").also { file ->
@@ -423,7 +469,7 @@ class UnsupportedMediaTypeExamplesTest {
                   "http-request": {
                     "method": "$requestMethod",
                     "path": "$requestPath",
-                    ${requestHeaders(requestContentType)}
+                    ${requestHeaders(requestContentType, extraRequestHeaders)}
                     $requestBody
                   },
                   "http-response": {
@@ -439,14 +485,32 @@ class UnsupportedMediaTypeExamplesTest {
         }
     }
 
-    private fun requestHeaders(requestContentType: String?): String =
-        if (requestContentType == null) {
+    private fun requestHeaders(requestContentType: String?, extraRequestHeaders: Map<String, String>): String {
+        val requestHeaderEntries = listOfNotNull(
+            requestContentType?.let { """"Content-Type": "$it"""" }
+        ).plus(extraRequestHeaders.map { (name, value) -> """"$name": "$value"""" })
+
+        return if (requestHeaderEntries.isEmpty()) {
             """"headers": {},"""
         } else {
             """"headers": {
-                      "Content-Type": "$requestContentType"
+                      ${requestHeaderEntries.joinToString(",\n")}
                     },"""
         }
+    }
+
+    private fun resiliencyModes(): List<ResiliencyTestSuite> =
+        listOf(ResiliencyTestSuite.none, ResiliencyTestSuite.positiveOnly, ResiliencyTestSuite.all)
+
+    private fun specmaticConfigWith(resiliencyTestSuite: ResiliencyTestSuite): SpecmaticConfig =
+        when (resiliencyTestSuite) {
+            ResiliencyTestSuite.none -> SpecmaticConfig()
+            ResiliencyTestSuite.positiveOnly -> SpecmaticConfig().enableResiliencyTests(onlyPositive = true)
+            ResiliencyTestSuite.all -> SpecmaticConfig().enableResiliencyTests(onlyPositive = false)
+        }
+
+    private fun HttpRequest.hasHeader(name: String, value: String): Boolean =
+        headers.any { (headerName, headerValue) -> headerName.equals(name, ignoreCase = true) && headerValue == value }
 
     private fun ordersSpec() = """
         openapi: 3.0.4
