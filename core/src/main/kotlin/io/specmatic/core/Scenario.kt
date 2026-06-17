@@ -592,12 +592,12 @@ data class Scenario(
         generativePrefix: String
     ): Scenario? {
         val requestExample = row.requestExample ?: return null
-        val requestPattern = httpRequestPattern.exactRequestPatternForUndeclaredRequest(requestExample, resolver)
+        val requestPatternResult = httpRequestPattern.exactRequestPatternForUndeclaredRequest(requestExample, resolver)
             ?: return null
         val newResponsePattern = httpResponsePattern.withResponseExampleValue(row, resolver)
 
         return copy(
-            httpRequestPattern = requestPattern,
+            httpRequestPattern = requestPatternResult.requestPattern,
             httpResponsePattern = newResponsePattern,
             expectedFacts = newExpectedFacts,
             ignoreFailure = ignoreFailure,
@@ -605,7 +605,7 @@ data class Scenario(
             exampleRow = row,
             generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW,
             generativePrefix = generativePrefix,
-            requestContentTypeForReport = httpRequestPattern.requestContentTypeForUndeclaredReport()
+            requestContentTypeForReport = requestPatternResult.requestContentTypeForReport
                 ?: requestContentTypeForReport,
         )
     }

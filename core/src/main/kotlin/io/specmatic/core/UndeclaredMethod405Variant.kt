@@ -19,8 +19,8 @@ internal class UndeclaredMethod405Variant(
         return request.copy(method = generatedMethod)
     }
 
-    override fun exactRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
-        requestPattern.generateExactHttpRequestPatternUsingWrongMethod(request, resolver)
+    override fun exactRequestPatternFor(request: HttpRequest, resolver: Resolver): UndeclaredRequestPatternResult =
+        UndeclaredRequestPatternResult(requestPattern.generateExactHttpRequestPatternUsingWrongMethod(request, resolver))
 
     override fun stubRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
         requestPattern.generateExactHttpRequestPatternFrom(request, resolver)
@@ -58,7 +58,7 @@ internal class UndeclaredMethod405Variant(
         return requestPattern.matches(requestWithPatternMethod, resolver, resolver)
     }
 
-    override fun disallowedMethodFor405Example(): String? =
+    fun disallowedMethodForExample(): String? =
         unsupportedMethod()
 
     private fun unsupportedMethod(): String? {

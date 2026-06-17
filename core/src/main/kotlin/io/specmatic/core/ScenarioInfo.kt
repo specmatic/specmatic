@@ -1,5 +1,6 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.ApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.pattern.*
@@ -72,4 +73,20 @@ data class UndeclaredRequestVariantMetadata(
     val responseStatus: Int? = null,
     val methodsForPath: Set<String> = emptySet(),
     val requestContentTypesForOperation: Set<String> = emptySet()
-)
+) {
+    fun forResponseStatus(responseStatus: Int): UndeclaredRequestVariantMetadata {
+        return when (responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value,
+            HttpStatusCode.UnsupportedMediaType.value -> copy(responseStatus = responseStatus)
+            else -> UndeclaredRequestVariantMetadata()
+        }
+    }
+
+    fun hasUndeclaredRequestVariantResponse(): Boolean {
+        return when (responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value,
+            HttpStatusCode.UnsupportedMediaType.value -> true
+            else -> false
+        }
+    }
+}

@@ -8,7 +8,7 @@ internal class UndeclaredMediaType415Variant(
 ) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.UnsupportedMediaType.value
 
-    override fun requestExampleForGeneration(requestExample: HttpRequest?): HttpRequest? =
+    override fun requestExampleToUseInsteadOfGenerating(requestExample: HttpRequest?): HttpRequest? =
         requestExample
 
     override fun applyToGeneratedRequest(request: HttpRequest, requestExample: HttpRequest?): HttpRequest {
@@ -20,8 +20,11 @@ internal class UndeclaredMediaType415Variant(
         return request.copy(headers = headersWithUnsupportedContentType)
     }
 
-    override fun exactRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
-        requestPattern.generateExactHttpRequestPatternUsingWrongContentType(request, resolver)
+    override fun exactRequestPatternFor(request: HttpRequest, resolver: Resolver): UndeclaredRequestPatternResult =
+        UndeclaredRequestPatternResult(
+            requestPattern = requestPattern.generateExactHttpRequestPatternUsingWrongContentType(request, resolver),
+            requestContentTypeForReport = requestPattern.headersPattern.contentType
+        )
 
     override fun requestBelongsToPattern(request: HttpRequest, resolver: Resolver): Boolean =
         requestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess()
@@ -62,11 +65,8 @@ internal class UndeclaredMediaType415Variant(
         return Result.Success()
     }
 
-    override fun unsupportedContentTypeFor415Example(): String =
+    fun unsupportedContentTypeForExample(): String =
         unsupportedContentTypeForGeneratedExample()
-
-    override fun requestContentTypeForReport(): String? =
-        requestPattern.headersPattern.contentType
 
     private fun unsupportedContentTypeForGeneratedExample(): String {
         val supportedContentTypes = supportedMediaTypes()

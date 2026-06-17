@@ -419,10 +419,10 @@ data class HttpRequestPattern(
         responseStatus: Int,
         metadata: UndeclaredRequestVariantMetadata
     ): HttpRequestPattern =
-        copy(undeclaredRequestVariantMetadata = metadata.forUndeclaredRequestVariantResponse(responseStatus))
+        copy(undeclaredRequestVariantMetadata = metadata.forResponseStatus(responseStatus))
 
     internal fun hasUndeclaredRequestVariant(): Boolean =
-        undeclaredRequestVariantMetadata.isUndeclaredRequestVariantResponse()
+        undeclaredRequestVariantMetadata.hasUndeclaredRequestVariantResponse()
 
     internal fun isUndeclaredMethodVariant(): Boolean =
         undeclaredRequestVariantMetadata.responseStatus == HttpStatusCode.MethodNotAllowed.value
@@ -462,7 +462,7 @@ data class HttpRequestPattern(
             ?: matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
 
     internal fun externalRequestExampleForUndeclaredGeneration(requestExample: HttpRequest?): HttpRequest? =
-        undeclaredRequestVariant()?.requestExampleForGeneration(requestExample)
+        undeclaredRequestVariant()?.requestExampleToUseInsteadOfGenerating(requestExample)
 
     internal fun applyUndeclaredVariantToGeneratedRequest(request: HttpRequest, requestExample: HttpRequest?): HttpRequest =
         undeclaredRequestVariant()?.applyToGeneratedRequest(request, requestExample) ?: request
@@ -470,7 +470,7 @@ data class HttpRequestPattern(
     internal fun exactRequestPatternForUndeclaredRequest(
         request: HttpRequest,
         resolver: Resolver
-    ): HttpRequestPattern? =
+    ): UndeclaredRequestPatternResult? =
         undeclaredRequestVariant()?.exactRequestPatternFor(request, resolver)
 
     internal fun generateExactRequestPatternForStub(
@@ -481,13 +481,10 @@ data class HttpRequestPattern(
             ?: generateExactHttpRequestPatternFrom(request, resolver)
 
     internal fun disallowedMethodFor405Example(): String? =
-        undeclaredRequestVariant()?.disallowedMethodFor405Example()
+        undeclaredMethodVariant()?.disallowedMethodForExample()
 
     internal fun unsupportedContentTypeFor415Example(): String? =
-        undeclaredRequestVariant()?.unsupportedContentTypeFor415Example()
-
-    internal fun requestContentTypeForUndeclaredReport(): String? =
-        undeclaredRequestVariant()?.requestContentTypeForReport()
+        undeclaredMediaTypeVariant()?.unsupportedContentTypeForExample()
 
     private fun requestBelongsToUndeclaredVariantFor(
         requestedResponseStatus: Int?,
@@ -499,33 +496,20 @@ data class HttpRequestPattern(
     private fun undeclaredRequestVariantFor(responseStatus: Int?): UndeclaredRequestVariant? =
         undeclaredRequestVariant()?.takeIf { it.responseStatus == responseStatus }
 
-    private fun undeclaredRequestVariant(): UndeclaredRequestVariant? {
-        return when (undeclaredRequestVariantMetadata.responseStatus) {
-            HttpStatusCode.MethodNotAllowed.value ->
-                UndeclaredMethod405Variant(this, undeclaredRequestVariantMetadata)
-            HttpStatusCode.UnsupportedMediaType.value ->
-                UndeclaredMediaType415Variant(this, undeclaredRequestVariantMetadata)
+    private fun undeclaredRequestVariant(): UndeclaredRequestVariant? =
+        undeclaredMethodVariant() ?: undeclaredMediaTypeVariant()
+
+    private fun undeclaredMethodVariant(): UndeclaredMethod405Variant? =
+        when (undeclaredRequestVariantMetadata.responseStatus) {
+            HttpStatusCode.MethodNotAllowed.value -> UndeclaredMethod405Variant(this, undeclaredRequestVariantMetadata)
             else -> null
         }
-    }
 
-    private fun UndeclaredRequestVariantMetadata.forUndeclaredRequestVariantResponse(
-        responseStatus: Int
-    ): UndeclaredRequestVariantMetadata {
-        return when (responseStatus) {
-            HttpStatusCode.MethodNotAllowed.value,
-            HttpStatusCode.UnsupportedMediaType.value -> copy(responseStatus = responseStatus)
-            else -> UndeclaredRequestVariantMetadata()
+    private fun undeclaredMediaTypeVariant(): UndeclaredMediaType415Variant? =
+        when (undeclaredRequestVariantMetadata.responseStatus) {
+            HttpStatusCode.UnsupportedMediaType.value -> UndeclaredMediaType415Variant(this, undeclaredRequestVariantMetadata)
+            else -> null
         }
-    }
-
-    private fun UndeclaredRequestVariantMetadata.isUndeclaredRequestVariantResponse(): Boolean {
-        return when (responseStatus) {
-            HttpStatusCode.MethodNotAllowed.value,
-            HttpStatusCode.UnsupportedMediaType.value -> true
-            else -> false
-        }
-    }
 
     private fun useContractMethodForReporting(requestPattern: HttpRequestPattern): HttpRequestPattern =
         requestPattern.copy(method = method)
