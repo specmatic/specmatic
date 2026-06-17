@@ -4,13 +4,13 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.value.Value
 
-internal class UnsupportedMediaTypeRejection(private val scenario: Scenario) : RequestRejectionBehavior {
+internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.UnsupportedMediaType.value
 
     override fun requestExampleForGeneration(): HttpRequest? =
         scenario.exampleRow?.requestExample
 
-    override fun generateRejectedRequest(request: HttpRequest): HttpRequest {
+    override fun applyToGeneratedRequest(request: HttpRequest): HttpRequest {
         val unsupportedContentType = unsupportedContentTypeForGeneratedExample()
         val headersWithUnsupportedContentType = request.headers
             .filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
@@ -53,35 +53,35 @@ internal class UnsupportedMediaTypeRejection(private val scenario: Scenario) : R
         scenario.httpRequestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess()
 
     override fun exampleBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        val requestContentType = request.contentType().requestRejectionNormalizedContentType()
-        val supportedContentTypes = scenario.requestRejectionMetadata.requestContentTypesForOperation.requestRejectionNormalizedContentTypes()
+        val requestContentType = request.contentType().normalizedRequestVariantContentType()
+        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.normalizedRequestVariantContentTypes()
 
         return if (!requestContentType.isNullOrBlank() && supportedContentTypes.contains(requestContentType.lowercase())) {
             scenario.httpRequestPattern.matches(request, resolver, resolver).isSuccess()
         } else {
-            matchesRejectedRequest(request, resolver).isSuccess()
+            matchesUndeclaredRequest(request, resolver).isSuccess()
         }
     }
 
-    override fun matchesRejectedRequest(request: HttpRequest, resolver: Resolver): Result {
+    override fun matchesUndeclaredRequest(request: HttpRequest, resolver: Resolver): Result {
         val identifierMatch = scenario.httpRequestPattern.matchesRequestIdentityIgnoringMediaType(request, resolver)
         if (identifierMatch is Result.Failure) return identifierMatch.updateScenario(scenario)
 
-        val requestContentType = request.contentType().requestRejectionNormalizedContentType()
-        val supportedContentTypes = scenario.requestRejectionMetadata.requestContentTypesForOperation.requestRejectionNormalizedContentTypes()
+        val requestContentType = request.contentType().normalizedRequestVariantContentType()
+        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.normalizedRequestVariantContentTypes()
         if (requestContentType.isNullOrBlank()) {
             if (supportedContentTypes.isNotEmpty()) return Result.Success()
 
             return Result.Failure(
                 message = "Request Content-Type is required for a 415 unsupported media type example",
-                failureReason = FailureReason.RequestRejectionMismatch
+                failureReason = FailureReason.UndeclaredRequestVariantMismatch
             ).withRequestContentTypeBreadCrumbs().updateScenario(scenario)
         }
 
         if (supportedContentTypes.contains(requestContentType.lowercase())) {
             return Result.Failure(
                 message = "Request Content-Type \"$requestContentType\" is supported by the specification, so this example should not return 415",
-                failureReason = FailureReason.RequestRejectionMismatch
+                failureReason = FailureReason.UndeclaredRequestVariantMismatch
             ).withRequestContentTypeBreadCrumbs().updateScenario(scenario)
         }
 
@@ -89,10 +89,10 @@ internal class UnsupportedMediaTypeRejection(private val scenario: Scenario) : R
     }
 
     private fun unsupportedContentTypeForGeneratedExample(): String {
-        val supportedContentTypes = scenario.requestRejectionMetadata.requestContentTypesForOperation.requestRejectionNormalizedContentTypes()
+        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.normalizedRequestVariantContentTypes()
 
         return listOf("text/plain", "application/xml", "application/octet-stream", "application/x-www-form-urlencoded")
-            .firstOrNull { it.requestRejectionNormalizedContentType()?.lowercase() !in supportedContentTypes }
+            .firstOrNull { it.normalizedRequestVariantContentType()?.lowercase() !in supportedContentTypes }
             ?: "application/x-specmatic-unsupported"
     }
 }

@@ -464,7 +464,7 @@ class ExampleModuleTest {
         }
 
         @Test
-        fun `get existing examples should attach 405 request rejection failures to the owning scenario`(@TempDir tempDir: File) {
+        fun `get existing examples should attach 405 undeclared request variant failures to the owning scenario`(@TempDir tempDir: File) {
             val openApiSpec = """
             openapi: 3.0.3
             info:
@@ -520,7 +520,7 @@ class ExampleModuleTest {
         }
 
         @Test
-        fun `get existing examples should attach 415 request rejection failures to the owning scenario`(@TempDir tempDir: File) {
+        fun `get existing examples should attach 415 undeclared request variant failures to the owning scenario`(@TempDir tempDir: File) {
             val openApiSpec = """
             openapi: 3.0.3
             info:

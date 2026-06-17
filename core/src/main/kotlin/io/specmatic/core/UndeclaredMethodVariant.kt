@@ -4,10 +4,10 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.value.Value
 
-internal class MethodNotAllowedRejection(private val scenario: Scenario) : RequestRejectionBehavior {
+internal class UndeclaredMethodVariant(private val scenario: Scenario) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.MethodNotAllowed.value
 
-    override fun generateRejectedRequest(request: HttpRequest): HttpRequest {
+    override fun applyToGeneratedRequest(request: HttpRequest): HttpRequest {
         val methodFromExample = scenario.exampleRow?.requestExample?.method
         if (methodFromExample != null) return request.copy(method = methodFromExample)
 
@@ -45,7 +45,7 @@ internal class MethodNotAllowedRejection(private val scenario: Scenario) : Reque
 
         return when (requestedMethod) {
             scenario.method.uppercase() -> requestWithScenarioMethodIdentifiesScenario(request, resolver)
-            in scenario.requestRejectionMetadata.methodsForPath -> false
+            in scenario.undeclaredRequestVariantMetadata.methodsForPath -> false
             else -> requestWithRejectedMethodIdentifiesScenario(request, resolver)
         }
     }
@@ -56,17 +56,17 @@ internal class MethodNotAllowedRejection(private val scenario: Scenario) : Reque
 
         return when (requestedMethod) {
             scenario.method.uppercase() -> requestWithScenarioMethodIdentifiesScenario(request, resolver)
-            in scenario.requestRejectionMetadata.methodsForPath -> false
-            else -> matchesRejectedRequest(request, resolver).isSuccess()
+            in scenario.undeclaredRequestVariantMetadata.methodsForPath -> false
+            else -> matchesUndeclaredRequest(request, resolver).isSuccess()
         }
     }
 
-    override fun matchesRejectedRequest(request: HttpRequest, resolver: Resolver): Result {
+    override fun matchesUndeclaredRequest(request: HttpRequest, resolver: Resolver): Result {
         val requestedMethod = request.method.orEmpty().uppercase()
-        if (requestedMethod.isBlank() || requestedMethod in scenario.requestRejectionMetadata.methodsForPath) {
+        if (requestedMethod.isBlank() || requestedMethod in scenario.undeclaredRequestVariantMetadata.methodsForPath) {
             return Result.Failure(
-                message = "Expected method not to be one of ${scenario.requestRejectionMetadata.methodsForPath.sorted().joinToString()}",
-                failureReason = FailureReason.RequestRejectionMismatch
+                message = "Expected method not to be one of ${scenario.undeclaredRequestVariantMetadata.methodsForPath.sorted().joinToString()}",
+                failureReason = FailureReason.UndeclaredRequestVariantMismatch
             ).withRequestMethodBreadCrumbs().updateScenario(scenario)
         }
 
@@ -75,7 +75,7 @@ internal class MethodNotAllowedRejection(private val scenario: Scenario) : Reque
     }
 
     private fun unsupportedMethod(): String {
-        val supportedMethods = (scenario.requestRejectionMetadata.methodsForPath + scenario.method)
+        val supportedMethods = (scenario.undeclaredRequestVariantMetadata.methodsForPath + scenario.method)
             .map { it.uppercase() }
             .toSet()
 
@@ -95,8 +95,8 @@ internal class MethodNotAllowedRejection(private val scenario: Scenario) : Reque
     }
 
     private fun requestMediaTypeIdentifiesScenario(request: HttpRequest): Boolean {
-        val scenarioContentType = scenario.httpRequestPattern.headersPattern.contentType.requestRejectionNormalizedContentType()
-        val requestContentType = request.contentType().requestRejectionNormalizedContentType()
+        val scenarioContentType = scenario.httpRequestPattern.headersPattern.contentType.normalizedRequestVariantContentType()
+        val requestContentType = request.contentType().normalizedRequestVariantContentType()
 
         return when {
             scenarioContentType == null -> requestContentType == null

@@ -116,7 +116,7 @@ class MethodNotAllowedExamplesTest {
 
         val generatedRequest = methodNotAllowedScenario.generateHttpRequest()
         val generatedRequestV2 = methodNotAllowedScenario.generateHttpRequestV2().single().value
-        val declaredMethods = methodNotAllowedScenario.requestRejectionMetadata.methodsForPath.map { it.uppercase() }
+        val declaredMethods = methodNotAllowedScenario.undeclaredRequestVariantMetadata.methodsForPath.map { it.uppercase() }
 
         assertThat(generatedRequest.method).isNotBlank()
         assertThat(generatedRequest.method?.uppercase()).isNotIn(declaredMethods)
@@ -159,7 +159,7 @@ class MethodNotAllowedExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).contains(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
         assertThat(warningReport).contains("paths./orders.post.responses.405")
         assertThat(warningReport).contains("External 405 examples are still loaded and used")
 
@@ -187,7 +187,7 @@ class MethodNotAllowedExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).doesNotContain(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
     }
 
     @Test
@@ -455,7 +455,7 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
-    fun `405 without examples is skipped with request rejection example required reason`() {
+    fun `405 without examples is skipped with undeclared request variant example required reason`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only405Spec()).canonicalPath).toFeature()
         val methodNotAllowedScenario = feature.scenarios.single { it.status == 405 }
 
@@ -466,7 +466,7 @@ class MethodNotAllowedExamplesTest {
             )
 
             assertThat(decision).isInstanceOf(Decision.Skip::class.java)
-            assertThat(decision!!.reasoning.mainReason).isEqualTo(TestSkipReason.REQUEST_REJECTION_EXAMPLE_REQUIRED)
+            assertThat(decision!!.reasoning.mainReason).isEqualTo(TestSkipReason.UNDECLARED_REQUEST_VARIANT_EXAMPLE_REQUIRED)
         }
     }
 

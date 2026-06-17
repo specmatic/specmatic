@@ -207,7 +207,7 @@ class UnsupportedMediaTypeExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).contains(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
         assertThat(warningReport).contains("paths./orders.post.responses.415")
         assertThat(warningReport).contains("External 415 examples are still loaded and used")
 
@@ -235,7 +235,7 @@ class UnsupportedMediaTypeExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).doesNotContain(OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
     }
 
     @Test
@@ -376,7 +376,7 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
-    fun `415 without examples is skipped with request rejection example required reason`() {
+    fun `415 without examples is skipped with undeclared request variant example required reason`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only415Spec()).canonicalPath).toFeature()
         val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
 
@@ -387,7 +387,7 @@ class UnsupportedMediaTypeExamplesTest {
             )
 
             assertThat(decision).isInstanceOf(Decision.Skip::class.java)
-            assertThat(decision!!.reasoning.mainReason).isEqualTo(TestSkipReason.REQUEST_REJECTION_EXAMPLE_REQUIRED)
+            assertThat(decision!!.reasoning.mainReason).isEqualTo(TestSkipReason.UNDECLARED_REQUEST_VARIANT_EXAMPLE_REQUIRED)
         }
     }
 

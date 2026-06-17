@@ -810,7 +810,7 @@ class OpenApiSpecification(
                         )
                     }
                     httpResponsePatterns.forEach {
-                        recordInlineRequestRejectionExamplesIgnored(methodContext, httpMethod, openApiPath, it)
+                        recordInlineUndeclaredRequestVariantExamplesIgnored(methodContext, httpMethod, openApiPath, it)
                     }
 
                     val first2xxResponseStatus =
@@ -917,7 +917,7 @@ class OpenApiSpecification(
                             operationMetadata = operationMetadata,
                             sourceLocations = sourceLocations,
                             operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
-                            requestRejectionMetadata = RequestRejectionMetadata(
+                            undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(
                                 methodsForPath = methodsForPath,
                                 requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
                             )
@@ -1158,7 +1158,7 @@ class OpenApiSpecification(
         )
     }
 
-    private fun recordInlineRequestRejectionExamplesIgnored(
+    private fun recordInlineUndeclaredRequestVariantExamplesIgnored(
         collectorContext: CollectorContext,
         httpMethod: String,
         openApiPath: String,
@@ -1176,7 +1176,7 @@ class OpenApiSpecification(
         collectorContext.at("responses").at(responsePattern.status.toString()).record(
             message = "Inline OpenAPI ${responsePattern.status} examples for $httpMethod $openApiPath are not used to generate tests or inline mock data. External ${responsePattern.status} examples are still loaded and used. This is required because $unsupportedInlineExampleReason.",
             isWarning = true,
-            ruleViolation = OpenApiLintViolations.REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
+            ruleViolation = OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
         )
     }
 

@@ -106,10 +106,10 @@ enum class OpenApiLintViolations(
         summary = "Response status must be a valid integer or literal default"
     ),
 
-    REQUEST_REJECTION_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE(
+    UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE(
         id = "OAS0032",
-        title = "Request rejection response requires external example",
-        summary = "OpenAPI 405 and 415 response definitions do not create generated tests or inline mock data; provide external examples to use these request rejection responses",
+        title = "Undeclared request variant response requires external example",
+        summary = "OpenAPI 405 and 415 response definitions do not create generated tests or inline mock data; provide external examples to use these undeclared request variant responses",
         severity = IssueSeverity.WARNING
     ),
 

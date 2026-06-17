@@ -28,7 +28,7 @@ data class ScenarioInfo(
     val operationMetadata: OperationMetadata? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val operationSourcePointer: String? = null,
-    val requestRejectionMetadata: RequestRejectionMetadata = RequestRejectionMetadata()
+    val undeclaredRequestVariantMetadata: UndeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata()
 ) {
 
     fun matchesGherkinWrapperPath(scenarioInfos: List<ScenarioInfo>, apiSpecification: ApiSpecification, resolver: Resolver): List<ScenarioInfo> =
@@ -68,7 +68,7 @@ data class ScenarioInfo(
         }
 }
 
-data class RequestRejectionMetadata(
+data class UndeclaredRequestVariantMetadata(
     val methodsForPath: Set<String> = emptySet(),
     val requestContentTypesForOperation: Set<String> = emptySet()
 )
