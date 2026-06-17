@@ -392,7 +392,7 @@ data class Feature(
         val requestedResponseStatus = responseStatus ?: httpRequest.expectedResponseCode()
         val statusSortedScenarios = sortByExpectedResponseStatus(requestedResponseStatus, scenarios)
         val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario ->
-            scenario.canOwnRequestForExpectedStatus(httpRequest, requestedResponseStatus)
+            scenario.requestBelongsToScenarioForExpectedStatus(httpRequest, requestedResponseStatus)
         }
 
         if (requestedResponseStatus != null) {

@@ -7,14 +7,14 @@ import io.specmatic.core.value.Value
 internal class UndeclaredMethodVariant(private val scenario: Scenario) : UndeclaredRequestVariant {
     override val responseStatus: Int = HttpStatusCode.MethodNotAllowed.value
 
-    override fun applyToGeneratedRequest(request: HttpRequest): HttpRequest {
+    override fun toUndeclaredRequest(request: HttpRequest): HttpRequest {
         val methodFromExample = scenario.exampleRow?.requestExample?.method
         if (methodFromExample != null) return request.copy(method = methodFromExample)
 
         return request.copy(method = unsupportedMethod())
     }
 
-    override fun scenarioFromRequestExampleRow(
+    override fun scenarioFromExampleRow(
         row: Row,
         resolver: Resolver,
         newExpectedFacts: Map<String, Value>,
@@ -39,7 +39,7 @@ internal class UndeclaredMethodVariant(private val scenario: Scenario) : Undecla
         )
     }
 
-    override fun canOwnRequest(request: HttpRequest, resolver: Resolver): Boolean {
+    override fun requestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
         val requestedMethod = request.method.orEmpty().uppercase()
         if (requestedMethod.isBlank()) return false
 
@@ -50,7 +50,7 @@ internal class UndeclaredMethodVariant(private val scenario: Scenario) : Undecla
         }
     }
 
-    override fun exampleBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
+    override fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
         val requestedMethod = request.method.orEmpty().uppercase()
         if (requestedMethod.isBlank()) return false
 
@@ -95,8 +95,8 @@ internal class UndeclaredMethodVariant(private val scenario: Scenario) : Undecla
     }
 
     private fun requestMediaTypeIdentifiesScenario(request: HttpRequest): Boolean {
-        val scenarioContentType = scenario.httpRequestPattern.headersPattern.contentType.normalizedRequestVariantContentType()
-        val requestContentType = request.contentType().normalizedRequestVariantContentType()
+        val scenarioContentType = scenario.httpRequestPattern.headersPattern.contentType.baseMediaType()
+        val requestContentType = request.contentType().baseMediaType()
 
         return when {
             scenarioContentType == null -> requestContentType == null

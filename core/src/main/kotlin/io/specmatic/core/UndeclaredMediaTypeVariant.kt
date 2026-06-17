@@ -10,7 +10,7 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
     override fun requestExampleForGeneration(): HttpRequest? =
         scenario.exampleRow?.requestExample
 
-    override fun applyToGeneratedRequest(request: HttpRequest): HttpRequest {
+    override fun toUndeclaredRequest(request: HttpRequest): HttpRequest {
         val unsupportedContentType = unsupportedContentTypeForGeneratedExample()
         val headersWithUnsupportedContentType = request.headers
             .filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
@@ -19,11 +19,11 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
         return request.copy(headers = headersWithUnsupportedContentType)
     }
 
-    override fun requestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
+    override fun stubRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
         return scenario.httpRequestPattern.generateExactHttpRequestPatternUsingWrongContentType(request, resolver)
     }
 
-    override fun scenarioFromRequestExampleRow(
+    override fun scenarioFromExampleRow(
         row: Row,
         resolver: Resolver,
         newExpectedFacts: Map<String, Value>,
@@ -49,12 +49,12 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
         )
     }
 
-    override fun canOwnRequest(request: HttpRequest, resolver: Resolver): Boolean =
+    override fun requestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean =
         scenario.httpRequestPattern.matchesPathStructureAndMethod(request, resolver).isSuccess()
 
-    override fun exampleBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
-        val requestContentType = request.contentType().normalizedRequestVariantContentType()
-        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.normalizedRequestVariantContentTypes()
+    override fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean {
+        val requestContentType = request.contentType().baseMediaType()
+        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
 
         return if (!requestContentType.isNullOrBlank() && supportedContentTypes.contains(requestContentType.lowercase())) {
             scenario.httpRequestPattern.matches(request, resolver, resolver).isSuccess()
@@ -67,8 +67,8 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
         val identifierMatch = scenario.httpRequestPattern.matchesRequestIdentityIgnoringMediaType(request, resolver)
         if (identifierMatch is Result.Failure) return identifierMatch.updateScenario(scenario)
 
-        val requestContentType = request.contentType().normalizedRequestVariantContentType()
-        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.normalizedRequestVariantContentTypes()
+        val requestContentType = request.contentType().baseMediaType()
+        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
         if (requestContentType.isNullOrBlank()) {
             if (supportedContentTypes.isNotEmpty()) return Result.Success()
 
@@ -89,10 +89,10 @@ internal class UndeclaredMediaTypeVariant(private val scenario: Scenario) : Unde
     }
 
     private fun unsupportedContentTypeForGeneratedExample(): String {
-        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.normalizedRequestVariantContentTypes()
+        val supportedContentTypes = scenario.undeclaredRequestVariantMetadata.requestContentTypesForOperation.baseMediaTypes()
 
         return listOf("text/plain", "application/xml", "application/octet-stream", "application/x-www-form-urlencoded")
-            .firstOrNull { it.normalizedRequestVariantContentType()?.lowercase() !in supportedContentTypes }
+            .firstOrNull { it.baseMediaType()?.lowercase() !in supportedContentTypes }
             ?: "application/x-specmatic-unsupported"
     }
 }

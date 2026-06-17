@@ -6,22 +6,22 @@ import io.specmatic.core.value.Value
 internal interface UndeclaredRequestVariant {
     val responseStatus: Int
     fun requestExampleForGeneration(): HttpRequest? = null
-    fun applyToGeneratedRequest(request: HttpRequest): HttpRequest
-    fun requestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern? = null
-    fun scenarioFromRequestExampleRow(
+    fun toUndeclaredRequest(request: HttpRequest): HttpRequest
+    fun stubRequestPatternFor(request: HttpRequest, resolver: Resolver): HttpRequestPattern? = null
+    fun scenarioFromExampleRow(
         row: Row,
         resolver: Resolver,
         newExpectedFacts: Map<String, Value>,
         ignoreFailure: Boolean,
         generativePrefix: String
     ): Scenario? = null
-    fun canOwnRequest(request: HttpRequest, resolver: Resolver): Boolean
-    fun exampleBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean
+    fun requestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean
+    fun exampleRequestBelongsToScenario(request: HttpRequest, resolver: Resolver): Boolean
     fun matchesUndeclaredRequest(request: HttpRequest, resolver: Resolver): Result
 }
 
-internal fun String?.normalizedRequestVariantContentType(): String? =
+internal fun String?.baseMediaType(): String? =
     this?.substringBefore(";")?.trim()?.takeIf(String::isNotBlank)
 
-internal fun Set<String>.normalizedRequestVariantContentTypes(): Set<String> =
-    mapNotNull { it.normalizedRequestVariantContentType()?.lowercase() }.toSet()
+internal fun Set<String>.baseMediaTypes(): Set<String> =
+    mapNotNull { it.baseMediaType()?.lowercase() }.toSet()

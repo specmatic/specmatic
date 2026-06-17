@@ -223,12 +223,12 @@ data class Scenario(
         return result.isSuccess()
     }
 
-    fun canOwnRequestForExpectedStatus(
+    fun requestBelongsToScenarioForExpectedStatus(
         httpRequest: HttpRequest,
         requestedResponseStatus: Int?,
         resolver: Resolver = this.resolver
     ): Boolean {
-        return undeclaredRequestVariantFor(requestedResponseStatus)?.canOwnRequest(httpRequest, resolver)
+        return undeclaredRequestVariantFor(requestedResponseStatus)?.requestBelongsToScenario(httpRequest, resolver)
             ?: matchesPathStructureAndMethod(httpRequest, resolver)
     }
 
@@ -237,7 +237,7 @@ data class Scenario(
         responseStatus: Int,
         resolver: Resolver = this.resolver
     ): Boolean {
-        return undeclaredRequestVariantFor(responseStatus)?.canOwnRequest(httpRequest, resolver)
+        return undeclaredRequestVariantFor(responseStatus)?.requestBelongsToScenario(httpRequest, resolver)
             ?: httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, resolver).isSuccess()
     }
 
@@ -403,11 +403,11 @@ data class Scenario(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             )
-            undeclaredRequestVariant?.applyToGeneratedRequest(generatedRequest) ?: generatedRequest
+            undeclaredRequestVariant?.toUndeclaredRequest(generatedRequest) ?: generatedRequest
         }
 
     fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern {
-        return undeclaredRequestVariant?.requestPatternForStub(request, resolver)
+        return undeclaredRequestVariant?.stubRequestPatternFor(request, resolver)
             ?: httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
     }
 
@@ -427,7 +427,7 @@ data class Scenario(
             }
             httpRequestPattern.generateV2(updatedResolver).map { discriminatorBasedRequest ->
                 discriminatorBasedRequest.copy(
-                    value = undeclaredRequestVariant?.applyToGeneratedRequest(discriminatorBasedRequest.value)
+                    value = undeclaredRequestVariant?.toUndeclaredRequest(discriminatorBasedRequest.value)
                         ?: discriminatorBasedRequest.value
                 )
             }
@@ -541,7 +541,7 @@ data class Scenario(
 
         return scenarioBreadCrumb(this) {
             attempt {
-                val undeclaredVariantScenario = undeclaredRequestVariant?.scenarioFromRequestExampleRow(
+                val undeclaredVariantScenario = undeclaredRequestVariant?.scenarioFromExampleRow(
                     row = row,
                     resolver = resolver,
                     newExpectedFacts = newExpectedServerState,
@@ -1069,7 +1069,7 @@ data class Scenario(
         request: HttpRequest,
         resolver: Resolver
     ): Boolean {
-        return undeclaredRequestVariant?.exampleBelongsToScenario(request, resolver)
+        return undeclaredRequestVariant?.exampleRequestBelongsToScenario(request, resolver)
             ?: httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
     }
 
