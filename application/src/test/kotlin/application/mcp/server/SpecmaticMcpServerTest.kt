@@ -118,9 +118,9 @@ class SpecmaticMcpServerTest {
     }
 
     private fun invokeSafeToolCall(block: () -> String): McpSchema.CallToolResult {
-        val method = SpecmaticMcpServer::class.java.getDeclaredMethod("safeToolCall", Function0::class.java)
+        val method = Class.forName("application.mcp.server.McpToolDSLKt").getDeclaredMethod("safeToolCall", Function0::class.java)
         method.isAccessible = true
-        return method.invoke(server, block) as McpSchema.CallToolResult
+        return method.invoke(null, block) as McpSchema.CallToolResult
     }
 
     private fun registeredTools() = underlyingServer().listTools().associateBy { it.name() }
