@@ -48,6 +48,7 @@ const val ATTRIBUTE_SELECTION_DEFAULT_FIELDS = "ATTRIBUTE_SELECTION_DEFAULT_FIEL
 const val ATTRIBUTE_SELECTION_QUERY_PARAM_KEY = "ATTRIBUTE_SELECTION_QUERY_PARAM_KEY"
 
 enum class GeneratedScenarioOrigin { EXAMPLE_ROW, MUTATION }
+
 data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
@@ -81,7 +82,8 @@ data class Scenario(
     val requestChangeSummary: String? = null,
     val generatedFrom: GeneratedScenarioOrigin? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
-    val operationSourcePointer: String? = null
+    val operationSourcePointer: String? = null,
+    private val requestContentTypeForReport: String? = null
 ): ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
@@ -98,7 +100,10 @@ data class Scenario(
 
     constructor(scenarioInfo: ScenarioInfo) : this(
         name = scenarioInfo.scenarioName,
-        httpRequestPattern = scenarioInfo.httpRequestPattern,
+        httpRequestPattern = scenarioInfo.httpRequestPattern.withUndeclaredRequestVariantFor(
+            responseStatus = scenarioInfo.httpResponsePattern.status,
+            metadata = scenarioInfo.undeclaredRequestVariantMetadata
+        ),
         httpResponsePattern = scenarioInfo.httpResponsePattern,
         expectedFacts = scenarioInfo.expectedServerState,
         patterns = scenarioInfo.patterns,
@@ -142,9 +147,7 @@ data class Scenario(
         }
 
     val requestContentType: String?
-        get() {
-            return httpRequestPattern.headersPattern.contentType
-        }
+        get() = requestContentTypeForReporting()
 
     val responseContentType: String?
         get() {
@@ -212,6 +215,20 @@ data class Scenario(
         val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
         return result.isSuccess()
     }
+
+    fun requestBelongsToScenarioForExpectedStatus(
+        httpRequest: HttpRequest,
+        requestedResponseStatus: Int?,
+        resolver: Resolver = this.resolver
+    ): Boolean =
+        httpRequestPattern.requestMatchesPathAndMethodForExpectedStatus(requestedResponseStatus, httpRequest, resolver)
+
+    fun identifierMatchesRequestForResponseStatus(
+        httpRequest: HttpRequest,
+        responseStatus: Int,
+        resolver: Resolver = this.resolver
+    ): Boolean =
+        httpRequestPattern.requestMatchesIdentityForResponseStatus(responseStatus, httpRequest, resolver)
 
     fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
         if (this.status !in setOf(DEFAULT_RESPONSE_CODE, httpResponse.status)) return false
@@ -362,12 +379,32 @@ data class Scenario(
 
     fun generateHttpRequest(flagsBased: FlagsBased = DefaultStrategies): HttpRequest =
         scenarioBreadCrumb(this) {
-            httpRequestPattern.generate(
+            val externalRequestExample =
+                httpRequestPattern.externalRequestExampleForUndeclaredGeneration(exampleRow?.requestExample)
+            if (externalRequestExample != null) return@scenarioBreadCrumb externalRequestExample
+
+            val generatedRequest = httpRequestPattern.generate(
                 flagsBased.update(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             )
+            httpRequestPattern.applyUndeclaredVariantToGeneratedRequest(generatedRequest, exampleRow?.requestExample)
         }
+
+    fun disallowedMethodFor405Example(): String? =
+        httpRequestPattern.disallowedMethodFor405Example()
+
+    fun unsupportedContentTypeFor415Example(): String? =
+        httpRequestPattern.unsupportedContentTypeFor415Example()
+
+    fun requestWithUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
+        httpRequestPattern.requestWithUnsupportedContentTypeFor415Example(request)
+
+    fun requestWithValidUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
+        httpRequestPattern.requestWithValidUnsupportedContentTypeFor415Example(request)
+
+    fun generateHttpRequestPatternForStub(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
+        httpRequestPattern.generateExactRequestPatternForStub(request, resolver)
 
     fun generateHttpRequestV2(
         flagsBased: FlagsBased = DefaultStrategies,
@@ -383,7 +420,14 @@ data class Scenario(
                     resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
                 )
             }
-            httpRequestPattern.generateV2(updatedResolver)
+            httpRequestPattern.generateV2(updatedResolver).map { discriminatorBasedRequest ->
+                discriminatorBasedRequest.copy(
+                    value = httpRequestPattern.applyUndeclaredVariantToGeneratedRequest(
+                        discriminatorBasedRequest.value,
+                        exampleRow?.requestExample
+                    )
+                )
+            }
         }
 
     fun matchesResponse(httpRequest: HttpRequest, httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null): Result {
@@ -422,10 +466,7 @@ data class Scenario(
         }
 
         val updatedScenario = newBasedOnAttributeSelectionFields(httpRequest.queryParams)
-        val requestMatch = when(httpResponse.status in invalidRequestStatuses) {
-            false -> updatedScenario.matches(httpRequest, updatedResolver)
-            else -> updatedScenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updatedResolver)
-        }
+        val requestMatch = updatedScenario.matchesRequestForResponseStatus(httpRequest, httpResponse.status, updatedResolver)
 
         val fieldsSelected = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
         if (fieldsSelected.isNotEmpty()) {
@@ -497,6 +538,17 @@ data class Scenario(
 
         return scenarioBreadCrumb(this) {
             attempt {
+                val undeclaredVariantScenario = scenarioFromUndeclaredRequestExample(
+                    row = row,
+                    resolver = resolver,
+                    newExpectedFacts = newExpectedServerState,
+                    ignoreFailure = ignoreFailure,
+                    generativePrefix = flagsBased.positivePrefix
+                )
+                if (undeclaredVariantScenario != null) {
+                    return@attempt sequenceOf(HasValue(undeclaredVariantScenario))
+                }
+
                 val rowValue =  when(val resolvedRow = fillInTheBlanksAndResolvePatterns(row, resolver)) {
                     is HasValue -> resolvedRow.value
                     is HasException -> return@attempt sequenceOf(resolvedRow.cast())
@@ -505,9 +557,12 @@ data class Scenario(
 
                 val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
 
-                val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when (isNegative) {
-                    false -> Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
-                    else -> Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
+                val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when {
+                    !isNegative ->
+                        Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
+
+                    else ->
+                        Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
                 }
 
                 newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
@@ -533,6 +588,32 @@ data class Scenario(
                 }
             }
         }
+    }
+
+    private fun scenarioFromUndeclaredRequestExample(
+        row: Row,
+        resolver: Resolver,
+        newExpectedFacts: Map<String, Value>,
+        ignoreFailure: Boolean,
+        generativePrefix: String
+    ): Scenario? {
+        val requestExample = row.requestExample ?: return null
+        val requestPatternResult = httpRequestPattern.exactRequestPatternForUndeclaredRequest(requestExample, resolver)
+            ?: return null
+        val newResponsePattern = httpResponsePattern.withResponseExampleValue(row, resolver)
+
+        return copy(
+            httpRequestPattern = requestPatternResult.requestPattern,
+            httpResponsePattern = newResponsePattern,
+            expectedFacts = newExpectedFacts,
+            ignoreFailure = ignoreFailure,
+            exampleName = row.name,
+            exampleRow = row,
+            generatedFrom = GeneratedScenarioOrigin.EXAMPLE_ROW,
+            generativePrefix = generativePrefix,
+            requestContentTypeForReport = requestPatternResult.requestContentTypeForReport
+                ?: requestContentTypeForReport,
+        )
     }
 
     private fun fillInTheBlanksAndResolvePatterns(row: Row, resolver: Resolver): ReturnValue<Row> {
@@ -671,8 +752,10 @@ data class Scenario(
 
     private fun validateRequestExample(row: Row, resolverForExample: Resolver): Result {
         if(row.requestExample != null) {
-            val result = httpRequestPattern.matches(row.requestExample, resolverForExample, resolverForExample)
+            val result = matchesRequestExample(row.requestExample, resolverForExample)
             if(result is Result.Failure && !status.toString().startsWith("4"))
+                return result
+            if(result is Result.Failure && httpRequestPattern.hasUndeclaredRequestVariant())
                 return result
         } else {
             httpRequestPattern.newBasedOn(row, resolverForExample, status).first().value
@@ -757,8 +840,7 @@ data class Scenario(
             )
 
             val requestMatchResult = attempt(breadCrumb = "REQUEST") {
-                if (response.status !in invalidRequestStatuses) return@attempt httpRequestPattern.matches(request, resolver)
-                httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+                matchesRequestForResponseStatus(request, response.status, resolver)
             }
 
             if (requestMatchResult is Result.Failure)
@@ -852,6 +934,13 @@ data class Scenario(
         val hasExamples = hasExamples()
         val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
         val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
+
+        if (httpRequestPattern.hasUndeclaredRequestVariant() && !hasExamples) {
+            return Decision.Skip(
+                context = this,
+                reasoning = Reasoning(mainReason = TestSkipReason.UNDECLARED_REQUEST_VARIANT_EXAMPLE_REQUIRED)
+            )
+        }
 
         if (badRequestHasNoExample && negativeGenerationEnabled) {
             if (!strictMode) return null
@@ -967,6 +1056,9 @@ data class Scenario(
         val patternMatchingResolver = resolver.copy(mockMode = true)
 
         return externalisedJSONExamples.mapValues { (operationId, rows) ->
+            if (httpRequestPattern.isUndeclaredMethodVariant() && operationId.requestMethod.isBlank())
+                return@mapValues emptyList()
+
             rows.filter { row ->
                 requestBelongsToScenario(row, operationId, patternMatchingResolver)
                         && responseBelongsToScenario(row, operationId, patternMatchingResolver)
@@ -976,11 +1068,34 @@ data class Scenario(
 
     private fun requestBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         if (!matchesOperationIfWsdl(row)) return false
+        if (httpRequestPattern.isUndeclaredMethodVariant() && operationId.requestMethod.isBlank()) return false
 
         return row.requestExample?.let { request ->
-            httpRequestPattern.matchesPathStructureMethodAndContentType(request, patternMatchingResolver).isSuccess()
+            requestExampleBelongsToScenario(request, patternMatchingResolver)
         } ?: matchesRequestOperationIdentifier(operationId, patternMatchingResolver)
     }
+
+    private fun matchesRequestForResponseStatus(request: HttpRequest, responseStatus: Int, resolver: Resolver): Result {
+        return httpRequestPattern.matchesUndeclaredRequestFor(responseStatus, request, resolver)?.updateScenario(this)
+            ?: when (responseStatus) {
+                in invalidRequestStatuses -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+                else -> matches(request, resolver)
+            }
+    }
+
+    private fun matchesRequestExample(request: HttpRequest, resolver: Resolver): Result {
+        return httpRequestPattern.matchesExampleRequest(request, resolver).updateScenario(this)
+    }
+
+    private fun requestExampleBelongsToScenario(
+        request: HttpRequest,
+        resolver: Resolver
+    ): Boolean {
+        return httpRequestPattern.exampleRequestBelongsToPattern(request, resolver)
+    }
+
+    private fun requestContentTypeForReporting(): String? =
+        requestContentTypeForReport ?: httpRequestPattern.headersPattern.contentType
 
     private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         return row.responseExample?.let { response ->
@@ -1107,6 +1222,7 @@ data class Scenario(
 
         return responsePattern.fillInTheBlanks(resolver, "failure")
     }
+
 }
 
 fun testDescription(
@@ -1121,10 +1237,10 @@ fun testDescription(
 
     return when {
         hasExample && hasRequestChangeSummary ->
-            "$generativePrefix Scenario: $apiDescription with the request from the $exampleLabel '${exampleName?.trim()}' where $requestChangeSummary"
+            "$generativePrefix Scenario: $apiDescription with the request from the $exampleLabel '${exampleName.trim()}' where $requestChangeSummary"
 
         hasExample ->
-            "$generativePrefix Scenario: $apiDescription with the request from the $exampleLabel '${exampleName?.trim()}'"
+            "$generativePrefix Scenario: $apiDescription with the request from the $exampleLabel '${exampleName.trim()}'"
 
         hasRequestChangeSummary ->
             "$generativePrefix Scenario: $apiDescription with a request where $requestChangeSummary"

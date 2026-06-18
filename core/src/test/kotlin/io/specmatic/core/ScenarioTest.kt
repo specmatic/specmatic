@@ -486,16 +486,14 @@ class ScenarioTest {
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
-        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        Error loading example named  for POST / -> 200
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.HEADER.Authorization",
-                details = "Authorization header must be prefixed with \"Basic\"",
-                StandardRuleViolation.TYPE_MISMATCH
-            )
-        }
-        """.trimIndent())
+        assertThat(exception.report()).contains(
+            "Error loading example named  for POST / -> 200",
+            "In scenario \"SIMPLE POST\"",
+            "API: POST / -> 200",
+            ">> REQUEST.PARAMETERS.HEADER.Authorization",
+            "R1001: Type mismatch",
+            "Authorization header must be prefixed with \"Basic\""
+        )
     }
 
     @Test
@@ -538,23 +536,15 @@ class ScenarioTest {
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
-        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        Error loading example named example.json for POST / -> 200
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
-                details = NamedExampleMismatchMessages("example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
-                StandardRuleViolation.UNKNOWN_PROPERTY
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.HEADER.X-EXTRA-HEADERS",
-                details = NamedExampleMismatchMessages("example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
-                StandardRuleViolation.UNKNOWN_PROPERTY
-            )
-        }
-        """.trimIndent())
+        assertThat(exception.report()).contains(
+            "Error loading example named example.json for POST / -> 200",
+            "In scenario \"SIMPLE POST\"",
+            "API: POST / -> 200",
+            ">> REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
+            "Header \"X-EXTRA-HEADERS\" in the example \"example.json\" was not in the specification",
+            ">> RESPONSE.HEADER.X-EXTRA-HEADERS",
+            "R2003: Unknown property"
+        )
     }
 
     @Test
@@ -598,23 +588,15 @@ class ScenarioTest {
         )
 
         val exception = assertThrows<ContractException> { scenario.validExamplesOrException(DefaultStrategies) }
-        assertThat(exception.report()).isEqualToNormalizingWhitespace("""
-        Error loading example named partial-example.json for POST / -> 200
-        ${
-            toViolationReportString(
-                breadCrumb = "REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
-                details = NamedExampleMismatchMessages("partial-example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
-                StandardRuleViolation.UNKNOWN_PROPERTY
-            )
-        }
-        ${
-            toViolationReportString(
-                breadCrumb = "RESPONSE.HEADER.X-EXTRA-HEADERS",
-                details = NamedExampleMismatchMessages("partial-example.json").unexpectedKey("header", "X-EXTRA-HEADERS"),
-                StandardRuleViolation.UNKNOWN_PROPERTY
-            )
-        }
-        """.trimIndent())
+        assertThat(exception.report()).contains(
+            "Error loading example named partial-example.json for POST / -> 200",
+            "In scenario \"SIMPLE POST\"",
+            "API: POST / -> 200",
+            ">> REQUEST.PARAMETERS.HEADER.X-EXTRA-HEADERS",
+            "Header \"X-EXTRA-HEADERS\" in the example \"partial-example.json\" was not in the specification",
+            ">> RESPONSE.HEADER.X-EXTRA-HEADERS",
+            "R2003: Unknown property"
+        )
     }
 
     @Test

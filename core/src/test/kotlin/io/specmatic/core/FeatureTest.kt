@@ -4841,4 +4841,125 @@ paths:
 
         assertThat(matchedScenario).isEqualTo(okScenario)
     }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose scenario by request content type`() {
+        val textRequestScenario = Scenario(
+            name = "text request",
+            httpRequestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                headersPattern = HttpHeadersPattern(contentType = "text/plain")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val jsonRequestScenario = Scenario(
+            name = "json request",
+            httpRequestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                headersPattern = HttpHeadersPattern(contentType = "application/json")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val feature = Feature(scenarios = listOf(textRequestScenario, jsonRequestScenario), name = "identifier with request content type", protocol = SpecmaticProtocol.HTTP)
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "POST", path = "/products", headers = mapOf(CONTENT_TYPE to "application/json")),
+            httpResponse = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "application/json"))
+        )
+
+        assertThat(matchedScenario).isEqualTo(jsonRequestScenario)
+    }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose 405 scenario for declared method rejection example`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                    '405':
+                      description: method not allowed
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                put:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                  responses:
+                    '200':
+                      description: ok
+                    '405':
+                      description: method not allowed
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(),
+            "api.yaml"
+        ).toFeature()
+
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "PUT", path = "/orders", headers = mapOf(CONTENT_TYPE to "application/json")),
+            httpResponse = HttpResponse(status = 405, headers = mapOf(CONTENT_TYPE to "application/json"))
+        )
+
+        assertThat(matchedScenario?.method).isEqualTo("PUT")
+        assertThat(matchedScenario?.status).isEqualTo(405)
+    }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose 415 scenario for supported content type rejection example`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                  responses:
+                    '200':
+                      description: ok
+                    '415':
+                      description: unsupported media type
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(),
+            "api.yaml"
+        ).toFeature()
+
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "POST", path = "/orders", headers = mapOf(CONTENT_TYPE to "application/json")),
+            httpResponse = HttpResponse(status = 415, headers = mapOf(CONTENT_TYPE to "application/json"))
+        )
+
+        assertThat(matchedScenario?.method).isEqualTo("POST")
+        assertThat(matchedScenario?.status).isEqualTo(415)
+    }
 }

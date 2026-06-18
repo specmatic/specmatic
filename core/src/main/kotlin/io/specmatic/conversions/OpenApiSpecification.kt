@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.http.HttpStatusCode
 import io.swagger.v3.core.util.Json
 import io.swagger.v3.core.util.Json31
 import io.cucumber.messages.types.Step
@@ -777,6 +778,7 @@ class OpenApiSpecification(
 
         val data: List<ParsedOperation> =
             openApiPaths().flatMap { (openApiPath, pathItem) ->
+                val methodsForPath = openApiOperations(pathItem).keys.map(String::uppercase).toSet()
                 openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                     logger.debug("${System.lineSeparator()}Processing $httpMethod $openApiPath")
 
@@ -806,6 +808,10 @@ class OpenApiSpecification(
                             openApiPath = openApiPath,
                             httpMethod = httpMethod
                         )
+                    }
+                    httpResponsePatterns.forEach {
+                        recordInlineUndeclaredRequestVariantExamplesIgnored(methodContext, httpMethod, openApiPath, it)
+                        recordMethodNotAllowedResponseWithoutDisallowedMethod(methodContext, httpMethod, openApiPath, methodsForPath, it)
                     }
 
                     val first2xxResponseStatus =
@@ -837,13 +843,21 @@ class OpenApiSpecification(
                     }
 
                     val requestMediaTypes = httpRequestPatternDataGroupedByContentType.keys
+                    val undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(
+                        methodsForPath = methodsForPath,
+                        requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
+                    )
 
-                    val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (_, responses) ->
+                    val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (status, responses) ->
                         val responsesGrouped = responses.groupBy {
                             it.responsePattern.headersPattern.contentType
                         }
 
-                        if (responsesGrouped.keys.filterNotNull().toSet() == requestMediaTypes.filterNotNull().toSet()) {
+                        if (status == HttpStatusCode.UnsupportedMediaType.value) {
+                            responses.map { responsePatternData ->
+                                httpRequestPatterns.first() to responsePatternData
+                            }
+                        } else if (responsesGrouped.keys.filterNotNull().toSet() == requestMediaTypes.filterNotNull().toSet()) {
                             responsesGrouped.map { (contentType, responsesData) ->
                                 httpRequestPatternDataGroupedByContentType.getValue(contentType)
                                     .single() to responsesData.single()
@@ -907,7 +921,8 @@ class OpenApiSpecification(
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata,
                             sourceLocations = sourceLocations,
-                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
+                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
+                            undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
                         )
                     }
 
@@ -1085,8 +1100,10 @@ class OpenApiSpecification(
         responseExamplesList: List<Map<String, HttpResponse>>
     ): List<NamedStub> {
         return responseExamplesList.flatMap { responseExamples ->
-            responseExamples.filter { (key, _) ->
+            responseExamples.filter { (key, responseExample) ->
                 key in requestExamples
+                        && responseExample.status != HttpStatusCode.MethodNotAllowed.value
+                        && responseExample.status != HttpStatusCode.UnsupportedMediaType.value
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
                     NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
@@ -1140,6 +1157,45 @@ class OpenApiSpecification(
             message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
             isWarning = true,
             ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+        )
+    }
+
+    private fun recordInlineUndeclaredRequestVariantExamplesIgnored(
+        collectorContext: CollectorContext,
+        httpMethod: String,
+        openApiPath: String,
+        responsePatternData: ResponsePatternData
+    ) {
+        if (responsePatternData.examples.isEmpty()) return
+
+        val responsePattern = responsePatternData.responsePattern
+        val unsupportedInlineExampleReason = when (responsePattern.status) {
+            HttpStatusCode.MethodNotAllowed.value -> "inline OpenAPI examples cannot specify a disallowed request method"
+            HttpStatusCode.UnsupportedMediaType.value -> "inline OpenAPI examples cannot specify an unsupported request media type"
+            else -> return
+        }
+
+        collectorContext.at("responses").at(responsePattern.status.toString()).record(
+            message = "Inline OpenAPI ${responsePattern.status} examples for $httpMethod $openApiPath are not used to generate tests or inline mock data. External ${responsePattern.status} examples are still loaded and used. This is required because $unsupportedInlineExampleReason.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
+        )
+    }
+
+    private fun recordMethodNotAllowedResponseWithoutDisallowedMethod(
+        collectorContext: CollectorContext,
+        httpMethod: String,
+        openApiPath: String,
+        methodsForPath: Set<String>,
+        responsePatternData: ResponsePatternData
+    ) {
+        if (responsePatternData.responsePattern.status != HttpStatusCode.MethodNotAllowed.value) return
+        if (methodsForPath.firstMethodNotDeclaredForPath() != null) return
+
+        collectorContext.at("responses").at(HttpStatusCode.MethodNotAllowed.value.toString()).record(
+            message = "405 response for $httpMethod $openApiPath may never occur because all known HTTP methods are already declared for $openApiPath.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_HAS_NO_DISALLOWED_METHOD
         )
     }
 
@@ -1197,6 +1253,10 @@ class OpenApiSpecification(
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
+            if (responseExample.status == HttpStatusCode.MethodNotAllowed.value || responseExample.status == HttpStatusCode.UnsupportedMediaType.value) {
+                return@mapNotNull null
+            }
+
             val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, effectiveQueryPatterns, CollectorContext())
 
             val requestBodyExample: Map<String, Any> =
@@ -3608,7 +3668,9 @@ class OpenApiSpecification(
             "PATCH" to pathItem.patch,
             "PUT" to pathItem.put,
             "DELETE" to pathItem.delete,
-            "HEAD" to pathItem.head
+            "HEAD" to pathItem.head,
+            "OPTIONS" to pathItem.options,
+            "TRACE" to pathItem.trace
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to value!! }.toMap()
     }
 
