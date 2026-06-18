@@ -49,7 +49,7 @@ class DefaultSpecmaticMcpToolProvider(
     fun getMockServerTool(): McpServerFeatures.SyncToolSpecification {
         return tool(
             name = "manage_mock_server",
-            description = "Manage Specmatic mock servers: start, stop, or list running servers",
+            description = "Manage Specmatic mock servers: start, stop, or list running servers using OpenAPI specification",
             inputSchema = toolSchema(
                 properties = mapOf(
                     "command" to stringProperty("The action to perform: start, stop, or list"),
@@ -87,7 +87,7 @@ class DefaultSpecmaticMcpToolProvider(
         }
     }
 
-    private fun getResiliencyTestTool(): McpServerFeatures.SyncToolSpecification {
+     fun getResiliencyTestTool(): McpServerFeatures.SyncToolSpecification {
        return tool(
             name = "run_resiliency_test",
             description = "Run Specmatic resiliency tests against an API using OpenAPI specification",
