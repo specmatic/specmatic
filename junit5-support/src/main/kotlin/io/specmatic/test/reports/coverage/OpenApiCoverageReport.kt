@@ -3,7 +3,8 @@ package io.specmatic.test.reports.coverage
 import io.specmatic.core.Result
 import io.specmatic.core.report.calculateAbsoluteCoverage
 import io.specmatic.core.report.calculateCoverage
-import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
+import io.specmatic.core.report.toCoverageMetrics
+import io.specmatic.reporter.ctrf.CoverageReportSpecification
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.test.API
 import io.specmatic.test.HttpInteractionsLog
@@ -33,8 +34,14 @@ data class OpenApiCoverageReport(
     val totalCoveragePercentage: Int = coverageOperations.calculateCoverage()
     val absoluteCoveragePercentage: Int = coverageOperations.calculateAbsoluteCoverage()
 
-    fun getSpecConfigs(): List<CtrfSpecConfig> {
-        return coverageOperations.map { it.specConfig }.distinct()
+    fun coverageReportSpecifications(): List<CoverageReportSpecification> {
+        return coverageOperations.groupBy { it.specConfig }.map { (specConfig, operations) ->
+            CoverageReportSpecification(
+                specConfig = specConfig,
+                coverageReportOperations = operations,
+                coverageMetrics = operations.toCoverageMetrics(),
+            )
+        }
     }
 
     fun onProcessingComplete() {
