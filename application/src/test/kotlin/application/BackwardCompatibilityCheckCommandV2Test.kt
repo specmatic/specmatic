@@ -465,7 +465,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
-            - Externalised examples that have changed:
+            - Externalised example directories whose spec has changed or which contain changed examples: 
             1. api_examples (1 file changed)
 
             - Specs whose externalised examples will be validated:
@@ -1064,8 +1064,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-
               ________________________________________
               The Incompatibility Report:
 
@@ -1594,8 +1592,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-
               ________________________________________
               The Incompatibility Report:
 
@@ -1857,8 +1853,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /compatible against 1 operations
               - GET /compatible -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-
-
               --------------------
               Verdict for spec $compatibleSpecPath:
                 (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
@@ -1881,8 +1875,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /hook-failed against 1 operations
               - GET /hook-failed -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-
               ________________________________________
               The Incompatibility Report:
 
@@ -1917,8 +1909,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /hook-passed against 1 operations
               - GET /hook-passed -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-
               ________________________________________
               The Incompatibility Report:
 
@@ -2059,8 +2049,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-
               ________________________________________
               The Incompatibility Report:
 
@@ -2095,8 +2083,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-
               ________________________________________
               The Incompatibility Report:
 
@@ -2247,7 +2233,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
               ________________________________________
               The Incompatibility Report:
 

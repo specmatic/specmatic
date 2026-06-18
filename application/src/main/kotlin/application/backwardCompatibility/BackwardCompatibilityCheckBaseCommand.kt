@@ -219,7 +219,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     ) {
         logger.log("Checking backward compatibility of the following specs:$newLine")
         changedSpecFiles.printSummary("Specs that have changed")
-        changedExternalisedExampleFiles.printExternalisedExampleSummary("Externalised examples that have changed or whose associated spec has changed")
+        changedExternalisedExampleFiles.printExternalisedExampleSummary("Externalised example directories whose spec has changed or which contain changed examples")
         filesReferringToChangedFiles.printSummary("Specs referring to the changed specs")
         logSpecsSelectedForExternalisedExampleValidation(changedSpecFiles, specificationsOfChangedExternalisedExamples)
         untrackedFiles.printSummary("Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs)")
