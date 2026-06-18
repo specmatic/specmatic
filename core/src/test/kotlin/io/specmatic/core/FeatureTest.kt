@@ -18,6 +18,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.FuzzyExampleMisMatchMessages
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.toViolationReportString
 import io.specmatic.stub.captureStandardOutput
@@ -3373,6 +3374,98 @@ paths:
     }
 
     @Test
+    fun `externalized query example validates through scalar declared last collision owner in lenient mode`() {
+        val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
+            .toFeature()
+            .loadExternalisedExamples()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+    }
+
+    @Test
+    fun `contract tests use externalized colliding query example with scalar declared last collision owner`() {
+        val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
+            .toFeature()
+            .loadExternalisedExamples()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"source":"external"}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsAllEntriesOf(mapOf("age" to "45", "name" to "Jane"))
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+    }
+
+    @Test
+    fun `mock matches externalized colliding query example with scalar declared last collision owner`() {
+        val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
+            .toFeature()
+            .loadExternalisedExamples()
+
+        HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->
+            val matchingResponse = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "45", "name" to "Jane")))
+            )
+            val scalarStringResponse = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc", "name" to "Jane")))
+            )
+
+            assertThat(matchingResponse.status).isEqualTo(200)
+            assertThat(scalarStringResponse.status).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun `contract tests without examples use generated colliding query params from object property declared last collision owner`() {
+        val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"source":"generated"}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams.map { it.keys }).containsExactlyInAnyOrder(
+            setOf("age", "name"),
+            emptySet()
+        )
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsKey("age")
+            assertThat(queryParams).containsKey("name")
+            assertThat(queryParams["age"]?.toIntOrNull()).isNotNull()
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+    }
+
+    @Test
+    fun `mock without examples matches generated request through object property declared last collision owner`() {
+        val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
+
+        HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->
+            val matchingResponse = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "45", "name" to "Jane")))
+            )
+            val mismatchingResponse = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc", "name" to "Jane")))
+            )
+
+            assertThat(matchingResponse.status).isEqualTo(200)
+            assertThat((matchingResponse.body as JSONObjectValue).jsonObject).containsKey("source")
+            assertThat(mismatchingResponse.status).isEqualTo(400)
+        }
+    }
+
+    @Test
     fun `validate externalized examples for absent required-only and all optional form exploded object query params`() {
         val feature = OpenApiSpecification.fromFile(OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC).toFeature().loadExternalisedExamples()
 
@@ -4035,11 +4128,52 @@ paths:
         private const val CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_examples"
         private const val CUSTOMER_OBJECT_QUERY_PARAM_SUCCESS_EXAMPLE = "$CUSTOMER_OBJECT_QUERY_PARAM_EXAMPLES_DIR/external-success.json"
         private const val CUSTOMER_OBJECT_QUERY_PARAM_NESTED_INFO_EXAMPLE = "$OBJECT_QUERY_EXAMPLES_BASE/customer_object_query_param_invalid_examples/nested-info.json"
+        private const val QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/query_param_collision_external_example.yaml"
         private const val OPTIONAL_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_valid.yaml"
         private const val OPTIONAL_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_optional_optional_only.yaml"
         private const val REQUIRED_OBJECT_QUERY_PARAM_VALID_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_valid.yaml"
         private const val REQUIRED_OBJECT_QUERY_PARAM_ABSENT_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_absent.yaml"
         private const val REQUIRED_OBJECT_QUERY_PARAM_OPTIONAL_ONLY_SPEC = "$OBJECT_QUERY_EXAMPLES_BASE/form_exploded_object_query_param_required_optional_only.yaml"
+        private val NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC = """
+            openapi: 3.0.0
+            info:
+              title: Query Param Collision Without Examples
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: age
+                      schema:
+                        type: string
+                    - in: query
+                      name: info
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        required:
+                          - age
+                          - name
+                        properties:
+                          age:
+                            type: integer
+                          name:
+                            type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - source
+                            properties:
+                              source:
+                                type: string
+        """.trimIndent()
 
         @JvmStatic
         fun singleFeatureContractSource(): Stream<Arguments> {

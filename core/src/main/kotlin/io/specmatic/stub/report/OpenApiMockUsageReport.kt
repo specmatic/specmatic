@@ -1,6 +1,7 @@
 package io.specmatic.stub.report
 
 import io.specmatic.reporter.ctrf.model.CoverageReportOperation
+import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.test.TestResultRecord
 
@@ -9,4 +10,8 @@ data class OpenApiMockUsageReport(
     val testResultRecords: List<TestResultRecord>,
     val coverage: Int,
     val absoluteCoverage: Int,
-)
+) {
+    fun getSpecConfigs(): List<CtrfSpecConfig> {
+        return coverageReportOperations.map { it.specConfig }.distinct()
+    }
+}

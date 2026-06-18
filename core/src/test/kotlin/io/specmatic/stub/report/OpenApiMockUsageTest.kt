@@ -1,7 +1,7 @@
 package io.specmatic.stub.report
 
+import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.SpecmaticConfig
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test
 class OpenApiMockUsageTest {
     @Test
     fun `should generate operations and calculate coverage percentage`() {
-        val mockUsage = OpenApiMockUsage(SpecmaticConfig())
+        val mockUsage = OpenApiMockUsage()
 
         val coveredEndpoint = endpoint("/orders", "POST", "application/json", 201, "application/json")
         val notCoveredEndpoint = endpoint("/orders", "GET", null, 200, "application/json")

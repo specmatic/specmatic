@@ -1,9 +1,18 @@
 package io.specmatic.core.config.v3
 
+import io.specmatic.core.Configuration
+import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.v3.components.services.CommonServiceConfig
+import io.specmatic.core.config.v3.components.services.Definition
+import io.specmatic.core.config.v3.components.services.SpecificationDefinition
+import io.specmatic.core.config.v3.components.services.TestServiceConfig
+import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
+import io.specmatic.core.config.v3.components.settings.TestSettings
+import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.utilities.FileAssociation
 import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
@@ -184,6 +193,174 @@ class SpecmaticConfigV3ImplTest {
         val incomingMtlsRegistry = config.getStubHttpsConfiguration().toIncomingMtlsRegistry()
 
         assertThat(incomingMtlsRegistry.get("localhost", 9450)).isTrue()
+    }
+
+    @Nested
+    inner class CtrfSpecConfigForTests {
+        @Test
+        fun `getCtrfSpecConfig should resolve filesystem spec path relative to git repo root when the source directory is the specmatic yaml directory`() {
+            val repoRoot = tempDir.resolve("repo-v3").apply { mkdirs() }
+            runGit(repoRoot, "init")
+            val specFile =
+                repoRoot.resolve("specs/openapi/order_api.yaml").apply {
+                    parentFile.mkdirs()
+                    writeText(minimalOpenApi())
+                }
+            val configFile = repoRoot.resolve("specmatic.yaml").apply { writeText("version: 3") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val config =
+                    SpecmaticConfigV3Impl(
+                        file = configFile,
+                        specmaticConfig = SpecmaticConfigV3(
+                            version = io.specmatic.core.config.SpecmaticConfigVersion.VERSION_3,
+                            systemUnderTest = testServiceConfig(
+                                source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = ".")),
+                                configuredSpecPath = "specs/openapi/order_api.yaml"
+                            )
+                        )
+                    )
+
+                val ctrfSpecConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = io.specmatic.test.TestResultRecord.CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = SpecType.OPENAPI.value
+                )
+
+                assertThat(ctrfSpecConfig.specification).isEqualTo("specs/openapi/order_api.yaml")
+                assertThat(ctrfSpecConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
+                assertThat(ctrfSpecConfig.repository).isNull()
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
+        }
+
+        @Test
+        fun `getCtrfSpecConfig should resolve filesystem spec path relative to git repo root when the source directory is explicitly set`() {
+            val repoRoot = tempDir.resolve("repo-v3-specs").apply { mkdirs() }
+            runGit(repoRoot, "init")
+            val specFile =
+                repoRoot.resolve("specs/openapi/order_api.yaml").apply {
+                    parentFile.mkdirs()
+                    writeText(minimalOpenApi())
+                }
+            val configFile = repoRoot.resolve("specmatic.yaml").apply { writeText("version: 3") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val config =
+                    SpecmaticConfigV3Impl(
+                        file = configFile,
+                        specmaticConfig = SpecmaticConfigV3(
+                            version = io.specmatic.core.config.SpecmaticConfigVersion.VERSION_3,
+                            systemUnderTest = testServiceConfig(
+                                source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = "specs")),
+                                configuredSpecPath = "openapi/order_api.yaml"
+                            )
+                        )
+                    )
+
+                val ctrfSpecConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = io.specmatic.test.TestResultRecord.CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = SpecType.OPENAPI.value
+                )
+
+                assertThat(ctrfSpecConfig.specification).isEqualTo("specs/openapi/order_api.yaml")
+                assertThat(ctrfSpecConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
+                assertThat(ctrfSpecConfig.repository).isNull()
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
+        }
+
+        @Test
+        fun `getCtrfSpecConfig should leave web spec paths unchanged`() {
+            val repoRoot = tempDir.resolve("repo-v3-web").apply { mkdirs() }
+            runGit(repoRoot, "init")
+            val specFile =
+                repoRoot.resolve(".specmatic/web/example.com/openapi/order_api.yaml").apply {
+                    parentFile.mkdirs()
+                    writeText(minimalOpenApi())
+                }
+            val configFile = repoRoot.resolve("specmatic.yaml").apply { writeText("version: 3") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val config =
+                    SpecmaticConfigV3Impl(
+                        file = configFile,
+                        specmaticConfig = SpecmaticConfigV3(
+                            version = io.specmatic.core.config.SpecmaticConfigVersion.VERSION_3,
+                            systemUnderTest = testServiceConfig(
+                                source = SourceV3.create(web = SourceV3.Web(url = "https://example.com")),
+                                configuredSpecPath = "openapi/order_api.yaml"
+                            )
+                        )
+                    )
+
+                val ctrfSpecConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = io.specmatic.test.TestResultRecord.CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = SpecType.OPENAPI.value
+                )
+
+                assertThat(ctrfSpecConfig.specification).isEqualTo("openapi/order_api.yaml")
+                assertThat(ctrfSpecConfig.sourceProvider).isEqualTo(SourceProvider.web.name)
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
+        }
+
+        @Test
+        fun `getCtrfSpecConfig should leave git spec paths unchanged`() {
+            val repoRoot = tempDir.resolve("repo-v3-git").apply { mkdirs() }
+            runGit(repoRoot, "init")
+            val configFile = repoRoot.resolve("specmatic.yaml").apply { writeText("version: 3") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val configuredSpecPath = "openapi/order_api.yaml"
+                val gitSource = SourceV3.create(git = SourceV3.Git(url = "https://example.com/contracts.git"))
+                val specFile =
+                    gitSource.resolveSpecification(File(configuredSpecPath)).apply {
+                        parentFile.mkdirs()
+                        writeText(minimalOpenApi())
+                    }
+                val config =
+                    SpecmaticConfigV3Impl(
+                        file = configFile,
+                        specmaticConfig = SpecmaticConfigV3(
+                            version = io.specmatic.core.config.SpecmaticConfigVersion.VERSION_3,
+                            systemUnderTest = testServiceConfig(
+                                source = gitSource,
+                                configuredSpecPath = configuredSpecPath
+                            )
+                        )
+                    )
+
+                val ctrfSpecConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = io.specmatic.test.TestResultRecord.CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = SpecType.OPENAPI.value
+                )
+
+                assertThat(ctrfSpecConfig.specification).isEqualTo("openapi/order_api.yaml")
+                assertThat(ctrfSpecConfig.sourceProvider).isEqualTo(SourceProvider.git.name)
+                assertThat(ctrfSpecConfig.repository).isEqualTo("https://example.com/contracts.git")
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
+        }
     }
 
     @Test
@@ -1255,4 +1432,28 @@ class SpecmaticConfigV3ImplTest {
     private fun emptyKeyStore(): KeyStore {
         return KeyStore.getInstance("JKS").apply { load(null, null) }
     }
+
+    private fun testServiceConfig(source: SourceV3, configuredSpecPath: String): TestServiceConfig =
+        TestServiceConfig(
+            service = RefOrValue.Value(
+                CommonServiceConfig<TestRunOptions, TestSettings>(
+                    definitions = listOf(
+                        Definition(
+                            Definition.Value(
+                                source = RefOrValue.Value(source),
+                                specs = listOf(SpecificationDefinition.StringValue(configuredSpecPath))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+    private fun runGit(directory: File, vararg args: String) {
+        val process = ProcessBuilder(listOf("git", "-C", directory.absolutePath) + args).start()
+        val exitCode = process.waitFor()
+        assertThat(exitCode).isZero()
+    }
+
+    private fun minimalOpenApi(): String = "openapi: 3.0.0\ninfo:\n  title: Orders\n  version: '1'\npaths: {}\n"
 }

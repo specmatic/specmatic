@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.specmatic.core.config.EmptyConfigCollectionFilter
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.convertToLatestVersionedConfig
 import io.specmatic.core.config.SpecmaticConfigVersion.Companion.getLatestVersion
@@ -93,41 +94,10 @@ class ConfigCommand : Callable<Int> {
                     JsonInclude.Value.construct(
                         JsonInclude.Include.CUSTOM,
                         JsonInclude.Include.CUSTOM
-                    ).withValueFilter(EmptyCollectionFilter::class.java)
+                    ).withValueFilter(EmptyConfigCollectionFilter::class.java)
                 )
             }
             return objectMapper
-        }
-
-        private class EmptyCollectionFilter {
-            override fun equals(other: Any?): Boolean {
-                if (other == null) return true
-                if (other.javaClass == this.javaClass)
-                    return true
-
-                return when (other) {
-                    is Map<*, *> -> other.all { it.key is String && equals(it.value) }
-                    is Collection<*> -> other.all { equals(it) }
-                    is Array<*> -> other.all { equals(it) }
-                    is String -> other.isBlank()
-                    else -> isEmptyDataClass(other)
-                }
-            }
-
-            private fun isEmptyDataClass(obj: Any): Boolean {
-                val kClass: KClass<*> = obj::class
-                if (!kClass.isData) return false
-
-                return kClass.memberProperties.all { prop ->
-                    prop.isAccessible = true
-                    val value = prop.call(obj)
-                    equals(value)
-                }
-            }
-
-            override fun hashCode(): Int {
-                return javaClass.hashCode()
-            }
         }
 
         private fun exitIfAlreadyUpToDate(existingVersion: SpecmaticConfigVersion?) {

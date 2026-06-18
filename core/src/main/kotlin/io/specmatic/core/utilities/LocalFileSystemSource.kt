@@ -1,5 +1,7 @@
 package io.specmatic.core.utilities
 
+import io.specmatic.core.normalizeFilesystemSpecificationPath
+import io.specmatic.core.SourceProvider
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import java.io.File
@@ -35,12 +37,18 @@ data class LocalFileSystemSource(
     ): List<ContractPathData> {
         return selector.select(this).map {
             val resolvedPath = File(directory).resolve(it.path)
+            val normalizedSpecificationPath =
+                normalizeFilesystemSpecificationPath(
+                    specificationPath = it.path,
+                    sourceProvider = SourceProvider.filesystem,
+                    resolvedSpecFile = resolvedPath.canonicalFile,
+                )
 
             ContractPathData(
                 baseDir = directory,
                 path = resolvedPath.path,
                 provider = type,
-                specificationPath = it.path,
+                specificationPath = normalizedSpecificationPath,
                 baseUrl = it.baseUrl,
                 generative = it.generative,
                 exampleDirPaths = it.exampleDirPaths

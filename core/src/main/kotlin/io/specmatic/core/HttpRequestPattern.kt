@@ -67,6 +67,10 @@ data class HttpRequestPattern(
 
     fun getQueryParamKeys() = httpQueryParamPattern.queryKeyNames
 
+    fun nestedObjectQueryParamsByName(): Map<String, NestedObjectQueryParam> {
+        return httpQueryParamPattern.nestedObjectQueryParamsByName()
+    }
+
     fun matches(incomingHttpRequest: HttpRequest, resolver: Resolver, headersResolver: Resolver? = null, requestBodyReqex: Regex? = null): Result {
         val result = incomingHttpRequest to resolver to
                 ::matchPath then
@@ -375,7 +379,11 @@ data class HttpRequestPattern(
                     httpPathPattern = HttpPathPattern(pathTypes, path),
                     httpQueryParamPattern = HttpQueryParamPattern(
                         queryParamTypes,
-                        extensibleQueryParams = httpQueryParamPattern.extensibleQueryParams
+                        additionalProperties = httpQueryParamPattern.additionalProperties,
+                        extensibleQueryParams = httpQueryParamPattern.extensibleQueryParams,
+                        formExplodedObjectQueryParams = httpQueryParamPattern.formExplodedObjectQueryParams,
+                        parameterPointers = httpQueryParamPattern.parameterPointers,
+                        collisionGroupsByWireKey = httpQueryParamPattern.collisionGroupsByWireKey
                     )
                 )
             }

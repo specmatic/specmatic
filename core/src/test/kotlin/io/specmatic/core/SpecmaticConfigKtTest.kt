@@ -1845,8 +1845,85 @@ internal class SpecmaticConfigKtTest {
 
                 assertThat(ctrfConfig.specification).isEqualTo("order.yaml")
                 assertThat(ctrfConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
-                assertThat(ctrfConfig.repository).isEmpty()
+                assertThat(ctrfConfig.repository).isNull()
                 assertThat(ctrfConfig.branch).isEqualTo("main")
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
+        }
+
+        @Test
+        fun `getCtrfSpecConfig should resolve filesystem spec path relative to git repo root when the source directory is explicitly set in v1 config`(@TempDir tempDir: File) {
+            val repoRoot = tempDir.resolve("repo-v1").apply { mkdirs() }
+            runGit(repoRoot, "init")
+            val specFile =
+                repoRoot.resolve("specs/openapi/order_api.yaml").apply {
+                    parentFile.mkdirs()
+                    writeText(minimalOpenApi())
+                }
+            val configFile = repoRoot.resolve("specmatic.yaml").apply { writeText("version: 2") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val config = SpecmaticConfigV1V2Common(
+                    sources = listOf(
+                        Source(
+                            provider = SourceProvider.filesystem,
+                            directory = "specs",
+                            test = listOf(SpecExecutionConfig.StringValue("openapi/order_api.yaml"))
+                        )
+                    )
+                )
+
+                val ctrfConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = SpecType.OPENAPI.value
+                )
+
+                assertThat(ctrfConfig.specification).isEqualTo("specs/openapi/order_api.yaml")
+                assertThat(ctrfConfig.sourceProvider).isEqualTo(SourceProvider.filesystem.name)
+                assertThat(ctrfConfig.repository).isNull()
+            } finally {
+                Configuration.configFilePath = originalConfigPath
+            }
+        }
+
+        @Test
+        fun `getCtrfSpecConfig should leave git spec paths unchanged in v1 config`(@TempDir tempDir: File) {
+            val repoRoot = tempDir.resolve("repo-v1-git").apply { mkdirs() }
+            runGit(repoRoot, "init")
+            val specFile =
+                repoRoot.resolve("openapi/order_api.yaml").apply {
+                    parentFile.mkdirs()
+                    writeText(minimalOpenApi())
+                }
+            val configFile = repoRoot.resolve("specmatic.yaml").apply { writeText("version: 2") }
+            val originalConfigPath = Configuration.configFilePath
+
+            try {
+                Configuration.configFilePath = configFile.canonicalPath
+                val config = SpecmaticConfigV1V2Common(
+                    sources = listOf(
+                        Source(
+                            provider = SourceProvider.git,
+                            test = listOf(SpecExecutionConfig.StringValue("openapi/order_api.yaml"))
+                        )
+                    )
+                )
+
+                val ctrfConfig = config.getCtrfSpecConfig(
+                    specFile = specFile,
+                    testType = CONTRACT_TEST_TEST_TYPE,
+                    protocol = "HTTP",
+                    specType = SpecType.OPENAPI.value
+                )
+
+                assertThat(ctrfConfig.specification).isEqualTo("openapi/order_api.yaml")
+                assertThat(ctrfConfig.sourceProvider).isEqualTo(SourceProvider.git.name)
+                assertThat(ctrfConfig.repository).isNull()
             } finally {
                 Configuration.configFilePath = originalConfigPath
             }
@@ -1983,6 +2060,14 @@ internal class SpecmaticConfigKtTest {
             "overlayFilePath" -> config.getTestOverlayFilePath(File("spec.yaml"), SpecType.OPENAPI)
             else -> error("Unknown test filter field: $propertyName")
         }
+
+    private fun runGit(directory: File, vararg args: String) {
+        val process = ProcessBuilder(listOf("git", "-C", directory.absolutePath) + args).start()
+        val exitCode = process.waitFor()
+        assertThat(exitCode).isZero()
+    }
+
+    private fun minimalOpenApi(): String = "openapi: 3.0.0\ninfo:\n  title: Orders\n  version: '1'\npaths: {}\n"
 
     data class TestFilterPropertyCase(
         val propertyName: String,

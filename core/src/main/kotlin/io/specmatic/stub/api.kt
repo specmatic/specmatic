@@ -504,7 +504,24 @@ fun loadContractStubsFromFilesAsResults(
     val explicitStubsWithImplicitOverrides =
         explicitStubsWithOverriddenImplicitExamplesInFeatures(implicitStubs, explicitStubs)
 
-    return specLoadFailures.plus(explicitStubsWithImplicitOverrides).plus(implicitStubs)
+    return specLoadFailures
+        .plus(explicitStubsWithImplicitOverrides)
+        .plus(implicitStubs.withoutDuplicateEmptyFeatureStubs(explicitStubsWithImplicitOverrides))
+}
+
+private fun List<FeatureStubsResult>.withoutDuplicateEmptyFeatureStubs(
+    existingStubs: List<FeatureStubsResult>
+): List<FeatureStubsResult> {
+    val existingFeaturePaths = existingStubs
+        .filterIsInstance<FeatureStubsResult.Success>()
+        .map { it.feature.path }
+        .toSet()
+
+    return filterNot { stubResult ->
+        stubResult is FeatureStubsResult.Success &&
+            stubResult.scenarioStubs.isEmpty() &&
+            stubResult.feature.path in existingFeaturePaths
+    }
 }
 
 private fun explicitStubsWithOverriddenImplicitExamplesInFeatures(

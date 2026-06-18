@@ -12725,6 +12725,207 @@ paths:
         assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
     }
 
+    @Test
+    fun `inline examples validate same-pattern query parameter collisions using serialized wire key`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Same Pattern Query Param Collision Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          age:
+                            type: integer
+                          name:
+                            type: string
+                      examples:
+                        SUCCESS:
+                          value:
+                            age: 45
+                            name: Jane
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val request = feature.inlineNamedStubs.single { it.name == "SUCCESS" }.stub.request
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+
+        assertThat(request.queryParams.asMap()).containsExactlyEntriesOf(mapOf("age" to "45", "name" to "Jane"))
+        assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `inline examples validate execute and mock through scalar declared last collision owner in lenient mode`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Scalar Last Query Param Collision Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: info
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        properties:
+                          age:
+                            type: integer
+                      examples:
+                        SUCCESS:
+                          value:
+                            age: abc
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "", lenientMode = true).toFeature()
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(validationResults.getValue("SUCCESS")).isInstanceOf(Result.Success::class.java)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("age", "abc")
+            assertThat(queryParams).doesNotContainKey("info")
+        })
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc")))
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+        }
+    }
+
+    @Test
+    fun `inline examples fail validation through object property declared last collision owner in lenient mode`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Object Last Query Param Collision Invalid Inline Example
+              version: 1.0.0
+            paths:
+              /data:
+                get:
+                  parameters:
+                    - in: query
+                      name: age
+                      required: false
+                      schema:
+                        type: string
+                    - in: query
+                      name: info
+                      required: false
+                      style: form
+                      explode: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          age:
+                            type: integer
+                          name:
+                            type: string
+                      examples:
+                        SUCCESS:
+                          value:
+                            age: abc
+                            name: Jane
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(spec, "", lenientMode = true).toFeature()
+
+        val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+            .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+        val validationResult = validationResults.getValue("SUCCESS")
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(validationResult.reportString()).contains("REQUEST.PARAMETERS.QUERY.age")
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("formExplodedObjectQueryExampleCases")
     fun `contract tests use serialized query property keys from inline examples`(case: FormExplodedObjectQueryExampleCase) {
@@ -12745,6 +12946,982 @@ paths:
                 assertThat(queryParams).doesNotContainKey(queryParamKey)
             }
         })
+    }
+
+    @Test
+    fun `contract tests use inferred nested object query syntax from parameter examples`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Nested Object Query Example
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                          - address
+                        properties:
+                          name:
+                            type: string
+                          address:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - street
+                                - city
+                              properties:
+                                street:
+                                  type: string
+                                city:
+                                  type: string
+                      example: name=Jack&address[0].street=Baker Street&address[0].city=London
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsKey("name")
+            assertThat(queryParams).containsKey("address[0].street")
+            assertThat(queryParams).containsKey("address[0].city")
+            assertThat(queryParams).doesNotContainKey("details")
+        })
+    }
+
+    @Test
+    fun `contract tests use parameter dot-wrapped nested object query syntax from parameter examples`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Nested Object Query Parameter Dot Wrapped Example
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - price
+                        properties:
+                          price:
+                            type: object
+                            required:
+                              - min
+                              - max
+                            properties:
+                              min:
+                                type: string
+                              max:
+                                type: string
+                      example: filter.price.min=50&filter.price.max=150
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsKeys("filter.price.min", "filter.price.max")
+            assertThat(queryParams).doesNotContainKey("filter")
+            assertThat(queryParams).doesNotContainKey("price.min")
+        })
+    }
+
+    @Test
+    fun `named nested object query parameter examples are used as concrete contract test requests`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Nested Object Query Named Example
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - name
+                          - address
+                        properties:
+                          name:
+                            type: string
+                          address:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - street
+                                - city
+                              properties:
+                                street:
+                                  type: string
+                                city:
+                                  type: string
+                      examples:
+                        SUCCESS:
+                          value: name=Jack&address[0].street=Baker Street&address[0].city=London
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("name", "Jack")
+            assertThat(queryParams).containsEntry("address[0].street", "Baker Street")
+            assertThat(queryParams).containsEntry("address[0].city", "London")
+            assertThat(queryParams).doesNotContainKey("details")
+        })
+    }
+
+    @Test
+    fun `positive generated contract tests preserve inferred nested object and array query syntax`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        val queryParams = generatedPositiveRequests(feature).single().queryParams.asMap()
+
+        assertThat(queryParams).containsKey("category")
+        assertThat(queryParams).containsKey("price.min")
+        assertThat(queryParams).containsKey("price.max")
+        assertThat(queryParams.keys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.color")) }
+        assertThat(queryParams.keys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.sizes\\[[0-9]+]")) }
+        assertThat(queryParams).doesNotContainKey("filter")
+    }
+
+    @Test
+    fun `positive generated contract tests encode nested array query keys in request URLs`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        val url = generatedPositiveRequests(feature).single().getURL("http://localhost")
+
+        assertThat(url).contains("variants%5B")
+        assertThat(url).doesNotContain("variants[")
+    }
+
+    @Test
+    fun `negative generated contract tests preserve inferred nested object and array query syntax`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+        val nonEmptyNegativeRequests = generatedNegativeRequests(feature).filter { it.queryParams.paramPairs.isNotEmpty() }
+
+        assertThat(nonEmptyNegativeRequests).isNotEmpty
+        assertThat(nonEmptyNegativeRequests).allSatisfy { request ->
+            val queryParams = request.queryParams.asMap()
+
+            assertThat(queryParams.keys).doesNotContain("filter")
+            assertThat(queryParams.keys).allSatisfy { queryKey ->
+                assertThat(queryKey).matches("category|price\\.min|price\\.max|variants\\[[0-9]+]\\.color|variants\\[[0-9]+]\\.sizes\\[[0-9]+]")
+            }
+        }
+        assertThat(nonEmptyNegativeRequests).anySatisfy(Consumer { request ->
+            val queryKeys = request.queryParams.keys
+
+            assertThat(queryKeys).contains("price.min")
+            assertThat(queryKeys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.sizes\\[[0-9]+]")) }
+        })
+    }
+
+    @Test
+    fun `external nested object query examples are loaded and run as concrete contract tests`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("nested-object-query.json").writeText(
+            nestedQueryExternalExample(
+                queryParams = mapOf(
+                    "price.min" to "50",
+                    "price.max" to "150"
+                )
+            )
+        )
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectOnlyQuerySpec(includeParameterExample = false),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("price.min", "50")
+            assertThat(queryParams).containsEntry("price.max", "150")
+            assertThat(queryParams).doesNotContainKey("filter")
+        })
+    }
+
+    @Test
+    fun `external nested array query examples are loaded and run as concrete contract tests`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("nested-array-query.json").writeText(
+            nestedQueryExternalExample(
+                queryParams = mapOf(
+                    "variants[0].color" to "black",
+                    "variants[0].sizes[0]" to "9"
+                )
+            )
+        )
+        val seenQueryParams = mutableListOf<Map<String, String>>()
+        val feature = OpenApiSpecification.fromYAML(
+            nestedArrayOnlyQuerySpec(includeParameterExample = false),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                seenQueryParams.add(request.queryParams.asMap())
+                return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+            }
+        })
+
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+            assertThat(queryParams).containsEntry("variants[0].color", "black")
+            assertThat(queryParams).containsEntry("variants[0].sizes[0]", "9")
+            assertThat(queryParams).doesNotContainKey("filter")
+        })
+    }
+
+    @Test
+    fun `inline examples can use empty nested object and array query markers`() {
+        val cases = listOf(
+            Triple(nestedEmptyObjectQuerySpec(), "filter.data", true),
+            Triple(nestedEmptyArrayQuerySpec(), "filter.data", false)
+        )
+
+        cases.forEach { (spec, expectedQueryKey, generatedContractTestShouldPreserveEmptyMarker) ->
+            val seenQueryParams = mutableListOf<Map<String, String>>()
+            val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+            val validationResults = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
+                .validateInlineExamples(feature = feature, examples = feature.inlineNamedStubs)
+
+            val results = feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    seenQueryParams.add(request.queryParams.asMap())
+                    return HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+                }
+            })
+
+            assertThat(validationResults.values).allSatisfy { result ->
+                assertThat(result).isInstanceOf(Result.Success::class.java)
+            }
+            assertThat(results.success()).withFailMessage(results.report()).isTrue()
+
+            if (generatedContractTestShouldPreserveEmptyMarker) {
+                assertThat(seenQueryParams).anySatisfy(Consumer { queryParams ->
+                    assertThat(queryParams).containsEntry(expectedQueryKey, "")
+                })
+            }
+        }
+    }
+
+    @Test
+    fun `external examples can use empty nested object and array query markers`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val cases = listOf(
+            nestedEmptyObjectQuerySpec(),
+            nestedEmptyArrayQuerySpec()
+        )
+
+        cases.forEachIndexed { index, spec ->
+            val exampleFile = tempDir.resolve("empty-container-query-$index.json").apply {
+                writeText(nestedQueryExternalExample(queryParams = mapOf("filter.data" to "")))
+            }
+            val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+            val validationResult = ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExample(feature, exampleFile)
+
+            assertThat(validationResult).isInstanceOf(Result.Success::class.java)
+        }
+    }
+
+    @Test
+    fun `generated contract tests use default syntax for nested object query params when examples are absent`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectOnlyQuerySpec(includeParameterExample = false), "").toFeature()
+        val positiveQueryParams = generatedPositiveRequests(feature).single().queryParams.asMap()
+        val nonEmptyNegativeRequests = generatedNegativeRequests(feature).filter { it.queryParams.paramPairs.isNotEmpty() }
+
+        assertThat(positiveQueryParams.keys).contains("price.min", "price.max")
+        assertThat(positiveQueryParams).doesNotContainKey("filter")
+        assertThat(nonEmptyNegativeRequests).isNotEmpty
+        assertThat(nonEmptyNegativeRequests).allSatisfy { request ->
+            assertThat(request.queryParams.keys).allSatisfy { queryKey ->
+                assertThat(queryKey).matches("price\\.min|price\\.max")
+            }
+        }
+    }
+
+    @Test
+    fun `generated contract tests use default syntax for nested array query params when examples are absent`() {
+        val feature = OpenApiSpecification.fromYAML(nestedArrayOnlyQuerySpec(includeParameterExample = false), "").toFeature()
+        val positiveQueryParams = generatedPositiveRequests(feature).single().queryParams.asMap()
+        val nonEmptyNegativeRequests = generatedNegativeRequests(feature).filter { it.queryParams.paramPairs.isNotEmpty() }
+
+        assertThat(positiveQueryParams.keys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.color")) }
+        assertThat(positiveQueryParams.keys).anyMatch { it.matches(Regex("variants\\[[0-9]+]\\.sizes\\[[0-9]+]")) }
+        assertThat(positiveQueryParams).doesNotContainKey("filter")
+        assertThat(nonEmptyNegativeRequests).isNotEmpty
+        assertThat(nonEmptyNegativeRequests).allSatisfy { request ->
+            assertThat(request.queryParams.keys).allSatisfy { queryKey ->
+                assertThat(queryKey).matches("variants\\[[0-9]+]\\.color|variants\\[[0-9]+]\\.sizes\\[[0-9]+]")
+            }
+        }
+    }
+
+    @Test
+    fun `external examples do not establish nested object query syntax when inline examples are absent`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        val exampleFile = examplesDir.resolve("nested-query.json").apply {
+            writeText(nestedObjectAndArrayExternalExample(
+                queryParams = mapOf(
+                    "category" to "shoes",
+                    "price[min]" to "50",
+                    "price[max]" to "150",
+                    "variants[0][color]" to "black",
+                    "variants[0][sizes][0]" to "9"
+                )
+            ))
+        }
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectAndArrayQuerySpec(includeParameterExample = false),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val nestedObjectQueryParam = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern.nestedObjectQueryParams.single()
+        val validationResult = ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExample(feature, exampleFile)
+
+        assertThat(nestedObjectQueryParam.syntax).isEqualTo(
+            ObjectQuerySyntax(ObjectQueryRoot.Unwrapped, QueryPropertyStyle.Dot, QueryArrayIndexStyle.Bracket)
+        )
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((validationResult as Result.Failure).reportString()).contains("does not match inferred dot property syntax")
+    }
+
+    @Test
+    fun `external examples conflicting with inline nested query syntax are rejected`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val exampleFile = tempDir.resolve("conflicting-nested-query.json").apply {
+            writeText(nestedObjectAndArrayExternalExample(
+                queryParams = mapOf(
+                    "category" to "shoes",
+                    "price[min]" to "50",
+                    "price[max]" to "150",
+                    "variants[0][color]" to "black",
+                    "variants[0][sizes][0]" to "9"
+                )
+            ))
+        }
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        val validationResult = ExampleValidationModule(specmaticConfig = SpecmaticConfig()).validateExample(feature, exampleFile)
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat((validationResult as Result.Failure).reportString()).contains("does not match inferred dot property syntax")
+    }
+
+    @Test
+    fun `invalid inline nested query parameter example reports an OpenAPI lint violation with a source path`() {
+        val report = nestedQuerySpecLoadFailureReport(
+            nestedObjectOnlyQuerySpec().replace(
+                "example: price.min=50&price.max=150",
+                "example: prize.min=50"
+            )
+        )
+
+        assertThat(report).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(report).contains("parameters[0].example")
+        assertThat(report).contains("No example of query parameter filter demonstrates how nested properties should be serialized as query parameters.")
+    }
+
+    @Test
+    fun `invalid named nested query parameter example reports an OpenAPI lint violation with a source path`() {
+        val report = nestedQuerySpecLoadFailureReport(invalidNamedNestedQueryExampleSpec())
+
+        assertThat(report).contains(OpenApiLintViolations.INVALID_NESTED_QUERY_PARAMETER_EXAMPLE.id)
+        assertThat(report).contains("parameters[0].examples.SUCCESS.value")
+        assertThat(report).contains("Unknown query object property \"prize\" at root")
+    }
+
+    @Test
+    fun `inline nested query parameter examples parse scalar leaves before validation`() {
+        val feature = OpenApiSpecification.fromYAML(invalidNestedQueryScalarExampleSpec(), "").toFeature()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+        val report = (validationResult as Result.Failure).reportString()
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.filter.price.min")
+        assertThat(report).contains("""example "SUCCESS" contained value "50EUR" of type string""")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.filter.price.max")
+        assertThat(report).doesNotContain("""example "SUCCESS" contained value "150" of type string""")
+    }
+
+    @Test
+    fun `inline nested query parameter examples parse top level scalar leaves before validation`() {
+        val feature = OpenApiSpecification.fromYAML(nestedQueryTopLevelScalarExampleSpec(), "").toFeature()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
+    }
+
+    @Test
+    fun `unsupported composed nested query parameter schema reports an OpenAPI lint violation with a source path`() {
+        val report = nestedQuerySpecLoadFailureReport(unsupportedComposedNestedQuerySchemaSpec())
+
+        assertThat(report).contains(OpenApiLintViolations.UNSUPPORTED_NESTED_QUERY_PARAMETER_SCHEMA.id)
+        assertThat(report).contains("parameters[0].schema.properties.price")
+        assertThat(report).contains("Composed object query schemas are not supported")
+    }
+
+    @Test
+    fun `mock matches nested object query params and coerces numeric leaves`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        listOf(
+                            "category" to "shoes",
+                            "price.min" to "50",
+                            "price.max" to "150",
+                            "variants[0].color" to "black",
+                            "variants[0].sizes[0]" to "9"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun `contract tests with nested object and array query params pass against real mock`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val results = feature.executeTests(stub.client)
+
+            assertThat(results.success()).withFailMessage(results.report()).isTrue()
+        }
+    }
+
+    @Test
+    fun `mock rejects nested object query params using syntax different from inline example`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectAndArrayQuerySpec(), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        listOf(
+                            "category" to "shoes",
+                            "price[min]" to "50",
+                            "price[max]" to "150",
+                            "variants[0][color]" to "black",
+                            "variants[0][sizes][0]" to "9"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(400)
+        }
+    }
+
+    @Test
+    fun `mock matches empty nested object and array query markers`() {
+        val cases = listOf(
+            nestedEmptyObjectQuerySpec(),
+            nestedEmptyArrayQuerySpec()
+        )
+
+        cases.forEach { spec ->
+            val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+
+            HttpStub(feature, port = freePort()).use { stub ->
+                val response = stub.client.execute(
+                    HttpRequest(
+                        "GET",
+                        "/products/search",
+                        queryParams = QueryParameters(mapOf("filter.data" to ""))
+                    )
+                )
+
+                assertThat(response.status).isEqualTo(200)
+            }
+        }
+    }
+
+    @Test
+    fun `mock matches loaded external nested object query examples`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        val exampleFile = examplesDir.resolve("nested-object-query.json").apply {
+            writeText(
+                nestedQueryExternalExample(
+                    queryParams = mapOf(
+                        "price.min" to "50",
+                        "price.max" to "150"
+                    )
+                )
+            )
+        }
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectOnlyQuerySpec(includeParameterExample = false),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        mapOf(
+                            "price.min" to "50",
+                            "price.max" to "150"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+        }
+    }
+
+    @Test
+    fun `external nested object query examples preserve numeric query leaf values during validation`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("nested-object-query.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/products/search",
+                "query": {
+                  "category": "shoes",
+                  "price.min": 50,
+                  "price.max": 150,
+                  "variants[0].color": "black",
+                  "variants[0].sizes[0]": 9
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "id": 10
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectAndArrayQuerySpec(),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
+    }
+
+    @Test
+    fun `external nested object query examples preserve numeric unwrapped root leaves during validation`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("my-day-details_200.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/my-day-details",
+                "query": {
+                  "mydayId": "TAAC041761259272ZSPB",
+                  "status": 200,
+                  "code": 200,
+                  "method.status": "GET",
+                  "errors[0].code": "ERROR",
+                  "data": "",
+                  "request": "",
+                  "header": ""
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "status": 200,
+                  "code": 0
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val feature = OpenApiSpecification.fromYAML(
+            telstraStyleNestedResponseQuerySpec().replace(
+                """
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                """.trimIndent(),
+                """
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: integer
+                """.trimIndent()
+            ),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult.isSuccess()).withFailMessage(validationResult.reportString()).isTrue()
+    }
+
+    fun `external nested object query example reports missing required key inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to 50,
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to 9
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.price.max")
+        assertThat(report).contains("R2001: Missing required property")
+    }
+
+    @Test
+    fun `external nested object query example reports missing required key inside level two array item`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to 50,
+                "price.max" to 150,
+                "variants[0].sizes[0]" to 9
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.variants[0].color")
+        assertThat(report).contains("R2001: Missing required property")
+    }
+
+    @Test
+    fun `external nested object query example reports scalar type mismatch inside level two object`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to "abc",
+                "price.max" to 150,
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to 9
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.price.min")
+        assertThat(report).contains("Specification expected type number")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.price.max")
+    }
+
+    @Test
+    fun `external bracket-wrapped nested object query example reports serialized query key breadcrumb`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("my-day-details_200.json").writeText(
+            """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/my-day-details",
+                "query": {
+                  "mydayId": "TAAC041761259272ZSPB",
+                  "msResponse[status]": 200,
+                  "msResponse[errors][0][code]": "ERROR"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "status": 200
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val spec = """
+            openapi: 3.0.1
+            info:
+              title: Bracket Wrapped Nested Query Breadcrumb
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: msResponse[status]=200&msResponse[errors][0][message]=ERROR
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                MicroserviceError:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+        """.trimIndent()
+        val feature = OpenApiSpecification.fromYAML(
+            spec,
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        val (_, validationResult) = feature.validateAndFilterExamples()
+        val report = validationResult.reportString()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.msResponse[errors][0][code]")
+        assertThat(report).contains("Unknown query object property \"code\"")
+        assertThat(report).doesNotContain("REQUEST.PARAMETERS.QUERY.msResponse.errors[0].code")
+    }
+
+    @Test
+    fun `external nested object query example reports scalar type mismatch inside level two array item`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val report = nestedObjectAndArrayExternalExampleValidationReport(
+            tempDir,
+            queryParams = mapOf(
+                "category" to "shoes",
+                "price.min" to 50,
+                "price.max" to 150,
+                "variants[0].color" to "black",
+                "variants[0].sizes[0]" to "abc"
+            )
+        )
+
+        assertThat(report).contains("REQUEST.PARAMETERS.QUERY.variants[0].sizes[0]")
+        assertThat(report).contains("Specification expected type number")
+    }
+
+    @Test
+    fun `external nested query empty container marker fails when level two container cannot be empty`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val objectReport = emptyContainerExternalExampleValidationReport(tempDir, nestedEmptyObjectWithRequiredChildQuerySpec())
+        val arrayReport = emptyContainerExternalExampleValidationReport(
+            tempDir,
+            nestedEmptyArrayItemWithRequiredChildQuerySpec(),
+            queryParams = mapOf("filter.data[0]" to "")
+        )
+
+        assertThat(objectReport).contains("REQUEST.PARAMETERS.QUERY.filter.data.name")
+        assertThat(objectReport).contains("R2001: Missing required property")
+        assertThat(arrayReport).contains("REQUEST.PARAMETERS.QUERY.filter.data[0].name")
+        assertThat(arrayReport).contains("R2001: Missing required property")
+    }
+
+    @Test
+    fun `mock matches loaded external nested array query examples`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        val exampleFile = examplesDir.resolve("nested-array-query.json").apply {
+            writeText(
+                nestedQueryExternalExample(
+                    queryParams = mapOf(
+                        "variants[0].color" to "black",
+                        "variants[0].sizes[0]" to "9"
+                    )
+                )
+            )
+        }
+        val feature = OpenApiSpecification.fromYAML(
+            nestedArrayOnlyQuerySpec(includeParameterExample = false),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+
+        HttpStub(feature, listOf(ScenarioStub.readFromFile(exampleFile)), port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        mapOf(
+                            "variants[0].color" to "black",
+                            "variants[0].sizes[0]" to "9"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSONObject("""{"id": 10}"""))
+        }
+    }
+
+    @Test
+    fun `mock recognizes nested object query params with default syntax when examples are absent`() {
+        val feature = OpenApiSpecification.fromYAML(nestedObjectOnlyQuerySpec(includeParameterExample = false), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        mapOf(
+                            "price.min" to "50",
+                            "price.max" to "150"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun `mock recognizes nested array query params with default syntax when examples are absent`() {
+        val feature = OpenApiSpecification.fromYAML(nestedArrayOnlyQuerySpec(includeParameterExample = false), "").toFeature()
+
+        HttpStub(feature, port = freePort()).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest(
+                    "GET",
+                    "/products/search",
+                    queryParams = QueryParameters(
+                        mapOf(
+                            "variants[0].color" to "black",
+                            "variants[0].sizes[0]" to "9"
+                        )
+                    )
+                )
+            )
+
+            assertThat(response.status).isEqualTo(200)
+        }
     }
 
     @ParameterizedTest(name = "{0}")
@@ -13017,6 +14194,735 @@ paths:
                     inventory:
                       type: integer
         """.trimIndent()
+    }
+
+    private fun nestedObjectAndArrayQuerySpec(includeParameterExample: Boolean = true): String {
+        val parameterExample = if (includeParameterExample) {
+            "                      example: category=shoes&price.min=50&price.max=150&variants[0].color=black&variants[0].sizes[0]=9"
+        } else {
+            ""
+        }
+
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Object And Array Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - category
+                          - price
+                          - variants
+                        properties:
+                          category:
+                            type: string
+                          price:
+                            type: object
+                            required:
+                              - min
+                              - max
+                            properties:
+                              min:
+                                type: number
+                              max:
+                                type: number
+                          variants:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - color
+                                - sizes
+                              properties:
+                                color:
+                                  type: string
+                                sizes:
+                                  type: array
+                                  items:
+                                    type: number
+$parameterExample
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun telstraStyleNestedResponseQuerySpec(): String {
+        return """
+            openapi: 3.0.1
+            info:
+              title: Telstra Style Nested Response Query
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      example: method.status=GET&errors[0].code=ERROR
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+            components:
+              schemas:
+                HttpMethod:
+                  type: object
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                      format: int32
+                    code:
+                      type: integer
+                      format: int32
+                      deprecated: true
+                    method:
+                      ${"$"}ref: '#/components/schemas/HttpMethod'
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+                    data:
+                      type: object
+                    request:
+                      type: object
+                    header:
+                      type: object
+                      additionalProperties:
+                        type: string
+        """.trimIndent()
+    }
+
+    private fun nestedQuerySpecLoadFailureReport(spec: String): String {
+        var report = ""
+
+        assertThatThrownBy {
+            OpenApiSpecification.fromYAML(spec, "spec.yaml").toFeature()
+        }.isInstanceOf(ContractException::class.java)
+            .satisfies(Consumer { exception ->
+                report = (exception as ContractException).report()
+            })
+
+        return report
+    }
+
+    private fun invalidNamedNestedQueryExampleSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Invalid Named Nested Query Example
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - price
+                        properties:
+                          price:
+                            type: object
+                            properties:
+                              min:
+                                type: string
+                              max:
+                                type: string
+                      examples:
+                        SUCCESS:
+                          value: prize[min]=50&price[max]=150
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun invalidNestedQueryScalarExampleSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Invalid Nested Query Scalar Example
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - price
+                        properties:
+                          price:
+                            type: object
+                            properties:
+                              min:
+                                type: integer
+                              max:
+                                type: integer
+                      examples:
+                        SUCCESS:
+                          value: price[min]=50EUR&price[max]=150
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedQueryTopLevelScalarExampleSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Query Top Level Scalar Example
+              version: 1.0.0
+            paths:
+              /my-day-details:
+                get:
+                  parameters:
+                    - name: mydayId
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        SUCCESS:
+                          value: abc123
+                    - name: msResponse
+                      in: query
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                      examples:
+                        SUCCESS:
+                          value: status=10&method.status=10&errors[0].code=10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            ${"$"}ref: '#/components/schemas/MicroserviceResponse'
+                          examples:
+                            SUCCESS:
+                              value:
+                                status: 10
+                                method:
+                                  status: 10
+                                errors:
+                                  - code: "10"
+            components:
+              schemas:
+                HttpMethod:
+                  type: object
+                MicroserviceError:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                MicroserviceResponse:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    method:
+                      ${"$"}ref: '#/components/schemas/HttpMethod'
+                    errors:
+                      type: array
+                      items:
+                        ${"$"}ref: '#/components/schemas/MicroserviceError'
+        """.trimIndent()
+    }
+
+    private fun unsupportedComposedNestedQuerySchemaSpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Unsupported Composed Nested Query Schema
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        properties:
+                          price:
+                            oneOf:
+                              - type: object
+                                properties:
+                                  min:
+                                    type: string
+                              - type: object
+                                properties:
+                                  max:
+                                    type: string
+                      example: price.min=50
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+        """.trimIndent()
+    }
+
+    private fun nestedObjectOnlyQuerySpec(includeParameterExample: Boolean = true): String {
+        val parameterExample = if (includeParameterExample) {
+            "                      example: price.min=50&price.max=150"
+        } else {
+            ""
+        }
+
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Object Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - price
+                        properties:
+                          price:
+                            type: object
+                            required:
+                              - min
+                              - max
+                            properties:
+                              min:
+                                type: string
+                              max:
+                                type: string
+$parameterExample
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedArrayOnlyQuerySpec(includeParameterExample: Boolean = true): String {
+        val parameterExample = if (includeParameterExample) {
+            "                      example: variants[0].color=black&variants[0].sizes[0]=9"
+        } else {
+            ""
+        }
+
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Array Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: filter
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - variants
+                        properties:
+                          variants:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - color
+                                - sizes
+                              properties:
+                                color:
+                                  type: string
+                                sizes:
+                                  type: array
+                                  items:
+                                    type: string
+$parameterExample
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedEmptyObjectQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Empty Object Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - filter
+                        properties:
+                          filter:
+                            type: object
+                            required:
+                              - data
+                            properties:
+                              data:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                      example: filter.data=
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedEmptyArrayQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Empty Array Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - filter
+                        properties:
+                          filter:
+                            type: object
+                            required:
+                              - data
+                            properties:
+                              data:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    name:
+                                      type: string
+                      example: filter.data=
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedEmptyObjectWithRequiredChildQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Empty Object Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - filter
+                        properties:
+                          filter:
+                            type: object
+                            required:
+                              - data
+                            properties:
+                              data:
+                                type: object
+                                required:
+                                  - name
+                                properties:
+                                  name:
+                                    type: string
+                      example: filter.data=
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedEmptyArrayItemWithRequiredChildQuerySpec(): String {
+        return """
+            openapi: 3.0.0
+            info:
+              title: Nested Empty Array Query
+              version: 1.0.0
+            paths:
+              /products/search:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        type: object
+                        required:
+                          - filter
+                        properties:
+                          filter:
+                            type: object
+                            required:
+                              - data
+                            properties:
+                              data:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                    - name
+                                  properties:
+                                    name:
+                                      type: string
+                      example: filter.data[0]=
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            required:
+                              - id
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            SUCCESS:
+                              value:
+                                id: 10
+        """.trimIndent()
+    }
+
+    private fun nestedQueryExternalExample(queryParams: Map<String, String>): String {
+        return ScenarioStub(
+            request = HttpRequest(
+                method = "GET",
+                path = "/products/search",
+                queryParams = QueryParameters(queryParams)
+            ),
+            response = HttpResponse(200, parsedJSONObject("""{"id": 10}"""))
+        ).toJSON().toStringLiteral()
+    }
+
+    private fun nestedObjectAndArrayExternalExample(queryParams: Map<String, Any?>): String {
+        val objectMapper = ObjectMapper()
+        val queryParamJson = queryParams.entries.joinToString(",\n") { (key, value) ->
+            "            \"$key\": ${objectMapper.writeValueAsString(value)}"
+        }
+
+        return """
+            {
+              "http-request": {
+                "method": "GET",
+                "path": "/products/search",
+                "query": {
+$queryParamJson
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "body": {
+                  "id": 10
+                }
+              }
+            }
+        """.trimIndent()
+    }
+
+    private fun nestedObjectAndArrayExternalExampleValidationReport(tempDir: File, queryParams: Map<String, Any?>): String {
+        val examplesDir = tempDir.resolve("examples").also(File::mkdirs)
+        examplesDir.resolve("nested-query.json").writeText(nestedObjectAndArrayExternalExample(queryParams))
+        val feature = OpenApiSpecification.fromYAML(
+            nestedObjectAndArrayQuerySpec(),
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        return validationResult.reportString()
+    }
+
+    private fun emptyContainerExternalExampleValidationReport(
+        tempDir: File,
+        spec: String,
+        queryParams: Map<String, String> = mapOf("filter.data" to "")
+    ): String {
+        val examplesDir = tempDir.resolve("examples-${UUID.randomUUID()}").also(File::mkdirs)
+        examplesDir.resolve("empty-container-query.json").writeText(nestedQueryExternalExample(queryParams = queryParams))
+        val feature = OpenApiSpecification.fromYAML(
+            spec,
+            "",
+            exampleDirPaths = listOf(examplesDir.canonicalPath)
+        ).toFeature().loadExternalisedExamples()
+        val (_, validationResult) = feature.validateAndFilterExamples()
+
+        assertThat(validationResult).isInstanceOf(Result.Failure::class.java)
+        return validationResult.reportString()
     }
 
     private fun generatedPositiveRequests(feature: Feature): List<HttpRequest> {

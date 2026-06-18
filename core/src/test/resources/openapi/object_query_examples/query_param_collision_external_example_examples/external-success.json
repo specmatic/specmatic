@@ -1,0 +1,19 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/data",
+    "query": {
+      "age": "45",
+      "name": "Jane"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "source": "external"
+    }
+  }
+}

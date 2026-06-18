@@ -14,6 +14,8 @@ interface RuleViolation {
     val id: String
     val title: String
     val summary: String?
+    val severity: IssueSeverity
+        get() = IssueSeverity.ERROR
 
     fun snapshot(documentationUrl: String): RuleViolationSnapshot = RuleViolationSnapshot(id, title, documentationUrl, summary)
 }
