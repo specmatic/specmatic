@@ -8,7 +8,7 @@ data class ProcessedSpec(
     val specFilePath: String,
     val backwardCompatibilityResult: Results,
     val compatibilityLogOutput: String = "",
-    val externalisedExamples: ProcessedExternalisedExamples = ProcessedExternalisedExamples(),
+    val externalisedExamples: ExternalisedExampleBackwardCompatibilityEvaluation = ExternalisedExampleBackwardCompatibilityEvaluation(),
     val isChangedSpec: Boolean = false,
     val ownsChangedExternalisedExamples: Boolean = false,
     val precomputedCompatibilityResult: CompatibilityResult,

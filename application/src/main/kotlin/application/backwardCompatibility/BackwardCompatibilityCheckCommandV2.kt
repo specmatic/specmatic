@@ -6,7 +6,6 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.examples.module.ExampleModule
 import io.specmatic.core.examples.module.ExampleValidationModule
-import io.specmatic.core.examples.module.ValidationResults
 import io.specmatic.core.log.logger
 import io.specmatic.license.core.cli.Category
 import io.specmatic.mock.ScenarioStub
@@ -141,37 +140,27 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
 
     override fun File.isExternalisedExample(): Boolean = isFile && extension == "json" && runCatching { ScenarioStub.readFromFile(this) }.isSuccess
 
-    override fun getExternalExampleValidationResults(feature: IFeature): ValidationResults {
+    override fun evaluateExternalisedExamplesForBackwardCompatibility(feature: IFeature): ExternalisedExampleBackwardCompatibilityEvaluation {
         feature as Feature
         logger.disableInfoLogging()
         return try {
-            val externalExampleFiles = exampleModule.getExamplesDirPaths(File(feature.path))
+            val repoDir = File(effectiveRepoDir).canonicalFile
+            val externalExampleDirectories = exampleModule.getExamplesDirPaths(File(feature.path))
                 .filter(File::isDirectory)
+
+            val externalExampleFiles = externalExampleDirectories
                 .flatMap { examplesDir ->
                     examplesDir.walk().filter { it.isFile && it.extension == "json" }.toList()
                 }
                 .distinctBy { it.canonicalPath }
 
-            exampleValidationModule.validateExamples(feature, examples = externalExampleFiles)
-        } finally {
-            logger.enableInfoLogging()
-        }
-    }
-
-    override fun getExternalExampleDirectories(feature: IFeature): Set<String> {
-        feature as Feature
-        val repoDir = File(effectiveRepoDir).canonicalFile
-        return exampleModule.getExamplesDirPaths(File(feature.path))
-            .filter(File::isDirectory)
-            .map { it.canonicalFile.relativeTo(repoDir).invariantSeparatorsPath }
-            .toSet()
-    }
-
-    override fun getUnusedExamples(feature: IFeature): Set<String> {
-        feature as Feature
-        logger.disableInfoLogging()
-        return try {
-            feature.loadExternalisedExamplesAndListUnloadableExamples().second
+            ExternalisedExampleBackwardCompatibilityEvaluation(
+                validationResults = exampleValidationModule.validateExamples(feature, examples = externalExampleFiles),
+                directories = externalExampleDirectories
+                    .map { it.canonicalFile.relativeTo(repoDir).invariantSeparatorsPath }
+                    .toSet(),
+                unloadableExamples = feature.loadExternalisedExamplesAndListUnloadableExamples().second
+            )
         } finally {
             logger.enableInfoLogging()
         }

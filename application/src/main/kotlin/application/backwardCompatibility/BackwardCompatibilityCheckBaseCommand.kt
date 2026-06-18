@@ -97,9 +97,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     ): Set<String>
 
     open fun regexForMatchingReferred(schemaFileName: String): String = ""
-    open fun getExternalExampleValidationResults(feature: IFeature): ValidationResults = ValidationResults.forNoExamples()
-    open fun getExternalExampleDirectories(feature: IFeature): Set<String> = emptySet()
-    open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
+    open fun evaluateExternalisedExamplesForBackwardCompatibility(feature: IFeature): ExternalisedExampleBackwardCompatibilityEvaluation =
+        ExternalisedExampleBackwardCompatibilityEvaluation()
 
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
@@ -424,18 +423,13 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     private fun evaluateExternalisedExamples(
         newer: IFeature,
         changedExternalisedExampleFiles: Set<String>
-    ): ProcessedExternalisedExamples {
-        val exampleDirectoriesForSpec = getExternalExampleDirectories(newer)
+    ): ExternalisedExampleBackwardCompatibilityEvaluation {
+        val evaluatedExternalisedExamples = evaluateExternalisedExamplesForBackwardCompatibility(newer)
         val changedExamplesForSpec = changedExternalisedExampleFiles.filter { changedExamplePath ->
-            belongsToSpecExampleDirectory(changedExamplePath, exampleDirectoriesForSpec)
+            belongsToSpecExampleDirectory(changedExamplePath, evaluatedExternalisedExamples.directories)
         }
 
-        return ProcessedExternalisedExamples(
-            validationResults = getExternalExampleValidationResults(newer),
-            directories = exampleDirectoriesForSpec,
-            changedFileCount = changedExamplesForSpec.size,
-            unloadableExamples = getUnusedExamples(newer)
-        )
+        return evaluatedExternalisedExamples.copy(changedFileCount = changedExamplesForSpec.size)
     }
 
     private fun belongsToSpecExampleDirectory(
@@ -456,7 +450,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
     private fun createResultForNewSpec(
         specFilePath: String,
-        externalisedExamples: ProcessedExternalisedExamples,
+        externalisedExamples: ExternalisedExampleBackwardCompatibilityEvaluation,
         changedSpecFiles: Set<String>,
         specsWhoseExternalisedExamplesShouldBeValidated: Set<String>
     ): ProcessedSpec {
@@ -473,7 +467,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
     private fun createResultForExistingSpec(
         specFilePath: String,
-        externalisedExamples: ProcessedExternalisedExamples,
+        externalisedExamples: ExternalisedExampleBackwardCompatibilityEvaluation,
         changedSpecFiles: Set<String>,
         specsWhoseExternalisedExamplesShouldBeValidated: Set<String>,
         checkResult: BackwardCompatibilityCheckResult
@@ -703,10 +697,11 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     }
 
     private fun logExampleValidationSummaryAndReturnResult(processedSpec: ProcessedSpec, scopeDescription: String?): Boolean {
-        val externalExampleValidationResults = processedSpec.externalisedExamples.validationResults
-        val hasExampleValidationErrors = !externalExampleValidationResults.success
-        val hasUnloadableExamples = processedSpec.externalisedExamples.unloadableExamples.isNotEmpty()
-        val shouldLogExampleValidationSummary = processedSpec.shouldLogExternalisedExampleSummary(scopeDescription)
+        val externalisedExamples = processedSpec.externalisedExamples
+        val externalExampleValidationResults = externalisedExamples.validationResults
+        val hasExampleValidationErrors = externalisedExamples.hasValidationErrors()
+        val hasUnloadableExamples = externalisedExamples.hasUnloadableExamples()
+        val shouldLogExampleValidationSummary = scopeDescription != null && externalisedExamples.shouldLogSummary()
 
         if (shouldLogExampleValidationSummary || hasUnloadableExamples) {
             logExternalisedExampleScope(processedSpec, scopeDescription)
@@ -723,16 +718,6 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         }
 
         return hasExampleValidationErrors || hasUnloadableExamples
-    }
-
-    private fun ProcessedSpec.shouldLogExternalisedExampleSummary(scopeDescription: String?): Boolean {
-        if (scopeDescription == null) return false
-
-        val examples = externalisedExamples
-        return examples.directories.isNotEmpty() ||
-            examples.validationResults.exampleValidationResults.isNotEmpty() ||
-            examples.changedFileCount > 0 ||
-            examples.unloadableExamples.isNotEmpty()
     }
 
     private fun logExternalExampleValidationResult(validationResults: ValidationResults) {
