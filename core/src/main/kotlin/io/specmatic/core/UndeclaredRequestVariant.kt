@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.ktor.http.HttpStatusCode
+
 internal interface UndeclaredRequestVariant {
     val responseStatus: Int
     fun requestExampleToUseInsteadOfGenerating(requestExample: HttpRequest?): HttpRequest? = null
@@ -22,6 +24,15 @@ internal fun String?.baseMediaType(): String? =
 
 internal fun Set<String>.baseMediaTypes(): Set<String> =
     mapNotNull { it.baseMediaType()?.lowercase() }.toSet()
+
+internal fun UndeclaredRequestVariantMetadata.toUndeclaredRequestVariant(
+    requestPattern: HttpRequestPattern
+): UndeclaredRequestVariant? =
+    when (responseStatus) {
+        HttpStatusCode.MethodNotAllowed.value -> UndeclaredMethod405Variant(requestPattern, this)
+        HttpStatusCode.UnsupportedMediaType.value -> UndeclaredMediaType415Variant(requestPattern, this)
+        else -> null
+    }
 
 internal val PREFERRED_HTTP_METHODS_FOR_405: List<String> =
     listOf("PATCH", "POST", "PUT", "DELETE", "GET", "HEAD", "OPTIONS", "TRACE")

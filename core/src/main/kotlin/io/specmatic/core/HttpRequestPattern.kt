@@ -1,6 +1,4 @@
 package io.specmatic.core
-
-import io.ktor.http.HttpStatusCode
 import io.ktor.util.*
 import io.specmatic.conversions.NoSecurityScheme
 import io.specmatic.conversions.OpenAPISecurityScheme
@@ -47,6 +45,10 @@ private const val MULTIPART_FORMDATA_BREADCRUMB = "MULTIPART-FORMDATA"
 const val METHOD_BREAD_CRUMB = "METHOD"
 private const val FORM_FIELDS_BREADCRUMB = "FORM-FIELDS"
 const val CONTENT_TYPE = "Content-Type"
+private const val OPTIONAL_CONTENT_TYPE = "Content-Type?"
+
+private fun String.isContentTypeHeaderKey(): Boolean =
+    equals(CONTENT_TYPE, ignoreCase = true) || equals(OPTIONAL_CONTENT_TYPE, ignoreCase = true)
 
 val invalidRequestStatuses = listOf(400, 422)
 
@@ -65,10 +67,13 @@ data class HttpRequestPattern(
     val multiPartPointers: Map<String, String> = emptyMap(),
     val undeclaredRequestVariantMetadata: UndeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata()
 ) {
-    private data class ExactRequestPatternOverride(
+    private data class ExactPayloadOverride(
         val contentType: String?,
         val bodyPattern: Pattern
     )
+
+    private val undeclaredRequestVariant: UndeclaredRequestVariant? =
+        undeclaredRequestVariantMetadata.toUndeclaredRequestVariant(this)
 
     fun getHeaderKeys() = headersPattern.headerNames
 
@@ -140,7 +145,7 @@ data class HttpRequestPattern(
         return matchesPathStructureAndMethod(incomingHttpRequest, resolver)
     }
 
-    fun matchesRequestIdentityIgnoringMediaType(incomingHttpRequest: HttpRequest, resolver: Resolver): Result {
+    fun matchesRequestIdentityIgnoringPayload(incomingHttpRequest: HttpRequest, resolver: Resolver): Result {
         val requestWithoutPayload = dropPayloadFromRequest(incomingHttpRequest)
         val patternWithoutPayload = dropPayloadFromRequestPattern()
 
@@ -149,18 +154,8 @@ data class HttpRequestPattern(
 
     private fun dropPayloadFromRequestPattern(): HttpRequestPattern = copy(
         headersPattern = headersPattern.copy(
-            pattern = headersPattern.pattern.filterKeys {
-                !it.equals(
-                    CONTENT_TYPE,
-                    ignoreCase = true
-                ) && !it.equals("$CONTENT_TYPE?", ignoreCase = true)
-            },
-            ancestorHeaders = headersPattern.ancestorHeaders?.filterKeys {
-                !it.equals(
-                    CONTENT_TYPE,
-                    ignoreCase = true
-                ) && !it.equals("$CONTENT_TYPE?", ignoreCase = true)
-            },
+            pattern = headersPattern.pattern.filterKeys { !it.isContentTypeHeaderKey() },
+            ancestorHeaders = headersPattern.ancestorHeaders?.filterKeys { !it.isContentTypeHeaderKey() },
             contentType = null
         ),
         body = NoBodyPattern,
@@ -169,7 +164,7 @@ data class HttpRequestPattern(
     )
 
     private fun dropPayloadFromRequest(incomingHttpRequest: HttpRequest): HttpRequest = incomingHttpRequest.copy(
-        headers = incomingHttpRequest.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) },
+        headers = incomingHttpRequest.headers.filterKeys { !it.isContentTypeHeaderKey() },
         body = NoBodyValue,
         formFields = emptyMap(),
         multiPartFormData = emptyList()
@@ -400,13 +395,13 @@ data class HttpRequestPattern(
     }
 
     fun generateExactHttpRequestPatternFrom(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
-        generateExactHttpRequestPatternFrom(request, resolver, exactRequestPatternOverride = null)
+        generateExactHttpRequestPatternFrom(request, resolver, exactPayloadOverride = null)
 
     fun generateExactHttpRequestPatternUsingWrongContentType(request: HttpRequest, resolver: Resolver): HttpRequestPattern =
         generateExactHttpRequestPatternFrom(
             request,
             resolver,
-            exactRequestPatternOverride = ExactRequestPatternOverride(
+            exactPayloadOverride = ExactPayloadOverride(
                 contentType = request.contentType(),
                 bodyPattern = request.body.exactMatchElseType()
             )
@@ -422,12 +417,12 @@ data class HttpRequestPattern(
         copy(undeclaredRequestVariantMetadata = metadata.forResponseStatus(responseStatus))
 
     internal fun hasUndeclaredRequestVariant(): Boolean =
-        undeclaredRequestVariantMetadata.hasUndeclaredRequestVariantResponse()
+        undeclaredRequestVariant != null
 
     internal fun isUndeclaredMethodVariant(): Boolean =
-        undeclaredRequestVariantMetadata.responseStatus == HttpStatusCode.MethodNotAllowed.value
+        undeclaredRequestVariant as? UndeclaredMethod405Variant != null
 
-    internal fun requestBelongsToPatternForExpectedStatus(
+    internal fun requestMatchesPathAndMethodForExpectedStatus(
         requestedResponseStatus: Int?,
         request: HttpRequest,
         resolver: Resolver
@@ -435,7 +430,7 @@ data class HttpRequestPattern(
         requestBelongsToUndeclaredVariantFor(requestedResponseStatus, request, resolver)
             ?: matchesPathStructureAndMethod(request, resolver).isSuccess()
 
-    internal fun requestIdentityMatchesForResponseStatus(
+    internal fun requestMatchesIdentityForResponseStatus(
         responseStatus: Int,
         request: HttpRequest,
         resolver: Resolver
@@ -451,46 +446,50 @@ data class HttpRequestPattern(
         undeclaredRequestVariantFor(responseStatus)?.matchesUndeclaredRequest(request, resolver)
 
     internal fun matchesExampleRequest(request: HttpRequest, resolver: Resolver): Result =
-        undeclaredRequestVariant()?.matchesUndeclaredRequest(request, resolver)
+        undeclaredRequestVariant?.matchesUndeclaredRequest(request, resolver)
             ?: matches(request, resolver, resolver)
 
     internal fun exampleRequestBelongsToPattern(
         request: HttpRequest,
         resolver: Resolver
     ): Boolean =
-        undeclaredRequestVariant()?.exampleRequestBelongsToPattern(request, resolver)
+        undeclaredRequestVariant?.exampleRequestBelongsToPattern(request, resolver)
             ?: matchesPathStructureMethodAndContentType(request, resolver).isSuccess()
 
     internal fun externalRequestExampleForUndeclaredGeneration(requestExample: HttpRequest?): HttpRequest? =
-        undeclaredRequestVariant()?.requestExampleToUseInsteadOfGenerating(requestExample)
+        undeclaredRequestVariant?.requestExampleToUseInsteadOfGenerating(requestExample)
 
     internal fun applyUndeclaredVariantToGeneratedRequest(request: HttpRequest, requestExample: HttpRequest?): HttpRequest =
-        undeclaredRequestVariant()?.applyToGeneratedRequest(request, requestExample) ?: request
+        undeclaredRequestVariant?.applyToGeneratedRequest(request, requestExample) ?: request
 
     internal fun exactRequestPatternForUndeclaredRequest(
         request: HttpRequest,
         resolver: Resolver
     ): UndeclaredRequestPatternResult? =
-        undeclaredRequestVariant()?.exactRequestPatternFor(request, resolver)
+        undeclaredRequestVariant?.exactRequestPatternFor(request, resolver)
 
     internal fun generateExactRequestPatternForStub(
         request: HttpRequest,
         resolver: Resolver
     ): HttpRequestPattern =
-        undeclaredRequestVariant()?.stubRequestPatternFor(request, resolver)
+        undeclaredRequestVariant?.stubRequestPatternFor(request, resolver)
             ?: generateExactHttpRequestPatternFrom(request, resolver)
 
     internal fun disallowedMethodFor405Example(): String? =
-        undeclaredMethodVariant()?.disallowedMethodForExample()
+        (undeclaredRequestVariant as? UndeclaredMethod405Variant)?.disallowedMethodForExample()
 
     internal fun unsupportedContentTypeFor415Example(): String? =
-        undeclaredMediaTypeVariant()?.unsupportedContentTypeForExample()
+        (undeclaredRequestVariant as? UndeclaredMediaType415Variant)?.unsupportedContentTypeForExample()
 
     internal fun requestWithUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
-        undeclaredMediaTypeVariant()?.requestWithUnsupportedContentTypeForExample(request)
+        (undeclaredRequestVariant as? UndeclaredMediaType415Variant)?.requestWithUnsupportedContentTypeForExample(
+            request
+        )
 
     internal fun requestWithValidUnsupportedContentTypeFor415Example(request: HttpRequest): HttpRequest? =
-        undeclaredMediaTypeVariant()?.requestWithValidUnsupportedContentTypeForExample(request)
+        (undeclaredRequestVariant as? UndeclaredMediaType415Variant)?.requestWithValidUnsupportedContentTypeForExample(
+            request
+        )
 
     private fun requestBelongsToUndeclaredVariantFor(
         requestedResponseStatus: Int?,
@@ -500,22 +499,7 @@ data class HttpRequestPattern(
         undeclaredRequestVariantFor(requestedResponseStatus)?.requestBelongsToPattern(request, resolver)
 
     private fun undeclaredRequestVariantFor(responseStatus: Int?): UndeclaredRequestVariant? =
-        undeclaredRequestVariant()?.takeIf { it.responseStatus == responseStatus }
-
-    private fun undeclaredRequestVariant(): UndeclaredRequestVariant? =
-        undeclaredMethodVariant() ?: undeclaredMediaTypeVariant()
-
-    private fun undeclaredMethodVariant(): UndeclaredMethod405Variant? =
-        when (undeclaredRequestVariantMetadata.responseStatus) {
-            HttpStatusCode.MethodNotAllowed.value -> UndeclaredMethod405Variant(this, undeclaredRequestVariantMetadata)
-            else -> null
-        }
-
-    private fun undeclaredMediaTypeVariant(): UndeclaredMediaType415Variant? =
-        when (undeclaredRequestVariantMetadata.responseStatus) {
-            HttpStatusCode.UnsupportedMediaType.value -> UndeclaredMediaType415Variant(this, undeclaredRequestVariantMetadata)
-            else -> null
-        }
+        undeclaredRequestVariant?.takeIf { it.responseStatus == responseStatus }
 
     private fun useContractMethodForReporting(requestPattern: HttpRequestPattern): HttpRequestPattern =
         requestPattern.copy(method = method)
@@ -523,7 +507,7 @@ data class HttpRequestPattern(
     private fun generateExactHttpRequestPatternFrom(
         request: HttpRequest,
         resolver: Resolver,
-        exactRequestPatternOverride: ExactRequestPatternOverride?
+        exactPayloadOverride: ExactPayloadOverride?
     ): HttpRequestPattern {
         var requestPattern = HttpRequestPattern(undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata)
         val parseValueToType: (Value) -> Pattern = { it.exactMatchElseType() }
@@ -575,14 +559,14 @@ data class HttpRequestPattern(
                 )
 
                 requestPattern.copy(
-                    headersPattern = exactRequestPatternOverride?.let { exactHeadersPattern.copy(contentType = it.contentType) }
+                    headersPattern = exactPayloadOverride?.let { exactHeadersPattern.copy(contentType = it.contentType) }
                         ?: exactHeadersPattern
                 )
             }
 
             requestPattern = attempt(breadCrumb = "BODY") {
                 requestPattern.copy(
-                    body = exactRequestPatternOverride?.bodyPattern ?: when (request.body) {
+                    body = exactPayloadOverride?.bodyPattern ?: when (request.body) {
                         EmptyString -> EmptyStringPattern
                         NoBodyValue -> NoBodyPattern
                         is StringValue -> exactEncompassedType(request.bodyString, null, body, resolver)

@@ -49,7 +49,7 @@ internal class UndeclaredMediaType415Variant(
     }
 
     private fun requestIdentifiesUnsupportedMediaTypeScenario(request: HttpRequest, resolver: Resolver): Result {
-        val identifierMatch = requestPattern.matchesRequestIdentityIgnoringMediaType(request, resolver)
+        val identifierMatch = requestPattern.matchesRequestIdentityIgnoringPayload(request, resolver)
         if (identifierMatch is Result.Failure) return identifierMatch
 
         val requestContentType = requestMediaType(request)

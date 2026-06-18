@@ -221,14 +221,14 @@ data class Scenario(
         requestedResponseStatus: Int?,
         resolver: Resolver = this.resolver
     ): Boolean =
-        httpRequestPattern.requestBelongsToPatternForExpectedStatus(requestedResponseStatus, httpRequest, resolver)
+        httpRequestPattern.requestMatchesPathAndMethodForExpectedStatus(requestedResponseStatus, httpRequest, resolver)
 
     fun identifierMatchesRequestForResponseStatus(
         httpRequest: HttpRequest,
         responseStatus: Int,
         resolver: Resolver = this.resolver
     ): Boolean =
-        httpRequestPattern.requestIdentityMatchesForResponseStatus(responseStatus, httpRequest, resolver)
+        httpRequestPattern.requestMatchesIdentityForResponseStatus(responseStatus, httpRequest, resolver)
 
     fun matchesStatusAndContentType(httpResponse: HttpResponse): Boolean {
         if (this.status !in setOf(DEFAULT_RESPONSE_CODE, httpResponse.status)) return false
