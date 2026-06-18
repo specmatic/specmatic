@@ -1786,6 +1786,57 @@ class OpenApiSpecificationParseTest {
         }
     }
 
+    @Test
+    fun `pure single schema allOf preserves wrapper component pointer and inner schema annotations`() {
+        val spec = $$"""
+        openapi: 3.0.1
+        info:
+          title: Wrapper allOf
+          version: 1.0.0
+        components:
+          schemas:
+            Status:
+              type: string
+            WrappedInlineObject:
+              allOf:
+                - type: object
+                  properties:
+                    status:
+                      type: string
+            WrappedObjectWithRefProperty:
+              allOf:
+                - type: object
+                  properties:
+                    status:
+                      $ref: "#/components/schemas/Status"
+            WrappedOptionalStatus:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  nullable: true
+                  allOf:
+                    - $ref: "#/components/schemas/Status"
+        """.trimIndent()
+
+        val specification = OpenApiSpecification.fromYAML(yamlContent = spec, openApiFilePath = "")
+        val patterns = specification.parseUnreferencedSchemas()
+        val resolver = Resolver(newPatterns = specification.patterns)
+
+        val inlineObjectPattern = patterns.getValue("(WrappedInlineObject)") as JSONObjectPattern
+        assertThat(inlineObjectPattern.schemaPointer).isEqualTo("/components/schemas/WrappedInlineObject")
+        assertThat(inlineObjectPattern.propertyPointers["status"]).isEqualTo("/components/schemas/WrappedInlineObject/allOf/0/properties/status")
+
+        val objectWithRefPropertyPattern = resolvedHop(patterns.getValue("(WrappedObjectWithRefProperty)"), resolver) as JSONObjectPattern
+        assertThat(objectWithRefPropertyPattern.schemaPointer).isEqualTo("/components/schemas/WrappedObjectWithRefProperty")
+        assertThat(objectWithRefPropertyPattern.propertyPointers["status"]).isEqualTo("/components/schemas/WrappedObjectWithRefProperty/allOf/0/properties/status")
+
+        val optionalStatusPattern = resolvedHop(patterns.getValue("(WrappedOptionalStatus)"), resolver) as JSONObjectPattern
+        assertThat(optionalStatusPattern.schemaPointer).isEqualTo("/components/schemas/WrappedOptionalStatus")
+        assertThat(optionalStatusPattern.propertyPointers["status"]).isEqualTo("/components/schemas/WrappedOptionalStatus/properties/status")
+    }
+
     private fun queryParamPatternWithObjectAdditionalProperties(
         personAdditionalProperties: Any?,
         departmentAdditionalProperties: Any? = null

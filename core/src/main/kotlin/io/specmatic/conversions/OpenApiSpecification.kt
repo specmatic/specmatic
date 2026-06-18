@@ -2617,7 +2617,8 @@ class OpenApiSpecification(
     private fun handleAllOf(schema: Schema<*>, typeStack: List<String>, patternName: String, collectorContext: CollectorContext): Pattern {
         if (schema.isPureSingleSchemaAllOf()) {
             val schemaContext = collectorContext.at("allOf").at(0)
-            return toSpecmaticPattern(schema.allOf.single(), typeStack, patternName = patternName, collectorContext = schemaContext)
+            val pattern = toSpecmaticPattern(schema.allOf.single(), typeStack, patternName = patternName, collectorContext = schemaContext)
+            return cacheComponentPattern(patternName, annotateAllOfPattern(pattern, schema, patternName))
         }
 
         val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = collectorContext)
