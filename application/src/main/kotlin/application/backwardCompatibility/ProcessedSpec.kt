@@ -7,7 +7,6 @@ import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 data class ProcessedSpec(
     val specFilePath: String,
     val backwardCompatibilityResult: Results,
-    val compatibilityLogOutput: String = "",
     val externalisedExamples: ExternalisedExampleBackwardCompatibilityEvaluation = ExternalisedExampleBackwardCompatibilityEvaluation(),
     val isChangedSpec: Boolean = false,
     val ownsChangedExternalisedExamples: Boolean = false,

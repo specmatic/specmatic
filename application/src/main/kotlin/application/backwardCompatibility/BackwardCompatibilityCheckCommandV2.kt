@@ -27,6 +27,9 @@ import kotlin.io.path.pathString
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
     private val exampleValidationModule = ExampleValidationModule(specmaticConfig = specmaticConfig)
     private val exampleModule = ExampleModule(specmaticConfig)
+    private val specmaticConfigWithoutInlineExampleWarnings = object : SpecmaticConfig by specmaticConfig {
+        override fun getIgnoreInlineExampleWarnings(): Boolean = true
+    }
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
         val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature, effectiveRepoDir)
@@ -100,7 +103,7 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     override fun getFeatureFromSpecPath(path: String): Feature {
         logger.disableInfoLogging()
         return try {
-            val feature = OpenApiSpecification.fromFile(path).toFeature()
+            val feature = OpenApiSpecification.fromFile(path, specmaticConfigWithoutInlineExampleWarnings).toFeature()
             val specificationPath = File(path).canonicalFile
                 .relativeTo(File(effectiveRepoDir).canonicalFile).invariantSeparatorsPath
             feature.copy(
@@ -157,6 +160,9 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
             ExternalisedExampleBackwardCompatibilityEvaluation(
                 validationResults = exampleValidationModule.validateExamples(feature, examples = externalExampleFiles),
                 directories = externalExampleDirectories
+                    .map { it.canonicalFile.relativeTo(repoDir).invariantSeparatorsPath }
+                    .toSet(),
+                files = externalExampleFiles
                     .map { it.canonicalFile.relativeTo(repoDir).invariantSeparatorsPath }
                     .toSet(),
                 unloadableExamples = feature.loadExternalisedExamplesAndListUnloadableExamples().second
