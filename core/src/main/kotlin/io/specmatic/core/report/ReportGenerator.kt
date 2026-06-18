@@ -3,9 +3,9 @@ package io.specmatic.core.report
 import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
+import io.specmatic.reporter.ctrf.CoverageReportSpecification
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
-import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.reporting.ReportProvider
@@ -14,18 +14,19 @@ import java.io.File
 
 object ReportGenerator {
     fun generateReport(
-        coverageReportOperations: List<BaseCoverageReportOperation>,
+        coverageReportSpecifications: List<CoverageReportSpecification>,
         startTime: Long,
         endTime: Long,
-        specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
         actuatorEnabled: Boolean? = null,
         absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
     ) {
+        val specConfigs = coverageReportSpecifications.map { it.specConfig }
         if(isCtrfSpecConfigsValid(specConfigs).not()) return
 
+        val coverageReportOperations = coverageReportSpecifications.flatMap { it.coverageReportOperations }
         val testResultRecords = coverageReportOperations
             .flatMap { it.tests }
             .distinctBy { it.id }
@@ -41,13 +42,12 @@ object ReportGenerator {
             "Generating report for ${testResultRecords.size} tests and ${coverageReportOperations.size} coverage operations..."
         )
 
-        consoleLog("Using new report generation method that accepts coverage report operations.")
+        consoleLog("Using report generation method that accepts coverage report specifications.")
         val report = CtrfReportGenerator.generate(
-            coverageReportOperations = coverageReportOperations,
+            coverageReportSpecifications = coverageReportSpecifications,
             startTime = startTime,
             endTime = endTime,
             extra = extra,
-            specConfig = specConfigs,
             toolName = toolName
         )
 

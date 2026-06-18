@@ -193,6 +193,63 @@ class CtrfApiCoverageReportIntegrationTest {
     }
 
     @Test
+    fun `ctrf report should include build level and per spec coverage metrics for multi spec coverage`() {
+        val petsSpec = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
+        val ownersSpec = File("src/test/resources/openapi/api_coverage/owners.yaml").canonicalFile
+
+        val coverage = buildCoverage {
+            configFilePath(petsSpec.canonicalPath)
+
+            specEndpoint(method = "GET", path = "/pets/find", responseCode = 200, specification = petsSpec.canonicalPath)
+            specEndpoint(method = "GET", path = "/pets/search", responseCode = 200, specification = petsSpec.canonicalPath)
+            specEndpoint(method = "GET", path = "/owners/{ownerId}", responseCode = 200, specification = ownersSpec.canonicalPath)
+            specEndpoint(method = "POST", path = "/owners", responseCode = 201, specification = ownersSpec.canonicalPath)
+
+            decisionSkip(
+                path = "/owners",
+                method = "POST",
+                responseCode = 201,
+                reasoning = Reasoning(mainReason = TestSkipReason.EXCLUDED),
+            )
+
+            testResult(
+                path = "/pets/find",
+                method = "GET",
+                responseCode = 200,
+                result = TestResult.Success,
+                specification = petsSpec.canonicalPath,
+            )
+            testResult(
+                path = "/owners/{ownerId}",
+                method = "GET",
+                responseCode = 200,
+                result = TestResult.Success,
+                specification = ownersSpec.canonicalPath,
+            )
+        }
+
+        val report = coverage.generate()
+        val reportNode = ctrfReportNode(report)
+        val executionDetails = reportNode["results"]["summary"]["extra"]["executionDetails"].toList()
+
+        val petsExecutionDetail = executionDetails.single { it["specification"].asText() == petsSpec.canonicalPath }
+        val ownersExecutionDetail = executionDetails.single { it["specification"].asText() == ownersSpec.canonicalPath }
+
+        assertThat(reportNode["results"]["extra"]["apiCoverage"].asText()).isEqualTo("67%")
+        assertThat(reportNode["results"]["extra"]["absoluteCoverage"].asText()).isEqualTo("50%")
+
+        assertThat(petsExecutionDetail["coverageMetrics"]["apiCoverage"].asInt()).isEqualTo(50)
+        assertThat(petsExecutionDetail["coverageMetrics"]["absoluteCoverage"].asInt()).isEqualTo(50)
+        assertThat(petsExecutionDetail["operations"].map { it["path"].asText() })
+            .containsExactlyInAnyOrder("/pets/find", "/pets/search")
+
+        assertThat(ownersExecutionDetail["coverageMetrics"]["apiCoverage"].asInt()).isEqualTo(100)
+        assertThat(ownersExecutionDetail["coverageMetrics"]["absoluteCoverage"].asInt()).isEqualTo(50)
+        assertThat(ownersExecutionDetail["operations"].map { it["path"].asText() })
+            .containsExactlyInAnyOrder("/owners/{ownerId}", "/owners")
+    }
+
+    @Test
     fun `ctrf report summary coverage should match console coverage for not implemented endpoints`() {
         val specFile = File("src/test/resources/openapi/api_coverage/openapi.yaml").canonicalFile
         val coverage = buildCoverage {
@@ -448,8 +505,7 @@ class CtrfApiCoverageReportIntegrationTest {
                     endTime = 0L,
                     startTime = 0L,
                     toolName = "Specmatic test",
-                    specConfig = report.getSpecConfigs(),
-                    coverageReportOperations = report.coverageOperations,
+                    coverageReportSpecifications = report.coverageReportSpecifications(),
                     extra = buildMap {
                         put("apiCoverage", "${report.totalCoveragePercentage}%")
                         put("actuatorEnabled", report.actuatorEnabled)
