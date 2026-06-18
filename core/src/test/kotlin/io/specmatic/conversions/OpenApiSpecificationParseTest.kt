@@ -14,10 +14,16 @@ import io.specmatic.core.QueryPropertyStyle
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.AnythingPattern
+import io.specmatic.core.pattern.AnyPattern
+import io.specmatic.core.pattern.AnyOfPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.EnumPattern
 import io.specmatic.core.pattern.DeferredPattern
+import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.NullPattern
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
@@ -27,6 +33,7 @@ import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
+import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -72,6 +79,60 @@ class OpenApiSpecificationParseTest {
 
         assertThat(pathPattern?.matches("/orders/123,abc/data", Resolver())).isInstanceOf(Result.Success::class.java)
         assertThat(pathPattern?.matches("/orders/abc,123/data", Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `single wrapper allOf should preserve wrapped scalar enum and nullability 3_0`() {
+        val specFile = File("src/test/resources/openapi/has_single_wrapper_allof/openapi_30.yaml").canonicalFile
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+
+        val statusScenario = feature.scenarios.single { it.httpRequestPattern.httpPathPattern?.toInternalPath() == "/status" }
+        val wrappedStatusScenario = feature.scenarios.single { it.httpRequestPattern.httpPathPattern?.toInternalPath() == "/wrappedStatus" }
+        val wrappedOptionalStatusScenario = feature.scenarios.single { it.httpRequestPattern.httpPathPattern?.toInternalPath() == "/wrappedOptionalStatus" }
+
+        val statusPattern = resolvedHop(statusScenario.httpResponsePattern.body, statusScenario.resolver)
+        assertThat(statusPattern).isInstanceOf(EnumPattern::class.java)
+        assertThat(statusPattern).isNotInstanceOf(JSONObjectPattern::class.java)
+
+        val wrappedStatusPattern = resolvedHop(wrappedStatusScenario.httpResponsePattern.body, wrappedStatusScenario.resolver) as JSONObjectPattern
+        val wrappedStatusValuePattern = resolvedHop(wrappedStatusPattern.pattern.getValue("status"), wrappedStatusScenario.resolver)
+        assertThat(wrappedStatusValuePattern).isInstanceOf(EnumPattern::class.java)
+        assertThat(wrappedStatusValuePattern).isNotInstanceOf(JSONObjectPattern::class.java)
+
+        val wrappedOptionalStatusPattern = resolvedHop(wrappedOptionalStatusScenario.httpResponsePattern.body, wrappedOptionalStatusScenario.resolver) as JSONObjectPattern
+        val wrappedOptionalStatusValuePattern = resolvedHop(wrappedOptionalStatusPattern.pattern.getValue("status"), wrappedOptionalStatusScenario.resolver)
+        assertThat(wrappedOptionalStatusValuePattern).isInstanceOf(AnyPattern::class.java)
+
+        val wrappedOptionalStatusMembers = (wrappedOptionalStatusValuePattern as AnyPattern).pattern
+        assertThat(wrappedOptionalStatusMembers).anyMatch { it is NullPattern }
+        assertThat(wrappedOptionalStatusMembers).anyMatch { it is DeferredPattern }
+    }
+
+    @Test
+    fun `single wrapper allOf should preserve wrapped scalar enum and nullability 3_1`() {
+        val specFile = File("src/test/resources/openapi/has_single_wrapper_allof/openapi_31.yaml").canonicalFile
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+
+        val statusScenario = feature.scenarios.single { it.httpRequestPattern.httpPathPattern?.toInternalPath() == "/status" }
+        val wrappedStatusScenario = feature.scenarios.single { it.httpRequestPattern.httpPathPattern?.toInternalPath() == "/wrappedStatus" }
+        val wrappedOptionalStatusScenario = feature.scenarios.single { it.httpRequestPattern.httpPathPattern?.toInternalPath() == "/wrappedOptionalStatus" }
+
+        val statusPattern = resolvedHop(statusScenario.httpResponsePattern.body, statusScenario.resolver)
+        assertThat(statusPattern).isInstanceOf(EnumPattern::class.java)
+        assertThat(statusPattern).isNotInstanceOf(JSONObjectPattern::class.java)
+
+        val wrappedStatusPattern = resolvedHop(wrappedStatusScenario.httpResponsePattern.body, wrappedStatusScenario.resolver) as JSONObjectPattern
+        val wrappedStatusValuePattern = resolvedHop(wrappedStatusPattern.pattern.getValue("status"), wrappedStatusScenario.resolver)
+        assertThat(wrappedStatusValuePattern).isInstanceOf(EnumPattern::class.java)
+        assertThat(wrappedStatusValuePattern).isNotInstanceOf(JSONObjectPattern::class.java)
+
+        val wrappedOptionalStatusPattern = resolvedHop(wrappedOptionalStatusScenario.httpResponsePattern.body, wrappedOptionalStatusScenario.resolver) as JSONObjectPattern
+        val wrappedOptionalStatusValuePattern = resolvedHop(wrappedOptionalStatusPattern.pattern.getValue("status"), wrappedOptionalStatusScenario.resolver)
+        assertThat(wrappedOptionalStatusValuePattern).isInstanceOf(AnyOfPattern::class.java)
+
+        val wrappedOptionalStatusMembers = (wrappedOptionalStatusValuePattern as AnyOfPattern).pattern
+        assertThat(wrappedOptionalStatusMembers).anyMatch { it is NullPattern }
+        assertThat(wrappedOptionalStatusMembers).anyMatch { it is DeferredPattern }
     }
 
     @ParameterizedTest

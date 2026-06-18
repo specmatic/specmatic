@@ -16,6 +16,7 @@ import io.specmatic.core.pattern.BinaryPattern
 import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.DatePattern
 import io.specmatic.core.pattern.DateTimePattern
+import io.specmatic.core.pattern.EnumPattern
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.EmailPattern
 import io.specmatic.core.pattern.ExactValuePattern
@@ -26,6 +27,7 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.UUIDPattern
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.withoutPatternDelimiters
 import io.specmatic.core.utilities.toValue
 import io.specmatic.core.utilities.yamlMapper
@@ -247,6 +249,17 @@ class YamlToPatternTests {
     @ParameterizedTest(name = "{index}: [{0}] {1}")
     @MethodSource("xmlSchemaScenarios")
     fun xml_schema_tests(openApiVersion: OpenApiVersion, case: PatternTestCase, info: TestInfo) = runCase(openApiVersion, case, info)
+
+    @ParameterizedTest(name = "{index}: [{0}] {1}")
+    @MethodSource("casesInvolvingComponents")
+    fun special_components_tests(openApiVersion: OpenApiVersion, composite: CompositePatternTestCase, info: TestInfo) {
+        val (patterns, resolver) = parseAndExtractCompositePatterns(openApiVersion, composite)
+        composite.schemas.forEach { (name, case) ->
+            val schemaPattern = patterns.getValue(name)
+            case.validate(schemaPattern)
+        }
+        composite.validate(patterns, resolver)
+    }
 
     companion object {
         @JvmStatic
@@ -1518,6 +1531,126 @@ class YamlToPatternTests {
                     validate { pattern ->
                         assertSuccess(pattern.matchParseValue("<Order><Product><id>123</id><name>Widget</name></Product><quantity>10</quantity></Order>"))
                         assertFailure(pattern.matchParseValue("<Order><Product><id>123</id></Product><quantity>10</quantity></Order>"))
+                    }
+                },
+            ).flatten().stream()
+        }
+
+        @JvmStatic
+        fun casesInvolvingComponents(): Stream<Arguments>  {
+            return listOf(
+                multiVersionCompositeCase(name = "single element allOf behaves like the target", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+                    schema("Status") {
+                        schema {
+                            put("type", "string")
+                            put("enum", listOf("Active", "Inactive"))
+                        }
+                    }
+                    schema("Wrapper") {
+                        schema {
+                            put("type", "object")
+                            put("required", listOf("status"))
+                            put("properties", mapOf("status" to mapOf("allOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status")))))
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val wrapperPattern = patterns.getValue("Wrapper")
+                        assertFailure(wrapperPattern.match(mapOf("status" to null), resolver))
+                        assertSuccess(wrapperPattern.match(mapOf("status" to "Active"), resolver))
+                        assertSuccess(wrapperPattern.match(mapOf("status" to "Inactive"), resolver))
+                        assertFailure(wrapperPattern.match(mapOf("status" to "SomethingElse"), resolver))
+                    }
+                },
+                singleVersionCompositeCase(name = "single element allOf nullability is retained within the target 3.0", OpenApiVersion.OAS30) {
+                    schema("Status") {
+                        schema {
+                            put("type", "string")
+                            put("enum", listOf("Active", "Inactive"))
+                        }
+                    }
+                    schema("NullableWrapper") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf(
+                                "allOfStatus" to mapOf(
+                                    "nullable" to true,
+                                    "allOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status"))
+                                ),
+                                "anyOfStatus" to mapOf(
+                                    "nullable" to true,
+                                    "anyOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status"))
+                                ),
+                                "oneOfStatus" to mapOf(
+                                    "nullable" to true,
+                                    "oneOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status"))
+                                ),
+                                "allOfAnyOfStatus" to mapOf(
+                                    "nullable" to true,
+                                    "anyOf" to listOf(mapOf("allOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status"))))
+                                ),
+                                "allOfOneOfStatus" to mapOf(
+                                    "nullable" to true,
+                                    "oneOf" to listOf(mapOf("allOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status"))))
+                                ),
+                            ))
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val wrapperPattern = patterns.getValue("NullableWrapper")
+                        listOf("allOfStatus", "anyOfStatus", "oneOfStatus", "allOfAnyOfStatus", "allOfOneOfStatus").forEach { property ->
+                            assertSuccess(wrapperPattern.match(mapOf(property to null), resolver))
+                            assertSuccess(wrapperPattern.match(mapOf(property to "Active"), resolver))
+                            assertSuccess(wrapperPattern.match(mapOf(property to "Inactive"), resolver))
+                            assertFailure(wrapperPattern.match(mapOf(property to "SomethingElse"), resolver))
+                        }
+                    }
+                },
+                singleVersionCompositeCase(name = "single element allOf nullability is retained within the target 3.1", OpenApiVersion.OAS30) {
+                    schema("Status") {
+                        schema {
+                            put("type", "string")
+                            put("enum", listOf("Active", "Inactive"))
+                        }
+                    }
+                    schema("NullableWrapper") {
+                        schema {
+                            put("type", "object")
+                            put("properties", mapOf(
+                                "anyOfStatus" to mapOf(
+                                    "anyOf" to listOf(
+                                        mapOf("type" to "null"),
+                                        mapOf($$"$ref" to "#/components/schemas/Status"),
+                                    )
+                                ),
+                                "oneOfStatus" to mapOf(
+                                    "oneOf" to listOf(
+                                        mapOf("type" to "null"),
+                                        mapOf($$"$ref" to "#/components/schemas/Status"),
+                                    ),
+                                ),
+                                "allOfAnyOfStatus" to mapOf(
+                                    "anyOf" to listOf(
+                                        mapOf("type" to "null"),
+                                        mapOf("allOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status")))
+                                    )
+                                ),
+                                "allOfOneOfStatus" to mapOf(
+                                    "oneOf" to listOf(
+                                        mapOf("type" to "null"),
+                                        mapOf("allOf" to listOf(mapOf($$"$ref" to "#/components/schemas/Status")))
+                                    )
+                                ),
+                            ))
+                        }
+                    }
+                    validate { patterns, resolver ->
+                        val wrapperPattern = patterns.getValue("NullableWrapper")
+                        listOf("anyOfStatus", "oneOfStatus", "allOfAnyOfStatus", "allOfOneOfStatus",).forEach { property ->
+                            assertSuccess(wrapperPattern.match(mapOf(property to null), resolver))
+                            assertSuccess(wrapperPattern.match(mapOf(property to "Active"), resolver))
+                            assertSuccess(wrapperPattern.match(mapOf(property to "Inactive"), resolver))
+                            assertFailure(wrapperPattern.match(mapOf(property to "SomethingElse"), resolver))
+                        }
                     }
                 },
             ).flatten().stream()

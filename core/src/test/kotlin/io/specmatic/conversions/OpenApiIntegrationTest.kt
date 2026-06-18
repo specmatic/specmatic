@@ -6,6 +6,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.Value
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NullValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.createStubFromContracts
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 
 class OpenApiIntegrationTest {
@@ -1172,5 +1175,39 @@ Feature: Authenticated
             "pass" -> assertThat(result).isInstanceOf(Result.Success::class.java)
             "fail" -> assertThat(result).isInstanceOf(Result.Failure::class.java)
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["30", "31"])
+    fun `single wrapper allOf should run successfully against a mock by contract test`(openApiVersion: String) {
+        val specFile = File("src/test/resources/openapi/has_single_wrapper_allof/openapi_$openApiVersion.yaml")
+        val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature()
+        val assertValidStatusValue: (Value?) -> Unit = { value ->
+            assertThat(value?.toUnformattedString()).isIn("Active", "Inactive")
+        }
+
+        val assertValidNullableStatusValue: (Value?) -> Unit = { value ->
+            assertThat(value).satisfiesAnyOf(
+                { assertThat(it).isEqualTo(NullValue) },
+                { assertThat(it?.toUnformattedString()).isIn("Active", "Inactive") }
+            )
+        }
+
+        val results = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    val response = stub.client.execute(request)
+                    when (request.path) {
+                        "/status" -> assertValidStatusValue(response.body)
+                        "/wrappedStatus" -> assertValidStatusValue((response.body as JSONObjectValue).findFirstChildByPath("status"))
+                        "/wrappedOptionalStatus" -> assertValidNullableStatusValue((response.body as JSONObjectValue).findFirstChildByPath("status"))
+                        else -> error("Unexpected path ${request.path}")
+                    }
+                    return response
+                }
+            })
+        }
+
+        assertThat(results.success()).withFailMessage { results.report() }.isTrue
     }
 }

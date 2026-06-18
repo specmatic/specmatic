@@ -2604,7 +2604,22 @@ class OpenApiSpecification(
         return AnyOfPattern(pattern = patterns, typeAlias = "($patternName)", example = example)
     }
 
+    private fun Schema<*>.isPureSingleSchemaAllOf(): Boolean {
+        return this.xml == null &&
+        this.items == null &&
+        this.allOf?.size == 1 &&
+        this.discriminator == null &&
+        this.required.isNullOrEmpty() &&
+        this.properties.isNullOrEmpty() &&
+        this.additionalProperties == null
+    }
+
     private fun handleAllOf(schema: Schema<*>, typeStack: List<String>, patternName: String, collectorContext: CollectorContext): Pattern {
+        if (schema.isPureSingleSchemaAllOf()) {
+            val schemaContext = collectorContext.at("allOf").at(0)
+            return toSpecmaticPattern(schema.allOf.single(), typeStack, patternName = patternName, collectorContext = schemaContext)
+        }
+
         val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = collectorContext)
         val explodedDiscriminators = allDiscriminators.explode()
         val topLevelRequired = schema.required.orEmpty()
