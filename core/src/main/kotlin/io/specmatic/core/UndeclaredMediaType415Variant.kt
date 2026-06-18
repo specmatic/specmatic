@@ -190,7 +190,7 @@ internal class UndeclaredMediaType415Variant(
             mediaType?.isJsonMediaType() == true ->
                 requestWithContentType.copy(body = JSONObjectValue(mapOf("specmatic" to StringValue("unsupported"))))
             mediaType?.isXmlMediaType() == true ->
-                requestWithContentType.copy(body = toXMLNode("<specmatic-unsupported>request</specmatic-unsupported>"))
+                requestWithContentType.copy(body = toXMLNode("<xml-value>request</xml-value>"))
             mediaType == "application/x-www-form-urlencoded" -> requestWithContentType.copy(
                 body = EmptyString,
                 formFields = mapOf("specmatic" to "unsupported")
