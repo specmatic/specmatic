@@ -95,40 +95,6 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
-    fun `external 415 example generates exactly one 415 test in every resiliency mode`() {
-        val specFile = writeSpec(ordersSpec())
-        val exampleFile = writeExample(
-            name = "post-text-plain",
-            requestMethod = "POST",
-            requestPath = "/orders",
-            requestBody = """"body": "request sent here"""",
-            responseStatus = 415,
-            responseBody = """"body": { "error": "occurred" }""",
-            requestContentType = "text/plain",
-            extraRequestHeaders = mapOf("X-Request-Mode" to "example")
-        )
-        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
-
-        assertThat(unusedExamples).isEmpty()
-
-        resiliencyModes().forEach { resiliencyMode ->
-            val generatedScenarios = feature
-                .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-                .generateContractTestScenarios(emptyList())
-                .toList()
-            val generated415Scenarios = generatedScenarios
-                .filter { (originalScenario, _) -> originalScenario.status == 415 && originalScenario.hasExamples() }
-
-            assertThat(generated415Scenarios).hasSize(1)
-            assertThat(generatedScenarios.map { (_, generatedScenario) -> generatedScenario.value }.filter { it.isNegative })
-                .isEmpty()
-            val generatedRequest = generated415Scenarios.single().second.value.generateHttpRequest()
-            assertThat(generatedRequest.contentType()).isEqualTo("text/plain")
-            assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
-        }
-    }
-
-    @Test
     fun `generated negative test accepts declared external 415 response`() {
         val specFile = writeSpec(ordersSpecWith400And415())
         val exampleFile = writeExample(

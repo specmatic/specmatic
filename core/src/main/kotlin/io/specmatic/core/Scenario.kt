@@ -770,12 +770,6 @@ data class Scenario(
         testBaseURLs: Map<String, String> = emptyMap(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ReturnValue<Scenario>> {
-        if (httpRequestPattern.hasUndeclaredRequestVariant() && !hasExamples()) return emptySequence()
-
-        val generationFlagsBased =
-            if (httpRequestPattern.hasUndeclaredRequestVariant()) flagsBased.withoutGenerativeTests()
-            else flagsBased
-
         val referencesWithBaseURLs = references.mapValues { (_, reference) ->
             reference.copy(variables = variables, baseURLs = testBaseURLs)
         }
@@ -790,7 +784,7 @@ data class Scenario(
                 }
             }.flatMap { row ->
                 val updatedScenario = newBasedOnAttributeSelectionFields(row.requestExample?.queryParams)
-                updatedScenario.newBasedOn(row, generationFlagsBased).map { scenarioR ->
+                updatedScenario.newBasedOn(row, flagsBased).map { scenarioR ->
                     scenarioR.ifValue { scenario ->
                         fn(scenario, row)
                     }

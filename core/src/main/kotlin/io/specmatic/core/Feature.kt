@@ -1152,9 +1152,6 @@ data class Feature(
         return scenarios.mapNotNull { scenarioDecision ->
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
             val badRequestOrDefault = getBadRequestsOrDefault(scenario)
-            if (hasOnlyUndeclaredRequestVariant4xxResponses(scenario)) {
-                return@mapNotNull null
-            }
             if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
                 return@mapNotNull null
             }
