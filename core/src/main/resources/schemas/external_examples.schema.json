@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/external-example-metadata-and-http.schema.json",
+  "title": "External Example Metadata",
+  "description": "A schema for the metadata and HTTP request and response sections of an external example definition.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Example"
+    },
+    {
+      "$ref": "#/$defs/PartialExample"
+    }
+  ],
+  "$defs": {
+    "AnyValue": {},
+    "Metadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "transient": {
+          "type": "boolean"
+        },
+        "delay-in-seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delay-in-milliseconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "http-stub-id": {
+          "type": "string"
+        }
+      }
+    },
+    "Example": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "$ref": "#/$defs/RequestResponseSchema"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "RequestResponseSchema": {
+      "type": "object",
+      "properties": {
+        "http-request": {
+          "$ref": "#/$defs/RequestSchema"
+        },
+        "http-response": {
+          "$ref": "#/$defs/ResponseSchema"
+        }
+      },
+      "required": ["http-request", "http-response"]
+    },
+    "PartialExample": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "partial": {
+              "$ref": "#/$defs/PartialRequestResponseSchema"
+            }
+          },
+          "required": ["partial"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "PartialRequestResponseSchema": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "$ref": "#/$defs/RequestResponseSchema"
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "RequestSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "query": {
+          "type": "object"
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        },
+        "form-fields": {
+          "type": "object"
+        },
+        "multipart-formdata": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MultiPartFormData"
+          }
+        },
+        "bodyRegex": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["method", "path"]
+    },
+    "ResponseSchema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        },
+        "externalisedResponseCommand": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["status"]
+    },
+    "MultiPartFormData": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MultiPartContent"
+        },
+        {
+          "$ref": "#/$defs/MultiPartFile"
+        }
+      ]
+    },
+    "MultiPartContent": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["name", "content"]
+    },
+    "MultiPartFile": {
+      "type": "object",
+      "properties": {
+        "contentEncoding": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["name", "filename"]
+    }
+  }
+}
