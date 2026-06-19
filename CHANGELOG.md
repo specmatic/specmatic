@@ -22,9 +22,11 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## 2.48.0 (2026-06-19)
+## 2.48.0 (2026-06-18)
 
-- Added support for running tests and mocks using examples with http status 405 or 415
+### Added
+
+- Support for running tests and mocks using examples with http status 405 or 415
 
 ## 2.47.0 (2026-06-16)
 
