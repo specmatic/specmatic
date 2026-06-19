@@ -657,6 +657,76 @@ class ScenarioTest {
     }
 
     @Nested
+    inner class GenerateTestScenariosTests {
+        @Test
+        fun `generateTestScenarios should skip undeclared request variants without example rows`() {
+            val scenario = unsupportedMediaTypeScenario()
+
+            val generatedScenarios = scenario.generateTestScenarios(generativeFlagsBased()).toList()
+
+            assertThat(generatedScenarios).isEmpty()
+        }
+
+        @Test
+        fun `generateTestScenarios should not generate positive mutations for undeclared request variant examples`() {
+            val requestExample = HttpRequest(
+                method = "POST",
+                path = "/orders",
+                headers = mapOf(CONTENT_TYPE to "text/plain"),
+                body = StringValue("request sent here")
+            )
+            val scenario = unsupportedMediaTypeScenario(
+                examples = listOf(
+                    Examples(
+                        emptyList(),
+                        listOf(
+                            Row(
+                                name = "post-text-plain",
+                                requestExample = requestExample,
+                                responseExample = HttpResponse(status = 415)
+                            )
+                        )
+                    )
+                )
+            )
+
+            val generatedScenarios = scenario.generateTestScenarios(generativeFlagsBased()).toList()
+
+            assertThat(generatedScenarios).hasSize(1)
+            val generatedScenario = generatedScenarios.single().value
+            assertThat(generatedScenario.generatedFrom).isEqualTo(GeneratedScenarioOrigin.EXAMPLE_ROW)
+            assertThat(generatedScenario.generateHttpRequest().contentType()).isEqualTo("text/plain")
+        }
+
+        private fun unsupportedMediaTypeScenario(examples: List<Examples> = emptyList()): Scenario {
+            return Scenario(
+                name = "unsupported-media-type",
+                httpRequestPattern = HttpRequestPattern(
+                    httpPathPattern = buildHttpPathPattern("/orders"),
+                    method = "POST",
+                    headersPattern = HttpHeadersPattern(contentType = "application/json"),
+                    body = JSONObjectPattern(mapOf("id" to NumberPattern())),
+                    undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(
+                        responseStatus = 415,
+                        requestContentTypesForOperation = setOf("application/json")
+                    )
+                ),
+                httpResponsePattern = HttpResponsePattern(status = 415),
+                examples = examples,
+                protocol = SpecmaticProtocol.HTTP,
+                specType = SpecType.OPENAPI
+            )
+        }
+
+        private fun generativeFlagsBased(): FlagsBased =
+            DefaultStrategies.copy(
+                generation = GenerativeTestsEnabled(positiveOnly = false),
+                positivePrefix = POSITIVE_TEST_DESCRIPTION_PREFIX,
+                negativePrefix = NEGATIVE_TEST_DESCRIPTION_PREFIX
+            )
+    }
+
+    @Nested
     inner class AttributeSelectionTest {
         @Test
         fun `should validate unexpected keys when the request is attribute based`() {

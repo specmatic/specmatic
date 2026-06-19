@@ -129,6 +129,45 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
+    fun `generated negative test accepts declared external 415 response`() {
+        val specFile = writeSpec(ordersSpecWith400And415())
+        val exampleFile = writeExample(
+            name = "post-text-plain",
+            requestMethod = "POST",
+            requestPath = "/orders",
+            requestBody = """"body": "request sent here"""",
+            responseStatus = 415,
+            responseBody = """"body": { "error": "occurred" }""",
+            requestContentType = "text/plain"
+        )
+        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+        val featureWithNegativeGeneration = feature.copy(specmaticConfig = specmaticConfigWith(ResiliencyTestSuite.all))
+
+        assertThat(unusedExamples).isEmpty()
+
+        var sawGeneratedNegativeRequest = false
+        val results = featureWithNegativeGeneration.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return when (request.expectedResponseCode()) {
+                    200 -> HttpResponse.ok("")
+                    400 -> {
+                        sawGeneratedNegativeRequest = true
+                        unsupportedMediaTypeResponse()
+                    }
+                    415 -> unsupportedMediaTypeResponse()
+                    else -> throw ContractException("Unexpected response code hint ${request.expectedResponseCode()}")
+                }
+            }
+
+            override fun setServerState(serverState: Map<String, Value>) {
+            }
+        })
+
+        assertThat(sawGeneratedNegativeRequest).isTrue()
+        assertThat(results.failureCount).isEqualTo(0)
+    }
+
+    @Test
     fun `generated 415 request uses a content type not supported by the operation`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(ordersSpecWithParameterizedTextPlainRequestContentType()).canonicalPath).toFeature()
         val unsupportedMediaTypeScenario = feature.scenarios.single { it.status == 415 }
@@ -697,6 +736,13 @@ class UnsupportedMediaTypeExamplesTest {
             ResiliencyTestSuite.all -> SpecmaticConfig().enableResiliencyTests(onlyPositive = false)
         }
 
+    private fun unsupportedMediaTypeResponse(): HttpResponse =
+        HttpResponse(
+            status = 415,
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSONObject("""{"error":"occurred"}""")
+        )
+
     private fun HttpRequest.hasHeader(name: String, value: String): Boolean =
         headers.any { (headerName, headerValue) -> headerName.equals(name, ignoreCase = true) && headerValue == value }
 
@@ -739,6 +785,52 @@ class UnsupportedMediaTypeExamplesTest {
               responses:
                 "200":
                   description: ok
+                "415":
+                  description: unsupported media type
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                            type: string
+    """
+
+    private fun ordersSpecWith400And415() = """
+        openapi: 3.0.4
+        info:
+          title: Orders
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - data
+                      properties:
+                        data:
+                          type: string
+              responses:
+                "200":
+                  description: ok
+                "400":
+                  description: bad request
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                            type: string
                 "415":
                   description: unsupported media type
                   content:
