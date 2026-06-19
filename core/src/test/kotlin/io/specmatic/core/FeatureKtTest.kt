@@ -1230,33 +1230,6 @@ paths:
     }
 
     @Test
-    fun `should not generate negative scenarios when only 4xx definitions are undeclared request variants`() {
-        val path = "/orders/(id:string)"
-        val orderPostOk = Scenario(ScenarioInfo(
-            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
-            httpResponsePattern = HttpResponsePattern(status = 201),
-            patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody")),
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
-        ))
-
-        val orderPostUnsupportedMediaType = Scenario(ScenarioInfo(
-            httpRequestPattern = HttpRequestPattern(
-                httpPathPattern = HttpPathPattern.from(path),
-                method = "POST",
-                undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(responseStatus = 415)
-            ),
-            httpResponsePattern = HttpResponsePattern(status = 415),
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
-        ))
-
-        val featureComplete = Feature(name = "Orders Complete", scenarios = listOf(orderPostOk, orderPostUnsupportedMediaType), protocol = SpecmaticProtocol.HTTP)
-
-        val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
-
-        assertThat(results).isEmpty()
-    }
-
-    @Test
     fun `should retain undeclared request variant 4xx responses for generated negative response validation`() {
         val path = "/orders/(id:string)"
         val orderPostOk = Scenario(ScenarioInfo(

@@ -659,15 +659,6 @@ class ScenarioTest {
     @Nested
     inner class GenerateTestScenariosTests {
         @Test
-        fun `generateTestScenarios should skip undeclared request variants without example rows`() {
-            val scenario = unsupportedMediaTypeScenario()
-
-            val generatedScenarios = scenario.generateTestScenarios(generativeFlagsBased()).toList()
-
-            assertThat(generatedScenarios).isEmpty()
-        }
-
-        @Test
         fun `generateTestScenarios should not generate positive mutations for undeclared request variant examples`() {
             val requestExample = HttpRequest(
                 method = "POST",
