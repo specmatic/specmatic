@@ -22,7 +22,11 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased (2.47.0)
+## 2.48.0 (2026-06-19)
+
+- Added support for 405 and 415 examples
+
+## 2.47.0 (2026-06-16)
 
 ### Changed
 
