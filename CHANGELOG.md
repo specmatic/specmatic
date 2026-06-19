@@ -24,7 +24,7 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## 2.48.0 (2026-06-19)
 
-- Added support for 405 and 415 examples
+- Added support for running tests and mocks using examples with http status 405 or 415
 
 ## 2.47.0 (2026-06-16)
 
