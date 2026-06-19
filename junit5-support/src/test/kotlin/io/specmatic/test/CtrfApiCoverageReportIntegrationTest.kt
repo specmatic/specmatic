@@ -240,11 +240,17 @@ class CtrfApiCoverageReportIntegrationTest {
 
         assertThat(petsExecutionDetail["coverageMetrics"]["apiCoverage"].asInt()).isEqualTo(50)
         assertThat(petsExecutionDetail["coverageMetrics"]["absoluteCoverage"].asInt()).isEqualTo(50)
+        assertThat(petsExecutionDetail["coverageMetrics"]["coveredOperations"].asInt()).isEqualTo(1)
+        assertThat(petsExecutionDetail["coverageMetrics"]["totalOperationsWithFilters"].asInt()).isEqualTo(2)
+        assertThat(petsExecutionDetail["coverageMetrics"]["totalOperations"].asInt()).isEqualTo(2)
         assertThat(petsExecutionDetail["operations"].map { it["path"].asText() })
             .containsExactlyInAnyOrder("/pets/find", "/pets/search")
 
         assertThat(ownersExecutionDetail["coverageMetrics"]["apiCoverage"].asInt()).isEqualTo(100)
         assertThat(ownersExecutionDetail["coverageMetrics"]["absoluteCoverage"].asInt()).isEqualTo(50)
+        assertThat(ownersExecutionDetail["coverageMetrics"]["coveredOperations"].asInt()).isEqualTo(1)
+        assertThat(ownersExecutionDetail["coverageMetrics"]["totalOperationsWithFilters"].asInt()).isEqualTo(1)
+        assertThat(ownersExecutionDetail["coverageMetrics"]["totalOperations"].asInt()).isEqualTo(2)
         assertThat(ownersExecutionDetail["operations"].map { it["path"].asText() })
             .containsExactlyInAnyOrder("/owners/{ownerId}", "/owners")
     }

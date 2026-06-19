@@ -72,6 +72,9 @@ class CtrfSpecExecutionDetailExtensionsTest {
 
         assertThat(coverageReportSpecifications.single().coverageMetrics?.apiCoverage).isEqualTo(100)
         assertThat(coverageReportSpecifications.single().coverageMetrics?.absoluteCoverage).isEqualTo(50)
+        assertThat(coverageReportSpecifications.single().coverageMetrics?.coveredOperations).isEqualTo(1)
+        assertThat(coverageReportSpecifications.single().coverageMetrics?.totalOperationsWithFilters).isEqualTo(1)
+        assertThat(coverageReportSpecifications.single().coverageMetrics?.totalOperations).isEqualTo(2)
     }
 
     @Test
@@ -107,6 +110,9 @@ class CtrfSpecExecutionDetailExtensionsTest {
 
         assertThat(coverageReportSpecifications.single().coverageMetrics?.apiCoverage).isEqualTo(50)
         assertThat(coverageReportSpecifications.single().coverageMetrics?.absoluteCoverage).isEqualTo(50)
+        assertThat(coverageReportSpecifications.single().coverageMetrics?.coveredOperations).isEqualTo(1)
+        assertThat(coverageReportSpecifications.single().coverageMetrics?.totalOperationsWithFilters).isEqualTo(2)
+        assertThat(coverageReportSpecifications.single().coverageMetrics?.totalOperations).isEqualTo(2)
     }
 
     @Test
@@ -174,11 +180,17 @@ class CtrfSpecExecutionDetailExtensionsTest {
         assertThat(ordersMetrics.coverageReportOperations.map { it.specConfig.specification }).containsOnly("specs/orders.yaml")
         assertThat(ordersMetrics.coverageMetrics?.apiCoverage).isEqualTo(50)
         assertThat(ordersMetrics.coverageMetrics?.absoluteCoverage).isEqualTo(50)
+        assertThat(ordersMetrics.coverageMetrics?.coveredOperations).isEqualTo(1)
+        assertThat(ordersMetrics.coverageMetrics?.totalOperationsWithFilters).isEqualTo(2)
+        assertThat(ordersMetrics.coverageMetrics?.totalOperations).isEqualTo(2)
 
         assertThat(paymentsMetrics.coverageReportOperations).hasSize(2)
         assertThat(paymentsMetrics.coverageReportOperations.map { it.specConfig.specification }).containsOnly("specs/payments.yaml")
         assertThat(paymentsMetrics.coverageMetrics?.apiCoverage).isEqualTo(100)
         assertThat(paymentsMetrics.coverageMetrics?.absoluteCoverage).isEqualTo(50)
+        assertThat(paymentsMetrics.coverageMetrics?.coveredOperations).isEqualTo(1)
+        assertThat(paymentsMetrics.coverageMetrics?.totalOperationsWithFilters).isEqualTo(1)
+        assertThat(paymentsMetrics.coverageMetrics?.totalOperations).isEqualTo(2)
     }
 
     @Test
@@ -217,6 +229,9 @@ class CtrfSpecExecutionDetailExtensionsTest {
         assertThat(ordersMetrics.coverageReportOperations).hasSize(1)
         assertThat(ordersMetrics.coverageMetrics?.apiCoverage).isEqualTo(100)
         assertThat(ordersMetrics.coverageMetrics?.absoluteCoverage).isEqualTo(100)
+        assertThat(ordersMetrics.coverageMetrics?.coveredOperations).isEqualTo(1)
+        assertThat(ordersMetrics.coverageMetrics?.totalOperationsWithFilters).isEqualTo(1)
+        assertThat(ordersMetrics.coverageMetrics?.totalOperations).isEqualTo(1)
 
         assertThat(paymentsMetrics.coverageReportOperations).isEmpty()
         assertThat(paymentsMetrics.coverageMetrics).isNull()
