@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/external-example-metadata-and-http.schema.json",
-  "title": "External Example Metadata",
-  "description": "A schema for the metadata and HTTP request and response sections of an external example definition.",
+  "title": "External Examples Schema",
+  "description": "A schema for external examples in Specmatic",
   "oneOf": [
     {
       "$ref": "#/$defs/Example"
