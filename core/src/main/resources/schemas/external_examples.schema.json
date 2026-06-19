@@ -46,8 +46,7 @@
         {
           "$ref": "#/$defs/FixtureHooks"
         }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "RequestResponseSchema": {
       "type": "object",
@@ -78,8 +77,7 @@
         {
           "$ref": "#/$defs/FixtureHooks"
         }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "FixtureHooks": {
       "type": "object",
@@ -185,8 +183,7 @@
         {
           "$ref": "#/$defs/RequestResponseSchema"
         }
-      ],
-      "unevaluatedProperties": false
+      ]
     },
     "RequestSchema": {
       "type": "object",
@@ -219,7 +216,6 @@
           "type": "string"
         }
       },
-      "additionalProperties": false,
       "required": ["method", "path"]
     },
     "ResponseSchema": {
@@ -239,7 +235,6 @@
           "type": "string"
         }
       },
-      "additionalProperties": false,
       "required": ["status"]
     },
     "MultiPartFormData": {
@@ -265,7 +260,6 @@
           "type": "string"
         }
       },
-      "additionalProperties": false,
       "required": ["name", "content"]
     },
     "MultiPartFile": {
@@ -284,7 +278,6 @@
           "type": "string"
         }
       },
-      "additionalProperties": false,
       "required": ["name", "filename"]
     }
   }
