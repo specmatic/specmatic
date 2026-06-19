@@ -432,7 +432,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getTestBaseUrl(specType: SpecType): String? {
         val runOptions = specmaticConfig.systemUnderTest?.getRunOptions(resolver, specType)
-        return runOptions?.getBaseUrlIfExists()
+        return runOptions?.gerServerOrigin()?.baseUrl
     }
 
     override fun getCoverageReportBaseUrl(specType: SpecType): String? {
@@ -510,13 +510,13 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getStubHttpsConfiguration(): CertRegistry {
         val registry = CertRegistry.empty()
-        val certificates: List<Pair<String, HttpsConfiguration>> = specmaticConfig.dependencies?.getCerts(resolver).orEmpty()
+        val certificates: List<Pair<ServerOrigin, HttpsConfiguration>> = specmaticConfig.dependencies?.getCerts(resolver).orEmpty()
         return certificates.fold(registry) { acc, (baseUrl, cert) -> acc.plus(baseUrl, cert) }
     }
 
     override fun getTestHttpsConfiguration(): CertRegistry {
         val registry = CertRegistry.empty()
-        val certificates: List<Pair<String, HttpsConfiguration>> = specmaticConfig.systemUnderTest?.getCerts(resolver).orEmpty()
+        val certificates: List<Pair<ServerOrigin, HttpsConfiguration>> = specmaticConfig.systemUnderTest?.getCerts(resolver).orEmpty()
         return certificates.fold(registry) { acc, (baseUrl, cert) -> acc.plus(baseUrl, cert) }
     }
 

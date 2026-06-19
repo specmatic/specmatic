@@ -26,7 +26,7 @@ sealed class SpecExecutionConfig {
 
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
             val specFile = resolveSpecFile(source, baseDir, value)
-            return listOf(SpecificationSourceEntry(source, specFile, value, null, null, resiliencyTestSuite))
+            return listOf(SpecificationSourceEntry(source, specFile, value, null, null, null, resiliencyTestSuite))
         }
 
         override fun use(baseUrl: String, resiliencyTestsConfig: ResiliencyTestsConfig): SpecExecutionConfig {
@@ -68,7 +68,7 @@ sealed class SpecExecutionConfig {
                 val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
                 return specs().map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
-                    SpecificationSourceEntry(source, specFile, spec, baseUrl, null, resiliency)
+                    SpecificationSourceEntry(source, specFile, spec, baseUrl, null, null, resiliency)
                 }
             }
 
@@ -109,7 +109,7 @@ sealed class SpecExecutionConfig {
                 val resiliency = resiliencyTests?.enable ?: resiliencyTestSuite
                 return specs().map { spec ->
                     val specFile = resolveSpecFile(source, baseDir, spec)
-                    SpecificationSourceEntry(source, specFile, spec, baseUrl, port, resiliency)
+                    SpecificationSourceEntry(source, specFile, spec, baseUrl, host, port, resiliency)
                 }
             }
 
@@ -139,7 +139,7 @@ sealed class SpecExecutionConfig {
         override fun createSpecificationEntriesFrom(source: Source, baseDir: File, resiliencyTestSuite: ResiliencyTestSuite?): List<SpecificationSourceEntry> {
             return specs().map { spec ->
                 val specFile = resolveSpecFile(source, baseDir, spec)
-                SpecificationSourceEntry(source, specFile, spec, null, null, resiliencyTestSuite)
+                SpecificationSourceEntry(source, specFile, spec, null, null, null, resiliencyTestSuite)
             }
         }
 

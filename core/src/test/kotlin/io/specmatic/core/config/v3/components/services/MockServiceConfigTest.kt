@@ -93,7 +93,7 @@ class MockServiceConfigTest {
     }
 
     @Test
-    fun `getSpecificationSources should use asyncapi inMemoryBroker for async runOptions`(@TempDir tempDir: File) {
+    fun `getSpecificationSources should use asyncapi inMemoryBroker as host and port for async runOptions`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("contract.yaml").apply { writeText("asyncapi: 3.0.0") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
 
@@ -121,7 +121,9 @@ class MockServiceConfigTest {
         val sourceEntries = mockServiceConfig.getSpecificationSources(resolver).values.flatten()
 
         assertThat(sourceEntries).hasSize(1)
-        assertThat(sourceEntries.single().baseUrl).isEqualTo("localhost:8081")
+        assertThat(sourceEntries.single().host).isEqualTo("localhost")
+        assertThat(sourceEntries.single().port).isEqualTo(8081)
+        assertThat(sourceEntries.single().baseUrl).isNull()
     }
 
     @Test
@@ -293,7 +295,7 @@ class MockServiceConfigTest {
     }
 
     @Test
-    fun `getSpecificationSources should use protobuf per-spec baseUrl when spec id matches`(@TempDir tempDir: File) {
+    fun `getSpecificationSources should use protobuf per-spec host and port when spec id matches`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("service.proto").apply { writeText("syntax = \"proto3\";") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
         val protobufConfig = ProtobufMockConfig(
@@ -324,11 +326,13 @@ class MockServiceConfigTest {
         )
 
         val entries = MockServiceConfig(services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))), settings = null).getSpecificationSources(resolver).values.flatten()
-        assertThat(entries.single().baseUrl).isEqualTo("proto-spec:9201")
+        assertThat(entries.single().host).isEqualTo("proto-spec")
+        assertThat(entries.single().port).isEqualTo(9201)
+        assertThat(entries.single().baseUrl).isNull()
     }
 
     @Test
-    fun `getSpecificationSources should fallback to protobuf runOption baseUrl when spec id has no match`(@TempDir tempDir: File) {
+    fun `getSpecificationSources should fallback to protobuf runOption host and port when spec id has no match`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("service.proto").apply { writeText("syntax = \"proto3\";") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
         val protobufConfig = ProtobufMockConfig(
@@ -359,11 +363,13 @@ class MockServiceConfigTest {
         )
 
         val entries = MockServiceConfig(services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))), settings = null).getSpecificationSources(resolver).values.flatten()
-        assertThat(entries.single().baseUrl).isEqualTo("proto-default:9200")
+        assertThat(entries.single().host).isEqualTo("proto-default")
+        assertThat(entries.single().port).isEqualTo(9200)
+        assertThat(entries.single().baseUrl).isNull()
     }
 
     @Test
-    fun `getSpecificationSources should use graphql per-spec baseUrl when spec id matches`(@TempDir tempDir: File) {
+    fun `getSpecificationSources should use graphql per-spec host and port when spec id matches`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("service.graphql").apply { writeText("type Query { ping: String }") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
         val graphConfig = GraphQLSdlMockConfig(
@@ -394,11 +400,13 @@ class MockServiceConfigTest {
         )
 
         val entries = MockServiceConfig(services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))), settings = null).getSpecificationSources(resolver).values.flatten()
-        assertThat(entries.single().baseUrl).isEqualTo("graphql-spec:9301")
+        assertThat(entries.single().host).isEqualTo("graphql-spec")
+        assertThat(entries.single().port).isEqualTo(9301)
+        assertThat(entries.single().baseUrl).isNull()
     }
 
     @Test
-    fun `getSpecificationSources should fallback to graphql runOption baseUrl when spec id has no match`(@TempDir tempDir: File) {
+    fun `getSpecificationSources should fallback to graphql runOption host and port when spec id has no match`(@TempDir tempDir: File) {
         val specFile = tempDir.resolve("service.graphql").apply { writeText("type Query { ping: String }") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
         val graphConfig = GraphQLSdlMockConfig(
@@ -429,11 +437,13 @@ class MockServiceConfigTest {
         )
 
         val entries = MockServiceConfig(services = listOf(MockServiceConfig.Value(service = RefOrValue.Value(serviceConfig))), settings = null).getSpecificationSources(resolver).values.flatten()
-        assertThat(entries.single().baseUrl).isEqualTo("graphql-default:9300")
+        assertThat(entries.single().host).isEqualTo("graphql-default")
+        assertThat(entries.single().port).isEqualTo(9300)
+        assertThat(entries.single().baseUrl).isNull()
     }
 
     @Test
-    fun `getSpecificationSources should resolve openapi and asyncapi yaml specs in same service`(@TempDir tempDir: File) {
+    fun `getSpecificationSources should resolve openapi and asyncapi yaml specs with async host and port in same service`(@TempDir tempDir: File) {
         val openApiSpecFile = tempDir.resolve("openapi-contract.yaml").apply { writeText("openapi: 3.0.0") }
         val asyncApiSpecFile = tempDir.resolve("asyncapi-contract.yaml").apply { writeText("asyncapi: 2.6.0") }
         val source = SourceV3.create(filesystem = SourceV3.FileSystem(directory = tempDir.canonicalPath))
@@ -468,7 +478,9 @@ class MockServiceConfigTest {
             .associateBy { it.specPathInConfig }
 
         assertThat(entriesByPath[openApiSpecFile.name]?.baseUrl).isEqualTo("http://openapi-host:9401")
-        assertThat(entriesByPath[asyncApiSpecFile.name]?.baseUrl).isEqualTo("async-host:9400")
+        assertThat(entriesByPath[asyncApiSpecFile.name]?.host).isEqualTo("async-host")
+        assertThat(entriesByPath[asyncApiSpecFile.name]?.port).isEqualTo(9400)
+        assertThat(entriesByPath[asyncApiSpecFile.name]?.baseUrl).isNull()
     }
 
 }

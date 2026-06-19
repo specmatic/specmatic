@@ -1,6 +1,7 @@
 package io.specmatic.core.config.v3.components.runOptions
 
 import com.fasterxml.jackson.annotation.*
+import io.specmatic.core.config.v3.ServerOrigin
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"))
@@ -8,9 +9,9 @@ sealed interface AsyncApiRunOptions : IRunOptions {
     val type: RunOptionType?
 
     @JsonIgnore
-    override fun getBaseUrlIfExists(): String? {
+    override fun gerServerOrigin(): ServerOrigin? {
         val brokerConfig = config["inMemoryBroker"] as? Map<*, *> ?: return null
-        return extractBaseUrlFromMap(brokerConfig, defaultHost = "localhost")
+        return extractServerOriginFromMap(brokerConfig, defaultHost = "localhost")
     }
 }
 

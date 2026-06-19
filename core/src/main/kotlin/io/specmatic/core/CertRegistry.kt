@@ -1,6 +1,7 @@
 package io.specmatic.core
 
 import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.stub.normalizeHost
 import java.net.URI
 
@@ -42,6 +43,13 @@ class CertRegistry private constructor(private val certificates: List<Pair<HostP
                 is HostPortIdentifier.Matching -> acc.plus(identifier.host, identifier.port, cert.isMtlsEnabled())
                 else -> acc.plusWildCard(cert.isMtlsEnabled())
             }
+        }
+    }
+
+    fun plus(serverOrigin: ServerOrigin, cert: HttpsConfiguration): CertRegistry {
+        return when (serverOrigin) {
+            is ServerOrigin.BaseUrl -> plus(serverOrigin.baseUrl, cert)
+            is ServerOrigin.NetworkAddress -> plus(serverOrigin.host, serverOrigin.port, cert)
         }
     }
 
