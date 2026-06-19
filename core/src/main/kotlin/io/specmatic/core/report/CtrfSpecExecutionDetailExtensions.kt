@@ -23,8 +23,15 @@ fun List<BaseCoverageReportOperation>.toCoverageReportSpecifications(
 fun List<BaseCoverageReportOperation>.toCoverageMetrics(): CoverageMetrics? {
     if (isEmpty()) return null
 
+    val coveredOperations = coveredOperationsCount()
+    val totalOperationsWithFilters = totalOperationForCoverageIncludingFilters().size
+    val totalOperations = totalOperationsForCoverage().size
+
     return CoverageMetrics(
         apiCoverage = calculateCoverage(),
         absoluteCoverage = calculateAbsoluteCoverage(),
+        coveredOperations = coveredOperations,
+        totalOperationsWithFilters = totalOperationsWithFilters,
+        totalOperations = totalOperations,
     )
 }
