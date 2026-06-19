@@ -42,6 +42,9 @@
         },
         {
           "$ref": "#/$defs/RequestResponseSchema"
+        },
+        {
+          "$ref": "#/$defs/FixtureHooks"
         }
       ],
       "unevaluatedProperties": false
@@ -71,9 +74,108 @@
             }
           },
           "required": ["partial"]
+        },
+        {
+          "$ref": "#/$defs/FixtureHooks"
         }
       ],
       "unevaluatedProperties": false
+    },
+    "FixtureHooks": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fixture"
+          }
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fixture"
+          }
+        }
+      }
+    },
+    "Fixture": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HttpFixture"
+        }
+      ]
+    },
+    "HttpFixture": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "http"
+        },
+        "wait": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "retry": {
+          "$ref": "#/$defs/Retry"
+        },
+        "http-request": {
+          "$ref": "#/$defs/HTTPFixtureRequest"
+        },
+        "http-response": {
+          "$ref": "#/$defs/HTTPFixtureResponse"
+        }
+      },
+      "required": ["type", "http-request", "http-response"],
+      "additionalProperties": false
+    },
+    "Retry": {
+      "type": "object",
+      "properties": {
+        "max-attempts": {
+          "type": "integer"
+        },
+        "delay": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "HTTPFixtureRequest": {
+      "type": "object",
+      "properties": {
+        "baseUrl": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        }
+      },
+      "required": ["baseUrl", "method"],
+      "additionalProperties": false
+    },
+    "HTTPFixtureResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        }
+      },
+      "required": ["status"],
+      "additionalProperties": false
     },
     "PartialRequestResponseSchema": {
       "allOf": [

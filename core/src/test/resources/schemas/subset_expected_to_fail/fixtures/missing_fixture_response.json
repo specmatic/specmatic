@@ -1,0 +1,19 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  },
+  "after": [
+    {
+      "type": "http",
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "DELETE",
+        "path": "/setup"
+      }
+    }
+  ]
+}
