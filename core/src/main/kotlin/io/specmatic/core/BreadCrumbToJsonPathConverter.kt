@@ -75,6 +75,7 @@ class BreadCrumbToJsonPathConverter(private val config: TransformationConfig = e
                 TransformationStrategy.ExactReplacement("REQUEST", "http-request"),
                 TransformationStrategy.ExactReplacement("BODY", "body"),
                 TransformationStrategy.ExactReplacement("STATUS", "status"),
+                TransformationStrategy.ExactReplacement("METHOD", "method"),
 
                 // PATH variants
                 TransformationStrategy.ExactReplacement(BreadCrumb.PARAM_PATH.value, "path"),

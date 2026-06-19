@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.SpecmaticSpecConfig
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
@@ -12,7 +13,7 @@ interface IRunOptions {
     val config: Map<String, Any>
 
     @JsonIgnore
-    fun getBaseUrlIfExists(): String?
+    fun gerServerOrigin(): ServerOrigin?
 
     @JsonIgnore
     fun getMatchingSpecification(id: String): IRunOptionSpecification? {
@@ -21,13 +22,13 @@ interface IRunOptions {
 
     fun toSpecmaticSpecConfig(specId: String?): SpecmaticSpecConfig {
         val matching = if (specId != null) getMatchingSpecification(specId) else null
-        return SpecmaticSpecConfig(getBaseUrlIfExists(), matching, config)
+        return SpecmaticSpecConfig(gerServerOrigin()?.baseUrl, matching, config)
     }
 
-    fun extractBaseUrlFromMap(map: Map<*, *>, defaultHost: String): String? {
+    fun extractServerOriginFromMap(map: Map<*, *>, defaultHost: String): ServerOrigin? {
         val host = map["host"]?.toString() ?: defaultHost
         val port = map["port"]?.toString()?.toIntOrNull() ?: return null
-        return "$host:$port"
+        return ServerOrigin.from(host = host, port = port)
     }
 }
 

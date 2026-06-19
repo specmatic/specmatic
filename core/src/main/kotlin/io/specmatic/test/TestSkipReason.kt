@@ -32,6 +32,11 @@ enum class TestSkipReason(override val id: String, override val title: String, o
         id = "T00006",
         title = "Accept Mismatch",
         summary = "The request Accept header does not match the response content type of the operation"
+    ),
+    UNDECLARED_REQUEST_VARIANT_EXAMPLE_REQUIRED(
+        id = "T00007",
+        title = "Undeclared Request Variant Example Required",
+        summary = "405 and 415 undeclared request variant responses are run only from external examples, but no example was provided"
     );
 
     companion object {

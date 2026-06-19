@@ -7,6 +7,7 @@ import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.ConfigWithCert
@@ -78,11 +79,11 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             service.definitions.flatMap { defRef ->
                 val definition = defRef.definition
                 val source = definition.source.resolveElseThrow(resolver)
-                val serviceExamples = service?.data?.toExampleDirs(resolver)
+                val serviceExamples = service.data?.toExampleDirs(resolver)
                 val examples = mergeExamples(dependencyExamples, serviceExamples)
                 definition.specs.map {
                     it.toSpecificationSource(source, null, examples) { specId, file ->
-                        getFirstBaseUrlFromRunOpts(specId, file , service, resolver)
+                        getServerOrigin(specId, file, service, resolver)
                     }
                 }.map { spec -> source to spec }
             }
@@ -114,12 +115,12 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     }
 
     @JsonIgnore
-    private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): String? {
+    private fun getServerOrigin(specId: String?, specFile: File, service: CommonServiceConfig<MockRunOptions, MockSettings>, resolver: RefOrValueResolver): ServerOrigin? {
         val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(service, resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getBaseUrl("0.0.0.0") ?: runOptions.getBaseUrlIfExists()
+            runOptionSpecOverride?.getServerOrigin("0.0.0.0") ?: runOptions.gerServerOrigin()
         }
     }
 
@@ -136,7 +137,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
     }
 
     @JsonIgnore
-    fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
+    fun getCerts(resolver: RefOrValueResolver): List<Pair<ServerOrigin, HttpsConfiguration>> {
         return services.map { it.service.resolveElseThrow(resolver) }.flatMap { service ->
             service.definitions.map { it.definition }.flatMap { definition ->
                 definition.specs.mapNotNull { specDefinition ->
@@ -146,7 +147,7 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
                     val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
                     val specId = specDefinition.getSpecificationId()
                     val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-                    val baseUrl = runOptionSpecOverride?.getBaseUrl("0.0.0.0") ?: runOptions.getBaseUrlIfExists() ?: return@mapNotNull null
+                    val baseUrl = runOptionSpecOverride?.getServerOrigin("0.0.0.0") ?: runOptions.gerServerOrigin() ?: return@mapNotNull null
                     Pair(baseUrl, runCert)
                 }
             }

@@ -8,11 +8,11 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.applyIf
 import io.specmatic.core.utilities.ResolvedWebSource
-import io.specmatic.stub.extractPort
 import java.io.File
 
 data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, private val web: Web?) {
@@ -50,12 +50,13 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
         else -> SourceProvider.filesystem
     }
 
-    fun toSpecificationSource(specFile: File, specPathInConfig: String, baseUrl: String?, resiliencyTestSuite: ResiliencyTestSuite?, examples: List<String>?): SpecificationSourceEntry {
+    fun toSpecificationSource(specFile: File, specPathInConfig: String, serverOrigin: ServerOrigin?, resiliencyTestSuite: ResiliencyTestSuite?, examples: List<String>?): SpecificationSourceEntry {
         val type = when {
             git != null -> SourceProvider.git
             web != null -> SourceProvider.web
             else -> SourceProvider.filesystem
         }
+
         return SpecificationSourceEntry(
             specFile = specFile,
             specPathInConfig = specPathInConfig,
@@ -64,9 +65,10 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
             directory = fileSystem?.directory,
             branch = git?.branch,
             matchBranch = git?.matchBranch,
-            baseUrl = baseUrl,
             webSourceUrl = web?.url,
-            port = baseUrl?.let(::extractPort),
+            host = serverOrigin?.host,
+            port = serverOrigin?.port,
+            baseUrl = serverOrigin?.baseUrl,
             resiliencyTestSuite = resiliencyTestSuite,
             exampleDirs = examples,
         )

@@ -7,6 +7,39 @@ import org.yaml.snakeyaml.Yaml
 import java.io.File
 import kotlin.collections.contains
 
+sealed interface ServerOrigin {
+    val port: Int? get() = null
+    val host: String? get() = null
+    val scheme: String? get() = null
+    val baseUrl: String? get() = null
+
+    fun toBaseUrl(defaultScheme: String = "http"): String
+
+    data class BaseUrl(override val baseUrl: String) : ServerOrigin {
+        override fun toBaseUrl(defaultScheme: String): String = baseUrl
+    }
+
+    data class NetworkAddress(override val scheme: String? = null, override val host: String, override val port: Int) : ServerOrigin {
+        override fun toBaseUrl(defaultScheme: String): String {
+            return "${scheme ?: defaultScheme}://$host:$port"
+        }
+    }
+
+    fun withPath(path: String, defaultScheme: String = "http"): ServerOrigin {
+        val cleanPath = path.removePrefix("/")
+        val cleanBaseUrl = toBaseUrl(defaultScheme).removeSuffix("/")
+        return BaseUrl(if (cleanPath.isBlank()) cleanBaseUrl else "$cleanBaseUrl/$cleanPath")
+    }
+
+    companion object {
+        fun from(url: String): ServerOrigin = BaseUrl(url)
+        fun from(scheme: String? = null, host: String, port: Int): ServerOrigin {
+            if (scheme == null) return NetworkAddress(host = host, port = port)
+            return BaseUrl("$scheme://$host:$port")
+        }
+    }
+}
+
 internal fun determineSpecTypeFor(specFile: File): List<SpecType> {
     return when(specFile.extension.lowercase()) {
         "wsdl" ->

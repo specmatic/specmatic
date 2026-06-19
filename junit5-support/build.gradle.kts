@@ -13,6 +13,7 @@ dependencies {
     implementation("net.minidev:json-smart:2.6.0")
     implementation("com.ezylang:EvalEx:3.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.ezylang:EvalEx:3.6.2")
     implementation(project(":specmatic-core"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
     implementation("org.assertj:assertj-core:3.27.7")

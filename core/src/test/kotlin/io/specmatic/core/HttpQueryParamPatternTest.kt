@@ -281,7 +281,7 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Failure::class.java)
-        assertThat((result as Failure).reportString()).contains("details", "address", "city")
+        assertThat((result as Failure).reportString()).contains("address[0].city")
     }
 
     @Test
@@ -320,7 +320,7 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Failure::class.java)
-        assertThat((result as Failure).reportString()).contains("details", "filter", "data", "name")
+        assertThat((result as Failure).reportString()).contains("filter.data.name")
     }
 
     @Test
@@ -485,7 +485,7 @@ class HttpQueryParamPatternTest {
         )
 
         assertThat(result).isInstanceOf(Failure::class.java)
-        assertThat((result as Failure).reportString()).contains("filter.price.min", "number")
+        assertThat((result as Failure).reportString()).contains("price.min", "number")
     }
 
     @Test
@@ -1211,17 +1211,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "ids",
-                            sourceName = "ids",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterArrayPattern(listOf(NumberPattern()), "ids")
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "ids",
                             sourceName = "filter.ids",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "filter",
                             propertyName = "ids"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "ids",
+                            sourceName = "ids",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterArrayPattern(listOf(NumberPattern()), "ids")
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1253,18 +1253,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1292,18 +1292,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             required = true,
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1333,18 +1333,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1376,18 +1376,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1417,18 +1417,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1469,17 +1469,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1513,18 +1513,18 @@ class HttpQueryParamPatternTest {
                         owners = listOf(
                             queryCollisionOwner(
                                 wireKey = "age",
-                                sourceName = "age",
-                                kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                                pattern = QueryParameterScalarPattern(NumberPattern()),
-                                required = true
-                            ),
-                            queryCollisionOwner(
-                                wireKey = "age",
                                 sourceName = "info.age",
                                 kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                                 pattern = QueryParameterScalarPattern(StringPattern()),
                                 parameterName = "info",
                                 propertyName = "age"
+                            ),
+                            queryCollisionOwner(
+                                wireKey = "age",
+                                sourceName = "age",
+                                kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                                pattern = QueryParameterScalarPattern(NumberPattern()),
+                                required = true
                             )
                         ),
                         authoritativeOwner = queryCollisionOwner(
@@ -1546,7 +1546,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `generation from row should preserve exact scalar-first authoritative collision value`() {
+    fun `generation from row should preserve exact scalar declared last collision value`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf("age?" to QueryParameterScalarPattern(StringPattern())),
             collisionGroupsByWireKey = mapOf(
@@ -1555,18 +1555,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1586,7 +1586,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `generation from row should preserve exact object-first authoritative collision value`() {
+    fun `generation from row should preserve exact object property declared last collision value`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(
                 "age?" to QueryParameterScalarPattern(StringPattern()),
@@ -1606,17 +1606,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1637,7 +1637,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `generation should not reintroduce omitted optional scalar-first authoritative collision key`() {
+    fun `generation should not reintroduce omitted optional scalar declared last collision key`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(
                 "age?" to QueryParameterScalarPattern(StringPattern()),
@@ -1649,17 +1649,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern())
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1678,7 +1678,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `generation should not reintroduce omitted optional object-first authoritative collision key`() {
+    fun `generation should not reintroduce omitted optional object property declared last collision key`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(
                 "age?" to QueryParameterScalarPattern(StringPattern()),
@@ -1698,17 +1698,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1738,18 +1738,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1776,18 +1776,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "ids",
-                            sourceName = "ids",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterArrayPattern(listOf(NumberPattern()), "ids"),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "ids",
                             sourceName = "filter.ids",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "filter",
                             propertyName = "ids"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "ids",
+                            sourceName = "ids",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterArrayPattern(listOf(NumberPattern()), "ids"),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1809,7 +1809,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `fill in the blanks should complete required sibling for object-first authoritative collision owner`() {
+    fun `fill in the blanks should complete required sibling for object property declared last collision owner`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(
                 "age?" to QueryParameterScalarPattern(StringPattern()),
@@ -1829,17 +1829,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1861,7 +1861,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `fix value should repair object-first authoritative collision owner and keep required sibling`() {
+    fun `fix value should repair object property declared last collision owner and keep required sibling`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(
                 "age?" to QueryParameterScalarPattern(StringPattern()),
@@ -1881,17 +1881,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1922,18 +1922,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -1954,7 +1954,7 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
-    fun `generation without row should preserve object-first authoritative collision owner combinations`() {
+    fun `generation without row should preserve object property declared last collision owner combinations`() {
         val queryPattern = HttpQueryParamPattern(
             mapOf(
                 "age?" to QueryParameterScalarPattern(StringPattern()),
@@ -1974,17 +1974,17 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(NumberPattern()),
                             parameterName = "info",
                             propertyName = "age"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -2021,18 +2021,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "age",
-                            sourceName = "age",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(NumberPattern()),
-                            required = true
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "age",
                             sourceName = "info.age",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(StringPattern()),
                             parameterName = "info",
                             propertyName = "age"
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "age",
+                            sourceName = "age",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(NumberPattern()),
+                            required = true
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(
@@ -2048,18 +2048,18 @@ class HttpQueryParamPatternTest {
                     owners = listOf(
                         queryCollisionOwner(
                             wireKey = "active",
+                            sourceName = "active",
+                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
+                            pattern = QueryParameterScalarPattern(StringPattern())
+                        ),
+                        queryCollisionOwner(
+                            wireKey = "active",
                             sourceName = "filter.active",
                             kind = QueryParameterCollisionOwnerKind.FormExplodedObjectProperty,
                             pattern = QueryParameterScalarPattern(BooleanPattern()),
                             required = true,
                             parameterName = "filter",
                             propertyName = "active"
-                        ),
-                        queryCollisionOwner(
-                            wireKey = "active",
-                            sourceName = "active",
-                            kind = QueryParameterCollisionOwnerKind.ScalarParameter,
-                            pattern = QueryParameterScalarPattern(StringPattern())
                         )
                     ),
                     authoritativeOwner = queryCollisionOwner(

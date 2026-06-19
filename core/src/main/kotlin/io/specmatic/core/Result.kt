@@ -114,6 +114,10 @@ sealed class Result {
         fun failureCount(): Int {
             return cause?.failureCount() ?: 1
         }
+
+        fun transformRecursive(transform: (Failure) -> Failure): FailureCause {
+            return this.copy(cause = cause?.transformRecursive(transform))
+        }
     }
 
     data class Failure(
@@ -358,6 +362,10 @@ sealed class Result {
         fun failureCount(): Int {
             return causes.sumOf { it.failureCount() }
         }
+
+        fun transformRecursive(transform: (Failure) -> Failure): Failure {
+            return transform(this.copy(causes = causes.map { it.transformRecursive(transform) }))
+        }
     }
 
     data class Success(
@@ -427,7 +435,9 @@ enum class FailureReason(val fluffLevel: Int, val objectMatchOccurred: Boolean) 
     StatusMismatch(2, false),
     IdentifierMismatch(1, false),
     MethodMismatch(2, false),
+    MethodNotAllowedNoDisallowedMethod(0, false),
     ContentTypeMismatch(1, false),
+    UndeclaredRequestVariantMismatch(0, false),
     RequestMismatchButStatusAlsoWrong(2, false),
     URLPathMisMatch(2, false),
     URLPathParamMismatchButSameStructure(1, false),
@@ -457,6 +467,7 @@ data class SourceLocation(
     val filePath: String,
     val line: Int,
     val column: Int,
+    val pointer: String,
     val via: List<SourceLocation> = emptyList()
 ) {
     fun mapFilePath(transform: (String) -> String): SourceLocation =

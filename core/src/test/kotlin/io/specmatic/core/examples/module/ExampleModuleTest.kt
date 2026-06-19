@@ -462,6 +462,108 @@ class ExampleModuleTest {
             val matchedExamples = exampleModule.getExistingExampleFiles(feature, scenario, allExamples)
             assertThat(matchedExamples.map { it.first.file }).containsExactly(mismatchedExampleFile)
         }
+
+        @Test
+        fun `get existing examples should attach 405 undeclared request variant failures to the owning scenario`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                    '405':
+                      description: method not allowed
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                put:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                  responses:
+                    '200':
+                      description: ok
+                    '405':
+                      description: method not allowed
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+            val exampleFile = examplesDir.resolve("declared-method-405.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("PUT", "/orders", headers = mapOf(CONTENT_TYPE to "application/json")),
+                        response = HttpResponse(status = 405, headers = mapOf(CONTENT_TYPE to "application/json"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val scenario = feature.scenarios.single { it.method == "PUT" && it.path == "/orders" && it.status == 405 }
+            val matchedExamples = exampleModule.getExistingExampleFiles(feature, scenario, allExamples)
+
+            assertThat(matchedExamples.map { it.first.file }).containsExactly(exampleFile)
+            assertThat(matchedExamples.single().second.reportString())
+                .contains("Expected method not to be one of GET, PUT")
+        }
+
+        @Test
+        fun `get existing examples should attach 415 undeclared request variant failures to the owning scenario`(@TempDir tempDir: File) {
+            val openApiSpec = """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                  responses:
+                    '200':
+                      description: ok
+                    '415':
+                      description: unsupported media type
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent()
+            val feature = OpenApiSpecification.fromYAML(openApiSpec, "api.yaml").toFeature()
+            val examplesDir = File(tempDir, "api_examples").apply { mkdirs() }
+            val exampleFile = examplesDir.resolve("supported-content-type-415.json").apply {
+                writeText(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/orders", headers = mapOf(CONTENT_TYPE to "application/json")),
+                        response = HttpResponse(status = 415, headers = mapOf(CONTENT_TYPE to "application/json"))
+                    ).toJSON().toStringLiteral()
+                )
+            }
+
+            val allExamples = exampleModule.getExamplesFromDir(examplesDir)
+            val scenario = feature.scenarios.single { it.method == "POST" && it.path == "/orders" && it.status == 415 }
+            val matchedExamples = exampleModule.getExistingExampleFiles(feature, scenario, allExamples)
+
+            assertThat(matchedExamples.map { it.first.file }).containsExactly(exampleFile)
+            assertThat(matchedExamples.single().second.reportString())
+                .contains("Request Content-Type \"application/json\" is supported by the specification")
+        }
     }
 
     private fun ScenarioStub.toExamples(examplesDir: File): List<File> {

@@ -3,21 +3,22 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
 import kotlin.String
 
 interface IRunOptionSpecification {
     fun getId(): String?
-    fun getBaseUrl(defaultHost: String): String?
+    fun getServerOrigin(defaultHost: String): ServerOrigin?
     fun getConfig(): Map<String, Any>
     fun getOverlayFilePath(): String?
     fun isNoOpOverride(): Boolean
 
-    fun extractBaseUrlFromMap(map: Map<*, *>?, defaultHost: String): String? {
-        if (map.isNullOrEmpty()) return null
-        val host = map["host"]?.toString() ?: defaultHost
-        val port = map["port"]?.toString()?.toIntOrNull() ?: return null
-        return "$host:$port"
+    @JsonIgnore
+    fun extractServerOriginFromMap(map: Map<*, *>?, defaultHost: String): ServerOrigin? {
+        val host = map?.get("host")?.toString() ?: defaultHost
+        val port = map?.get("port")?.toString()?.toIntOrNull() ?: return null
+        return ServerOrigin.from(host = host, port = port)
     }
 }
 
@@ -33,9 +34,9 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
     }
 
     @JsonIgnore
-    override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.port == null) return extractBaseUrlFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, "localhost")
-        return "${spec.host ?: defaultHost}:${spec.port}"
+    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
+        if (spec.port == null) return extractServerOriginFromMap(spec.config["inMemoryBroker"] as? Map<*, *>, defaultHost)
+        return ServerOrigin.from(host = spec.host ?: defaultHost, port = spec.port)
     }
 
     @JsonIgnore
@@ -94,10 +95,10 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
     }
 
     @JsonIgnore
-    override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.baseUrl != null) return spec.baseUrl
+    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
+        if (spec.baseUrl != null) return ServerOrigin.from(spec.baseUrl)
         if (spec.port == null) return null
-        return "http://${spec.host ?: defaultHost}:${spec.port}"
+        return ServerOrigin.from("http", spec.host ?: defaultHost, spec.port)
     }
 
     data class Value(
@@ -135,10 +136,10 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
     }
 
     @JsonIgnore
-    override fun getBaseUrl(defaultHost: String): String? {
-        if (spec.baseUrl != null) return spec.baseUrl
+    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
+        if (spec.baseUrl != null) return ServerOrigin.from(spec.baseUrl)
         if (spec.port == null) return null
-        return "http://${spec.host ?: defaultHost}:${spec.port}"
+        return ServerOrigin.from("http", spec.host ?: defaultHost, spec.port)
     }
 
     data class Value(

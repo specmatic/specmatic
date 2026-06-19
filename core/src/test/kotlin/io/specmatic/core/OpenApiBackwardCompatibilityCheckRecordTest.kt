@@ -73,9 +73,10 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
 
         // The actual source of the break lives in common.yaml (tail); api.yaml is the $ref use-site (via head).
         val location = SourceLocation(
-            filePath = "/specs/common.yaml", line = 38, column = 9,
-            via = listOf(SourceLocation(filePath = "/specs/api.yaml", line = 27, column = 13))
+            filePath = "/specs/common.yaml", line = 38, column = 9, pointer = "",
+            via = listOf(SourceLocation(filePath = "/specs/api.yaml", line = 27, column = 13, pointer = ""))
         )
+
         val failure = Result.Failure(
             message = "This is type number in the new specification, but type string in the old specification",
             ruleViolation = StandardRuleViolation.TYPE_MISMATCH

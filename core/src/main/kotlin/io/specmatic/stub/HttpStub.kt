@@ -86,6 +86,7 @@ import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.report.OpenApiMockUsage
 import io.specmatic.stub.report.StubEndpoint
 import io.specmatic.test.LegacyHttpClient
+import io.specmatic.test.TestSkipReason
 import io.specmatic.test.TestResultRecord
 import io.specmatic.test.TestResultRecord.Companion.STUB_TEST_TYPE
 import io.specmatic.test.normalizedContentType
@@ -1565,6 +1566,10 @@ fun fakeHttpResponse(
     if (features.isEmpty())
         return NotStubbed(HttpStubResponse(HttpResponse(400, "No valid API specifications loaded")), Result.Failure("No valid API specifications loaded"))
 
+    requestedUndeclaredRequestVariantResponseStatus(httpRequest)?.let { responseStatus ->
+        return undeclaredRequestVariantExampleRequiredResponse(responseStatus)
+    }
+
     val responses: List<ResponseDetails> = responseDetailsFrom(features, httpRequest)
     return when (val fakeResponse = responses.successResponse()) {
         null -> {
@@ -1610,6 +1615,24 @@ fun fakeHttpResponse(
             )
         )
     }
+}
+
+private fun requestedUndeclaredRequestVariantResponseStatus(httpRequest: HttpRequest): Int? =
+    httpRequest.expectedResponseCode()
+        ?.takeIf { it in setOf(HttpStatusCode.MethodNotAllowed.value, HttpStatusCode.UnsupportedMediaType.value) }
+
+private fun undeclaredRequestVariantExampleRequiredResponse(
+    responseStatus: Int
+): NotStubbed {
+    val reason = TestSkipReason.UNDECLARED_REQUEST_VARIANT_EXAMPLE_REQUIRED
+    val message = "Cannot respond with $responseStatus because no external $responseStatus example was found."
+
+    return NotStubbed(
+        response = HttpStubResponse(
+            response = badRequest(message)
+        ),
+        stubResult = Result.Failure(message = message, ruleViolation = reason)
+    )
 }
 
 private fun firstFailureScenarioWithInvalidRequestStatus(failureResponses: List<ResponseDetails>): Pair<Feature, Scenario>? {

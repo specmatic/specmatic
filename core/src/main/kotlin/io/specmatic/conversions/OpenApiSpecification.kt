@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.ktor.http.HttpStatusCode
 import io.swagger.v3.core.util.Json
 import io.swagger.v3.core.util.Json31
 import io.cucumber.messages.types.Step
@@ -777,6 +778,7 @@ class OpenApiSpecification(
 
         val data: List<ParsedOperation> =
             openApiPaths().flatMap { (openApiPath, pathItem) ->
+                val methodsForPath = openApiOperations(pathItem).keys.map(String::uppercase).toSet()
                 openApiOperations(pathItem).map { (httpMethod, openApiOperation) ->
                     logger.debug("${System.lineSeparator()}Processing $httpMethod $openApiPath")
 
@@ -806,6 +808,10 @@ class OpenApiSpecification(
                             openApiPath = openApiPath,
                             httpMethod = httpMethod
                         )
+                    }
+                    httpResponsePatterns.forEach {
+                        recordInlineUndeclaredRequestVariantExamplesIgnored(methodContext, httpMethod, openApiPath, it)
+                        recordMethodNotAllowedResponseWithoutDisallowedMethod(methodContext, httpMethod, openApiPath, methodsForPath, it)
                     }
 
                     val first2xxResponseStatus =
@@ -837,13 +843,21 @@ class OpenApiSpecification(
                     }
 
                     val requestMediaTypes = httpRequestPatternDataGroupedByContentType.keys
+                    val undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(
+                        methodsForPath = methodsForPath,
+                        requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
+                    )
 
-                    val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (_, responses) ->
+                    val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (status, responses) ->
                         val responsesGrouped = responses.groupBy {
                             it.responsePattern.headersPattern.contentType
                         }
 
-                        if (responsesGrouped.keys.filterNotNull().toSet() == requestMediaTypes.filterNotNull().toSet()) {
+                        if (status == HttpStatusCode.UnsupportedMediaType.value) {
+                            responses.map { responsePatternData ->
+                                httpRequestPatterns.first() to responsePatternData
+                            }
+                        } else if (responsesGrouped.keys.filterNotNull().toSet() == requestMediaTypes.filterNotNull().toSet()) {
                             responsesGrouped.map { (contentType, responsesData) ->
                                 httpRequestPatternDataGroupedByContentType.getValue(contentType)
                                     .single() to responsesData.single()
@@ -907,7 +921,8 @@ class OpenApiSpecification(
                             specType = SpecType.OPENAPI,
                             operationMetadata = operationMetadata,
                             sourceLocations = sourceLocations,
-                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
+                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
+                            undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
                         )
                     }
 
@@ -1085,8 +1100,10 @@ class OpenApiSpecification(
         responseExamplesList: List<Map<String, HttpResponse>>
     ): List<NamedStub> {
         return responseExamplesList.flatMap { responseExamples ->
-            responseExamples.filter { (key, _) ->
+            responseExamples.filter { (key, responseExample) ->
                 key in requestExamples
+                        && responseExample.status != HttpStatusCode.MethodNotAllowed.value
+                        && responseExample.status != HttpStatusCode.UnsupportedMediaType.value
             }.map { (key, responseExample) ->
                 requestExamples.getValue(key).map { request ->
                     NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
@@ -1140,6 +1157,45 @@ class OpenApiSpecification(
             message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
             isWarning = true,
             ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
+        )
+    }
+
+    private fun recordInlineUndeclaredRequestVariantExamplesIgnored(
+        collectorContext: CollectorContext,
+        httpMethod: String,
+        openApiPath: String,
+        responsePatternData: ResponsePatternData
+    ) {
+        if (responsePatternData.examples.isEmpty()) return
+
+        val responsePattern = responsePatternData.responsePattern
+        val unsupportedInlineExampleReason = when (responsePattern.status) {
+            HttpStatusCode.MethodNotAllowed.value -> "inline OpenAPI examples cannot specify a disallowed request method"
+            HttpStatusCode.UnsupportedMediaType.value -> "inline OpenAPI examples cannot specify an unsupported request media type"
+            else -> return
+        }
+
+        collectorContext.at("responses").at(responsePattern.status.toString()).record(
+            message = "Inline OpenAPI ${responsePattern.status} examples for $httpMethod $openApiPath are not used to generate tests or inline mock data. External ${responsePattern.status} examples are still loaded and used. This is required because $unsupportedInlineExampleReason.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
+        )
+    }
+
+    private fun recordMethodNotAllowedResponseWithoutDisallowedMethod(
+        collectorContext: CollectorContext,
+        httpMethod: String,
+        openApiPath: String,
+        methodsForPath: Set<String>,
+        responsePatternData: ResponsePatternData
+    ) {
+        if (responsePatternData.responsePattern.status != HttpStatusCode.MethodNotAllowed.value) return
+        if (methodsForPath.firstMethodNotDeclaredForPath() != null) return
+
+        collectorContext.at("responses").at(HttpStatusCode.MethodNotAllowed.value.toString()).record(
+            message = "405 response for $httpMethod $openApiPath may never occur because all known HTTP methods are already declared for $openApiPath.",
+            isWarning = true,
+            ruleViolation = OpenApiLintViolations.METHOD_NOT_ALLOWED_RESPONSE_HAS_NO_DISALLOWED_METHOD
         )
     }
 
@@ -1197,6 +1253,10 @@ class OpenApiSpecification(
     ): List<Row> {
 
         return responseExamples.mapNotNull { (exampleName, responseExample) ->
+            if (responseExample.status == HttpStatusCode.MethodNotAllowed.value || responseExample.status == HttpStatusCode.UnsupportedMediaType.value) {
+                return@mapNotNull null
+            }
+
             val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, effectiveQueryPatterns, CollectorContext())
 
             val requestBodyExample: Map<String, Any> =
@@ -2003,9 +2063,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun escapeJsonPointer(token: String): String =
-        token.replace("~", "~0").replace("/", "~1")
-
     private fun sourceMapFor(file: String): Map<String, YamlNodeLocation> =
         sourceMapCache.getOrPut(file) {
             readExternalFileContent(file)?.let { JsonPointerSourceMap(it).build() }.orEmpty()
@@ -2299,7 +2356,7 @@ class OpenApiSpecification(
 
     private fun useSiteLocation(file: String, pointer: String): SourceLocation? {
         val node = sourceMapFor(file)[pointer] ?: return null
-        return SourceLocation(File(file).invariantSeparatorsPath, node.line, node.column)
+        return SourceLocation(File(file).invariantSeparatorsPath, node.line, node.column, pointer)
     }
 
     // Recovers where each external source subtree appears in the resolved parser model, along with
@@ -2364,13 +2421,14 @@ class OpenApiSpecification(
         val locations = mutableMapOf<String, SourceLocation>()
         val entryMap = sourceMapCache[entryFileKey].orEmpty()
         entryMap.forEach { (pointer, node) ->
-            locations[pointer] = SourceLocation(entryFileKey, node.line, node.column)
+            locations[pointer] = SourceLocation(entryFileKey, node.line, node.column, pointer)
         }
         externalSourceProjections.forEach { (projection, via) ->
             val displayPath = File(projection.sourceFile).invariantSeparatorsPath
             sourceMapFor(projection.sourceFile).forEach { (pointer, node) ->
                 if (projection.contains(projection.sourceFile, pointer)) {
-                    locations[projection.targetPointerFor(pointer)] = SourceLocation(displayPath, node.line, node.column, via = via)
+                    val targetPointer = projection.targetPointerFor(pointer)
+                    locations[targetPointer] = SourceLocation(displayPath, node.line, node.column, pointer, via = via)
                 }
             }
         }
@@ -2606,7 +2664,23 @@ class OpenApiSpecification(
         return AnyOfPattern(pattern = patterns, typeAlias = "($patternName)", example = example)
     }
 
+    private fun Schema<*>.isPureSingleSchemaAllOf(): Boolean {
+        return this.xml == null &&
+        this.items == null &&
+        this.allOf?.size == 1 &&
+        this.discriminator == null &&
+        this.required.isNullOrEmpty() &&
+        this.properties.isNullOrEmpty() &&
+        this.additionalProperties == null
+    }
+
     private fun handleAllOf(schema: Schema<*>, typeStack: List<String>, patternName: String, collectorContext: CollectorContext): Pattern {
+        if (schema.isPureSingleSchemaAllOf()) {
+            val schemaContext = collectorContext.at("allOf").at(0)
+            val pattern = toSpecmaticPattern(schema.allOf.single(), typeStack, patternName = patternName, collectorContext = schemaContext)
+            return cacheComponentPattern(patternName, annotateAllOfPattern(pattern, schema, patternName))
+        }
+
         val (deepListOfAllOfs, allDiscriminators) = resolveDeepAllOfs(schema, DiscriminatorDetails(), emptySet(), topLevel = true, collectorContext = collectorContext)
         val explodedDiscriminators = allDiscriminators.explode()
         val topLevelRequired = schema.required.orEmpty()
@@ -2702,7 +2776,7 @@ class OpenApiSpecification(
         return resolveSchema(schemaToProcess, collectorContext)
     }
 
-    private fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
+    internal fun resolveSchemaIfRefElseAtSchema(schema: Schema<*>, collectorContext: CollectorContext): Pair<Schema<*>, CollectorContext> {
         val schemaToProcess = collectorContext.requirePojo(
             message = { "No schema defined, defaulting to empty schema" },
             extract = { schema },
@@ -3281,11 +3355,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun toSpecmaticParamName(optional: Boolean, name: String) = when (optional) {
-        true -> "${name}?"
-        false -> name
-    }
-
     private fun resolveReferenceToSchema(component: String, collectorContext: CollectorContext): Pair<String, Schema<*>> {
         val componentName = extractComponentName(component, collectorContext)
         val components = parsedOpenApi.components ?: Components()
@@ -3341,9 +3410,13 @@ class OpenApiSpecification(
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
+        val nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam)
+        val collisionEntries = parsedQueryParameters.flatMap { it.entries + it.nestedObjectPropertyEntries }
         val collisionResolution = resolveQueryParameterCollisions(
             entries = queryPatternEntries,
+            collisionEntries = collisionEntries,
             formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
+            nestedObjectQueryParams = nestedObjectQueryParams,
             patterns = patterns
         )
 
@@ -3358,7 +3431,7 @@ class OpenApiSpecification(
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
             formExplodedObjectQueryParams = collisionResolution.formExplodedObjectQueryParams,
-            nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam),
+            nestedObjectQueryParams = collisionResolution.nestedObjectQueryParams,
             parameterPointers = queryParameterPointers,
             collisionGroupsByWireKey = collisionResolution.collisionGroupsByWireKey
         )
@@ -3368,6 +3441,7 @@ class OpenApiSpecification(
         val entries: List<QueryParameterPatternEntry>,
         val formExplodedObjectQueryParam: FormExplodedObjectQueryParam? = null,
         val nestedObjectQueryParam: NestedObjectQueryParam? = null,
+        val nestedObjectPropertyEntries: List<QueryParameterPatternEntry> = emptyList(),
         val additionalProperties: Pattern? = null
     )
 
@@ -3454,6 +3528,13 @@ class OpenApiSpecification(
                     )
                 ),
                 nestedObjectQueryParam = nestedObjectQueryParam,
+                nestedObjectPropertyEntries = nestedObjectRootPropertyEntries(
+                    parameter = parameter,
+                    resolvedSchema = resolvedSchema,
+                    schemaContext = schemaContext,
+                    nestedObjectQueryParam = nestedObjectQueryParam,
+                    schemaPointer = schemaPointer
+                ),
                 additionalProperties = additionalPropertiesInQueryParam(resolvedSchema, schemaContext)
             )
         }
@@ -3505,7 +3586,7 @@ class OpenApiSpecification(
         return (style == null || style == Parameter.StyleEnum.FORM) && explode != false
     }
 
-    private fun toQueryParameterPattern(
+    internal fun toQueryParameterPattern(
         parameterName: String,
         schema: Schema<*>,
         resolvedSchema: Schema<*>,
@@ -3603,7 +3684,9 @@ class OpenApiSpecification(
             "PATCH" to pathItem.patch,
             "PUT" to pathItem.put,
             "DELETE" to pathItem.delete,
-            "HEAD" to pathItem.head
+            "HEAD" to pathItem.head,
+            "OPTIONS" to pathItem.options,
+            "TRACE" to pathItem.trace
         ).filter { (_, value) -> value != null }.map { (key, value) -> key to value!! }.toMap()
     }
 

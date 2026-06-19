@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonValue
 import io.specmatic.core.Configuration.Companion.DEFAULT_BASE_URL
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SpecificationSourceEntry
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.utilities.Flags
 import java.io.File
@@ -34,11 +35,11 @@ sealed interface SpecificationDefinition {
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
             examples: List<String>?,
-            getBaseUrl: (String?, File) -> String?
+            getServerOrigin: (String?, File) -> ServerOrigin?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(spec.path))
-            val baseUrl = getBaseUrl(getSpecificationId(), specFile).let(::getBaseUrlWithSuffixPath)
-            return source.toSpecificationSource(specFile, spec.path, baseUrl, resiliencyTestSuite, examples)
+            val serverOrigin = getServerOrigin(getSpecificationId(), specFile).let(::getServerOriginWithBasePath)
+            return source.toSpecificationSource(specFile, spec.path, serverOrigin, resiliencyTestSuite, examples)
         }
 
         fun hasNoData(): Boolean = spec.urlPathPrefix == null && spec.config.isEmpty()
@@ -61,11 +62,11 @@ sealed interface SpecificationDefinition {
             source: SourceV3,
             resiliencyTestSuite: ResiliencyTestSuite?,
             examples: List<String>?,
-            getBaseUrl: (String?, File) -> String?
+            getServerOrigin: (String?, File) -> ServerOrigin?
         ): SpecificationSourceEntry {
             val specFile = source.resolveSpecification(File(specification))
-            val baseUrl = getBaseUrl(getSpecificationId(), specFile).let(::getBaseUrlWithSuffixPath)
-            return source.toSpecificationSource(specFile, specification, baseUrl, resiliencyTestSuite, examples)
+            val serverOrigin = getServerOrigin(getSpecificationId(), specFile).let(::getServerOriginWithBasePath)
+            return source.toSpecificationSource(specFile, specification, serverOrigin, resiliencyTestSuite, examples)
         }
 
         companion object {
@@ -82,11 +83,11 @@ sealed interface SpecificationDefinition {
     }
 
     @JsonIgnore
-    fun getBaseUrlWithSuffixPath(baseUrl: String?): String? {
-        val prefix = (this as? ObjectValue)?.spec?.urlPathPrefix?.trim('/')
-        if (prefix.isNullOrEmpty()) return baseUrl
-        val effectiveBaseUrl = baseUrl ?: Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL
-        return "${effectiveBaseUrl.removeSuffix("/")}/$prefix"
+    fun getServerOriginWithBasePath(serverOrigin: ServerOrigin?): ServerOrigin? {
+        val basePath = (this as? ObjectValue)?.spec?.urlPathPrefix?.trim('/')
+        if (basePath.isNullOrEmpty()) return serverOrigin
+        val effectiveBaseUrl = serverOrigin ?: ServerOrigin.from(Flags.getStringValue(Flags.SPECMATIC_BASE_URL) ?: DEFAULT_BASE_URL)
+        return effectiveBaseUrl.withPath(basePath)
     }
 
     @JsonIgnore
@@ -112,6 +113,6 @@ sealed interface SpecificationDefinition {
         source: SourceV3,
         resiliencyTestSuite: ResiliencyTestSuite?,
         examples: List<String>?,
-        getBaseUrl: (String?, File) -> String?
+        getServerOrigin: (String?, File) -> ServerOrigin?
     ): SpecificationSourceEntry
 }

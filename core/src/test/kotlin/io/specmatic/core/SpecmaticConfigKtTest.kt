@@ -142,6 +142,7 @@ internal class SpecmaticConfigKtTest {
         val sourceEntry = SpecificationSourceEntry(
             specFile = specFile,
             specPathInConfig = "contracts/petstore.yaml",
+            host = null,
             port = null,
             baseUrl = "http://localhost:9000",
             webSourceUrl = null,

@@ -1,6 +1,5 @@
 package io.specmatic.core.config.v3.upgrade
 
-import io.specmatic.core.config.Switch
 import io.specmatic.core.config.OpenAPIMockConfig as LegacyOpenAPIMockConfig
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.config.v3.RefOrValue
@@ -15,7 +14,6 @@ import io.specmatic.core.config.v3.components.runOptions.WsdlMockConfig
 import io.specmatic.core.config.v3.components.runOptions.WsdlRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
-import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.reporter.model.SpecType
 
 class DependenciesMapper {
@@ -24,7 +22,6 @@ class DependenciesMapper {
         if (migrations.isEmpty()) return null
 
         return MockServiceConfig(
-            settings = RefOrValue.Value(buildSettings(view)),
             services = migrations.map { migration ->
                 createService(
                     view = view,
@@ -37,18 +34,6 @@ class DependenciesMapper {
                 exampleDirectories = view.globalExamples,
                 dictionaryPath = view.stubConfig?.getDictionary(),
             ),
-        )
-    }
-
-    private fun buildSettings(view: LegacyConfigView): MockSettings {
-        return MockSettings(
-            generative = view.stubConfig?.getGenerative(),
-            strictMode = view.stubConfig?.getStrictMode(),
-            lenientMode = view.stubConfig?.getLenientMode(),
-            delayInMilliseconds = view.stubConfig?.getDelayInMilliseconds(),
-            hotReload = view.stubConfig?.getHotReload()?.let { it == Switch.enabled },
-            startTimeoutInMilliseconds = view.stubConfig?.getStartTimeoutInMilliseconds(),
-            gracefulRestartTimeoutInMilliseconds = view.stubConfig?.getGracefulRestartTimeoutInMilliseconds(),
         )
     }
 

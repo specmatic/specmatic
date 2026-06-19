@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import io.specmatic.core.config.v3.ServerOrigin
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(JsonSubTypes.Type(GraphQLSdlTestConfig::class, name = "test"), JsonSubTypes.Type(GraphQLSdlMockConfig::class, name = "mock"))
@@ -13,9 +14,9 @@ sealed interface GraphQLSdlRunOptions : IRunOptions {
     val type: RunOptionType?
 
     @JsonIgnore
-    override fun getBaseUrlIfExists(): String? {
+    override fun gerServerOrigin(): ServerOrigin? {
         val defaultHost = if (this is GraphQLSdlTestConfig) "localhost" else "0.0.0.0"
-        return extractBaseUrlFromMap(config, defaultHost)
+        return extractServerOriginFromMap(config, defaultHost)
     }
 }
 

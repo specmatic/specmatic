@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: allof-enum-repro
+  version: "1.0"
+paths:
+  /status:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Status"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+  /wrappedStatus:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WrappedStatus"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WrappedStatus"
+  /wrappedOptionalStatus:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WrappedOptionalStatus"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WrappedOptionalStatus"
+components:
+  schemas:
+    Status:
+      type: string
+      enum: [Active, Inactive]
+    WrappedStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          allOf:
+            - $ref: "#/components/schemas/Status"
+    WrappedOptionalStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          anyOf:
+            - type: "null"
+            - allOf:
+                - $ref: "#/components/schemas/Status"

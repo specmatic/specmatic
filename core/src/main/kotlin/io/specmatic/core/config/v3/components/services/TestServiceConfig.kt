@@ -8,6 +8,7 @@ import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
+import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
@@ -78,7 +79,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
             val source = definition.source.resolveElseThrow(resolver)
             definition.specs.map {
                 it.toSpecificationSource(source, resilientSuite, examples) { specId, file ->
-                    getFirstBaseUrlFromRunOpts(specId, file, resolver)
+                    getServerOrigin(specId, file, resolver)
                 }
             }.map { spec -> source to spec }
         }.groupBy(keySelector = { it.first }, valueTransform = { it.second })
@@ -109,7 +110,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     }
 
     @JsonIgnore
-    fun getCerts(resolver: RefOrValueResolver): List<Pair<String, HttpsConfiguration>> {
+    fun getCerts(resolver: RefOrValueResolver): List<Pair<ServerOrigin, HttpsConfiguration>> {
         val serviceConfig = service.resolveElseThrow(resolver)
         return serviceConfig.definitions.map { it.definition }.flatMap { definition ->
             definition.specs.mapNotNull { specDefinition ->
@@ -119,7 +120,7 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
                 val runCert = (runOptions as? ConfigWithCert)?.cert?.resolveElseThrow(resolver) ?: return@mapNotNull null
                 val specId = specDefinition.getSpecificationId()
                 val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-                val baseUrl = runOptionSpecOverride?.getBaseUrl("localhost") ?: runOptions.getBaseUrlIfExists() ?: return@mapNotNull null
+                val baseUrl = runOptionSpecOverride?.getServerOrigin("localhost") ?: runOptions.gerServerOrigin() ?: return@mapNotNull null
                 Pair(baseUrl, runCert)
             }
         }
@@ -186,12 +187,12 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
     }
 
     @JsonIgnore
-    private fun getFirstBaseUrlFromRunOpts(specId: String?, specFile: File, resolver: RefOrValueResolver): String? {
+    private fun getServerOrigin(specId: String?, specFile: File, resolver: RefOrValueResolver): ServerOrigin? {
         val specTypesToCheck = determineSpecTypeFor(specFile)
         return specTypesToCheck.firstNotNullOfOrNull {
             val runOptions = getRunOptions(resolver, it) ?: return@firstNotNullOfOrNull null
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
-            runOptionSpecOverride?.getBaseUrl("localhost") ?: runOptions.getBaseUrlIfExists()
+            runOptionSpecOverride?.getServerOrigin("localhost") ?: runOptions.gerServerOrigin()
         }
     }
 }

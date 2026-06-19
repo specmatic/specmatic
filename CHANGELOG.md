@@ -22,9 +22,22 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased (2.46.6)
+## 2.48.0 (2026-06-19)
 
-No customer-facing changes documented yet.
+- Added support for 405 and 415 examples
+
+## 2.47.0 (2026-06-16)
+
+### Changed
+
+- Improved nested object query validation and example diagnostics so failure paths now point to the actual serialized query keys, including bracketed and array-style segments, instead of less accurate synthesized breadcrumbs.
+- Improved OpenAPI source-location tracking for referenced schemas so validation failures can retain the original JSON pointer from the source file that defined the schema.
+- Improved `specmatic config upgrade` output for legacy configurations by keeping global mock and test settings under top-level `specmatic.settings` instead of moving them into dependency or system-under-test sections.
+- Updated bundled reporting and licensing flows so license-aware CLI operations can use `--debug` for trace logging while retaining backward-compatible support for the older `--log-level` flag.
+- Improved bundled license CLI output with clearer success, warning, and error cues, including colorized level labels on ANSI-capable terminals.
+- Load bad examples where the response is 422
+- Make handling of collisions between scalar query param and query param object property names more pragmatic. No complaint if the type is the same, else a warning is printed, and the last declared parameter type is what is honored by Specmatic.
+- Added support for nested objects and arrays in a query param object
 
 ## 2.46.5 (2026-06-11)
 

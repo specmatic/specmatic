@@ -384,12 +384,18 @@ data class Feature(
         }
     }
 
-    private fun getMatchingAndSortedScenarios(httpRequest: HttpRequest, scenarios: List<Scenario>): List<Scenario> {
-        val expectedResponseCode = httpRequest.expectedResponseCode()
-        val statusSortedScenarios = sortByExpectedResponseStatus(expectedResponseCode, scenarios)
-        val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario -> scenario.matchesPathStructureAndMethod(httpRequest) }
+    private fun getMatchingAndSortedScenarios(
+        httpRequest: HttpRequest,
+        scenarios: List<Scenario>,
+        responseStatus: Int? = null
+    ): List<Scenario> {
+        val requestedResponseStatus = responseStatus ?: httpRequest.expectedResponseCode()
+        val statusSortedScenarios = sortByExpectedResponseStatus(requestedResponseStatus, scenarios)
+        val pathAndMethodMatchedScenarios = statusSortedScenarios.filter { scenario ->
+            scenario.requestBelongsToScenarioForExpectedStatus(httpRequest, requestedResponseStatus)
+        }
 
-        if (expectedResponseCode != null) {
+        if (requestedResponseStatus != null) {
             return applyAcceptHeaderSelection(httpRequest, pathAndMethodMatchedScenarios)
         }
 
@@ -821,10 +827,11 @@ data class Feature(
             return matchRequestScenariosWithEarlySuccess(
                 request = request,
                 scenarios = attributeSelectedScenarios,
+                responseStatus = response.status,
                 match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
                 onSuccess = { scenario ->
                     scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        val newRequestType = scenario.httpRequestPattern.generateExactHttpRequestPatternFrom(request, resolver)
+                        val newRequestType = scenario.generateHttpRequestPatternForStub(request, resolver)
                         HttpStubData(
                             requestType = newRequestType,
                             response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),
@@ -843,9 +850,19 @@ data class Feature(
         }
     }
 
-    private fun <T> matchRequestScenariosWithEarlySuccess(request: HttpRequest, scenarios: List<Scenario> = this.scenarios, match: (Scenario) -> Result, onSuccess: (Scenario) -> T): ScenarioMatchResult<T> {
+    private fun <T> matchRequestScenariosWithEarlySuccess(
+        request: HttpRequest,
+        scenarios: List<Scenario> = this.scenarios,
+        responseStatus: Int? = null,
+        match: (Scenario) -> Result,
+        onSuccess: (Scenario) -> T
+    ): ScenarioMatchResult<T> {
         val failures = mutableListOf<Result>()
-        val filteredScenarios = getMatchingAndSortedScenarios(request, scenarios)
+        val filteredScenarios = getMatchingAndSortedScenarios(
+            request,
+            scenarios,
+            responseStatus
+        )
 
         for (scenario in filteredScenarios) {
             try {
@@ -1032,14 +1049,12 @@ data class Feature(
 
     // TODO: Should this filter include requestContentType to find matchingScenarios ?
     internal fun getBadRequestsOrDefault(scenario: Scenario, scenariosToLookInto: List<Scenario> = scenarios): BadRequestOrDefault? {
-        val targetPath = scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
-        val targetMethod = scenario.httpRequestPattern.method
-        val matchingScenarios = scenariosToLookInto.filter {
-            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == targetPath
-            && it.httpRequestPattern.method == targetMethod
-        }
+        val matchingScenarios = scenariosMatchingPathAndMethod(scenario, scenariosToLookInto)
 
-        val badRequestResponses = matchingScenarios.filter { it.httpResponsePattern.status in 400..499 }
+        val badRequestResponses = matchingScenarios.filter {
+            it.httpResponsePattern.status in 400..499 &&
+                    !it.httpRequestPattern.hasUndeclaredRequestVariant()
+        }
         val defaultResponses = matchingScenarios.filter { it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE }
 
         if (badRequestResponses.isEmpty() && defaultResponses.isEmpty()) return null
@@ -1047,6 +1062,28 @@ data class Feature(
             badRequestResponses = badRequestResponses.groupBy(keySelector = { it.httpResponsePattern.status }),
             defaultResponses = defaultResponses
         )
+    }
+
+    private fun scenariosMatchingPathAndMethod(
+        scenario: Scenario,
+        scenariosToLookInto: List<Scenario> = scenarios
+    ): List<Scenario> {
+        val targetPath = scenario.httpRequestPattern.httpPathPattern!!.toInternalPath()
+        val targetMethod = scenario.httpRequestPattern.method
+
+        return scenariosToLookInto.filter {
+            it.httpRequestPattern.httpPathPattern!!.toInternalPath() == targetPath &&
+                    it.httpRequestPattern.method == targetMethod
+        }
+    }
+
+    private fun hasOnlyUndeclaredRequestVariant4xxResponses(scenario: Scenario): Boolean {
+        val badRequestResponses = scenariosMatchingPathAndMethod(scenario).filter {
+            it.httpResponsePattern.status in 400..499
+        }
+
+        return badRequestResponses.isNotEmpty() &&
+                badRequestResponses.all { it.httpRequestPattern.hasUndeclaredRequestVariant() }
     }
 
     fun generateContractTestScenarios(
@@ -1117,6 +1154,9 @@ data class Feature(
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
             val badRequestOrDefault = getBadRequestsOrDefault(scenario)
             if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
+                return@mapNotNull null
+            }
+            if (badRequestOrDefault == null && hasOnlyUndeclaredRequestVariant4xxResponses(scenario)) {
                 return@mapNotNull null
             }
 
@@ -1238,8 +1278,9 @@ data class Feature(
 
     fun identifierMatchingScenario(httpRequest: HttpRequest, httpResponse: HttpResponse, furtherPredicate: (Scenario) -> Boolean = { true }, updateResolver: (Resolver) -> Resolver = { it }): Scenario? {
         return scenarios.firstOrNull { scenario ->
-            scenario.httpRequestPattern.matchesPathStructureMethodAndContentType(httpRequest, updateResolver(scenario.resolver)).isSuccess()
-            && scenario.httpResponsePattern.matchesStatusAndContentType(httpResponse, updateResolver(scenario.resolver)).isSuccess()
+            val resolver = updateResolver(scenario.resolver)
+            scenario.identifierMatchesRequestForResponseStatus(httpRequest, httpResponse.status, resolver)
+            && scenario.httpResponsePattern.matchesStatusAndContentType(httpResponse, resolver).isSuccess()
             && furtherPredicate(scenario)
         }
     }

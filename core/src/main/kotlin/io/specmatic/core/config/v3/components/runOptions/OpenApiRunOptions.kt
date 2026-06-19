@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.ServerOrigin
 
 interface ConfigWithCert { val cert: RefOrValue<HttpsConfiguration>? }
 
@@ -30,10 +31,10 @@ data class OpenApiTestConfig(
     override val config: Map<String, Any> = emptyMap()
 
     @JsonIgnore
-    override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
+    override fun gerServerOrigin(): ServerOrigin? {
+        if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null
-        return "http://${host ?: "localhost"}:$port"
+        return ServerOrigin.from("http", host ?: "localhost", port)
     }
 
     init {
@@ -58,11 +59,11 @@ data class OpenApiMockConfig(
     override val config: Map<String, Any> = emptyMap()
 
     @JsonIgnore
-    override fun getBaseUrlIfExists(): String? {
-        if (baseUrl != null) return baseUrl
+    override fun gerServerOrigin(): ServerOrigin? {
+        if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null
         val scheme = if (cert == null) "http" else "https"
-        return "$scheme://${host ?: "0.0.0.0"}:$port"
+        return ServerOrigin.from(scheme, host ?: "0.0.0.0", port)
     }
 
     init {

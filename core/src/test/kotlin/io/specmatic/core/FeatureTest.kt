@@ -3374,7 +3374,7 @@ paths:
     }
 
     @Test
-    fun `externalized query example validates through object-first authoritative collision owner in lenient mode`() {
+    fun `externalized query example validates through scalar declared last collision owner in lenient mode`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3383,7 +3383,7 @@ paths:
     }
 
     @Test
-    fun `contract tests use externalized colliding query example with object-first authoritative owner`() {
+    fun `contract tests use externalized colliding query example with scalar declared last collision owner`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3404,7 +3404,7 @@ paths:
     }
 
     @Test
-    fun `mock matches externalized colliding query example with object-first authoritative owner`() {
+    fun `mock matches externalized colliding query example with scalar declared last collision owner`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3413,17 +3413,17 @@ paths:
             val matchingResponse = stub.client.execute(
                 HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "45", "name" to "Jane")))
             )
-            val mismatchingResponse = stub.client.execute(
+            val scalarStringResponse = stub.client.execute(
                 HttpRequest("GET", "/data", queryParams = QueryParameters(mapOf("age" to "abc", "name" to "Jane")))
             )
 
             assertThat(matchingResponse.status).isEqualTo(200)
-            assertThat(mismatchingResponse.status).isEqualTo(400)
+            assertThat(scalarStringResponse.status).isEqualTo(200)
         }
     }
 
     @Test
-    fun `contract tests without examples use generated colliding query params from object-first authoritative owner`() {
+    fun `contract tests without examples use generated colliding query params from object property declared last collision owner`() {
         val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
         val seenQueryParams = mutableListOf<Map<String, String>>()
 
@@ -3448,7 +3448,7 @@ paths:
     }
 
     @Test
-    fun `mock without examples matches generated request through object-first authoritative collision owner`() {
+    fun `mock without examples matches generated request through object property declared last collision owner`() {
         val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
 
         HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->
@@ -4144,6 +4144,10 @@ paths:
                 get:
                   parameters:
                     - in: query
+                      name: age
+                      schema:
+                        type: string
+                    - in: query
                       name: info
                       style: form
                       explode: true
@@ -4157,10 +4161,6 @@ paths:
                             type: integer
                           name:
                             type: string
-                    - in: query
-                      name: age
-                      schema:
-                        type: string
                   responses:
                     '200':
                       description: OK
@@ -4840,5 +4840,126 @@ paths:
         )
 
         assertThat(matchedScenario).isEqualTo(okScenario)
+    }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose scenario by request content type`() {
+        val textRequestScenario = Scenario(
+            name = "text request",
+            httpRequestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                headersPattern = HttpHeadersPattern(contentType = "text/plain")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val jsonRequestScenario = Scenario(
+            name = "json request",
+            httpRequestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                headersPattern = HttpHeadersPattern(contentType = "application/json")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(contentType = "application/json")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        )
+
+        val feature = Feature(scenarios = listOf(textRequestScenario, jsonRequestScenario), name = "identifier with request content type", protocol = SpecmaticProtocol.HTTP)
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "POST", path = "/products", headers = mapOf(CONTENT_TYPE to "application/json")),
+            httpResponse = HttpResponse(status = 200, headers = mapOf(CONTENT_TYPE to "application/json"))
+        )
+
+        assertThat(matchedScenario).isEqualTo(jsonRequestScenario)
+    }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose 405 scenario for declared method rejection example`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  responses:
+                    '200':
+                      description: ok
+                    '405':
+                      description: method not allowed
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                put:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                  responses:
+                    '200':
+                      description: ok
+                    '405':
+                      description: method not allowed
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(),
+            "api.yaml"
+        ).toFeature()
+
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "PUT", path = "/orders", headers = mapOf(CONTENT_TYPE to "application/json")),
+            httpResponse = HttpResponse(status = 405, headers = mapOf(CONTENT_TYPE to "application/json"))
+        )
+
+        assertThat(matchedScenario?.method).isEqualTo("PUT")
+        assertThat(matchedScenario?.status).isEqualTo(405)
+    }
+
+    @Test
+    fun `identifierMatchingScenario with request and response should choose 415 scenario for supported content type rejection example`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Sample API
+              version: 1.0.0
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                  responses:
+                    '200':
+                      description: ok
+                    '415':
+                      description: unsupported media type
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+            """.trimIndent(),
+            "api.yaml"
+        ).toFeature()
+
+        val matchedScenario = feature.identifierMatchingScenario(
+            httpRequest = HttpRequest(method = "POST", path = "/orders", headers = mapOf(CONTENT_TYPE to "application/json")),
+            httpResponse = HttpResponse(status = 415, headers = mapOf(CONTENT_TYPE to "application/json"))
+        )
+
+        assertThat(matchedScenario?.method).isEqualTo("POST")
+        assertThat(matchedScenario?.status).isEqualTo(415)
     }
 }
