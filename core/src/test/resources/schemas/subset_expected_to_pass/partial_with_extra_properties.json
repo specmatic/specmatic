@@ -1,0 +1,32 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/persons",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "abc": "12332"
+      },
+      "body": {
+        "name": "Aristotle",
+        "age": 500,
+        "email": "hulda.feil@gmail.com",
+        "phoneNumber": "(305) 205-9619"
+      },
+      "description": "This is an example of a request to create a new entity at the /persons endpoint "
+    },
+    "abc": "12332",
+    "http-response": {
+      "status": 201,
+      "body": {
+        "id": 412,
+        "note": "ullam"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "status-text": "Created",
+      "description": "This is an example of a response after creating a new entity at the /persons endpoint "
+    }
+  }
+}
