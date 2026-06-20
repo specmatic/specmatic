@@ -7,13 +7,10 @@ import io.specmatic.core.QueryParameterCollisionGroup
 import io.specmatic.core.QueryParameterCollisionOwner
 import io.specmatic.core.QueryParameterCollisionOwnerKind
 import io.specmatic.core.Resolver
-import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.PossibleJsonObjectPatternContainer
 import io.specmatic.core.pattern.QueryParameterArrayPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.resolvedHop
-import io.specmatic.core.pattern.withoutOptionality
 
 internal data class QueryParameterPatternSource(
     val parameterName: String,
@@ -60,80 +57,16 @@ internal fun resolveQueryParameterCollisions(
     }
 
     val authoritativeEntriesByWireKey = collisionEntriesByWireKey.mapValues { (_, entries) -> entries.last() }
-    val nonAuthoritativeFormExplodedObjectPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(
-        collisionEntriesByWireKey,
-        QueryParameterCollisionOwnerKind.FormExplodedObjectProperty
-    )
-    val nonAuthoritativeNestedObjectPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(
-        collisionEntriesByWireKey,
-        QueryParameterCollisionOwnerKind.NestedObjectProperty
-    )
     val effectiveEntries = entries.filter { entry ->
         authoritativeEntriesByWireKey[entry.wireKey]?.let { it == entry } ?: true
-    }.map { entry ->
-        entry.withoutNestedObjectProperties(
-            nonAuthoritativeNestedObjectPropertiesByParameter[entry.source.parameterName].orEmpty(),
-            patterns
-        )
     }
 
     return QueryParameterCollisionResolution(
         effectiveEntries = effectiveEntries,
-        formExplodedObjectQueryParams = formExplodedObjectQueryParams.map {
-            it.withoutProperties(nonAuthoritativeFormExplodedObjectPropertiesByParameter[it.parameterName].orEmpty())
-        },
-        nestedObjectQueryParams = nestedObjectQueryParams.map {
-            it.withoutRootProperties(nonAuthoritativeNestedObjectPropertiesByParameter[it.parameterName].orEmpty())
-        },
+        formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+        nestedObjectQueryParams = nestedObjectQueryParams,
         collisionGroupsByWireKey = collisionGroupsByWireKey
     )
-}
-
-private fun nonAuthoritativeObjectPropertiesByParameter(
-    collisionEntriesByWireKey: Map<String, List<QueryParameterPatternEntry>>,
-    ownerKind: QueryParameterCollisionOwnerKind
-): Map<String, Set<String>> {
-    return collisionEntriesByWireKey.values
-        .flatMap { entries -> entries.dropLast(1) }
-        .filter { entry -> entry.source.kind == ownerKind }
-        .mapNotNull { entry ->
-            entry.source.propertyName?.let { propertyName ->
-                entry.source.parameterName to propertyName
-            }
-        }
-        .groupBy({ it.first }, { it.second })
-        .mapValues { (_, propertyNames) -> propertyNames.toSet() }
-}
-
-private fun FormExplodedObjectQueryParam.withoutProperties(propertyNames: Set<String>): FormExplodedObjectQueryParam {
-    if (propertyNames.isEmpty()) return this
-
-    return copy(
-        propertyKeys = propertyKeys - propertyNames,
-        requiredPropertyKeys = requiredPropertyKeys - propertyNames
-    )
-}
-
-private fun QueryParameterPatternEntry.withoutNestedObjectProperties(propertyNames: Set<String>, patterns: Map<String, Pattern>): QueryParameterPatternEntry {
-    if (propertyNames.isEmpty()) return this
-
-    return copy(pattern = pattern.withoutRootProperties(propertyNames, patterns))
-}
-
-private fun Pattern.withoutRootProperties(propertyNames: Set<String>, patterns: Map<String, Pattern>): Pattern {
-    if (propertyNames.isEmpty()) return this
-
-    val resolver = Resolver(newPatterns = patterns)
-    return when (this) {
-        is QueryParameterScalarPattern -> QueryParameterScalarPattern(pattern.withoutRootProperties(propertyNames, patterns))
-        is JSONObjectPattern -> withoutRootProperties(propertyNames)
-        is PossibleJsonObjectPatternContainer -> jsonObjectPattern(resolver)?.withoutRootProperties(propertyNames) ?: this
-        else -> this
-    }
-}
-
-private fun JSONObjectPattern.withoutRootProperties(propertyNames: Set<String>): JSONObjectPattern {
-    return copy(pattern = pattern.filterKeys { key -> withoutOptionality(key) !in propertyNames })
 }
 
 private fun toQueryParameterCollisionGroup(wireKey: String, entries: List<QueryParameterPatternEntry>): QueryParameterCollisionGroup {

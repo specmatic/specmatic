@@ -107,7 +107,7 @@ data class HttpQueryParamPattern(
 
     private fun Row.withNestedObjectQueryParamExamples(resolver: Resolver): Row {
         val effectivePatterns = effectiveQueryPatterns(this)
-        val nestedObjectFields = nestedObjectQueryParams
+        val nestedObjectFields = activeNestedObjectQueryParams()
             .filterNot { containsField(it.parameterName) }
             .mapNotNull { nestedObjectQueryParam ->
                 val nestedPairs = columnNames.zip(values).filter { (key, _) ->
@@ -152,7 +152,8 @@ data class HttpQueryParamPattern(
 
     fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val effectivePatterns = effectiveQueryPatterns(httpRequest.queryParams)
-        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(httpRequest.queryParams, effectivePatterns, nestedObjectQueryParams, resolver)
+        val activeNestedObjectQueryParams = activeNestedObjectQueryParams()
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(httpRequest.queryParams, effectivePatterns, activeNestedObjectQueryParams, resolver)
         val queryParams = if(additionalProperties != null) {
             parsedNestedObjectQueryParams.remainingQueryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
         } else {
@@ -190,7 +191,7 @@ data class HttpQueryParamPattern(
             val keyWithoutOptionality = withoutOptionality(key)
             val reconstructedNestedObjectValue = parsedNestedObjectQueryParams.reconstructedObjectValues[keyWithoutOptionality]
             if (reconstructedNestedObjectValue != null) {
-                val nestedObjectQueryParam = nestedObjectQueryParamsByName()[keyWithoutOptionality]
+                val nestedObjectQueryParam = activeNestedObjectQueryParams.associateBy { it.parameterName }[keyWithoutOptionality]
                 return@mapNotNull resolver.matchesPattern(keyWithoutOptionality, parameterPattern, reconstructedNestedObjectValue)
                     .withNestedObjectQueryKeyBreadcrumb(nestedObjectQueryParam)
             }
@@ -359,7 +360,8 @@ data class HttpQueryParamPattern(
     fun fixValue(queryParams: QueryParameters?, resolver: Resolver): QueryParameters {
         val queryParamsToFix = queryParams ?: QueryParameters(emptyMap())
         val effectivePatterns = effectiveQueryPatterns(queryParamsToFix)
-        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFix, effectivePatterns, nestedObjectQueryParams, resolver)
+        val activeNestedObjectQueryParams = activeNestedObjectQueryParams()
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFix, effectivePatterns, activeNestedObjectQueryParams, resolver)
         val additionalQueryParams = matchingAdditionalQueryParams(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
         val invalidAdditionalQueryPatterns = invalidAdditionalQueryParamPatterns(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
         val patternsToFix = effectivePatterns + invalidAdditionalQueryPatterns
@@ -379,13 +381,14 @@ data class HttpQueryParamPattern(
             jsonPattern = JSONObjectPattern(patternsToFix, typeAlias = null)
         )
 
-        return QueryParameters(serializeNestedObjectQueryValues(fixedQueryParams, nestedObjectQueryParams) + additionalQueryParams.paramPairs)
+        return QueryParameters(serializeNestedObjectQueryValues(fixedQueryParams, activeNestedObjectQueryParams) + additionalQueryParams.paramPairs)
     }
 
     fun fillInTheBlanks(queryParams: QueryParameters?, resolver: Resolver): ReturnValue<QueryParameters> {
         val queryParamsToFill = queryParams ?: QueryParameters(emptyMap())
         val effectivePatterns = effectiveQueryPatterns(queryParamsToFill)
-        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFill, effectivePatterns, nestedObjectQueryParams, resolver)
+        val activeNestedObjectQueryParams = activeNestedObjectQueryParams()
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFill, effectivePatterns, activeNestedObjectQueryParams, resolver)
         val additionalQueryParams = matchingAdditionalQueryParams(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
         val adjustedQueryParams = when {
             queryParamsToFill.paramPairs.isEmpty() -> QueryParameters(emptyMap())
@@ -407,7 +410,7 @@ data class HttpQueryParamPattern(
             resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value),
             typeAlias = null
         ).realise(
-            hasValue = { valuesMap, _ -> HasValue(QueryParameters(serializeNestedObjectQueryValues(valuesMap, nestedObjectQueryParams) + additionalQueryParams.paramPairs)) },
+            hasValue = { valuesMap, _ -> HasValue(QueryParameters(serializeNestedObjectQueryValues(valuesMap, activeNestedObjectQueryParams) + additionalQueryParams.paramPairs)) },
             orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
         )
     }
@@ -500,12 +503,14 @@ data class HttpQueryParamPattern(
     }
 
     private fun calculateQueryPatternsWithAuthoritativeCollisionOwners(): Map<String, Pattern> {
-        return collisionGroupsByWireKey.values.fold(queryPatterns) { patterns, collisionGroup ->
+        val patternsWithAuthoritativeCollisionOwners = collisionGroupsByWireKey.values.fold(queryPatterns) { patterns, collisionGroup ->
             val currentEntry = patterns.entryForWireKey(collisionGroup.wireKey)
                 ?: return@fold patterns
 
             patterns.replaceWireKey(collisionGroup.wireKey, collisionGroup.replacementFor(currentEntry))
         }
+
+        return patternsWithAuthoritativeCollisionOwners.withRuntimeObjectPropertyProjections()
     }
 
     private fun Map<String, Pattern>.entryForWireKey(wireKey: String): QueryPatternEntry? {
@@ -538,20 +543,51 @@ data class HttpQueryParamPattern(
     }
 
     private fun activeFormExplodedObjectQueryParams(): List<FormExplodedObjectQueryParam> {
-        val nonAuthoritativeObjectPropertiesByParameter = collisionGroupsByWireKey.values
+        val nonAuthoritativeObjectPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(QueryParameterCollisionOwnerKind.FormExplodedObjectProperty)
+
+        return formExplodedObjectQueryParams.map { objectQueryParam ->
+            objectQueryParam.withoutProperties(nonAuthoritativeObjectPropertiesByParameter[objectQueryParam.parameterName].orEmpty())
+        }
+    }
+
+    private fun activeNestedObjectQueryParams(): List<NestedObjectQueryParam> {
+        val nonAuthoritativeObjectPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(QueryParameterCollisionOwnerKind.NestedObjectProperty)
+
+        return nestedObjectQueryParams.map { nestedObjectQueryParam ->
+            nestedObjectQueryParam.withoutRootProperties(nonAuthoritativeObjectPropertiesByParameter[nestedObjectQueryParam.parameterName].orEmpty())
+        }
+    }
+
+    private fun nonAuthoritativeObjectPropertiesByParameter(ownerKind: QueryParameterCollisionOwnerKind): Map<String, Set<String>> {
+        return collisionGroupsByWireKey.values
             .flatMap { collisionGroup ->
                 collisionGroup.owners.filter {
-                    it.kind == QueryParameterCollisionOwnerKind.FormExplodedObjectProperty &&
+                    it.kind == ownerKind &&
                         it != collisionGroup.authoritativeOwner
                 }
             }
             .mapNotNull { owner -> owner.propertyName?.let { propertyName -> owner.parameterName to propertyName } }
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, propertyNames) -> propertyNames.toSet() }
+    }
 
-        return formExplodedObjectQueryParams.map { objectQueryParam ->
-            objectQueryParam.withoutProperties(nonAuthoritativeObjectPropertiesByParameter[objectQueryParam.parameterName].orEmpty())
+    private fun Map<String, Pattern>.withRuntimeObjectPropertyProjections(): Map<String, Pattern> {
+        val nonAuthoritativeNestedPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(QueryParameterCollisionOwnerKind.NestedObjectProperty)
+        return nonAuthoritativeNestedPropertiesByParameter.entries.fold(this) { patterns, (parameterName, propertyNames) ->
+            patterns.projectNestedObjectQueryPattern(parameterName, propertyNames)
         }
+    }
+
+    private fun Map<String, Pattern>.projectNestedObjectQueryPattern(parameterName: String, propertyNames: Set<String>): Map<String, Pattern> {
+        if (propertyNames.isEmpty()) return this
+
+        val entry = entries.firstOrNull { (key, _) -> withoutOptionality(key) == parameterName } ?: return this
+        val projectedPattern = when (val pattern = entry.value) {
+            is QueryParameterObjectPattern -> pattern.excludingRootProperties(propertyNames)
+            else -> QueryParameterObjectPattern(pattern, propertyNames)
+        }
+
+        return plus(entry.key to projectedPattern)
     }
 
     private fun FormExplodedObjectQueryParam.withoutProperties(propertyNames: Set<String>): FormExplodedObjectQueryParam {

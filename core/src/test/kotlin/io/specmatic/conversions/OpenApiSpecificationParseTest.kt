@@ -1130,6 +1130,78 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
+    fun `last declared scalar collision owner should project referenced nested object query schema at runtime`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: Referenced Nested Object Query Param Collision
+              version: 1.0.0
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - in: query
+                      name: details
+                      required: true
+                      schema:
+                        ${"$"}ref: '#/components/schemas/Details'
+                      example: status=10&address.street=Baker
+                    - in: query
+                      name: status
+                      required: false
+                      schema:
+                        type: boolean
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                Details:
+                  type: object
+                  required:
+                    - status
+                  properties:
+                    status:
+                      type: integer
+                    address:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val scenario = feature.scenarios.single()
+        val queryParamPattern = scenario.httpRequestPattern.httpQueryParamPattern
+        val detailsPattern = queryParamPattern.queryPatterns.getValue("details") as QueryParameterScalarPattern
+
+        assertThat(detailsPattern.pattern).isInstanceOf(DeferredPattern::class.java)
+        assertThat(
+            queryParamPattern.matches(
+                HttpRequest(
+                    "GET",
+                    "/orders",
+                    queryParams = QueryParameters(listOf("address.street" to "Baker", "status" to "true"))
+                ),
+                scenario.resolver
+            )
+        ).isInstanceOf(Result.Success::class.java)
+
+        val result = queryParamPattern.matches(
+            HttpRequest(
+                "GET",
+                "/orders",
+                queryParams = QueryParameters(listOf("address.street" to "Baker", "status" to "866"))
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat((result as Result.Failure).reportString()).contains("Expected type boolean")
+        assertThat(result.reportString()).doesNotContain("mandatory property \"status\"")
+    }
+
+    @Test
     fun `last declared unwrapped nested object query property should take precedence over scalar query parameter`() {
         val spec = nestedStatusCollisionSpec(scalarDeclaredLast = false)
 
