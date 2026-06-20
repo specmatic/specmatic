@@ -767,8 +767,56 @@ class OpenApiSpecification(
         val unusedRequestExampleNames: Set<String>
     )
 
+    private data class ScenarioInfoWithParsedInlineExamples(
+        val scenarioInfo: ScenarioInfo,
+        val parsedExamples: ParsedInlineExamples
+    )
+
+    private data class ParsedInlineExamples(
+        val examples: List<ParsedInlineExample>
+    ) {
+        fun rows(): List<Row> = examples.flatMap { it.toRows() }
+    }
+
+    private data class ParsedInlineExample(
+        val name: String,
+        val requestExamples: Map<String, Any?>,
+        val scenarioStubs: List<ScenarioStub>,
+        val exactResponseExample: ResponseExample?,
+        val requestExampleForRow: HttpRequest?,
+        val responseExampleForRow: HttpResponse?,
+        val storeInRows: Boolean,
+        val storeInInlineExamples: Boolean,
+        val missingRequestExample: Boolean = false,
+        val missingResponseExample: Boolean = false,
+        val undeclaredRequestVariantResponseExample: Boolean = false
+    ) {
+        fun toRows(): List<Row> = if (storeInRows) listOf(toRow()) else emptyList()
+
+        fun toNamedStubs(): List<NamedStub> =
+            if (storeInInlineExamples) scenarioStubs.map { NamedStub(name, it) } else emptyList()
+
+        private fun toRow(): Row {
+            val representativeStub = scenarioStubs.first()
+
+            return Row(
+                requestExamples.keys.toList(),
+                requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
+                    .map { valueString: String ->
+                        if (valueString.contains("externalValue")) {
+                            ObjectMapper().readValue(valueString, Map::class.java).values.first().toString()
+                        } else valueString
+                    },
+                name = name,
+                exactResponseExample = exactResponseExample?.takeIf { representativeStub.response.isNotEmpty() },
+                requestExample = requestExampleForRow,
+                responseExample = responseExampleForRow,
+                scenarioStub = representativeStub.takeIf { storeInInlineExamples }
+            )
+        }
+    }
+
     private data class NoBodyExampleUpdate(
-        val additionalInlineExamples: List<NamedStub>,
         val updatedScenarioInfos: List<ScenarioInfo>
     )
 
@@ -878,12 +926,12 @@ class OpenApiSpecification(
                         )
                     }
 
-                    val scenarioInfos = requestResponsePairs.map { (requestPatternData, responsePatternData) ->
+                    val scenarioInfosWithParsedInlineExamples = requestResponsePairs.map { (requestPatternData, responsePatternData) ->
                         val (httpRequestPattern, requestExamples: Map<String, List<HttpRequest>>, openApiRequest) = requestPatternData
                         val (response, _: MediaType, httpResponsePattern, responseExamples: Map<String, HttpResponse>) = responsePatternData
 
-                        val specmaticExampleRows: List<Row> =
-                            testRowsFromExamples(
+                        val parsedInlineExamples: ParsedInlineExamples =
+                            parseInlineExamples(
                                 responseExamples,
                                 requestExamples,
                                 openApiOperation,
@@ -897,7 +945,7 @@ class OpenApiSpecification(
 
                         val ignoreFailure = openApiOperation.tags.orEmpty().map { it.trim() }.contains("WIP")
 
-                        val rowsToBeUsed: List<Row> = specmaticExampleRows
+                        val rowsToBeUsed: List<Row> = parsedInlineExamples.rows()
 
                         val operationMetadata = OperationMetadata(
                             tags = openApiOperation.tags.orEmpty(),
@@ -906,35 +954,40 @@ class OpenApiSpecification(
                             operationId = openApiOperation.operationId.orEmpty()
                         )
 
-                        ScenarioInfo(
-                            scenarioName = scenarioName,
-                            patterns = patterns.toMap(),
-                            httpRequestPattern = httpRequestPattern,
-                            httpResponsePattern = httpResponsePattern,
-                            ignoreFailure = ignoreFailure,
-                            examples = rowsToExamples(rowsToBeUsed),
-                            sourceProvider = sourceProvider,
-                            sourceRepository = sourceRepository,
-                            sourceRepositoryBranch = sourceRepositoryBranch,
-                            specification = specificationPath,
-                            protocol = protocol,
-                            specType = SpecType.OPENAPI,
-                            operationMetadata = operationMetadata,
-                            sourceLocations = sourceLocations,
-                            operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
-                            undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
+                        ScenarioInfoWithParsedInlineExamples(
+                            scenarioInfo = ScenarioInfo(
+                                scenarioName = scenarioName,
+                                patterns = patterns.toMap(),
+                                httpRequestPattern = httpRequestPattern,
+                                httpResponsePattern = httpResponsePattern,
+                                ignoreFailure = ignoreFailure,
+                                examples = rowsToExamples(rowsToBeUsed),
+                                sourceProvider = sourceProvider,
+                                sourceRepository = sourceRepository,
+                                sourceRepositoryBranch = sourceRepositoryBranch,
+                                specification = specificationPath,
+                                protocol = protocol,
+                                specType = SpecType.OPENAPI,
+                                operationMetadata = operationMetadata,
+                                sourceLocations = sourceLocations,
+                                operationSourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
+                                undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata
+                            ),
+                            parsedExamples = parsedInlineExamples
                         )
                     }
 
-                    val responseExamplesList = httpResponsePatterns.map { it.examples }
-
                     val requestExamples = mergeRequestExamples(httpRequestPatterns.map { it.examples })
 
-                    val examples = collateExamplesForExpectations(requestExamples, responseExamplesList)
+                    val scenarioInfos = scenarioInfosWithParsedInlineExamples.map { it.scenarioInfo }
+
+                    val responseParsedExamples = scenarioInfosWithParsedInlineExamples.flatMap { it.parsedExamples.examples }
+
+                    val responseInlineExamples = responseParsedExamples.flatMap { it.toNamedStubs() }
 
                     val requestExampleNames = requestExamples.keys.toSet()
 
-                    val usedExamples = examples.map { it.name }.toSet()
+                    val usedExamples = responseInlineExamples.map { it.name }.toSet()
 
                     val unusedRequestExampleNames = requestExampleNames - usedExamples
 
@@ -943,24 +996,39 @@ class OpenApiSpecification(
                                 && responsePatternData.responsePattern.status == firstNoBodyResponseStatus
                     }
 
+                    val requestOnlyExamples = parseRequestOnlyInlineExamples(
+                        requestExamples = requestExamples.filter { it.key in unusedRequestExampleNames },
+                        parameters = parameters,
+                        noBodyScenarioInfo = scenarioInfos.firstOrNull { scenarioInfo ->
+                            scenarioInfo.httpResponsePattern.body == NoBodyPattern
+                                    && scenarioInfo.httpResponsePattern.status == firstNoBodyResponseStatus
+                        },
+                        noBodyResponse = responseThatReturnsNoValues?.let { responsePatternData ->
+                            HttpResponse(
+                                status = responsePatternData.responsePattern.status,
+                                headers = emptyMap(),
+                                body = NoBodyValue
+                            )
+                        }
+                    )
+                    val operationParsedExamples = responseParsedExamples + requestOnlyExamples.examples
+                    val examples = operationParsedExamples.flatMap { it.toNamedStubs() }
+
                     val noBodyResponseUpdate = when {
-                        responseThatReturnsNoValues != null && unusedRequestExampleNames.isNotEmpty() ->
+                        responseThatReturnsNoValues != null && requestOnlyExamples.rows().isNotEmpty() ->
                             getUpdatedScenarioInfosWithNoBodyResponseExamples(
-                                responseThatReturnsNoValues,
-                                requestExamples,
-                                unusedRequestExampleNames,
+                                requestOnlyExamples,
                                 scenarioInfos,
-                                parameters,
                                 firstNoBodyResponseStatus
                             )
 
-                        else -> NoBodyExampleUpdate(additionalInlineExamples = emptyList(), updatedScenarioInfos = scenarioInfos)
+                        else -> NoBodyExampleUpdate(updatedScenarioInfos = scenarioInfos)
                     }
 
                     ParsedOperation(
                         scenarioInfos = noBodyResponseUpdate.updatedScenarioInfos,
-                        inlineExamples = examples + noBodyResponseUpdate.additionalInlineExamples,
-                        unusedRequestExampleNames = requestExampleNames - (examples + noBodyResponseUpdate.additionalInlineExamples).map { it.name }.toSet()
+                        inlineExamples = examples,
+                        unusedRequestExampleNames = requestExampleNames - examples.map { it.name }.toSet()
                     )
                 }
             }
@@ -1011,36 +1079,16 @@ class OpenApiSpecification(
     }
 
     private fun getUpdatedScenarioInfosWithNoBodyResponseExamples(
-        responseThatReturnsNoValues: ResponsePatternData,
-        requestExamples: Map<String, List<HttpRequest>>,
-        unusedRequestExampleNames: Set<String>,
+        parsedInlineExamples: ParsedInlineExamples,
         scenarioInfos: List<ScenarioInfo>,
-        parameters: List<Parameter>,
         firstNoBodyResponseStatus: Int?,
     ): NoBodyExampleUpdate {
-        val emptyResponse = HttpResponse(
-            status = responseThatReturnsNoValues.responsePattern.status,
-            headers = emptyMap(),
-            body = NoBodyValue
-        )
-        val examplesOfResponseThatReturnsNoValues: List<NamedStub> =
-            requestExamples
-                .filterKeys { it in unusedRequestExampleNames }
-                .flatMap { (exampleName, examples) ->
-                    examples.map { request ->
-                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse, exampleType = ExampleType.INLINE))
-                    }
-                }
-
         val updatedScenarioInfos = scenarioInfos.map { scenarioInfo ->
             if (scenarioInfo.httpResponsePattern.body == NoBodyPattern
                 && scenarioInfo.httpResponsePattern.status == firstNoBodyResponseStatus
+                && parsedInlineExamples.rows().isNotEmpty()
             ) {
-                val unusedRequestExample =
-                    requestExamples.filter { it.key in unusedRequestExampleNames }
-
-                val rows = getRowsFromRequestExample(unusedRequestExample, parameters, scenarioInfo)
-
+                val rows = parsedInlineExamples.rows()
                 val updatedExamples: List<Examples> = listOf(
                     Examples(
                         rows.first().columnNames,
@@ -1054,62 +1102,73 @@ class OpenApiSpecification(
                 scenarioInfo
         }
 
-        return NoBodyExampleUpdate(
-            additionalInlineExamples = examplesOfResponseThatReturnsNoValues,
-            updatedScenarioInfos = updatedScenarioInfos
-        )
+        return NoBodyExampleUpdate(updatedScenarioInfos = updatedScenarioInfos)
     }
 
-    private fun getRowsFromRequestExample(
-        requestExample: Map<String, List<HttpRequest>>,
+    private fun parseRequestOnlyInlineExamples(
+        requestExamples: Map<String, List<HttpRequest>>,
         parameters: List<Parameter>,
-        scenarioInfo: ScenarioInfo
-    ): List<Row> {
-        return requestExample.flatMap { (key, requests) ->
+        noBodyScenarioInfo: ScenarioInfo?,
+        noBodyResponse: HttpResponse?
+    ): ParsedInlineExamples {
+        val parsedExamples = requestExamples.flatMap { (key, requests) ->
             requests.map { request ->
-                val paramExamples = (request.headers + request.queryParams.asMap()).toList()
-                val pathParameterExamples = try {
-                    serializedParameterExamples(
-                        parameters,
-                        key,
-                        scenarioInfo.httpRequestPattern.nestedObjectQueryParamsByName(),
-                        scenarioInfo.httpRequestPattern.httpQueryParamPattern.queryPatterns,
-                        CollectorContext()
-                    )
-                        .mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
-                } catch (_: Exception) {
+                val requestExamplesForRow = if (noBodyScenarioInfo != null && noBodyResponse != null) {
+                    rowValuesFromRequestExample(request, parameters, key, noBodyScenarioInfo)
+                } else {
                     emptyMap()
-                }.entries.map { it.key to it.value }
+                }
+                val canUseNoBodyResponse = noBodyScenarioInfo != null && noBodyResponse != null
 
-
-                val allExamples = if (scenarioInfo.httpRequestPattern.body is NoBodyPattern) {
-                    paramExamples + pathParameterExamples
-                } else
-                    listOf("(REQUEST-BODY)" to request.body.toStringLiteral()) + paramExamples
-                Row(
+                ParsedInlineExample(
                     name = key,
-                    columnNames = allExamples.map { it.first },
-                    values = allExamples.map { it.second }
+                    requestExamples = requestExamplesForRow,
+                    scenarioStubs = listOf(
+                        ScenarioStub(
+                            request = request,
+                            response = noBodyResponse ?: HttpResponse(),
+                            exampleType = ExampleType.INLINE
+                        )
+                    ),
+                    exactResponseExample = null,
+                    requestExampleForRow = request,
+                    responseExampleForRow = null,
+                    storeInRows = canUseNoBodyResponse,
+                    storeInInlineExamples = canUseNoBodyResponse,
+                    missingResponseExample = true
                 )
             }
         }
+
+        return ParsedInlineExamples(parsedExamples)
     }
 
-    private fun collateExamplesForExpectations(
-        requestExamples: Map<String, List<HttpRequest>>,
-        responseExamplesList: List<Map<String, HttpResponse>>
-    ): List<NamedStub> {
-        return responseExamplesList.flatMap { responseExamples ->
-            responseExamples.filter { (key, responseExample) ->
-                key in requestExamples
-                        && responseExample.status != HttpStatusCode.MethodNotAllowed.value
-                        && responseExample.status != HttpStatusCode.UnsupportedMediaType.value
-            }.map { (key, responseExample) ->
-                requestExamples.getValue(key).map { request ->
-                    NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
-                }
-            }
-        }.flatten()
+    private fun rowValuesFromRequestExample(
+        request: HttpRequest,
+        parameters: List<Parameter>,
+        exampleName: String,
+        scenarioInfo: ScenarioInfo
+    ): Map<String, Any?> {
+        val paramExamples = (request.headers + request.queryParams.asMap()).toList()
+        val pathParameterExamples = try {
+            serializedParameterExamples(
+                parameters,
+                exampleName,
+                scenarioInfo.httpRequestPattern.nestedObjectQueryParamsByName(),
+                scenarioInfo.httpRequestPattern.httpQueryParamPattern.queryPatterns,
+                CollectorContext()
+            )
+                .mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
+        } catch (_: Exception) {
+            emptyMap()
+        }.entries.map { it.key to it.value }
+
+        val rowValues = if (scenarioInfo.httpRequestPattern.body is NoBodyPattern) {
+            paramExamples + pathParameterExamples
+        } else
+            listOf("(REQUEST-BODY)" to request.body.toStringLiteral()) + paramExamples
+
+        return rowValues.toMap()
     }
 
     private fun mergeRequestExamples(examplesList: List<Map<String, List<HttpRequest>>>): Map<String, List<HttpRequest>> {
@@ -1241,7 +1300,7 @@ class OpenApiSpecification(
             }
         }
 
-    private fun testRowsFromExamples(
+    private fun parseInlineExamples(
         responseExamples: Map<String, HttpResponse>,
         requestExampleAsHttpRequests: Map<String, List<HttpRequest>>,
         operation: Operation,
@@ -1250,13 +1309,12 @@ class OpenApiSpecification(
         first2xxResponseStatus: Int?,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
         effectiveQueryPatterns: Map<String, Pattern> = emptyMap()
-    ): List<Row> {
+    ): ParsedInlineExamples {
 
-        return responseExamples.mapNotNull { (exampleName, responseExample) ->
-            if (responseExample.status == HttpStatusCode.MethodNotAllowed.value || responseExample.status == HttpStatusCode.UnsupportedMediaType.value) {
-                return@mapNotNull null
-            }
-
+        val parsedExamples = responseExamples.map { (exampleName, responseExample) ->
+            val undeclaredRequestVariantResponseExample =
+                responseExample.status == HttpStatusCode.MethodNotAllowed.value ||
+                        responseExample.status == HttpStatusCode.UnsupportedMediaType.value
             val parameterExamples: Map<String, Any> = serializedParameterExamples(parameters, exampleName, nestedObjectQueryParamsByName, effectiveQueryPatterns, CollectorContext())
 
             val requestBodyExample: Map<String, Any> =
@@ -1267,7 +1325,9 @@ class OpenApiSpecification(
                 else key to value
             }.toMap().ifEmpty { mapOf(SPECMATIC_TEST_WITH_NO_REQ_EX to "") }
 
-            if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX)) {
+            val missingRequestExample = requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX)
+
+            if (missingRequestExample && !undeclaredRequestVariantResponseExample) {
                 if (strictMode) {
                     throw ContractException(missingRequestExampleErrorMessageForTest(exampleName))
                 }
@@ -1275,7 +1335,6 @@ class OpenApiSpecification(
                     // TODO: Collect as warning
                     if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
                         logger.log(missingRequestExampleErrorMessageForTest(exampleName))
-                    return@mapNotNull null
                 }
             }
 
@@ -1288,20 +1347,30 @@ class OpenApiSpecification(
                         null
                 }
 
-            Row(
-                requestExamples.keys.toList().map { keyName: String -> keyName },
-                requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
-                    .map { valueString: String ->
-                        if (valueString.contains("externalValue")) {
-                            ObjectMapper().readValue(valueString, Map::class.java).values.first().toString()
-                        } else valueString
-                    },
+            val requestExamplesAsHttpRequests = requestExampleAsHttpRequests[exampleName].orEmpty()
+            val scenarioStubs = requestExamplesAsHttpRequests
+                .map { request -> ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE) }
+                .ifEmpty { listOf(ScenarioStub(response = responseExample, exampleType = ExampleType.INLINE)) }
+            val hasConcreteRequestExample = requestExamplesAsHttpRequests.isNotEmpty()
+            val storeInRows =
+                !undeclaredRequestVariantResponseExample &&
+                        (!missingRequestExample || responseExample.status == first2xxResponseStatus)
+
+            ParsedInlineExample(
                 name = exampleName,
-                exactResponseExample = if(resolvedResponseExample != null && responseExample.isNotEmpty()) resolvedResponseExample else null,
-                requestExample = requestExampleAsHttpRequests[exampleName]?.first(),
-                responseExample = responseExample
+                requestExamples = requestExamples,
+                scenarioStubs = scenarioStubs,
+                exactResponseExample = resolvedResponseExample,
+                requestExampleForRow = requestExamplesAsHttpRequests.firstOrNull(),
+                responseExampleForRow = responseExample.takeUnless { undeclaredRequestVariantResponseExample },
+                storeInRows = storeInRows,
+                storeInInlineExamples = !undeclaredRequestVariantResponseExample && hasConcreteRequestExample,
+                missingRequestExample = missingRequestExample,
+                undeclaredRequestVariantResponseExample = undeclaredRequestVariantResponseExample
             )
         }
+
+        return ParsedInlineExamples(parsedExamples)
     }
 
     data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?) {

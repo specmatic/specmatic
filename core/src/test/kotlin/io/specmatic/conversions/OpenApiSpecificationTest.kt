@@ -8381,8 +8381,9 @@ paths:
 
     @Test
     fun `check that a console warning is printed when a named response example for 4xx has no corresponding named request example`() {
+        lateinit var feature: Feature
         val (stdout, _) = captureStandardOutput {
-            OpenApiSpecification.fromYAML(
+            feature = OpenApiSpecification.fromYAML(
                 """
                     ---
                     openapi: "3.0.1"
@@ -8422,12 +8423,16 @@ paths:
         val exampleName = "SUCCESSFUL_API_CALL"
         assertThat(stdout)
             .contains("Ignoring response example named $exampleName for test or stub data, because no associated request example named $exampleName was found.")
+        assertThat(feature.inlineNamedStubs).isEmpty()
+        assertThat(feature.scenarios.flatMap { it.examples }.flatMap { it.rows }.map { it.name })
+            .doesNotContain(exampleName)
     }
 
     @Test
     fun `check that a console warning is printed when a named request example has no corresponding named response example`() {
+        lateinit var feature: Feature
         val (stdout, _) = captureStandardOutput {
-            OpenApiSpecification.fromYAML(
+            feature = OpenApiSpecification.fromYAML(
                 """
                     ---
                     openapi: "3.0.1"
@@ -8469,6 +8474,9 @@ paths:
 
         assertThat(stdout)
             .contains("WARNING: Ignoring request example named $exampleName for test or stub data, because no associated response example named $exampleName was found.")
+        assertThat(feature.inlineNamedStubs).isEmpty()
+        assertThat(feature.scenarios.flatMap { it.examples }.flatMap { it.rows }.map { it.name })
+            .doesNotContain(exampleName)
     }
 
     @Test
@@ -8747,6 +8755,54 @@ components:
     }
 
     @Test
+    fun `matching inline request and response examples are attached to scenario rows as stubs`() {
+        val spec = """
+        ---
+        openapi: "3.0.1"
+        info:
+          title: "Product API"
+          version: "1"
+        paths:
+          /products:
+            post:
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                    examples:
+                      SUCCESSFUL_API_CALL:
+                        value:
+                          id: 10
+              responses:
+                200:
+                  description: "product"
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                      examples:
+                        SUCCESSFUL_API_CALL:
+                          value:
+                            id: 10
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val row = feature.scenarios.single().examples.single().rows.single()
+        val scenarioStub = row.scenarioStub ?: fail("Expected inline example row to have a scenario stub")
+
+        assertThat(scenarioStub.request.body).isEqualTo(parsedJSONObject("""{"id":10}"""))
+        assertThat(scenarioStub.response.body).isEqualTo(parsedJSONObject("""{"id":10}"""))
+        assertThat(feature.inlineNamedStubs.single().stub).isEqualTo(scenarioStub)
+    }
+
+    @Test
     fun `missing request example should still pick up valid 2xx response example`() {
         val spec = """
         ---
@@ -8769,9 +8825,12 @@ components:
                         SUCCESSFUL_API_CALL:
                           value: "all persons"
         """.trimIndent()
-        val name =
-            OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().examples.single().rows.single().name
-        assertThat(name).isEqualTo("SUCCESSFUL_API_CALL")
+        val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val row = feature.scenarios.single().examples.single().rows.single()
+
+        assertThat(row.name).isEqualTo("SUCCESSFUL_API_CALL")
+        assertThat(row.scenarioStub).isNull()
+        assertThat(feature.inlineNamedStubs).isEmpty()
     }
 
     @Test
@@ -14057,6 +14116,11 @@ paths:
 
         var matchedExampleRequest = false
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
+        val row = feature.scenarios.single().examples.single().rows.single()
+        val scenarioStub = row.scenarioStub ?: fail("Expected no-body request example row to have a scenario stub")
+
+        assertThat(feature.inlineNamedStubs.single().stub).isEqualTo(scenarioStub)
+
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 if (request.method == "DELETE" && request.path == "/tasks/task-10" && request.queryParams.asMap()["dryRun"] == "false" && request.headers["X-Mode"] == "batch") {
