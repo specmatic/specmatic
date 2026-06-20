@@ -3,7 +3,7 @@ package io.specmatic.conversions
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.NestedObjectQueryParam
 import io.specmatic.core.ObjectQueryRoot
-import io.specmatic.core.QueryParameterCollisionOwnerKind
+import io.specmatic.core.QueryParameterSourceKind
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.QueryParameter
 
@@ -39,7 +39,7 @@ internal fun OpenApiSpecification.nestedObjectRootPropertyEntries(
             source = QueryParameterPatternSource(
                 parameterName = parameter.name,
                 propertyName = propertyName,
-                kind = QueryParameterCollisionOwnerKind.NestedObjectProperty
+                kind = QueryParameterSourceKind.NestedObjectProperty
             ),
             collectorContext = propertyContext,
             pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" }

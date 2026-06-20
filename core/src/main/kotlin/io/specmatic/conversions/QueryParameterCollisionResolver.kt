@@ -1,11 +1,9 @@
 package io.specmatic.conversions
 
 import io.specmatic.conversions.lenient.CollectorContext
-import io.specmatic.core.FormExplodedObjectQueryParam
-import io.specmatic.core.NestedObjectQueryParam
-import io.specmatic.core.QueryParameterCollisionGroup
-import io.specmatic.core.QueryParameterCollisionOwner
-import io.specmatic.core.QueryParameterCollisionOwnerKind
+import io.specmatic.core.QueryParameterRuntimeEntry
+import io.specmatic.core.QueryParameterRuntimeSource
+import io.specmatic.core.QueryParameterSourceKind
 import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.QueryParameterArrayPattern
@@ -15,10 +13,10 @@ import io.specmatic.core.pattern.resolvedHop
 internal data class QueryParameterPatternSource(
     val parameterName: String,
     val propertyName: String? = null,
-    val kind: QueryParameterCollisionOwnerKind = if (propertyName == null) {
-        QueryParameterCollisionOwnerKind.ScalarParameter
+    val kind: QueryParameterSourceKind = if (propertyName == null) {
+        QueryParameterSourceKind.ScalarParameter
     } else {
-        QueryParameterCollisionOwnerKind.FormExplodedObjectProperty
+        QueryParameterSourceKind.FormExplodedObjectProperty
     }
 ) {
     val displayName: String = propertyName?.let { "$parameterName.$it" } ?: parameterName
@@ -33,62 +31,30 @@ internal data class QueryParameterPatternEntry(
     val pointer: String? = null
 )
 
-internal data class QueryParameterCollisionResolution(
-    val effectiveEntries: List<QueryParameterPatternEntry>,
-    val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam>,
-    val nestedObjectQueryParams: List<NestedObjectQueryParam>,
-    val collisionGroupsByWireKey: Map<String, QueryParameterCollisionGroup>
-)
-
-internal fun resolveQueryParameterCollisions(
-    entries: List<QueryParameterPatternEntry>,
-    collisionEntries: List<QueryParameterPatternEntry> = entries,
-    formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam>,
-    nestedObjectQueryParams: List<NestedObjectQueryParam>,
-    patterns: Map<String, Pattern>
-): QueryParameterCollisionResolution {
-    val collisionEntriesByWireKey = collisionEntries.groupBy(QueryParameterPatternEntry::wireKey).filterValues { it.size > 1 }
-    val collisionGroupsByWireKey = collisionEntriesByWireKey.mapValues { (wireKey, collidingEntries) ->
-        toQueryParameterCollisionGroup(wireKey, collidingEntries)
-    }
-
-    collisionEntriesByWireKey.forEach { (_, collidingEntries) ->
-        recordQueryParameterTypeCollisionIfNeeded(collidingEntries, patterns)
-    }
-
-    val authoritativeEntriesByWireKey = collisionEntriesByWireKey.mapValues { (_, entries) -> entries.last() }
-    val effectiveEntries = entries.filter { entry ->
-        authoritativeEntriesByWireKey[entry.wireKey]?.let { it == entry } ?: true
-    }
-
-    return QueryParameterCollisionResolution(
-        effectiveEntries = effectiveEntries,
-        formExplodedObjectQueryParams = formExplodedObjectQueryParams,
-        nestedObjectQueryParams = nestedObjectQueryParams,
-        collisionGroupsByWireKey = collisionGroupsByWireKey
-    )
-}
-
-private fun toQueryParameterCollisionGroup(wireKey: String, entries: List<QueryParameterPatternEntry>): QueryParameterCollisionGroup {
-    val owners = entries.map(::toQueryParameterCollisionOwner)
-    return QueryParameterCollisionGroup(
+internal fun QueryParameterPatternEntry.toRuntimeEntry(): QueryParameterRuntimeEntry {
+    return QueryParameterRuntimeEntry(
+        key = key,
         wireKey = wireKey,
-        owners = owners,
-        authoritativeOwner = owners.last()
+        pattern = pattern,
+        source = QueryParameterRuntimeSource(
+            parameterName = source.parameterName,
+            propertyName = source.propertyName,
+            kind = source.kind
+        ),
+        pointer = pointer
     )
 }
 
-private fun toQueryParameterCollisionOwner(entry: QueryParameterPatternEntry): QueryParameterCollisionOwner {
-    return QueryParameterCollisionOwner(
-        wireKey = entry.wireKey,
-        sourceName = entry.source.displayName,
-        kind = entry.source.kind,
-        pattern = entry.pattern,
-        required = !entry.key.endsWith("?"),
-        parameterName = entry.source.parameterName,
-        propertyName = entry.source.propertyName,
-        pointer = entry.pointer
-    )
+internal fun recordQueryParameterTypeCollisions(
+    entries: List<QueryParameterPatternEntry>,
+    patterns: Map<String, Pattern>
+) {
+    entries.groupBy(QueryParameterPatternEntry::wireKey)
+        .filterValues { it.size > 1 }
+        .values
+        .forEach { collidingEntries ->
+            recordQueryParameterTypeCollisionIfNeeded(collidingEntries, patterns)
+        }
 }
 
 private fun recordQueryParameterTypeCollisionIfNeeded(entries: List<QueryParameterPatternEntry>, patterns: Map<String, Pattern>) {

@@ -747,8 +747,10 @@ class OpenApiSpecification(
                 additionalProperties = existingQueryParamPattern.additionalProperties,
                 extensibleQueryParams = existingQueryParamPattern.extensibleQueryParams,
                 formExplodedObjectQueryParams = existingQueryParamPattern.formExplodedObjectQueryParams,
+                nestedObjectQueryParams = existingQueryParamPattern.nestedObjectQueryParams,
                 parameterPointers = existingQueryParamPattern.parameterPointers,
-                collisionGroupsByWireKey = existingQueryParamPattern.collisionGroupsByWireKey
+                queryParameterEntries = existingQueryParamPattern.queryParameterEntries,
+                queryParameterOwnershipEntries = existingQueryParamPattern.queryParameterOwnershipEntries
             )
 
             val httpRequestPattern = openApiScenario.httpRequestPattern.copy(
@@ -3411,18 +3413,14 @@ class OpenApiSpecification(
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
         val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
         val nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam)
-        val collisionEntries = parsedQueryParameters.flatMap { it.entries + it.nestedObjectPropertyEntries }
-        val collisionResolution = resolveQueryParameterCollisions(
-            entries = queryPatternEntries,
-            collisionEntries = collisionEntries,
-            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
-            nestedObjectQueryParams = nestedObjectQueryParams,
-            patterns = patterns
-        )
+        val ownershipEntries = parsedQueryParameters.flatMap { it.entries + it.nestedObjectPropertyEntries }
+        recordQueryParameterTypeCollisions(ownershipEntries, patterns)
 
-        val queryPattern: Map<String, Pattern> = collisionResolution.effectiveEntries.associate { it.key to it.pattern }
-        val queryParameterPointers = parameterPointers + collisionResolution.effectiveEntries.mapNotNull { entry ->
-            entry.pointer?.let { pointer -> entry.wireKey to pointer }
+        val runtimeEntries = queryPatternEntries.map(QueryParameterPatternEntry::toRuntimeEntry)
+        val runtimeOwnershipEntries = ownershipEntries.map(QueryParameterPatternEntry::toRuntimeEntry)
+        val queryPattern = effectiveQueryPatternsFor(runtimeEntries, runtimeOwnershipEntries)
+        val queryParameterPointers = parameterPointers + runtimeOwnershipEntries.associateBy { it.wireKey }.mapNotNull { (wireKey, entry) ->
+            entry.pointer?.let { pointer -> wireKey to pointer }
         }
 
         val additionalProperties = additionalPropertiesInQueryParam(parsedQueryParameters)
@@ -3430,10 +3428,11 @@ class OpenApiSpecification(
             queryPattern,
             additionalProperties,
             extensibleQueryParams = extensibleQueryParams,
-            formExplodedObjectQueryParams = collisionResolution.formExplodedObjectQueryParams,
-            nestedObjectQueryParams = collisionResolution.nestedObjectQueryParams,
+            formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
+            nestedObjectQueryParams = nestedObjectQueryParams,
             parameterPointers = queryParameterPointers,
-            collisionGroupsByWireKey = collisionResolution.collisionGroupsByWireKey
+            queryParameterEntries = runtimeEntries,
+            queryParameterOwnershipEntries = runtimeOwnershipEntries
         )
     }
 
