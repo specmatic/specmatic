@@ -1131,7 +1131,7 @@ class OpenApiSpecification(
                         )
                     ),
                     exactResponseExample = null,
-                    requestExampleForRow = request,
+                    requestExampleForRow = null,
                     responseExampleForRow = null,
                     storeInRows = canUseNoBodyResponse,
                     storeInInlineExamples = canUseNoBodyResponse,
