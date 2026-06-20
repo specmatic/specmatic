@@ -875,16 +875,6 @@ class OpenApiSpecification(
                         recordMethodNotAllowedResponseWithoutDisallowedMethod(methodContext, httpMethod, openApiPath, methodsForPath, it)
                     }
 
-                    val first2xxResponseStatus =
-                        httpResponsePatterns.filter { it.responsePattern.status.toString().startsWith("2") }
-                            .minOfOrNull { it.responsePattern.status }
-
-                    val firstNoBodyResponseStatus =
-                        httpResponsePatterns.filter { it.responsePattern.body is NoBodyPattern }
-                            .minOfOrNull { it.responsePattern.status }
-
-                    val httpResponsePatternsGrouped = httpResponsePatterns.groupBy { it.responsePattern.status }
-
                     val httpRequestPatterns: List<RequestPatternsData> =
                         attempt("In $httpMethod $openApiPath request") {
                             toHttpRequestPatterns(
@@ -908,6 +898,8 @@ class OpenApiSpecification(
                         methodsForPath = methodsForPath,
                         requestContentTypesForOperation = requestMediaTypes.filterNotNull().toSet()
                     )
+
+                    val httpResponsePatternsGrouped = httpResponsePatterns.groupBy { it.responsePattern.status }
 
                     val requestResponsePairs = httpResponsePatternsGrouped.flatMap { (status, responses) ->
                         val responsesGrouped = responses.groupBy {
@@ -984,6 +976,14 @@ class OpenApiSpecification(
                     }
 
                     val requestExamples = mergeRequestExamples(httpRequestPatterns.map { it.examples })
+
+                    val first2xxResponseStatus =
+                        httpResponsePatterns.filter { it.responsePattern.status.toString().startsWith("2") }
+                            .minOfOrNull { it.responsePattern.status }
+
+                    val firstNoBodyResponseStatus =
+                        httpResponsePatterns.filter { it.responsePattern.body is NoBodyPattern }
+                            .minOfOrNull { it.responsePattern.status }
 
                     val parsedInlineExamples = parseInlineExamples(
                         scenarioContexts = inlineExampleScenarioContexts,
