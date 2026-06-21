@@ -953,8 +953,6 @@ class OpenApiSpecification(
                         )
                     }
 
-                    val requestExamples = mergeRequestExamples(httpRequestPatterns.map { it.examples })
-
                     val first2xxResponseStatus =
                         httpResponsePatterns.filter { it.responsePattern.status.toString().startsWith("2") }
                             .minOfOrNull { it.responsePattern.status }
@@ -965,7 +963,6 @@ class OpenApiSpecification(
 
                     val parsedInlineExamples = parseInlineExamples(
                         scenarioContexts = inlineExampleScenarioContexts,
-                        requestExamples = requestExamples,
                         first2xxResponseStatus = first2xxResponseStatus,
                         firstNoBodyResponseStatus = firstNoBodyResponseStatus
                     )
@@ -1021,13 +1018,6 @@ class OpenApiSpecification(
             parameter.`$ref` != null -> "ref:${parameter.`$ref`}"
             else -> "index:$index"
         }
-    }
-
-    private fun mergeRequestExamples(examplesList: List<Map<String, List<HttpRequest>>>): Map<String, List<HttpRequest>> {
-        return examplesList
-            .flatMap { it.entries }
-            .groupBy(keySelector = { it.key }, valueTransform = { it.value })
-            .mapValues { (_, groupedRequests) -> groupedRequests.flatten() }
     }
 
     private fun scenarioName(
@@ -1141,7 +1131,6 @@ class OpenApiSpecification(
 
     private fun parseInlineExamples(
         scenarioContexts: List<InlineExampleScenarioContext>,
-        requestExamples: Map<String, List<HttpRequest>>,
         first2xxResponseStatus: Int?,
         firstNoBodyResponseStatus: Int?
     ): ParsedInlineExamples {
@@ -1166,7 +1155,11 @@ class OpenApiSpecification(
             )
         }
 
-        val exampleNames = (responseExamplesByName.keys + requestExamples.keys).distinct()
+        val requestExampleNames = scenarioContexts
+            .flatMap { scenarioContext -> scenarioContext.requestExamples.keys }
+            .toSet()
+
+        val exampleNames = (responseExamplesByName.keys + requestExampleNames).distinct()
 
         val parsedExamples: List<ParsedInlineExampleForScenario> = exampleNames.flatMap { exampleName ->
             val parsedResponseExamples: List<ParsedInlineExampleForScenario> = responseExamplesByName[exampleName].orEmpty()
@@ -1174,18 +1167,17 @@ class OpenApiSpecification(
                     parseInlineExampleWithResponse(responseExampleContext, first2xxResponseStatus)
                 }
 
-            val responseInlineExamples = parsedResponseExamples.flatMap { it.parsedExample.toNamedStubs() }
+            val responseBackedInlineExampleExists =
+                parsedResponseExamples.any { it.parsedExample.toNamedStubs().isNotEmpty() }
 
             val parsedRequestOnlyExamples: List<ParsedInlineExampleForScenario> =
-                if (exampleName in requestExamples && responseInlineExamples.isEmpty()) {
-                    requestExamples.getValue(exampleName).mapNotNull { request ->
-                        requestOnlyNoBodyInlineExample(
-                            exampleName,
-                            request,
-                            noBodyScenarioContext,
-                            noBodyResponse
-                        )
-                    }
+                if (!responseBackedInlineExampleExists) {
+                    requestOnlyNoBodyInlineExamples(
+                        exampleName = exampleName,
+                        scenarioContexts = scenarioContexts,
+                        noBodyScenarioContext = noBodyScenarioContext,
+                        noBodyResponse = noBodyResponse
+                    )
                 } else {
                     emptyList()
                 }
@@ -1206,9 +1198,27 @@ class OpenApiSpecification(
         return ParsedInlineExamples(
             scenarioInfos = scenarioInfos,
             inlineExamples = inlineExamples,
-            unusedRequestExampleNames = requestExamples.keys - inlineExamples.map { it.name }.toSet()
+            unusedRequestExampleNames = requestExampleNames - inlineExamples.map { it.name }.toSet()
         )
     }
+
+    private fun requestOnlyNoBodyInlineExamples(
+        exampleName: String,
+        scenarioContexts: List<InlineExampleScenarioContext>,
+        noBodyScenarioContext: InlineExampleScenarioContext?,
+        noBodyResponse: HttpResponse?
+    ): List<ParsedInlineExampleForScenario> =
+        scenarioContexts
+            .flatMap { scenarioContext -> scenarioContext.requestExamples[exampleName].orEmpty() }
+            .distinct()
+            .mapNotNull { request ->
+                requestOnlyNoBodyInlineExample(
+                    exampleName,
+                    request,
+                    noBodyScenarioContext,
+                    noBodyResponse
+                )
+            }
 
     private fun parsedRowsToExamples(parsedExamples: List<ParsedInlineExampleForScenario>): List<Examples> {
         val rows = parsedExamples.flatMap { it.parsedExample.toRows(specmaticConfig) }
