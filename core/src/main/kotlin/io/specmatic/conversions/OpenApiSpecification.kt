@@ -1190,19 +1190,6 @@ class OpenApiSpecification(
         }
     }
 
-    private fun rowsToExamples(specmaticExampleRows: List<Row>): List<Examples> =
-        when (specmaticExampleRows) {
-            emptyList<Row>() -> emptyList()
-            else -> {
-                val examples = Examples(
-                    specmaticExampleRows.first().columnNames,
-                    specmaticExampleRows
-                )
-
-                listOf(examples)
-            }
-        }
-
     private fun parseInlineExamples(
         scenarioContexts: List<InlineExampleScenarioContext>,
         requestExamples: Map<String, List<HttpRequest>>,
