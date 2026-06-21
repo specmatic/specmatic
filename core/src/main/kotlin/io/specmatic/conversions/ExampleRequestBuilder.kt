@@ -3,8 +3,12 @@ package io.specmatic.conversions
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.MultiPartContentValue
+import io.specmatic.core.MultiPartFileValue
+import io.specmatic.core.MultiPartFormDataValue
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.value.JSONObjectValue
 
 class ExampleRequestBuilder(
     examplePathParams: Map<String, Map<String, String>>,
@@ -75,6 +79,36 @@ class ExampleRequestBuilder(
         return examplesWithFormFields + examplesWithoutFormFields
     }
 
+    fun examplesWithMultiPartFormData(exampleFormFields: Map<String, Map<String, String>>, contentType: String): Map<String, List<HttpRequest>> {
+        val examplesWithMultiPartFormData: Map<String, List<HttpRequest>> = exampleFormFields.mapValues { (exampleName, formFields) ->
+            val multiPartFormData = formFields.map { (partName, partValue) ->
+                multiPartFormDataValue(partName, partValue)
+            }
+
+            if (exampleName in examplesBasedOnParameters) {
+                examplesBasedOnParameters.getValue(exampleName).map { exampleRequest ->
+                    exampleRequest.withMultiPartFormData(multiPartFormData, contentType)
+                }
+            } else {
+                val httpRequest = HttpRequest(
+                    method = httpMethod,
+                    path = httpPathPattern.toInternalPath(),
+                    headers = mapOf(CONTENT_TYPE to contentType),
+                    multiPartFormData = multiPartFormData
+                )
+
+                securitySchemes.map { securityScheme ->
+                    securityScheme.addTo(httpRequest)
+                }
+            }
+        }
+
+        val examplesWithoutMultiPartFormData = (examplesBasedOnParameters.keys - exampleFormFields.keys)
+            .associateWith { key -> examplesBasedOnParameters.getValue(key) }
+
+        return examplesWithMultiPartFormData + examplesWithoutMultiPartFormData
+    }
+
     private val unionOfParameterKeys =
         (exampleQueryParams.keys + examplePathParams.keys + exampleHeaderParams.keys).distinct()
 
@@ -109,6 +143,30 @@ private fun HttpRequest.withFormFields(formFields: Map<String, String>, contentT
         formFields = formFields,
         body = NoBodyValue
     )
+}
+
+private fun HttpRequest.withMultiPartFormData(multiPartFormData: List<MultiPartFormDataValue>, contentType: String): HttpRequest {
+    val contentTypeHeader = if (headers.keys.any { it.equals(CONTENT_TYPE, ignoreCase = true) }) {
+        emptyMap()
+    } else {
+        mapOf(CONTENT_TYPE to contentType)
+    }
+
+    return copy(
+        headers = headers + contentTypeHeader,
+        multiPartFormData = multiPartFormData,
+        body = NoBodyValue
+    )
+}
+
+private fun multiPartFormDataValue(partName: String, partValue: String): MultiPartFormDataValue {
+    val parsedPartValue = parsedValue(partValue)
+    val externalValue = (parsedPartValue as? JSONObjectValue)?.jsonObject?.get("externalValue")?.toStringLiteral()
+
+    return when {
+        externalValue != null -> MultiPartFileValue(partName, externalValue)
+        else -> MultiPartContentValue(partName, parsedPartValue)
+    }
 }
 
 private fun toConcretePath(

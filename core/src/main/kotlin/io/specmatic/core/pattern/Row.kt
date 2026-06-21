@@ -175,12 +175,24 @@ data class Row(
         val headers = request.headers
         val queryParams = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
         val formFields = request.formFields
+        val multiPartFields = request.multiPartFormData.associate { part ->
+            when (part) {
+                is MultiPartContentValue -> part.name to part.content.toRowLiteral()
+                is MultiPartFileValue -> "${part.name}_filename" to part.filename
+            }
+        }
         val bodyEntry = if (request.body !is NoBodyValue) {
             mapOf(REQUEST_BODY_FIELD to request.body.toStringLiteral())
         } else emptyMap()
 
-        return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + formFields + bodyEntry).copy(requestExample = request)
+        return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + formFields + multiPartFields + bodyEntry).copy(requestExample = request)
     }
+
+    private fun Value.toRowLiteral(): String =
+        when (this) {
+            is JSONObjectValue -> toUnformattedStringLiteral()
+            else -> toStringLiteral()
+        }
 
     companion object {
         fun Row?.isNullOrEmpty(): Boolean {

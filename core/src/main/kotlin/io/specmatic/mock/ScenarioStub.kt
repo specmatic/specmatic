@@ -6,6 +6,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.jsonStringToValueMap
+import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.*
 import java.io.File
 import java.util.UUID
@@ -22,6 +23,12 @@ fun loadDictionary(fileName: String): Map<String,Value> {
 data class AdditionalExampleParams(
     val headers: Map<String, String>
 )
+
+enum class ScenarioStubRowProjection {
+    COMPLETE,
+    RESPONSE_ONLY,
+    REQUEST_ONLY_NO_BODY
+}
 
 data class ScenarioStub(
     val request: HttpRequest = HttpRequest(),
@@ -73,6 +80,100 @@ data class ScenarioStub(
     fun withType(type: ExampleType): ScenarioStub {
         return copy(exampleType = type)
     }
+
+    fun toRow(
+        exampleName: String,
+        scenarioInfo: ScenarioInfo,
+        projection: ScenarioStubRowProjection = ScenarioStubRowProjection.COMPLETE,
+        specmaticConfig: SpecmaticConfig = SpecmaticConfig()
+    ): Row =
+        when (projection) {
+            ScenarioStubRowProjection.COMPLETE -> toCompleteRow(exampleName, scenarioInfo, specmaticConfig)
+            ScenarioStubRowProjection.RESPONSE_ONLY -> toResponseOnlyRow(exampleName, specmaticConfig)
+            ScenarioStubRowProjection.REQUEST_ONLY_NO_BODY -> toRequestOnlyNoBodyRow(exampleName, scenarioInfo)
+        }
+
+    private fun toCompleteRow(
+        exampleName: String,
+        scenarioInfo: ScenarioInfo,
+        specmaticConfig: SpecmaticConfig
+    ): Row {
+        val response = responseElsePartialResponse()
+
+        return rowFromRequest(scenarioInfo, includeRequestBody = true)
+            .copy(
+                name = exampleName,
+                exactResponseExample = exactResponseExample(response, specmaticConfig),
+                responseExample = response,
+                scenarioStub = this
+            )
+    }
+
+    private fun toResponseOnlyRow(exampleName: String, specmaticConfig: SpecmaticConfig): Row {
+        val response = responseElsePartialResponse()
+
+        return Row(
+            columnNames = listOf(SPECMATIC_TEST_WITH_NO_REQ_EX),
+            values = listOf(""),
+            name = exampleName,
+            exactResponseExample = exactResponseExample(response, specmaticConfig),
+            responseExample = response
+        )
+    }
+
+    private fun toRequestOnlyNoBodyRow(exampleName: String, scenarioInfo: ScenarioInfo): Row =
+        rowFromRequest(scenarioInfo, includeRequestBody = false)
+            .copy(
+                name = exampleName,
+                requestExample = null,
+                responseExample = null,
+                scenarioStub = this
+            )
+
+    private fun rowFromRequest(scenarioInfo: ScenarioInfo, includeRequestBody: Boolean): Row {
+        val request = requestElsePartialRequest()
+        val headers = request.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
+        val queryParams = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
+        val formFields = request.formFields
+        val multiPartFields = request.multiPartFormData.toRowFields()
+        val resolver = Resolver(newPatterns = scenarioInfo.patterns)
+        val pathParams = scenarioInfo.httpRequestPattern.httpPathPattern
+            ?.extractPathParams(request.path.orEmpty(), resolver)
+            .orEmpty()
+            .toStringMap()
+        val bodyEntry = if (includeRequestBody && request.body != NoBodyValue && request.body != EmptyString) {
+            mapOf(REQUEST_BODY_FIELD to request.body.toRowLiteral())
+        } else {
+            emptyMap()
+        }
+
+        return Row()
+            .addFields(bodyEntry + headers + queryParams + formFields + multiPartFields + pathParams)
+            .copy(requestExample = request)
+    }
+
+    private fun List<MultiPartFormDataValue>.toRowFields(): Map<String, String> =
+        associate { part ->
+            when (part) {
+                is MultiPartContentValue -> part.name to part.content.toRowLiteral()
+                is MultiPartFileValue -> "${part.name}_filename" to part.filename
+            }
+        }
+
+    private fun Value.toRowLiteral(): String =
+        when (this) {
+            is JSONObjectValue -> toUnformattedStringLiteral()
+            else -> toStringLiteral()
+        }
+
+    private fun exactResponseExample(response: HttpResponse, specmaticConfig: SpecmaticConfig): ResponseExample? =
+        when {
+            specmaticConfig.isResponseValueValidationEnabled() && response.isNotEmpty() ->
+                ResponseValueExample(response)
+
+            else ->
+                null
+        }
 
     fun toJSON(): JSONObjectValue {
         val requestResponse: Map<String, Value> =
@@ -394,6 +495,7 @@ const val PARTIAL = "partial"
 const val ID = "id"
 const val BEFORE_FIXTURES = "before"
 const val AFTER_FIXTURES = "after"
+private const val SPECMATIC_TEST_WITH_NO_REQ_EX = "SPECMATIC-TEST-WITH-NO-REQ-EX"
 private val nonMetadataDataKeys = listOf(MOCK_HTTP_REQUEST, MOCK_HTTP_RESPONSE, PARTIAL)
 
 fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true): ScenarioStub {
