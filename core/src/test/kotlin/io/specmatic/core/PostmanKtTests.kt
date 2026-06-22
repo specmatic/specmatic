@@ -89,6 +89,56 @@ class PostmanKtTests {
     }
 
     @Test
+    fun `should retain an explicit non-default port in the base URL`() {
+        val postmanJSON = """{
+                "method": "POST",
+                "header": [
+                ],
+                "url": {
+                    "raw": "https://localhost:8080/path"
+                }
+            }""".trimIndent()
+
+        val request = postmanItemRequest(parsedJSON(postmanJSON) as JSONObjectValue)
+
+        assertThat(request.first).isEqualTo("https://localhost:8080")
+        assertThat(request.second.path).isEqualTo("/path")
+    }
+
+    @Test
+    fun `should omit an explicit default port from the base URL`() {
+        val postmanJSON = """{
+                "method": "POST",
+                "header": [
+                ],
+                "url": {
+                    "raw": "https://localhost:443/path"
+                }
+            }""".trimIndent()
+
+        val request = postmanItemRequest(parsedJSON(postmanJSON) as JSONObjectValue)
+
+        assertThat(request.first).isEqualTo("https://localhost")
+    }
+
+    @Test
+    fun `should convert an http Postman request`() {
+        val postmanJSON = """{
+                "method": "POST",
+                "header": [
+                ],
+                "url": {
+                    "raw": "http://localhost/path"
+                }
+            }""".trimIndent()
+
+        val request = postmanItemRequest(parsedJSON(postmanJSON) as JSONObjectValue)
+
+        assertThat(request.first).isEqualTo("http://localhost")
+        assertThat(request.second.path).isEqualTo("/path")
+    }
+
+    @Test
     fun `should convert a Postman request with headers`() {
         val postmanJSON = """{
                 "method": "POST",
