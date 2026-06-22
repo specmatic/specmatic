@@ -636,6 +636,16 @@ internal class ProxyTest {
             assertThat(proxy.isFullURL("/pets")).isFalse()
         }
     }
+
+    @Test
+    fun `isFullURL should recognise absolute URLs whose host java net URI cannot parse`() {
+        Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use { proxy ->
+            // Hosts such as Docker/k8s service names contain underscores, which URI.host rejects (returns null)
+            // even though the URL is reachable. These must still be treated as absolute and routed as-is.
+            assertThat(proxy.isFullURL("http://backend_service/pets")).isTrue()
+            assertThat(proxy.isFullURL("https://contract_service:8080/pets")).isTrue()
+        }
+    }
 }
 
 class FakeFileWriter private constructor(

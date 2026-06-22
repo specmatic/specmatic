@@ -347,6 +347,27 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `resolveSpecFile should derive the cache host from the authority when URI host is null`(@TempDir tempDir: File) {
+        // Hosts such as "contract_service" make URI.host null; the host must be recovered from the authority
+        // so the spec is cached under web/contract_service/... rather than web/null/...
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
+
+        val originalConfigPath = System.getProperty(CONFIG_FILE_PATH)
+        try {
+            System.setProperty(CONFIG_FILE_PATH, configFile.canonicalPath)
+
+            val resolved = Source(provider = web).resolveSpecFile("http://contract_service/specifications/spec1.yaml")
+
+            assertThat(resolved).isEqualTo(
+                tempDir.resolve("web").resolve("contract_service").resolve("specifications/spec1.yaml").canonicalFile
+            )
+        } finally {
+            if (originalConfigPath != null) System.setProperty(CONFIG_FILE_PATH, originalConfigPath)
+            else System.clearProperty(CONFIG_FILE_PATH)
+        }
+    }
+
+    @Test
     fun `resolveSpecFile should fall back to a local path for a non-http web spec path`(@TempDir tempDir: File) {
         // A relative (non-URL) spec path is resolved directly under the source base directory.
         val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }

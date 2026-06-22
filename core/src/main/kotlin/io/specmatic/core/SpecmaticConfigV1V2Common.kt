@@ -1658,10 +1658,10 @@ data class Source(
             }
 
             val webUrl = runCatching { URI(specPath) }.getOrNull()
-                ?.takeIf { it.scheme.isHttpScheme() && !it.host.isNullOrBlank() }
+                ?.takeIf { it.scheme.isHttpScheme() && !it.rawAuthority.isNullOrBlank() }
 
             cachedWebSpec ?: webUrl?.let { url ->
-                sourceBaseDir.resolve("web").resolve(url.host).resolve(url.rawPath.removePrefix("/")).canonicalFile
+                sourceBaseDir.resolve("web").resolve(url.hostOrAuthority()).resolve(url.rawPath.removePrefix("/")).canonicalFile
             } ?: sourceBaseDir.resolve(specPath).canonicalFile
         }
     }

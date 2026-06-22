@@ -379,7 +379,7 @@ class Proxy(
 
     internal fun isFullURL(path: String?): Boolean =
         path != null && runCatching { URI(URLParts(path).withEncodedPathSegments()) }.getOrNull()
-            ?.let { it.scheme.isHttpScheme() && !it.host.isNullOrBlank() } == true
+            ?.let { it.scheme.isHttpScheme() && !it.rawAuthority.isNullOrBlank() } == true
 
     init {
         val initializers = ServiceLoader.load(ProxyInitializer::class.java)

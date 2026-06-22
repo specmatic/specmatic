@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.CONTRACT_EXTENSIONS
+import io.specmatic.core.hostOrAuthority
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
@@ -59,8 +60,8 @@ class WebSource(override val testContracts: List<ContractSourceEntry>, override 
         return emptyList()
     }
 
-    private fun toSpecificationPath(url: URI): String {
-        val path = url.host + "/" + url.rawPath.removePrefix("/")
+    internal fun toSpecificationPath(url: URI): String {
+        val path = url.hostOrAuthority() + "/" + url.rawPath.removePrefix("/")
         return path
     }
 
