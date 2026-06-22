@@ -48,7 +48,6 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
 import java.nio.file.Path
 import kotlin.collections.filterIsInstance
@@ -1658,8 +1657,11 @@ data class Source(
                 )
             }
 
-            cachedWebSpec ?: specPath.toHttpUrlOrNull()?.let { url ->
-                sourceBaseDir.resolve("web").resolve(url.host).resolve(url.encodedPath.removePrefix("/")).canonicalFile
+            val webUrl = runCatching { URI(specPath) }.getOrNull()
+                ?.takeIf { (it.scheme == "http" || it.scheme == "https") && !it.host.isNullOrBlank() }
+
+            cachedWebSpec ?: webUrl?.let { url ->
+                sourceBaseDir.resolve("web").resolve(url.host).resolve(url.rawPath.removePrefix("/")).canonicalFile
             } ?: sourceBaseDir.resolve(specPath).canonicalFile
         }
     }

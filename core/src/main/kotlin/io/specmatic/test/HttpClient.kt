@@ -24,7 +24,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.stub.toParams
 import kotlinx.coroutines.runBlocking
-import java.net.URL
+import java.net.URI
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPInputStream
@@ -56,7 +56,7 @@ data class HttpClient(
 ) : TestExecutor, AutoCloseable {
 
     override fun execute(request: HttpRequest): HttpResponse {
-        val url = URL(request.getURL(baseURL))
+        val url = URI(request.getURL(baseURL)).toURL()
 
         val requestWithFileContent = request.loadFileContentIntoParts()
         httpLogMessage.logStartRequestTime()
@@ -92,7 +92,7 @@ data class HttpClient(
     override fun setServerState(serverState: Map<String, Value>) {
         if (serverState.isEmpty()) return
 
-        val url = URL(baseURL + SERVER_STATE_URL)
+        val url = URI(baseURL + SERVER_STATE_URL).toURL()
 
         val startTime = Date()
 

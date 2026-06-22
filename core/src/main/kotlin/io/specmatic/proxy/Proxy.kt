@@ -29,7 +29,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.Closeable
 import java.io.File
 import java.net.URI
@@ -379,7 +378,8 @@ class Proxy(
         }
 
     private fun isFullURL(path: String?): Boolean =
-        path != null && URLParts(path).withEncodedPathSegments().toHttpUrlOrNull() != null
+        path != null && runCatching { URI(URLParts(path).withEncodedPathSegments()) }.getOrNull()
+            ?.let { (it.scheme == "http" || it.scheme == "https") && !it.host.isNullOrBlank() } == true
 
     init {
         val initializers = ServiceLoader.load(ProxyInitializer::class.java)

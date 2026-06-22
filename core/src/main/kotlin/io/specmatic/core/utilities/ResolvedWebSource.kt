@@ -4,8 +4,6 @@ import io.specmatic.core.DEFAULT_WORKING_DIRECTORY
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.File
 import java.net.URI
 
@@ -36,7 +34,7 @@ data class ResolvedWebSource(
         val resolvedPath = downloadRoot(File(workingDirectory), configFilePath)
 
         return selector.select(this).map { entry ->
-            val resolvedUrl = resolveSpecUrl(entry.path).toHttpUrl()
+            val resolvedUrl = URI.create(resolveSpecUrl(entry.path))
             val initialDownloadPath = localPathFor(resolvedPath, baseUrl, entry.path).canonicalFile
             initialDownloadPath.parentFile.mkdirs()
 
@@ -94,8 +92,8 @@ data class ResolvedWebSource(
             return root.resolve("web")
         }
 
-        private fun download(url: HttpUrl, specificationFile: File): File {
-            val connection = url.toUrl().openConnection()
+        private fun download(url: URI, specificationFile: File): File {
+            val connection = url.toURL().openConnection()
             connection.setRequestProperty("User-Agent", "Mozilla/5.0")
             connection.connect()
 

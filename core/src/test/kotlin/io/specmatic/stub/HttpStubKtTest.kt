@@ -40,10 +40,6 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.stubResponse
 import io.specmatic.test.LegacyHttpClient
 import io.specmatic.test.TestExecutor
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Disabled
@@ -321,14 +317,18 @@ Feature: Test
 "event": "features",
 "id": "332f8278",
 "data": "[{\"id\":\"b5bf7f9e-9391-40a4-8808-61ad73f800e9\",\"key\":\"FT01\",\"l\":true,\"version\":1,\"type\":\"BOOLEAN\",\"value\":true},{\"id\":\"8b6002e8-e97a-4ebe-8cae-ac68fb99fc33\",\"key\":\"FT02\",\"l\":true,\"version\":1,\"type\":\"BOOLEAN\",\"value\":false}]"
-}""".toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder().url(it.endPoint + "/_specmatic/sse-expectations").addHeader("Content-Type", "application/json").post(body).build()
-            val call = OkHttpClient().newCall(request)
-            val response = call.execute()
+}"""
+            val response = it.client.execute(
+                HttpRequest(
+                    method = "POST",
+                    path = "/_specmatic/sse-expectations",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = parsedJSON(body)
+                )
+            )
 
-            println(response.toStr())
-            println(response.body?.string())
-            assertThat(response.code).isEqualTo(200)
+            println(response.toLogString())
+            assertThat(response.status).isEqualTo(200)
         }
     }
 
