@@ -23,13 +23,7 @@ object ReportGenerator {
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
     ) {
-        val specConfigs = coverageReportSpecifications.map { it.specConfig }
-        if(isCtrfSpecConfigsValid(specConfigs).not()) return
-
-        val coverageReportOperations = coverageReportSpecifications.flatMap { it.coverageReportOperations }
-        val testResultRecords = coverageReportOperations
-            .flatMap { it.tests }
-            .distinctBy { it.id }
+        if (isCoverageReportSpecificationsValid(coverageReportSpecifications).not()) return
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
@@ -38,11 +32,7 @@ object ReportGenerator {
             put("specmaticConfigPath", getConfigFilePath())
         }
 
-        consoleLog(
-            "Generating report for ${testResultRecords.size} tests and ${coverageReportOperations.size} coverage operations..."
-        )
-
-        consoleLog("Using report generation method that accepts coverage report specifications.")
+        logCoverageReportGeneration(coverageReportSpecifications)
         val report = CtrfReportGenerator.generate(
             coverageReportSpecifications = coverageReportSpecifications,
             startTime = startTime,
@@ -93,6 +83,17 @@ object ReportGenerator {
         }
     }
 
+    private fun isCoverageReportSpecificationsValid(
+        coverageReportSpecifications: List<CoverageReportSpecification>,
+    ): Boolean {
+        if (coverageReportSpecifications.isEmpty()) {
+            consoleLog("Skipping the CTRF report generation as coverage report specifications list is empty.")
+            return false
+        }
+
+        return isCtrfSpecConfigsValid(coverageReportSpecifications.map { it.specConfig })
+    }
+
     private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
         if (specConfigs.isEmpty()) {
             consoleLog("Skipping the CTRF report generation as ctrf spec configs list is empty.")
@@ -104,4 +105,25 @@ object ReportGenerator {
         }
         return true
     }
+
+    private fun logCoverageReportGeneration(coverageReportSpecifications: List<CoverageReportSpecification>) {
+        val (totalTests, totalOperations) = coverageReportCounts(coverageReportSpecifications)
+        consoleLog(
+            "Generating report for $totalTests tests and $totalOperations coverage operations..."
+        )
+        consoleLog("Using report generation method that accepts coverage report specifications.")
+    }
+
+    private fun coverageReportCounts(
+        coverageReportSpecifications: List<CoverageReportSpecification>,
+    ): Pair<Int, Int> {
+        val coverageReportOperations = coverageReportSpecifications.flatMap { it.coverageReportOperations }
+        val totalTests = coverageReportOperations
+            .flatMap { it.tests }
+            .distinctBy { it.id }
+            .size
+
+        return totalTests to coverageReportOperations.size
+    }
+
 }
