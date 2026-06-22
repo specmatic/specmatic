@@ -26,7 +26,13 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Added
 
-- Support for running tests and mocks using examples with http status 405 or 415
+- Added support for running tests and mocks using examples with HTTP status `405 Method Not Allowed` and `415 Unsupported Media Type`, including examples loaded from externalized example files.
+- Added MCP tool-provider hooks so enterprise runs can expose their shipped tools through `specmatic mcp`.
+
+### Changed
+
+- Improved validation and diagnostics for `405` and `415` rejection examples so Specmatic now fails more clearly when examples are missing, unreachable, or tied to the wrong request method or media type.
+- Improved OpenAPI handling for undeclared request variants by using valid XML placeholders for unsupported media types and by correctly handling schemas wrapped in a single `allOf`.
 
 ## 2.47.0 (2026-06-16)
 
