@@ -6,6 +6,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import java.io.File
 import java.net.URI
+import java.net.URL
 
 data class ResolvedWebSource(
     val baseUrl: String,
@@ -34,7 +35,7 @@ data class ResolvedWebSource(
         val resolvedPath = downloadRoot(File(workingDirectory), configFilePath)
 
         return selector.select(this).map { entry ->
-            val resolvedUrl = URI.create(resolveSpecUrl(entry.path))
+            val resolvedUrl = URI.create(resolveSpecUrl(entry.path)).toURL()
             val initialDownloadPath = localPathFor(resolvedPath, baseUrl, entry.path).canonicalFile
             initialDownloadPath.parentFile.mkdirs()
 
@@ -92,8 +93,8 @@ data class ResolvedWebSource(
             return root.resolve("web")
         }
 
-        private fun download(url: URI, specificationFile: File): File {
-            val connection = url.toURL().openConnection()
+        private fun download(url: URL, specificationFile: File): File {
+            val connection = url.openConnection()
             connection.setRequestProperty("User-Agent", "Mozilla/5.0")
             connection.connect()
 
