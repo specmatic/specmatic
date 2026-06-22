@@ -35,3 +35,6 @@ class URLParts(url: String) {
 
     private fun noPathInURL() = parts.size < MIN_URL_PARTS_WHEN_PATH_EXISTS
 }
+
+// URL schemes are case-insensitive (RFC 3986), so compare them ignoring case.
+fun String?.isHttpScheme(): Boolean = equals("http", ignoreCase = true) || equals("https", ignoreCase = true)

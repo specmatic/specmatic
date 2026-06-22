@@ -624,6 +624,18 @@ internal class ProxyTest {
         }
         assertThat(resHeader).isInstanceOf(StringPattern::class.java)
     }
+
+    @Test
+    fun `isFullURL should recognise absolute URLs regardless of scheme case`() {
+        Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use { proxy ->
+            // URL schemes are case-insensitive (RFC 3986); an absolute URI must be routed
+            // to its target rather than combined with the configured base URL.
+            assertThat(proxy.isFullURL("http://example.com/pets")).isTrue()
+            assertThat(proxy.isFullURL("HTTP://example.com/pets")).isTrue()
+            assertThat(proxy.isFullURL("Https://example.com/pets")).isTrue()
+            assertThat(proxy.isFullURL("/pets")).isFalse()
+        }
+    }
 }
 
 class FakeFileWriter private constructor(

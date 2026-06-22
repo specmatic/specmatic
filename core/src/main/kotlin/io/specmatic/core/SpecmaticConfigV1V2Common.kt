@@ -1658,7 +1658,7 @@ data class Source(
             }
 
             val webUrl = runCatching { URI(specPath) }.getOrNull()
-                ?.takeIf { (it.scheme == "http" || it.scheme == "https") && !it.host.isNullOrBlank() }
+                ?.takeIf { it.scheme.isHttpScheme() && !it.host.isNullOrBlank() }
 
             cachedWebSpec ?: webUrl?.let { url ->
                 sourceBaseDir.resolve("web").resolve(url.host).resolve(url.rawPath.removePrefix("/")).canonicalFile

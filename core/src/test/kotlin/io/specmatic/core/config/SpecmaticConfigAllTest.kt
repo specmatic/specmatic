@@ -326,6 +326,27 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
+    fun `resolveSpecFile should map an absolute web spec URL with a mixed-case scheme to a host-and-path cache file`(@TempDir tempDir: File) {
+        // URL schemes are case-insensitive (RFC 3986), so HTTP and Https must be
+        // recognised the same as http and https when deriving the cache path.
+        val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
+
+        val originalConfigPath = System.getProperty(CONFIG_FILE_PATH)
+        try {
+            System.setProperty(CONFIG_FILE_PATH, configFile.canonicalPath)
+
+            val resolved = Source(provider = web).resolveSpecFile("HTTP://specmatic.io/specifications/spec1.yaml")
+
+            assertThat(resolved).isEqualTo(
+                tempDir.resolve("web").resolve("specmatic.io").resolve("specifications/spec1.yaml").canonicalFile
+            )
+        } finally {
+            if (originalConfigPath != null) System.setProperty(CONFIG_FILE_PATH, originalConfigPath)
+            else System.clearProperty(CONFIG_FILE_PATH)
+        }
+    }
+
+    @Test
     fun `resolveSpecFile should fall back to a local path for a non-http web spec path`(@TempDir tempDir: File) {
         // A relative (non-URL) spec path is resolved directly under the source base directory.
         val configFile = tempDir.resolve("specmatic.yaml").apply { writeText("version: 2") }
