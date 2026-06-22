@@ -32,7 +32,6 @@ import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.File
 import java.net.URI
-import java.net.URL
 import java.util.*
 
 fun interface RequestObserver {
@@ -378,14 +377,9 @@ class Proxy(
             else -> baseURL
         }
 
-    private fun isFullURL(path: String?): Boolean =
-        path != null &&
-            try {
-                URL(URLParts(path).withEncodedPathSegments())
-                true
-            } catch (e: Throwable) {
-                false
-            }
+    internal fun isFullURL(path: String?): Boolean =
+        path != null && runCatching { URI(URLParts(path).withEncodedPathSegments()) }.getOrNull()
+            ?.let { it.scheme.isHttpScheme() && !it.rawAuthority.isNullOrBlank() } == true
 
     init {
         val initializers = ServiceLoader.load(ProxyInitializer::class.java)

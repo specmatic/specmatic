@@ -5,7 +5,6 @@ import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import java.io.File
-import java.net.MalformedURLException
 import java.net.URI
 import java.net.URL
 
@@ -36,7 +35,7 @@ data class ResolvedWebSource(
         val resolvedPath = downloadRoot(File(workingDirectory), configFilePath)
 
         return selector.select(this).map { entry ->
-            val resolvedUrl = URL(resolveSpecUrl(entry.path))
+            val resolvedUrl = URI.create(resolveSpecUrl(entry.path)).toURL()
             val initialDownloadPath = localPathFor(resolvedPath, baseUrl, entry.path).canonicalFile
             initialDownloadPath.parentFile.mkdirs()
 
@@ -65,16 +64,7 @@ data class ResolvedWebSource(
 
     companion object {
         fun validateRelativeSpecPath(specPath: String) {
-            try {
-                val url = URL(specPath)
-                if (url.protocol.isNotBlank()) {
-                    throw ContractException("Web source specifications must be relative paths, but got \"$specPath\"")
-                }
-            } catch (_: MalformedURLException) {
-                // Relative paths are not valid URLs and are allowed here.
-            }
-
-            val parsed = runCatching { URI(specPath) }.getOrNull()
+            val parsed = runCatching { URI(specPath.replace('\\', '/')) }.getOrNull()
             if (parsed?.isAbsolute == true) {
                 throw ContractException("Web source specifications must be relative paths, but got \"$specPath\"")
             }

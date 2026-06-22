@@ -29,10 +29,8 @@ import org.xml.sax.InputSource
 import java.io.File
 import java.io.StringReader
 import java.io.StringWriter
-import java.net.MalformedURLException
 import java.net.URI
 import java.net.URISyntaxException
-import java.net.URL
 import java.util.concurrent.*
 import javax.xml.parsers.DocumentBuilder
 import javax.xml.parsers.DocumentBuilderFactory
@@ -567,11 +565,8 @@ enum class URIValidationResult(
 fun validateTestOrStubUri(uri: String): URIValidationResult {
     val parsedURI =
         try {
-            URL(uri).toURI()
+            URI(uri).parseServerAuthority()
         } catch (e: URISyntaxException) {
-            consoleDebug(e)
-            return URIValidationResult.URIParsingError
-        } catch (e: MalformedURLException) {
             consoleDebug(e)
             return URIValidationResult.URIParsingError
         }
@@ -580,7 +575,8 @@ fun validateTestOrStubUri(uri: String): URIValidationResult {
     val validPorts = 1..65535
 
     return when {
-        !validProtocols.contains(parsedURI.scheme) -> URIValidationResult.InvalidURLSchemeError
+        parsedURI.scheme.isNullOrBlank() -> URIValidationResult.URIParsingError
+        !validProtocols.contains(parsedURI.scheme.lowercase()) -> URIValidationResult.InvalidURLSchemeError
         parsedURI.host.isNullOrBlank() -> URIValidationResult.MissingHostError
         parsedURI.port != -1 && !validPorts.contains(parsedURI.port) -> URIValidationResult.InvalidPortError
         else -> URIValidationResult.Success

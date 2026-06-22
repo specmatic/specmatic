@@ -89,6 +89,40 @@ class PostmanKtTests {
     }
 
     @Test
+    fun `should retain an explicit non-default port in the base URL`() {
+        val postmanJSON = """{
+                "method": "POST",
+                "header": [
+                ],
+                "url": {
+                    "raw": "https://localhost:8080/path"
+                }
+            }""".trimIndent()
+
+        val request = postmanItemRequest(parsedJSON(postmanJSON) as JSONObjectValue)
+
+        assertThat(request.first).isEqualTo("https://localhost:8080")
+        assertThat(request.second.path).isEqualTo("/path")
+    }
+
+    @Test
+    fun `should convert an http Postman request`() {
+        val postmanJSON = """{
+                "method": "POST",
+                "header": [
+                ],
+                "url": {
+                    "raw": "http://localhost/path"
+                }
+            }""".trimIndent()
+
+        val request = postmanItemRequest(parsedJSON(postmanJSON) as JSONObjectValue)
+
+        assertThat(request.first).isEqualTo("http://localhost")
+        assertThat(request.second.path).isEqualTo("/path")
+    }
+
+    @Test
     fun `should convert a Postman request with headers`() {
         val postmanJSON = """{
                 "method": "POST",
@@ -668,6 +702,34 @@ class PostmanKtTests {
         assertThat(request.path).isEqualTo("/square")
         assertThat(request.headers).isEmpty()
         assertThat(request.body).isEqualTo(NumberValue(10))
+    }
+
+    @Test
+    fun `postman request preserves user-info in the base URL`() {
+        val (baseURL, request) = postmanItemRequest(parsedJSON("""{
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                                "raw": "https://user:pass@example.com/pets"
+                            }
+                        }""") as JSONObjectValue)
+
+        assertThat(baseURL).isEqualTo("https://user:pass@example.com")
+        assertThat(request.path).isEqualTo("/pets")
+    }
+
+    @Test
+    fun `postman request keeps the root slash path`() {
+        val (baseURL, request) = postmanItemRequest(parsedJSON("""{
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                                "raw": "http://api.example.com/"
+                            }
+                        }""") as JSONObjectValue)
+
+        assertThat(baseURL).isEqualTo("http://api.example.com")
+        assertThat(request.path).isEqualTo("/")
     }
 
     @Test

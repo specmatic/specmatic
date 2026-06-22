@@ -624,6 +624,28 @@ internal class ProxyTest {
         }
         assertThat(resHeader).isInstanceOf(StringPattern::class.java)
     }
+
+    @Test
+    fun `isFullURL should recognise absolute URLs regardless of scheme case`() {
+        Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use { proxy ->
+            // URL schemes are case-insensitive (RFC 3986); an absolute URI must be routed
+            // to its target rather than combined with the configured base URL.
+            assertThat(proxy.isFullURL("http://example.com/pets")).isTrue()
+            assertThat(proxy.isFullURL("HTTP://example.com/pets")).isTrue()
+            assertThat(proxy.isFullURL("Https://example.com/pets")).isTrue()
+            assertThat(proxy.isFullURL("/pets")).isFalse()
+        }
+    }
+
+    @Test
+    fun `isFullURL should recognise absolute URLs whose host java net URI cannot parse`() {
+        Proxy(host = "localhost", port = 9001, "http://localhost:9000", fakeFileWriter).use { proxy ->
+            // Hosts such as Docker/k8s service names contain underscores, which URI.host rejects (returns null)
+            // even though the URL is reachable. These must still be treated as absolute and routed as-is.
+            assertThat(proxy.isFullURL("http://backend_service/pets")).isTrue()
+            assertThat(proxy.isFullURL("https://contract_service:8080/pets")).isTrue()
+        }
+    }
 }
 
 class FakeFileWriter private constructor(

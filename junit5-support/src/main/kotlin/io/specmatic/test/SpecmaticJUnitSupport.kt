@@ -40,7 +40,6 @@ import org.opentest4j.TestAbortedException
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -896,7 +895,7 @@ fun <T, U> selectTestsToRunWithDecision(
 fun isBaseURLReachable(baseUrl: String, timeOutMs: Int = 3000, keyData: KeyData? = null): Boolean {
     return try {
         val url = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        val connection = URL(url).openConnection() as HttpURLConnection
+        val connection = URI(url).toURL().openConnection() as HttpURLConnection
 
         if (connection is HttpsURLConnection) {
             val trustAllCerts = arrayOf<TrustManager>(
