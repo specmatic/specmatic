@@ -106,22 +106,6 @@ class PostmanKtTests {
     }
 
     @Test
-    fun `should omit an explicit default port from the base URL`() {
-        val postmanJSON = """{
-                "method": "POST",
-                "header": [
-                ],
-                "url": {
-                    "raw": "https://localhost:443/path"
-                }
-            }""".trimIndent()
-
-        val request = postmanItemRequest(parsedJSON(postmanJSON) as JSONObjectValue)
-
-        assertThat(request.first).isEqualTo("https://localhost")
-    }
-
-    @Test
     fun `should convert an http Postman request`() {
         val postmanJSON = """{
                 "method": "POST",
@@ -721,17 +705,31 @@ class PostmanKtTests {
     }
 
     @Test
-    fun `postman request with an explicit default port normalizes it away from the base URL`() {
+    fun `postman request preserves user-info in the base URL`() {
         val (baseURL, request) = postmanItemRequest(parsedJSON("""{
                             "method": "GET",
                             "header": [],
                             "url": {
-                                "raw": "http://localhost:80/square"
+                                "raw": "https://user:pass@example.com/pets"
                             }
                         }""") as JSONObjectValue)
 
-        assertThat(baseURL).isEqualTo("http://localhost")
-        assertThat(request.path).isEqualTo("/square")
+        assertThat(baseURL).isEqualTo("https://user:pass@example.com")
+        assertThat(request.path).isEqualTo("/pets")
+    }
+
+    @Test
+    fun `postman request keeps the root slash path`() {
+        val (baseURL, request) = postmanItemRequest(parsedJSON("""{
+                            "method": "GET",
+                            "header": [],
+                            "url": {
+                                "raw": "http://api.example.com/"
+                            }
+                        }""") as JSONObjectValue)
+
+        assertThat(baseURL).isEqualTo("http://api.example.com")
+        assertThat(request.path).isEqualTo("/")
     }
 
     @Test

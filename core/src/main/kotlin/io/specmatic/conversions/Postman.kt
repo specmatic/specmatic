@@ -1,6 +1,5 @@
 package io.specmatic.conversions
 
-import io.ktor.http.Url
 import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
@@ -169,13 +168,10 @@ fun postmanItemResponse(responseItem: JSONObjectValue): HttpResponse {
 
 fun postmanItemRequest(request: JSONObjectValue): Pair<String, HttpRequest> {
     val method = request.getString("method")
-    val url = urlFromPostmanValue(request.jsonObject.getValue("url"))
+    val uri = urlFromPostmanValue(request.jsonObject.getValue("url"))
 
-    val scheme = url.protocol.name.lowercase()
-    val defaultPort = if (scheme == "https") 443 else 80
-    val authority = if (url.port == defaultPort) url.host else "${url.host}:${url.port}"
-    val baseURL = "$scheme://$authority"
-    val query: Map<String, String> = url.encodedQuery.takeIf { it.isNotEmpty() }?.split("&")?.map { it.split("=").let { parts -> Pair(parts[0], parts[1]) } }?.fold(emptyMap()) { acc, entry -> acc.plus(entry) }
+    val baseURL = "${uri.scheme}://${uri.rawAuthority}"
+    val query: Map<String, String> = uri.rawQuery?.split("&")?.map { it.split("=").let { parts -> Pair(parts[0], parts[1]) } }?.fold(emptyMap()) { acc, entry -> acc.plus(entry) }
             ?: emptyMap()
     val headers: Map<String, String> = request.getJSONArray("header").map { it as JSONObjectValue }.fold(emptyMap()) { headers, header ->
         headers.plus(Pair(header.getString("key"), header.getString("value")))
@@ -216,12 +212,12 @@ fun postmanItemRequest(request: JSONObjectValue): Pair<String, HttpRequest> {
         else -> Triple(EmptyString, emptyMap(), emptyList())
     }
 
-    val path = url.encodedPath.takeUnless { it == "/" }.orEmpty()
+    val path = uri.rawPath
     val httpRequest = HttpRequest(method, path, headers, body, query, formFields, formData)
     return Pair(baseURL, httpRequest)
 }
 
-internal fun urlFromPostmanValue(urlValue: Value): Url {
+internal fun urlFromPostmanValue(urlValue: Value): URI {
     return when(urlValue) {
         is JSONObjectValue -> urlValue.jsonObject.getValue("raw")
         else -> urlValue
@@ -230,7 +226,7 @@ internal fun urlFromPostmanValue(urlValue: Value): Url {
             it
         else
             "http://$it"
-    }.let { Url(it) }
+    }.let { URI.create(it) }
 }
 
 fun guessType(value: Value): Value = when(value) {
