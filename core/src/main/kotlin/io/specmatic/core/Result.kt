@@ -459,6 +459,9 @@ data class MatchFailureDetails(
     val sourceLocation: SourceLocation? = null
 )
 
+@Serializable
+data class Offset(val start: Int, val end: Int)
+
 // `via` holds the ordered $ref use-site hops that lead to this location, head-first (the use-site in
 // the spec under check), excluding this location itself which is the tail (the actual source of the
 // breakage). Empty for locations that live directly in the entry spec.
@@ -468,6 +471,7 @@ data class SourceLocation(
     val line: Int,
     val column: Int,
     val pointer: String,
+    val valueOffset: Offset? = null,
     val via: List<SourceLocation> = emptyList()
 ) {
     fun mapFilePath(transform: (String) -> String): SourceLocation =
