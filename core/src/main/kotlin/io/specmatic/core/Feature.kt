@@ -1052,8 +1052,7 @@ data class Feature(
         val matchingScenarios = scenariosMatchingPathAndMethod(scenario, scenariosToLookInto)
 
         val badRequestResponses = matchingScenarios.filter {
-            it.httpResponsePattern.status in 400..499 &&
-                    !it.httpRequestPattern.hasUndeclaredRequestVariant()
+            it.httpResponsePattern.status in 400..499
         }
         val defaultResponses = matchingScenarios.filter { it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE }
 
@@ -1154,9 +1153,6 @@ data class Feature(
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
             val badRequestOrDefault = getBadRequestsOrDefault(scenario)
             if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
-                return@mapNotNull null
-            }
-            if (badRequestOrDefault == null && hasOnlyUndeclaredRequestVariant4xxResponses(scenario)) {
                 return@mapNotNull null
             }
 

@@ -82,39 +82,6 @@ class MethodNotAllowedExamplesTest {
     }
 
     @Test
-    fun `external 405 example generates exactly one 405 test in every resiliency mode`() {
-        val specFile = writeSpec(ordersSpec())
-        val exampleFile = writeExample(
-            name = "patch-with-post-body",
-            requestMethod = "PATCH",
-            requestPath = "/orders",
-            requestBody = """"body": { "data": "found" }""",
-            responseStatus = 405,
-            responseBody = """"body": { "error": "occurred" }""",
-            extraRequestHeaders = mapOf("X-Request-Mode" to "example")
-        )
-        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
-
-        assertThat(unusedExamples).isEmpty()
-
-        resiliencyModes().forEach { resiliencyMode ->
-            val generatedScenarios = feature
-                .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-                .generateContractTestScenarios(emptyList())
-                .toList()
-            val generated405Scenarios = generatedScenarios
-                .filter { (originalScenario, _) -> originalScenario.status == 405 && originalScenario.hasExamples() }
-
-            assertThat(generated405Scenarios).hasSize(1)
-            assertThat(generatedScenarios.map { (_, generatedScenario) -> generatedScenario.value }.filter { it.isNegative })
-                .isEmpty()
-            val generatedRequest = generated405Scenarios.single().second.value.generateHttpRequest()
-            assertThat(generatedRequest.method).isEqualTo("PATCH")
-            assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
-        }
-    }
-
-    @Test
     fun `generated 405 request uses a method not declared for the path`() {
         val feature = OpenApiSpecification.fromFile(writeSpec(only405Spec()).canonicalPath).toFeature()
         val methodNotAllowedScenario = feature.scenarios.single { it.status == 405 }
