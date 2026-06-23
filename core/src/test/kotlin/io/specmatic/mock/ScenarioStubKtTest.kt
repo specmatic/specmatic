@@ -12,7 +12,11 @@ import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.StandardRuleViolation
+import io.specmatic.core.examples.preprocessor.ExamplePreProcessResult
+import io.specmatic.core.examples.preprocessor.ExamplePreProcessor
+import io.specmatic.core.examples.preprocessor.PreProcessorAttributes
 import io.specmatic.core.examples.server.ExampleMismatchMessages
+import io.specmatic.core.value.NumberValue
 import io.specmatic.toViolationReportString
 import io.specmatic.shouldMatch
 import org.junit.jupiter.api.assertThrows
@@ -22,6 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.util.function.Consumer
 import java.util.stream.Stream
+import kotlin.to
 
 internal class ScenarioStubKtTest {
     @Test
@@ -998,6 +1003,32 @@ paths:
 
         val scenarioStub = mockFromJSON(jsonStringToValueMap(stubText))
         assertThat(scenarioStub.stubToken).isNull()
+    }
+
+    @Test
+    fun `mockFromJSON should apply registered example preprocessor and keep attributes`() {
+        val outputKey = object : PreProcessorAttributes.Key<String> {}
+        val processor = object : ExamplePreProcessor {
+            override fun process(rawData: Map<String, io.specmatic.core.value.Value>, filePath: String?): ExamplePreProcessResult {
+                return ExamplePreProcessResult(
+                    result = Success(),
+                    outcome = rawData + ("processed" to StringValue("yes")),
+                    attributes = PreProcessorAttributes.Empty.put(outputKey, "stored-value")
+                )
+            }
+        }
+
+        val mockSpec = mapOf(
+            "name" to StringValue("original"),
+            MOCK_HTTP_RESPONSE to JSONObjectValue(mapOf("status" to NumberValue(200))),
+            MOCK_HTTP_REQUEST to JSONObjectValue(mapOf("method" to StringValue("GET"), "path" to StringValue("/before"))),
+        )
+
+        ExamplePreProcessor.withPreProcessor(processor) {
+            val scenarioStub = mockFromJSON(mockSpec)
+            assertThat(scenarioStub.data.jsonObject["processed"]).isEqualTo(StringValue("yes"))
+            assertThat(scenarioStub.preProcessorAttributes[outputKey]).isEqualTo("stored-value")
+        }
     }
 
     companion object {

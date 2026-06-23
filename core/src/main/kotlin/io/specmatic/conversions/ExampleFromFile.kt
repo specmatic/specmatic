@@ -5,6 +5,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.examples.preprocessor.PreProcessorAttributes
 import io.specmatic.core.examples.server.SchemaExample
 import io.specmatic.core.log.LogStrategy
 import io.specmatic.core.pattern.*
@@ -30,7 +31,7 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     }
 
     constructor(file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.readFromFile(file, strictMode), file = file)
-    constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode), file = file)
+    constructor(json: JSONObjectValue, file: File, strictMode: Boolean = true): this(scenarioStub = ScenarioStub.parse(json, strictMode, file.path), file = file)
     constructor(scenarioStub: ScenarioStub) : this(scenarioStub, File(scenarioStub.filePath.orEmpty()))
 
     fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig(), logger: LogStrategy = io.specmatic.core.log.logger): Row {
@@ -70,6 +71,8 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     val expectationFilePath: String = file.canonicalPath
     @Suppress("MemberVisibilityCanBePrivate") // Used in openapi-module
     val testName: String = scenarioStub.name ?: file.nameWithoutExtension
+    @Suppress("MemberVisibilityCanBePrivate", "unused") // Used in openapi-module
+    val preProcessorAttributes: PreProcessorAttributes = scenarioStub.preProcessorAttributes
 
     val request: HttpRequest = scenarioStub.requestElsePartialRequest()
     val requestPath: String? = request.path?.let(::URI)?.path

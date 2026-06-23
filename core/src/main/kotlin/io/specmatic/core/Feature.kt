@@ -2472,8 +2472,7 @@ data class Feature(
                 if(strictMode.not()) logger.log("  $externalizedExamplePath")
 
                 try {
-                    val example = ScenarioStub.parse(File(externalizedExamplePath).readText())
-
+                    val example = ScenarioStub.parse(File(externalizedExamplePath).readText(), filePath = externalizedExamplePath)
                     val method = example.requestMethod()
                     val path = example.requestPath()
                     val responseCode = example.responseStatus()

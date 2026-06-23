@@ -45,6 +45,11 @@ fun stringToPatternMap(stringContent: String): Map<String, Pattern>  {
     }
 }
 
+fun jsonStringToValue(stringContent: String): Value {
+    val jsonElement = lenientJson.parseToJsonElement(stringContent.removePrefix(UTF_BYTE_ORDER_MARK))
+    return toValue(jsonElement)
+}
+
 fun jsonStringToValueMap(stringContent: String): Map<String, Value>  {
     val data = lenientJson.parseToJsonElement(stringContent.removePrefix(UTF_BYTE_ORDER_MARK)).jsonObject.toMap()
     return convertToMapValue(data)
