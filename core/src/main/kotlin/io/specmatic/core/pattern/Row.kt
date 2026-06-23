@@ -175,24 +175,13 @@ data class Row(
         val headers = request.headers
         val queryParams = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
         val formFields = request.formFields
-        val multiPartFields = request.multiPartFormData.associate { part ->
-            when (part) {
-                is MultiPartContentValue -> part.name to part.content.toRowLiteral()
-                is MultiPartFileValue -> "${part.name}_filename" to part.filename
-            }
-        }
+        val multiPartFields = multiPartFormDataToRowFields(request.multiPartFormData)
         val bodyEntry = if (request.body !is NoBodyValue) {
             mapOf(REQUEST_BODY_FIELD to request.body.toStringLiteral())
         } else emptyMap()
 
         return this.copy(columnNames = emptyList(), values = emptyList()).addFields(path + headers + queryParams + formFields + multiPartFields + bodyEntry).copy(requestExample = request)
     }
-
-    private fun Value.toRowLiteral(): String =
-        when (this) {
-            is JSONObjectValue -> toUnformattedStringLiteral()
-            else -> toStringLiteral()
-        }
 
     companion object {
         fun Row?.isNullOrEmpty(): Boolean {
@@ -201,3 +190,17 @@ data class Row(
         }
     }
 }
+
+internal fun multiPartFormDataToRowFields(multiPartFormData: List<MultiPartFormDataValue>): Map<String, String> =
+    multiPartFormData.associate { part ->
+        when (part) {
+            is MultiPartContentValue -> part.name to valueToRowLiteral(part.content)
+            is MultiPartFileValue -> "${part.name}_filename" to part.filename
+        }
+    }
+
+internal fun valueToRowLiteral(value: Value): String =
+    when (value) {
+        is JSONObjectValue -> value.toUnformattedStringLiteral()
+        else -> value.toStringLiteral()
+    }

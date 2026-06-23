@@ -135,14 +135,14 @@ data class ScenarioStub(
         val headers = request.headers.filterKeys { !it.equals(CONTENT_TYPE, ignoreCase = true) }
         val queryParams = request.queryParams.asValueMap().mapValues { it.value.toStringLiteral() }
         val formFields = request.formFields
-        val multiPartFields = request.multiPartFormData.toRowFields()
+        val multiPartFields = multiPartFormDataToRowFields(request.multiPartFormData)
         val resolver = Resolver(newPatterns = scenarioInfo.patterns)
         val pathParams = scenarioInfo.httpRequestPattern.httpPathPattern
             ?.extractPathParams(request.path.orEmpty(), resolver)
             .orEmpty()
             .toStringMap()
         val bodyEntry = if (includeRequestBody && request.body != NoBodyValue && request.body != EmptyString) {
-            mapOf(REQUEST_BODY_FIELD to request.body.toRowLiteral())
+            mapOf(REQUEST_BODY_FIELD to valueToRowLiteral(request.body))
         } else {
             emptyMap()
         }
@@ -151,20 +151,6 @@ data class ScenarioStub(
             .addFields(bodyEntry + pathParams + queryParams + headers + formFields + multiPartFields)
             .copy(requestExample = request)
     }
-
-    private fun List<MultiPartFormDataValue>.toRowFields(): Map<String, String> =
-        associate { part ->
-            when (part) {
-                is MultiPartContentValue -> part.name to part.content.toRowLiteral()
-                is MultiPartFileValue -> "${part.name}_filename" to part.filename
-            }
-        }
-
-    private fun Value.toRowLiteral(): String =
-        when (this) {
-            is JSONObjectValue -> toUnformattedStringLiteral()
-            else -> toStringLiteral()
-        }
 
     private fun exactResponseExample(response: HttpResponse, specmaticConfig: SpecmaticConfig): ResponseExample? =
         when {
