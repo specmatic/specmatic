@@ -3,8 +3,10 @@ package io.specmatic.conversions
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.NoBodyValue
+import io.specmatic.core.QueryParameters
 import io.specmatic.core.Scenario
 import io.specmatic.core.pattern.Row
+import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.captureStandardOutput
@@ -62,6 +64,140 @@ internal class OpenApiInlineExampleLoadingTest {
     }
 
     @Test
+    fun `matching parameter and response example names are loaded as rows and inline examples`() {
+        val feature = parseFeature(
+            """
+            openapi: 3.0.0
+            info:
+              title: Inline examples
+              version: 1.0.0
+            paths:
+              /items/{itemId}:
+                get:
+                  parameters:
+                    - name: itemId
+                      in: path
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        PARAM_MATCHED:
+                          value: item-123
+                    - name: dryRun
+                      in: query
+                      required: true
+                      schema:
+                        type: boolean
+                      examples:
+                        PARAM_MATCHED:
+                          value: false
+                    - name: X-Mode
+                      in: header
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        PARAM_MATCHED:
+                          value: batch
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                          examples:
+                            PARAM_MATCHED:
+                              value: item data
+            """
+        )
+
+        val expectedRequest = HttpRequest(
+            "GET",
+            "/items/item-123",
+            headers = mapOf("X-Mode" to "batch"),
+            queryParams = QueryParameters(mapOf("dryRun" to "false"))
+        )
+
+        val row = feature.rowNamed("PARAM_MATCHED")
+        assertThat(row.valuesByColumn()).containsExactlyEntriesOf(
+            mapOf(
+                "itemId" to "item-123",
+                "dryRun" to "false",
+                "X-Mode" to "batch"
+            )
+        )
+        assertThat(row.requestExample).isEqualTo(expectedRequest)
+        assertThat(row.responseExample?.status).isEqualTo(200)
+        assertThat(row.responseExample?.body?.toStringLiteral()).isEqualTo("item data")
+
+        val inlineStub = feature.inlineStubNamed("PARAM_MATCHED")
+        assertThat(inlineStub.request).isEqualTo(expectedRequest)
+        assertThat(inlineStub.response.status).isEqualTo(200)
+        assertThat(inlineStub.response.body.toStringLiteral()).isEqualTo("item data")
+    }
+
+    @Test
+    fun `matching json request body and response example names are loaded as rows and inline examples`() {
+        val feature = parseFeature(
+            """
+            openapi: 3.0.0
+            info:
+              title: Inline examples
+              version: 1.0.0
+            paths:
+              /products:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                        examples:
+                          JSON_BODY_MATCHED:
+                            value:
+                              id: 10
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                          examples:
+                            JSON_BODY_MATCHED:
+                              value:
+                                id: 10
+            """
+        )
+
+        val expectedRequest = HttpRequest(
+            "POST",
+            "/products",
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSONObject("""{"id":10}""")
+        )
+
+        val row = feature.rowNamed("JSON_BODY_MATCHED")
+        assertThat(row.valuesByColumn()).containsExactlyEntriesOf(mapOf("(REQUEST-BODY)" to """{"id":10}"""))
+        assertThat(row.requestExample).isEqualTo(expectedRequest)
+        assertThat(row.responseExample?.status).isEqualTo(200)
+        assertThat(row.responseExample?.body).isEqualTo(parsedJSONObject("""{"id":10}"""))
+
+        val inlineStub = feature.inlineStubNamed("JSON_BODY_MATCHED")
+        assertThat(inlineStub.request).isEqualTo(expectedRequest)
+        assertThat(inlineStub.response.status).isEqualTo(200)
+        assertThat(inlineStub.response.body).isEqualTo(parsedJSONObject("""{"id":10}"""))
+    }
+
+    @Test
     fun `response example without request example for first 2xx response is loaded as row only`() {
         val feature = parseFeature(
             """
@@ -116,6 +252,21 @@ internal class OpenApiInlineExampleLoadingTest {
                               examples:
                                 RESPONSE_ONLY_400:
                                   value: bad request
+                        '201':
+                          description: Created
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                        '202':
+                          description: Accepted later
+                          content:
+                            text/plain:
+                              schema:
+                                type: string
+                              examples:
+                                RESPONSE_ONLY_202:
+                                  value: accepted later
                 """
             )
         }
@@ -123,6 +274,9 @@ internal class OpenApiInlineExampleLoadingTest {
         feature.assertNoRowNamed("RESPONSE_ONLY_400")
         feature.assertNoInlineStubNamed("RESPONSE_ONLY_400")
         assertThat(output).contains(missingRequestExampleErrorMessageForTest("RESPONSE_ONLY_400"))
+        feature.assertNoRowNamed("RESPONSE_ONLY_202")
+        feature.assertNoInlineStubNamed("RESPONSE_ONLY_202")
+        assertThat(output).contains(missingRequestExampleErrorMessageForTest("RESPONSE_ONLY_202"))
     }
 
     @Test

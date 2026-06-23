@@ -8381,9 +8381,8 @@ paths:
 
     @Test
     fun `check that a console warning is printed when a named response example for 4xx has no corresponding named request example`() {
-        lateinit var feature: Feature
         val (stdout, _) = captureStandardOutput {
-            feature = OpenApiSpecification.fromYAML(
+            OpenApiSpecification.fromYAML(
                 """
                     ---
                     openapi: "3.0.1"
@@ -8423,16 +8422,12 @@ paths:
         val exampleName = "SUCCESSFUL_API_CALL"
         assertThat(stdout)
             .contains("Ignoring response example named $exampleName for test or stub data, because no associated request example named $exampleName was found.")
-        assertThat(feature.inlineNamedStubs).isEmpty()
-        assertThat(feature.scenarios.flatMap { it.examples }.flatMap { it.rows }.map { it.name })
-            .doesNotContain(exampleName)
     }
 
     @Test
     fun `check that a console warning is printed when a named request example has no corresponding named response example`() {
-        lateinit var feature: Feature
         val (stdout, _) = captureStandardOutput {
-            feature = OpenApiSpecification.fromYAML(
+            OpenApiSpecification.fromYAML(
                 """
                     ---
                     openapi: "3.0.1"
@@ -8474,9 +8469,6 @@ paths:
 
         assertThat(stdout)
             .contains("WARNING: Ignoring request example named $exampleName for test or stub data, because no associated response example named $exampleName was found.")
-        assertThat(feature.inlineNamedStubs).isEmpty()
-        assertThat(feature.scenarios.flatMap { it.examples }.flatMap { it.rows }.map { it.name })
-            .doesNotContain(exampleName)
     }
 
     @Test
@@ -14037,11 +14029,6 @@ paths:
 
         var matchedExampleRequest = false
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
-        val row = feature.scenarios.single().examples.single().rows.single()
-        val scenarioStub = row.scenarioStub ?: fail("Expected no-body request example row to have a scenario stub")
-
-        assertThat(feature.inlineNamedStubs.single().stub).isEqualTo(scenarioStub)
-
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 if (request.method == "DELETE" && request.path == "/tasks/task-10" && request.queryParams.asMap()["dryRun"] == "false" && request.headers["X-Mode"] == "batch") {

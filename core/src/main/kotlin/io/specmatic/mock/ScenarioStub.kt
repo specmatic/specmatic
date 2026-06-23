@@ -148,7 +148,7 @@ data class ScenarioStub(
         }
 
         return Row()
-            .addFields(bodyEntry + headers + queryParams + formFields + multiPartFields + pathParams)
+            .addFields(bodyEntry + pathParams + queryParams + headers + formFields + multiPartFields)
             .copy(requestExample = request)
     }
 

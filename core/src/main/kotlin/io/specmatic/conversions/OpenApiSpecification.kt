@@ -954,8 +954,8 @@ class OpenApiSpecification(
                     }
 
                     val first2xxResponseStatus =
-                        httpResponsePatterns.filter { it.responsePattern.status.toString().startsWith("2") }
-                            .minOfOrNull { it.responsePattern.status }
+                        httpResponsePatterns.firstOrNull { it.responsePattern.status.is2xxStatus() }
+                            ?.responsePattern?.status
 
                     val firstNoBodyResponseStatus =
                         httpResponsePatterns.filter { it.responsePattern.body is NoBodyPattern }
@@ -1341,6 +1341,8 @@ class OpenApiSpecification(
             )
         )
     }
+
+    private fun Int.is2xxStatus(): Boolean = this in 200..299
 
     data class OperationIdentifier(val requestMethod: String, val requestPath: String, val responseStatus: Int, val requestContentType: String?, val responseContentType: String?) {
         constructor(example: ExampleFromFile) : this (
