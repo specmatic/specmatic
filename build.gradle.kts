@@ -178,6 +178,28 @@ specmatic {
 subprojects {
     tasks.withType<Test> {
         systemProperty("specmatic.license.utilization.shipDisabled", "true")
+
+        // Keep tests hermetic from any developer license at ~/.specmatic/specmatic-license.txt: point the
+        // home-dir license loader (its documented "for test injection" hook) at a non-existent file so the
+        // suite always resolves the OSS license, matching CI. Without this, an ENTERPRISE/TRIAL license on
+        // the machine would make BCC tests emit an extra "Generating CTRF report" line and fail.
+        systemProperty(
+            "specmatic.db.file",
+            project.layout.buildDirectory
+                .file("non-existant.json")
+                .get()
+                .asFile
+                .toString(),
+        )
+        systemProperty(
+            "specmatic.license.file",
+            project.layout.buildDirectory
+                .file("non-existant.txt")
+                .get()
+                .asFile
+                .toString(),
+        )
+
         // Regex-based generators can be memory-intensive in tests.
         maxHeapSize = "1g"
         jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/heap-dump-${project.name}.hprof")
