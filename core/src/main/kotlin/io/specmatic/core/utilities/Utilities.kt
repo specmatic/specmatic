@@ -552,36 +552,10 @@ fun <T> runWithTimeout(
     }
 }
 
-enum class URIValidationResult(
-    val message: String,
-) {
-    URIParsingError("Please specify a valid URL in 'scheme://host[:port][path]' format"),
-    InvalidURLSchemeError("Please specify a valid scheme / protocol (http or https)"),
-    MissingHostError("Please specify a valid host name"),
-    InvalidPortError("Please specify a valid port number"),
-    Success("This URL is valid"),
-}
+typealias URIValidationResult = io.specmatic.license.core.url.HttpUrlValidationResult
 
-fun validateTestOrStubUri(uri: String): URIValidationResult {
-    val parsedURI =
-        try {
-            URI(uri).parseServerAuthority()
-        } catch (e: URISyntaxException) {
-            consoleDebug(e)
-            return URIValidationResult.URIParsingError
-        }
-
-    val validProtocols = listOf("http", "https")
-    val validPorts = 1..65535
-
-    return when {
-        parsedURI.scheme.isNullOrBlank() -> URIValidationResult.URIParsingError
-        !validProtocols.contains(parsedURI.scheme.lowercase()) -> URIValidationResult.InvalidURLSchemeError
-        parsedURI.host.isNullOrBlank() -> URIValidationResult.MissingHostError
-        parsedURI.port != -1 && !validPorts.contains(parsedURI.port) -> URIValidationResult.InvalidPortError
-        else -> URIValidationResult.Success
-    }
-}
+fun validateTestOrStubUri(uri: String): URIValidationResult =
+    io.specmatic.license.core.url.validateHttpUrl(uri) { consoleDebug(it) }
 
 fun isXML(headers: Map<String, String>): Boolean {
     if (headers.any { it.key.equals("SOAPAction", ignoreCase = true) }) {
