@@ -1163,7 +1163,7 @@ class HttpStub(
 
     private fun generateReports() {
         synchronized(ctrfTestResultRecords) {
-            val mockUsage = OpenApiMockUsage(specmaticConfigInstance)
+            val mockUsage = OpenApiMockUsage()
             mockUsage.addEndpoints(_allEndpoints)
             ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
             val mockUsageReport = mockUsage.generate()

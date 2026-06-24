@@ -3,14 +3,13 @@ package io.specmatic.core.report
 import io.specmatic.reporter.ctrf.CoverageReportSpecification
 import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CoverageMetrics
-import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
-import io.specmatic.reporter.ctrf.model.matches
 
 fun List<BaseCoverageReportOperation>.toCoverageReportSpecifications(
-    specConfigs: List<CtrfSpecConfig>,
 ): List<CoverageReportSpecification> {
+    val specConfigs = map { it.specConfig }.distinct()
+
     return specConfigs.distinct().map { specConfig ->
-        val specCoverageOperations = filter { it.specConfig.matches(specConfig) }
+        val specCoverageOperations = filter { it.specConfig == specConfig }
 
         CoverageReportSpecification(
             specConfig = specConfig,

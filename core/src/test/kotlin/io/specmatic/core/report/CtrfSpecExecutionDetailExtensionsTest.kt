@@ -68,7 +68,7 @@ class CtrfSpecExecutionDetailExtensionsTest {
                 eligibleForCoverage = false,
                 omittedStatus = OmittedStatus.EXCLUDED,
             )
-        ).toCoverageReportSpecifications(listOf(specConfig))
+        ).toCoverageReportSpecifications()
 
         assertThat(coverageReportSpecifications.single().coverageMetrics?.apiCoverage).isEqualTo(100)
         assertThat(coverageReportSpecifications.single().coverageMetrics?.absoluteCoverage).isEqualTo(50)
@@ -106,7 +106,7 @@ class CtrfSpecExecutionDetailExtensionsTest {
                 coverageStatus = CoverageStatus.NOT_COVERED,
                 eligibleForCoverage = true,
             )
-        ).toCoverageReportSpecifications(listOf(specConfig))
+        ).toCoverageReportSpecifications()
 
         assertThat(coverageReportSpecifications.single().coverageMetrics?.apiCoverage).isEqualTo(50)
         assertThat(coverageReportSpecifications.single().coverageMetrics?.absoluteCoverage).isEqualTo(50)
@@ -170,7 +170,7 @@ class CtrfSpecExecutionDetailExtensionsTest {
                 eligibleForCoverage = false,
                 omittedStatus = OmittedStatus.EXCLUDED,
             ),
-        ).toCoverageReportSpecifications(listOf(ordersSpecConfig, paymentsSpecConfig))
+        ).toCoverageReportSpecifications()
 
         val groupedBySpec = coverageReportSpecifications.associateBy { it.specConfig.specification }
         val ordersMetrics = groupedBySpec.getValue("specs/orders.yaml")
@@ -194,7 +194,7 @@ class CtrfSpecExecutionDetailExtensionsTest {
     }
 
     @Test
-    fun `should leave coverage metrics null when a spec has no matching operations`() {
+    fun `should only return specifications present in coverage operations`() {
         val ordersSpecConfig = CtrfSpecConfig(
             protocol = SpecmaticProtocol.HTTP.key,
             specType = SpecType.OPENAPI.value,
@@ -220,21 +220,18 @@ class CtrfSpecExecutionDetailExtensionsTest {
                 coverageStatus = CoverageStatus.COVERED,
                 eligibleForCoverage = true,
             )
-        ).toCoverageReportSpecifications(listOf(ordersSpecConfig, paymentsSpecConfig))
+        ).toCoverageReportSpecifications()
 
-        val groupedBySpec = coverageReportSpecifications.associateBy { it.specConfig.specification }
-        val ordersMetrics = groupedBySpec.getValue("specs/orders.yaml")
-        val paymentsMetrics = groupedBySpec.getValue("specs/payments.yaml")
+        val ordersMetrics = coverageReportSpecifications.single()
 
+        assertThat(coverageReportSpecifications).hasSize(1)
+        assertThat(ordersMetrics.specConfig.specification).isEqualTo("specs/orders.yaml")
         assertThat(ordersMetrics.coverageReportOperations).hasSize(1)
         assertThat(ordersMetrics.coverageMetrics?.apiCoverage).isEqualTo(100)
         assertThat(ordersMetrics.coverageMetrics?.absoluteCoverage).isEqualTo(100)
         assertThat(ordersMetrics.coverageMetrics?.coveredOperations).isEqualTo(1)
         assertThat(ordersMetrics.coverageMetrics?.totalOperationsWithFilters).isEqualTo(1)
         assertThat(ordersMetrics.coverageMetrics?.totalOperations).isEqualTo(1)
-
-        assertThat(paymentsMetrics.coverageReportOperations).isEmpty()
-        assertThat(paymentsMetrics.coverageMetrics).isNull()
     }
 
     private fun openApiOperation(
