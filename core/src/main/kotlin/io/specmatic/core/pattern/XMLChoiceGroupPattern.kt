@@ -92,11 +92,16 @@ data class XMLChoiceGroupPattern(
         remaining: List<XMLValue>,
         resolver: Resolver
     ): ConsumeResult<Value, Value> {
-        return alternative.fold(ConsumeResult<Value, Value>(Success(), remaining)) { consumeResult, pattern ->
+        val matched = alternative.fold(ConsumeResult<Value, Value>(Success(), remaining)) { consumeResult, pattern ->
             when (consumeResult.result) {
                 is Failure -> consumeResult
                 else -> pattern.matches(consumeResult.remainder, resolver)
             }
+        }
+
+        return when (matched.result) {
+            is Failure -> matched.copy(remainder = remaining)
+            else -> matched
         }
     }
 

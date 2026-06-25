@@ -43,6 +43,21 @@ class XMLChoiceGroupPatternTest {
     }
 
     @Test
+    fun `matches accepts a later branch when the first branch fails`() {
+        val pattern = XMLChoiceGroupPattern(
+            choices = listOf(
+                listOf(XMLPattern("<A>(string)</A>")),
+                listOf(XMLPattern("<B>(string)</B>"))
+            )
+        )
+
+        val result = pattern.matches(listOf(toXMLNode("<B>two</B>")), resolver)
+
+        assertThat(result.result).isInstanceOf(io.specmatic.core.Result.Success::class.java)
+        assertThat(result.remainder).isEmpty()
+    }
+
+    @Test
     fun `new based on only emits valid repeated occurrence sequences`() {
         val pattern = XMLChoiceGroupPattern(
             choices = listOf(

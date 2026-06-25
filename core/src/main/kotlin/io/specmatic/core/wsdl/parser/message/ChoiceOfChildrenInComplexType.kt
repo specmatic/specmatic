@@ -25,25 +25,18 @@ internal class ChoiceOfChildrenInComplexType(
         val minOccurs = child.attributes["minOccurs"]?.toStringLiteral()?.toIntOrNull() ?: 1
         val maxOccursLiteral = child.attributes["maxOccurs"]?.toStringLiteral() ?: "1"
 
-        return when {
-            maxOccursLiteral == "1" && minOccurs <= 1 ->
-                if (minOccurs == 0) choiceVariants.plus(WSDLTypeInfo()) else choiceVariants
-
-            else -> {
-                listOf(
-                    WSDLTypeInfo(
-                        members = listOf(
-                            XMLChoiceGroupPattern(
-                                choices = choiceVariants.map { it.effectiveMembers },
-                                minOccurs = minOccurs,
-                                maxOccurs = maxOccursLiteral.takeUnless { it == "unbounded" }?.toInt()
-                            )
-                        ),
-                        types = choiceVariants.fold(existingTypes) { accumulated, variant -> accumulated + variant.types },
-                        namespacePrefixes = choiceVariants.flatMap { it.namespacePrefixes }.toSet()
+        return listOf(
+            WSDLTypeInfo(
+                members = listOf(
+                    XMLChoiceGroupPattern(
+                        choices = choiceVariants.map { it.effectiveMembers },
+                        minOccurs = minOccurs,
+                        maxOccurs = maxOccursLiteral.takeUnless { it == "unbounded" }?.toInt()
                     )
-                )
-            }
-        }
+                ),
+                types = choiceVariants.fold(existingTypes) { accumulated, variant -> accumulated + variant.types },
+                namespacePrefixes = choiceVariants.flatMap { it.namespacePrefixes }.toSet()
+            )
+        )
     }
 }
