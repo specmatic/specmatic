@@ -25,7 +25,6 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.MismatchMessages
-import io.specmatic.core.MissingDataException
 import io.specmatic.core.MultiPartContent
 import io.specmatic.core.MultiPartContentValue
 import io.specmatic.core.MultiPartFileValue
@@ -59,6 +58,7 @@ import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
+import io.specmatic.core.substitution.MissingDataException
 import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
