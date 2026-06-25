@@ -569,7 +569,7 @@ internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> {
                 URLPathSegmentPattern(pattern, name)
             }
 
-            isMatcherToken(part) -> URLPathSegmentPattern(parsedPattern(part))
+            isDollarMethodOrLookup(part) -> URLPathSegmentPattern(parsedPattern(part))
 
             else -> URLPathSegmentPattern(ExactValuePattern(StringValue(part)))
         }

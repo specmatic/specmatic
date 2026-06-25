@@ -120,7 +120,7 @@ fun patternFromValueUsing(
 ): Pattern {
     if(value !is StringValue) return parseValueToType(value)
     if(isPatternToken(value)) return DeferredPattern(value.string)
-    if (isMatcherToken(value)) {
+    if (isDollarMethodOrLookup(value)) {
         val loadedMatcherEngine =
             matcherEngine ?: throw IllegalStateException("Matcher is not supported in Specmatic Open Source")
         return loadedMatcherEngine.patternFrom(

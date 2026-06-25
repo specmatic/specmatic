@@ -225,8 +225,6 @@ data class ScenarioAsTest(
                 it.postValidate(testScenario, originalScenario, request, responseToCheckAndStore)
             }.firstOrNull() ?: Result.Success()
 
-            testScenario.exampleRow?.let { ExampleProcessor.store(it, request, responseToCheckAndStore) }
-
             if(result !is Result.Failure) {
                 val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
 
