@@ -35,10 +35,17 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
             else
                 ExactValuePattern(StringValue(string = it))
         }
+        val queryParamDeclaration = QueryParameterDeclaration(
+            key = name,
+            wireKey = name,
+            pattern = queryParamValueType,
+            source = QueryParameterSource(name)
+        )
 
         return requestPattern.copy(
             httpQueryParamPattern = requestPattern.httpQueryParamPattern.copy(
-                 queryPatterns = requestPattern.httpQueryParamPattern.queryPatterns.plus(name to queryParamValueType)
+                 queryPatterns = requestPattern.httpQueryParamPattern.queryPatterns.plus(name to queryParamValueType),
+                 queryParameterDeclarations = requestPattern.httpQueryParamPattern.queryParameterDeclarations.plus(queryParamDeclaration)
             )
         )
     }

@@ -7,6 +7,7 @@ import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import java.net.URI
 import kotlin.collections.contains
 
@@ -40,8 +41,7 @@ data class QueryParameterDeclaration(
     val wireKey: String,
     val pattern: Pattern,
     val source: QueryParameterSource,
-    val pointer: String? = null,
-    val contributesToQueryPatterns: Boolean = true
+    val pointer: String? = null
 )
 
 data class HttpQueryParamPattern(
@@ -217,6 +217,94 @@ data class HttpQueryParamPattern(
             Result.Failure.fromFailures(failures).breadCrumb(BreadCrumb.PARAM_QUERY.value)
         else
             Result.Success()
+    }
+
+    fun exactMatchFor(queryParams: QueryParameters, resolver: Resolver): HttpQueryParamPattern {
+        val exactPatterns = exactQueryPatternsFrom(queryParams, resolver)
+        val exactDeclarations = exactPatterns.toExactDeclarationsFrom(queryParameterDeclarations)
+
+        return HttpQueryParamPattern(
+            queryPatterns = effectiveQueryPatternsFor(exactDeclarations),
+            additionalProperties = additionalProperties,
+            extensibleQueryParams = extensibleQueryParams,
+            formExplodedObjectQueryParams = formExplodedObjectQueryParams,
+            nestedObjectQueryParams = nestedObjectQueryParams,
+            parameterPointers = parameterPointers,
+            queryParameterDeclarations = exactDeclarations
+        )
+    }
+
+    private fun exactQueryPatternsFrom(queryParams: QueryParameters, resolver: Resolver): Map<String, Pattern> {
+        val effectivePatterns = effectiveQueryPatterns(queryParams)
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(
+            queryParams,
+            effectivePatterns,
+            activeNestedObjectQueryParams(),
+            resolver
+        )
+
+        if (parsedNestedObjectQueryParams.failures.isNotEmpty()) {
+            throw ContractException(Result.Failure.fromFailures(parsedNestedObjectQueryParams.failures).toFailureReport())
+        }
+
+        val nestedObjectExactPatterns = parsedNestedObjectQueryParams.reconstructedObjectValues.mapNotNull { (key, value) ->
+            val pattern = effectivePatterns[key] ?: effectivePatterns[withOptionality(key)] ?: return@mapNotNull null
+            key to exactPatternForQueryValue(value, pattern, resolver)
+        }.toMap()
+
+        val paramsWithinPattern = parsedNestedObjectQueryParams.remainingQueryParams.paramPairs
+            .groupBy { it.first }
+            .mapNotNull { (key, values) ->
+                val pattern = effectivePatterns[key] ?: effectivePatterns[withOptionality(key)] ?: return@mapNotNull null
+                key to exactPatternForQueryValues(key, values.map { it.second }, pattern, resolver)
+            }.toMap()
+
+        val paramsUnaccountedFor = parsedNestedObjectQueryParams.remainingQueryParams.paramPairs.filter { (name, _) ->
+            name !in paramsWithinPattern
+        }.groupBy { (name, _) ->
+            name
+        }
+
+        val paramsOutsidePattern = unaccountedQueryParamsToMap(paramsUnaccountedFor)
+
+        if (additionalProperties != null) {
+            val additionalPropertiesResult = paramsUnaccountedFor.map { (_, values) ->
+                values.map { (_, rawValue) ->
+                    val value = additionalProperties.parse(rawValue, resolver)
+                    additionalProperties.matches(value, resolver)
+                }
+            }.flatten()
+
+            val matchResult = Result.fromResults(additionalPropertiesResult)
+            if (matchResult is Result.Failure)
+                throw ContractException(matchResult.toFailureReport())
+        }
+
+        return nestedObjectExactPatterns + paramsWithinPattern + paramsOutsidePattern
+    }
+
+    private fun Map<String, Pattern>.toExactDeclarationsFrom(declarations: List<QueryParameterDeclaration>): List<QueryParameterDeclaration> {
+        val patternsByKey = mapKeys { withoutOptionality(it.key) }
+        val exactDeclarations = declarations.mapNotNull { declaration ->
+            val key = withoutOptionality(declaration.key)
+            patternsByKey[key]?.let { exactPattern ->
+                declaration.copy(key = key, pattern = exactPattern)
+            }
+        }
+
+        val declaredKeys = exactDeclarations.map { withoutOptionality(it.key) }.toSet()
+        val additionalDeclarations = patternsByKey
+            .filterKeys { it !in declaredKeys }
+            .map { (key, pattern) ->
+                QueryParameterDeclaration(
+                    key = key,
+                    wireKey = key,
+                    pattern = pattern,
+                    source = QueryParameterSource(key)
+                )
+            }
+
+        return exactDeclarations + additionalDeclarations
     }
 
     private fun keyErrorToResult(keyError: KeyError, effectivePatterns: Map<String, Pattern>, queryParams: QueryParameters, resolver: Resolver): Result.Failure {
@@ -438,6 +526,52 @@ data class HttpQueryParamPattern(
         }
     }
 
+    private fun exactPatternForQueryValues(key: String, values: List<String>, pattern: Pattern, resolver: Resolver): Pattern {
+        return when (pattern) {
+            is QueryParameterArrayPattern -> {
+                val queryParameterValuePatterns = values.map { value ->
+                    exactEncompassedQueryType(value, key, pattern.pattern.first(), resolver)
+                }
+                QueryParameterArrayPattern(queryParameterValuePatterns, key)
+            }
+
+            is QueryParameterScalarPattern -> {
+                QueryParameterScalarPattern(
+                    exactEncompassedQueryType(
+                        values.single(),
+                        key,
+                        pattern.pattern,
+                        resolver
+                    )
+                )
+            }
+
+            else -> {
+                throw ContractException("Non query type: $pattern found")
+            }
+        }
+    }
+
+    private fun exactPatternForQueryValue(value: Value, pattern: Pattern, resolver: Resolver): Pattern {
+        return when (pattern) {
+            is QueryParameterScalarPattern -> QueryParameterScalarPattern(
+                pattern.pattern.patternFrom(value, resolver) { it.exactMatchElseType() }
+            )
+            else -> pattern.patternFrom(value, resolver) { it.exactMatchElseType() }
+        }
+    }
+
+    private fun unaccountedQueryParamsToMap(paramsUnaccountedFor: Map<String, List<Pair<String, String>>>) =
+        paramsUnaccountedFor.map { (name, values) ->
+            val pattern = if (values.size > 1) {
+                QueryParameterArrayPattern(values.map { ExactValuePattern(StringValue(it.second)) }, name)
+            } else {
+                QueryParameterScalarPattern(ExactValuePattern(StringValue(values.single().second)))
+            }
+
+            name to pattern
+        }.toMap()
+
     private fun queryParamCombinationsRespectingFormExplodedObjects(patternMap: Map<String, Pattern>, row: Row): Sequence<Map<String, Pattern>> {
         return allOrNothingQueryParamCombinations(patternMap, row)
             .flatMap(::withRequiredOnlyVariantsForPresentFormExplodedObjects)
@@ -551,7 +685,8 @@ internal fun effectiveQueryPatternsFor(
     val winnerByWireKey = queryParameterDeclarations.associateBy { it.wireKey }
     val effectivePatterns = queryParameterDeclarations
         .filter { declaration ->
-            declaration.contributesToQueryPatterns && winnerByWireKey[declaration.wireKey] === declaration
+            declaration.source.kind != QueryParameterSourceKind.NestedObjectProperty &&
+                winnerByWireKey[declaration.wireKey] === declaration
         }
         .associate { declaration -> declaration.key to declaration.pattern }
 
@@ -602,6 +737,14 @@ private fun Map<String, Pattern>.toQueryParameterDeclarations(): List<QueryParam
             pattern = pattern,
             source = QueryParameterSource(wireKey)
         )
+    }
+}
+
+private fun exactEncompassedQueryType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
+    return when {
+        isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
+        isMatcherToken(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
+        else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
     }
 }
 

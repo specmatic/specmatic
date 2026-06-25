@@ -15,8 +15,6 @@ import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.QueryParameterArrayPattern
-import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.REQUEST_BODY_FIELD
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.pattern.Row
@@ -525,17 +523,9 @@ data class HttpRequestPattern(
             requestPattern = attempt(breadCrumb = "URL") {
                 val path = request.path ?: ""
                 val pathTypes = this.httpPathPattern.patternFrom(path, resolver, parseValueToType).allParameters()
-                val queryParamTypes = toExactTypeMapForQueryParameters(request.queryParams, httpQueryParamPattern, resolver)
                 requestPattern.copy(
                     httpPathPattern = HttpPathPattern(pathTypes, path),
-                    httpQueryParamPattern = HttpQueryParamPattern(
-                        queryParamTypes,
-                        additionalProperties = httpQueryParamPattern.additionalProperties,
-                        extensibleQueryParams = httpQueryParamPattern.extensibleQueryParams,
-                        formExplodedObjectQueryParams = httpQueryParamPattern.formExplodedObjectQueryParams,
-                        nestedObjectQueryParams = httpQueryParamPattern.nestedObjectQueryParams,
-                        parameterPointers = httpQueryParamPattern.parameterPointers
-                    )
+                    httpQueryParamPattern = httpQueryParamPattern.exactMatchFor(request.queryParams, resolver)
                 )
             }
 
@@ -610,82 +600,6 @@ data class HttpRequestPattern(
             } ?: parsedPattern(value)
         }
     }
-
-    private fun toExactTypeMapForQueryParameters(
-        queryParams: QueryParameters,
-        httpQueryParamPattern: HttpQueryParamPattern,
-        resolver: Resolver
-    ): Map<String, Pattern> {
-        val patterns: Map<String, Pattern> = httpQueryParamPattern.queryPatterns
-
-        val paramsWithinPattern = patterns.filterKeys { withoutOptionality(it) in queryParams.paramPairs.map { it.first } }.map {
-            val key = withoutOptionality(it.key)
-            val pattern = it.value
-
-            attempt(breadCrumb = key) {
-                val values: List<String> = queryParams.getValues(key)
-                when (pattern) {
-                    is QueryParameterArrayPattern -> {
-                        val queryParameterValuePatterns = values.map { value ->
-                            exactEncompassedType(value, key, pattern.pattern.first(), resolver)
-                        }
-                        key to QueryParameterArrayPattern(queryParameterValuePatterns, key)
-                    }
-
-                    is QueryParameterScalarPattern -> {
-                        key to QueryParameterScalarPattern(
-                            exactEncompassedType(
-                                values.single(),
-                                key,
-                                pattern.pattern,
-                                resolver
-                            )
-                        )
-                    }
-
-                    else -> {
-                        throw ContractException("Non query type: $pattern found")
-                    }
-                }
-            }
-        }.toMap()
-
-        val paramsUnaccountedFor = queryParams.paramPairs.filter { (name, _) ->
-            name !in paramsWithinPattern
-        }.groupBy { (name, _) ->
-            name
-        }
-
-        if (httpQueryParamPattern.additionalProperties == null) {
-            val paramsOutsidePattern = unaccountedQueryParamsToMap(paramsUnaccountedFor)
-            return paramsWithinPattern + paramsOutsidePattern
-        }
-
-        val additionalPropertiesResult = paramsUnaccountedFor.map { (_, values) ->
-            values.map { (_, rawValue) ->
-                val value = httpQueryParamPattern.additionalProperties.parse(rawValue, resolver)
-                httpQueryParamPattern.additionalProperties.matches(value, resolver)
-            }
-        }.flatten()
-
-        val matchResult = Result.fromResults(additionalPropertiesResult)
-        if (matchResult is Failure)
-            throw ContractException(matchResult.toFailureReport())
-
-        val paramsOutsidePattern = unaccountedQueryParamsToMap(paramsUnaccountedFor)
-        return paramsWithinPattern + paramsOutsidePattern
-    }
-
-    private fun unaccountedQueryParamsToMap(paramsUnaccountedFor: Map<String, List<Pair<String, String>>>) =
-        paramsUnaccountedFor.map { (name, values) ->
-            val pattern = if (values.size > 1) {
-                QueryParameterArrayPattern(values.map { ExactValuePattern(StringValue(it.second)) }, name)
-            } else {
-                QueryParameterScalarPattern(ExactValuePattern(StringValue(values.single().second)))
-            }
-
-            name to pattern
-        }.toMap()
 
     private fun exactEncompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {

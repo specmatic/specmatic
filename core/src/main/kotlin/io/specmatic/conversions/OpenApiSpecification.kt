@@ -3432,41 +3432,22 @@ class OpenApiSpecification(
         )
     }
 
-    private data class QueryParameterPatternSource(
-        val parameterName: String,
-        val propertyName: String? = null,
-        val kind: QueryParameterSourceKind = if (propertyName == null) {
-            QueryParameterSourceKind.ScalarParameter
-        } else {
-            QueryParameterSourceKind.FormExplodedObjectProperty
-        }
-    ) {
-        val displayName: String = propertyName?.let { "$parameterName.$it" } ?: parameterName
-    }
-
     private data class QueryParameterPatternEntry(
         val key: String,
         val wireKey: String,
         val pattern: Pattern,
-        val source: QueryParameterPatternSource,
+        val source: QueryParameterSource,
         val collectorContext: CollectorContext,
-        val pointer: String? = null,
-        val contributesToQueryPatterns: Boolean = true
+        val pointer: String? = null
     ) {
-        fun toDeclaration(): QueryParameterDeclaration {
-            return QueryParameterDeclaration(
+        fun toDeclaration(): QueryParameterDeclaration =
+            QueryParameterDeclaration(
                 key = key,
                 wireKey = wireKey,
                 pattern = pattern,
-                source = QueryParameterSource(
-                    parameterName = source.parameterName,
-                    propertyName = source.propertyName,
-                    kind = source.kind
-                ),
-                pointer = pointer,
-                contributesToQueryPatterns = contributesToQueryPatterns
+                source = source,
+                pointer = pointer
             )
-        }
     }
 
     private fun QueryParameterPatternEntry.diagnosticDisplayName(): String {
@@ -3546,7 +3527,7 @@ class OpenApiSpecification(
                         key = queryParamKey,
                         wireKey = parameter.name,
                         pattern = specmaticPattern,
-                        source = QueryParameterPatternSource(parameter.name),
+                        source = QueryParameterSource(parameter.name),
                         collectorContext = queryParamContext,
                         pointer = parameterPointers[parameter.name]?.let { "$it/name" }
                     )
@@ -3600,7 +3581,7 @@ class OpenApiSpecification(
                             resolvedSchemaContext = schemaContext,
                             schemaContext = parameterContext.at("schema")
                         ),
-                        source = QueryParameterPatternSource(parameter.name),
+                        source = QueryParameterSource(parameter.name),
                         collectorContext = parameterContext,
                         pointer = parameterPointer?.let { "$it/name" }
                     )
@@ -3642,7 +3623,7 @@ class OpenApiSpecification(
                     resolvedSchemaContext = resolvedPropertyContext,
                     schemaContext = propertyContext
                 ),
-                source = QueryParameterPatternSource(parameter.name, propertyName),
+                source = QueryParameterSource(parameter.name, propertyName),
                 collectorContext = propertyContext,
                 pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" }
             )
@@ -3693,14 +3674,13 @@ class OpenApiSpecification(
                     resolvedSchemaContext = resolvedPropertyContext,
                     schemaContext = propertyContext
                 ),
-                source = QueryParameterPatternSource(
+                source = QueryParameterSource(
                     parameterName = parameter.name,
                     propertyName = propertyName,
                     kind = QueryParameterSourceKind.NestedObjectProperty
                 ),
                 collectorContext = propertyContext,
-                pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" },
-                contributesToQueryPatterns = false
+                pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" }
             )
         }
     }
