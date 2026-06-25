@@ -388,6 +388,19 @@ class HttpQueryParamPatternTest {
     }
 
     @Test
+    fun `should serialize array values for ordinary query params as repeated pairs`() {
+        val queryPairs = serializeNestedObjectQueryValues(
+            nestedObjectQueryParams = emptyList(),
+            valuesMap = mapOf("tags" to JSONArrayValue(listOf(StringValue("red"), StringValue("blue")))),
+        )
+
+        assertThat(queryPairs).containsExactly(
+            "tags" to "red",
+            "tags" to "blue"
+        )
+    }
+
+    @Test
     fun `should treat numeric-looking nested object query tokens as properties when schema position is object`() {
         val matcher = HttpQueryParamPattern(
             queryPatterns = mapOf(
