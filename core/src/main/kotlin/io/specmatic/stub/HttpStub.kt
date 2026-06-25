@@ -1169,10 +1169,9 @@ class HttpStub(
             val mockUsageReport = mockUsage.generate()
 
             ReportGenerator.generateReport(
-                coverageReportOperations = mockUsageReport.coverageReportOperations,
+                coverageReportSpecifications = mockUsage.coverageReportSpecifications(mockUsageReport.coverageReportOperations),
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = mockUsageReport.getSpecConfigs(),
                 coverage = mockUsageReport.coverage,
                 absoluteCoverage = mockUsageReport.absoluteCoverage,
                 reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")

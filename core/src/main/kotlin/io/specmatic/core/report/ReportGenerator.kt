@@ -3,9 +3,9 @@ package io.specmatic.core.report
 import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
+import io.specmatic.reporter.ctrf.CoverageReportSpecification
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
-import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.reporting.ReportProvider
@@ -14,21 +14,16 @@ import java.io.File
 
 object ReportGenerator {
     fun generateReport(
-        coverageReportOperations: List<BaseCoverageReportOperation>,
+        coverageReportSpecifications: List<CoverageReportSpecification>,
         startTime: Long,
         endTime: Long,
-        specConfigs: List<CtrfSpecConfig>,
         coverage: Int? = null,
         actuatorEnabled: Boolean? = null,
         absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
     ) {
-        if(isCtrfSpecConfigsValid(specConfigs).not()) return
-
-        val testResultRecords = coverageReportOperations
-            .flatMap { it.tests }
-            .distinctBy { it.id }
+        if (isCoverageReportSpecificationsValid(coverageReportSpecifications).not()) return
 
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
@@ -37,17 +32,12 @@ object ReportGenerator {
             put("specmaticConfigPath", getConfigFilePath())
         }
 
-        consoleLog(
-            "Generating report for ${testResultRecords.size} tests and ${coverageReportOperations.size} coverage operations..."
-        )
-
-        consoleLog("Using new report generation method that accepts coverage report operations.")
+        logCoverageReportGeneration(coverageReportSpecifications)
         val report = CtrfReportGenerator.generate(
-            coverageReportOperations = coverageReportOperations,
+            coverageReportSpecifications = coverageReportSpecifications,
             startTime = startTime,
             endTime = endTime,
             extra = extra,
-            specConfig = specConfigs,
             toolName = toolName
         )
 
@@ -93,6 +83,17 @@ object ReportGenerator {
         }
     }
 
+    private fun isCoverageReportSpecificationsValid(
+        coverageReportSpecifications: List<CoverageReportSpecification>,
+    ): Boolean {
+        if (coverageReportSpecifications.isEmpty()) {
+            consoleLog("Skipping the CTRF report generation as coverage report specifications list is empty.")
+            return false
+        }
+
+        return isCtrfSpecConfigsValid(coverageReportSpecifications.map { it.specConfig })
+    }
+
     private fun isCtrfSpecConfigsValid(specConfigs: List<CtrfSpecConfig>): Boolean {
         if (specConfigs.isEmpty()) {
             consoleLog("Skipping the CTRF report generation as ctrf spec configs list is empty.")
@@ -104,4 +105,25 @@ object ReportGenerator {
         }
         return true
     }
+
+    private fun logCoverageReportGeneration(coverageReportSpecifications: List<CoverageReportSpecification>) {
+        val (totalTests, totalOperations) = coverageReportCounts(coverageReportSpecifications)
+        consoleLog(
+            "Generating report for $totalTests tests and $totalOperations coverage operations..."
+        )
+        consoleLog("Using report generation method that accepts coverage report specifications.")
+    }
+
+    private fun coverageReportCounts(
+        coverageReportSpecifications: List<CoverageReportSpecification>,
+    ): Pair<Int, Int> {
+        val coverageReportOperations = coverageReportSpecifications.flatMap { it.coverageReportOperations }
+        val totalTests = coverageReportOperations
+            .flatMap { it.tests }
+            .distinctBy { it.id }
+            .size
+
+        return totalTests to coverageReportOperations.size
+    }
+
 }
