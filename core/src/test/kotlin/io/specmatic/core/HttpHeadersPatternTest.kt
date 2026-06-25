@@ -1051,4 +1051,37 @@ internal class HttpHeadersPatternTest {
             assertThat(value).isEqualTo(headers)
         }
     }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve values in headers and extra keys`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern()))
+            val headers = mapOf("number" to "$(number)", "extraKey" to "$(extraKey)")
+            val substitution = substitutionOf("$(number)" to "999", "$(extraKey)" to "extraValue")
+            val resolved = httpHeaders.resolveSubstitutions(headers, substitution, Resolver()).value
+            assertThat(resolved).isEqualTo(mapOf("number" to "999", "extraKey" to "extraValue"))
+        }
+
+        @Test
+        fun `should be case insensitive for header keys`() {
+            val httpHeaders = HttpHeadersPattern(mapOf("x-trace" to StringPattern()))
+            val substitution = substitutionOf("$(trace)" to "abc")
+            val headers = mapOf("X-TRACE" to "$(trace)")
+            val resolved = httpHeaders.resolveSubstitutions(headers, substitution, Resolver()).value
+            assertThat(resolved).containsEntry("X-TRACE", "abc")
+        }
+
+        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
+            return object : Substitution {
+                override fun isDropDirective(value: Value): Boolean = false
+                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
+                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
+                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
+                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
+                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
+                }
+            }
+        }
+    }
 }

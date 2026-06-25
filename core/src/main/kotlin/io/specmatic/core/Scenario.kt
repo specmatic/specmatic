@@ -442,6 +442,11 @@ data class Scenario(
         return matches(httpResponse = httpResponse, resolver = updatedResolver)
     }
 
+    fun matchesRequest(httpRequest: HttpRequest, flagsBased: FlagsBased): Result {
+        val updatedResolver = flagsBased.update(resolver)
+        return this.matchesRequestForResponseStatus(httpRequest, status, updatedResolver)
+    }
+
     fun matches(
         httpRequest: HttpRequest, httpResponse: HttpResponse, mismatchMessages: MismatchMessages,
         flagsBased: FlagsBased, isPartial: Boolean = false, disableOverrideKeyCheck: Boolean = true
@@ -1145,8 +1150,13 @@ data class Scenario(
         response: HttpResponse,
         data: JSONObjectValue
     ): HttpResponse {
-        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, resolver.copy(mockMode = true), data)
-        return httpResponsePattern.resolveSubstitutions(substitution, response)
+        val substitutionResolver = resolver.copy(mockMode = true)
+        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, data, substitutionResolver)
+        return httpResponsePattern.resolveSubstitutions(substitution, response, substitutionResolver).value
+    }
+
+    fun resolveRequestSubstitutions(request: HttpRequest, substitution: Substitution): ReturnValue<HttpRequest> {
+        return httpRequestPattern.resolveSubstitutions(substitution, request, resolver.copy(mockMode = true))
     }
 
     fun matchesPartial(template: ScenarioStub, mismatchMessages: MismatchMessages): Result {

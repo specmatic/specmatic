@@ -430,20 +430,59 @@ data class HttpHeadersPattern(
         }
     }
 
-    fun fillInTheBlanks(headers: Map<String, String>, resolver: Resolver): ReturnValue<Map<String, String>> {
+    fun fillInTheBlanks(
+        headers: Map<String, String>,
+        resolver: Resolver
+    ): ReturnValue<Map<String, String>> {
+        return resolveHeaders(headers = headers, resolver = resolver) { patternWithContentType, headersValue, updatedResolver ->
+            fill(
+                jsonPatternMap = patternWithContentType,
+                jsonValueMap = headersValue,
+                resolver = updatedResolver,
+                typeAlias = null
+            )
+        }
+    }
+
+    fun resolveSubstitutions(
+        headers: Map<String, String>,
+        substitution: Substitution,
+        resolver: Resolver
+    ): ReturnValue<Map<String, String>> {
+        return resolveHeaders(headers = headers, resolver = resolver) { patternWithContentType, headersValue, updatedResolver ->
+            resolveSubstitutions(
+                findPatternKey = { map, key -> map.getCaseInsensitiveCheckOptional(key)?.key },
+                jsonPatternMap = patternWithContentType,
+                jsonValueMap = headersValue,
+                substitution = substitution,
+                resolver = updatedResolver
+            )
+        }
+    }
+
+    private fun resolveHeaders(
+        resolver: Resolver,
+        headers: Map<String, String>,
+        resolveValues: (patternWithContentType: Map<String, Pattern>, headersValue: Map<String, Value>, resolver: Resolver) -> ReturnValue<Map<String, Value>>
+    ): ReturnValue<Map<String, String>> {
         val patternWithContentType = adjustPatternForFixAndFill(headers)
         val headersValue = headers.mapValues { (key, value) ->
             val pattern = patternWithContentType[key] ?: patternWithContentType["$key?"] ?: return@mapValues StringValue(value)
             runCatching { pattern.parse(value, resolver) }.getOrDefault(StringValue(value))
         }
 
-        return fill(
-            jsonPatternMap = patternWithContentType, jsonValueMap = headersValue,
-            resolver = resolver.updateLookupForParam(BreadCrumb.HEADER.value).withUnexpectedKeyCheck(IgnoreUnexpectedKeys),
-            typeAlias = null
+        val updatedResolver = resolver
+            .updateLookupForParam(BreadCrumb.HEADER.value)
+            .withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
+
+        return resolveValues(
+            patternWithContentType,
+            headersValue,
+            updatedResolver
         ).realise(
-            hasValue = { valuesMap, _ -> HasValue(valuesMap.mapValues { it.value.toStringLiteral() }) },
-            orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
+            hasValue = { valuesMap, _ -> HasValue(valuesMap.mapValues { it.value.toUnformattedString() }) },
+            orException = { e -> e.cast() },
+            orFailure = { f -> f.cast() }
         )
     }
 
@@ -590,6 +629,12 @@ fun Map<String, String>.withoutTransportHeaders(
     }
 
 fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
+
+fun <T> Map<String, T>.getCaseInsensitiveCheckOptional(key: String): Map.Entry<String, T>? {
+    val mandatoryEntry = this.getCaseInsensitive(withoutOptionality(key))
+    if (mandatoryEntry != null) return mandatoryEntry
+    return getCaseInsensitive(withOptionality(key))
+}
 
 fun Map<String, Pattern>.containsCaseInsensitiveCheckOptional(key: String): Boolean {
     val mandatoryEntry = this.getCaseInsensitive(withoutOptionality(key))

@@ -10,6 +10,7 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
@@ -2914,6 +2915,35 @@ class HttpQueryParamPatternTest {
 
                 assertThat(result).isInstanceOf(HasValue::class.java); result as HasValue
                 println(result.value)
+            }
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve values in query params and extra keys`() {
+            val substitution = substitutionOf("$(id)" to "123", "$(extra)" to "456")
+            val queryPattern = HttpQueryParamPattern(mapOf("id" to QueryParameterScalarPattern(StringPattern())))
+            val resolved = queryPattern.resolveSubstitutions(
+                queryParams = QueryParameters(mapOf("id" to "$(id)", "extra" to "$(extra)")),
+                substitution = substitution,
+                resolver = Resolver()
+            ).value
+
+            assertThat(resolved.asMap()).containsEntry("id", "123")
+            assertThat(resolved.asMap()).containsEntry("extra", "456")
+        }
+
+        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
+            return object : Substitution {
+                override fun isDropDirective(value: Value): Boolean = false
+                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
+                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
+                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
+                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
+                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
+                }
             }
         }
     }
