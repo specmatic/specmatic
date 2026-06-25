@@ -10,7 +10,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.ExampleProcessor.toFactStore
-import io.specmatic.test.asserts.WILDCARD_INDEX
 import java.io.File
 
 object DictionaryMismatchMessages : MismatchMessages {

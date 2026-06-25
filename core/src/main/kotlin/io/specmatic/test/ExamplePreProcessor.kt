@@ -17,7 +17,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.ScalarValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
-import io.specmatic.test.asserts.isKeyAssert
 import java.io.File
 
 const val delayedRandomSubstitutionKey = "\$rand"
@@ -273,11 +272,11 @@ object ExampleProcessor {
 
 fun <T> Value.traverse(
     prefix: String = "", onScalar: (Value, String) -> Map<String, T>,
-    onComposite: ((Value, String) -> Map<String, T>)? = null, onAssert: ((Value, String) ->  Map<String, T>)? = null
+    onComposite: ((Value, String) -> Map<String, T>)? = null
 ): Map<String, T> {
     return when (this) {
-        is JSONObjectValue -> this.traverse(prefix, onScalar, onComposite, onAssert)
-        is JSONArrayValue ->  this.traverse(prefix, onScalar, onComposite, onAssert)
+        is JSONObjectValue -> this.traverse(prefix, onScalar, onComposite)
+        is JSONArrayValue ->  this.traverse(prefix, onScalar, onComposite)
         is ScalarValue -> onScalar(this, prefix)
         else -> emptyMap()
     }.filterValues { it != null }
@@ -285,23 +284,19 @@ fun <T> Value.traverse(
 
 private fun <T> JSONObjectValue.traverse(
     prefix: String = "", onScalar: (Value, String) -> Map<String, T>,
-    onComposite: ((Value, String) -> Map<String, T>)? = null, onAssert: ((Value, String) ->  Map<String, T>)? = null
+    onComposite: ((Value, String) -> Map<String, T>)? = null
 ): Map<String, T> {
     return this.jsonObject.entries.flatMap { (key, value) ->
         val fullKey = if (prefix.isNotEmpty()) "$prefix.$key" else key
-        key.isKeyAssert {
-            onAssert?.invoke(value, fullKey)?.entries.orEmpty()
-        } ?: value.traverse(fullKey, onScalar, onComposite, onAssert).entries
+        value.traverse(fullKey, onScalar, onComposite).entries
     }.associate { it.toPair() } + onComposite?.invoke(this, prefix).orEmpty()
 }
 
 private fun <T> JSONArrayValue.traverse(
     prefix: String = "", onScalar: (Value, String) -> Map<String, T>,
-    onComposite: ((Value, String) -> Map<String, T>)? = null, onAssert: ((Value, String) ->  Map<String, T>)? = null
+    onComposite: ((Value, String) -> Map<String, T>)? = null
 ): Map<String, T> {
-    val listToTraverse = if (onAssert == null) this.list else this.list.lastOrNull()?.let { listOf(it) }.orEmpty()
-    return listToTraverse.mapIndexed { index, value ->
-        val indexToUse = if (onAssert == null) index else "*"
-        value.traverse("$prefix[$indexToUse]", onScalar, onComposite, onAssert)
+    return this.list.mapIndexed { index, value ->
+        value.traverse("$prefix[$index]", onScalar, onComposite)
     }.flatMap { it.entries }.associate { it.toPair() } + onComposite?.invoke(this, prefix).orEmpty()
 }

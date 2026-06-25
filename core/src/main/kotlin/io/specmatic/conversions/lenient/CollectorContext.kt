@@ -4,8 +4,8 @@ import io.specmatic.core.BreadCrumb
 import io.specmatic.core.Result
 import io.specmatic.core.RuleViolation
 import io.specmatic.core.jsonoperator.PathSegment
+import io.specmatic.core.pattern.toFailure
 import io.specmatic.core.value.toBigDecimal
-import io.specmatic.test.asserts.toFailure
 
 data class CollectorContext(private val collector: DiagnosticCollector = DiagnosticCollector(), private val pathSegments: List<PathSegment> = emptyList()) {
     val path: String? = pathSegments.joinToString(".", transform = PathSegment::internalPointerRepresentation).takeUnless(String::isBlank)
