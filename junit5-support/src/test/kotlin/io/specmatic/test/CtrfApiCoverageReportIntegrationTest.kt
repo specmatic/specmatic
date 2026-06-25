@@ -55,8 +55,8 @@ class CtrfApiCoverageReportIntegrationTest {
 
         val reportNode = ctrfReportNode(report)
 
-        assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
-        assertThat(findTextValue(reportNode, "absoluteCoverage")).isEqualTo("50%")
+        assertThat(reportNode["results"]["extra"]["apiCoverage"].asText()).isEqualTo("100%")
+        assertThat(reportNode["results"]["extra"]["absoluteCoverage"].asText()).isEqualTo("50%")
         assertThat(reportNode["results"]["extra"]["actuatorEnabled"].asBoolean()).isTrue()
     }
 
@@ -275,7 +275,7 @@ class CtrfApiCoverageReportIntegrationTest {
         val report = coverage.generate()
         val reportNode = ctrfReportNode(report)
         assertThat(report.totalCoveragePercentage).isEqualTo(0)
-        assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("0%")
+        assertThat(reportNode["results"]["extra"]["apiCoverage"].asText()).isEqualTo("0%")
         assertThat(reportNode["results"]["tests"].map { it["name"].asText() }).anyMatch { it.contains("/pets/search") }
     }
 
@@ -301,7 +301,7 @@ class CtrfApiCoverageReportIntegrationTest {
         val tests = reportNode["results"]["tests"].toList()
 
         assertThat(report.totalCoveragePercentage).isEqualTo(100)
-        assertThat(findTextValue(reportNode, "apiCoverage")).isEqualTo("100%")
+        assertThat(reportNode["results"]["extra"]["apiCoverage"].asText()).isEqualTo("100%")
         assertThat(tests.single()["extra"]["wip"].asBoolean()).isTrue()
         assertThat(executionOperations.single()["coverageStatus"].asText()).isEqualTo("covered")
         assertThat(executionOperations.single()["qualifiers"].get(0).asText()).isEqualTo("wip")
