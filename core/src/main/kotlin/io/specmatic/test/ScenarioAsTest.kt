@@ -17,6 +17,10 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.ReturnFailure
+import io.specmatic.core.pattern.ReturnValue
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 import java.net.ConnectException
 import java.net.NoRouteToHostException
@@ -45,7 +49,8 @@ data class ScenarioAsTest(
     private val originalScenario: Scenario,
     private val workflow: Workflow = Workflow(),
     private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
-    val reasoning: Reasoning = Reasoning()
+    val reasoning: Reasoning = Reasoning(),
+    private val substitution: Substitution = SubstitutionImpl.empty(scenario.resolver),
 ) : ContractTest {
     companion object {
         private var id: Value? = null
@@ -137,22 +142,63 @@ data class ScenarioAsTest(
         )
     }
 
+    private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution?): ReturnValue<HttpRequest> {
+        if (originalScenario.isNegative) return HasValue(httpRequest)
+        val workflowUpdatedRequest = workflow.updateRequest(httpRequest, originalScenario)
+        val finalRequest = when (val substitution = substitution) {
+            null -> HasValue(workflowUpdatedRequest)
+            else -> originalScenario.resolveRequestSubstitutions(workflowUpdatedRequest, substitution)
+        }
+
+        return finalRequest.ifHasValue {
+            originalScenario.matchesRequest(it.value, feature.flagsBased).toReturnValue(it.value)
+        }
+    }
+
+    private fun updateSubstitutionWithResponse(scenario: Scenario, substitution: Substitution, httpResponse: HttpResponse): Substitution {
+        val example = scenario.exampleRow?.scenarioStub ?: return substitution
+        return substitution.upsertStoreUsing(
+            runningValue = httpResponse.toJSON(),
+            originalValue = example.response().toJSON(),
+        )
+    }
+
     private fun executeTestAndReturnResultAndResponse(
         testScenario: Scenario,
         testExecutor: TestExecutor,
         flagsBased: FlagsBased
     ): ContractTestExecutionResult {
         try {
-            val beforeFixtureExecutionResult = fixtureExecutionResult(BEFORE_FIXTURE_DISCRIMINATOR_KEY)
+            val beforeFixtureExecutionResult = fixtureExecutionResult(
+                fixtureDiscriminatorKey = BEFORE_FIXTURE_DISCRIMINATOR_KEY,
+                substitution = substitution
+            )
+
             if (beforeFixtureExecutionResult.combinedResult.isSuccess().not()) {
                 return ContractTestExecutionResult(
                     result = beforeFixtureExecutionResult.combinedResult.updateScenario(testScenario),
                     beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
                 )
             }
-            val request = testScenario.generateHttpRequest(flagsBased).let {
-                workflow.updateRequest(it, originalScenario).adjustPayloadForContentType()
-            }.addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, testScenario.status.toString())
+
+            val requestSubstitution = beforeFixtureExecutionResult.updatedSubstitution ?: substitution
+            val generatedRequest = testScenario.generateHttpRequest(flagsBased)
+            val updatedRequest = updateRequestAndValidate(
+                httpRequest = generatedRequest,
+                substitution = requestSubstitution
+            )
+
+            val request = when (updatedRequest) {
+                !is ReturnFailure -> {
+                    updatedRequest.value
+                        .adjustPayloadForContentType()
+                        .addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, testScenario.status.toString())
+                }
+                else -> return ContractTestExecutionResult(
+                    result = updatedRequest.toFailure().updateScenario(testScenario),
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
+                )
+            }
 
             testExecutor.setServerState(testScenario.serverState)
             testExecutor.preExecuteScenario(testScenario, request)
@@ -226,12 +272,22 @@ data class ScenarioAsTest(
             }.firstOrNull() ?: Result.Success()
 
             if(result !is Result.Failure) {
-                val afterFixtureExecutionResult = fixtureExecutionResult(AFTER_FIXTURE_DISCRIMINATOR_KEY)
+                val updatedSubstitution = updateSubstitutionWithResponse(
+                    substitution = requestSubstitution,
+                    scenario = testScenario,
+                    httpResponse = response
+                )
+
+                val afterFixtureExecutionResult = fixtureExecutionResult(
+                    fixtureDiscriminatorKey = AFTER_FIXTURE_DISCRIMINATOR_KEY,
+                    substitution = updatedSubstitution,
+                )
 
                 val contractTestResult = when {
                     afterFixtureExecutionResult.combinedResult.isSuccess().not() -> afterFixtureExecutionResult.combinedResult
                     else -> result
                 }
+
                 return ContractTestExecutionResult(
                     result = contractTestResult.withBindings(testScenario.bindings, response),
                     request = request,
@@ -271,18 +327,25 @@ data class ScenarioAsTest(
         }
     }
 
-    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String): FixtureExecutionDetails {
-        if (scenario.isNegative) return FixtureExecutionDetails(Result.Success())
-        val row = scenario.exampleRow ?: return FixtureExecutionDetails(Result.Success())
-        val scenarioStub = row.scenarioStub ?: return FixtureExecutionDetails(Result.Success())
+    private fun fixtureExecutionResult(fixtureDiscriminatorKey: String, substitution: Substitution): FixtureExecutionDetails {
+        if (scenario.isNegative) return FixtureExecutionDetails(Result.Success(), substitution)
+        val row = scenario.exampleRow ?: return FixtureExecutionDetails(Result.Success(), substitution)
+        val scenarioStub = row.scenarioStub ?: return FixtureExecutionDetails(Result.Success(), substitution)
         val id = scenarioStub.id.orEmpty()
         val fixtures = when (fixtureDiscriminatorKey) {
             BEFORE_FIXTURE_DISCRIMINATOR_KEY -> scenarioStub.beforeFixtures
             else -> scenarioStub.afterFixtures
         }
 
-        return ServiceLoader.load(OpenAPIFixtureExecutor::class.java)
-            .firstOrNull()?.execute(id, fixtures, fixtureDiscriminatorKey) ?: FixtureExecutionDetails(Result.Success())
+        return ServiceLoader.load(OpenAPIFixtureExecutor::class.java).firstOrNull()?.execute(
+            id = id,
+            fixtures = fixtures,
+            substitution = substitution,
+            fixtureDiscriminatorKey = fixtureDiscriminatorKey,
+        ) ?: FixtureExecutionDetails(
+            combinedResult = Result.Success(),
+            updatedSubstitution = substitution
+        )
     }
 
     private fun testResult(

@@ -12,11 +12,23 @@ import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
+import io.specmatic.core.Resolver
+import io.specmatic.core.Substitution
+import io.specmatic.core.HttpQueryParamPattern
+import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.Row
+import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.buildHttpPathPattern
+import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import io.specmatic.core.value.JSONObjectValue
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -25,6 +37,9 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
@@ -63,6 +78,152 @@ class ScenarioAsTestTest {
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
+        }
+
+        @Test
+        fun `request generation should be able to use before fixture substitution store`() {
+            val substitution = mockk<Substitution>()
+            val store = mutableMapOf<String, String>()
+
+            every { substitution.isDropDirective(any()) } returns false
+            every { substitution.resolveIfLookup(any(), any()) } answers { firstArg() }
+            every { substitution.substitute(any(), any(), any()) } answers {
+                val value = firstArg<Value>()
+                val resolved = value.toStringLiteral().replace("$(SECRET)", store.getOrDefault("SECRET", "$(SECRET)"))
+                HasValue(runCatching { secondArg<Pattern>().parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
+            }
+
+            every { substitution.upsertStoreUsing(any(), any()) } answers {
+                store["SECRET"] = "token-123"
+                substitution
+            }
+
+            val originalScenario = Scenario(
+                ScenarioInfo(
+                    specType = SpecType.OPENAPI,
+                    protocol = SpecmaticProtocol.HTTP,
+                    httpResponsePattern = HttpResponsePattern(status = 200, body = StringPattern()),
+                    httpRequestPattern = HttpRequestPattern(
+                        method = "GET",
+                        httpPathPattern = buildHttpPathPattern("/findAvailableProducts"),
+                        headersPattern = HttpHeadersPattern(mapOf("Authorization" to StringPattern())),
+                        httpQueryParamPattern = HttpQueryParamPattern(mapOf("type" to QueryParameterScalarPattern(StringPattern()))),
+                    ),
+                )
+            )
+
+            val testScenario = Scenario(
+                ScenarioInfo(
+                    specType = SpecType.OPENAPI,
+                    protocol = SpecmaticProtocol.HTTP,
+                    httpResponsePattern = HttpResponsePattern(status = 200, body = StringPattern()),
+                    httpRequestPattern = HttpRequestPattern(
+                        method = "GET",
+                        httpPathPattern = buildHttpPathPattern("/findAvailableProducts"),
+                        headersPattern = HttpHeadersPattern(mapOf("Authorization" to ExactValuePattern(StringValue("$(SECRET)")))),
+                        httpQueryParamPattern = HttpQueryParamPattern(mapOf("type" to QueryParameterScalarPattern(ExactValuePattern(StringValue("book"))))),
+                    ),
+                )
+            ).copy(
+                exampleRow = Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        beforeFixtures = listOf(StringValue("before"))
+                    )
+                )
+            )
+
+            ServiceLoaderTestFixtureExecutor.reset()
+            val result = withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+                val test = scenarioAsTest(scenario = testScenario, originalScenario = originalScenario, substitution = substitution)
+                test.runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            val headers = result.request?.headers.orEmpty()
+            assertThat(headers["Authorization"]).isEqualTo("token-123")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isSameAs(substitution)
+        }
+
+        @Test
+        fun `after fixture should be able to use before and response substitution store`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val substitution = mockk<Substitution>()
+            val store = mutableMapOf("SECRET" to "token-123")
+
+            every { substitution.isDropDirective(any()) } returns false
+            every { substitution.resolveIfLookup(any(), any()) } answers { firstArg() }
+            every { substitution.substitute(any(), any(), any()) } answers {
+                val value = firstArg<Value>()
+                val pattern = secondArg<Pattern>()
+                val resolved = value.toStringLiteral()
+                    .replace("$(SECRET)", store.getValue("SECRET"))
+                    .replace("$(QUERY_ID)", store["QUERY_ID"] ?: "$(QUERY_ID)")
+                HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
+            }
+
+            every { substitution.upsertStoreUsing(any(), any()) } answers {
+                val runningValue = secondArg<JSONObjectValue>()
+                val queryId = runningValue.findFirstChildByPath("headers.X-Query-Id")?.toStringLiteral().orEmpty()
+                store["QUERY_ID"] = queryId
+                require(store["SECRET"] == "token-123")
+                substitution
+            }
+
+            val scenario = scenario(
+                exampleRow = Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        request = HttpRequest(
+                            method = "GET",
+                            path = "/findAvailableProducts",
+                            queryParametersMap = mapOf("type" to "book")
+                        ),
+                        response = HttpResponse(
+                            status = 200,
+                            headers = mapOf("X-Query-Id" to "(QUERY_ID:string)"),
+                            body = parsedJSONObject("""{"product-queries": 1}""")
+                        ),
+                        beforeFixtures = listOf(StringValue("before")),
+                        afterFixtures = listOf(StringValue("after"))
+                    )
+                )
+            ).copy(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/findAvailableProducts"),
+                    httpQueryParamPattern = HttpQueryParamPattern(
+                        mapOf("type" to QueryParameterScalarPattern(ExactValuePattern(StringValue("book"))))
+                    )
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(mapOf("X-Query-Id" to StringPattern())),
+                    body = JSONObjectPattern(mapOf("product-queries" to NumberPattern()))
+                )
+            )
+
+            val result = withServiceLoaderEntries(
+                mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
+            ) {
+                scenarioAsTest(scenario, substitution = substitution).runTest(
+                    fixedResponseExecutor(
+                        status = 200,
+                        body = """{"product-queries": 1}""",
+                        headers = mapOf("X-Query-Id" to "query-456")
+                    )
+                )
+            }
+
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
+            assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isEqualTo(substitution)
+            assertThat(store["QUERY_ID"]).isEqualTo("query-456")
+            verify {
+                substitution.upsertStoreUsing(
+                    originalValue = match { it is JSONObjectValue && it.findFirstChildByPath("headers.X-Query-Id")?.toStringLiteral() == "(QUERY_ID:string)" },
+                    runningValue = match { it is JSONObjectValue && it.findFirstChildByPath("headers.X-Query-Id")?.toStringLiteral() == "query-456" },
+                )
+            }
         }
 
         @Test
@@ -266,15 +427,21 @@ class ScenarioAsTestTest {
         )
     }
 
-    private fun scenarioAsTest(scenario: Scenario, scenarios: List<Scenario> = listOf(scenario)): ScenarioAsTest {
+    private fun scenarioAsTest(
+        scenario: Scenario,
+        scenarios: List<Scenario> = listOf(scenario),
+        originalScenario: Scenario = scenario,
+        substitution: Substitution = SubstitutionImpl.empty(Resolver())
+    ): ScenarioAsTest {
         val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP)
         return ScenarioAsTest(
             scenario = scenario,
             feature = feature,
             flagsBased = feature.flagsBased,
-            originalScenario = scenario,
+            originalScenario = originalScenario,
             protocol = SpecmaticProtocol.HTTP,
-            specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI,
+            substitution = substitution
         )
     }
 
@@ -311,16 +478,31 @@ class ScenarioAsTestTest {
 }
 
 class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
-    override fun execute(id: String, fixtures: List<Value>, fixtureDiscriminatorKey: String): FixtureExecutionDetails {
+    override fun execute(
+        id: String,
+        fixtures: List<Value>,
+        fixtureDiscriminatorKey: String,
+        substitution: Substitution
+    ): FixtureExecutionDetails {
         calls.add(fixtureDiscriminatorKey)
-        return FixtureExecutionDetails(combinedResult = Result.Success())
+        if (fixtureDiscriminatorKey == "before") {
+            substitution.upsertStoreUsing(JSONObjectValue(emptyMap()), JSONObjectValue(emptyMap()))
+        }
+
+        receivedSubstitution = substitution
+        return FixtureExecutionDetails(
+            combinedResult = Result.Success(),
+            updatedSubstitution = substitution
+        )
     }
 
     companion object {
         val calls: MutableList<String> = mutableListOf()
+        var receivedSubstitution: Substitution? = null
 
         fun reset() {
             calls.clear()
+            receivedSubstitution = null
         }
     }
 }
