@@ -3,17 +3,20 @@ package io.specmatic.core.wsdl
 import io.ktor.http.ContentType
 import io.specmatic.conversions.wsdlContentToFeature
 import io.specmatic.core.CONTENT_TYPE
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Source
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.value.StringValue
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.wsdl.payload.emptySoapMessage
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.ServerSocket
 
@@ -358,6 +361,34 @@ class WSDLParserMockBlackBoxTest {
     }
 
     @Test
+    fun `mock for wsdl returns example soap response when request contains xsi type`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("order-service.wsdl")
+            .apply { writeText(minimizedOrderServiceWsdl()) }
+        val feature = parseContractFileToFeature(wsdlFile)
+
+        listOf(
+            "xsi:type=\"OrderDetails\"",
+            "xsi:type=\"ord:OrderDetails\"",
+        ).forEach { orderTypeAttribute ->
+            val scenarioStub = ScenarioStub(
+                request = orderDetailsRequest(orderTypeAttribute),
+                response = HttpResponse(
+                    status = 200,
+                    body = orderDetailsResponseBody(),
+                    headers = mapOf(CONTENT_TYPE to ContentType.Text.Xml.toString()),
+                ),
+            )
+
+            val response = HttpStub(feature, listOf(scenarioStub)).use { stub ->
+                stub.client.execute(scenarioStub.request)
+            }
+
+            assertThat(response.headers["X-Specmatic-Type"]).isNotEqualTo("random")
+            assertThat(response.body.toStringLiteral()).contains("matched-from-external-example")
+        }
+    }
+
+    @Test
     fun `mock for soap version_1_2 wsdl returns the example soap response with appropriate content-type header`() {
         val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
         val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
@@ -426,3 +457,137 @@ class WSDLParserMockBlackBoxTest {
     }
 
 }
+
+private fun orderDetailsRequest(orderTypeAttribute: String): HttpRequest =
+    HttpRequest(
+        method = "POST",
+        path = "/RetrieveOrderDetails",
+        headers = mapOf(
+            "SOAPAction" to "\"http://example.com/order-service/RetrieveOrderDetails\"",
+            CONTENT_TYPE to ContentType.Text.Xml.toString(),
+        ),
+        body = StringValue(
+            """
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+              <s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                <RetrieveOrderDetails xmlns="http://example.com/order-service">
+                  <Message bodyType="XML" id="request-id" version="1.0" xmlns="http://example.com/order-model" xmlns:ord="http://example.com/order-model">
+                    <command>
+                      <retrieveOrderDetailsRequest id="command-id">
+                        <order $orderTypeAttribute>
+                          <orderNumber>100234569</orderNumber>
+                        </order>
+                      </retrieveOrderDetailsRequest>
+                    </command>
+                  </Message>
+                </RetrieveOrderDetails>
+              </s:Body>
+            </s:Envelope>
+            """.trimIndent()
+        )
+    )
+
+private fun orderDetailsResponseBody(): String =
+    """
+    <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+      <s:Body>
+        <RetrieveOrderDetailsResponse xmlns="http://example.com/order-service">
+          <Message bodyType="XML" id="response-id" version="1.0" xmlns="http://example.com/order-model" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ord="http://example.com/order-model">
+            <command>
+              <retrieveOrderDetailsResponse id="response-command-id">
+                <order xsi:type="ord:OrderDetails">
+                  <orderNumber>matched-from-external-example</orderNumber>
+                </order>
+              </retrieveOrderDetailsResponse>
+            </command>
+          </Message>
+        </RetrieveOrderDetailsResponse>
+      </s:Body>
+    </s:Envelope>
+    """.trimIndent()
+
+private fun minimizedOrderServiceWsdl(): String =
+    """
+    <wsdl:definitions xmlns:tns="http://example.com/order-service" xmlns:ord="http://example.com/order-model" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" targetNamespace="http://example.com/order-service">
+      <wsdl:binding name="OrderServiceBinding" type="tns:OrderService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="RetrieveOrderDetails">
+          <soap:operation soapAction="http://example.com/order-service/RetrieveOrderDetails" style="document"/>
+          <wsdl:input><soap:body use="literal"/></wsdl:input>
+          <wsdl:output><soap:body use="literal"/></wsdl:output>
+        </wsdl:operation>
+      </wsdl:binding>
+      <wsdl:message name="RetrieveOrderDetailsSoapIn">
+        <wsdl:part name="parameters" element="tns:RetrieveOrderDetails"/>
+      </wsdl:message>
+      <wsdl:message name="RetrieveOrderDetailsSoapOut">
+        <wsdl:part name="parameters" element="tns:RetrieveOrderDetailsResponse"/>
+      </wsdl:message>
+      <wsdl:portType name="OrderService">
+        <wsdl:operation name="RetrieveOrderDetails">
+          <wsdl:input message="tns:RetrieveOrderDetailsSoapIn"/>
+          <wsdl:output message="tns:RetrieveOrderDetailsSoapOut"/>
+        </wsdl:operation>
+      </wsdl:portType>
+      <wsdl:service name="OrderService">
+        <wsdl:port name="OrderServicePort" binding="tns:OrderServiceBinding">
+          <soap:address location="/RetrieveOrderDetails"/>
+        </wsdl:port>
+      </wsdl:service>
+      <wsdl:types>
+        <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/order-service" elementFormDefault="qualified">
+          <xsd:element name="RetrieveOrderDetails">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" ref="ord:Message"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="RetrieveOrderDetailsResponse">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" ref="ord:Message"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:import namespace="http://example.com/order-model"/>
+        </xsd:schema>
+        <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/order-model" elementFormDefault="qualified">
+          <xsd:complexType name="Message">
+            <xsd:sequence>
+              <xsd:element minOccurs="0" maxOccurs="1" name="command" type="ord:Command"/>
+            </xsd:sequence>
+            <xsd:attribute name="bodyType" type="xsd:string" use="required"/>
+            <xsd:attribute name="id" type="xsd:string" use="required"/>
+            <xsd:attribute name="version" type="xsd:string" use="required"/>
+          </xsd:complexType>
+          <xsd:complexType name="Command">
+            <xsd:choice minOccurs="1" maxOccurs="unbounded">
+              <xsd:element minOccurs="0" maxOccurs="1" name="retrieveOrderDetailsRequest">
+                <xsd:complexType>
+                  <xsd:sequence minOccurs="0" maxOccurs="1">
+                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:OrderDetails"/>
+                  </xsd:sequence>
+                  <xsd:attribute name="id" type="xsd:string" use="required"/>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element minOccurs="0" maxOccurs="1" name="retrieveOrderDetailsResponse">
+                <xsd:complexType>
+                  <xsd:sequence minOccurs="0" maxOccurs="1">
+                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:OrderDetails"/>
+                  </xsd:sequence>
+                  <xsd:attribute name="id" type="xsd:string" use="required"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:choice>
+          </xsd:complexType>
+          <xsd:complexType name="OrderDetails">
+            <xsd:sequence minOccurs="0" maxOccurs="1">
+              <xsd:element minOccurs="0" maxOccurs="1" name="orderNumber" type="xsd:string"/>
+            </xsd:sequence>
+          </xsd:complexType>
+          <xsd:element name="Message" type="ord:Message"/>
+        </xsd:schema>
+      </wsdl:types>
+    </wsdl:definitions>
+    """.trimIndent()
