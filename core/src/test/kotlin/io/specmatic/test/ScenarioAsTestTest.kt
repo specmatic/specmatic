@@ -25,10 +25,6 @@ import io.specmatic.core.buildHttpPathPattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
-import io.specmatic.core.value.JSONObjectValue
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -37,8 +33,6 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
-import io.specmatic.core.pattern.HasValue
-import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
@@ -82,22 +76,7 @@ class ScenarioAsTestTest {
 
         @Test
         fun `request generation should be able to use before fixture substitution store`() {
-            val substitution = mockk<Substitution>()
-            val store = mutableMapOf<String, String>()
-
-            every { substitution.isDropDirective(any()) } returns false
-            every { substitution.resolveIfLookup(any(), any()) } answers { firstArg() }
-            every { substitution.substitute(any(), any(), any()) } answers {
-                val value = firstArg<Value>()
-                val resolved = value.toStringLiteral().replace("$(SECRET)", store.getOrDefault("SECRET", "$(SECRET)"))
-                HasValue(runCatching { secondArg<Pattern>().parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
-            }
-
-            every { substitution.upsertStoreUsing(any(), any()) } answers {
-                store["SECRET"] = "token-123"
-                substitution
-            }
-
+            val substitution = SubstitutionImpl.empty(Resolver())
             val originalScenario = Scenario(
                 ScenarioInfo(
                     specType = SpecType.OPENAPI,
@@ -141,34 +120,17 @@ class ScenarioAsTestTest {
 
             val headers = result.request?.headers.orEmpty()
             assertThat(headers["Authorization"]).isEqualTo("token-123")
-            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isSameAs(substitution)
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isNotNull
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(
+                StringValue("$(SECRET)"), StringPattern(), null)?.value
+            ).isEqualTo(StringValue("token-123"))
         }
 
         @Test
         fun `after fixture should be able to use before and response substitution store`() {
             ServiceLoaderTestFixtureExecutor.reset()
-            val substitution = mockk<Substitution>()
-            val store = mutableMapOf("SECRET" to "token-123")
 
-            every { substitution.isDropDirective(any()) } returns false
-            every { substitution.resolveIfLookup(any(), any()) } answers { firstArg() }
-            every { substitution.substitute(any(), any(), any()) } answers {
-                val value = firstArg<Value>()
-                val pattern = secondArg<Pattern>()
-                val resolved = value.toStringLiteral()
-                    .replace("$(SECRET)", store.getValue("SECRET"))
-                    .replace("$(QUERY_ID)", store["QUERY_ID"] ?: "$(QUERY_ID)")
-                HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
-            }
-
-            every { substitution.upsertStoreUsing(any(), any()) } answers {
-                val runningValue = secondArg<JSONObjectValue>()
-                val queryId = runningValue.findFirstChildByPath("headers.X-Query-Id")?.toStringLiteral().orEmpty()
-                store["QUERY_ID"] = queryId
-                require(store["SECRET"] == "token-123")
-                substitution
-            }
-
+            val substitution = SubstitutionImpl.empty(Resolver())
             val scenario = scenario(
                 exampleRow = Row(
                     scenarioStub = ScenarioStub(
@@ -216,14 +178,11 @@ class ScenarioAsTestTest {
 
             assertThat(result.result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
-            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isEqualTo(substitution)
-            assertThat(store["QUERY_ID"]).isEqualTo("query-456")
-            verify {
-                substitution.upsertStoreUsing(
-                    originalValue = match { it is JSONObjectValue && it.findFirstChildByPath("headers.X-Query-Id")?.toStringLiteral() == "(QUERY_ID:string)" },
-                    runningValue = match { it is JSONObjectValue && it.findFirstChildByPath("headers.X-Query-Id")?.toStringLiteral() == "query-456" },
-                )
-            }
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isNotNull
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(SECRET)"), StringPattern(), null)?.value)
+                .isEqualTo(StringValue("token-123"))
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(QUERY_ID)"), StringPattern(), null)?.value)
+                .isEqualTo(StringValue("query-456"))
         }
 
         @Test
@@ -485,14 +444,18 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
         substitution: Substitution
     ): FixtureExecutionDetails {
         calls.add(fixtureDiscriminatorKey)
-        if (fixtureDiscriminatorKey == "before") {
-            substitution.upsertStoreUsing(JSONObjectValue(emptyMap()), JSONObjectValue(emptyMap()))
+        val updatedSubstitution = when (fixtureDiscriminatorKey) {
+            "before" -> substitution.upsertStoreUsing(
+                originalValue = StringValue("(SECRET:string)"),
+                runningValue = StringValue("token-123")
+            )
+            else -> substitution
         }
 
-        receivedSubstitution = substitution
+        receivedSubstitution = updatedSubstitution
         return FixtureExecutionDetails(
             combinedResult = Result.Success(),
-            updatedSubstitution = substitution
+            updatedSubstitution = updatedSubstitution
         )
     }
 

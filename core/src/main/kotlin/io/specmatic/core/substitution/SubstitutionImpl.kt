@@ -122,6 +122,19 @@ class SubstitutionImpl private constructor(
         return resolved == DROP_DIRECTIVE
     }
 
+    override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution {
+        val extractedVariables = SubstitutionVariableStoreUpdater.fromValues(
+            originalValue = originalValue,
+            runningValue = runningValue
+        )
+
+        return SubstitutionImpl(
+            data = data,
+            resolver = resolver,
+            variableValues = variableValues + extractedVariables,
+        )
+    }
+
     companion object {
         const val DROP_DIRECTIVE = "$(drop)"
 

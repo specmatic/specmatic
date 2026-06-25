@@ -2,12 +2,17 @@ package io.specmatic.core.substitution
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
+import io.specmatic.core.Substitution
+import io.specmatic.core.pattern.HasException
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -72,5 +77,102 @@ class SubstitutionImplTest {
             StringValue("resolved-from-data"),
             substitution.resolveIfLookup(StringValue("$(lookupData.dictionary[traceId].message)"), StringPattern())
         )
+    }
+
+    @Test
+    fun `upsertStoreUsing returns new substitution and keeps original unchanged`() {
+        val resolver = Resolver()
+        val original = SubstitutionImpl.empty(resolver)
+
+        val updated = original.upsertStoreUsing(
+            originalValue = StringValue("(ID:number)"),
+            runningValue = NumberValue(10)
+        )
+
+        assertNotSame(original, updated)
+        assertTrue(original.substitute(StringValue("$(ID)"), StringPattern(), null) is HasException)
+
+        val updatedResult = updated.substitute(StringValue("$(ID)"), StringPattern(), null)
+        assertTrue(updatedResult is HasValue<*>)
+        assertEquals(StringValue("10"), (updatedResult as HasValue<*>).value)
+    }
+
+    @Test
+    fun `upsertStoreUsing preserves existing variables and adds new ones`() {
+        val resolver = Resolver()
+        val original = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+            originalValue = StringValue("(FIRST:number)"),
+            runningValue = NumberValue(1)
+        )
+
+        val updated = original.upsertStoreUsing(
+            originalValue = JSONObjectValue(mapOf("second" to StringValue("(SECOND:number)"))),
+            runningValue = JSONObjectValue(mapOf("second" to NumberValue(2)))
+        )
+
+        assertResolvedValue(original, "$(FIRST)", NumberValue(1))
+        assertResolvedValue(updated, "$(FIRST)", NumberValue(1))
+        assertResolvedValue(updated, "$(SECOND)", NumberValue(2))
+    }
+
+    @Test
+    fun `upsertStoreUsing overrides existing variables`() {
+        val resolver = Resolver()
+        val first = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+            originalValue = StringValue("(ID:number)"),
+            runningValue = NumberValue(10)
+        )
+
+        val second = first.upsertStoreUsing(
+            originalValue = StringValue("(ID:number)"),
+            runningValue = NumberValue(20)
+        )
+
+        assertResolvedValue(second, "$(ID)", NumberValue(20))
+    }
+
+    @Test
+    fun `upsertStoreUsing keeps data lookup behavior`() {
+        val resolver = Resolver()
+        val data = JSONObjectValue(
+            mapOf(
+                "lookupData" to JSONObjectValue(
+                    mapOf(
+                        "dictionary" to JSONObjectValue(
+                            mapOf(
+                                "10" to JSONObjectValue(
+                                    mapOf("message" to StringValue("resolved-from-data"))
+                                ),
+                                "*" to JSONObjectValue(
+                                    mapOf("message" to StringValue("fallback"))
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val substitution = SubstitutionImpl.from(
+            data = data,
+            resolver = resolver,
+            runningRequest = HttpRequest(method = "POST", path = "/orders/10"),
+            originalRequest = HttpRequest(method = "POST", path = "/orders/(ID:number)")
+        ).upsertStoreUsing(
+            originalValue = StringValue("(ID:number)"),
+            runningValue = NumberValue(10)
+        )
+
+        assertEquals(
+            StringValue("resolved-from-data"),
+            substitution.resolveIfLookup(StringValue("$(lookupData.dictionary[ID].message)"), StringPattern())
+        )
+    }
+
+    private fun assertResolvedValue(substitution: Substitution, lookup: String, patternValue: NumberValue) {
+        val result = substitution.substitute(StringValue(lookup), StringPattern(), null)
+
+        assertTrue(result is HasValue<*>)
+        assertEquals(StringValue(patternValue.number.toString()), (result as HasValue<*>).value)
     }
 }
