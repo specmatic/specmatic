@@ -142,14 +142,9 @@ data class ScenarioAsTest(
         )
     }
 
-    private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution?): ReturnValue<HttpRequest> {
-        if (originalScenario.isNegative) return HasValue(httpRequest)
+    private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution): ReturnValue<HttpRequest> {
         val workflowUpdatedRequest = workflow.updateRequest(httpRequest, originalScenario)
-        val finalRequest = when (val substitution = substitution) {
-            null -> HasValue(workflowUpdatedRequest)
-            else -> originalScenario.resolveRequestSubstitutions(workflowUpdatedRequest, substitution)
-        }
-
+        val finalRequest = originalScenario.resolveRequestSubstitutions(workflowUpdatedRequest, substitution)
         return finalRequest.ifHasValue {
             originalScenario.matchesRequest(it.value, feature.flagsBased).toReturnValue(it.value)
         }
@@ -181,7 +176,7 @@ data class ScenarioAsTest(
                 )
             }
 
-            val requestSubstitution = beforeFixtureExecutionResult.updatedSubstitution ?: substitution
+            val requestSubstitution = beforeFixtureExecutionResult.updatedSubstitution
             val generatedRequest = testScenario.generateHttpRequest(flagsBased)
             val updatedRequest = updateRequestAndValidate(
                 httpRequest = generatedRequest,

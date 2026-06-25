@@ -127,7 +127,7 @@ class SubstitutionImpl private constructor(
     }
 
     override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution {
-        val extractedVariables = SubstitutionVariableStoreUpdater.fromValues(
+        val extractedVariables = SubstitutionVariableExtractor.fromValues(
             originalValue = originalValue,
             runningValue = runningValue
         )
@@ -147,7 +147,27 @@ class SubstitutionImpl private constructor(
         }
 
         fun from(runningRequest: HttpRequest, originalRequest: HttpRequest, data: JSONObjectValue, resolver: Resolver): SubstitutionImpl {
-            val variableValues = SubstitutionVariableExtractor.fromRequest(runningRequest = runningRequest, originalRequest = originalRequest)
+            val variableValuesFromHeaders = SubstitutionVariableExtractor.fromMap(
+                originalMap = originalRequest.headers,
+                runningMap = runningRequest.headers
+            )
+
+            val variableValuesFromRequestBody = SubstitutionVariableExtractor.fromValues(
+                originalValue = originalRequest.body,
+                runningValue = runningRequest.body
+            )
+
+            val variableValuesFromQueryParams = SubstitutionVariableExtractor.fromMap(
+                originalMap = originalRequest.queryParams.asMap(),
+                runningMap = runningRequest.queryParams.asMap()
+            )
+
+            val variableValuesFromPath = SubstitutionVariableExtractor.fromPath(
+                originalPath = originalRequest.path,
+                runningPath = runningRequest.path
+            )
+
+            val variableValues = variableValuesFromHeaders + variableValuesFromRequestBody + variableValuesFromQueryParams + variableValuesFromPath
             return SubstitutionImpl(variableValues = variableValues, resolver = resolver, data = data)
         }
     }

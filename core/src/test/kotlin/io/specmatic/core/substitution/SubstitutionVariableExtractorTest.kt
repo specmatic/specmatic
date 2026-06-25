@@ -1,61 +1,356 @@
 package io.specmatic.core.substitution
 
-import io.specmatic.core.HttpRequest
-import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.pattern.ContractException
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatCode
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class SubstitutionVariableExtractorTest {
-    @Test
-    fun `fromRequest extracts variables from all request parts`() {
-        val runningRequest = HttpRequest(
-            method = "POST",
-            path = "/orders/123",
-            headers = mapOf("X-Trace" to "trace-1", "X-Request-Id" to "run-header"),
-            queryParametersMap = mapOf("page" to "2"),
-            body = parsedValue("""{"name":"Ada","profile":{"age":33}}""")
-        )
+    @Nested
+    inner class FromValues {
+        @Nested
+        inner class ScalarValues {
+            @Test
+            fun `extracts variable from simple string`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("(ID:number)"),
+                    runningValue = StringValue("10")
+                )
 
-        val originalRequest = HttpRequest(
-            method = "POST",
-            path = "/orders/(orderId:string)",
-            headers = mapOf("X-Trace" to "(traceId:string)", "X-Request-Id" to "(requestId:string)"),
-            queryParametersMap = mapOf("page" to "(pageNumber:string)"),
-            body = parsedValue("""{"name":"(name:string)","profile":{"age":"(age:string)"}}""")
-        )
+                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+            }
 
-        val result = SubstitutionVariableExtractor.fromRequest(runningRequest, originalRequest)
-        assertThat(result).isEqualTo(
-            mapOf(
-                "traceId" to "trace-1",
-                "requestId" to "run-header",
-                "name" to "Ada",
-                "age" to "33",
-                "pageNumber" to "2",
-                "orderId" to "123"
+            @Test
+            fun `extracts non-string running value using toStringLiteral`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("(ID:number)"),
+                    runningValue = NumberValue(10)
+                )
+
+                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+            }
+
+            @Test
+            fun `ignores non-placeholder original strings`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("abc"),
+                    runningValue = StringValue("xyz")
+                )
+
+                assertThat(result).isEmpty()
+            }
+        }
+
+        @Nested
+        inner class ObjectValues {
+            @Test
+            fun `extracts nested object variables`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONObjectValue(
+                        mapOf(
+                            "user" to JSONObjectValue(
+                                mapOf("id" to StringValue("(ID:number)"))
+                            )
+                        )
+                    ),
+                    runningValue = JSONObjectValue(
+                        mapOf(
+                            "user" to JSONObjectValue(
+                                mapOf("id" to NumberValue(10))
+                            )
+                        )
+                    )
+                )
+
+                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+            }
+
+            @Test
+            fun `extracts interpolated nested object variables`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONObjectValue(
+                        mapOf(
+                            "order" to StringValue("order-(ORDER_ID:number)")
+                        )
+                    ),
+                    runningValue = JSONObjectValue(
+                        mapOf(
+                            "order" to StringValue("order-123")
+                        )
+                    )
+                )
+
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+            }
+
+            @Test
+            fun `skips missing object keys without throwing`() {
+                assertThatCode {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = JSONObjectValue(
+                            mapOf("user" to JSONObjectValue(mapOf("id" to StringValue("(ID:number)"))))
+                        ),
+                        runningValue = JSONObjectValue(emptyMap())
+                    )
+                }.doesNotThrowAnyException()
+
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONObjectValue(
+                        mapOf("user" to JSONObjectValue(mapOf("id" to StringValue("(ID:number)"))))
+                    ),
+                    runningValue = JSONObjectValue(emptyMap())
+                )
+
+                assertThat(result).isEmpty()
+            }
+
+            @Test
+            fun `skips mismatched object shapes without throwing`() {
+                assertThatCode {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = JSONObjectValue(
+                            mapOf("user" to JSONObjectValue(mapOf("id" to StringValue("(ID:number)"))))
+                        ),
+                        runningValue = StringValue("not-an-object")
+                    )
+                }.doesNotThrowAnyException()
+
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONObjectValue(
+                        mapOf("user" to JSONObjectValue(mapOf("id" to StringValue("(ID:number)"))))
+                    ),
+                    runningValue = StringValue("not-an-object")
+                )
+
+                assertThat(result).isEmpty()
+            }
+        }
+
+        @Nested
+        inner class ArrayValues {
+            @Test
+            fun `extracts nested array variables`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONArrayValue(listOf(StringValue("(ID:number)"))),
+                    runningValue = JSONArrayValue(listOf(NumberValue(10)))
+                )
+
+                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+            }
+
+            @Test
+            fun `extracts interpolated nested array variables`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONArrayValue(listOf(StringValue("order-(ORDER_ID:number)"))),
+                    runningValue = JSONArrayValue(listOf(StringValue("order-123")))
+                )
+
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+            }
+
+            @Test
+            fun `skips mismatched array shapes without throwing`() {
+                assertThatCode {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = JSONArrayValue(listOf(StringValue("(ID:number)"))),
+                        runningValue = StringValue("not-an-array")
+                    )
+                }.doesNotThrowAnyException()
+
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONArrayValue(listOf(StringValue("(ID:number)"))),
+                    runningValue = StringValue("not-an-array")
+                )
+
+                assertThat(result).isEmpty()
+            }
+
+            @Test
+            fun `handles different array lengths without throwing`() {
+                assertThatCode {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = JSONArrayValue(
+                            listOf(
+                                StringValue("(FIRST:number)"),
+                                StringValue("(SECOND:number)")
+                            )
+                        ),
+                        runningValue = JSONArrayValue(listOf(NumberValue(10)))
+                    )
+                }.doesNotThrowAnyException()
+
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONArrayValue(
+                        listOf(
+                            StringValue("(FIRST:number)"),
+                            StringValue("(SECOND:number)")
+                        )
+                    ),
+                    runningValue = JSONArrayValue(listOf(NumberValue(10)))
+                )
+
+                assertThat(result).isEqualTo(mapOf("FIRST" to "10"))
+            }
+        }
+
+        @Nested
+        inner class InterpolatedValues {
+            @Test
+            fun `extracts interpolated placeholder from simple string`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("order-(ORDER_ID:number)"),
+                    runningValue = StringValue("order-123")
+                )
+
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+            }
+
+            @Test
+            fun `extracts multiple interpolated placeholders from simple string`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("order-(ORDER_ID:number)-item-(ITEM_ID:number)"),
+                    runningValue = StringValue("order-123-item-456")
+                )
+
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123", "ITEM_ID" to "456"))
+            }
+
+            @Test
+            fun `fails when interpolated string does not match`() {
+                assertThatThrownBy {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = StringValue("prefix-(ID:number)-suffix"),
+                        runningValue = StringValue("does-not-match")
+                    )
+                }.isInstanceOf(ContractException::class.java)
+                    .hasMessageContaining("Could not extract substitution variables")
+            }
+
+            @Test
+            fun `returns empty map when original has no placeholder`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("prefix-abc-suffix"),
+                    runningValue = StringValue("prefix-123-suffix")
+                )
+
+                assertThat(result).isEmpty()
+            }
+
+            @Test
+            fun `fails for adjacent placeholders`() {
+                assertThatThrownBy {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = StringValue("(A:string)(B:string)"),
+                        runningValue = StringValue("onetwo")
+                    )
+                }.isInstanceOf(ContractException::class.java)
+                    .hasMessageContaining("Ambiguous interpolation")
+            }
+
+            @Test
+            fun `fails on conflicting duplicate interpolated values`() {
+                assertThatThrownBy {
+                    SubstitutionVariableExtractor.fromValues(
+                        originalValue = StringValue("(ID:number)-again-(ID:number)"),
+                        runningValue = StringValue("10-again-20")
+                    )
+                }.isInstanceOf(ContractException::class.java)
+                    .hasMessageContaining("Conflicting extracted values")
+            }
+        }
+
+        @Test
+        fun `latest extracted value wins within same call`() {
+            val result = SubstitutionVariableExtractor.fromValues(
+                originalValue = JSONObjectValue(
+                    mapOf(
+                        "first" to StringValue("(ID:number)"),
+                        "second" to StringValue("(ID:number)")
+                    )
+                ),
+                runningValue = JSONObjectValue(
+                    mapOf(
+                        "first" to NumberValue(10),
+                        "second" to NumberValue(20)
+                    )
+                )
             )
-        )
+
+            assertThat(result).isEqualTo(mapOf("ID" to "20"))
+        }
     }
 
-    @Test
-    fun `fromRequest retains precedence`() {
-        val runningRequest = HttpRequest(
-            method = "POST",
-            path = "/users/path-value",
-            headers = mapOf("X-Value" to "header-value"),
-            queryParametersMap = mapOf("value" to "query-value"),
-            body = parsedValue("""{"value":"body-value"}""")
-        )
+    @Nested
+    inner class FromMap {
+        @Test
+        fun `extracts variables from maps`() {
+            val result = SubstitutionVariableExtractor.fromMap(
+                originalMap = mapOf("X-ID" to "(ID:number)"),
+                runningMap = mapOf("X-ID" to "10")
+            )
 
-        val originalRequest = HttpRequest(
-            method = "POST",
-            path = "/users/(value:string)",
-            headers = mapOf("X-Value" to "(value:string)"),
-            queryParametersMap = mapOf("value" to "(value:string)"),
-            body = parsedValue("""{"value":"(value:string)"}""")
-        )
+            assertThat(result).isEqualTo(mapOf("ID" to "10"))
+        }
 
-        val result = SubstitutionVariableExtractor.fromRequest(runningRequest, originalRequest)
-        assertThat(result).isEqualTo(mapOf("value" to "path-value"))
+        @Test
+        fun `extracts interpolated variables from maps`() {
+            val result = SubstitutionVariableExtractor.fromMap(
+                originalMap = mapOf("X-ID" to "order-(ID:number)"),
+                runningMap = mapOf("X-ID" to "order-10")
+            )
+
+            assertThat(result).isEqualTo(mapOf("ID" to "10"))
+        }
+
+        @Test
+        fun `fails on adjacent placeholders in maps`() {
+            assertThatThrownBy {
+                SubstitutionVariableExtractor.fromMap(
+                    originalMap = mapOf("X-ID" to "(A:string)(B:string)"),
+                    runningMap = mapOf("X-ID" to "onetwo")
+                )
+            }.isInstanceOf(ContractException::class.java)
+                .hasMessageContaining("Ambiguous interpolation")
+        }
+    }
+
+    @Nested
+    inner class FromPath {
+        @Test
+        fun `extracts variables from paths`() {
+            val result = SubstitutionVariableExtractor.fromPath(
+                originalPath = "/orders/(ORDER_ID:number)",
+                runningPath = "/orders/123"
+            )
+
+            assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+        }
+
+        @Test
+        fun `extracts interpolated variables from paths`() {
+            val result = SubstitutionVariableExtractor.fromPath(
+                originalPath = "/orders/order-(ORDER_ID:number)",
+                runningPath = "/orders/order-123"
+            )
+
+            assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+        }
+
+        @Test
+        fun `fails on adjacent placeholders in paths`() {
+            assertThatThrownBy {
+                SubstitutionVariableExtractor.fromPath(
+                    originalPath = "/orders/(A:string)(B:string)",
+                    runningPath = "/orders/onetwo"
+                )
+            }.isInstanceOf(ContractException::class.java)
+                .hasMessageContaining("Ambiguous interpolation")
+        }
     }
 }

@@ -1,0 +1,112 @@
+{
+    "before": [
+        {
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/before1",
+                "method": "POST",
+                "body": {}
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "before1": "(BEFORE_1:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/before2",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "before2": "(BEFORE_2:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        }
+    ],
+    "partial": {
+        "http-request": {
+            "path": "/test",
+            "method": "POST",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "before1": "$(BEFORE_1)",
+                "before2": "$(BEFORE_2)"
+            }
+        },
+        "http-response": {
+            "status": 200,
+            "body": {
+                "test": "(TEST:string)"
+            },
+            "status-text": "OK",
+            "headers": {
+                "Content-Type": "application/json"
+            }
+        }
+    },
+    "after": [
+        {
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/after1",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)",
+                    "test": "$(TEST)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "after1": "(AFTER_1:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/after2",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)",
+                    "test": "$(TEST)",
+                    "after1": "$(AFTER_1)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "after2": "$match(exact:after2)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        }
+    ]
+}
