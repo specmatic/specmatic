@@ -8,7 +8,7 @@ import io.specmatic.core.IssueSeverity
 import io.specmatic.core.NestedQuerySchema
 import io.specmatic.core.ObjectQueryRoot
 import io.specmatic.core.ObjectQuerySyntax
-import io.specmatic.core.QueryParameterRuntimeEntry
+import io.specmatic.core.QueryParameterDeclaration
 import io.specmatic.core.QueryParameterSourceKind
 import io.specmatic.core.QueryArrayIndexStyle
 import io.specmatic.core.QueryParameters
@@ -292,7 +292,7 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `scalar only query parameters with unique wire keys should not create repeated ownership entries`() {
+    fun `scalar only query parameters with unique wire keys should not create repeated declarations`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -325,7 +325,7 @@ class OpenApiSpecificationParseTest {
         assertThat((queryPatterns["page"] as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
         assertThat(queryPatterns["status?"]).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat((queryPatterns["status?"] as QueryParameterScalarPattern).pattern).isInstanceOf(StringPattern::class.java)
-        assertThat(queryParamPattern.queryParameterOwnershipEntries.groupBy { it.wireKey }.filterValues { it.size > 1 }).isEmpty()
+        assertThat(queryParamPattern.queryParameterDeclarations.groupBy { it.wireKey }.filterValues { it.size > 1 }).isEmpty()
         assertThat(
             queryParamPattern.matches(
                 HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("page" to "1", "status" to "open"))),
@@ -808,11 +808,11 @@ class OpenApiSpecificationParseTest {
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
         val queryPatterns = queryParamPattern.queryPatterns
         val typePattern = queryPatterns["type?"]
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("type")
+        val declarations = queryParamPattern.declarationsFor("type")
 
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("info.type", "type")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("type")
-        assertThat(collisionOwners.authoritativeOwner().source.kind).isEqualTo(QueryParameterSourceKind.ScalarParameter)
+        assertThat(declarations.map { it.source.displayName }).containsExactly("info.type", "type")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("type")
+        assertThat(declarations.winningDeclaration().source.kind).isEqualTo(QueryParameterSourceKind.ScalarParameter)
         assertThat(queryPatterns.keys).containsExactly("type?")
         assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
@@ -855,10 +855,10 @@ class OpenApiSpecificationParseTest {
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("age")
+        val declarations = queryParamPattern.declarationsFor("age")
 
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("info.age", "age")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("age")
+        assertThat(declarations.map { it.source.displayName }).containsExactly("info.age", "age")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("age")
     }
 
     @Test
@@ -913,11 +913,11 @@ class OpenApiSpecificationParseTest {
         assertThat(stdout).contains("info.type")
         assertThat(stdout).contains("last declared query parameter type")
         assertThat(stdout).doesNotContain("if parsing continues")
-        assertThat(queryParamPattern.ownershipEntriesFor("type").authoritativeOwner().source.displayName).isEqualTo("type")
+        assertThat(queryParamPattern.declarationsFor("type").winningDeclaration().source.displayName).isEqualTo("type")
     }
 
     @Test
-    fun `different type collision diagnostic should include every owner location and authoritative owner`() {
+    fun `different type collision diagnostic should include every declaration location and winning declaration`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -971,11 +971,11 @@ class OpenApiSpecificationParseTest {
         assertThat(stdout).doesNotContain("/paths/~1orders/get/parameters")
         assertThat(stdout).contains("last declared query parameter type as authoritative")
         assertThat(stdout).doesNotContain("if parsing continues")
-        assertThat(queryParamPattern.ownershipEntriesFor("type").map { it.source.displayName }).containsExactly("info.type", "filter.type", "type")
+        assertThat(queryParamPattern.declarationsFor("type").map { it.source.displayName }).containsExactly("info.type", "filter.type", "type")
     }
 
     @Test
-    fun `different type collision should select standalone scalar as authoritative when declared last in lenient parsing`() {
+    fun `different type collision should use standalone scalar when declared last in lenient parsing`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1008,7 +1008,7 @@ class OpenApiSpecificationParseTest {
         val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
         val typePattern = queryParamPattern.queryPatterns["type?"]
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("type")
+        val declarations = queryParamPattern.declarationsFor("type")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.toIssues().single().severity).isEqualTo(IssueSeverity.WARNING)
@@ -1016,14 +1016,14 @@ class OpenApiSpecificationParseTest {
         assertThat(result.reportString()).doesNotContain(OpenApiLintViolations.INVALID_PARAMETER_DEFINITION.id)
         assertThat(result.reportString()).contains("type")
         assertThat(result.reportString()).contains("info.type")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("type")
-        assertThat(collisionOwners.authoritativeOwner().source.kind).isEqualTo(QueryParameterSourceKind.ScalarParameter)
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("type")
+        assertThat(declarations.winningDeclaration().source.kind).isEqualTo(QueryParameterSourceKind.ScalarParameter)
         assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(StringPattern::class.java)
     }
 
     @Test
-    fun `last declared scalar collision owner should not require object query property`() {
+    fun `last declared scalar query parameter should not require object query property`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1066,7 +1066,7 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `last declared scalar collision owner should not require object query property when matching stub examples`() {
+    fun `last declared scalar query parameter should not require object query property when matching stub examples`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1109,12 +1109,12 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `last declared scalar collision owner should not require unwrapped nested object query property`() {
+    fun `last declared scalar query parameter should not require unwrapped nested object query property`() {
         val spec = nestedStatusCollisionSpec(scalarDeclaredLast = true)
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("status")
+        val declarations = queryParamPattern.declarationsFor("status")
         val result = queryParamPattern.matches(
             HttpRequest(
                 "GET",
@@ -1124,16 +1124,16 @@ class OpenApiSpecificationParseTest {
             Resolver()
         )
 
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("details.status", "status")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("status")
-        assertThat(collisionOwners.authoritativeOwner().source.kind).isEqualTo(QueryParameterSourceKind.ScalarParameter)
+        assertThat(declarations.map { it.source.displayName }).containsExactly("details.status", "status")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("status")
+        assertThat(declarations.winningDeclaration().source.kind).isEqualTo(QueryParameterSourceKind.ScalarParameter)
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat((result as Result.Failure).reportString()).contains("Expected type boolean")
         assertThat(result.reportString()).doesNotContain("mandatory property \"status\"")
     }
 
     @Test
-    fun `last declared scalar collision owner should project referenced nested object query schema at runtime`() {
+    fun `last declared scalar query parameter should project referenced nested object query schema at runtime`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1211,11 +1211,11 @@ class OpenApiSpecificationParseTest {
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("status")
+        val declarations = queryParamPattern.declarationsFor("status")
 
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("status", "details.status")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("details.status")
-        assertThat(collisionOwners.authoritativeOwner().source.kind).isEqualTo(QueryParameterSourceKind.NestedObjectProperty)
+        assertThat(declarations.map { it.source.displayName }).containsExactly("status", "details.status")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("details.status")
+        assertThat(declarations.winningDeclaration().source.kind).isEqualTo(QueryParameterSourceKind.NestedObjectProperty)
         assertThat(
             queryParamPattern.matches(
                 HttpRequest(
@@ -1229,7 +1229,7 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `different type collision should select object property as authoritative when declared last in lenient parsing`() {
+    fun `different type collision should use object property when declared last in lenient parsing`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1262,7 +1262,7 @@ class OpenApiSpecificationParseTest {
         val (feature, result) = OpenApiSpecification.fromYAML(spec, "").toFeatureLenient()
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
         val typePattern = queryParamPattern.queryPatterns["type"]
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("type")
+        val declarations = queryParamPattern.declarationsFor("type")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
@@ -1270,9 +1270,9 @@ class OpenApiSpecificationParseTest {
         assertThat(result.reportString()).contains("- type at paths./orders.get.parameters[0].name")
         assertThat(result.reportString()).contains("- info.type at paths./orders.get.parameters[1].schema.properties.type")
         assertThat(result.reportString()).contains("last declared query parameter info.type as authoritative")
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("type", "info.type")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("info.type")
-        assertThat(collisionOwners.authoritativeOwner().source.kind).isEqualTo(QueryParameterSourceKind.FormExplodedObjectProperty)
+        assertThat(declarations.map { it.source.displayName }).containsExactly("type", "info.type")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("info.type")
+        assertThat(declarations.winningDeclaration().source.kind).isEqualTo(QueryParameterSourceKind.FormExplodedObjectProperty)
         assertThat(typePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat((typePattern as QueryParameterScalarPattern).pattern).isInstanceOf(NumberPattern::class.java)
         assertThat(queryParamPattern.matches(HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("type" to "10"))), Resolver())).isInstanceOf(Result.Success::class.java)
@@ -1324,10 +1324,10 @@ class OpenApiSpecificationParseTest {
 
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val queryParamPattern = feature.scenarios.single().httpRequestPattern.httpQueryParamPattern
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("age")
+        val declarations = queryParamPattern.declarationsFor("age")
 
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("info.age", "filters.age")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("filters.age")
+        assertThat(declarations.map { it.source.displayName }).containsExactly("info.age", "filters.age")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("filters.age")
     }
 
     @Test
@@ -1378,22 +1378,22 @@ class OpenApiSpecificationParseTest {
         val scenario = feature.scenarios.single()
         val queryParamPattern = scenario.httpRequestPattern.httpQueryParamPattern
         val agePattern = queryParamPattern.queryPatterns["age"]
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("age")
+        val declarations = queryParamPattern.declarationsFor("age")
 
         assertThat(stdout).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
         assertThat(stdout).contains("- info.age at components.schemas.InfoParams.properties.age")
         assertThat(stdout).contains("- filters.age at components.schemas.FilterParams.properties.age")
         assertThat(stdout).contains("last declared query parameter filters.age as authoritative")
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("info.age", "filters.age")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("filters.age")
-        assertThat(collisionOwners.authoritativeOwner().source.kind).isEqualTo(QueryParameterSourceKind.FormExplodedObjectProperty)
+        assertThat(declarations.map { it.source.displayName }).containsExactly("info.age", "filters.age")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("filters.age")
+        assertThat(declarations.winningDeclaration().source.kind).isEqualTo(QueryParameterSourceKind.FormExplodedObjectProperty)
         assertThat(agePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat(resolvedHop((agePattern as QueryParameterScalarPattern).pattern, scenario.resolver)).isInstanceOf(BooleanPattern::class.java)
         assertThat(queryParamPattern.matches(HttpRequest("GET", "/orders", queryParams = QueryParameters(listOf("age" to "true"))), Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
-    fun `different type collision across three query parameter owners should preserve owner order`() {
+    fun `different type collision across three query parameter declarations should preserve declaration order`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1445,7 +1445,7 @@ class OpenApiSpecificationParseTest {
         val scenario = feature.scenarios.single()
         val queryParamPattern = scenario.httpRequestPattern.httpQueryParamPattern
         val agePattern = queryParamPattern.queryPatterns["age?"]
-        val collisionOwners = queryParamPattern.ownershipEntriesFor("age")
+        val declarations = queryParamPattern.declarationsFor("age")
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains(OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION.id)
@@ -1454,8 +1454,8 @@ class OpenApiSpecificationParseTest {
         assertThat(result.reportString()).contains("- filters.age at components.schemas.FilterParams.properties.age")
         assertThat(result.reportString()).contains("- age at paths./orders.get.parameters[2].name")
         assertThat(result.reportString()).doesNotContain("/paths/~1orders/get/parameters")
-        assertThat(collisionOwners.map { it.source.displayName }).containsExactly("info.age", "filters.age", "age")
-        assertThat(collisionOwners.authoritativeOwner().source.displayName).isEqualTo("age")
+        assertThat(declarations.map { it.source.displayName }).containsExactly("info.age", "filters.age", "age")
+        assertThat(declarations.winningDeclaration().source.displayName).isEqualTo("age")
         assertThat(agePattern).isInstanceOf(QueryParameterScalarPattern::class.java)
         assertThat(resolvedHop((agePattern as QueryParameterScalarPattern).pattern, scenario.resolver)).isInstanceOf(BooleanPattern::class.java)
     }
@@ -2095,11 +2095,11 @@ $parameters
     @Suppress("SameParameterValue")
     private fun loadFixture(name: String): String = this::class.java.classLoader.getResource(name)!!.readText()
 
-    private fun HttpQueryParamPattern.ownershipEntriesFor(wireKey: String): List<QueryParameterRuntimeEntry> {
-        return queryParameterOwnershipEntries.filter { it.wireKey == wireKey }
+    private fun HttpQueryParamPattern.declarationsFor(wireKey: String): List<QueryParameterDeclaration> {
+        return queryParameterDeclarations.filter { it.wireKey == wireKey }
     }
 
-    private fun List<QueryParameterRuntimeEntry>.authoritativeOwner(): QueryParameterRuntimeEntry {
+    private fun List<QueryParameterDeclaration>.winningDeclaration(): QueryParameterDeclaration {
         return last()
     }
 

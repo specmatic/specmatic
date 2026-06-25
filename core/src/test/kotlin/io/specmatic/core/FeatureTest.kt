@@ -3374,7 +3374,7 @@ paths:
     }
 
     @Test
-    fun `externalized query example validates through scalar declared last collision owner in lenient mode`() {
+    fun `externalized query example validates through scalar declared last in lenient mode`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3383,7 +3383,7 @@ paths:
     }
 
     @Test
-    fun `contract tests use externalized colliding query example with scalar declared last collision owner`() {
+    fun `contract tests use externalized colliding query example with scalar declared last`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3404,7 +3404,7 @@ paths:
     }
 
     @Test
-    fun `mock matches externalized colliding query example with scalar declared last collision owner`() {
+    fun `mock matches externalized colliding query example with scalar declared last`() {
         val feature = OpenApiSpecification.fromFile(QUERY_PARAM_COLLISION_EXTERNAL_EXAMPLE_SPEC, lenientMode = true)
             .toFeature()
             .loadExternalisedExamples()
@@ -3423,7 +3423,7 @@ paths:
     }
 
     @Test
-    fun `contract tests without examples use generated colliding query params from object property declared last collision owner`() {
+    fun `contract tests without examples use generated colliding query params from object property declared last`() {
         val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
         val seenQueryParams = mutableListOf<Map<String, String>>()
 
@@ -3448,7 +3448,7 @@ paths:
     }
 
     @Test
-    fun `mock without examples matches generated request through object property declared last collision owner`() {
+    fun `mock without examples matches generated request through object property declared last`() {
         val feature = OpenApiSpecification.fromYAML(NO_EXAMPLES_QUERY_PARAM_COLLISION_SPEC, "", lenientMode = true).toFeature()
 
         HttpStub(feature, port = ServerSocket(0).use { it.localPort }).use { stub ->

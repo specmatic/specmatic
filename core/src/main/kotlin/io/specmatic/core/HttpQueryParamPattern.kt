@@ -23,7 +23,7 @@ enum class QueryParameterSourceKind {
     NestedObjectProperty
 }
 
-data class QueryParameterRuntimeSource(
+data class QueryParameterSource(
     val parameterName: String,
     val propertyName: String? = null,
     val kind: QueryParameterSourceKind = if (propertyName == null) {
@@ -35,12 +35,13 @@ data class QueryParameterRuntimeSource(
     val displayName: String = propertyName?.let { "$parameterName.$it" } ?: parameterName
 }
 
-data class QueryParameterRuntimeEntry(
+data class QueryParameterDeclaration(
     val key: String,
     val wireKey: String,
     val pattern: Pattern,
-    val source: QueryParameterRuntimeSource,
-    val pointer: String? = null
+    val source: QueryParameterSource,
+    val pointer: String? = null,
+    val contributesToQueryPatterns: Boolean = true
 )
 
 data class HttpQueryParamPattern(
@@ -50,11 +51,10 @@ data class HttpQueryParamPattern(
     val formExplodedObjectQueryParams: List<FormExplodedObjectQueryParam> = emptyList(),
     val nestedObjectQueryParams: List<NestedObjectQueryParam> = emptyList(),
     val parameterPointers: Map<String, String> = emptyMap(),
-    val queryParameterEntries: List<QueryParameterRuntimeEntry> = queryPatterns.toRuntimeEntries(),
-    val queryParameterOwnershipEntries: List<QueryParameterRuntimeEntry> = queryParameterEntries
+    val queryParameterDeclarations: List<QueryParameterDeclaration> = queryPatterns.toQueryParameterDeclarations()
 ) {
 
-    private val effectiveQueryPatterns = effectiveQueryPatternsFor(queryParameterEntries, queryParameterOwnershipEntries)
+    private val effectiveQueryPatterns = effectiveQueryPatternsFor(queryParameterDeclarations)
 
     val queryKeyNames = effectiveQueryPatterns.keys
 
@@ -502,23 +502,23 @@ data class HttpQueryParamPattern(
     }
 
     private fun activeFormExplodedObjectQueryParams(): List<FormExplodedObjectQueryParam> {
-        val nonAuthoritativeObjectPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(QueryParameterSourceKind.FormExplodedObjectProperty)
+        val supersededPropertiesByParameter = supersededObjectPropertiesByParameter(QueryParameterSourceKind.FormExplodedObjectProperty)
 
         return formExplodedObjectQueryParams.map { objectQueryParam ->
-            objectQueryParam.withoutProperties(nonAuthoritativeObjectPropertiesByParameter[objectQueryParam.parameterName].orEmpty())
+            objectQueryParam.withoutProperties(supersededPropertiesByParameter[objectQueryParam.parameterName].orEmpty())
         }
     }
 
     private fun activeNestedObjectQueryParams(): List<NestedObjectQueryParam> {
-        val nonAuthoritativeObjectPropertiesByParameter = nonAuthoritativeObjectPropertiesByParameter(QueryParameterSourceKind.NestedObjectProperty)
+        val supersededPropertiesByParameter = supersededObjectPropertiesByParameter(QueryParameterSourceKind.NestedObjectProperty)
 
         return nestedObjectQueryParams.map { nestedObjectQueryParam ->
-            nestedObjectQueryParam.withoutRootProperties(nonAuthoritativeObjectPropertiesByParameter[nestedObjectQueryParam.parameterName].orEmpty())
+            nestedObjectQueryParam.withoutRootProperties(supersededPropertiesByParameter[nestedObjectQueryParam.parameterName].orEmpty())
         }
     }
 
-    private fun nonAuthoritativeObjectPropertiesByParameter(ownerKind: QueryParameterSourceKind): Map<String, Set<String>> {
-        return nonAuthoritativeObjectPropertiesByParameter(queryParameterOwnershipEntries, ownerKind)
+    private fun supersededObjectPropertiesByParameter(sourceKind: QueryParameterSourceKind): Map<String, Set<String>> {
+        return supersededObjectPropertiesByParameter(queryParameterDeclarations, sourceKind)
     }
 
     private fun FormExplodedObjectQueryParam.withoutProperties(propertyNames: Set<String>): FormExplodedObjectQueryParam {
@@ -546,52 +546,36 @@ data class HttpQueryParamPattern(
 }
 
 internal fun effectiveQueryPatternsFor(
-    queryParameterEntries: List<QueryParameterRuntimeEntry>,
-    queryParameterOwnershipEntries: List<QueryParameterRuntimeEntry>
+    queryParameterDeclarations: List<QueryParameterDeclaration>
 ): Map<String, Pattern> {
-    val authoritativeOwnersByWireKey = queryParameterOwnershipEntries.associateBy { it.wireKey }
-    val effectiveEntryIndexByWireKey = queryParameterEntries.withIndex()
-        .filter { (_, entry) ->
-            authoritativeOwnersByWireKey[entry.wireKey]?.let(entry::representsRuntimePatternFor) ?: true
+    val winnerByWireKey = queryParameterDeclarations.associateBy { it.wireKey }
+    val effectivePatterns = queryParameterDeclarations
+        .filter { declaration ->
+            declaration.contributesToQueryPatterns && winnerByWireKey[declaration.wireKey] === declaration
         }
-        .associate { (index, entry) -> entry.wireKey to index }
+        .associate { declaration -> declaration.key to declaration.pattern }
 
-    val effectivePatterns = queryParameterEntries.withIndex()
-        .filter { (index, entry) ->
-            effectiveEntryIndexByWireKey[entry.wireKey] == index ||
-                entry.wireKey !in authoritativeOwnersByWireKey
-        }
-        .associate { (_, entry) -> entry.key to entry.pattern }
-
-    return nonAuthoritativeObjectPropertiesByParameter(
-        queryParameterOwnershipEntries,
+    return supersededObjectPropertiesByParameter(
+        queryParameterDeclarations,
         QueryParameterSourceKind.NestedObjectProperty,
-        authoritativeOwnersByWireKey
+        winnerByWireKey
     ).entries.fold(effectivePatterns) { patterns, (parameterName, propertyNames) ->
         patterns.projectNestedObjectQueryPattern(parameterName, propertyNames)
     }
 }
 
-private fun QueryParameterRuntimeEntry.representsRuntimePatternFor(owner: QueryParameterRuntimeEntry): Boolean {
-    return key == owner.key &&
-        wireKey == owner.wireKey &&
-        pattern == owner.pattern &&
-        source == owner.source &&
-        pointer == owner.pointer
-}
-
-private fun nonAuthoritativeObjectPropertiesByParameter(
-    queryParameterOwnershipEntries: List<QueryParameterRuntimeEntry>,
-    ownerKind: QueryParameterSourceKind,
-    authoritativeOwnersByWireKey: Map<String, QueryParameterRuntimeEntry> = queryParameterOwnershipEntries.associateBy { it.wireKey }
+private fun supersededObjectPropertiesByParameter(
+    queryParameterDeclarations: List<QueryParameterDeclaration>,
+    sourceKind: QueryParameterSourceKind,
+    winnerByWireKey: Map<String, QueryParameterDeclaration> = queryParameterDeclarations.associateBy { it.wireKey }
 ): Map<String, Set<String>> {
-    return queryParameterOwnershipEntries
-        .filter { owner ->
-            owner.source.kind == ownerKind &&
-                authoritativeOwnersByWireKey[owner.wireKey] != owner
+    return queryParameterDeclarations
+        .filter { declaration ->
+            declaration.source.kind == sourceKind &&
+                winnerByWireKey[declaration.wireKey] !== declaration
         }
-        .mapNotNull { owner ->
-            owner.source.propertyName?.let { propertyName -> owner.source.parameterName to propertyName }
+        .mapNotNull { declaration ->
+            declaration.source.propertyName?.let { propertyName -> declaration.source.parameterName to propertyName }
         }
         .groupBy({ it.first }, { it.second })
         .mapValues { (_, propertyNames) -> propertyNames.toSet() }
@@ -609,14 +593,14 @@ private fun Map<String, Pattern>.projectNestedObjectQueryPattern(parameterName: 
     return plus(entry.key to projectedPattern)
 }
 
-private fun Map<String, Pattern>.toRuntimeEntries(): List<QueryParameterRuntimeEntry> {
+private fun Map<String, Pattern>.toQueryParameterDeclarations(): List<QueryParameterDeclaration> {
     return map { (key, pattern) ->
         val wireKey = withoutOptionality(key)
-        QueryParameterRuntimeEntry(
+        QueryParameterDeclaration(
             key = key,
             wireKey = wireKey,
             pattern = pattern,
-            source = QueryParameterRuntimeSource(wireKey)
+            source = QueryParameterSource(wireKey)
         )
     }
 }

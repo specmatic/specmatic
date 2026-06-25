@@ -12789,7 +12789,7 @@ paths:
     }
 
     @Test
-    fun `inline examples validate execute and mock through scalar declared last collision owner in lenient mode`() {
+    fun `inline examples validate execute and mock through scalar declared last in lenient mode`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -12865,7 +12865,7 @@ paths:
     }
 
     @Test
-    fun `inline examples fail validation through object property declared last collision owner in lenient mode`() {
+    fun `inline examples fail validation through object property declared last in lenient mode`() {
         val spec = """
             openapi: 3.0.0
             info:

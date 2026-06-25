@@ -749,8 +749,7 @@ class OpenApiSpecification(
                 formExplodedObjectQueryParams = existingQueryParamPattern.formExplodedObjectQueryParams,
                 nestedObjectQueryParams = existingQueryParamPattern.nestedObjectQueryParams,
                 parameterPointers = existingQueryParamPattern.parameterPointers,
-                queryParameterEntries = existingQueryParamPattern.queryParameterEntries,
-                queryParameterOwnershipEntries = existingQueryParamPattern.queryParameterOwnershipEntries
+                queryParameterDeclarations = existingQueryParamPattern.queryParameterDeclarations
             )
 
             val httpRequestPattern = openApiScenario.httpRequestPattern.copy(
@@ -3411,15 +3410,13 @@ class OpenApiSpecification(
     ): HttpQueryParamPattern {
         val queryParameters = parameters.safeFilter<QueryParameter>(collectorContext)
         val parsedQueryParameters = queryParameters.map { toQueryParameterParseResult(it, parameterPointers) }
-        val queryPatternEntries = parsedQueryParameters.flatMap(QueryParameterParseResult::entries)
         val nestedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::nestedObjectQueryParam)
-        val ownershipEntries = parsedQueryParameters.flatMap { it.entries + it.nestedObjectPropertyEntries }
-        recordQueryParameterTypeCollisions(ownershipEntries, patterns)
+        val declarationEntries = parsedQueryParameters.flatMap { it.entries + it.nestedObjectPropertyEntries }
+        recordQueryParameterTypeCollisions(declarationEntries)
 
-        val runtimeEntries = queryPatternEntries.map(QueryParameterPatternEntry::toRuntimeEntry)
-        val runtimeOwnershipEntries = ownershipEntries.map(QueryParameterPatternEntry::toRuntimeEntry)
-        val queryPattern = effectiveQueryPatternsFor(runtimeEntries, runtimeOwnershipEntries)
-        val queryParameterPointers = parameterPointers + runtimeOwnershipEntries.associateBy { it.wireKey }.mapNotNull { (wireKey, entry) ->
+        val declarations = declarationEntries.map(QueryParameterPatternEntry::toDeclaration)
+        val queryPattern = effectiveQueryPatternsFor(declarations)
+        val queryParameterPointers = parameterPointers + declarations.associateBy { it.wireKey }.mapNotNull { (wireKey, entry) ->
             entry.pointer?.let { pointer -> wireKey to pointer }
         }
 
@@ -3431,9 +3428,49 @@ class OpenApiSpecification(
             formExplodedObjectQueryParams = parsedQueryParameters.mapNotNull(QueryParameterParseResult::formExplodedObjectQueryParam),
             nestedObjectQueryParams = nestedObjectQueryParams,
             parameterPointers = queryParameterPointers,
-            queryParameterEntries = runtimeEntries,
-            queryParameterOwnershipEntries = runtimeOwnershipEntries
+            queryParameterDeclarations = declarations
         )
+    }
+
+    private data class QueryParameterPatternSource(
+        val parameterName: String,
+        val propertyName: String? = null,
+        val kind: QueryParameterSourceKind = if (propertyName == null) {
+            QueryParameterSourceKind.ScalarParameter
+        } else {
+            QueryParameterSourceKind.FormExplodedObjectProperty
+        }
+    ) {
+        val displayName: String = propertyName?.let { "$parameterName.$it" } ?: parameterName
+    }
+
+    private data class QueryParameterPatternEntry(
+        val key: String,
+        val wireKey: String,
+        val pattern: Pattern,
+        val source: QueryParameterPatternSource,
+        val collectorContext: CollectorContext,
+        val pointer: String? = null,
+        val contributesToQueryPatterns: Boolean = true
+    ) {
+        fun toDeclaration(): QueryParameterDeclaration {
+            return QueryParameterDeclaration(
+                key = key,
+                wireKey = wireKey,
+                pattern = pattern,
+                source = QueryParameterSource(
+                    parameterName = source.parameterName,
+                    propertyName = source.propertyName,
+                    kind = source.kind
+                ),
+                pointer = pointer,
+                contributesToQueryPatterns = contributesToQueryPatterns
+            )
+        }
+    }
+
+    private fun QueryParameterPatternEntry.diagnosticDisplayName(): String {
+        return pointer?.let { "${source.displayName} at ${it.toBreadcrumbPath()}" } ?: source.displayName
     }
 
     private data class QueryParameterParseResult(
@@ -3443,6 +3480,48 @@ class OpenApiSpecification(
         val nestedObjectPropertyEntries: List<QueryParameterPatternEntry> = emptyList(),
         val additionalProperties: Pattern? = null
     )
+
+    private fun recordQueryParameterTypeCollisions(entries: List<QueryParameterPatternEntry>) {
+        entries.groupBy(QueryParameterPatternEntry::wireKey)
+            .filterValues { it.size > 1 }
+            .values
+            .forEach { collidingEntries ->
+                val resolvedPatterns = collidingEntries.map { normalizedQueryParameterPattern(it.pattern) }
+                if (resolvedPatterns.distinct().size == 1) return@forEach
+
+                val winner = collidingEntries.last()
+                val declarationDetails = collidingEntries.joinToString(separator = "\n") { "- ${it.diagnosticDisplayName()}" }
+                winner.collectorContext.record(
+                    message = "Query parameter wire key ${winner.wireKey} has conflicting schemas:\n$declarationDetails\nSpecmatic will use the last declared query parameter ${winner.source.displayName} as authoritative.",
+                    isWarning = true,
+                    ruleViolation = OpenApiLintViolations.QUERY_PARAMETER_TYPE_COLLISION
+                )
+            }
+    }
+
+    private fun normalizedQueryParameterPattern(pattern: Pattern): Pattern {
+        val resolver = Resolver(newPatterns = patterns)
+        return when (pattern) {
+            is QueryParameterScalarPattern -> QueryParameterScalarPattern(resolvedHop(pattern.pattern, resolver))
+            is QueryParameterArrayPattern -> QueryParameterArrayPattern(pattern.pattern.map { resolvedHop(it, resolver) }, pattern.parameterName)
+            else -> resolvedHop(pattern, resolver)
+        }
+    }
+
+    private fun String.toBreadcrumbPath(): String {
+        val decodedSegments = trimStart('/')
+            .split('/')
+            .filter(String::isNotBlank)
+            .map { it.replace("~1", "/").replace("~0", "~") }
+
+        return decodedSegments.fold("") { path, segment ->
+            when {
+                path.isBlank() -> segment
+                segment.toIntOrNull() != null -> "$path[$segment]"
+                else -> "$path.$segment"
+            }
+        }
+    }
 
     private fun toQueryParameterParseResult(queryParamWithContext: ParameterWithContext<QueryParameter>, parameterPointers: Map<String, String>): QueryParameterParseResult {
         val parameter = queryParamWithContext.parameter
@@ -3583,6 +3662,47 @@ class OpenApiSpecification(
 
     private fun QueryParameter.isFormExploded(): Boolean {
         return (style == null || style == Parameter.StyleEnum.FORM) && explode != false
+    }
+
+    private fun nestedObjectRootPropertyEntries(
+        parameter: QueryParameter,
+        resolvedSchema: Schema<*>,
+        schemaContext: CollectorContext,
+        nestedObjectQueryParam: NestedObjectQueryParam,
+        schemaPointer: String?
+    ): List<QueryParameterPatternEntry> {
+        if (nestedObjectQueryParam.syntax.root != ObjectQueryRoot.Unwrapped) return emptyList()
+
+        val requiredProperties = resolvedSchema.required.orEmpty().toSet()
+
+        return resolvedSchema.properties.orEmpty().map { (propertyName, propertySchema) ->
+            val propertyContext = schemaContext.at("properties").at(propertyName)
+            val (resolvedPropertySchema, resolvedPropertyContext) = resolveSchemaIfRefElseAtSchema(
+                schema = propertySchema,
+                collectorContext = propertyContext
+            )
+            val optional = parameter.required != true || propertyName !in requiredProperties
+
+            QueryParameterPatternEntry(
+                key = toSpecmaticParamName(optional, propertyName),
+                wireKey = propertyName,
+                pattern = toQueryParameterPattern(
+                    parameterName = propertyName,
+                    schema = propertySchema,
+                    resolvedSchema = resolvedPropertySchema,
+                    resolvedSchemaContext = resolvedPropertyContext,
+                    schemaContext = propertyContext
+                ),
+                source = QueryParameterPatternSource(
+                    parameterName = parameter.name,
+                    propertyName = propertyName,
+                    kind = QueryParameterSourceKind.NestedObjectProperty
+                ),
+                collectorContext = propertyContext,
+                pointer = schemaPointer?.let { "$it/properties/${escapeJsonPointer(propertyName)}" },
+                contributesToQueryPatterns = false
+            )
+        }
     }
 
     internal fun toQueryParameterPattern(
