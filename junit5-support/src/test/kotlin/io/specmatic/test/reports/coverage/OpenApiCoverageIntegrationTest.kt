@@ -250,8 +250,8 @@ class OpenApiCoverageIntegrationTest {
         val expectedSpecificationPath = "specs/orders.yaml"
 
         report.verify {
-            assertThat(report.getSpecConfigs()).hasSize(1)
-            assertThat(report.getSpecConfigs().single().specification).isEqualTo(expectedSpecificationPath)
+            assertThat(report.coverageReportSpecifications()).hasSize(1)
+            assertThat(report.coverageReportSpecifications().single().specConfig.specification).isEqualTo(expectedSpecificationPath)
         }
     }
 
