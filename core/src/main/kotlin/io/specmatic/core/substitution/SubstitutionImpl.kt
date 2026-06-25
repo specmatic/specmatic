@@ -75,18 +75,22 @@ class SubstitutionImpl private constructor(
     private fun isLookup(value: String) =
         value.startsWith("$(") && value.endsWith(")")
 
+    private fun resolveValue(value: StringValue): String {
+        return InterpolatedSubstitution.resolve(value.string) { token ->
+            when {
+                isDataLookup(token) -> substituteDataLookupExpression(token)
+                isSimpleVariableLookup(token) -> substituteSimpleVariableLookup(token)
+                else -> token
+            }
+        }
+    }
+
     override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
         return try {
-            if (value !is StringValue)
-                HasValue(value)
-            else if (isSimpleVariableLookup(value.string)) {
-                val updatedString = substituteSimpleVariableLookup(value.string)
-                HasValue(pattern.parse(updatedString, resolver))
-            } else if (isDataLookup(value.string)) {
-                val updatedString = substituteDataLookupExpression(value.string)
-                HasValue(pattern.parse(updatedString, resolver))
-            } else
-                HasValue(value)
+            if (value !is StringValue) return HasValue(value)
+            if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
+            val updatedString = resolveValue(value)
+            HasValue(pattern.parse(updatedString, resolver))
         } catch (e: Throwable) {
             HasException(e)
         }

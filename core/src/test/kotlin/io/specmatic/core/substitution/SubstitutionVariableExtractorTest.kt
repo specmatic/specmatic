@@ -2,7 +2,7 @@ package io.specmatic.core.substitution
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.pattern.parsedValue
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class SubstitutionVariableExtractorTest {
@@ -25,7 +25,7 @@ class SubstitutionVariableExtractorTest {
         )
 
         val result = SubstitutionVariableExtractor.fromRequest(runningRequest, originalRequest)
-        assertEquals(
+        assertThat(result).isEqualTo(
             mapOf(
                 "traceId" to "trace-1",
                 "requestId" to "run-header",
@@ -33,8 +33,7 @@ class SubstitutionVariableExtractorTest {
                 "age" to "33",
                 "pageNumber" to "2",
                 "orderId" to "123"
-            ),
-            result
+            )
         )
     }
 
@@ -57,6 +56,6 @@ class SubstitutionVariableExtractorTest {
         )
 
         val result = SubstitutionVariableExtractor.fromRequest(runningRequest, originalRequest)
-        assertEquals(mapOf("value" to "path-value"), result)
+        assertThat(result).isEqualTo(mapOf("value" to "path-value"))
     }
 }

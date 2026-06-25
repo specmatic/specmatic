@@ -1,7 +1,5 @@
 package io.specmatic.core.substitution
 
-import io.specmatic.core.pattern.isPatternToken
-import io.specmatic.core.pattern.withoutPatternDelimiters
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -15,7 +13,7 @@ internal object SubstitutionVariableStoreUpdater {
     fun fromMap(originalMap: Map<String, String>, runningMap: Map<String, String>): Map<String, String> {
         return originalMap.entries.fold(emptyMap()) { acc, (key, originalValue) ->
             val runningValue = runningMap[key] ?: return@fold acc
-            acc + variableFromString(runningValue, originalValue).toMapEntry()
+            acc + InterpolatedSubstitution.extractVariables(originalValue, runningValue)
         }
     }
 
@@ -24,13 +22,13 @@ internal object SubstitutionVariableStoreUpdater {
         val originalPathPieces = originalPath.split('/').filterNot(String::isBlank)
         val runningPathPieces = runningPath.split('/').filterNot(String::isBlank)
         return originalPathPieces.zip(runningPathPieces).fold(emptyMap()) { acc, (originalPiece, runningPiece) ->
-            acc + variableFromString(runningPiece, originalPiece).toMapEntry()
+            acc + InterpolatedSubstitution.extractVariables(originalPiece, runningPiece)
         }
     }
 
     private fun variablesFromValue(originalValue: Value, runningValue: Value): Map<String, String> {
         return when (originalValue) {
-            is StringValue -> variableFromString(runningValue.toStringLiteral(), originalValue.string).toMapEntry()
+            is StringValue -> InterpolatedSubstitution.extractVariables(originalValue.string, runningValue.toStringLiteral())
             is JSONObjectValue -> variablesFromObject(originalValue, runningValue)
             is JSONArrayValue -> variablesFromArray(originalValue, runningValue)
             else -> emptyMap()
@@ -50,15 +48,5 @@ internal object SubstitutionVariableStoreUpdater {
         return originalValue.list.zip(runningArray.list).fold(emptyMap()) { acc, (originalItem, runningItem) ->
             acc + variablesFromValue(originalItem, runningItem)
         }
-    }
-
-    private fun variableFromString(value: String, originalValue: String): Pair<String, String>? {
-        if (!isPatternToken(originalValue)) return null
-        val name = withoutPatternDelimiters(originalValue).split(":", limit = 2).firstOrNull() ?: return null
-        return name to value
-    }
-
-    private fun Pair<String, String>?.toMapEntry(): Map<String, String> {
-        return this?.let { mapOf(it) }.orEmpty()
     }
 }
