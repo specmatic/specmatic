@@ -6,6 +6,7 @@ import io.mockk.verify
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.Flags.Companion.ALL_PATTERNS_MANDATORY
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
@@ -2043,11 +2044,23 @@ components:
             assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to JSONObjectValue(mapOf("alias" to StringValue("extraValue"))))))
         }
 
+        @Test
+        fun `should resolve extra keys even when they are not declared in pattern`() {
+            val pattern = JSONObjectPattern(mapOf("name" to StringPattern()))
+            val substitutionData = parsedJSONObject("""{ "data": { "User": { "*": { "name": "JohnDoe", "extraKey": "extraValue" } } } }""")
+            val substitution = substitutionWithData(substitutionData.jsonObject)
+            val valueToBeResolved = JSONObjectValue(mapOf("name" to StringValue("$(data.User[NON_EXISTENT].name)"), "extraKey" to StringValue("$(data.User[NON_EXISTENT].extraKey)")))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, valueToBeResolved, Resolver()).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to StringValue("extraValue"))))
+        }
+
         private fun substitutionWithData(valueMap: Map<String, Value>): Substitution {
-            return Substitution(
-                HttpRequest(path = "/"), HttpRequest(path = "/"),
-                HttpPathPattern.from("/"), HttpHeadersPattern(),
-                AnyValuePattern, Resolver(), JSONObjectValue(valueMap)
+            return SubstitutionImpl.from(
+                HttpRequest(path = "/"),
+                HttpRequest(path = "/"),
+                JSONObjectValue(valueMap),
+                Resolver()
             )
         }
     }
@@ -2614,7 +2627,7 @@ components:
     fun `should be able to resolve substitutions for an object with no properties`() {
         val pattern = JSONObjectPattern(emptyMap())
         val request = HttpRequest("GET", "/")
-        val substitution = Substitution(request, request, buildHttpPathPattern("/"), HttpHeadersPattern(), pattern, Resolver(), JSONObjectValue(emptyMap()))
+        val substitution = SubstitutionImpl.from(request, request, JSONObjectValue(emptyMap()), Resolver())
 
         val originalJson = parsedJSONObject("""{"Hello": "world"}""")
         val jsonAfterSubstitutions = pattern.resolveSubstitutions(substitution, originalJson, Resolver()).value

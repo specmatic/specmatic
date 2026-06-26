@@ -72,7 +72,7 @@ interface Pattern {
     }
 
     fun resolveSubstitutions(substitution: Substitution, value: Value, resolver: Resolver, key: String? = null): ReturnValue<Value> {
-        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
+        return scalarResolveSubstitutions(substitution, value, key, this)
     }
 
     fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {
@@ -177,10 +177,7 @@ fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
     } ?: resolver.generate(pattern)
 }
 
-fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern, resolver: Resolver): ReturnValue<Value> {
+fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern): ReturnValue<Value> {
     val resolvedValue = runCatching { substitution.resolveIfLookup(value, pattern) }.getOrElse { e -> return HasException(e) }
-    return substitution.substitute(resolvedValue, pattern, key).ifHasValue { returnValue: HasValue<Value> ->
-        val substitutedValue = returnValue.value
-        resolver.matchesPattern(null, pattern, substitutedValue).toReturnValue(substitutedValue)
-    }
+    return substitution.substitute(resolvedValue, pattern, key)
 }

@@ -20,9 +20,16 @@ internal fun serializeNestedObjectQueryValues(
 
     val ordinaryPairs = valuesMap
         .filterKeys { it !in nestedParameterNames }
-        .map { (key, value) -> key to value.toStringLiteral() }
+        .flatMap { (key, value) -> value.toFlatQueryValues().map { key to it.toStringLiteral() } }
 
     return ordinaryPairs + nestedPairs
+}
+
+private fun Value.toFlatQueryValues(): List<Value> {
+    return when (this) {
+        is JSONArrayValue -> list.flatMap { it.toFlatQueryValues() }
+        else -> listOf(this)
+    }
 }
 
 internal fun serializeNestedObjectQueryValue(

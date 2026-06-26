@@ -14,7 +14,7 @@ data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern b
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
+        return scalarResolveSubstitutions(substitution, value, key, this)
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {

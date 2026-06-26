@@ -204,17 +204,13 @@ data class JSONObjectPattern(
         val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
         val adjustedPattern = additionalProperties.updatePatternMap(patternMap = pattern, valueMap = resolvedValue.jsonObject)
 
-        if(adjustedPattern.isEmpty()) return HasValue(value)
-        val updatedMap = resolvedValue.jsonObject.mapNotNull { (key, value) ->
-            val pattern = attempt("Could not find key in json object", key) { adjustedPattern[key] ?: adjustedPattern["$key?"] ?: throw MissingDataException("Could not find key $key") }
-            if (substitution.isDropDirective(value)) {
-                if (adjustedPattern[key] != null) return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key ${key.quote()}"))
-                else return@mapNotNull null
-            }
-            key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
-        }.toMap()
-
-        return updatedMap.mapFoldException().ifValue(resolvedValue::copy)
+        if (adjustedPattern.isEmpty()) return HasValue(value)
+        return resolveSubstitutions(
+            resolver = resolver,
+            substitution = substitution,
+            jsonPatternMap = adjustedPattern,
+            jsonValueMap = resolvedValue.jsonObject,
+        ).ifValue(resolvedValue::copy)
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {
@@ -858,6 +854,38 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
 
     return resolvedValuesMap.combine(generatedValuesMap) { resolvedEntries, generatedEntries ->
         resolvedEntries + generatedEntries
+    }
+}
+
+fun resolveSubstitutions(
+    resolver: Resolver,
+    substitution: Substitution,
+    jsonValueMap: Map<String, Value>,
+    jsonPatternMap: Map<String, Pattern>,
+    findPatternKey: (Map<String, Pattern>, String) -> String? = ::findPatternKey
+): ReturnValue<Map<String, Value>> {
+    val resolvedValuesMap = jsonValueMap.mapNotNull { (key, value) ->
+        val patternKey = findPatternKey(jsonPatternMap, key)
+        if (substitution.isDropDirective(value)) {
+            if (patternKey != null && !isOptional(patternKey)) {
+                return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key ${key.quote()}"))
+            }
+
+            return@mapNotNull null
+        }
+
+        val pattern = jsonPatternMap.getOrDefault(patternKey, AnyValuePattern)
+        key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
+    }.toMap()
+
+    return resolvedValuesMap.mapFoldException()
+}
+
+private fun findPatternKey(patterns: Map<String, Pattern>, key: String): String? {
+    return when {
+        key in patterns -> key
+        "$key?" in patterns -> "$key?"
+        else -> null
     }
 }
 

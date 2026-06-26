@@ -12,9 +12,19 @@ import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
+import io.specmatic.core.Resolver
+import io.specmatic.core.Substitution
+import io.specmatic.core.HttpQueryParamPattern
+import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Row
+import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.buildHttpPathPattern
+import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.ktor.http.ContentType
@@ -25,10 +35,15 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.fixtures.FixtureExecutionMetadata
+import io.specmatic.test.fixtures.FixtureScenarioType
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
@@ -56,25 +71,192 @@ class ScenarioAsTestTest {
             )
 
             val result = withServiceLoaderEntries(
-                mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
             ) {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything")).result
             }
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts).containsExactly(
+                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE),
+                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE)
+            )
         }
 
         @Test
-        fun `does not call fixture executor for negative scenario`() {
+        fun `request generation should be able to use before fixture substitution store`() {
+            val substitution = SubstitutionImpl.empty(Resolver())
+            val originalScenario = Scenario(
+                ScenarioInfo(
+                    specType = SpecType.OPENAPI,
+                    protocol = SpecmaticProtocol.HTTP,
+                    httpResponsePattern = HttpResponsePattern(status = 200, body = StringPattern()),
+                    httpRequestPattern = HttpRequestPattern(
+                        method = "GET",
+                        httpPathPattern = buildHttpPathPattern("/findAvailableProducts"),
+                        headersPattern = HttpHeadersPattern(mapOf("Authorization" to StringPattern())),
+                        httpQueryParamPattern = HttpQueryParamPattern(mapOf("type" to QueryParameterScalarPattern(StringPattern()))),
+                    ),
+                )
+            )
+
+            val testScenario = Scenario(
+                ScenarioInfo(
+                    specType = SpecType.OPENAPI,
+                    protocol = SpecmaticProtocol.HTTP,
+                    httpResponsePattern = HttpResponsePattern(status = 200, body = StringPattern()),
+                    httpRequestPattern = HttpRequestPattern(
+                        method = "GET",
+                        httpPathPattern = buildHttpPathPattern("/findAvailableProducts"),
+                        headersPattern = HttpHeadersPattern(mapOf("Authorization" to ExactValuePattern(StringValue("$(SECRET)")))),
+                        httpQueryParamPattern = HttpQueryParamPattern(mapOf("type" to QueryParameterScalarPattern(ExactValuePattern(StringValue("book"))))),
+                    ),
+                )
+            ).copy(
+                exampleRow = Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        beforeFixtures = listOf(StringValue("before"))
+                    )
+                )
+            )
+
+            ServiceLoaderTestFixtureExecutor.reset()
+            val result = withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
+                val test = scenarioAsTest(scenario = testScenario, originalScenario = originalScenario, substitution = substitution)
+                test.runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            val headers = result.request?.headers.orEmpty()
+            assertThat(headers["Authorization"]).isEqualTo("token-123")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isNotNull
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(
+                StringValue("$(SECRET)"), StringPattern(), null)?.value
+            ).isEqualTo(StringValue("token-123"))
+        }
+
+        @Test
+        fun `after fixture should be able to use before and response substitution store`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+
+            val substitution = SubstitutionImpl.empty(Resolver())
+            val scenario = scenario(
+                exampleRow = Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        request = HttpRequest(
+                            method = "GET",
+                            path = "/findAvailableProducts",
+                            queryParametersMap = mapOf("type" to "book")
+                        ),
+                        response = HttpResponse(
+                            status = 200,
+                            headers = mapOf("X-Query-Id" to "(QUERY_ID:string)"),
+                            body = parsedJSONObject("""{"product-queries": 1}""")
+                        ),
+                        beforeFixtures = listOf(StringValue("before")),
+                        afterFixtures = listOf(StringValue("after"))
+                    )
+                )
+            ).copy(
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/findAvailableProducts"),
+                    httpQueryParamPattern = HttpQueryParamPattern(
+                        mapOf("type" to QueryParameterScalarPattern(ExactValuePattern(StringValue("book"))))
+                    )
+                ),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    headersPattern = HttpHeadersPattern(mapOf("X-Query-Id" to StringPattern())),
+                    body = JSONObjectPattern(mapOf("product-queries" to NumberPattern()))
+                )
+            )
+
+            val result = withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
+                scenarioAsTest(scenario, substitution = substitution).runTest(
+                    fixedResponseExecutor(
+                        status = 200,
+                        body = """{"product-queries": 1}""",
+                        headers = mapOf("X-Query-Id" to "query-456")
+                    )
+                )
+            }
+
+            assertThat(result.result).isInstanceOf(Result.Success::class.java)
+            assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isNotNull
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(SECRET)"), StringPattern(), null)?.value)
+                .isEqualTo(StringValue("token-123"))
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(QUERY_ID)"), StringPattern(), null)?.value)
+                .isEqualTo(StringValue("query-456"))
+        }
+
+        @Test
+        fun `passes negative fixture execution context for negative scenario`() {
             ServiceLoaderTestFixtureExecutor.reset()
             val exampleRow = Row(scenarioStub = ScenarioStub(id = "fixture-id", beforeFixtures = listOf(StringValue("before")), afterFixtures = listOf(StringValue("after"))))
             val scenario = scenario(status = 400, exampleRow = exampleRow,).copy(isNegative = true)
-            withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+            withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(400, "anything"))
             }
 
-            assertThat(ServiceLoaderTestFixtureExecutor.calls).isEmpty()
+            assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts)
+                .containsExactly(FixtureExecutionMetadata(FixtureScenarioType.NEGATIVE))
+        }
+
+        @Test
+        fun `filters fixtures based on scenario selector`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val positiveScenario = scenario(
+                Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        beforeFixtures = listOf(
+                            parsedValue("""{"name":"before-all","executeFor":{"scenarios":"all"}}"""),
+                            parsedValue("""{"name":"before-negative","executeFor":{"scenarios":"negative"}}""")
+                        ),
+                        afterFixtures = listOf(
+                            parsedValue("""{"name":"after-positive","executeFor":{"scenarios":"positive"}}"""),
+                            parsedValue("""{"name":"after-negative","executeFor":{"scenarios":"negative"}}""")
+                        )
+                    )
+                )
+            )
+
+            withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
+                scenarioAsTest(positiveScenario).runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            assertThat(ServiceLoaderTestFixtureExecutor.fixturesSeen).containsExactly(
+                listOf(parsedValue("""{"name":"before-all","executeFor":{"scenarios":"all"}}""")),
+                listOf(parsedValue("""{"name":"after-positive","executeFor":{"scenarios":"positive"}}"""))
+            )
         }
 
         @Test
@@ -97,6 +279,21 @@ class ScenarioAsTestTest {
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class FixtureExecutionMetadataTest {
+        @Test
+        fun `should derive positive scenario type for positive scenario`() {
+            val positiveContext = FixtureExecutionMetadata.from(scenario())
+            assertThat(positiveContext.scenarioType).isEqualTo(FixtureScenarioType.POSITIVE)
+        }
+
+        @Test
+        fun `should derive negative scenario type for negative scenario`() {
+            val negativeContext = FixtureExecutionMetadata.from(scenario().copy(isNegative = true))
+            assertThat(negativeContext.scenarioType).isEqualTo(FixtureScenarioType.NEGATIVE)
         }
     }
 
@@ -160,6 +357,36 @@ class ScenarioAsTestTest {
         } finally {
             server.stop(1000, 1000)
         }
+    }
+
+    @Test
+    fun `withRequestValidator should use custom validator instead of default request validation`() {
+        val scenario = scenario()
+        var validatorCalls = 0
+        var executorCalls = 0
+
+        val contractTest = scenarioAsTest(scenario).withRequestValidator(object : RequestValidator {
+            override fun validate(feature: Feature, scenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest): Result {
+                validatorCalls += 1
+                return Result.Failure("custom request validator failed")
+            }
+        })
+
+        val executionResult = withServiceLoaderEntries(
+            mapOf(ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name)
+        ) {
+            contractTest.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executorCalls += 1
+                    return HttpResponse(status = 200, body = "ok")
+                }
+            })
+        }
+
+        assertThat(validatorCalls).isEqualTo(1)
+        assertThat(executorCalls).isEqualTo(0)
+        assertThat(executionResult.result).isInstanceOf(Result.Failure::class.java)
+        assertThat(executionResult.result.reportString()).contains("custom request validator failed")
     }
 
     @Test
@@ -266,15 +493,21 @@ class ScenarioAsTestTest {
         )
     }
 
-    private fun scenarioAsTest(scenario: Scenario, scenarios: List<Scenario> = listOf(scenario)): ScenarioAsTest {
+    private fun scenarioAsTest(
+        scenario: Scenario,
+        scenarios: List<Scenario> = listOf(scenario),
+        originalScenario: Scenario = scenario,
+        substitution: Substitution = SubstitutionImpl.empty(Resolver())
+    ): ScenarioAsTest {
         val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP)
         return ScenarioAsTest(
             scenario = scenario,
             feature = feature,
             flagsBased = feature.flagsBased,
-            originalScenario = scenario,
+            originalScenario = originalScenario,
             protocol = SpecmaticProtocol.HTTP,
-            specType = SpecType.OPENAPI
+            specType = SpecType.OPENAPI,
+            substitution = substitution
         )
     }
 
@@ -311,16 +544,94 @@ class ScenarioAsTestTest {
 }
 
 class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
-    override fun execute(id: String, fixtures: List<Value>, fixtureDiscriminatorKey: String): FixtureExecutionDetails {
+    override fun execute(
+        id: String,
+        fixtures: List<Value>,
+        fixtureDiscriminatorKey: String,
+        executionMetadata: FixtureExecutionMetadata,
+        substitution: Substitution
+    ): FixtureExecutionDetails {
+        val filteredFixtures = fixtures.filterFor(executionMetadata)
         calls.add(fixtureDiscriminatorKey)
-        return FixtureExecutionDetails(combinedResult = Result.Success())
+        fixturesSeen.add(filteredFixtures)
+        receivedContexts.add(executionMetadata)
+        val updatedSubstitution = when (fixtureDiscriminatorKey) {
+            "before" -> substitution.upsertStoreUsing(
+                originalValue = StringValue("(SECRET:string)"),
+                runningValue = StringValue("token-123")
+            )
+            else -> substitution
+        }
+
+        receivedSubstitution = updatedSubstitution
+        return FixtureExecutionDetails(
+            combinedResult = Result.Success(),
+            updatedSubstitution = updatedSubstitution
+        )
     }
 
     companion object {
         val calls: MutableList<String> = mutableListOf()
+        val fixturesSeen: MutableList<List<Value>> = mutableListOf()
+        val receivedContexts: MutableList<FixtureExecutionMetadata> = mutableListOf()
+        var receivedSubstitution: Substitution? = null
 
         fun reset() {
             calls.clear()
+            fixturesSeen.clear()
+            receivedContexts.clear()
+            receivedSubstitution = null
         }
+    }
+}
+
+private fun List<Value>.filterFor(context: FixtureExecutionMetadata): List<Value> {
+    return filter { fixture ->
+        when (fixture.fixtureScenarioSelector()) {
+            null, "all" -> true
+            "positive" -> context.scenarioType == FixtureScenarioType.POSITIVE
+            "negative" -> context.scenarioType == FixtureScenarioType.NEGATIVE
+            else -> error("Unexpected executeFor.scenarios value in test fixture")
+        }
+    }
+}
+
+private fun Value.fixtureScenarioSelector(): String? {
+    return ((this as? io.specmatic.core.value.JSONObjectValue)
+        ?.jsonObject
+        ?.get("executeFor") as? io.specmatic.core.value.JSONObjectValue)
+        ?.jsonObject
+        ?.get("scenarios")
+        ?.toStringLiteral()
+        ?.lowercase()
+}
+
+class ServiceLoaderTestInterceptor : ContractTestInterceptor {
+    override fun updateRequest(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpRequest: HttpRequest,
+        substitution: Substitution,
+    ): InterceptResult<HttpRequest> {
+        return InterceptResult.Processed(
+            value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+        )
+    }
+
+    override fun updateSubstitution(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpResponse: HttpResponse,
+        substitution: Substitution,
+    ): InterceptResult<Substitution> {
+        val example = testScenario.exampleRow?.scenarioStub ?: return InterceptResult.PassThrough
+        return InterceptResult.Processed(
+            value = HasValue(
+                substitution.upsertStoreUsing(
+                    runningValue = httpResponse.toJSON(),
+                    originalValue = example.response().toJSON(),
+                )
+            )
+        )
     }
 }

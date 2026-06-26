@@ -10,6 +10,7 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -1120,6 +1121,87 @@ internal class HttpRequestPatternTest {
             val currentAccountRequestBody = (requests.first { it.discriminatorValue ==  "current"}.value.body as JSONObjectValue)
             assertThat(savingsAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("savings")
             assertThat(currentAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("current")
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve path query and header and body values`() {
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/pets/(id:string)"),
+                body = JSONObjectPattern(mapOf("name" to StringPattern())),
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("page" to QueryParameterScalarPattern(StringPattern()))),
+            )
+
+            val request = HttpRequest(
+                method = "GET",
+                path = "/pets/$(id)",
+                headers = mapOf("X-Trace" to "$(trace)"),
+                body = parsedJSONObject("""{"name": "$(name)"}"""),
+                queryParams = QueryParameters(mapOf("page" to "$(page)")),
+            )
+
+            val substitution = substitutionOf(
+                "$(id)" to "123",
+                "$(page)" to "2",
+                "$(name)" to "John",
+                "$(trace)" to "abc",
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(substitution, request, Resolver()).value
+            assertThat(resolved.path).isEqualTo("/pets/123")
+            assertThat(resolved.queryParams.asMap()).containsEntry("page", "2")
+            assertThat(resolved.headers).containsEntry("X-Trace", "abc")
+            assertThat(resolved.body.toUnformattedString()).isEqualTo("""{"name":"John"}""")
+        }
+
+        @Test
+        fun `should resolve security scheme values too`() {
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/pets/(id:string)"),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("page" to QueryParameterScalarPattern(StringPattern()))),
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+                securitySchemes = listOf(
+                    APIKeyInHeaderSecurityScheme("X-Api-Key", null),
+                    APIKeyInQueryParamSecurityScheme("api_key", null)
+                )
+            )
+
+            val request = HttpRequest(
+                method = "GET",
+                path = "/pets/$(id)",
+                headers = mapOf("X-Trace" to "$(trace)", "X-Api-Key" to "$(header_key)"),
+                queryParams = QueryParameters(mapOf("page" to "$(page)", "api_key" to "$(api_key)")),
+            )
+
+            val substitution = substitutionOf(
+                "$(id)" to "123",
+                "$(page)" to "2",
+                "$(trace)" to "abc",
+                "$(api_key)" to "secret",
+                "$(header_key)" to "header-secret"
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(substitution, request, Resolver()).value
+            assertThat(resolved.path).isEqualTo("/pets/123")
+            assertThat(resolved.queryParams.asMap()).containsEntry("page", "2")
+            assertThat(resolved.queryParams.asMap()).containsEntry("api_key", "secret")
+            assertThat(resolved.headers).containsEntry("X-Trace", "abc")
+            assertThat(resolved.headers).containsEntry("X-Api-Key", "header-secret")
+        }
+
+        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
+            return object : Substitution {
+                override fun isDropDirective(value: Value): Boolean = false
+                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
+                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
+                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
+                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
+                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
+                }
+            }
         }
     }
 

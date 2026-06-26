@@ -1,0 +1,80 @@
+openapi: 3.0.3
+info:
+  title: Test Step Demo API
+  version: 1.0.0
+  description: OpenAPI spec for the demo test step only.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://127.0.0.1:8000
+paths:
+  /test:
+    parameters:
+      - name: Random-String
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: "A+"
+          minLength: 1
+          maxLength: 3
+    post:
+      security: []
+      operationId: runTestStep
+      summary: Run the test step
+      description: Requires the exact outputs of before1 and before2, then returns the test output.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestRequest'
+      responses:
+        '200':
+          description: Test step completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResponse'
+        '400':
+          description: Missing or incorrect prior step values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    TestRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - before1
+        - before2
+      properties:
+        before1:
+          type: string
+        before2:
+          type: string
+    TestResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - before1
+        - before2
+        - test
+      properties:
+        before1:
+          type: string
+        before2:
+          type: string
+        test:
+          type: string
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: string

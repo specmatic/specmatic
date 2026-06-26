@@ -9,6 +9,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.toStringMap
+import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
@@ -1040,6 +1041,37 @@ internal class HttpPathPatternTest {
             val result = pathPattern.matches(URI(rawPath), Resolver())
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat((result as Result.Failure).failureReason).isEqualTo(FailureReason.URLPathMisMatch)
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve values in path segments`() {
+            val pathPattern = buildHttpPathPattern("/pets/(id:string)")
+            val substitution = substitutionOf("$(id)" to "123")
+            val resolvedPath = pathPattern.resolveSubstitutions(substitution, "/pets/$(id)", Resolver()).value
+            assertThat(resolvedPath).isEqualTo("/pets/123")
+        }
+
+        @Test
+        fun `should resolve interpolated values in path segments`() {
+            val pathPattern = buildHttpPathPattern("/pets/item-(id:string)")
+            val substitution = substitutionOf("$(id)" to "123")
+            val resolvedPath = pathPattern.resolveSubstitutions(substitution, "/pets/item-$(id)", Resolver()).value
+            assertThat(resolvedPath).isEqualTo("/pets/item-123")
+        }
+
+        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
+            return object : Substitution {
+                override fun isDropDirective(value: Value): Boolean = false
+                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
+                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
+                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
+                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
+                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
+                }
+            }
         }
     }
 

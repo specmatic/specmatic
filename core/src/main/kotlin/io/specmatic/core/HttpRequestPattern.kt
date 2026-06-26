@@ -33,6 +33,7 @@ import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
@@ -1103,17 +1104,14 @@ data class HttpRequestPattern(
     fun getSubstitution(
         runningRequest: HttpRequest,
         originalRequest: HttpRequest,
-        resolver: Resolver,
         data: JSONObjectValue,
+        resolver: Resolver,
     ): Substitution {
-        return Substitution(
-            runningRequest,
-            originalRequest,
-            httpPathPattern ?: HttpPathPattern(emptyList(), ""),
-            headersPattern,
-            body,
-            resolver,
-            data
+        return SubstitutionImpl.from(
+            data = data,
+            resolver = resolver,
+            runningRequest = runningRequest,
+            originalRequest = originalRequest,
         )
     }
 
@@ -1169,6 +1167,29 @@ data class HttpRequestPattern(
         return securitySchemes.fold(request) { req, securityScheme ->
             securityScheme.removeParam(req)
         }
+    }
+
+    fun resolveSubstitutions(substitution: Substitution, request: HttpRequest, resolver: Resolver): ReturnValue<HttpRequest> {
+        val path = httpPathPattern?.resolveSubstitutions(
+            path = request.path, resolver = resolver, substitution = substitution
+        )?.breadCrumb(BreadCrumb.PARAM_PATH.value) ?: HasValue(null)
+
+        val queryParams = httpQueryParamPattern.resolveSubstitutions(
+            queryParams = request.queryParams, resolver = resolver, substitution = substitution
+        ).breadCrumb(BreadCrumb.PARAM_QUERY.value)
+
+        val headersResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)
+        val headers = headersPattern.resolveSubstitutions(
+            headers = request.headers, resolver = headersResolver, substitution = substitution
+        ).breadCrumb(BreadCrumb.PARAM_HEADER.value)
+
+        val body = body.resolveSubstitutions(substitution, request.body, resolver).breadCrumb("BODY")
+        return HasValue(request)
+            .combine(path) { req, it -> req.copy(path = it) }
+            .combine(queryParams) { req, it -> req.copy(queryParams = it) }
+            .combine(headers) { req, it -> req.copy(headers = it) }
+            .combine(body) { req, it -> req.copy(body = it) }
+            .breadCrumb("REQUEST")
     }
 
     fun getSOAPAction(): String? {

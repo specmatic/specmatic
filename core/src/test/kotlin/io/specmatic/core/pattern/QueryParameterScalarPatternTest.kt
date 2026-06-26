@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.*
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -28,14 +29,11 @@ class QueryParameterScalarPatternTest {
         val innerPattern = NumberPattern()
         val pattern = QueryParameterScalarPattern(innerPattern)
         val resolver = Resolver()
-        val substitution = Substitution(
+        val substitution = SubstitutionImpl.from(
             HttpRequest("GET", "/", mapOf(), EmptyString),
             HttpRequest("GET", "/", mapOf(), EmptyString),
-            HttpPathPattern(emptyList(), ""),
-            HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
-            resolver,
-            JSONObjectValue(mapOf())
+            JSONObjectValue(mapOf()),
+            Resolver()
         )
         val numericValue = NumberValue(42)
 
@@ -64,15 +62,7 @@ class QueryParameterScalarPatternTest {
                 ))
             ))
         ))
-        val substitution = Substitution(
-            runningRequest,
-            originalRequest,
-            HttpPathPattern(emptyList(), ""),
-            HttpHeadersPattern(mapOf()),
-            JSONObjectPattern(mapOf("department" to StringPattern())),
-            resolver,
-            dataLookup
-        )
+        val substitution = SubstitutionImpl.from(runningRequest, originalRequest, dataLookup, Resolver())
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].project)")
 
         val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
@@ -82,24 +72,21 @@ class QueryParameterScalarPatternTest {
     }
 
     @Test
-    fun `resolveSubstitutions should fail when substituted value doesn't match inner pattern`() {
+    fun `resolveSubstitutions should not fail when substituted value doesn't match inner pattern`() {
         val innerPattern = NumberPattern()
         val pattern = QueryParameterScalarPattern(innerPattern)
         val resolver = Resolver()
-        val substitution = Substitution(
+        val substitution = SubstitutionImpl.from(
             HttpRequest("GET", "/", mapOf(), EmptyString),
             HttpRequest("GET", "/", mapOf(), EmptyString),
-            HttpPathPattern(emptyList(), ""),
-            HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
-            resolver,
-            JSONObjectValue(mapOf())
+            JSONObjectValue(mapOf()),
+            Resolver()
         )
         val invalidValue = StringValue("not_a_number")
 
         val result = pattern.resolveSubstitutions(substitution, invalidValue, resolver, null)
 
-        assertThat(result).isInstanceOf(HasFailure::class.java)
+        assertThat(result).isInstanceOf(HasValue::class.java)
     }
 
 }
