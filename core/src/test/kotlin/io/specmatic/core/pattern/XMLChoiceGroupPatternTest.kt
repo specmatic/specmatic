@@ -1,6 +1,7 @@
 package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
+import io.specmatic.core.Result
 import io.specmatic.core.value.toXMLNode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -83,6 +84,25 @@ class XMLChoiceGroupPatternTest {
             listOf("A", "B"),
             listOf("B", "A"),
             listOf("B", "B"),
+        )
+    }
+
+    @Test
+    fun `encompasses treats a new choice branch as incompatible and a removed branch as compatible`() {
+        val oldChoice = choiceGroup("CustomerNumber", "LoginId")
+        val choiceWithAddedBranch = choiceGroup("CustomerNumber", "LoginId", "Email")
+        val choiceWithRemovedBranch = choiceGroup("CustomerNumber")
+
+        assertThat(oldChoice.encompasses(oldChoice, resolver, resolver)).isInstanceOf(Result.Success::class.java)
+        assertThat(oldChoice.encompasses(choiceWithAddedBranch, resolver, resolver)).isInstanceOf(Result.Failure::class.java)
+        assertThat(oldChoice.encompasses(choiceWithRemovedBranch, resolver, resolver)).isInstanceOf(Result.Success::class.java)
+    }
+
+    private fun choiceGroup(vararg branchNames: String): XMLChoiceGroupPattern {
+        return XMLChoiceGroupPattern(
+            choices = branchNames.map { branchName ->
+                listOf(XMLPattern("<$branchName>(string)</$branchName>"))
+            }
         )
     }
 }
