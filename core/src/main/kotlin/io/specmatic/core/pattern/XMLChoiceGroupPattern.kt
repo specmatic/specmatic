@@ -277,41 +277,96 @@ data class XMLChoiceGroupPattern(
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        val mySequences = limitedConcretePatternSequences(thisResolver)
-        if (mySequences.isEmpty()) {
-            return Failure("Choice group had no valid expansions")
-        }
+        val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)
 
-        val otherSequences = concretePatternSequencesFrom(otherPattern, otherResolver)
-
-        val results = otherSequences.map { otherSequence ->
-            mySequences.allows(otherSequence, otherPattern, thisResolver, otherResolver, typeStack)
-        }
-
-        return Result.fromResults(results)
+        return concreteSequence?.encompassesResolved(otherResolvedPattern, otherPattern, thisResolver, otherResolver, typeStack)
+            ?: encompassesResolved(otherResolvedPattern, otherPattern, thisResolver, otherResolver, typeStack)
     }
 
-    private fun limitedConcretePatternSequences(resolver: Resolver): List<List<Pattern>> {
-        return concretePatternSequences(resolver)
-            .take(resolver.maxTestRequestCombinations)
-            .toList()
-    }
+    private fun encompassesResolved(
+        otherResolvedPattern: Pattern,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        return when (otherResolvedPattern) {
+            is XMLChoiceGroupPattern -> when (val otherConcreteSequence = otherResolvedPattern.concreteSequence) {
+                null -> Result.fromResults(
+                    listOf(occurrenceRange.encompassesRange(otherResolvedPattern.occurrenceRange)) +
+                        choices.allowAll(otherResolvedPattern.choices, otherPattern, thisResolver, otherResolver, typeStack)
+                )
 
-    private fun concretePatternSequencesFrom(pattern: Pattern, resolver: Resolver): List<List<Pattern>> {
-        return when (val resolvedPattern = resolvedHop(pattern, resolver)) {
-            is XMLChoiceGroupPattern -> resolvedPattern.limitedConcretePatternSequences(resolver)
-            else -> listOf(listOf(resolvedPattern))
+                else -> Result.fromResults(
+                    listOf(occurrenceRange.encompassesRange(exactOccurrenceRange(otherConcreteSequence.size))) +
+                        otherConcreteSequence.map { otherSequence ->
+                            choices.allows(otherSequence, otherPattern, thisResolver, otherResolver, typeStack)
+                        }
+                )
+            }
+
+            else -> Result.fromResults(
+                listOf(occurrenceRange.encompassesRange(exactOccurrenceRange(1))) +
+                    listOf(choices.allows(listOf(otherResolvedPattern), otherPattern, thisResolver, otherResolver, typeStack))
+            )
         }
     }
 
-    private fun concretePatternSequences(resolver: Resolver): Sequence<List<Pattern>> {
-        if (concreteSequence != null) {
-            return sequenceOf(concreteSequence.flatten())
-        }
+    private fun List<List<Pattern>>.encompassesResolved(
+        otherResolvedPattern: Pattern,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        return when (otherResolvedPattern) {
+            is XMLChoiceGroupPattern -> when (val otherConcreteSequence = otherResolvedPattern.concreteSequence) {
+                null -> Result.fromResults(
+                    listOf(exactOccurrenceRange(size).encompassesExactly(otherResolvedPattern.occurrenceRange)) +
+                        map { mySequence ->
+                            mySequence.allowsAll(otherResolvedPattern.choices, otherPattern, thisResolver, otherResolver, typeStack)
+                        }
+                )
 
-        return newBasedOn(resolver)
-            .filterIsInstance<XMLChoiceGroupPattern>()
-            .mapNotNull { it.concreteSequence?.flatten() }
+                else -> allowsConcreteSequence(otherConcreteSequence, thisResolver, otherResolver, typeStack)
+            }
+
+            else -> when {
+                size != 1 -> Failure("Choice branch length $size does not encompass 1")
+                else -> single().allowsSequence(listOf(otherResolvedPattern), thisResolver, otherResolver, typeStack)
+            }
+        }
+    }
+
+    private val occurrenceRange: XMLOccurrenceRange
+        get() = XMLOccurrenceRange(minOccurs, maxOccurs)
+
+    private fun exactOccurrenceRange(count: Int): XMLOccurrenceRange = XMLOccurrenceRange(count, count)
+
+    private fun XMLOccurrenceRange.encompassesRange(other: XMLOccurrenceRange): Result {
+        return when {
+            encompasses(other) -> Success()
+            else -> Failure("Choice occurrence range $this does not encompass $other")
+        }
+    }
+
+    private fun XMLOccurrenceRange.encompassesExactly(other: XMLOccurrenceRange): Result {
+        return when {
+            this == other -> Success()
+            else -> Failure("Concrete choice occurrence range $this does not encompass $other")
+        }
+    }
+
+    private fun List<List<Pattern>>.allowAll(
+        otherChoices: List<List<Pattern>>,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): List<Result> {
+        return otherChoices.map { otherChoice ->
+            allows(otherChoice, otherPattern, thisResolver, otherResolver, typeStack)
+        }
     }
 
     private fun List<List<Pattern>>.allows(
@@ -323,27 +378,69 @@ data class XMLChoiceGroupPattern(
     ): Result {
         val successfulResult = asSequence()
             .map { mySequence ->
-                sequenceAllows(mySequence, otherSequence, thisResolver, otherResolver, typeStack)
+                mySequence.allowsSequence(otherSequence, thisResolver, otherResolver, typeStack)
             }.find { it is Success }
 
         return successfulResult ?: Failure("Choice group does not encompass ${otherPattern.typeName}")
     }
 
-    private fun sequenceAllows(
-        mySequence: List<Pattern>,
+    private fun List<List<Pattern>>.allowsConcreteSequence(
+        otherSequence: List<List<Pattern>>,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        if (size != otherSequence.size) {
+            return Failure("Choice branch length $size does not encompass ${otherSequence.size}")
+        }
+
+        val results = mapIndexed { index, mySequence ->
+            mySequence.allowsSequence(otherSequence[index], thisResolver, otherResolver, typeStack)
+        }
+
+        return Result.fromResults(results)
+    }
+
+    private fun List<Pattern>.allowsAll(
+        otherChoices: List<List<Pattern>>,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        val results = otherChoices.map { otherChoice ->
+            allowsSequence(otherChoice, thisResolver, otherResolver, typeStack)
+        }
+
+        return when (Result.fromResults(results)) {
+            is Success -> Success()
+            is Failure -> Failure("Choice group does not encompass ${otherPattern.typeName}")
+        }
+    }
+
+    private fun List<Pattern>.allowsSequence(
         otherSequence: List<Pattern>,
         thisResolver: Resolver,
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        if (mySequence.size != otherSequence.size) {
-            return Failure("Choice branch length ${mySequence.size} does not encompass ${otherSequence.size}")
+        val result = fold(ConsumeResult<Pattern, Pattern>(Success(), otherSequence)) { consumeResult, myPattern ->
+            when (consumeResult.result) {
+                is Failure -> consumeResult
+                is Success -> myPattern.encompasses(
+                    consumeResult.remainder,
+                    thisResolver,
+                    otherResolver,
+                    "Choice branch length $size does not encompass ${otherSequence.size}",
+                    typeStack
+                )
+            }
         }
 
-        val results = mySequence.mapIndexed { index, myPattern ->
-            myPattern.encompasses(otherSequence[index], thisResolver, otherResolver, typeStack)
+        return when {
+            result.result is Failure -> result.result
+            result.remainder.isNotEmpty() -> Failure("Choice branch length $size does not encompass ${otherSequence.size}")
+            else -> Success()
         }
-
-        return Result.fromResults(results)
     }
 }
