@@ -408,14 +408,12 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         gitCommand.checkout(baseBranch)
 
         val older = getFeatureFromSpecPath(specFilePath)
-        withoutInfoLogging {
-            LicenseResolver.utilize(
-                product = LicensedProduct.OPEN_SOURCE,
-                feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
-                protocol = listOfNotNull((older as? Feature)?.protocol)
-            )
-        }
         val checkResult = checkBackwardCompatibility(older, newer)
+        LicenseResolver.utilize(
+            product = LicensedProduct.OPEN_SOURCE,
+            feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
+            protocol = listOfNotNull((older as? Feature)?.protocol)
+        )
 
         return createResultForExistingSpec(
             specFilePath = specFilePath,
@@ -852,14 +850,5 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
             return hook.failedVerdictAndMessage(processedSpec, strictMode)
         }
-    }
-}
-
-private fun <T> withoutInfoLogging(block: () -> T): T {
-    logger.disableInfoLogging()
-    return try {
-        block()
-    } finally {
-        logger.enableInfoLogging()
     }
 }
