@@ -9,6 +9,7 @@ interface OpenAPIFixtureExecutor {
         id: String,
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
+        executionMetadata: FixtureExecutionMetadata,
         substitution: Substitution
     ): FixtureExecutionDetails
 }

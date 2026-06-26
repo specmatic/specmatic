@@ -24,6 +24,7 @@ import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.buildHttpPathPattern
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.ktor.http.ContentType
@@ -39,6 +40,8 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.fixtures.FixtureExecutionMetadata
+import io.specmatic.test.fixtures.FixtureScenarioType
 import io.specmatic.test.interceptor.ContractTestInterceptor
 import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.assertThat
@@ -78,6 +81,10 @@ class ScenarioAsTestTest {
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts).containsExactly(
+                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE),
+                FixtureExecutionMetadata(FixtureScenarioType.POSITIVE)
+            )
         }
 
         @Test
@@ -200,7 +207,7 @@ class ScenarioAsTestTest {
         }
 
         @Test
-        fun `does not call fixture executor for negative scenario`() {
+        fun `passes negative fixture execution context for negative scenario`() {
             ServiceLoaderTestFixtureExecutor.reset()
             val exampleRow = Row(scenarioStub = ScenarioStub(id = "fixture-id", beforeFixtures = listOf(StringValue("before")), afterFixtures = listOf(StringValue("after"))))
             val scenario = scenario(status = 400, exampleRow = exampleRow,).copy(isNegative = true)
@@ -213,7 +220,43 @@ class ScenarioAsTestTest {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(400, "anything"))
             }
 
-            assertThat(ServiceLoaderTestFixtureExecutor.calls).isEmpty()
+            assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before")
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedContexts)
+                .containsExactly(FixtureExecutionMetadata(FixtureScenarioType.NEGATIVE))
+        }
+
+        @Test
+        fun `filters fixtures based on scenario selector`() {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val positiveScenario = scenario(
+                Row(
+                    scenarioStub = ScenarioStub(
+                        id = "fixture-id",
+                        beforeFixtures = listOf(
+                            parsedValue("""{"name":"before-all","executeFor":{"scenarios":"all"}}"""),
+                            parsedValue("""{"name":"before-negative","executeFor":{"scenarios":"negative"}}""")
+                        ),
+                        afterFixtures = listOf(
+                            parsedValue("""{"name":"after-positive","executeFor":{"scenarios":"positive"}}"""),
+                            parsedValue("""{"name":"after-negative","executeFor":{"scenarios":"negative"}}""")
+                        )
+                    )
+                )
+            )
+
+            withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
+                scenarioAsTest(positiveScenario).runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            assertThat(ServiceLoaderTestFixtureExecutor.fixturesSeen).containsExactly(
+                listOf(parsedValue("""{"name":"before-all","executeFor":{"scenarios":"all"}}""")),
+                listOf(parsedValue("""{"name":"after-positive","executeFor":{"scenarios":"positive"}}"""))
+            )
         }
 
         @Test
@@ -236,6 +279,21 @@ class ScenarioAsTestTest {
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class FixtureExecutionMetadataTest {
+        @Test
+        fun `should derive positive scenario type for positive scenario`() {
+            val positiveContext = FixtureExecutionMetadata.from(scenario())
+            assertThat(positiveContext.scenarioType).isEqualTo(FixtureScenarioType.POSITIVE)
+        }
+
+        @Test
+        fun `should derive negative scenario type for negative scenario`() {
+            val negativeContext = FixtureExecutionMetadata.from(scenario().copy(isNegative = true))
+            assertThat(negativeContext.scenarioType).isEqualTo(FixtureScenarioType.NEGATIVE)
         }
     }
 
@@ -490,9 +548,13 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
         id: String,
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
+        executionMetadata: FixtureExecutionMetadata,
         substitution: Substitution
     ): FixtureExecutionDetails {
+        val filteredFixtures = fixtures.filterFor(executionMetadata)
         calls.add(fixtureDiscriminatorKey)
+        fixturesSeen.add(filteredFixtures)
+        receivedContexts.add(executionMetadata)
         val updatedSubstitution = when (fixtureDiscriminatorKey) {
             "before" -> substitution.upsertStoreUsing(
                 originalValue = StringValue("(SECRET:string)"),
@@ -510,13 +572,38 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
 
     companion object {
         val calls: MutableList<String> = mutableListOf()
+        val fixturesSeen: MutableList<List<Value>> = mutableListOf()
+        val receivedContexts: MutableList<FixtureExecutionMetadata> = mutableListOf()
         var receivedSubstitution: Substitution? = null
 
         fun reset() {
             calls.clear()
+            fixturesSeen.clear()
+            receivedContexts.clear()
             receivedSubstitution = null
         }
     }
+}
+
+private fun List<Value>.filterFor(context: FixtureExecutionMetadata): List<Value> {
+    return filter { fixture ->
+        when (fixture.fixtureScenarioSelector()) {
+            null, "all" -> true
+            "positive" -> context.scenarioType == FixtureScenarioType.POSITIVE
+            "negative" -> context.scenarioType == FixtureScenarioType.NEGATIVE
+            else -> error("Unexpected executeFor.scenarios value in test fixture")
+        }
+    }
+}
+
+private fun Value.fixtureScenarioSelector(): String? {
+    return ((this as? io.specmatic.core.value.JSONObjectValue)
+        ?.jsonObject
+        ?.get("executeFor") as? io.specmatic.core.value.JSONObjectValue)
+        ?.jsonObject
+        ?.get("scenarios")
+        ?.toStringLiteral()
+        ?.lowercase()
 }
 
 class ServiceLoaderTestInterceptor : ContractTestInterceptor {

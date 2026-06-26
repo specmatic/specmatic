@@ -22,6 +22,7 @@ import io.specmatic.core.pattern.ReturnFailure
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
+import io.specmatic.test.fixtures.FixtureExecutionMetadata
 import io.specmatic.test.interceptor.ContractTestInterceptor
 import io.specmatic.test.interceptor.InterceptResult
 import java.net.ConnectException
@@ -63,6 +64,7 @@ data class ScenarioAsTest(
     private var endTime: Instant? = null
     private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
     private val interceptor: ContractTestInterceptor? by lazy { ContractTestInterceptor.load() }
+    private val fixtureExecutionMetadata: FixtureExecutionMetadata = FixtureExecutionMetadata.from(scenario)
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
@@ -360,7 +362,6 @@ data class ScenarioAsTest(
     }
 
     private fun fixtureExecutionResult(fixtureDiscriminatorKey: String, substitution: Substitution): FixtureExecutionDetails {
-        if (scenario.isNegative) return FixtureExecutionDetails(Result.Success(), substitution)
         val row = scenario.exampleRow ?: return FixtureExecutionDetails(Result.Success(), substitution)
         val scenarioStub = row.scenarioStub ?: return FixtureExecutionDetails(Result.Success(), substitution)
         val id = scenarioStub.id.orEmpty()
@@ -373,6 +374,7 @@ data class ScenarioAsTest(
             id = id,
             fixtures = fixtures,
             substitution = substitution,
+            executionMetadata = fixtureExecutionMetadata,
             fixtureDiscriminatorKey = fixtureDiscriminatorKey,
         ) ?: FixtureExecutionDetails(
             combinedResult = Result.Success(),

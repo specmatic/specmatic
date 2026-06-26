@@ -1,17 +1,21 @@
 {
     "before": [
         {
+            "executeFor": {
+                "scenarios": "all"
+            },
             "type": "http",
             "http-request": {
                 "baseUrl": "http://localhost:8000",
-                "path": "/before1",
+                "path": "/beforeAll",
                 "method": "POST",
                 "body": {}
             },
             "http-response": {
                 "status": 200,
                 "body": {
-                    "before1": "(BEFORE_1:string)"
+                    "before1": "(BEFORE_1:string)",
+                    "before2": "(BEFORE_2:string)"
                 },
                 "headers": {
                     "Content-Type": "application/json"
@@ -19,19 +23,47 @@
             }
         },
         {
+            "executeFor": {
+                "scenarios": "positive"
+            },
             "type": "http",
             "http-request": {
                 "baseUrl": "http://localhost:8000",
-                "path": "/before2",
+                "path": "/beforePositive",
                 "method": "POST",
                 "body": {
-                    "before1": "$(BEFORE_1)"
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)"
                 }
             },
             "http-response": {
                 "status": 200,
                 "body": {
-                    "before2": "(BEFORE_2:string)"
+                    "beforePositive": "(BEFORE_POSITIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "negative"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/beforeNegative",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "beforeNegative": "(BEFORE_NEGATIVE:string)"
                 },
                 "headers": {
                     "Content-Type": "application/json"
@@ -64,21 +96,23 @@
     },
     "after": [
         {
+            "executeFor": {
+                "scenarios": "all"
+            },
             "type": "http",
             "http-request": {
                 "baseUrl": "http://localhost:8000",
-                "path": "/after1",
+                "path": "/afterAll",
                 "method": "POST",
                 "body": {
                     "before1": "$(BEFORE_1)",
-                    "before2": "$(BEFORE_2)",
-                    "test": "$(TEST)"
+                    "before2": "$(BEFORE_2)"
                 }
             },
             "http-response": {
                 "status": 200,
                 "body": {
-                    "after1": "(AFTER_1:string)"
+                    "afterAll": "(AFTER_ALL:string)"
                 },
                 "headers": {
                     "Content-Type": "application/json"
@@ -86,22 +120,48 @@
             }
         },
         {
+            "executeFor": {
+                "scenarios": "positive"
+            },
             "type": "http",
             "http-request": {
                 "baseUrl": "http://localhost:8000",
-                "path": "/after2",
+                "path": "/afterPositive",
                 "method": "POST",
                 "body": {
-                    "before1": "$(BEFORE_1)",
-                    "before2": "$(BEFORE_2)",
                     "test": "$(TEST)",
-                    "after1": "$(AFTER_1)"
+                    "beforePositive": "$(BEFORE_POSITIVE)",
+                    "afterAll": "$(AFTER_ALL)"
                 }
             },
             "http-response": {
                 "status": 200,
                 "body": {
-                    "after2": "$match(exact:after2)"
+                    "afterPositive": "(AFTER_POSITIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "negative"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/afterNegative",
+                "method": "POST",
+                "body": {
+                    "beforeNegative": "$(BEFORE_NEGATIVE)",
+                    "afterAll": "$(AFTER_ALL)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "afterNegative": "(AFTER_NEGATIVE:string)"
                 },
                 "headers": {
                     "Content-Type": "application/json"
