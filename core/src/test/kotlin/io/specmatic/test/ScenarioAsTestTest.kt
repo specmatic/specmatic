@@ -16,6 +16,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Substitution
 import io.specmatic.core.HttpQueryParamPattern
 import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
@@ -38,6 +39,8 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
@@ -65,7 +68,10 @@ class ScenarioAsTestTest {
             )
 
             val result = withServiceLoaderEntries(
-                mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
             ) {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything")).result
             }
@@ -113,7 +119,12 @@ class ScenarioAsTestTest {
             )
 
             ServiceLoaderTestFixtureExecutor.reset()
-            val result = withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+            val result = withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
                 val test = scenarioAsTest(scenario = testScenario, originalScenario = originalScenario, substitution = substitution)
                 test.runTest(fixedResponseExecutor(body = "anything"))
             }
@@ -165,7 +176,10 @@ class ScenarioAsTestTest {
             )
 
             val result = withServiceLoaderEntries(
-                mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
             ) {
                 scenarioAsTest(scenario, substitution = substitution).runTest(
                     fixedResponseExecutor(
@@ -190,7 +204,12 @@ class ScenarioAsTestTest {
             ServiceLoaderTestFixtureExecutor.reset()
             val exampleRow = Row(scenarioStub = ScenarioStub(id = "fixture-id", beforeFixtures = listOf(StringValue("before")), afterFixtures = listOf(StringValue("after"))))
             val scenario = scenario(status = 400, exampleRow = exampleRow,).copy(isNegative = true)
-            withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)) {
+            withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+                )
+            ) {
                 scenarioAsTest(scenario).runTest(fixedResponseExecutor(400, "anything"))
             }
 
@@ -295,12 +314,16 @@ class ScenarioAsTestTest {
             }
         })
 
-        val executionResult = contractTest.runTest(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                executorCalls += 1
-                return HttpResponse(status = 200, body = "ok")
-            }
-        })
+        val executionResult = withServiceLoaderEntries(
+            mapOf(ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name)
+        ) {
+            contractTest.runTest(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executorCalls += 1
+                    return HttpResponse(status = 200, body = "ok")
+                }
+            })
+        }
 
         assertThat(validatorCalls).isEqualTo(1)
         assertThat(executorCalls).isEqualTo(0)
@@ -493,5 +516,35 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
             calls.clear()
             receivedSubstitution = null
         }
+    }
+}
+
+class ServiceLoaderTestInterceptor : ContractTestInterceptor {
+    override fun updateRequest(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpRequest: HttpRequest,
+        substitution: Substitution,
+    ): InterceptResult<HttpRequest> {
+        return InterceptResult.Processed(
+            value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+        )
+    }
+
+    override fun updateSubstitution(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpResponse: HttpResponse,
+        substitution: Substitution,
+    ): InterceptResult<Substitution> {
+        val example = testScenario.exampleRow?.scenarioStub ?: return InterceptResult.PassThrough
+        return InterceptResult.Processed(
+            value = HasValue(
+                substitution.upsertStoreUsing(
+                    runningValue = httpResponse.toJSON(),
+                    originalValue = example.response().toJSON(),
+                )
+            )
+        )
     }
 }

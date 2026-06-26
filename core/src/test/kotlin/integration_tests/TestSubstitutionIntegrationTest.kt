@@ -8,6 +8,7 @@ import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Resolver
+import io.specmatic.core.Scenario
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.StringPattern
@@ -17,9 +18,12 @@ import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.FixtureExecutionDetails
 import io.specmatic.test.TestExecutor
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -43,7 +47,12 @@ class TestSubstitutionIntegrationTest {
             .loadExternalisedExamples()
 
         feature.validateExamplesOrException()
-        val results = withServiceLoaderEntries(mapOf(OpenAPIFixtureExecutor::class.java to SubstitutionFixtureExecutor::class.java.name)) {
+        val results = withServiceLoaderEntries(
+            mapOf(
+                OpenAPIFixtureExecutor::class.java to SubstitutionFixtureExecutor::class.java.name,
+                ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+            )
+        ) {
             val updatedFeature = feature.copy(scenarios = feature.scenarios.map { it.copy(dictionary = valueDictionary) })
             updatedFeature.enableGenerativeTesting().executeTests(SubstitutionTestExecutor())
         }
@@ -355,5 +364,35 @@ class SubstitutionTestExecutor : TestExecutor {
         fun reset() {
             requestsSeen.clear()
         }
+    }
+}
+
+class ServiceLoaderTestInterceptor : ContractTestInterceptor {
+    override fun updateRequest(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpRequest: HttpRequest,
+        substitution: Substitution,
+    ): InterceptResult<HttpRequest> {
+        return InterceptResult.Processed(
+            value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+        )
+    }
+
+    override fun updateSubstitution(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpResponse: HttpResponse,
+        substitution: Substitution,
+    ): InterceptResult<Substitution> {
+        val example = testScenario.exampleRow?.scenarioStub ?: return InterceptResult.PassThrough
+        return InterceptResult.Processed(
+            value = HasValue(
+                substitution.upsertStoreUsing(
+                    runningValue = httpResponse.toJSON(),
+                    originalValue = example.response().toJSON(),
+                )
+            )
+        )
     }
 }

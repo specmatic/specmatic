@@ -17,10 +17,13 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnFailure
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -59,6 +62,7 @@ data class ScenarioAsTest(
     private var startTime: Instant? = null
     private var endTime: Instant? = null
     private val matcherEngine: MatcherEngine? by lazy { MatcherEngine.load() }
+    private val interceptor: ContractTestInterceptor? by lazy { ContractTestInterceptor.load() }
 
     override fun toScenarioMetadata() = scenario.toScenarioMetadata()
 
@@ -148,19 +152,38 @@ data class ScenarioAsTest(
 
     private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution): ReturnValue<HttpRequest> {
         val workflowUpdatedRequest = workflow.updateRequest(httpRequest, originalScenario)
-        val finalRequest = originalScenario.resolveRequestSubstitutions(workflowUpdatedRequest, substitution)
-        return finalRequest.ifHasValue {
-            val result = requestValidator.validate(feature = feature, scenario = scenario, originalScenario = originalScenario, httpRequest = it.value)
-            result.toReturnValue(it.value)
+        val interceptor = interceptor ?: return HasValue(workflowUpdatedRequest)
+        val result = interceptor.updateRequest(
+            testScenario = scenario,
+            substitution = substitution,
+            originalScenario = originalScenario,
+            httpRequest = workflowUpdatedRequest,
+        )
+
+        return when (result) {
+            InterceptResult.PassThrough -> HasValue(workflowUpdatedRequest)
+            is InterceptResult.Processed<HttpRequest> -> {
+                result.value.ifHasValue { (request) ->
+                    val result = requestValidator.validate(feature, scenario, originalScenario, request)
+                    result.toReturnValue(request)
+                }
+            }
         }
     }
 
-    private fun updateSubstitutionWithResponse(scenario: Scenario, substitution: Substitution, httpResponse: HttpResponse): Substitution {
-        val example = scenario.exampleRow?.scenarioStub ?: return substitution
-        return substitution.upsertStoreUsing(
-            runningValue = httpResponse.toJSON(),
-            originalValue = example.response().toJSON(),
+    private fun updateSubstitutionWithResponse(scenario: Scenario, substitution: Substitution, httpResponse: HttpResponse): ReturnValue<Substitution> {
+        val interceptor = interceptor ?: return HasValue(substitution)
+        val result = interceptor.updateSubstitution(
+            testScenario = scenario,
+            httpResponse = httpResponse,
+            substitution = substitution,
+            originalScenario = originalScenario,
         )
+
+        return when (result) {
+            InterceptResult.PassThrough -> HasValue(substitution)
+            is InterceptResult.Processed<Substitution> -> result.value
+        }
     }
 
     private fun executeTestAndReturnResultAndResponse(
@@ -183,10 +206,7 @@ data class ScenarioAsTest(
 
             val requestSubstitution = beforeFixtureExecutionResult.updatedSubstitution
             val generatedRequest = testScenario.generateHttpRequest(flagsBased)
-            val updatedRequest = updateRequestAndValidate(
-                httpRequest = generatedRequest,
-                substitution = requestSubstitution
-            )
+            val updatedRequest = updateRequestAndValidate(httpRequest = generatedRequest, substitution = requestSubstitution)
 
             val request = when (updatedRequest) {
                 !is ReturnFailure -> {
@@ -195,6 +215,7 @@ data class ScenarioAsTest(
                         .addHeaderIfMissing(SPECMATIC_RESPONSE_CODE_HEADER, testScenario.status.toString())
                 }
                 else -> return ContractTestExecutionResult(
+                    request = generatedRequest,
                     result = updatedRequest.toFailure().updateScenario(testScenario),
                     beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
                 )
@@ -278,9 +299,19 @@ data class ScenarioAsTest(
                     httpResponse = response
                 )
 
+                val substitution = when (updatedSubstitution) {
+                    !is ReturnFailure -> updatedSubstitution.value
+                    else -> return ContractTestExecutionResult(
+                        request = request,
+                        response = response,
+                        beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
+                        result = updatedSubstitution.toFailure().withBindings(testScenario.bindings, response),
+                    )
+                }
+
                 val afterFixtureExecutionResult = fixtureExecutionResult(
                     fixtureDiscriminatorKey = AFTER_FIXTURE_DISCRIMINATOR_KEY,
-                    substitution = updatedSubstitution,
+                    substitution = substitution,
                 )
 
                 val contractTestResult = when {
@@ -296,6 +327,7 @@ data class ScenarioAsTest(
                     afterFixtureExecutionResult = afterFixtureExecutionResult.fixtureExecutionResults
                 )
             }
+
             return ContractTestExecutionResult(
                 result = result.withBindings(testScenario.bindings, response),
                 request = request,
