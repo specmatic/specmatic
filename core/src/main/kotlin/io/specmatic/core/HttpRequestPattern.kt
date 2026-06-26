@@ -23,7 +23,7 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.ValueDetails
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
-import io.specmatic.core.pattern.isMatcherToken
+import io.specmatic.core.pattern.isDollarMethodOrLookup
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.newBasedOn
@@ -690,7 +690,7 @@ data class HttpRequestPattern(
     private fun exactEncompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {
             isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
-            isMatcherToken(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
+            isDollarMethodOrLookup(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
             else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
         }
     }

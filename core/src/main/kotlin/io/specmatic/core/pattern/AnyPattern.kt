@@ -9,7 +9,6 @@ import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.EarlyResult
 import io.specmatic.core.utilities.firstSuccessOrFailures
 import io.specmatic.core.value.*
-import io.specmatic.test.asserts.toFailure
 
 fun List<Pattern>.extractCombinedExtensions(): Map<String, Any> {
     return this.flatMap {

@@ -74,16 +74,16 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
 
     private fun newLineStrippedValue(): String = toStringLiteral().lines().joinToString(" ", transform = String::trim).trim()
     fun isPatternToken(): Boolean = isPatternToken(string.trim())
-    fun isMatcherToken(): Boolean = isMatcherToken(string.trim())
+    fun isMatcherToken(): Boolean = isDollarMethodOrLookup(string.trim())
     fun isPatternOrMatcherToken(): Boolean = isPatternToken() || isMatcherToken()
     fun trimmed(): StringValue = StringValue(string.trim())
 
     override fun generality(): Int {
-        return if(isPatternOrMatcherToken(string)) 1 else 0
+        return if(isPatternOrMatcherToken()) 1 else 0
     }
 
     override fun specificity(): Int {
-        return if(!isPatternOrMatcherToken(string)) 1 else 0
+        return if(!isPatternOrMatcherToken()) 1 else 0
     }
 
     override fun replace(oldString: String, newString: String): StringValue {

@@ -1015,7 +1015,6 @@ data class Feature(
         concreteTestScenario.protocol,
         concreteTestScenario.specType,
         comment,
-        validators = listOf(ExamplePostValidator),
         workflow = workflow,
         originalScenario = originalScenario,
         reasoning = reasoning

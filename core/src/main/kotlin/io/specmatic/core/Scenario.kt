@@ -23,7 +23,6 @@ import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
-import io.specmatic.test.ExampleProcessor
 import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
 
@@ -549,7 +548,7 @@ data class Scenario(
                     return@attempt sequenceOf(HasValue(undeclaredVariantScenario))
                 }
 
-                val rowValue =  when(val resolvedRow = fillInTheBlanksAndResolvePatterns(row, resolver)) {
+                val rowValue =  when(val resolvedRow = fillInTheBlanks(row, resolver)) {
                     is HasValue -> resolvedRow.value
                     is HasException -> return@attempt sequenceOf(resolvedRow.cast())
                     is HasFailure -> return@attempt sequenceOf(resolvedRow.cast())
@@ -616,11 +615,11 @@ data class Scenario(
         )
     }
 
-    private fun fillInTheBlanksAndResolvePatterns(row: Row, resolver: Resolver): ReturnValue<Row> {
+    private fun fillInTheBlanks(row: Row, resolver: Resolver): ReturnValue<Row> {
         if (row.requestExample == null || this.isGherkinScenario) return HasValue(row)
 
         return runCatching {
-            fillInTheBlanksAndResolvePatterns(row.requestExample, resolver)
+            fillInTheBlanks(row.requestExample, resolver)
         }.mapCatching { filledInResolvedRequest ->
             row.updateRequest(filledInResolvedRequest, httpRequestPattern, resolver)
         }.map(::HasValue).getOrElse { e ->
@@ -631,10 +630,9 @@ data class Scenario(
         }
     }
 
-    private fun fillInTheBlanksAndResolvePatterns(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
-        val resolvedRequest = ExampleProcessor.resolve(httpRequest, ExampleProcessor::defaultIfNotExits)
+    private fun fillInTheBlanks(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
         val updatedResolver = resolver.copy(isNegative = httpResponsePattern.status in invalidRequestStatuses)
-        return httpRequestPattern.fillInTheBlanks(resolvedRequest, updatedResolver)
+        return httpRequestPattern.fillInTheBlanks(httpRequest, updatedResolver)
     }
 
     private fun newBasedOnBackwardCompatibility(row: Row): Sequence<Scenario> {
