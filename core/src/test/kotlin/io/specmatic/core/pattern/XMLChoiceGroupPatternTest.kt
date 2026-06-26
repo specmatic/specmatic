@@ -59,7 +59,7 @@ class XMLChoiceGroupPatternTest {
     }
 
     @Test
-    fun `new based on only emits valid repeated occurrence sequences`() {
+    fun `new based on materializes bounded repeated occurrence sequences`() {
         val pattern = XMLChoiceGroupPattern(
             choices = listOf(
                 listOf(XMLPattern("<A>(string)</A>")),
@@ -69,22 +69,148 @@ class XMLChoiceGroupPatternTest {
             maxOccurs = 2
         )
 
-        val generated = pattern.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
-        val sequences = generated.map { variant ->
-            variant.concreteSequence.orEmpty().map { occurrence ->
-                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
-            }
-        }
+        val generated = pattern.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
 
-        assertThat(generated).hasSize(6)
-        assertThat(sequences).containsExactlyInAnyOrder(
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
             listOf("A"),
             listOf("B"),
-            listOf("A", "A"),
             listOf("A", "B"),
-            listOf("B", "A"),
-            listOf("B", "B"),
         )
+        assertThat(generated).allSatisfy { variant ->
+            assertThat(variant.members).isNotEmpty()
+        }
+    }
+
+    @Test
+    fun `new based on materializes one single occurrence variant per branch`() {
+        val generated = choiceGroup("A", "B", "C").newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            listOf("A"),
+            listOf("B"),
+            listOf("C")
+        )
+    }
+
+    @Test
+    fun `new based on materializes optional absence and single branch variants`() {
+        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 1)
+            .newBasedOn(resolver)
+            .map { it as XMLSequencePattern }
+            .toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            emptyList(),
+            listOf("A"),
+            listOf("B")
+        )
+    }
+
+    @Test
+    fun `new based on cycles declaration order when max exceeds branch count`() {
+        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 3)
+            .newBasedOn(resolver)
+            .map { it as XMLSequencePattern }
+            .toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            emptyList(),
+            listOf("A", "B", "A")
+        )
+    }
+
+    @Test
+    fun `new based on includes exact min and max representatives`() {
+        val generated = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 4)
+            .newBasedOn(resolver)
+            .map { it as XMLSequencePattern }
+            .toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            listOf("A", "B"),
+            listOf("A", "B", "A", "B")
+        )
+    }
+
+    @Test
+    fun `new based on generates combinations when count does not exceed branch count`() {
+        val generated = choiceGroup("A", "B", "C", minOccurs = 1, maxOccurs = 2)
+            .newBasedOn(resolver)
+            .map { it as XMLSequencePattern }
+            .toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            listOf("A"),
+            listOf("B"),
+            listOf("C"),
+            listOf("A", "B"),
+            listOf("A", "C"),
+            listOf("B", "C")
+        )
+    }
+
+    @Test
+    fun `new based on preserves multi node branch as one choice occurrence`() {
+        val generated = choiceGroupOfBranches(listOf("Common", "BranchB"), listOf("Common", "BranchC"))
+            .newBasedOn(resolver)
+            .map { it as XMLSequencePattern }
+            .toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            listOf("Common", "BranchB"),
+            listOf("Common", "BranchC")
+        )
+    }
+
+    @Test
+    fun `new based on preserves repeated multi node branch grouping`() {
+        val generated = choiceGroupOfBranches(
+            listOf("Common", "BranchB"),
+            listOf("Common", "BranchC"),
+            minOccurs = 2,
+            maxOccurs = 2
+        ).newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+
+        assertThat(generated.map(::choiceNames)).containsExactlyInAnyOrder(
+            listOf("Common", "BranchB", "Common", "BranchC")
+        )
+    }
+
+    @Test
+    fun `materialized choice generates each selected occurrence exactly once`() {
+        val materialized = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 2)
+            .newBasedOn(resolver)
+            .map { it as XMLSequencePattern }
+            .single()
+
+        assertThat(generatedNodeNames(materialized)).containsExactly("A", "B")
+    }
+
+    @Test
+    fun `new based on materializes nested choice branches recursively`() {
+        val generated = XMLChoiceGroupPattern(
+            choices = listOf(
+                listOf(xmlElement("DirectId")),
+                listOf(choiceGroup("NestedA", "NestedB"))
+            )
+        ).newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+
+        assertThat(generated.map(::expandedChoiceNames)).containsExactlyInAnyOrder(
+            listOf("DirectId"),
+            listOf("NestedA"),
+            listOf("NestedB")
+        )
+    }
+
+    @Test
+    fun `row based new based on preserves example values in materialized choices`() {
+        val materialized = choiceGroup("A", "B")
+            .newBasedOn(Row(listOf("A"), listOf("example value")), resolver)
+            .map { it.value as XMLSequencePattern }
+            .first { choiceNames(it) == listOf("A") }
+
+        assertThat(generatedNodeNames(materialized)).containsExactly("A")
+        assertThat(materialized.generate(resolver).toStringLiteral()).contains("<A>example value</A>")
     }
 
     @Test
@@ -237,32 +363,24 @@ class XMLChoiceGroupPatternTest {
     }
 
     @Test
-    fun `normal choice encompasses a concrete sequence within range`() {
+    fun `normal choice encompasses a materialized choice within range`() {
         val myChoice = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 2)
-        val otherChoice = concreteChoiceSequence("A", "B")
+        val otherChoice = materializedChoice("A", "B")
 
         assertSuccess(myChoice.encompasses(otherChoice, resolver, resolver))
     }
 
     @Test
-    fun `concrete sequence encompasses identical concrete sequence`() {
-        val myChoice = concreteChoiceSequence("A", "B")
-        val otherChoice = concreteChoiceSequence("A", "B")
+    fun `materialized choice encompasses identical materialized choice`() {
+        val myChoice = materializedChoice("A", "B")
+        val otherChoice = materializedChoice("A", "B")
 
         assertSuccess(myChoice.encompasses(otherChoice, resolver, resolver))
     }
 
     @Test
-    fun `concrete sequence rejects different order`() {
-        val myChoice = concreteChoiceSequence("A", "B")
-        val otherChoice = concreteChoiceSequence("B", "A")
-
-        assertFailure(myChoice.encompasses(otherChoice, resolver, resolver))
-    }
-
-    @Test
-    fun `concrete sequence does not encompass normal choice permutations`() {
-        val myChoice = concreteChoiceSequence("A", "B")
+    fun `materialized sequence does not encompass repeated choice schema`() {
+        val myChoice = materializedChoice("A", "B")
         val otherChoice = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 2)
 
         assertFailure(myChoice.encompasses(otherChoice, resolver, resolver))
@@ -298,23 +416,49 @@ class XMLChoiceGroupPatternTest {
         )
     }
 
-    private fun choiceGroupOfBranches(vararg branches: List<String>): XMLChoiceGroupPattern {
+    private fun choiceGroupOfBranches(
+        vararg branches: List<String>,
+        minOccurs: Int = 1,
+        maxOccurs: Int? = 1
+    ): XMLChoiceGroupPattern {
         return XMLChoiceGroupPattern(
-            choices = branches.map { branch ->
-                branch.map(::xmlElement)
-            }
+            choices = branches.map { branch -> branch.map(::xmlElement) },
+            minOccurs = minOccurs,
+            maxOccurs = maxOccurs
         )
     }
 
-    private fun concreteChoiceSequence(vararg branchNames: String): XMLChoiceGroupPattern {
-        val branchPatterns = branchNames.map(::xmlElement)
+    private fun materializedChoice(vararg branchNames: String): XMLSequencePattern {
+        return XMLSequencePattern(branchNames.map(::xmlElement))
+    }
 
-        return XMLChoiceGroupPattern(
-            choices = branchNames.distinct().map { branchName ->
-                listOf(xmlElement(branchName))
-            },
-            concreteSequence = branchPatterns.map { listOf(it) }
-        )
+    private fun choiceNames(choiceGroup: XMLSequencePattern): List<String> {
+        return choiceGroup.members.map { pattern ->
+            ((pattern as XMLPattern).pattern.name).substringAfter(":")
+        }
+    }
+
+    private fun expandedChoiceNames(choiceGroup: XMLSequencePattern): List<String> {
+        return choiceGroup.members.flatMap { pattern ->
+            patternNames(pattern)
+        }
+    }
+
+    private fun patternNames(pattern: Pattern): List<String> {
+        return when (pattern) {
+            is XMLPattern -> listOf(pattern.pattern.name.substringAfter(":"))
+            is XMLChoiceGroupPattern -> pattern.choices.flatten().flatMap(::patternNames)
+            is XMLSequencePattern -> pattern.members.flatMap(::patternNames)
+            else -> emptyList()
+        }
+    }
+
+    private fun generatedNodeNames(choiceGroup: XMLSequencePattern): List<String> {
+        val generated = choiceGroup.generate(resolver) as io.specmatic.core.value.XMLNode
+
+        return generated.childNodes.filterIsInstance<io.specmatic.core.value.XMLNode>().map { childNode ->
+            childNode.name.substringAfter(":")
+        }
     }
 
     private fun xmlElement(name: String): XMLPattern = XMLPattern("<$name>(string)</$name>")

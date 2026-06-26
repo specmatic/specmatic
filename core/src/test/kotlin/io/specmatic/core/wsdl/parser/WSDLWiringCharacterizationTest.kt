@@ -6,6 +6,7 @@ import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.XMLSequencePattern
 import io.specmatic.core.pattern.XMLWildcardPattern
 import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.StringValue
@@ -51,8 +52,8 @@ class WSDLWiringCharacterizationTest {
             }
         }
         assertThat(choiceNames(choiceGroup)).containsExactlyInAnyOrder(
-            listOf("Choice-ref:CustId"),
-            listOf("Choice-ref:CustLoginId")
+            listOf("CustId"),
+            listOf("CustLoginId")
         )
     }
 
@@ -72,8 +73,8 @@ class WSDLWiringCharacterizationTest {
         assertThat(choiceGroup.maxOccurs).isEqualTo(1)
         assertThat(choiceGroup.choices).hasSize(2)
         assertThat(choiceNames(choiceGroup)).containsExactlyInAnyOrder(
-            listOf("Choice-scalar:CustomerNumber"),
-            listOf("Choice-scalar:LoginId")
+            listOf("CustomerNumber"),
+            listOf("LoginId")
         )
     }
 
@@ -93,7 +94,7 @@ class WSDLWiringCharacterizationTest {
         assertThat(choiceGroup.maxOccurs).isEqualTo(1)
         assertThat(choiceGroup.choices).hasSize(1)
         assertThat(choiceGroup.matches(emptyList(), Resolver()).result).isInstanceOf(Result.Success::class.java)
-        assertThat(choiceNames(choiceGroup)).containsExactly(listOf("Choice-optional:CustLoginId"))
+        assertThat(choiceNames(choiceGroup)).containsExactly(listOf("CustLoginId"))
     }
 
     @Test
@@ -124,10 +125,10 @@ class WSDLWiringCharacterizationTest {
         val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
-        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
         val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(rootPattern.pattern.nodes.first(), it))).generate(resolver).toStringLiteral() }
 
-        assertThat(variants).hasSize(6)
+        assertThat(variants).hasSize(3)
         assertThat(generatedBodies).anySatisfy {
             assertThat(it).contains("PrimaryName>") 
             assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(1)
@@ -138,18 +139,7 @@ class WSDLWiringCharacterizationTest {
             assertThat(it).doesNotContain("CustomerNumber>")
         }
         assertThat(generatedBodies).anySatisfy {
-            assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(2)
-            assertThat(it).doesNotContain("LoginId>")
-        }
-        assertThat(generatedBodies).anySatisfy {
             assertThat(it).contains("CustomerNumber>").contains("LoginId>")
-        }
-        assertThat(generatedBodies).anySatisfy {
-            assertThat(it).contains("LoginId>").contains("CustomerNumber>")
-        }
-        assertThat(generatedBodies).anySatisfy {
-            assertThat(countOccurrences(it, "<Choice-scalar-repeating:LoginId>")).isEqualTo(2)
-            assertThat(it).doesNotContain("CustomerNumber>")
         }
     }
 
@@ -181,20 +171,15 @@ class WSDLWiringCharacterizationTest {
         val resolver = Resolver(newPatterns = typeInfo.types)
         val rootPattern = typeInfo.types.getValue("RepeatingComplexChoiceRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
-        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
-        val sequences = variants.map { variant ->
-            variant.concreteSequence.orEmpty().map { occurrence ->
-                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
-            }
-        }
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+        val sequences = variants.map(::choiceNames)
 
-        assertThat(variants).hasSize(6)
-        assertThat(sequences).contains(listOf("CustomerByPermId"))
-        assertThat(sequences).contains(listOf("CustomerByLogin"))
-        assertThat(sequences).contains(listOf("CustomerByPermId", "CustomerByPermId"))
-        assertThat(sequences).contains(listOf("CustomerByPermId", "CustomerByLogin"))
-        assertThat(sequences).contains(listOf("CustomerByLogin", "CustomerByPermId"))
-        assertThat(sequences).contains(listOf("CustomerByLogin", "CustomerByLogin"))
+        assertThat(variants).hasSize(3)
+        assertThat(sequences).containsExactlyInAnyOrder(
+            listOf("CustomerByPermId"),
+            listOf("CustomerByLogin"),
+            listOf("CustomerByPermId", "CustomerByLogin")
+        )
     }
 
     @Test
@@ -209,20 +194,13 @@ class WSDLWiringCharacterizationTest {
         val resolver = Resolver(newPatterns = typeInfo.types)
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceMinTwoRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
-        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
-        val sequences = variants.map { variant ->
-            variant.concreteSequence.orEmpty().map { occurrence ->
-                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
-            }
-        }
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+        val sequences = variants.map(::choiceNames)
 
-        assertThat(variants).hasSize(4)
+        assertThat(variants).hasSize(1)
         assertThat(sequences).allSatisfy { assertThat(it).hasSize(2) }
         assertThat(sequences).containsExactlyInAnyOrder(
-            listOf("CustomerNumber", "CustomerNumber"),
             listOf("CustomerNumber", "LoginId"),
-            listOf("LoginId", "CustomerNumber"),
-            listOf("LoginId", "LoginId"),
         )
     }
 
@@ -230,9 +208,12 @@ class WSDLWiringCharacterizationTest {
         return text.windowed(token.length, 1).count { it == token }
     }
 
+    private fun choiceNames(sequence: XMLSequencePattern): List<String> =
+        sequence.members.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
+
     private fun choiceNames(choiceGroup: XMLChoiceGroupPattern): List<List<String>> =
         choiceGroup.choices.map { choice ->
-            choice.map { pattern -> (pattern as XMLPattern).pattern.realName }
+            choice.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
         }
 
     @Test

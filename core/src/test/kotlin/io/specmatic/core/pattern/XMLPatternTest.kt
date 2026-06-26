@@ -215,10 +215,10 @@ internal class XMLPatternTest {
             val resolver = Resolver(newPatterns = mapOf(withPatternDelimiters("Node") to XMLPattern("<Node/>")))
 
             val expandedChoice = resolver.withCyclePrevention(DeferredPattern(withPatternDelimiters("Node"))) { cycleResolver ->
-                choiceGroup.newBasedOn(cycleResolver).first() as XMLChoiceGroupPattern
+                choiceGroup.newBasedOn(cycleResolver).first() as XMLSequencePattern
             }
 
-            assertThat(expandedChoice.concreteSequence).containsExactly(emptyList<Pattern>())
+            assertThat(expandedChoice.members).isEmpty()
         }
 
         @Test
@@ -229,10 +229,10 @@ internal class XMLPatternTest {
             val resolver = Resolver(newPatterns = mapOf(withPatternDelimiters("Node") to XMLPattern("<Node/>")))
 
             val expandedChoice = resolver.withCyclePrevention(DeferredPattern(withPatternDelimiters("Node"))) { cycleResolver ->
-                choiceGroup.newBasedOn(Row(), cycleResolver).first().value as XMLChoiceGroupPattern
+                choiceGroup.newBasedOn(Row(), cycleResolver).first().value as XMLSequencePattern
             }
 
-            assertThat(expandedChoice.concreteSequence).containsExactly(emptyList<Pattern>())
+            assertThat(expandedChoice.members).isEmpty()
         }
 
         @Test
