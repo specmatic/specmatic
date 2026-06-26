@@ -1,19 +1,21 @@
 package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
-import io.specmatic.core.RequestScore
 import io.specmatic.core.RequestScore.Companion.orEmpty
 import io.specmatic.core.Result
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
-import io.specmatic.core.utilities.SegmentCounts
 import io.specmatic.mock.ScenarioStub
+import java.io.File
 import java.net.URI
 
 class ThreadSafeListOfStubs(
     private val httpStubs: MutableList<HttpStubData>,
-    private val specToBaseUrlMap: Map<String, String>
+    private val specToBaseUrlMap: Map<String, String>,
+    private val strictMode: Boolean = false,
+    private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ) {
     val size: Int
         get() {
@@ -148,19 +150,21 @@ class ThreadSafeListOfStubs(
             return httpStubs.groupBy {
                 specToBaseUrlMap[it.contractPath] ?: defaultBaseUrl
             }.mapValues { (_, stubs) ->
-                ThreadSafeListOfStubs(stubs as MutableList<HttpStubData>, specToBaseUrlMap)
+                ThreadSafeListOfStubs(stubs as MutableList<HttpStubData>, specToBaseUrlMap, strictMode, specmaticConfig)
             }
         }
     }
 
     private fun substituteThenFillIn(httpRequest: HttpRequest, stubData: HttpStubData): Pair<Result, HttpStubData> {
         val originalRequest = stubData.resolveOriginalRequest()
+        val strictMode = stubData.feature?.path?.let(::File)?.let(specmaticConfig::getStubStrictMode) ?: strictMode
         val stubResponse = HttpStubResponse(
             stubData.partial?.response ?: stubData.response,
             stubData.delayInMilliseconds,
             stubData.contractPath,
             feature = stubData.feature,
-            scenario = stubData.scenario
+            scenario = stubData.scenario,
+            strictMode = strictMode
         )
 
         return runCatching {
@@ -197,7 +201,7 @@ class ThreadSafeListOfStubs(
     }
 
     private fun emptyStubs(): ThreadSafeListOfStubs {
-        return ThreadSafeListOfStubs(mutableListOf(), specToBaseUrlMap)
+        return ThreadSafeListOfStubs(mutableListOf(), specToBaseUrlMap, strictMode, specmaticConfig)
     }
 
     companion object {

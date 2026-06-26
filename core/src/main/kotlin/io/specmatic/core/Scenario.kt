@@ -1148,10 +1148,11 @@ data class Scenario(
         request: HttpRequest,
         originalRequest: HttpRequest,
         response: HttpResponse,
-        data: JSONObjectValue
+        data: JSONObjectValue,
+        strictMode: Boolean
     ): HttpResponse {
         val substitutionResolver = resolver.copy(mockMode = true)
-        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, data, substitutionResolver)
+        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, data, substitutionResolver, strictMode)
         return httpResponsePattern.resolveSubstitutions(substitution, response, substitutionResolver).value
     }
 

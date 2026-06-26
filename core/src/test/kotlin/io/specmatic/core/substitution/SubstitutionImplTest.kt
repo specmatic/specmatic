@@ -1,10 +1,13 @@
 package io.specmatic.core.substitution
 
+import io.specmatic.core.Dictionary
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.KeyWithPattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasValue
+import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.parsedValue
@@ -12,6 +15,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class SubstitutionImplTest {
@@ -79,7 +83,7 @@ class SubstitutionImplTest {
     @Test
     fun `upsertStoreUsing returns new substitution and keeps original unchanged`() {
         val resolver = Resolver()
-        val original = SubstitutionImpl.empty(resolver)
+        val original = SubstitutionImpl.empty(resolver, strictMode = true)
 
         val updated = original.upsertStoreUsing(
             originalValue = StringValue("(ID:number)"),
@@ -275,15 +279,121 @@ class SubstitutionImplTest {
         assertThat((result as HasValue<*>).value).isEqualTo(StringValue("one-two"))
     }
 
-    @Test
-    fun `interpolated lookup returns exception when missing`() {
-        val result = SubstitutionImpl.empty(Resolver()).substitute(
-            value = StringValue("order-$(MISSING)"),
-            pattern = StringPattern(),
-            key = null
-        )
+    @Nested
+    inner class LenientMode {
+        @Test
+        fun `simple variable missing uses pattern generate`() {
+            val result = substitution(strictMode = false).substitute(
+                value = StringValue("$(MISSING_VAR)"),
+                pattern = ExactValuePattern(StringValue("generated")),
+                key = null
+            )
 
-        assertThat(result).isInstanceOf(HasException::class.java)
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isEqualTo(StringValue("generated"))
+        }
+
+        @Test
+        fun `parse failure falls back to pattern generate`() {
+            val result = substitutionWithResolvedVariable(strictMode = false).substitute(
+                value = StringValue("$(ID)"),
+                pattern = NumberPattern(),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isInstanceOf(NumberValue::class.java)
+        }
+
+        @Test
+        fun `data lookup missing uses pattern generate`() {
+            val result = lookupSubstitution(strictMode = false).substitute(
+                value = StringValue("$(lookupData.dictionary[MISSING_VAR].message)"),
+                pattern = ExactValuePattern(StringValue("generated")),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isEqualTo(StringValue("generated"))
+        }
+
+        @Test
+        fun `pattern generation should use dictionary if present`() {
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("""{Object: {Key: 123456}}"""))
+            val updatedResolver = resolver.updateLookupPath("(Object)", KeyWithPattern("Key", NumberPattern()))
+            val result = substitution(strictMode = false, resolver = updatedResolver).substitute(
+                key = null,
+                pattern = NumberPattern(),
+                value = StringValue("$(MISSING_VAR)"),
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isEqualTo(NumberValue(123456))
+        }
+    }
+
+    @Nested
+    inner class StrictMode {
+        @Test
+        fun `missing simple variable returns exception`() {
+            val result = substitution(strictMode = true).substitute(
+                value = StringValue("order-$(MISSING)"),
+                pattern = StringPattern(),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasException::class.java)
+        }
+
+        @Test
+        fun `missing simple variable in exact pattern returns exception`() {
+            val result = substitution(strictMode = true).substitute(
+                value = StringValue("$(MISSING_VAR)"),
+                pattern = ExactValuePattern(StringValue("generated")),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasException::class.java)
+            assertThat((result as HasException).t.message).contains("no variable by the name MISSING_VAR")
+        }
+
+        @Test
+        fun `parse failure returns exception`() {
+            val result = substitutionWithResolvedVariable(strictMode = true).substitute(
+                value = StringValue("$(ID)"),
+                pattern = NumberPattern(),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasException::class.java)
+        }
+
+        @Test
+        fun `data lookup missing returns exception`() {
+            val result = lookupSubstitution(strictMode = true).substitute(
+                value = StringValue("$(lookupData.dictionary[MISSING_VAR].message)"),
+                pattern = ExactValuePattern(StringValue("generated")),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasException::class.java)
+        }
+
+        @Test
+        fun `upsertStoreUsing preserves strict mode`() {
+            val substitution = SubstitutionImpl.empty(Resolver(), strictMode = true).upsertStoreUsing(
+                originalValue = StringValue("(ID:number)"),
+                runningValue = NumberValue(10)
+            )
+
+            val result = substitution.substitute(
+                value = StringValue("$(MISSING_VAR)"),
+                pattern = ExactValuePattern(StringValue("generated")),
+                key = null
+            )
+
+            assertThat(result).isInstanceOf(HasException::class.java)
+        }
     }
 
     private fun assertResolvedValue(substitution: Substitution, lookup: String, expectedValue: NumberValue) {
@@ -291,4 +401,37 @@ class SubstitutionImplTest {
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue<*>).value).isEqualTo(expectedValue)
     }
+
+    private fun substitution(strictMode: Boolean, resolver: Resolver = Resolver()): SubstitutionImpl {
+        return SubstitutionImpl.empty(resolver, strictMode = strictMode)
+    }
+
+    private fun substitutionWithResolvedVariable(strictMode: Boolean): SubstitutionImpl {
+        return SubstitutionImpl.empty(Resolver(), strictMode = strictMode).upsertStoreUsing(
+            originalValue = StringValue("(ID:string)"),
+            runningValue = StringValue("not-a-number")
+        )
+    }
+
+    private fun lookupSubstitution(strictMode: Boolean): SubstitutionImpl = SubstitutionImpl.from(
+        resolver = Resolver(),
+        strictMode = strictMode,
+        runningRequest = HttpRequest(method = "POST", path = "/orders/1"),
+        originalRequest = HttpRequest(method = "POST", path = "/orders/(ID:string)"),
+        data = JSONObjectValue(
+            mapOf(
+                "lookupData" to JSONObjectValue(
+                    mapOf(
+                        "dictionary" to JSONObjectValue(
+                            mapOf(
+                                "present" to JSONObjectValue(
+                                    mapOf("message" to StringValue("resolved"))
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+    )
 }

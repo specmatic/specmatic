@@ -173,6 +173,7 @@ class HttpStub(
             feature.path to endPointFromHostAndPort(host, port, null)
         ),
         listeners: List<MockEventListener> = emptyList(),
+        strictMode: Boolean = false,
     ) : this(
         listOf(feature),
         contractInfoToHttpExpectations(listOf(Pair(feature, scenarioStubs))),
@@ -181,6 +182,7 @@ class HttpStub(
         log,
         specToStubBaseUrlMap = specToStubBaseUrlMap,
         listeners = listeners,
+        strictMode = strictMode
     )
 
     constructor(
@@ -231,10 +233,13 @@ class HttpStub(
     )
 
     private val httpExpectations: HttpExpectations = HttpExpectations(
+        strictMode = strictMode,
+        specmaticConfig = specmaticConfigInstance,
         static = staticHttpStubData(rawHttpStubs),
         transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
         specToBaseUrlMap = specToBaseUrlMap
     )
+
     private val firstMockedOpenApiSpec: MockedOpenApiSpec? by lazy {
         features.asSequence()
             .filter { it.path.isNotBlank() }

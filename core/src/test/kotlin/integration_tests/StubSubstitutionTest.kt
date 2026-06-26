@@ -1,33 +1,45 @@
 package integration_tests
 
+import io.mockk.every
+import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.DefaultMismatchMessages
+import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.StubConfiguration
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.osAgnosticPath
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.HttpStubData
 import io.specmatic.stub.HttpStubResponse
+import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.captureStandardOutput
+import io.specmatic.stub.contractInfoToHttpExpectations
 import io.specmatic.stub.createStubFromContracts
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import java.io.File
 
 class StubSubstitutionTest {
     @Test
@@ -340,7 +352,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("POST", "/data", body = parsedJSONObject("""{"id": "(ID:string)"}"""))
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "application/json"), body = parsedJSONObject("""{"id": "$(ID)"}"""))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), strictMode = true).use { stub ->
             val response = stub.client.execute(exampleRequest)
 
             assertThat(response.status).isEqualTo(400)
@@ -388,7 +400,7 @@ class StubSubstitutionTest {
         val exampleRequest = HttpRequest("POST", "/data", body = parsedJSONObject("""{"id": "(ID:string)"}"""))
         val exampleResponse = HttpResponse(200, headers = mapOf("Content-Type" to "text/plain", "X-Id" to "$(ID)"), body = StringValue("success"))
 
-        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse))).use { stub ->
+        HttpStub(feature, listOf(ScenarioStub(exampleRequest, exampleResponse)), strictMode = true).use { stub ->
             val response = stub.client.execute(exampleRequest)
 
             assertThat(response.status).isEqualTo(400)
@@ -939,7 +951,7 @@ class StubSubstitutionTest {
         """.trimIndent())
         val scenarioStub = ScenarioStub(request = exampleRequest, response = exampleResponse, data = dataLookup)
 
-        HttpStub(feature, listOf(scenarioStub)).use { stub ->
+        HttpStub(feature, listOf(scenarioStub), strictMode = true).use { stub ->
             val request = HttpRequest("GET", "/data/123")
             val response = stub.client.execute(request)
             val responseBody = response.body as JSONObjectValue
@@ -1501,6 +1513,66 @@ class StubSubstitutionTest {
             assertThat(responseBody.findFirstChildByPath("id")).isEqualTo(StringValue("123"))
             assertThat(responseBody.findFirstChildByPath("names.[0]")).isEqualTo(StringValue("John"))
             assertThat(responseBody.findFirstChildByPath("names.[1]")).isEqualTo(StringValue("Jane"))
+        }
+    }
+
+    @Nested
+    inner class StrictMode {
+        @Test
+        fun `http stub fails unresolved substitution when strict mode is enabled`() {
+            val specFilePath = "src/test/resources/openapi/spec_with_dictionary/spec.yaml"
+            val feature = OpenApiSpecification.fromFile(specFilePath).toFeature()
+            val example = ScenarioStub(
+                request = HttpRequest("POST", "/data", body = parsedJSON("""{"name": "John"}""")),
+                response = HttpResponse(200, body = parsedJSON("""{"data": "$(MISSING)"}"""))
+            )
+
+            HttpStub(
+                feature = feature,
+                strictMode = true,
+                scenarioStubs = listOf(example),
+            ).use { stub ->
+                val response = stub.client.execute(example.requestElsePartialRequest())
+                assertThat(response.status).isEqualTo(400)
+                assertThat(response.headers.getValue(SPECMATIC_RESULT_HEADER)).isEqualTo("failure")
+                assertThat(response.body.toUnformattedString()).contains("""
+                Could not resolve expression $(MISSING) as no variable by the name MISSING was found
+                """.trimIndent())
+            }
+        }
+    }
+
+    @Nested
+    inner class LenientMode {
+        @Test
+        fun `http stub falls back to generated value when strict mode is disabled`() {
+            val specFilePath = "src/test/resources/openapi/spec_with_dictionary/spec.yaml"
+            val feature = OpenApiSpecification.fromFile(specFilePath).toFeature()
+            val example = ScenarioStub(
+                request = HttpRequest("POST", "/data", body = parsedJSON("""{"name": "John"}""")),
+                response = HttpResponse(200, body = parsedJSON("""{"data": "$(MISSING)"}"""))
+            )
+
+            val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true)
+            every { specmaticConfig.getStubStrictMode(File(specFilePath)) } returns false
+
+            HttpStub(
+                strictMode = true,
+                rawHttpStubs = listOf(example).toStubData(feature),
+                // Stops HttpStub from generating CTRF/HTML Report on close
+                features = listOf(feature.copy(protocol = SpecmaticProtocol.WEB_SOCKET)),
+                specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(specmaticConfig)
+            ).use { stub ->
+                val response = stub.client.execute(example.requestElsePartialRequest())
+                assertThat(response.status).isEqualTo(200)
+                assertThat(response.headers).doesNotContainKey("X-Specmatic-Random")
+                assertThat(response.headers.getValue(SPECMATIC_RESULT_HEADER)).isEqualTo("success")
+                assertDoesNotThrow { (response.body as JSONObjectValue).getString("data") }
+            }
+        }
+
+        private fun List<ScenarioStub>.toStubData(feature: Feature): List<HttpStubData> {
+            return contractInfoToHttpExpectations(listOf(Pair(feature, this)))
         }
     }
 }

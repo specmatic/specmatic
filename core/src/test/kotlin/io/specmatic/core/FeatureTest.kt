@@ -9,6 +9,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.examples.module.ExampleValidationModule
+import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
@@ -26,6 +27,8 @@ import io.specmatic.stub.createStubFromContracts
 import io.specmatic.test.ScenarioTestGenerationException
 import io.specmatic.test.ScenarioTestGenerationFailure
 import io.specmatic.test.TestExecutor
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.json.JSONObject
@@ -4831,5 +4834,132 @@ paths:
 
         assertThat(matchedScenario?.method).isEqualTo("POST")
         assertThat(matchedScenario?.status).isEqualTo(415)
+    }
+
+    @Nested
+    inner class StrictSubstitutionConfigWiring {
+        @Test
+        fun `contract test fails unresolved substitution with strict mode`() {
+            val specFilePath = "src/test/resources/openapi/spec_with_dictionary/spec.yaml"
+            val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true)
+            every { specmaticConfig.getTestStrictMode() } returns true
+            every { specmaticConfig.getWorkflowDetails() } returns null
+
+            val examples = PreLoadedExampleObjects.transform(
+                specmaticConfig = specmaticConfig,
+                examples = listOf(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/data", body = parsedJSON("""{"name": "$(MISSING)"}""")),
+                        response = HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                    )
+                )
+            )
+
+            val feature = OpenApiSpecification.fromFile(specFilePath, specmaticConfig).toFeature()
+            val (updatedFeature) = feature.loadExternalisedExamplesAndListUnloadableExamples(
+                exampleSource = PreLoadedExampleObjects(examples = examples)
+            )
+
+            val results = ContractTestInterceptor.withLoaderForTest (
+                loader = {
+                    object : ContractTestInterceptor {
+                        override fun updateRequest(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpRequest: HttpRequest,
+                            substitution: Substitution
+                        ): InterceptResult<HttpRequest> {
+                            return InterceptResult.Processed(
+                                value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+                            )
+                        }
+
+                        override fun updateSubstitution(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpResponse: HttpResponse,
+                            substitution: Substitution
+                        ): InterceptResult<Substitution> {
+                            return InterceptResult.PassThrough
+                        }
+                    }
+                },
+                block = {
+                    updatedFeature.executeTests(object : TestExecutor {
+                        override fun execute(request: HttpRequest): HttpResponse {
+                            throw IllegalStateException("Should not be called")
+                        }
+                    })
+                }
+            )
+
+            assertThat(results.success()).withFailMessage { results.report() }.isFalse
+            assertThat(results.failureCount).withFailMessage { results.report() }.isEqualTo(1)
+            assertThat(results.report()).contains("""
+            Could not resolve expression $(MISSING) as no variable by the name MISSING was found
+            """.trimIndent())
+        }
+    }
+
+    @Nested
+    inner class LenientSubstitutionConfigWiring {
+        @Test
+        fun `contract test falls back to generated when strict mode is disabled`() {
+            val specFilePath = "src/test/resources/openapi/spec_with_dictionary/spec.yaml"
+            val examples = PreLoadedExampleObjects.transform(
+                specmaticConfig = SpecmaticConfig(),
+                examples = listOf(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/data", body = parsedJSON("""{"name": "$(MISSING)"}""")),
+                        response = HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                    )
+                )
+            )
+
+            val feature = OpenApiSpecification.fromFile(specFilePath).toFeature()
+            val (updatedFeature) = feature.loadExternalisedExamplesAndListUnloadableExamples(
+                exampleSource = PreLoadedExampleObjects(examples = examples)
+            )
+
+            val results = ContractTestInterceptor.withLoaderForTest (
+                loader = {
+                    object : ContractTestInterceptor {
+                        override fun updateRequest(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpRequest: HttpRequest,
+                            substitution: Substitution
+                        ): InterceptResult<HttpRequest> {
+                            return InterceptResult.Processed(
+                                value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+                            )
+                        }
+
+                        override fun updateSubstitution(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpResponse: HttpResponse,
+                            substitution: Substitution
+                        ): InterceptResult<Substitution> {
+                            return InterceptResult.PassThrough
+                        }
+                    }
+                },
+                block = {
+                    updatedFeature.executeTests(object : TestExecutor {
+                        override fun execute(request: HttpRequest): HttpResponse {
+                            assertThat(request.body.toStringLiteral()).doesNotContain("$(MISSING_ID)")
+                            return HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                        }
+                    })
+                }
+            )
+
+            assertThat(results.success()).withFailMessage { results.report() }.isTrue
+            assertThat(results.successCount).withFailMessage { results.report() }.isEqualTo(1)
+            assertThat(results.report()).doesNotContain("""
+            Could not resolve expression $(MISSING) as no variable by the name MISSING was found
+            """.trimIndent())
+        }
     }
 }

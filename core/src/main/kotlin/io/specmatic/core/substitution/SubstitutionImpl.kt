@@ -15,6 +15,7 @@ import io.specmatic.core.value.Value
 
 class SubstitutionImpl private constructor(
     private val resolver: Resolver,
+    private val strictMode: Boolean = false,
     private val variableValues: Map<String, String> = emptyMap(),
     private val data: JSONObjectValue = JSONObjectValue(emptyMap()),
 ) : Substitution {
@@ -85,14 +86,22 @@ class SubstitutionImpl private constructor(
         }
     }
 
+    private fun unresolvedSubstitutionFallback(value: StringValue, pattern: Pattern, e: Throwable): ReturnValue<Value> {
+        if (strictMode) return HasException(e)
+        logger.log(e, "Could not resolve substitution expression ${value.string}, using generated value instead")
+        return runCatching { resolver.generate(pattern) }.map(::HasValue).getOrElse(::HasException)
+    }
+
     override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
-        return try {
-            if (value !is StringValue) return HasValue(value)
-            if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
-            val updatedString = resolveValue(value)
-            HasValue(pattern.parse(updatedString, resolver))
-        } catch (e: Throwable) {
-            HasException(e)
+        if (value !is StringValue) return HasValue(value)
+        if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
+
+        val updatedString = runCatching { resolveValue(value) }.getOrElse { e ->
+            return unresolvedSubstitutionFallback(value, pattern, e)
+        }
+
+        return runCatching { HasValue(pattern.parse(updatedString, resolver)) }.getOrElse { e ->
+            return unresolvedSubstitutionFallback(value, pattern, e)
         }
     }
 
@@ -126,7 +135,7 @@ class SubstitutionImpl private constructor(
         return resolved == DROP_DIRECTIVE
     }
 
-    override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution {
+    override fun upsertStoreUsing(originalValue: Value, runningValue: Value): SubstitutionImpl {
         val extractedVariables = SubstitutionVariableExtractor.fromValues(
             originalValue = originalValue,
             runningValue = runningValue
@@ -135,6 +144,7 @@ class SubstitutionImpl private constructor(
         return SubstitutionImpl(
             data = data,
             resolver = resolver,
+            strictMode = strictMode,
             variableValues = variableValues + extractedVariables,
         )
     }
@@ -142,11 +152,17 @@ class SubstitutionImpl private constructor(
     companion object {
         const val DROP_DIRECTIVE = "$(drop)"
 
-        fun empty(resolver: Resolver): SubstitutionImpl {
-            return SubstitutionImpl(resolver = resolver)
+        fun empty(resolver: Resolver, strictMode: Boolean = false): SubstitutionImpl {
+            return SubstitutionImpl(resolver = resolver, strictMode = strictMode)
         }
 
-        fun from(runningRequest: HttpRequest, originalRequest: HttpRequest, data: JSONObjectValue, resolver: Resolver): SubstitutionImpl {
+        fun from(
+            runningRequest: HttpRequest,
+            originalRequest: HttpRequest,
+            data: JSONObjectValue,
+            resolver: Resolver,
+            strictMode: Boolean = false,
+        ): SubstitutionImpl {
             val variableValuesFromHeaders = SubstitutionVariableExtractor.fromMap(
                 originalMap = originalRequest.headers,
                 runningMap = runningRequest.headers
@@ -168,7 +184,7 @@ class SubstitutionImpl private constructor(
             )
 
             val variableValues = variableValuesFromHeaders + variableValuesFromRequestBody + variableValuesFromQueryParams + variableValuesFromPath
-            return SubstitutionImpl(variableValues = variableValues, resolver = resolver, data = data)
+            return SubstitutionImpl(variableValues = variableValues, resolver = resolver, data = data, strictMode = strictMode)
         }
     }
 }
