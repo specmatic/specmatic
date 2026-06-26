@@ -283,6 +283,32 @@ class ScenarioAsTestTest {
     }
 
     @Test
+    fun `withRequestValidator should use custom validator instead of default request validation`() {
+        val scenario = scenario()
+        var validatorCalls = 0
+        var executorCalls = 0
+
+        val contractTest = scenarioAsTest(scenario).withRequestValidator(object : RequestValidator {
+            override fun validate(feature: Feature, scenario: Scenario, originalScenario: Scenario, httpRequest: HttpRequest): Result {
+                validatorCalls += 1
+                return Result.Failure("custom request validator failed")
+            }
+        })
+
+        val executionResult = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                executorCalls += 1
+                return HttpResponse(status = 200, body = "ok")
+            }
+        })
+
+        assertThat(validatorCalls).isEqualTo(1)
+        assertThat(executorCalls).isEqualTo(0)
+        assertThat(executionResult.result).isInstanceOf(Result.Failure::class.java)
+        assertThat(executionResult.result.reportString()).contains("custom request validator failed")
+    }
+
+    @Test
     fun `runTest should choose default response with matching content type when same-status content type does not match`() {
         val negativeScenario = negativeScenario(
             expectedResponses = mapOf(400 to listOf(expectationScenario(status = 400, contentType = "text/plain"))),

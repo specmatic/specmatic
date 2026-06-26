@@ -17,7 +17,6 @@ import io.specmatic.test.handlers.ResponseHandler
 import io.specmatic.test.handlers.ResponseHandlerRegistry
 import io.specmatic.test.handlers.ResponseHandlingResult
 import io.ktor.client.plugins.HttpRequestTimeoutException
-import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnFailure
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.substitution.SubstitutionImpl
@@ -49,6 +48,7 @@ data class ScenarioAsTest(
     private val originalScenario: Scenario,
     private val workflow: Workflow = Workflow(),
     private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
+    private val requestValidator: RequestValidator = DefaultRequestValidator,
     val reasoning: Reasoning = Reasoning(),
     private val substitution: Substitution = SubstitutionImpl.empty(scenario.resolver),
 ) : ContractTest {
@@ -142,11 +142,16 @@ data class ScenarioAsTest(
         )
     }
 
+    override fun withRequestValidator(validator: RequestValidator): ContractTest {
+        return this.copy(requestValidator = validator)
+    }
+
     private fun updateRequestAndValidate(httpRequest: HttpRequest, substitution: Substitution): ReturnValue<HttpRequest> {
         val workflowUpdatedRequest = workflow.updateRequest(httpRequest, originalScenario)
         val finalRequest = originalScenario.resolveRequestSubstitutions(workflowUpdatedRequest, substitution)
         return finalRequest.ifHasValue {
-            originalScenario.matchesRequest(it.value, feature.flagsBased).toReturnValue(it.value)
+            val result = requestValidator.validate(feature = feature, scenario = scenario, originalScenario = originalScenario, httpRequest = it.value)
+            result.toReturnValue(it.value)
         }
     }
 

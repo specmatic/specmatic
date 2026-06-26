@@ -30,6 +30,7 @@ interface ContractTest : HasScenarioMetadata {
     fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult
     fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult
     fun plusValidator(validator: ResponseValidator): ContractTest
+    fun withRequestValidator(validator: RequestValidator): ContractTest = this
 
     companion object {
         internal fun updateBasedOnResponseIfNegativeGeneration(scenario: Scenario, httpResponse: HttpResponse?): Scenario {
