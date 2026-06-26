@@ -35,6 +35,7 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Added
 
 - Added example preprocessor hooks so loaded examples can be transformed before validation and can attach derived data to the active stub scenario when needed.
+- Added support for interpolated substitution expressions, allowing values to be filled in and extracted from substrings.
 
 ### Changed
 
