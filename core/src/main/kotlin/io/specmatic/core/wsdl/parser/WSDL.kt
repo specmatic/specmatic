@@ -161,7 +161,29 @@ fun addSchemasToNodes(schemas: Map<String, XMLNode>): Map<String, XMLNode> {
     }
 }
 
+private data class SchemaLookupKey(val namespace: String, val schemaNamespace: String?)
+
+private data class NamedSchemaLookupKey(
+    val namespace: String,
+    val schemaNamespace: String?,
+    val localName: String
+)
+
+private data class DefinitionLookupKey(
+    val tagName: String,
+    val namespace: String,
+    val localName: String
+)
+
 data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String, XMLNode>, val schemas: Map<String, XMLNode>, private val typesNode: XMLNode, val namespaceToPrefix: Map<String, String>, val prefixToNamespace: Map<String, String>, val rootPrefixesToNamespace: Map<String, String>) {
+    private val schemaLookupCache = mutableMapOf<SchemaLookupKey, XMLNode>()
+    private val complexTypeLookupCache = mutableMapOf<NamedSchemaLookupKey, XMLNode?>()
+    private val simpleTypeLookupCache = mutableMapOf<NamedSchemaLookupKey, XMLNode?>()
+    private val elementLookupCache = mutableMapOf<NamedSchemaLookupKey, XMLNode>()
+    private val attributeLookupCache = mutableMapOf<NamedSchemaLookupKey, XMLNode>()
+    private val attributeGroupLookupCache = mutableMapOf<NamedSchemaLookupKey, XMLNode>()
+    private val definitionLookupCache = mutableMapOf<DefinitionLookupKey, XMLNode>()
+
     fun allNamespaces(): Map<String, String> {
         return prefixToNamespace.plus(rootPrefixesToNamespace)
     }
@@ -190,10 +212,28 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     ): XMLNode {
         val namespace = node.resolveNamespace(qname)
         val localName = qname.localName()
+        return findInDefinition(
+            tagName,
+            namespace,
+            localName,
+            "Tried to lookup $tagName named $qname, resolved namespace prefix to $namespace, but could not find a definition with that namespace"
+        )
+    }
 
-        val definition = definitions[namespace]
-            ?: throw ContractException("Tried to lookup $tagName named $qname, resolved namespace prefix to $namespace, but could not find a definition with that namespace")
-        return definition.findByNodeNameAndAttribute(tagName, "name", localName)
+    private fun findInDefinition(
+        tagName: String,
+        namespace: String,
+        localName: String,
+        definitionMissingMessage: String,
+        missingMessage: String? = null
+    ): XMLNode {
+        val key = DefinitionLookupKey(tagName, namespace, localName)
+        return definitionLookupCache.getOrPut(key) {
+            val definition = definitions[namespace]
+                ?: throw ContractException(definitionMissingMessage)
+
+            definition.findByNodeNameAndAttribute(tagName, "name", localName, missingMessage)
+        }
     }
 
     private fun getServicePort() = rootDefinition.getXMLNodeByPath("service.port")
@@ -264,8 +304,12 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         attributeName: String
     ): XMLNode? {
         val fullTypeName = element.attributes.getValue(attributeName).toStringLiteral()
-        val schema = findSchema(namespace(fullTypeName, element), element.schema)
-        return schema.findByNodeNameAndAttributeOrNull("complexType", "name", fullTypeName.localName())
+        val key = namedSchemaLookupKey(fullTypeName, element)
+
+        return complexTypeLookupCache.getOrPutNullable(key) {
+            val schema = findSchema(key.namespace, element.schema)
+            schema.findByNodeNameAndAttributeOrNull("complexType", "name", key.localName)
+        }
     }
 
     fun findSimpleType(
@@ -273,8 +317,12 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         attributeName: String
     ): XMLNode? {
         val fullTypeName = (element.attributes[attributeName] ?: throw ContractException("Node ${element.realName} does not have an attribute named $attributeName")).toStringLiteral()
-        val schema = findSchema(namespace(fullTypeName, element), element.schema)
-        return schema.findByNodeNameAndAttributeOrNull("simpleType", "name", fullTypeName.localName())
+        val key = namedSchemaLookupKey(fullTypeName, element)
+
+        return simpleTypeLookupCache.getOrPutNullable(key) {
+            val schema = findSchema(key.namespace, element.schema)
+            schema.findByNodeNameAndAttributeOrNull("simpleType", "name", key.localName)
+        }
     }
 
     fun findTypeFromAttribute(
@@ -282,7 +330,7 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         attributeName: String
     ): XMLNode {
         val fullTypeName = element.attributes.getValue(attributeName).toStringLiteral()
-        return findElement(fullTypeName.localName(), namespace(fullTypeName, element), element)
+        return findElement(fullTypeName.localName(), namespace(fullTypeName, element), element.schema)
     }
 
     private fun namespace(fullTypeName: String, element: XMLNode): String {
@@ -294,16 +342,24 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
                 ?: throw ContractException("Could not find namespace with prefix $namespacePrefix in xml node $element")
     }
 
-    private fun findElement(typeName: String, namespace: String, element: XMLNode? = null): XMLNode {
-        val schema = findSchema(namespace, element?.schema)
+    private fun namedSchemaLookupKey(fullTypeName: String, element: XMLNode?): NamedSchemaLookupKey {
+        val namespace = element?.let { namespace(fullTypeName, it) } ?: ""
+        return NamedSchemaLookupKey(namespace, element.attachedSchemaNamespace(), fullTypeName.localName())
+    }
 
-        return schema.getXMLNodeByAttributeValue("name", typeName)
+    private fun findElement(typeName: String, namespace: String, localSchema: XMLNode? = null): XMLNode {
+        val key = NamedSchemaLookupKey(namespace, localSchema.schemaFallbackNamespace(), typeName)
+
+        return elementLookupCache.getOrPut(key) {
+            val schema = findSchema(namespace, localSchema)
+            schema.getXMLNodeByAttributeValue("name", typeName)
+        }
     }
 
     fun getSOAPElement(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null, otherRefAttributes: Map<String, StringValue> = emptyMap()): WSDLElement {
         val schema = findSchema(fullyQualifiedName.namespace, localSchema)
 
-        val node = schema.getXMLNodeByAttributeValue("name", fullyQualifiedName.localName).addSchema(schema).let {
+        val node = findElement(fullyQualifiedName.localName, fullyQualifiedName.namespace, localSchema).addSchema(schema).let {
             it.copy(attributes = it.attributes.plus(otherRefAttributes))
         }
 
@@ -315,22 +371,34 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun findAttributeGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
-        val schema = findSchema(fullyQualifiedName.namespace, localSchema)
-        return schema.findByNodeNameAndAttribute("attributeGroup", "name", fullyQualifiedName.localName)
+        val key = NamedSchemaLookupKey(fullyQualifiedName.namespace, localSchema.schemaFallbackNamespace(), fullyQualifiedName.localName)
+
+        return attributeGroupLookupCache.getOrPut(key) {
+            val schema = findSchema(fullyQualifiedName.namespace, localSchema)
+            schema.findByNodeNameAndAttribute("attributeGroup", "name", fullyQualifiedName.localName)
+        }
     }
 
     fun findAttribute(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
-        val schema = findSchema(fullyQualifiedName.namespace, localSchema)
-        return schema.findByNodeNameAndAttribute("attribute", "name", fullyQualifiedName.localName)
+        val key = NamedSchemaLookupKey(fullyQualifiedName.namespace, localSchema.schemaFallbackNamespace(), fullyQualifiedName.localName)
+
+        return attributeLookupCache.getOrPut(key) {
+            val schema = findSchema(fullyQualifiedName.namespace, localSchema)
+            schema.findByNodeNameAndAttribute("attribute", "name", fullyQualifiedName.localName)
+        }
     }
 
     private fun findSchema(namespace: String, schema: XMLNode?): XMLNode {
-        val resolvedNamespace: String? = namespaceOrSchemaNamespace(namespace, schema)
-        if(resolvedNamespace.isNullOrBlank())
-            throw ContractException("Cannot look for an empty schema namespace. Please report this to the Specmatic Builders at $SPECMATIC_GITHUB_ISSUES")
+        val key = SchemaLookupKey(namespace, schema.schemaFallbackNamespace())
 
-        return schemas[resolvedNamespace]
-            ?: throw ContractException("Couldn't find schema with targetNamespace $resolvedNamespace")
+        return schemaLookupCache.getOrPut(key) {
+            val resolvedNamespace: String? = namespaceOrSchemaNamespace(namespace, schema)
+            if(resolvedNamespace.isNullOrBlank())
+                throw ContractException("Cannot look for an empty schema namespace. Please report this to the Specmatic Builders at $SPECMATIC_GITHUB_ISSUES")
+
+            schemas[resolvedNamespace]
+                ?: throw ContractException("Couldn't find schema with targetNamespace $resolvedNamespace")
+        }
     }
 
     fun getComplexTypeNode(element: XMLNode): ComplexType {
@@ -354,13 +422,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 
     fun findMessageNode(fullyQualifiedName: FullyQualifiedName): XMLNode {
-        val definition = definitions[fullyQualifiedName.namespace]
-            ?: throw ContractException("Could not find message named ${fullyQualifiedName.qName}. ${fullyQualifiedName.prefix} mapped to ${fullyQualifiedName.namespace}, but could not find a definition with this targetNamespace.")
-
-        return definition.findByNodeNameAndAttribute(
+        return findInDefinition(
             "message",
-            "name",
+            fullyQualifiedName.namespace,
             fullyQualifiedName.localName,
+            "Could not find message named ${fullyQualifiedName.qName}. ${fullyQualifiedName.prefix} mapped to ${fullyQualifiedName.namespace}, but could not find a definition with this targetNamespace.",
             "Message node ${fullyQualifiedName.qName} not found"
         )
     }
@@ -418,3 +484,19 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
 
 fun namespaceOrSchemaNamespace(namespace: String, schema: XMLNode?) =
     namespace.ifBlank { schema?.attributes?.get("xmlns")?.toStringLiteral() }
+
+private fun XMLNode?.schemaFallbackNamespace(): String? =
+    this?.attributes?.get("xmlns")?.toStringLiteral()
+
+private fun XMLNode?.attachedSchemaNamespace(): String? =
+    this?.schema?.attributes?.get("xmlns")?.toStringLiteral()
+
+private fun <K, V> MutableMap<K, V?>.getOrPutNullable(key: K, defaultValue: () -> V?): V? {
+    if (containsKey(key)) {
+        return this[key]
+    }
+
+    val value = defaultValue()
+    this[key] = value
+    return value
+}
