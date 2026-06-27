@@ -92,16 +92,35 @@ class SubstitutionImpl private constructor(
         return runCatching { resolver.generate(pattern) }.map(::HasValue).getOrElse(::HasException)
     }
 
+    override fun substitute(value: Value): ReturnValue<Value> {
+        if (value !is StringValue) return HasValue(value)
+        if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
+        return runCatching { HasValue(resolveValue(value)) }.getOrElse(::HasException)
+    }
+
     override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
         if (value !is StringValue) return HasValue(value)
         if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
 
-        val updatedString = runCatching { resolveValue(value) }.getOrElse { e ->
+        val resolvedValue = runCatching { resolveValue(value) }.getOrElse { e ->
             return unresolvedSubstitutionFallback(value, pattern, e)
         }
 
-        return runCatching { HasValue(pattern.parse(updatedString.toUnformattedString(), resolver)) }.getOrElse { e ->
+        return runCatching { HasValue(pattern.parse(resolvedValue.toUnformattedString(), resolver)) }.getOrElse { e ->
             return unresolvedSubstitutionFallback(value, pattern, e)
+        }
+    }
+
+    override fun resolveIfLookup(value: Value): Value {
+        if (value !is StringValue) return value
+        val text = value.nativeValue
+
+        if (!isDataLookup(text)) return value
+        return runCatching {
+            substituteDataLookupExpression(text)
+        }.getOrElse { e ->
+            logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
+            value
         }
     }
 

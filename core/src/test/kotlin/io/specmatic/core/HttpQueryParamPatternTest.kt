@@ -2951,6 +2951,9 @@ class HttpQueryParamPatternTest {
         private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
             return object : Substitution {
                 override fun isDropDirective(value: Value): Boolean = false
+                override fun resolveIfLookup(value: Value): Value = value
+                override fun substitute(value: Value): ReturnValue<Value> = HasValue(value)
+                override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution = this
                 override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
                 override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
                     val expression = (value as? StringValue)?.string ?: return HasValue(value)
