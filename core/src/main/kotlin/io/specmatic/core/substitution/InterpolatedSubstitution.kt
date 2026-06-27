@@ -1,7 +1,10 @@
 package io.specmatic.core.substitution
 
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 
 internal object InterpolatedSubstitution {
     private val useRegex = Regex("\\$\\(([^()]+)\\)")
@@ -12,18 +15,25 @@ internal object InterpolatedSubstitution {
         return useRegex.containsMatchIn(value)
     }
 
-    fun resolve(value: String, resolveToken: (String) -> String): String {
-        return useRegex.replace(value) { resolveToken(it.value) }
+    fun resolve(value: String, resolveToken: (String) -> Value): Value {
+        val entireMatch = useRegex.matchEntire(value)
+        if (entireMatch != null) {
+            return resolveToken(entireMatch.value)
+        }
+
+        return StringValue(useRegex.replace(value) {
+            resolveToken(it.value).toUnformattedString()
+        })
     }
 
-    fun extractVariables(original: String, running: String): Map<String, String> {
-        return when (val result = extractVariablesResult(original, running)) {
+    fun extractVariables(original: String, running: String, resolver: Resolver = Resolver()): Map<String, Value> {
+        return when (val result = extractVariablesResult(original, running, resolver)) {
             is ExtractionResult.Success -> result.variables
             is ExtractionResult.Failure -> throw ContractException(result.message)
         }
     }
 
-    private fun extractVariablesResult(original: String, running: String): ExtractionResult {
+    private fun extractVariablesResult(original: String, running: String, resolver: Resolver): ExtractionResult {
         val placeholders = captureRegex
             .findAll(original)
             .filterNot { isDollarFunctionCall(original, it.range.first) }
@@ -41,24 +51,25 @@ internal object InterpolatedSubstitution {
             message = "Could not extract substitution variables from \"$running\" using template \"$original\""
         )
 
-        val variables = linkedMapOf<String, String>()
+        val variables = linkedMapOf<String, Value>()
         placeholders.forEachIndexed { index, placeholder ->
-            val name = placeholderTokenName(placeholder.value) ?: return ExtractionResult.Failure(
+            val parts = placeholderParts(placeholder.value) ?: return ExtractionResult.Failure(
                 message = "Invalid placeholder token \"${placeholder.value}\" in \"$original\""
             )
 
+            val (name, typeName) = parts
             val value = match.groups[index + 1]?.value ?: return ExtractionResult.Failure(
                 message = "Could not extract placeholder \"$name\" from \"$running\" using template \"$original\""
             )
 
             val existingValue = variables[name]
-            if (existingValue != null && existingValue != value) {
+            if (existingValue != null && existingValue.toStringLiteral() != value) {
                 return ExtractionResult.Failure(
-                    message = "Conflicting extracted values for \"$name\" in \"$original\": \"$existingValue\" and \"$value\""
+                    message = "Conflicting extracted values for \"$name\" in \"$original\": \"${existingValue.toStringLiteral()}\" and \"$value\""
                 )
             }
 
-            variables[name] = value
+            variables[name] = parseExtractedValue(typeName, value, resolver)
         }
 
         return ExtractionResult.Success(variables)
@@ -80,13 +91,22 @@ internal object InterpolatedSubstitution {
         return regex.toString()
     }
 
-    private fun placeholderTokenName(token: String): String? {
+    private fun parseExtractedValue(typeName: String, value: String, resolver: Resolver): Value {
+        return runCatching {
+            resolver.getPattern("($typeName)").parse(value, resolver)
+        }.getOrDefault(StringValue(value))
+    }
+
+    private fun placeholderParts(token: String): Pair<String, String>? {
         if (!isPatternToken(token)) return null
-        return token
-            .removeSurrounding("(", ")")
-            .split(":", limit = 2)
-            .firstOrNull()
-            ?.takeIf(String::isNotBlank)
+        val pieces = token.removeSurrounding("(", ")").split(":", limit = 2)
+        if (pieces.size != 2) return null
+
+        val name = pieces[0].trim()
+        val type = pieces[1].trim()
+        if (name.isBlank() || type.isBlank()) return null
+
+        return name to type
     }
 
     private fun hasAdjacentPlaceholders(placeholders: List<MatchResult>): Boolean {
@@ -100,7 +120,7 @@ internal object InterpolatedSubstitution {
     }
 
     private sealed interface ExtractionResult {
-        data class Success(val variables: Map<String, String>) : ExtractionResult
+        data class Success(val variables: Map<String, Value>) : ExtractionResult
         data class Failure(val message: String) : ExtractionResult
     }
 }
