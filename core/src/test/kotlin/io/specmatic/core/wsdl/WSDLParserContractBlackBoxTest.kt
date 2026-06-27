@@ -7,6 +7,7 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.testBackwardCompatibility
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.payload.emptySoapMessage
@@ -109,6 +110,158 @@ class WSDLParserContractBlackBoxTest {
             val loginCount = countOccurrences(body, "<Choice-scalar-repeating:LoginId>")
             assertThat(customerCount + loginCount).isBetween(1, 2)
         }
+    }
+
+    @Test
+    fun `scenario generation for sequential choices emits every valid branch combination`() {
+        val feature = choiceWsdlFeature(
+            requestName = "SequentialChoiceRequest",
+            requestBodySchema = """
+                <xsd:choice>
+                    <xsd:element name="FirstA" type="xsd:string"/>
+                    <xsd:element name="FirstB" type="xsd:string"/>
+                </xsd:choice>
+                <xsd:choice>
+                    <xsd:element name="SecondA" type="xsd:string"/>
+                    <xsd:element name="SecondB" type="xsd:string"/>
+                </xsd:choice>
+            """.trimIndent(),
+            path = "/choice-edge-sequential",
+            operation = "sequentialChoice",
+        )
+
+        val generatedBodies = generatedRequestBodies(feature)
+        val generatedBranchPairs = generatedBodies.map { body ->
+            assertThat(body.contains("FirstA")).isNotEqualTo(body.contains("FirstB"))
+            assertThat(body.contains("SecondA")).isNotEqualTo(body.contains("SecondB"))
+
+            "${selectedBranch(body, listOf("FirstA", "FirstB"))}/${selectedBranch(body, listOf("SecondA", "SecondB"))}"
+        }
+
+        assertThat(generatedBodies).hasSize(4)
+        assertThat(generatedBranchPairs).containsExactlyInAnyOrder(
+            "FirstA/SecondA",
+            "FirstA/SecondB",
+            "FirstB/SecondA",
+            "FirstB/SecondB",
+        )
+    }
+
+    @Test
+    fun `scenario generation for shared-prefix choice emits valid multi-node branches`() {
+        val feature = choiceWsdlFeature(
+            requestName = "SharedPrefixChoiceRequest",
+            requestBodySchema = """
+                <xsd:choice>
+                    <xsd:sequence>
+                        <xsd:element name="Common" type="xsd:string"/>
+                        <xsd:element name="BranchB" type="xsd:string"/>
+                    </xsd:sequence>
+                    <xsd:sequence>
+                        <xsd:element name="Common" type="xsd:string"/>
+                        <xsd:element name="BranchC" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:choice>
+            """.trimIndent(),
+            path = "/choice-edge-shared-prefix",
+            operation = "sharedPrefixChoice",
+        )
+
+        val generatedBodies = generatedRequestBodies(feature)
+        val generatedBranches = generatedBodies.map { body ->
+            assertThat(body).contains("Common")
+            assertThat(body.contains("BranchB")).isNotEqualTo(body.contains("BranchC"))
+
+            selectedBranch(body, listOf("BranchB", "BranchC"))
+        }
+
+        assertThat(generatedBodies).hasSize(2)
+        assertThat(generatedBranches).containsExactlyInAnyOrder("BranchB", "BranchC")
+    }
+
+    @Test
+    fun `scenario generation for optional middle choice emits omitted and branch-present requests`() {
+        val feature = choiceWsdlFeature(
+            requestName = "OptionalMiddleChoiceRequest",
+            requestBodySchema = """
+                <xsd:element name="Before" type="xsd:string"/>
+                <xsd:choice minOccurs="0">
+                    <xsd:element name="OptionalA" type="xsd:string"/>
+                    <xsd:element name="OptionalB" type="xsd:string"/>
+                </xsd:choice>
+                <xsd:element name="After" type="xsd:string"/>
+            """.trimIndent(),
+            path = "/choice-edge-optional-middle",
+            operation = "optionalMiddleChoice",
+        )
+
+        val generatedBodies = generatedRequestBodies(feature)
+        val generatedBranches = generatedBodies.map { body ->
+            assertThat(body).contains("Before", "After")
+            assertThat(body.indexOf("Before")).isLessThan(body.indexOf("After"))
+            assertThat(body.contains("OptionalA") && body.contains("OptionalB")).isFalse()
+
+            selectedOptionalBranch(body, listOf("OptionalA", "OptionalB"))
+        }
+
+        assertThat(generatedBodies).hasSize(3)
+        assertThat(generatedBranches).containsExactlyInAnyOrder("omitted", "OptionalA", "OptionalB")
+    }
+
+    @Test
+    fun `scenario generation for nested choice emits direct and nested branches without mixing them`() {
+        val feature = choiceWsdlFeature(
+            requestName = "NestedChoiceRequest",
+            requestBodySchema = """
+                <xsd:choice>
+                    <xsd:element name="DirectId" type="xsd:string"/>
+                    <xsd:choice>
+                        <xsd:element name="NestedA" type="xsd:string"/>
+                        <xsd:element name="NestedB" type="xsd:string"/>
+                    </xsd:choice>
+                </xsd:choice>
+            """.trimIndent(),
+            path = "/choice-edge-nested",
+            operation = "nestedChoice",
+        )
+
+        val generatedBodies = generatedRequestBodies(feature)
+        val generatedBranches = generatedBodies.map { body ->
+            assertThat(body.contains("DirectId") && body.contains("NestedA")).isFalse()
+            assertThat(body.contains("DirectId") && body.contains("NestedB")).isFalse()
+            assertThat(body.contains("NestedA") && body.contains("NestedB")).isFalse()
+
+            selectedBranch(body, listOf("DirectId", "NestedA", "NestedB"))
+        }
+
+        assertThat(generatedBodies).hasSize(3)
+        assertThat(generatedBranches).containsExactlyInAnyOrder("DirectId", "NestedA", "NestedB")
+    }
+
+    @Test
+    fun `backward compatibility for wsdl request choice tracks branch additions and removals`() {
+        val oldFeature = choiceWsdlFeature(
+            requestName = "ChoiceRequest",
+            requestBodySchema = customerChoiceSchema("CustomerNumber", "LoginId"),
+            path = "/choice-edge-bcc-request",
+            operation = "requestChoiceBcc",
+        )
+        val featureWithAddedBranch = choiceWsdlFeature(
+            requestName = "ChoiceRequest",
+            requestBodySchema = customerChoiceSchema("CustomerNumber", "LoginId", "Email"),
+            path = "/choice-edge-bcc-request",
+            operation = "requestChoiceBcc",
+        )
+        val featureWithRemovedBranch = choiceWsdlFeature(
+            requestName = "ChoiceRequest",
+            requestBodySchema = customerChoiceSchema("CustomerNumber"),
+            path = "/choice-edge-bcc-request",
+            operation = "requestChoiceBcc",
+        )
+
+        assertThat(testBackwardCompatibility(oldFeature, oldFeature).success()).isTrue()
+        assertThat(testBackwardCompatibility(oldFeature, featureWithAddedBranch).success()).isTrue()
+        assertThat(testBackwardCompatibility(oldFeature, featureWithRemovedBranch).success()).isFalse()
     }
 
     @Test
@@ -469,7 +622,22 @@ class WSDLParserContractBlackBoxTest {
         }
     }
 
-    private fun countOccurrences(text: String, token: String): Int {
-        return text.windowed(token.length, 1).count { it == token }
+    private fun selectedBranch(body: String, branches: List<String>): String {
+        return branches.singleOrNull { it in body }
+            ?: error("Expected exactly one of $branches in request body: $body")
+    }
+
+    private fun selectedOptionalBranch(body: String, branches: List<String>): String {
+        return branches.singleOrNull { it in body } ?: "omitted"
+    }
+
+    private fun customerChoiceSchema(vararg branchNames: String): String {
+        return branchNames.joinToString(
+            separator = "\n",
+            prefix = "<xsd:choice>\n",
+            postfix = "\n</xsd:choice>",
+        ) { branchName ->
+            """<xsd:element name="$branchName" type="xsd:string"/>"""
+        }
     }
 }

@@ -824,6 +824,7 @@ data class XMLPattern(
         return when {
             this is ListPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
+            this is XMLSequencePattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLPattern && occurMultipleTimes() ->
                 0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }
