@@ -10,6 +10,10 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.parseXML
+import io.specmatic.core.value.fold.ValueVisitor
+import io.specmatic.core.value.fold.XmlElementValueCase
+import io.specmatic.core.value.fold.XmlAttribute
+import io.specmatic.core.value.fold.XmlValueChild
 import io.specmatic.core.wsdl.parser.WSDL
 
 private const val DEFAULT_NAMESPACE_PREFIX = ""
@@ -86,6 +90,40 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
     constructor(realName: String, attributes: Map<String, StringValue>, childNodes: List<XMLValue>, parentNamespaces: Map<String, String> = emptyMap()) : this(realName.localName(), realName, attributes, childNodes, realName.namespacePrefix(), parentNamespaces.plus(getNamespaces(attributes)))
 
     val oneLineDescription: String = "<$realName ${attributeString()}>"
+
+    override fun <C, R> accept(visitor: ValueVisitor<C, R>, context: C): R {
+        return visitor.xmlElement(
+            case = XmlElementValueCase(
+                value = this,
+                context = context,
+                children = {
+                    childNodes.mapIndexed { index, child -> XmlValueChild(index = index, value = child) }
+                },
+                attributes = {
+                    attributes.map { (name, attributeValue) ->
+                        XmlAttribute(name = name, value = attributeValue)
+                    }
+                },
+                rebuild = { rewrittenAttributes, rewrittenChildren ->
+                    val updatedAttributes = rewrittenAttributes.associate { attribute ->
+                        attribute.name to attribute.value
+                    }
+
+                    copy(
+                        attributes = updatedAttributes,
+                        namespaces = rebuildNamespaces(updatedAttributes),
+                        childNodes = rewrittenChildren.map { child -> child.value }
+                    )
+                }
+            )
+        )
+    }
+
+    private fun rebuildNamespaces(updatedAttributes: Map<String, StringValue>): Map<String, String> {
+        val declaredNamespaces = getNamespaces(attributes)
+        val parentNamespaces = namespaces.filterKeys { key -> key !in declaredNamespaces.keys }
+        return parentNamespaces.plus(getNamespaces(updatedAttributes))
+    }
 
     private fun attributeString(): String {
         return attributes.entries.joinToString(" ") { (name, value) ->

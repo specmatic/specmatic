@@ -2,6 +2,8 @@
 
 package io.specmatic.core.value
 
+import io.specmatic.core.value.fold.TextValueCase
+import io.specmatic.core.value.fold.ValueVisitor
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 
@@ -10,6 +12,17 @@ data class CDATAValue(
 ) : ScalarValue,
     XMLValue by stringValue {
     constructor(string: String) : this(StringValue(string))
+
+    override fun <C, R> accept(visitor: ValueVisitor<C, R>, context: C): R {
+        return visitor.text(
+            case = TextValueCase(
+                value = this,
+                context = context,
+                text = stringValue.string,
+                replaceText = { newText -> copy(stringValue = StringValue(newText)) }
+            )
+        )
+    }
 
     override fun build(document: Document): Node = document.createCDATASection(stringValue.string)
 
