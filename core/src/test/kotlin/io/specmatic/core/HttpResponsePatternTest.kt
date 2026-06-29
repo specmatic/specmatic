@@ -267,4 +267,39 @@ internal class HttpResponsePatternTest {
             assertThat(currentAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("current")
         }
     }
+
+    @Test
+    fun `generateResponseWithAll should use custom content-type from spec`() {
+        val responsePattern = HttpResponsePattern(
+            headersPattern = HttpHeadersPattern(
+                pattern = emptyMap(),
+                contentType = "application/vnd.company.custom+json"
+            ),
+            status = 200,
+            body = StringPattern()
+        )
+
+        val resolver = Resolver()
+        val generatedResponse = responsePattern.generateResponseWithAll(resolver)
+
+        assertThat(generatedResponse.headers[CONTENT_TYPE])
+            .isEqualTo("application/vnd.company.custom+json")
+    }
+
+    @Test
+    fun `generateResponseWithAll should fallback to default content-type when spec does not specify`() {
+        val responsePattern = HttpResponsePattern(
+            headersPattern = HttpHeadersPattern(
+                pattern = emptyMap(),
+                contentType = null
+            ),
+            status = 200,
+            body = StringPattern()
+        )
+
+        val resolver = Resolver()
+        val generatedResponse = responsePattern.generateResponseWithAll(resolver)
+
+        assertThat(generatedResponse.headers[CONTENT_TYPE]).isEqualTo("text/plain")
+    }
 }

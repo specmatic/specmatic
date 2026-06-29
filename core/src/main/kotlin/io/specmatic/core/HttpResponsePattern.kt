@@ -49,7 +49,7 @@ data class HttpResponsePattern(
             val value = attempt(breadCrumb = "BODY") { softCastValueToXML(body.generateWithAll(resolver)) }
             val headers = headersPattern.generateWithAll(resolver).plus(SPECMATIC_RESULT_HEADER to "success").let { headers ->
                 when {
-                    !headers.containsKey("Content-Type") -> headers.plus("Content-Type" to value.httpContentType)
+                    !headers.containsKey("Content-Type") -> headers.plus("Content-Type" to (headersPattern.contentType ?: value.httpContentType))
                     else -> headers
                 }
             }
