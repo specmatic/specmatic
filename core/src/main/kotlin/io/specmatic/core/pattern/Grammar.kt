@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.MismatchMessages
 import io.specmatic.core.log.logger
+import io.specmatic.core.substitution.InterpolatedSubstitution
 import io.specmatic.core.utilities.jsonStringToValueArray
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.yamlStringToValue
@@ -115,6 +116,12 @@ fun isPatternToken(patternValue: Any?) =
 fun isDollarMethodOrLookup(patternValue: Any?) = when (patternValue) {
     is String -> DOLLAR_METHOD_OR_LOOKUP_PATTERN.matchEntire(patternValue) != null
     is StringValue -> DOLLAR_METHOD_OR_LOOKUP_PATTERN.matchEntire(patternValue.string) != null
+    else -> false
+}
+
+fun isSubstitution(patternValue: Any?) = when (patternValue) {
+    is String -> InterpolatedSubstitution.isLookup(patternValue)
+    is StringValue -> InterpolatedSubstitution.isLookup(patternValue.string)
     else -> false
 }
 

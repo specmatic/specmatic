@@ -11,6 +11,7 @@ import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.*
+import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSONArray
 import io.specmatic.core.pattern.parsedJSONObject
@@ -21,11 +22,18 @@ import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.test.TestExecutor
+import io.specmatic.test.FixtureExecutionDetails
+import io.specmatic.test.fixtures.FixtureExecutionMetadata
+import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.math.BigDecimal
+import java.net.URLClassLoader
+import java.nio.file.Files
 
 private val doubleMax = BigDecimal(Double.MAX_VALUE)
 private val doubleMin = BigDecimal(-Double.MAX_VALUE)
@@ -188,6 +196,129 @@ class LoadTestsFromExternalisedFiles {
         assertThat(loadedFeature.scenarios).hasSize(1)
         assertThat(loadedFeature.scenarios.single().examples.single().rows).hasSize(2)
         assertThat(unusedExamples).isEmpty()
+    }
+
+    @Nested
+    inner class RowValueLookupGenerationTest {
+        @Test
+        fun `should resolve lookup expressions in row values for positive and negative generated tests`() {
+            val specFile = File("src/test/resources/openapi/row_value_lookup/api.yaml")
+            val feature = loadRowValueLookupFeature(specFile)
+
+            val observedRequests = mutableListOf<String>()
+            val positiveRequests = mutableListOf<HttpRequest>()
+            val negativeMutationEvidences = mutableSetOf<String>()
+            val expectedPositiveRequestBody = parsedJSONObject("""{"name": "Sherlock"}""")
+            val positiveHeaderPattern = Regex("A+")
+
+            val results = executeRowValueLookupGenerativeTests(feature) { request ->
+                println(request.toLogString())
+                observedRequests.add(request.toLogString())
+                assertRequestHasNoUnresolvedLookupExpressions(request)
+
+                val randomHeader = request.headers["Random-String"]
+                val hasValidRandomHeader = randomHeader == null || positiveHeaderPattern.matches(randomHeader)
+                val isPositiveRequest =
+                    request.path == "/orders/order-123" &&
+                        request.queryParams.asMap()["page"] == "page-7" &&
+                        request.headers["X-Tenant"] == "north" &&
+                        request.body == expectedPositiveRequestBody &&
+                        hasValidRandomHeader
+
+                if (isPositiveRequest) {
+                    positiveRequests.add(request)
+                    HttpResponse.ok(parsedJSONObject("""{"result": "accepted"}"""))
+                } else {
+                    when {
+                        request.path != "/orders/order-123" -> negativeMutationEvidences.add("path")
+                        request.queryParams.asMap()["page"] != "page-7" -> negativeMutationEvidences.add("query")
+                        request.headers["X-Tenant"] != "north" -> negativeMutationEvidences.add("header")
+                        request.body != expectedPositiveRequestBody -> negativeMutationEvidences.add("body")
+                    }
+
+                    HttpResponse(
+                        status = 400,
+                        body = parsedJSONObject("""{"message": "bad request"}"""),
+                        headers = mapOf("Content-Type" to "application/json")
+                    )
+                }
+            }
+
+            assertThat(results.success())
+                .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
+                .isTrue()
+
+            assertThat(negativeMutationEvidences).contains("query", "header", "body")
+            assertThat(positiveRequests)
+                .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
+                .isNotEmpty()
+        }
+
+        @Test
+        fun `should resolve lookup expressions when the top level body is substituted with a number`() {
+            val specFile = File("src/test/resources/openapi/row_value_lookup/top_level_number_body_api.yaml")
+            val feature = loadRowValueLookupFeature(specFile)
+
+            val observedRequests = mutableListOf<String>()
+            val positiveRequests = mutableListOf<HttpRequest>()
+            val negativeBodies = mutableListOf<Value>()
+
+            val results = executeRowValueLookupGenerativeTests(feature) { request ->
+                println(request.toLogString())
+                observedRequests.add(request.toLogString())
+                assertRequestHasNoUnresolvedLookupExpressions(request)
+
+                if (request.path == "/counts" && request.body.toUnformattedString().toIntOrNull() in setOf(42, 43)) {
+                    positiveRequests.add(request)
+                    HttpResponse.ok(parsedJSONObject("""{"result": "accepted"}"""))
+                } else {
+                    negativeBodies.add(request.body)
+                    HttpResponse(
+                        status = 400,
+                        body = parsedJSONObject("""{"message": "bad request"}"""),
+                        headers = mapOf("Content-Type" to "application/json")
+                    )
+                }
+            }
+
+            assertThat(results.success())
+                .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
+                .isTrue()
+
+            assertThat(negativeBodies).isNotEmpty
+            assertThat(positiveRequests)
+                .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
+                .isNotEmpty()
+        }
+
+        private fun loadRowValueLookupFeature(specFile: File): Feature {
+            val examplesDir = specFile.resolveSibling(specFile.nameWithoutExtension + "_examples")
+            return Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
+                OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().copy(strictMode = true).loadExternalisedExamples().also {
+                    it.validateExamplesOrException()
+                }
+            }
+        }
+
+        private fun executeRowValueLookupGenerativeTests(feature: Feature, handler: (HttpRequest) -> HttpResponse): Results {
+            return withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to RowValueLookupFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to RowValueLookupContractTestInterceptor::class.java.name
+                )
+            ) {
+                feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse = handler(request)
+                })
+            }
+        }
+
+        private fun assertRequestHasNoUnresolvedLookupExpressions(request: HttpRequest) {
+            assertThat(request.path).doesNotContain("$(")
+            assertThat(request.queryParams.toString()).doesNotContain("$(")
+            assertThat(request.headers.values.joinToString(" ")).doesNotContain("$(")
+            assertThat(request.body.toStringLiteral()).doesNotContain("$(")
+        }
     }
 
     @Test
@@ -1508,5 +1639,78 @@ class LoadTestsFromExternalisedFiles {
                 }
             }
         }
+    }
+}
+
+private fun <T> withServiceLoaderEntries(entries: Map<Class<*>, String>, block: () -> T): T {
+    val previousContextClassLoader = Thread.currentThread().contextClassLoader
+    val tempDir = Files.createTempDirectory("specmatic-service-loader-test")
+    val servicesDir = tempDir.resolve("META-INF/services")
+    Files.createDirectories(servicesDir)
+    entries.forEach { (service, implementationClassName) ->
+        Files.writeString(servicesDir.resolve(service.name), "$implementationClassName\n")
+    }
+
+    val classLoader = URLClassLoader(arrayOf(tempDir.toUri().toURL()), previousContextClassLoader)
+    Thread.currentThread().contextClassLoader = classLoader
+
+    return try {
+        block()
+    } finally {
+        Thread.currentThread().contextClassLoader = previousContextClassLoader
+        classLoader.close()
+        tempDir.toFile().deleteRecursively()
+    }
+}
+
+class RowValueLookupFixtureExecutor : OpenAPIFixtureExecutor {
+    override fun execute(
+        id: String,
+        fixtures: List<Value>,
+        fixtureDiscriminatorKey: String,
+        executionMetadata: FixtureExecutionMetadata,
+        substitution: Substitution
+    ): FixtureExecutionDetails {
+        val updatedSubstitution = substitution
+            .upsertStoreUsing(StringValue("(ORDER_ID:string)"), StringValue("order-123"))
+            .upsertStoreUsing(StringValue("(PAGE:string)"), StringValue("page-7"))
+            .upsertStoreUsing(StringValue("(TENANT:string)"), StringValue("north"))
+            .upsertStoreUsing(StringValue("(NAME:string)"), StringValue("Sherlock"))
+            .upsertStoreUsing(StringValue("(COUNT:number)"), NumberValue(42))
+
+        return FixtureExecutionDetails(
+            combinedResult = Result.Success(),
+            updatedSubstitution = updatedSubstitution
+        )
+    }
+}
+
+class RowValueLookupContractTestInterceptor : ContractTestInterceptor {
+    override fun updateRequest(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpRequest: HttpRequest,
+        substitution: Substitution,
+    ): InterceptResult<HttpRequest> {
+        return InterceptResult.Processed(
+            value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+        )
+    }
+
+    override fun updateSubstitution(
+        testScenario: Scenario,
+        originalScenario: Scenario,
+        httpResponse: HttpResponse,
+        substitution: Substitution,
+    ): InterceptResult<Substitution> {
+        val example = testScenario.exampleRow?.scenarioStub ?: return InterceptResult.PassThrough
+        return InterceptResult.Processed(
+            value = HasValue(
+                substitution.upsertStoreUsing(
+                    runningValue = httpResponse.toJSON(),
+                    originalValue = example.response().toJSON(),
+                )
+            )
+        )
     }
 }

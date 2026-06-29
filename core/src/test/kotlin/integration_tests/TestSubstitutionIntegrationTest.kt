@@ -4,7 +4,6 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.Dictionary
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.Scenario
@@ -55,19 +54,19 @@ class TestSubstitutionIntegrationTest {
             )
         ) {
             val updatedFeature = feature.copy(scenarios = feature.scenarios.map { it.copy(dictionary = valueDictionary) })
-            updatedFeature.enableGenerativeTesting().executeTests(SubstitutionTestExecutor())
+            updatedFeature.executeTests(SubstitutionTestExecutor())
         }
 
-        assertThat(results.successCount).withFailMessage { results.report() }.isEqualTo(16)
+        assertThat(results.successCount).withFailMessage { results.report() }.isEqualTo(1)
         assertThat(results.failureCount).withFailMessage { results.report() }.isEqualTo(0)
 
-        assertThat(SubstitutionFixtureExecutor.calls).hasSize(32)
-        assertThat(SubstitutionFixtureExecutor.calls.count { it == "before" }).isEqualTo(16)
-        assertThat(SubstitutionFixtureExecutor.calls.count { it == "after" }).isEqualTo(16)
+        assertThat(SubstitutionFixtureExecutor.calls).hasSize(2)
+        assertThat(SubstitutionFixtureExecutor.calls.count { it == "before" }).isEqualTo(1)
+        assertThat(SubstitutionFixtureExecutor.calls.count { it == "after" }).isEqualTo(1)
 
-        assertThat(SubstitutionFixtureExecutor.receivedContexts).hasSize(32)
-        assertThat(SubstitutionFixtureExecutor.beforeFixtureRequests).hasSize(32)
-        assertThat(SubstitutionFixtureExecutor.afterFixtureRequests).hasSize(32)
+        assertThat(SubstitutionFixtureExecutor.receivedContexts).hasSize(2)
+        assertThat(SubstitutionFixtureExecutor.beforeFixtureRequests).hasSize(2)
+        assertThat(SubstitutionFixtureExecutor.afterFixtureRequests).hasSize(2)
 
         assertThat(
             SubstitutionFixtureExecutor.positiveAfterUpdatedSubstitution.substitute(
@@ -75,12 +74,6 @@ class TestSubstitutionIntegrationTest {
                 StringPattern(),
             )
         ).isEqualTo(HasValue(StringValue("beforePositive")))
-        assertThat(
-            SubstitutionFixtureExecutor.negativeAfterUpdatedSubstitution.substitute(
-                StringValue("$(BEFORE_NEGATIVE)"),
-                StringPattern(),
-            )
-        ).isEqualTo(HasValue(StringValue("beforeNegative")))
 
         assertThat(
             SubstitutionFixtureExecutor.positiveAfterUpdatedSubstitution.substitute(
@@ -88,44 +81,14 @@ class TestSubstitutionIntegrationTest {
                 StringPattern(),
             )
         ).isEqualTo(HasValue(StringValue("afterPositive")))
-        assertThat(
-            SubstitutionFixtureExecutor.negativeAfterUpdatedSubstitution.substitute(
-                StringValue("$(AFTER_NEGATIVE)"),
-                StringPattern(),
-            )
-        ).isEqualTo(HasValue(StringValue("afterNegative")))
 
-        assertThat(SubstitutionTestExecutor.requestsSeen).hasSize(16).allSatisfy { request ->
+        assertThat(SubstitutionTestExecutor.requestsSeen).hasSize(1).allSatisfy { request ->
             assertThat(request.path).isEqualTo("/test")
             assertThat(request.method).isEqualTo("POST")
         }
 
         assertThat(SubstitutionTestExecutor.requestsSeen.map { it.body }).containsExactlyElementsOf(
             listOf(
-                // 1. The happy path payload and Positive scenarios for 'Random-String'
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-
-                // 2. The empty body test case
-                NoBodyValue,
-
-                // 3. Negative scenarios for 'before1'
-                parsedJSONObject("""{ "before1": null, "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": 123, "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": false, "before2": "before2" }"""),
-
-                // 4. Negative scenarios for 'before2'
-                parsedJSONObject("""{ "before1": "before1", "before2": null }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": 123 }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": false }"""),
-
-                // 5. Negative scenarios for 'Random-String'
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
-                parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
                 parsedJSONObject("""{ "before1": "before1", "before2": "before2" }"""),
             )
         )

@@ -11,6 +11,10 @@ internal object InterpolatedSubstitution {
     private val captureRegex = Regex("\\(([^()]+:[^()]+)\\)")
     private val dollarFunctionBeforeParenRegex = Regex("""\$\w+\s*$""")
 
+    fun isLookup(value: String): Boolean {
+        return useRegex.matches(value)
+    }
+
     fun containsLookup(value: String): Boolean {
         return useRegex.containsMatchIn(value)
     }
