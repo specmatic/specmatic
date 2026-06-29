@@ -8,6 +8,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
@@ -1049,7 +1050,7 @@ internal class HttpPathPatternTest {
         @Test
         fun `should resolve values in path segments`() {
             val pathPattern = buildHttpPathPattern("/pets/(id:string)")
-            val substitution = substitutionOf("$(id)" to "123")
+            val substitution = substitutionOf("id" to NumberValue(123))
             val resolvedPath = pathPattern.resolveSubstitutions(substitution, "/pets/$(id)", Resolver()).value
             assertThat(resolvedPath).isEqualTo("/pets/123")
         }
@@ -1057,23 +1058,14 @@ internal class HttpPathPatternTest {
         @Test
         fun `should resolve interpolated values in path segments`() {
             val pathPattern = buildHttpPathPattern("/pets/item-(id:string)")
-            val substitution = substitutionOf("$(id)" to "123")
+            val substitution = substitutionOf("id" to NumberValue(123))
             val resolvedPath = pathPattern.resolveSubstitutions(substitution, "/pets/item-$(id)", Resolver()).value
             assertThat(resolvedPath).isEqualTo("/pets/item-123")
         }
 
-        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
-            return object : Substitution {
-                override fun isDropDirective(value: Value): Boolean = false
-                override fun resolveIfLookup(value: Value): Value = value
-                override fun substitute(value: Value): ReturnValue<Value> = HasValue(value)
-                override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution = this
-                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
-                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
-                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
-                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
-                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
-                }
+        private fun substitutionOf(vararg mappings: Pair<String, Value>): Substitution {
+            return mappings.fold(SubstitutionImpl.empty()) { acc, (key, value) ->
+                acc.upsertStoreUsing(StringValue("($key:${value.type().typeName})"), value)
             }
         }
     }

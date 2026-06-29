@@ -2637,6 +2637,95 @@ components:
     }
 
     @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should use dictionary value for unresolved top level field`() {
+            val pattern = JSONObjectPattern(pattern = mapOf("id" to NumberPattern()), typeAlias = "(Person)")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Person)" to pattern),
+                dictionary = Dictionary.fromYaml("Person: { id: 123 }")
+            )
+
+            val valueToBeResolved = JSONObjectValue(mapOf("id" to StringValue("$(missing-id)")))
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(123))))
+        }
+
+        @Test
+        fun `should use dictionary value from star entry for unresolved top level field when pattern has no typeAlias`() {
+            val pattern = JSONObjectPattern(pattern = mapOf("id" to NumberPattern()))
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("'*': { id: 321 }"))
+
+            val valueToBeResolved = JSONObjectValue(mapOf("id" to StringValue("$(missing-id)")))
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(321))))
+        }
+
+        @Test
+        fun `should use dictionary values for unresolved nested fields and sibling keys`() {
+            val pattern = JSONObjectPattern(
+                typeAlias = "(Person)",
+                pattern = mapOf(
+                    "status" to StringPattern(),
+                    "name" to JSONObjectPattern(mapOf("first_name" to StringPattern(), "last_name" to StringPattern()))
+                ),
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(Person)" to pattern),
+                dictionary = Dictionary.fromYaml("""
+                Person:
+                  name:
+                    first_name: Jane
+                    last_name: Doe
+                  status: active
+                """.trimIndent())
+            )
+
+            val valueToBeResolved = parsedJSONObject("""
+            {
+              "name": {
+                "first_name": "$(missing-first-name)",
+                "last_name": "$(missing-last-name)"
+              },
+              "status": "$(missing-status)"
+            }
+            """.trimIndent())
+
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+
+            assertThat(resolvedValue).isEqualTo(
+                parsedJSONObject("""
+                {
+                  "name": {
+                    "first_name": "Jane",
+                    "last_name": "Doe"
+                  },
+                  "status": "active"
+                }
+                """.trimIndent())
+            )
+        }
+
+        @Test
+        fun `should use dictionary values for unresolved lookup`() {
+            val addressPattern = JSONObjectPattern(
+                pattern = mapOf("street" to StringPattern()),
+                typeAlias = "(Address)"
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(Address)" to addressPattern),
+                dictionary = Dictionary.fromYaml("Address: { street: Baker Street }")
+            )
+
+            val valueToBeResolved = StringValue(""""$(missing-street)"""")
+            val resolvedValue = addressPattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(parsedJSONObject("""{"street": "Baker Street"}"""))
+        }
+    }
+
+    @Nested
     inner class FillInTheBlanksTests {
 
         @Test

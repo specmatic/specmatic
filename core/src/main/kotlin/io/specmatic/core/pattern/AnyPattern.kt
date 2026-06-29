@@ -8,6 +8,7 @@ import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.EarlyResult
 import io.specmatic.core.utilities.firstSuccessOrFailures
+import io.specmatic.core.utilities.getOrElse
 import io.specmatic.core.value.*
 
 fun List<Pattern>.extractCombinedExtensions(): Map<String, Any> {
@@ -146,51 +147,41 @@ data class AnyPattern(
             is ReturnFailure -> return resolvedPattern.cast()
             else -> resolvedPattern.value
         }
+
         if (isPatternToken(value) && patternToConsider == this) return HasValue(resolver.generate(this))
-
-        val updatedPatterns = getUpdatedPattern(resolver)
-        val newPatterns = updatedPatterns.filter { it.typeAlias != null && it !is DeferredPattern }.associateBy { it.typeAlias.orEmpty() }
-        val updatedResolver = resolver.copy(newPatterns = resolver.newPatterns.plus(newPatterns) ).updateLookupPath(this.typeAlias)
-
-        val results = updatedPatterns.asSequence().map { it.fillInTheBlanks(value, updatedResolver, removeExtraKeys) }
-        val successfulGeneration = results.firstOrNull { it is HasValue }
-        if(successfulGeneration != null) return successfulGeneration
-
-        val resultList = results.toList()
-        val failures = resultList.filterIsInstance<ReturnFailure>().map { it.toFailure() }
-        return HasFailure(Failure.fromFailures(failures))
+        return evaluateWithUpdatedResolver(resolver) { pattern, updatedResolver ->
+            pattern.fillInTheBlanks(value, updatedResolver, removeExtraKeys)
+        }
     }
 
-    override fun resolveSubstitutions(
-        substitution: Substitution,
-        value: Value,
+    override fun resolveSubstitutions(substitution: Substitution, value: Value, resolver: Resolver, key: String?): ReturnValue<Value> {
+        return evaluateWithUpdatedResolver(resolver) { pattern, updatedResolver ->
+            pattern.resolveSubstitutions(substitution, value, updatedResolver, key)
+        }
+    }
+
+    private inline fun evaluateWithUpdatedResolver(
         resolver: Resolver,
-        key: String?
+        crossinline evaluate: (Pattern, Resolver) -> ReturnValue<Value>
     ): ReturnValue<Value> {
-        val options = pattern.map {
-            try {
-                it.resolveSubstitutions(substitution, value, resolver, key)
-            } catch(e: Throwable) {
-                HasException(e)
-            }
+        val updatedPatterns = getUpdatedPattern(resolver)
+        val newPatterns = updatedPatterns
+            .filter { it.typeAlias != null && it !is DeferredPattern }
+            .associateBy { it.typeAlias.orEmpty() }
+
+        val updatedResolver = resolver
+            .copy(newPatterns = resolver.newPatterns.plus(newPatterns))
+            .updateLookupPath(this.typeAlias)
+
+        val result = updatedPatterns.firstSuccessOrFailures(
+            evaluate = { evaluate(it, updatedResolver) },
+            isSuccess = { it is HasValue },
+            toFailure = { it as ReturnFailure }
+        )
+
+        return result.getOrElse { failures ->
+            HasFailure(Failure.fromFailures(failures.map { it.toFailure() }))
         }
-
-        val hasValue = options.find { it is HasValue }
-
-        if(hasValue != null)
-            return hasValue
-
-        val failures = options.map {
-            it.realise(
-                hasValue = { _, _ ->
-                    throw NotImplementedError()
-                },
-                orFailure = { failure -> failure.failure },
-                orException = { exception -> exception.toHasFailure().failure }
-            )
-        }
-
-        return HasFailure(Failure.fromFailures(failures))
     }
 
     override fun getTemplateTypes(key: String, value: Value, resolver: Resolver): ReturnValue<Map<String, Pattern>> {

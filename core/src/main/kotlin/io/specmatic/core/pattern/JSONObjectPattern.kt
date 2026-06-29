@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.ktor.http.*
 import io.specmatic.core.*
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
+import io.specmatic.core.substitution.ValueSubstitutionVisitor
 import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.stringToPatternMap
 import io.specmatic.core.utilities.withNullPattern
@@ -200,13 +201,14 @@ data class JSONObjectPattern(
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
+        val resolved = substitution.substitute(value, this, resolver).unwrapOrReturn { return it.cast() }
         val resolvedValue = resolved as? JSONObjectValue ?: return HasValue(resolved)
         val adjustedPattern = additionalProperties.updatePatternMap(patternMap = pattern, valueMap = resolvedValue.jsonObject)
 
         if (adjustedPattern.isEmpty()) return HasValue(value)
         return resolveSubstitutions(
             resolver = resolver,
+            typeAlias = typeAlias,
             substitution = substitution,
             jsonPatternMap = adjustedPattern,
             jsonValueMap = resolvedValue.jsonObject,
@@ -859,6 +861,7 @@ fun fill(jsonPatternMap: Map<String, Pattern>, jsonValueMap: Map<String, Value>,
 
 fun resolveSubstitutions(
     resolver: Resolver,
+    typeAlias: String? = null,
     substitution: Substitution,
     jsonValueMap: Map<String, Value>,
     jsonPatternMap: Map<String, Pattern>,
@@ -866,6 +869,8 @@ fun resolveSubstitutions(
 ): ReturnValue<Map<String, Value>> {
     val resolvedValuesMap = jsonValueMap.mapNotNull { (key, value) ->
         val patternKey = findPatternKey(jsonPatternMap, key)
+        val pattern = jsonPatternMap[patternKey]
+
         if (substitution.isDropDirective(value)) {
             if (patternKey != null && !isOptional(patternKey)) {
                 return HasFailure(Result.Failure(breadCrumb = key, message = "Cannot drop mandatory key ${key.quote()}"))
@@ -874,8 +879,13 @@ fun resolveSubstitutions(
             return@mapNotNull null
         }
 
-        val pattern = jsonPatternMap.getOrDefault(patternKey, AnyValuePattern)
-        key to pattern.resolveSubstitutions(substitution, value, resolver, key).breadCrumb(key)
+        if (pattern == null) {
+            val resolvedExtraValue = ValueSubstitutionVisitor.resolve(value, substitution)
+            return@mapNotNull key to resolvedExtraValue
+        }
+
+        val updatedResolver = resolver.updateLookupPath(typeAlias, KeyWithPattern(key, pattern))
+        key to pattern.resolveSubstitutions(substitution, value, updatedResolver, key).breadCrumb(key)
     }.toMap()
 
     return resolvedValuesMap.mapFoldException()

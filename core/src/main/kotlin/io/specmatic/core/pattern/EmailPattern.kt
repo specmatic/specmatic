@@ -28,7 +28,7 @@ class EmailPattern (private val stringPatternDelegate: StringPattern, val exampl
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        return scalarResolveSubstitutions(substitution, value, key, this)
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {

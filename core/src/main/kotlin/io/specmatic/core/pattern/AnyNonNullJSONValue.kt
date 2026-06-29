@@ -20,7 +20,7 @@ data class AnyNonNullJSONValue(override val pattern: Pattern = AnythingPattern):
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        return scalarResolveSubstitutions(substitution, value, key, this)
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
     override fun encompasses(

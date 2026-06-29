@@ -56,7 +56,7 @@ data class EnumPattern(override val pattern: AnyPattern, val nullable: Boolean) 
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        return scalarResolveSubstitutions(substitution, value, key, this)
+        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {

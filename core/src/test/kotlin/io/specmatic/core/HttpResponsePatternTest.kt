@@ -3,6 +3,7 @@ package io.specmatic.core
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -265,6 +266,56 @@ internal class HttpResponsePatternTest {
             val currentAccountRequestBody = (responses.first { it.discriminatorValue ==  "current"}.value.body as JSONObjectValue)
             assertThat(savingsAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("savings")
             assertThat(currentAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("current")
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should use dictionary backed generation when substitutions are unresolved across response`() {
+            val addressPattern = JSONObjectPattern(
+                typeAlias = "(Address)",
+                pattern = mapOf("street" to StringPattern()),
+            )
+
+            val bodyPattern = JSONObjectPattern(
+                typeAlias = "(PetResponse)",
+                pattern = mapOf(
+                    "message" to StringPattern(),
+                    "addresses" to ListPattern(addressPattern)
+                ),
+            )
+
+            val responsePattern = HttpResponsePattern(
+                status = 200,
+                body = bodyPattern,
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+            )
+
+            val response = HttpResponse(
+                status = 200,
+                headers = mapOf("X-Trace" to "$(missing-trace)"),
+                body = parsedJSONObject("""{"message": "$(missing-message)", "addresses": [{"street": "$(missing-street)"}]}""")
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(PetResponse)" to bodyPattern, "(Address)" to addressPattern),
+                dictionary = Dictionary.fromYaml("""
+                RESPONSE:
+                  HEADER:
+                    X-Trace: trace-from-dictionary
+                PetResponse:
+                  message: done
+                Address:
+                  street: Baker Street
+                """.trimIndent())
+            )
+
+            val resolved = responsePattern.resolveSubstitutions(SubstitutionImpl.empty(), response, resolver).value
+            assertThat(resolved.headers).containsKey("X-Trace")
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"message": "done", "addresses": [{"street": "Baker Street"}]}""")
+            )
         }
     }
 }

@@ -9,8 +9,8 @@ import io.specmatic.core.pattern.HasException
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.JSONArrayPattern
-import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.value.JSONArrayValue
@@ -71,40 +71,37 @@ class SubstitutionImplTest {
 
         assertThat(substitution.isDropDirective(StringValue("no-drop"))).isFalse()
         assertThat(substitution.isDropDirective(StringValue("$(lookupData.dictionary[traceId].dropMessage)"))).isTrue()
-        assertThat(substitution.substitute(StringValue("$(age)"), StringPattern(), null).value).isEqualTo(StringValue("33"))
-        assertThat(substitution.substitute(StringValue("$(code)"), StringPattern(), null).value).isEqualTo(StringValue("X1"))
-        assertThat(substitution.substitute(StringValue("$(name)"), StringPattern(), null).value).isEqualTo(StringValue("Ada"))
-        assertThat(substitution.substitute(StringValue("$(userId)"), StringPattern(), null).value).isEqualTo(StringValue("123"))
-        assertThat(substitution.substitute(StringValue("$(orderId)"), StringPattern(), null).value).isEqualTo(StringValue("456"))
-        assertThat(substitution.substitute(StringValue("$(pageNumber)"), StringPattern(), null).value).isEqualTo(StringValue("2"))
-        assertThat(substitution.substitute(StringValue("$(traceId)"), StringPattern(), null).value).isEqualTo(StringValue("trace-1"))
+        assertThat(substitution.substitute(StringValue("$(age)"), StringPattern()).value).isEqualTo(StringValue("33"))
+        assertThat(substitution.substitute(StringValue("$(code)"), StringPattern()).value).isEqualTo(StringValue("X1"))
+        assertThat(substitution.substitute(StringValue("$(name)"), StringPattern()).value).isEqualTo(StringValue("Ada"))
+        assertThat(substitution.substitute(StringValue("$(userId)"), StringPattern()).value).isEqualTo(StringValue("123"))
+        assertThat(substitution.substitute(StringValue("$(orderId)"), StringPattern()).value).isEqualTo(StringValue("456"))
+        assertThat(substitution.substitute(StringValue("$(pageNumber)"), StringPattern()).value).isEqualTo(StringValue("2"))
+        assertThat(substitution.substitute(StringValue("$(traceId)"), StringPattern()).value).isEqualTo(StringValue("trace-1"))
         assertThat(
-            substitution.resolveIfLookup(StringValue("$(lookupData.dictionary[traceId].message)"), StringPattern())
+            substitution.substitute(StringValue("$(lookupData.dictionary[traceId].message)"), StringPattern()).value
         ).isEqualTo(StringValue("resolved-from-data"))
     }
 
     @Test
     fun `upsertStoreUsing returns new substitution and keeps original unchanged`() {
-        val resolver = Resolver()
-        val original = SubstitutionImpl.empty(resolver, strictMode = true)
-
+        val original = SubstitutionImpl.empty(strictMode = true)
         val updated = original.upsertStoreUsing(
             originalValue = StringValue("(ID:number)"),
             runningValue = NumberValue(10)
         )
 
         assertThat(updated).isNotSameAs(original)
-        assertThat(original.substitute(StringValue("$(ID)"), NumberPattern(), null)).isInstanceOf(HasException::class.java)
+        assertThat(original.substitute(StringValue("$(ID)"), NumberPattern())).isInstanceOf(HasException::class.java)
 
-        val updatedResult = updated.substitute(StringValue("$(ID)"), NumberPattern(), null)
+        val updatedResult = updated.substitute(StringValue("$(ID)"), NumberPattern())
         assertThat(updatedResult).isInstanceOf(HasValue::class.java)
         assertThat((updatedResult as HasValue<*>).value).isEqualTo(NumberValue(10))
     }
 
     @Test
     fun `upsertStoreUsing preserves existing variables and adds new ones`() {
-        val resolver = Resolver()
-        val original = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+        val original = SubstitutionImpl.empty().upsertStoreUsing(
             originalValue = StringValue("(FIRST:number)"),
             runningValue = NumberValue(1)
         )
@@ -121,8 +118,7 @@ class SubstitutionImplTest {
 
     @Test
     fun `upsertStoreUsing overrides existing variables`() {
-        val resolver = Resolver()
-        val first = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+        val first = SubstitutionImpl.empty().upsertStoreUsing(
             originalValue = StringValue("(ID:number)"),
             runningValue = NumberValue(10)
         )
@@ -168,14 +164,13 @@ class SubstitutionImplTest {
         )
 
         assertThat(
-            substitution.resolveIfLookup(StringValue("$(lookupData.dictionary[ID].message)"), StringPattern())
+            substitution.substitute(StringValue("$(lookupData.dictionary[ID].message)"), StringPattern()).value
         ).isEqualTo(StringValue("resolved-from-data"))
     }
 
     @Test
     fun `upsertStoreUsing supports interpolated extraction and substitution end to end`() {
-        val resolver = Resolver()
-        val substitution = SubstitutionImpl.empty(resolver)
+        val substitution = SubstitutionImpl.empty()
 
         val updated = substitution.upsertStoreUsing(
             originalValue = StringValue("order-(ORDER_ID:number)"),
@@ -185,7 +180,6 @@ class SubstitutionImplTest {
         val result = updated.substitute(
             value = StringValue("resolved-$(ORDER_ID)"),
             pattern = StringPattern(),
-            key = null
         )
 
         assertThat(result).isInstanceOf(HasValue::class.java)
@@ -224,7 +218,6 @@ class SubstitutionImplTest {
         val result = substitution.substitute(
             value = StringValue("status-$(lookupData.statusByType[TYPE].status)"),
             pattern = StringPattern(),
-            key = null
         )
 
         assertThat(result).isInstanceOf(HasValue::class.java)
@@ -233,8 +226,7 @@ class SubstitutionImplTest {
 
     @Test
     fun `interpolated simple lookup resolves whole string as number`() {
-        val resolver = Resolver()
-        val substitution = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+        val substitution = SubstitutionImpl.empty().upsertStoreUsing(
             originalValue = StringValue("(ID:number)"),
             runningValue = NumberValue(123)
         )
@@ -242,7 +234,6 @@ class SubstitutionImplTest {
         val result = substitution.substitute(
             value = StringValue("$(ID)"),
             pattern = NumberPattern(),
-            key = null
         )
 
         assertThat(result).isInstanceOf(HasValue::class.java)
@@ -251,7 +242,7 @@ class SubstitutionImplTest {
 
     @Test
     fun `interpolated simple lookup resolves embedded text`() {
-        val substitution = SubstitutionImpl.empty(Resolver()).upsertStoreUsing(
+        val substitution = SubstitutionImpl.empty().upsertStoreUsing(
             originalValue = StringValue("(ID:number)"),
             runningValue = NumberValue(123)
         )
@@ -259,7 +250,6 @@ class SubstitutionImplTest {
         val result = substitution.substitute(
             value = StringValue("order-$(ID)"),
             pattern = StringPattern(),
-            key = null
         )
 
         assertThat(result).isInstanceOf(HasValue::class.java)
@@ -268,14 +258,13 @@ class SubstitutionImplTest {
 
     @Test
     fun `multiple interpolated simple lookups resolve embedded text`() {
-        val substitution = SubstitutionImpl.empty(Resolver())
+        val substitution = SubstitutionImpl.empty()
             .upsertStoreUsing(StringValue("(A:string)"), StringValue("one"))
             .upsertStoreUsing(StringValue("(B:string)"), StringValue("two"))
 
         val result = substitution.substitute(
             value = StringValue("$(A)-$(B)"),
             pattern = StringPattern(),
-            key = null
         )
 
         assertThat(result).isInstanceOf(HasValue::class.java)
@@ -286,7 +275,7 @@ class SubstitutionImplTest {
     inner class ValueOnlySubstitution {
         @Test
         fun `whole simple variable returns stored scalar value as is`() {
-            val substitution = SubstitutionImpl.empty(Resolver()).upsertStoreUsing(
+            val substitution = SubstitutionImpl.empty().upsertStoreUsing(
                 originalValue = StringValue("(id:number)"),
                 runningValue = NumberValue(10)
             )
@@ -315,7 +304,8 @@ class SubstitutionImplTest {
                 )
             )
 
-            val substitution = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+            val substitution = SubstitutionImpl.empty().upsertStoreUsing(
+                resolver = resolver,
                 originalValue = StringValue("(user:User)"),
                 runningValue = StringValue(user.toUnformattedString())
             )
@@ -325,7 +315,7 @@ class SubstitutionImplTest {
 
         @Test
         fun `interpolated simple variable returns string value`() {
-            val substitution = SubstitutionImpl.empty(Resolver()).upsertStoreUsing(
+            val substitution = SubstitutionImpl.empty().upsertStoreUsing(
                 originalValue = StringValue("(name:string)"),
                 runningValue = StringValue("John")
             )
@@ -345,7 +335,8 @@ class SubstitutionImplTest {
             )
 
             val orders = JSONArrayValue(listOf(NumberValue(10), NumberValue(20)))
-            val substitution = SubstitutionImpl.empty(resolver).upsertStoreUsing(
+            val substitution = SubstitutionImpl.empty().upsertStoreUsing(
+                resolver = resolver,
                 originalValue = StringValue("(orders:Orders)"),
                 runningValue = StringValue(orders.toUnformattedString())
             )
@@ -356,7 +347,7 @@ class SubstitutionImplTest {
 
         @Test
         fun `missing variable returns exception`() {
-            val result = SubstitutionImpl.empty(Resolver()).substitute(StringValue("$(missing)"))
+            val result = SubstitutionImpl.empty().substitute(StringValue("$(missing)"))
             assertThat(result).isInstanceOf(HasException::class.java)
         }
 
@@ -377,18 +368,18 @@ class SubstitutionImplTest {
         @Test
         fun `value only resolveIfLookup returns looked up value as is`() {
             val substitution = lookupSubstitution(strictMode = true)
-            assertThat(substitution.resolveIfLookup(StringValue("$(lookupData.dictionary[ID].payload)")))
+            assertThat(substitution.substitute(StringValue("$(lookupData.dictionary[ID].payload)")).value)
                 .isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(10))))
         }
 
         @Test
         fun `pattern aware substitution still parses through pattern`() {
-            val substitution = SubstitutionImpl.empty(Resolver()).upsertStoreUsing(
+            val substitution = SubstitutionImpl.empty().upsertStoreUsing(
                 originalValue = StringValue("(id:number)"),
                 runningValue = NumberValue(10)
             )
 
-            assertThat(substitution.substitute(StringValue("$(id)"), StringPattern(), null))
+            assertThat(substitution.substitute(StringValue("$(id)"), StringPattern()))
                 .isEqualTo(HasValue(StringValue("10")))
         }
     }
@@ -400,7 +391,6 @@ class SubstitutionImplTest {
             val result = substitution(strictMode = false).substitute(
                 value = StringValue("$(MISSING_VAR)"),
                 pattern = ExactValuePattern(StringValue("generated")),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasValue::class.java)
@@ -408,11 +398,32 @@ class SubstitutionImplTest {
         }
 
         @Test
+        fun `simple variable missing uses dictionary backed generation`() {
+            val pattern = JSONObjectPattern(
+                typeAlias = "(Object)",
+                pattern = mapOf("id" to NumberPattern()),
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(Object)" to pattern),
+                dictionary = Dictionary.fromYaml("Object: { id: 123456 }")
+            )
+
+            val result = substitution(strictMode = false).substitute(
+                pattern = pattern,
+                resolver = resolver,
+                value = StringValue("$(MISSING_VAR)"),
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(123456))))
+        }
+
+        @Test
         fun `parse failure falls back to pattern generate`() {
             val result = substitutionWithResolvedVariable(strictMode = false).substitute(
                 value = StringValue("$(ID)"),
                 pattern = NumberPattern(),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasValue::class.java)
@@ -420,11 +431,25 @@ class SubstitutionImplTest {
         }
 
         @Test
+        fun `parse failure falls back to dictionary backed generation`() {
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("""{Object: {Key: 123456}}"""))
+            val updatedResolver = resolver.updateLookupPath("(Object)", KeyWithPattern("Key", NumberPattern()))
+
+            val result = substitutionWithResolvedVariable(strictMode = false).substitute(
+                value = StringValue("$(ID)"),
+                pattern = NumberPattern(),
+                resolver = updatedResolver,
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isEqualTo(NumberValue(123456))
+        }
+
+        @Test
         fun `data lookup missing uses pattern generate`() {
             val result = lookupSubstitution(strictMode = false).substitute(
                 value = StringValue("$(lookupData.dictionary[MISSING_VAR].message)"),
                 pattern = ExactValuePattern(StringValue("generated")),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasValue::class.java)
@@ -435,10 +460,24 @@ class SubstitutionImplTest {
         fun `pattern generation should use dictionary if present`() {
             val resolver = Resolver(dictionary = Dictionary.fromYaml("""{Object: {Key: 123456}}"""))
             val updatedResolver = resolver.updateLookupPath("(Object)", KeyWithPattern("Key", NumberPattern()))
-            val result = substitution(strictMode = false, resolver = updatedResolver).substitute(
-                key = null,
+            val result = substitution(strictMode = false).substitute(
+                pattern = NumberPattern(),
+                resolver = updatedResolver,
+                value = StringValue("$(MISSING_VAR)"),
+            )
+
+            assertThat(result).isInstanceOf(HasValue::class.java)
+            assertThat((result as HasValue<*>).value).isEqualTo(NumberValue(123456))
+        }
+
+        @Test
+        fun `missing variable with key uses resolver dictionary fallback`() {
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("""{Object: {Key: 123456}}"""))
+            val result = substitution(strictMode = false).substitute(
+                key = "Key",
                 pattern = NumberPattern(),
                 value = StringValue("$(MISSING_VAR)"),
+                resolver = resolver.updateLookupPath("(Object)"),
             )
 
             assertThat(result).isInstanceOf(HasValue::class.java)
@@ -453,7 +492,6 @@ class SubstitutionImplTest {
             val result = substitution(strictMode = true).substitute(
                 value = StringValue("order-$(MISSING)"),
                 pattern = StringPattern(),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasException::class.java)
@@ -464,7 +502,6 @@ class SubstitutionImplTest {
             val result = substitution(strictMode = true).substitute(
                 value = StringValue("$(MISSING_VAR)"),
                 pattern = ExactValuePattern(StringValue("generated")),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasException::class.java)
@@ -476,7 +513,6 @@ class SubstitutionImplTest {
             val result = substitutionWithResolvedVariable(strictMode = true).substitute(
                 value = StringValue("$(ID)"),
                 pattern = NumberPattern(),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasException::class.java)
@@ -487,7 +523,6 @@ class SubstitutionImplTest {
             val result = lookupSubstitution(strictMode = true).substitute(
                 value = StringValue("$(lookupData.dictionary[MISSING_VAR].message)"),
                 pattern = ExactValuePattern(StringValue("generated")),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasException::class.java)
@@ -495,7 +530,7 @@ class SubstitutionImplTest {
 
         @Test
         fun `upsertStoreUsing preserves strict mode`() {
-            val substitution = SubstitutionImpl.empty(Resolver(), strictMode = true).upsertStoreUsing(
+            val substitution = SubstitutionImpl.empty(strictMode = true).upsertStoreUsing(
                 originalValue = StringValue("(ID:number)"),
                 runningValue = NumberValue(10)
             )
@@ -503,7 +538,6 @@ class SubstitutionImplTest {
             val result = substitution.substitute(
                 value = StringValue("$(MISSING_VAR)"),
                 pattern = ExactValuePattern(StringValue("generated")),
-                key = null
             )
 
             assertThat(result).isInstanceOf(HasException::class.java)
@@ -511,17 +545,17 @@ class SubstitutionImplTest {
     }
 
     private fun assertResolvedValue(substitution: Substitution, lookup: String, expectedValue: NumberValue) {
-        val result = substitution.substitute(StringValue(lookup), NumberPattern(), null)
+        val result = substitution.substitute(StringValue(lookup), NumberPattern())
         assertThat(result).isInstanceOf(HasValue::class.java)
         assertThat((result as HasValue<*>).value).isEqualTo(expectedValue)
     }
 
-    private fun substitution(strictMode: Boolean, resolver: Resolver = Resolver()): SubstitutionImpl {
-        return SubstitutionImpl.empty(resolver, strictMode = strictMode)
+    private fun substitution(strictMode: Boolean): SubstitutionImpl {
+        return SubstitutionImpl.empty(strictMode = strictMode)
     }
 
     private fun substitutionWithResolvedVariable(strictMode: Boolean): SubstitutionImpl {
-        return SubstitutionImpl.empty(Resolver(), strictMode = strictMode).upsertStoreUsing(
+        return SubstitutionImpl.empty(strictMode = strictMode).upsertStoreUsing(
             originalValue = StringValue("(ID:string)"),
             runningValue = StringValue("not-a-number")
         )
