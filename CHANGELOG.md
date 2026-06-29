@@ -45,6 +45,7 @@ Each release section should stand on its own and describe the behavior shipped i
 - Improved bundled CTRF reporting so coverage execution details now include spec-level coverage metrics and match operations back to the correct spec more reliably across absolute, relative, and normalized paths.
 - Improved bundled backward-compatibility HTML reporting so breakages in shared specs are attributed to the shared spec that actually changed, instead of being misreported against a referring spec when only one consumer is affected.
 - Substitutions to be lenient by default, i.e. missing variables now use auto-generated values, while enabling `strictMode` restores the previous behavior of failing instead of generating.
+- Substitutions stored values and data lookups can reuse composite JSON objects and arrays, and unresolved substitutions now fall back to dictionary-backed generation when available.
 
 ## 2.48.0 (2026-06-18)
 

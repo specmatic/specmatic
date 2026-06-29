@@ -10,6 +10,7 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.JSONArrayPattern
 import io.specmatic.core.pattern.JSONObjectPattern
+import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.parsedValue
@@ -314,6 +315,39 @@ class SubstitutionImplTest {
         }
 
         @Test
+        fun `whole simple variables return stored composite object and array values as is`() {
+            val profilePattern = JSONObjectPattern(
+                pattern = mapOf("name" to StringPattern()),
+                typeAlias = "(Profile)"
+            )
+
+            val petPattern = JSONObjectPattern(
+                pattern = mapOf("name" to StringPattern()),
+                typeAlias = "(Pet)"
+            )
+
+            val petsPattern = ListPattern(petPattern, typeAlias = "(Pets)")
+            val resolver = Resolver(newPatterns = mapOf("(Profile)" to profilePattern, "(Pet)" to petPattern, "(Pets)" to petsPattern))
+
+            val profile = parsedValue("""{"name":"Sherlock"}""")
+            val pets = parsedValue("""[{"name":"Dog"},{"name":"Cat"}]""")
+            val substitution = SubstitutionImpl.empty()
+                .upsertStoreUsing(
+                    resolver = resolver,
+                    originalValue = StringValue("(profile:Profile)"),
+                    runningValue = StringValue(profile.toUnformattedString())
+                )
+                .upsertStoreUsing(
+                    resolver = resolver,
+                    originalValue = StringValue("(pets:Pets)"),
+                    runningValue = StringValue(pets.toUnformattedString())
+                )
+
+            assertThat(substitution.substitute(StringValue("$(profile)"))).isEqualTo(HasValue(profile))
+            assertThat(substitution.substitute(StringValue("$(pets)"))).isEqualTo(HasValue(pets))
+        }
+
+        @Test
         fun `interpolated simple variable returns string value`() {
             val substitution = SubstitutionImpl.empty().upsertStoreUsing(
                 originalValue = StringValue("(name:string)"),
@@ -356,6 +390,15 @@ class SubstitutionImplTest {
             val substitution = lookupSubstitution(strictMode = true)
             assertThat(substitution.substitute(StringValue("$(lookupData.dictionary[ID].payload)")))
                 .isEqualTo(HasValue(JSONObjectValue(mapOf("id" to NumberValue(10)))))
+        }
+
+        @Test
+        fun `whole data lookup returns looked up composite object and array values as is`() {
+            val substitution = lookupSubstitution(strictMode = true)
+            assertThat(substitution.substitute(StringValue("$(lookupData.dictionary[ID].payload)")))
+                .isEqualTo(HasValue(JSONObjectValue(mapOf("id" to NumberValue(10)))))
+            assertThat(substitution.substitute(StringValue("$(lookupData.dictionary[ID].items)")))
+                .isEqualTo(HasValue(JSONArrayValue(listOf(NumberValue(10), NumberValue(20)))))
         }
 
         @Test
@@ -575,7 +618,8 @@ class SubstitutionImplTest {
                                 "1" to JSONObjectValue(
                                     mapOf(
                                         "message" to StringValue("resolved"),
-                                        "payload" to JSONObjectValue(mapOf("id" to NumberValue(10)))
+                                        "payload" to JSONObjectValue(mapOf("id" to NumberValue(10))),
+                                        "items" to JSONArrayValue(listOf(NumberValue(10), NumberValue(20)))
                                     )
                                 )
                             )
