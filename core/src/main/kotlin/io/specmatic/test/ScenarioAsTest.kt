@@ -21,6 +21,7 @@ import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.ReturnFailure
 import io.specmatic.core.pattern.ReturnValue
 import io.specmatic.core.substitution.SubstitutionImpl
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.test.ContractTest.Companion.updateBasedOnResponseIfNegativeGeneration
 import io.specmatic.test.fixtures.FixtureExecutionMetadata
 import io.specmatic.test.interceptor.ContractTestInterceptor
@@ -54,7 +55,10 @@ data class ScenarioAsTest(
     private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
     private val requestValidator: RequestValidator = DefaultRequestValidator,
     val reasoning: Reasoning = Reasoning(),
-    private val substitution: Substitution = SubstitutionImpl.empty(strictMode = feature.specmaticConfig.getTestStrictMode() ?: feature.strictMode),
+    private val substitution: Substitution = SubstitutionImpl.empty(
+        data = scenario.exampleRow?.scenarioStub?.data ?: JSONObjectValue(),
+        strictMode = feature.specmaticConfig.getTestStrictMode() ?: feature.strictMode
+    ),
 ) : ContractTest {
     companion object {
         private var id: Value? = null
