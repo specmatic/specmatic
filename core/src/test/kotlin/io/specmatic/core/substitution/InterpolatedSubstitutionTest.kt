@@ -1,8 +1,14 @@
 package io.specmatic.core.substitution
 
+import io.specmatic.core.Resolver
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.value.BooleanValue
+import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class InterpolatedSubstitutionTest {
@@ -13,7 +19,7 @@ class InterpolatedSubstitutionTest {
             running = "order-123"
         )
 
-        assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+        assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123)))
     }
 
     @Test
@@ -23,7 +29,7 @@ class InterpolatedSubstitutionTest {
             running = "order-123-item-456"
         )
 
-        assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123", "ITEM_ID" to "456"))
+        assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123), "ITEM_ID" to NumberValue(456)))
     }
 
     @Test
@@ -54,7 +60,7 @@ class InterpolatedSubstitutionTest {
             running = "hello (world) id-123"
         )
 
-        assertThat(result).isEqualTo(mapOf("ID" to "123"))
+        assertThat(result).isEqualTo(mapOf("ID" to NumberValue(123)))
     }
 
     @Test
@@ -102,24 +108,83 @@ class InterpolatedSubstitutionTest {
             running = "10-again-10"
         )
 
-        assertThat(result).isEqualTo(mapOf("ID" to "10"))
+        assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
     }
 
     @Test
     fun `resolves interpolated lookups`() {
         val result = InterpolatedSubstitution.resolve("prefix-$(ID)-suffix") { token ->
             when (token) {
-                "$(ID)" -> "123"
-                else -> token
+                "$(ID)" -> StringValue("123")
+                else -> StringValue(token)
             }
         }
 
-        assertThat(result).isEqualTo("prefix-123-suffix")
+        assertThat(result).isEqualTo(StringValue("prefix-123-suffix"))
+    }
+
+    @Test
+    fun `returns resolved value unchanged for exact lookup token`() {
+        val result = InterpolatedSubstitution.resolve("$(ID)") { token ->
+            when (token) {
+                "$(ID)" -> NumberValue(123)
+                else -> StringValue(token)
+            }
+        }
+
+        assertThat(result).isEqualTo(NumberValue(123))
+    }
+
+    @Test
+    fun `uses unformatted string for embedded non string lookup value`() {
+        val result = InterpolatedSubstitution.resolve("prefix-$(ID)-suffix") { token ->
+            when (token) {
+                "$(ID)" -> NumberValue(123)
+                else -> StringValue(token)
+            }
+        }
+
+        assertThat(result).isEqualTo(StringValue("prefix-123-suffix"))
     }
 
     @Test
     fun `detects lookup tokens`() {
         assertThat(InterpolatedSubstitution.containsLookup("order-$(ID)")).isTrue()
         assertThat(InterpolatedSubstitution.containsLookup("prefix-abc")).isFalse()
+    }
+
+    @Nested
+    inner class TypedExtraction {
+        @Test
+        fun `parses built in boolean type`() {
+            val result = InterpolatedSubstitution.extractVariables(
+                original = "flag-(FLAG:boolean)",
+                running = "flag-true"
+            )
+
+            assertThat(result).isEqualTo(mapOf("FLAG" to BooleanValue(true)))
+        }
+
+        @Test
+        fun `falls back to string value when built in type parse fails`() {
+            val result = InterpolatedSubstitution.extractVariables(
+                original = "id-(ID:number)",
+                running = "id-abc"
+            )
+
+            assertThat(result).isEqualTo(mapOf("ID" to StringValue("abc")))
+        }
+
+        @Test
+        fun `parses custom resolver type not in built ins`() {
+            val resolver = Resolver(newPatterns = mapOf("(special)" to NumberPattern()))
+            val result = InterpolatedSubstitution.extractVariables(
+                original = "custom-(CUSTOM:special)",
+                running = "custom-42",
+                resolver = resolver
+            )
+
+            assertThat(result).isEqualTo(mapOf("CUSTOM" to NumberValue(42)))
+        }
     }
 }

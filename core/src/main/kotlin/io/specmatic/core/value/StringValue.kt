@@ -3,6 +3,8 @@ package io.specmatic.core.value
 import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
+import io.specmatic.core.value.fold.TextValueCase
+import io.specmatic.core.value.fold.ValueVisitor
 import io.ktor.http.*
 import org.apache.commons.lang3.StringEscapeUtils
 import org.w3c.dom.Document
@@ -10,6 +12,17 @@ import org.w3c.dom.Node
 
 data class StringValue(val string: String = "", private val xml: Boolean) : Value, ScalarValue, XMLValue {
     constructor(string: String = "") : this(string, false)
+
+    override fun <C, R> accept(visitor: ValueVisitor<C, R>, context: C): R {
+        return visitor.text(
+            case = TextValueCase(
+                value = this,
+                text = string,
+                context = context,
+                replaceText = { newText -> copy(string = newText) }
+            )
+        )
+    }
 
     override val httpContentType = "text/plain"
 

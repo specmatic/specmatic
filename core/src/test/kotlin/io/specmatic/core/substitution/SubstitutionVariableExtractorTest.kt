@@ -1,6 +1,9 @@
 package io.specmatic.core.substitution
 
+import io.specmatic.core.Resolver
+import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.value.JSONArrayValue
+import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
@@ -23,7 +26,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = StringValue("10")
                 )
 
-                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+                assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
             }
 
             @Test
@@ -33,7 +36,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = NumberValue(10)
                 )
 
-                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+                assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
             }
 
             @Test
@@ -68,7 +71,7 @@ class SubstitutionVariableExtractorTest {
                     )
                 )
 
-                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+                assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
             }
 
             @Test
@@ -86,7 +89,7 @@ class SubstitutionVariableExtractorTest {
                     )
                 )
 
-                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123)))
             }
 
             @Test
@@ -141,7 +144,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = JSONArrayValue(listOf(NumberValue(10)))
                 )
 
-                assertThat(result).isEqualTo(mapOf("ID" to "10"))
+                assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
             }
 
             @Test
@@ -151,7 +154,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = JSONArrayValue(listOf(StringValue("order-123")))
                 )
 
-                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123)))
             }
 
             @Test
@@ -195,7 +198,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = JSONArrayValue(listOf(NumberValue(10)))
                 )
 
-                assertThat(result).isEqualTo(mapOf("FIRST" to "10"))
+                assertThat(result).isEqualTo(mapOf("FIRST" to NumberValue(10)))
             }
         }
 
@@ -208,7 +211,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = StringValue("order-123")
                 )
 
-                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123)))
             }
 
             @Test
@@ -218,7 +221,7 @@ class SubstitutionVariableExtractorTest {
                     runningValue = StringValue("order-123-item-456")
                 )
 
-                assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123", "ITEM_ID" to "456"))
+                assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123), "ITEM_ID" to NumberValue(456)))
             }
 
             @Test
@@ -263,6 +266,54 @@ class SubstitutionVariableExtractorTest {
                 }.isInstanceOf(ContractException::class.java)
                     .hasMessageContaining("Conflicting extracted values")
             }
+
+            @Test
+            fun `falls back to string value when typed parse fails`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("(ID:number)"),
+                    runningValue = StringValue("abc")
+                )
+
+                assertThat(result).isEqualTo(mapOf("ID" to StringValue("abc")))
+            }
+        }
+
+        @Nested
+        inner class ResolverAware {
+            @Test
+            fun `parses built in boolean through resolver backed extraction`() {
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONObjectValue(mapOf("active" to StringValue("(ACTIVE:boolean)"))),
+                    runningValue = JSONObjectValue(mapOf("active" to StringValue("true"))),
+                    resolver = Resolver()
+                )
+
+                assertThat(result).isEqualTo(mapOf("ACTIVE" to BooleanValue(true)))
+            }
+
+            @Test
+            fun `parses custom resolver type not in built ins`() {
+                val resolver = Resolver(newPatterns = mapOf("(special)" to NumberPattern()))
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = JSONArrayValue(listOf(StringValue("(ID:special)"))),
+                    runningValue = JSONArrayValue(listOf(NumberValue(10))),
+                    resolver = resolver
+                )
+
+                assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
+            }
+
+            @Test
+            fun `falls back to string when custom resolver type parse fails`() {
+                val resolver = Resolver(newPatterns = mapOf("(special)" to NumberPattern()))
+                val result = SubstitutionVariableExtractor.fromValues(
+                    originalValue = StringValue("(ID:special)"),
+                    runningValue = StringValue("abc"),
+                    resolver = resolver
+                )
+
+                assertThat(result).isEqualTo(mapOf("ID" to StringValue("abc")))
+            }
         }
 
         @Test
@@ -282,7 +333,7 @@ class SubstitutionVariableExtractorTest {
                 )
             )
 
-            assertThat(result).isEqualTo(mapOf("ID" to "20"))
+            assertThat(result).isEqualTo(mapOf("ID" to NumberValue(20)))
         }
     }
 
@@ -295,7 +346,7 @@ class SubstitutionVariableExtractorTest {
                 runningMap = mapOf("X-ID" to "10")
             )
 
-            assertThat(result).isEqualTo(mapOf("ID" to "10"))
+            assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
         }
 
         @Test
@@ -305,7 +356,7 @@ class SubstitutionVariableExtractorTest {
                 runningMap = mapOf("X-ID" to "order-10")
             )
 
-            assertThat(result).isEqualTo(mapOf("ID" to "10"))
+            assertThat(result).isEqualTo(mapOf("ID" to NumberValue(10)))
         }
 
         @Test
@@ -329,7 +380,7 @@ class SubstitutionVariableExtractorTest {
                 runningPath = "/orders/123"
             )
 
-            assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+            assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123)))
         }
 
         @Test
@@ -339,7 +390,7 @@ class SubstitutionVariableExtractorTest {
                 runningPath = "/orders/order-123"
             )
 
-            assertThat(result).isEqualTo(mapOf("ORDER_ID" to "123"))
+            assertThat(result).isEqualTo(mapOf("ORDER_ID" to NumberValue(123)))
         }
 
         @Test

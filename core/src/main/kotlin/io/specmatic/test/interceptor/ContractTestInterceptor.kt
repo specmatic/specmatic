@@ -29,8 +29,20 @@ interface ContractTestInterceptor {
     ): InterceptResult<Substitution>
 
     companion object {
-        fun load(): ContractTestInterceptor?  {
-            return ServiceLoader.load(ContractTestInterceptor::class.java).firstNotNullOfOrNull { it }
+        private val loaderOverride = ThreadLocal<(() -> ContractTestInterceptor?)?>()
+
+        fun load(): ContractTestInterceptor? {
+            return loaderOverride.get()?.invoke()
+                ?: ServiceLoader.load(ContractTestInterceptor::class.java).firstNotNullOfOrNull { it }
+        }
+
+        internal fun <T> withLoaderForTest(loader: () -> ContractTestInterceptor?, block: () -> T): T {
+            loaderOverride.set(loader)
+            return try {
+                block()
+            } finally {
+                loaderOverride.remove()
+            }
         }
     }
 }

@@ -12,7 +12,8 @@ data class HttpStubResponse(
     val feature: Feature? = null,
     val scenario: Scenario? = null,
     val mock: HttpStubData? = null,
-    val isInternalStubPath: Boolean = false
+    val isInternalStubPath: Boolean = false,
+    val strictMode: Boolean = false
 ) {
     val responseBody = response.body
 
@@ -24,7 +25,13 @@ data class HttpStubResponse(
         if(scenario == null)
             return this
 
-        val updatedResponse = scenario.resolveSubstitutions(request, originalRequest, response, data)
+        val updatedResponse = scenario.resolveSubstitutions(
+            data = data,
+            request = request,
+            response = response,
+            originalRequest = originalRequest,
+            strictMode = strictMode,
+        )
 
         return this.copy(response = updatedResponse)
     }

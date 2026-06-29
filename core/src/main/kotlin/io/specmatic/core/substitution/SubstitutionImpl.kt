@@ -15,16 +15,17 @@ import io.specmatic.core.value.Value
 
 class SubstitutionImpl private constructor(
     private val resolver: Resolver,
-    private val variableValues: Map<String, String> = emptyMap(),
+    private val strictMode: Boolean = false,
+    private val variableValues: Map<String, Value> = emptyMap(),
     private val data: JSONObjectValue = JSONObjectValue(emptyMap()),
 ) : Substitution {
-    private fun substituteSimpleVariableLookup(string: String): String {
+    private fun substituteSimpleVariableLookup(string: String): Value {
         val name = string.trim().removeSurrounding("$(", ")")
         return variableValues[name]
             ?: throw ContractException("Could not resolve expression $string as no variable by the name $name was found")
     }
 
-    private fun substituteDataLookupExpression(value: String): String {
+    private fun substituteDataLookupExpression(value: String): Value {
         val pieces = value.removeSurrounding("$(", ")").split('.')
 
         val lookupSyntaxErrorMessage =
@@ -51,7 +52,7 @@ class SubstitutionImpl private constructor(
         val dictionary: JSONObjectValue = dictionaryValue as? JSONObjectValue
             ?: throw ContractException("Dictionary $lookupStoreName.$dictionaryName should be an object")
 
-        val dictionaryLookupValue = variableValues[dictionaryLookupVariableName] ?: "*"
+        val dictionaryLookupValue = variableValues[dictionaryLookupVariableName]?.toStringLiteral() ?: "*"
 
         val finalObject = dictionary.findFirstChildByPath(dictionaryLookupValue) ?: dictionary.findFirstChildByPath("*")
             ?: throw MissingDataException("Could not resolve lookup expression $value because variable $lookupStoreName.$dictionaryName[$dictionaryLookupVariableName] does not exist")
@@ -62,7 +63,7 @@ class SubstitutionImpl private constructor(
         val valueToReturn = finalObjectDictionary.findFirstChildByPath(keyName)
             ?: throw ContractException("Could not resolve lookup expression $value because value $keyName in $lookupStoreName.$dictionaryName[$dictionaryLookupVariableName] does not exist")
 
-        return valueToReturn.toStringLiteral()
+        return valueToReturn
     }
 
     private fun isDataLookup(value: String): Boolean {
@@ -75,24 +76,51 @@ class SubstitutionImpl private constructor(
     private fun isLookup(value: String) =
         value.startsWith("$(") && value.endsWith(")")
 
-    private fun resolveValue(value: StringValue): String {
+    private fun resolveValue(value: StringValue): Value {
         return InterpolatedSubstitution.resolve(value.string) { token ->
             when {
                 isDataLookup(token) -> substituteDataLookupExpression(token)
                 isSimpleVariableLookup(token) -> substituteSimpleVariableLookup(token)
-                else -> token
+                else -> StringValue(token)
             }
         }
     }
 
+    private fun unresolvedSubstitutionFallback(value: StringValue, pattern: Pattern, e: Throwable): ReturnValue<Value> {
+        if (strictMode) return HasException(e)
+        logger.log(e, "Could not resolve substitution expression ${value.string}, using generated value instead")
+        return runCatching { resolver.generate(pattern) }.map(::HasValue).getOrElse(::HasException)
+    }
+
+    override fun substitute(value: Value): ReturnValue<Value> {
+        if (value !is StringValue) return HasValue(value)
+        if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
+        return runCatching { HasValue(resolveValue(value)) }.getOrElse(::HasException)
+    }
+
     override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
-        return try {
-            if (value !is StringValue) return HasValue(value)
-            if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
-            val updatedString = resolveValue(value)
-            HasValue(pattern.parse(updatedString, resolver))
-        } catch (e: Throwable) {
-            HasException(e)
+        if (value !is StringValue) return HasValue(value)
+        if (!InterpolatedSubstitution.containsLookup(value.string)) return HasValue(value)
+
+        val resolvedValue = runCatching { resolveValue(value) }.getOrElse { e ->
+            return unresolvedSubstitutionFallback(value, pattern, e)
+        }
+
+        return runCatching { HasValue(pattern.parse(resolvedValue.toUnformattedString(), resolver)) }.getOrElse { e ->
+            return unresolvedSubstitutionFallback(value, pattern, e)
+        }
+    }
+
+    override fun resolveIfLookup(value: Value): Value {
+        if (value !is StringValue) return value
+        val text = value.nativeValue
+
+        if (!isDataLookup(text)) return value
+        return runCatching {
+            substituteDataLookupExpression(text)
+        }.getOrElse { e ->
+            logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
+            value
         }
     }
 
@@ -103,7 +131,7 @@ class SubstitutionImpl private constructor(
         val resolvedValue = runCatching { substituteDataLookupExpression(strValue) }.getOrElse { e ->
             logger.debug(e, "Error resolving data lookup expression ${value.string}, using original value")
             return value
-        }
+        }.toUnformattedString()
 
         return runCatching { pattern.parse(resolvedValue, resolver) }.getOrDefault(StringValue(resolvedValue))
     }
@@ -111,12 +139,12 @@ class SubstitutionImpl private constructor(
     override fun isDropDirective(value: Value): Boolean {
         val strValue = (value as? StringValue)?.nativeValue ?: return false
 
-        val resolved =
+        val resolved: String =
             if (!isDataLookup(strValue)) {
                 strValue
             } else {
                 try {
-                    substituteDataLookupExpression(strValue)
+                    substituteDataLookupExpression(strValue).toUnformattedString()
                 } catch (e: Throwable) {
                     logger.debug(e, "Failed to check for drop directive")
                     strValue
@@ -126,15 +154,17 @@ class SubstitutionImpl private constructor(
         return resolved == DROP_DIRECTIVE
     }
 
-    override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution {
+    override fun upsertStoreUsing(originalValue: Value, runningValue: Value): SubstitutionImpl {
         val extractedVariables = SubstitutionVariableExtractor.fromValues(
             originalValue = originalValue,
-            runningValue = runningValue
+            runningValue = runningValue,
+            resolver = resolver
         )
 
         return SubstitutionImpl(
             data = data,
             resolver = resolver,
+            strictMode = strictMode,
             variableValues = variableValues + extractedVariables,
         )
     }
@@ -142,33 +172,43 @@ class SubstitutionImpl private constructor(
     companion object {
         const val DROP_DIRECTIVE = "$(drop)"
 
-        fun empty(resolver: Resolver): SubstitutionImpl {
-            return SubstitutionImpl(resolver = resolver)
+        fun empty(resolver: Resolver, strictMode: Boolean = false): SubstitutionImpl {
+            return SubstitutionImpl(resolver = resolver, strictMode = strictMode)
         }
 
-        fun from(runningRequest: HttpRequest, originalRequest: HttpRequest, data: JSONObjectValue, resolver: Resolver): SubstitutionImpl {
+        fun from(
+            runningRequest: HttpRequest,
+            originalRequest: HttpRequest,
+            data: JSONObjectValue,
+            resolver: Resolver,
+            strictMode: Boolean = false,
+        ): SubstitutionImpl {
             val variableValuesFromHeaders = SubstitutionVariableExtractor.fromMap(
+                resolver = resolver,
+                runningMap = runningRequest.headers,
                 originalMap = originalRequest.headers,
-                runningMap = runningRequest.headers
             )
 
             val variableValuesFromRequestBody = SubstitutionVariableExtractor.fromValues(
+                resolver = resolver,
+                runningValue = runningRequest.body,
                 originalValue = originalRequest.body,
-                runningValue = runningRequest.body
             )
 
             val variableValuesFromQueryParams = SubstitutionVariableExtractor.fromMap(
+                resolver = resolver,
+                runningMap = runningRequest.queryParams.asMap(),
                 originalMap = originalRequest.queryParams.asMap(),
-                runningMap = runningRequest.queryParams.asMap()
             )
 
             val variableValuesFromPath = SubstitutionVariableExtractor.fromPath(
+                resolver = resolver,
+                runningPath = runningRequest.path,
                 originalPath = originalRequest.path,
-                runningPath = runningRequest.path
             )
 
             val variableValues = variableValuesFromHeaders + variableValuesFromRequestBody + variableValuesFromQueryParams + variableValuesFromPath
-            return SubstitutionImpl(variableValues = variableValues, resolver = resolver, data = data)
+            return SubstitutionImpl(variableValues = variableValues, resolver = resolver, data = data, strictMode = strictMode)
         }
     }
 }

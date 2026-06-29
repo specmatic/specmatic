@@ -1106,10 +1106,12 @@ data class HttpRequestPattern(
         originalRequest: HttpRequest,
         data: JSONObjectValue,
         resolver: Resolver,
+        strictMode: Boolean,
     ): Substitution {
         return SubstitutionImpl.from(
             data = data,
             resolver = resolver,
+            strictMode = strictMode,
             runningRequest = runningRequest,
             originalRequest = originalRequest,
         )

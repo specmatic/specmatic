@@ -5,8 +5,26 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.*
+import io.specmatic.core.value.fold.Field
+import io.specmatic.core.value.fold.FieldObjectValueCase
+import io.specmatic.core.value.fold.ValueVisitor
 
 data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Value, JSONComposite {
+    override fun <C, R> accept(visitor: ValueVisitor<C, R>, context: C): R {
+        return visitor.fieldObject(
+            case = FieldObjectValueCase(
+                value = this,
+                context = context,
+                fields = {
+                    jsonObject.map { (name, child) -> Field(name = name, value = child) }
+                },
+                rebuild = { fields ->
+                    copy(jsonObject = fields.associate { field -> field.name to field.value })
+                }
+            )
+        )
+    }
+
     override val httpContentType = "application/json"
 
     override fun valueErrorSnippet(): String {
