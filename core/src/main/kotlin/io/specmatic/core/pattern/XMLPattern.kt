@@ -18,10 +18,6 @@ private const val XML_RANDOM_NUMBER_CEILING = 3
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
 private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
-private const val XML_SCHEMA_INSTANCE_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
-private const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
-
-private data class WSDLTypeName(val namespace: String, val localName: String)
 
 private sealed class WSDLTypeSelection {
     data class Use(val pattern: Pattern) : WSDLTypeSelection()
@@ -1290,24 +1286,6 @@ private fun XMLNode.xsiTypeName(): WSDLTypeName? {
     }.getOrNull()
 }
 
-private fun XMLTypeData.xsiTypeName(): WSDLTypeName? {
-    val attribute = attributes.keys.firstOrNull { attributeName ->
-        attributeName.substringAfter(":") == "type" &&
-                (attributeNamespaceUri(attributeName) == XML_SCHEMA_INSTANCE_NAMESPACE ||
-                        attributeName.substringBefore(":", "") == "xsi")
-    } ?: return null
-
-    val value = (attributes.getValue(attribute) as? ExactValuePattern)?.pattern?.toStringLiteral() ?: return null
-    val prefix = value.namespacePrefix()
-    val namespace = when {
-        prefix.isBlank() -> namespaceUri.orEmpty()
-        prefix == "xs" || prefix == "xsd" -> XML_SCHEMA_NAMESPACE
-        else -> attributes["xmlns:$prefix"]?.let { (it as? ExactValuePattern)?.pattern?.toStringLiteral() }.orEmpty()
-    }
-
-    return WSDLTypeName(namespace, value.localName())
-}
-
 private fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
     return newPatterns.values.firstNotNullOfOrNull { pattern ->
         pattern.findPatternForWSDLType(typeName)
@@ -1359,12 +1337,6 @@ private fun Pattern.wsdlTypeName(): WSDLTypeName? {
     }
 }
 
-private fun XMLTypeData.wsdlTypeName(): WSDLTypeName? {
-    val namespace = wsdlTypeNamespace ?: return null
-    val name = wsdlTypeName ?: return null
-    return WSDLTypeName(namespace, name)
-}
-
 private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {
     val typePrefix = pattern.prefixForNamespace(typeName.namespace) ?: pattern.prefixForElementNamespace(typeName.namespace) ?: pattern.availableNamespacePrefix()
     val typeAttributeValue = listOf(typePrefix, typeName.localName).filter(String::isNotBlank).joinToString(":")
@@ -1377,41 +1349,6 @@ private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {
             attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf("xsi:type" to XML_SCHEMA_INSTANCE_NAMESPACE)
         )
     )
-}
-
-private fun XMLTypeData.namespaceAttributesForXSIType(typeNamespace: String, typePrefix: String): Map<String, Pattern> {
-    val xsiNamespaceAttribute = "xmlns:xsi" to ExactValuePattern(StringValue(XML_SCHEMA_INSTANCE_NAMESPACE))
-    val typeNamespaceAttribute = when {
-        typePrefix.isBlank() -> null
-        prefixForNamespace(typeNamespace) != null -> null
-        else -> "xmlns:$typePrefix" to ExactValuePattern(StringValue(typeNamespace))
-    }
-
-    return listOfNotNull(xsiNamespaceAttribute, typeNamespaceAttribute).toMap()
-}
-
-private fun XMLTypeData.prefixForNamespace(namespace: String): String? {
-    return attributes.entries.firstNotNullOfOrNull { (attributeName, pattern) ->
-        if (!attributeName.startsWith("xmlns:")) return@firstNotNullOfOrNull null
-
-        val attributeValue = (pattern as? ExactValuePattern)?.pattern?.toStringLiteral()
-        attributeName.removePrefix("xmlns:").takeIf { attributeValue == namespace }
-    }
-}
-
-private fun XMLTypeData.prefixForElementNamespace(namespace: String): String? {
-    val prefix = realName.namespacePrefix()
-    return prefix.takeIf { it.isNotBlank() && namespaceUri == namespace }
-}
-
-private fun XMLTypeData.availableNamespacePrefix(): String {
-    val prefixesInUse = attributes.keys
-        .filter { it.startsWith("xmlns:") }
-        .map { it.removePrefix("xmlns:") }
-        .toSet()
-
-    return (listOf("tns") + (1..100).map { index -> "ns$index" })
-        .first { prefix -> prefix !in prefixesInUse }
 }
 
 private fun Pattern.isDerivedFrom(baseType: WSDLTypeName?, resolver: Resolver): Boolean {
