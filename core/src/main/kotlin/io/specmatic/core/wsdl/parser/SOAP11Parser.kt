@@ -5,6 +5,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.xmlNode
@@ -19,6 +20,7 @@ import io.specmatic.core.wsdl.payload.SoapPayloadType
 import java.net.URI
 
 const val TYPE_NODE_NAME = "SPECMATIC_TYPE"
+private const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
 private data class QualifiedMessageName(
     val qualification: NamespaceQualification?,
@@ -260,6 +262,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         val specmaticTypeName =
             "${operationName.replace(":", "_")}_SOAPHeader_${soapMessageType.messageTypeName.capitalizeFirstChar()}_$bindingPartName"
         val typeInfo = topLevelElement.deriveSpecmaticTypes(specmaticTypeName, existingTypes, emptySet())
+            .withWSDLTypeLookupIndex(fullyQualifiedName.namespace)
         val headerNode = RequestHeaders.withOccurrence(typeInfo.nodes.first() as XMLNode, occurrence)
         val namespaces = wsdl.getNamespaces(typeInfo)
 
@@ -321,6 +324,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         val topLevelElement = wsdl.getSOAPElement(fullyQualifiedName)
         val specmaticTypeName = "${operationName.replace(":", "_")}_SOAPPayload_${soapMessageType.messageTypeName.capitalizeFirstChar()}"
         val typeInfo = topLevelElement.deriveSpecmaticTypes(specmaticTypeName, existingTypes, emptySet())
+            .withWSDLTypeLookupIndex(fullyQualifiedName.namespace)
         val namespaces = wsdl.getNamespaces(typeInfo)
         val nodeNameForSOAPBody = (typeInfo.nodes.first() as XMLNode).realName
         val soapPayload = topLevelElement.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
@@ -356,11 +360,114 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
         val specmaticTypeName = "${operationName.replace(":", "_")}${soapMessageType.messageTypeName.capitalizeFirstChar()} "
         val typeInfo = topLevelElement.deriveSpecmaticTypes(specmaticTypeName, existingTypes, emptySet())
+            .withWSDLTypeLookupIndex(fullyQualifiedTypeName.namespace)
         val namespaces = wsdl.getNamespaces(typeInfo)
         val nodeNameForSOAPBody = (typeInfo.nodes.first() as XMLNode).realName
         val soapPayload = topLevelElement.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
 
         return SoapPayloadType(typeInfo.types, soapPayload)
+    }
+
+    private fun WSDLTypeInfo.withWSDLTypeLookupIndex(namespace: String): WSDLTypeInfo {
+        val indexableTypes = wsdl.typeNodesNeededForWSDLTypeLookup(namespace)
+        if (indexableTypes.isEmpty()) {
+            return withoutWSDLTypeMetadata()
+        }
+
+        val types = indexableTypes.registerAsWSDLLookupTypes(namespace, this.types)
+        return copy(types = types)
+    }
+
+    private fun WSDLTypeInfo.withoutWSDLTypeMetadata(): WSDLTypeInfo {
+        return copy(
+            members = members.map { it.withoutWSDLTypeMetadata() },
+            types = types.filterValues { it.isReusableWSDLType() }
+                .mapValues { (_, pattern) -> pattern.withoutWSDLTypeMetadata() },
+            wsdlTypeNamespace = null,
+            wsdlTypeName = null,
+            wsdlBaseTypeNamespace = null,
+            wsdlBaseTypeName = null,
+        )
+    }
+
+    private fun Pattern.withoutWSDLTypeMetadata(): Pattern {
+        return when (this) {
+            is XMLPattern -> copy(pattern = pattern.copy(
+                nodes = pattern.nodes.map { it.withoutWSDLTypeMetadata() },
+                wsdlTypeNamespace = null,
+                wsdlTypeName = null,
+                wsdlBaseTypeNamespace = null,
+                wsdlBaseTypeName = null,
+            ))
+            else -> this
+        }
+    }
+
+    private fun Pattern.isReusableWSDLType(): Boolean {
+        return when (this) {
+            is XMLPattern -> pattern.name == TYPE_NODE_NAME
+            else -> true
+        }
+    }
+
+    private fun WSDL.typeNodesNeededForWSDLTypeLookup(namespace: String): List<XMLNode> {
+        val namedTypes = namedTypeNodes(namespace)
+        return namedTypes.takeIf { types -> types.any { it.hasActionableDerivation() } }.orEmpty()
+    }
+
+    private fun List<XMLNode>.registerAsWSDLLookupTypes(
+        namespace: String,
+        existingTypes: Map<String, Pattern>
+    ): Map<String, Pattern> {
+        return fold(existingTypes) { accumulatedTypes, typeNode ->
+            val name = typeNode.getAttributeValue("name")
+            val schemaTypeName = FullyQualifiedName(typeNode.prefixFor(namespace), namespace, name)
+            val schemaSpecmaticTypeName = specmaticTypeName(schemaTypeName.qName)
+
+            if (schemaSpecmaticTypeName in accumulatedTypes) {
+                accumulatedTypes
+            } else {
+                val schemaElement = when (typeNode.name) {
+                    "complexType" -> ComplexElement(schemaTypeName.qName, typeNode, wsdl)
+                    "simpleType" -> SimpleElement(schemaTypeName.qName, typeNode, wsdl, simpleTypeNode = typeNode)
+                    else -> throw ContractException("Named schema node ${typeNode.name} cannot be used as an xsi:type target")
+                }
+
+                val schemaTypeInfo = schemaElement.deriveSpecmaticTypes(
+                    schemaSpecmaticTypeName,
+                    accumulatedTypes,
+                    accumulatedTypes.keys
+                )
+
+                accumulatedTypes.plus(schemaTypeInfo.types)
+            }
+        }
+    }
+
+    private fun XMLNode.prefixFor(namespace: String): String {
+        return namespaces.entries.firstOrNull { it.value == namespace }?.key
+            ?: wsdl.getSchemaNamespacePrefix(namespace)
+    }
+
+    private fun XMLNode.hasActionableDerivation(): Boolean {
+        return derivationNode()?.hasBaseOutsideXMLSchemaNamespace() == true
+    }
+
+    private fun XMLNode.derivationNode(): XMLNode? {
+        val directRestriction = findFirstChildByName("restriction")
+        val complexContent = findFirstChildByName("complexContent")
+        val simpleContent = findFirstChildByName("simpleContent")
+
+        return directRestriction
+            ?: complexContent?.findFirstChildByName("extension")
+            ?: complexContent?.findFirstChildByName("restriction")
+            ?: simpleContent?.findFirstChildByName("extension")
+            ?: simpleContent?.findFirstChildByName("restriction")
+    }
+
+    private fun XMLNode.hasBaseOutsideXMLSchemaNamespace(): Boolean {
+        val baseType = attributes["base"]?.toStringLiteral() ?: return false
+        return resolveNamespace(baseType) != XML_SCHEMA_NAMESPACE
     }
 
     private fun qualifyMessageName(fullyQualifiedMessageName: FullyQualifiedName): QualifiedMessageName {

@@ -15,6 +15,10 @@ data class XMLTypeData(
     val attributeWildcards: List<XMLAttributeWildcard> = emptyList(),
     val isSOAPHeader: Boolean = false,
     val attributeNamespaceUris: Map<String, String?> = emptyMap(),
+    val wsdlTypeNamespace: String? = null,
+    val wsdlTypeName: String? = null,
+    val wsdlBaseTypeNamespace: String? = null,
+    val wsdlBaseTypeName: String? = null,
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()

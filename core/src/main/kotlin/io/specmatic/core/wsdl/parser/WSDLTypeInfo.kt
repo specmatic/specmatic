@@ -14,7 +14,11 @@ data class WSDLTypeInfo(
     val nodes: List<XMLValue> = emptyList(),
     val members: List<Pattern> = emptyList(),
     val types: Map<String, Pattern> = emptyMap(),
-    val namespacePrefixes: Set<String> = emptySet()
+    val namespacePrefixes: Set<String> = emptySet(),
+    val wsdlTypeNamespace: String? = null,
+    val wsdlTypeName: String? = null,
+    val wsdlBaseTypeNamespace: String? = null,
+    val wsdlBaseTypeName: String? = null,
 ) {
     fun getNamespaces(wsdlNamespaces: Map<String, String>): Map<String, String> {
         logger.debug(wsdlNamespaces.toString())
@@ -30,7 +34,11 @@ data class WSDLTypeInfo(
             this.nodes.plus(otherWSDLTypeInfo.nodes),
             this.effectiveMembers.plus(otherWSDLTypeInfo.effectiveMembers),
             this.types.plus(otherWSDLTypeInfo.types),
-            this.namespacePrefixes.plus(otherWSDLTypeInfo.namespacePrefixes)
+            this.namespacePrefixes.plus(otherWSDLTypeInfo.namespacePrefixes),
+            this.wsdlTypeNamespace ?: otherWSDLTypeInfo.wsdlTypeNamespace,
+            this.wsdlTypeName ?: otherWSDLTypeInfo.wsdlTypeName,
+            this.wsdlBaseTypeNamespace ?: otherWSDLTypeInfo.wsdlBaseTypeNamespace,
+            this.wsdlBaseTypeName ?: otherWSDLTypeInfo.wsdlBaseTypeName,
         )
     }
 
@@ -39,7 +47,15 @@ data class WSDLTypeInfo(
 
     val xmlTypeData: XMLTypeData
         get() {
-            return XMLTypeData(TYPE_NODE_NAME, TYPE_NODE_NAME, nodes = effectiveMembers)
+            return XMLTypeData(
+                TYPE_NODE_NAME,
+                TYPE_NODE_NAME,
+                nodes = effectiveMembers,
+                wsdlTypeNamespace = wsdlTypeNamespace,
+                wsdlTypeName = wsdlTypeName,
+                wsdlBaseTypeNamespace = wsdlBaseTypeNamespace,
+                wsdlBaseTypeName = wsdlBaseTypeName,
+            )
         }
 
     private fun toPattern(xmlValue: XMLValue): Pattern {

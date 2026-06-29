@@ -354,6 +354,18 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         }
     }
 
+    fun namedTypeNodes(namespace: String, localSchema: XMLNode? = null): List<XMLNode> {
+        val resolvedNamespace = namespaceOrSchemaNamespace(namespace, localSchema) ?: return emptyList()
+        if (resolvedNamespace.isBlank()) {
+            return emptyList()
+        }
+
+        val schema = schemas[resolvedNamespace] ?: return emptyList()
+        return schema.childNodes.filterIsInstance<XMLNode>().filter { typeNode ->
+            typeNode.name == "complexType" || typeNode.name == "simpleType"
+        }
+    }
+
     fun findAttributeGroup(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): XMLNode {
         return findSchemaNode("attributeGroup", fullyQualifiedName.namespace, fullyQualifiedName.localName, localSchema)
     }
@@ -482,8 +494,13 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     }
 }
 
+fun specmaticTypeName(typeName: String): String = typeName.replace(':', '_')
+
 fun namespaceOrSchemaNamespace(namespace: String, schema: XMLNode?) =
-    namespace.ifBlank { schema?.attributes?.get("xmlns")?.toStringLiteral() }
+    namespace.ifBlank {
+        schema?.attributes?.get("targetNamespace")?.toStringLiteral()
+            ?: schema?.attributes?.get("xmlns")?.toStringLiteral()
+    }
 
 private fun indexDefinitions(definitions: Map<String, XMLNode>): Map<DefinitionLookupKey, XMLNode> {
     val definitionTags = setOf("message", "binding", "portType")

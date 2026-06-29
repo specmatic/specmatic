@@ -32,7 +32,7 @@ class ComplexTypeExtension(
         extension: XMLNode
     ): List<WSDLTypeInfo> {
         val parentComplexType = wsdl.findTypeFromAttribute(extension, "base")
-        val parentTypeVariants = generateChildren(parentTypeName, parentComplexType, existingTypes, typeStack, wsdl)
+        val parentTypeVariants = generateChildren(parentTypeName, parentComplexType.asComplexTypeNode(), existingTypes, typeStack, wsdl)
         val extensionChild = extension.childElementForDerivation()
 
         return wsdlTypeInfos.flatMap { current ->
@@ -46,7 +46,7 @@ class ComplexTypeExtension(
                     else -> listOf(combinedParent)
                 }
             }
-        }
+        }.withBaseTypeMetadata(extension)
     }
 
     private fun processRestriction(
@@ -58,15 +58,33 @@ class ComplexTypeExtension(
         wsdl.findTypeFromAttribute(restriction, "base")
 
         val restrictionChild = restriction.childElementForDerivation()
-        return when {
+        val restrictedTypeInfos = when {
             restrictionChild == null -> wsdlTypeInfos
             else -> combineVariants(
                 wsdlTypeInfos,
                 generateChildren(parentTypeName, restrictionChild, existingTypes, typeStack, wsdl)
             )
         }
+
+        return restrictedTypeInfos.withBaseTypeMetadata(restriction)
+    }
+
+    private fun XMLNode.asComplexTypeNode(): XMLNode =
+        when (name) {
+            "complexType" -> this
+            else -> wsdl.getComplexTypeNode(this).complexType
+        }
+}
+
+private fun List<WSDLTypeInfo>.withBaseTypeMetadata(derivation: XMLNode): List<WSDLTypeInfo> {
+    val baseType = derivation.resolvedBaseTypeName()
+    return map {
+        it.copy(wsdlBaseTypeNamespace = baseType?.namespace, wsdlBaseTypeName = baseType?.localName)
     }
 }
+
+private fun XMLNode.resolvedBaseTypeName() =
+    fullyQualifiedNameFromAttribute("base").takeIf { it.namespace.isNotBlank() }
 
 private fun XMLNode.findComplexContentDerivation(): XMLNode {
     return findFirstChildByName("extension")
