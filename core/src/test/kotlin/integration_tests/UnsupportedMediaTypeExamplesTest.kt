@@ -4,6 +4,7 @@ import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -95,8 +96,8 @@ class UnsupportedMediaTypeExamplesTest {
     }
 
     @Test
-    fun `external 415 example generates exactly one 415 test in every resiliency mode`() {
-        val specFile = writeSpec(ordersSpec())
+    fun `generated negative test accepts declared external 415 response`() {
+        val specFile = writeSpec(ordersSpecWith400And415())
         val exampleFile = writeExample(
             name = "post-text-plain",
             requestMethod = "POST",
@@ -104,28 +105,33 @@ class UnsupportedMediaTypeExamplesTest {
             requestBody = """"body": "request sent here"""",
             responseStatus = 415,
             responseBody = """"body": { "error": "occurred" }""",
-            requestContentType = "text/plain",
-            extraRequestHeaders = mapOf("X-Request-Mode" to "example")
+            requestContentType = "text/plain"
         )
         val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
+        val featureWithNegativeGeneration = feature.copy(specmaticConfig = specmaticConfigWith(ResiliencyTestSuite.all))
 
         assertThat(unusedExamples).isEmpty()
 
-        resiliencyModes().forEach { resiliencyMode ->
-            val generatedScenarios = feature
-                .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-                .generateContractTestScenarios(emptyList())
-                .toList()
-            val generated415Scenarios = generatedScenarios
-                .filter { (originalScenario, _) -> originalScenario.status == 415 && originalScenario.hasExamples() }
+        var sawGeneratedNegativeRequest = false
+        val results = featureWithNegativeGeneration.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return when (request.expectedResponseCode()) {
+                    200 -> HttpResponse.ok("")
+                    400 -> {
+                        sawGeneratedNegativeRequest = true
+                        unsupportedMediaTypeResponse()
+                    }
+                    415 -> unsupportedMediaTypeResponse()
+                    else -> throw ContractException("Unexpected response code hint ${request.expectedResponseCode()}")
+                }
+            }
 
-            assertThat(generated415Scenarios).hasSize(1)
-            assertThat(generatedScenarios.map { (_, generatedScenario) -> generatedScenario.value }.filter { it.isNegative })
-                .isEmpty()
-            val generatedRequest = generated415Scenarios.single().second.value.generateHttpRequest()
-            assertThat(generatedRequest.contentType()).isEqualTo("text/plain")
-            assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
-        }
+            override fun setServerState(serverState: Map<String, Value>) {
+            }
+        })
+
+        assertThat(sawGeneratedNegativeRequest).isTrue()
+        assertThat(results.failureCount).isEqualTo(0)
     }
 
     @Test
@@ -331,9 +337,9 @@ class UnsupportedMediaTypeExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
-        assertThat(warningReport).contains("paths./orders.post.responses.415")
-        assertThat(warningReport).contains("External 415 examples are still loaded and used")
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).doesNotContain("paths./orders.post.responses.415")
+        assertThat(warningReport).doesNotContain(missingRequestExampleErrorMessageForTest("unsupported-media-type"))
 
         val feature = specification.toFeature()
 
@@ -697,6 +703,13 @@ class UnsupportedMediaTypeExamplesTest {
             ResiliencyTestSuite.all -> SpecmaticConfig().enableResiliencyTests(onlyPositive = false)
         }
 
+    private fun unsupportedMediaTypeResponse(): HttpResponse =
+        HttpResponse(
+            status = 415,
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSONObject("""{"error":"occurred"}""")
+        )
+
     private fun HttpRequest.hasHeader(name: String, value: String): Boolean =
         headers.any { (headerName, headerValue) -> headerName.equals(name, ignoreCase = true) && headerValue == value }
 
@@ -739,6 +752,52 @@ class UnsupportedMediaTypeExamplesTest {
               responses:
                 "200":
                   description: ok
+                "415":
+                  description: unsupported media type
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                            type: string
+    """
+
+    private fun ordersSpecWith400And415() = """
+        openapi: 3.0.4
+        info:
+          title: Orders
+          version: 1.0.0
+        paths:
+          /orders:
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - data
+                      properties:
+                        data:
+                          type: string
+              responses:
+                "200":
+                  description: ok
+                "400":
+                  description: bad request
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required:
+                          - error
+                        properties:
+                          error:
+                            type: string
                 "415":
                   description: unsupported media type
                   content:
@@ -1046,10 +1105,6 @@ ${requestContentTypes(contentTypes)}
                       properties:
                         data:
                           type: string
-                    examples:
-                      unsupported-media-type:
-                        value:
-                          data: found
               responses:
                 "415":
                   description: unsupported media type

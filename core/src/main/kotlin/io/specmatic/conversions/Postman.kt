@@ -13,7 +13,6 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.test.LegacyHttpClient
 import java.net.URI
-import java.net.URL
 
 fun hostAndPort(uriString: String): BaseURLInfo {
     val uri = URI.create(uriString)
@@ -169,10 +168,10 @@ fun postmanItemResponse(responseItem: JSONObjectValue): HttpResponse {
 
 fun postmanItemRequest(request: JSONObjectValue): Pair<String, HttpRequest> {
     val method = request.getString("method")
-    val url = urlFromPostmanValue(request.jsonObject.getValue("url"))
+    val uri = urlFromPostmanValue(request.jsonObject.getValue("url"))
 
-    val baseURL = "${url.protocol}://${url.authority}"
-    val query: Map<String, String> = url.query?.split("&")?.map { it.split("=").let { parts -> Pair(parts[0], parts[1]) } }?.fold(emptyMap()) { acc, entry -> acc.plus(entry) }
+    val baseURL = "${uri.scheme}://${uri.rawAuthority}"
+    val query: Map<String, String> = uri.rawQuery?.split("&")?.map { it.split("=").let { parts -> Pair(parts[0], parts[1]) } }?.fold(emptyMap()) { acc, entry -> acc.plus(entry) }
             ?: emptyMap()
     val headers: Map<String, String> = request.getJSONArray("header").map { it as JSONObjectValue }.fold(emptyMap()) { headers, header ->
         headers.plus(Pair(header.getString("key"), header.getString("value")))
@@ -213,11 +212,12 @@ fun postmanItemRequest(request: JSONObjectValue): Pair<String, HttpRequest> {
         else -> Triple(EmptyString, emptyMap(), emptyList())
     }
 
-    val httpRequest = HttpRequest(method, url.path, headers, body, query, formFields, formData)
+    val path = uri.rawPath
+    val httpRequest = HttpRequest(method, path, headers, body, query, formFields, formData)
     return Pair(baseURL, httpRequest)
 }
 
-internal fun urlFromPostmanValue(urlValue: Value): URL {
+internal fun urlFromPostmanValue(urlValue: Value): URI {
     return when(urlValue) {
         is JSONObjectValue -> urlValue.jsonObject.getValue("raw")
         else -> urlValue
@@ -226,9 +226,7 @@ internal fun urlFromPostmanValue(urlValue: Value): URL {
             it
         else
             "http://$it"
-    }.let {
-        URI.create(it).toURL()
-    }
+    }.let { URI.create(it) }
 }
 
 fun guessType(value: Value): Value = when(value) {

@@ -810,7 +810,6 @@ class OpenApiSpecification(
                         )
                     }
                     httpResponsePatterns.forEach {
-                        recordInlineUndeclaredRequestVariantExamplesIgnored(methodContext, httpMethod, openApiPath, it)
                         recordMethodNotAllowedResponseWithoutDisallowedMethod(methodContext, httpMethod, openApiPath, methodsForPath, it)
                     }
 
@@ -1157,28 +1156,6 @@ class OpenApiSpecification(
             message = "Accept header values ${knownAcceptValues.joinToString(", ")} do not allow response Content-Type \"$responseContentType\"",
             isWarning = true,
             ruleViolation = OpenApiLintViolations.MEDIA_TYPE_OVERRIDDEN
-        )
-    }
-
-    private fun recordInlineUndeclaredRequestVariantExamplesIgnored(
-        collectorContext: CollectorContext,
-        httpMethod: String,
-        openApiPath: String,
-        responsePatternData: ResponsePatternData
-    ) {
-        if (responsePatternData.examples.isEmpty()) return
-
-        val responsePattern = responsePatternData.responsePattern
-        val unsupportedInlineExampleReason = when (responsePattern.status) {
-            HttpStatusCode.MethodNotAllowed.value -> "inline OpenAPI examples cannot specify a disallowed request method"
-            HttpStatusCode.UnsupportedMediaType.value -> "inline OpenAPI examples cannot specify an unsupported request media type"
-            else -> return
-        }
-
-        collectorContext.at("responses").at(responsePattern.status.toString()).record(
-            message = "Inline OpenAPI ${responsePattern.status} examples for $httpMethod $openApiPath are not used to generate tests or inline mock data. External ${responsePattern.status} examples are still loaded and used. This is required because $unsupportedInlineExampleReason.",
-            isWarning = true,
-            ruleViolation = OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE
         )
     }
 

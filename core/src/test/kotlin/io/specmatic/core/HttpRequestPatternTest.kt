@@ -6,10 +6,12 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -1120,6 +1122,226 @@ internal class HttpRequestPatternTest {
             val currentAccountRequestBody = (requests.first { it.discriminatorValue ==  "current"}.value.body as JSONObjectValue)
             assertThat(savingsAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("savings")
             assertThat(currentAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("current")
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve stored composite object and array values in request body`() {
+            val profilePattern = JSONObjectPattern(
+                typeAlias = "(Profile)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petPattern = JSONObjectPattern(
+                typeAlias = "(Pet)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petsPattern = ListPattern(petPattern, typeAlias = "(Pets)")
+            val bodyPattern = JSONObjectPattern(pattern = mapOf("profile" to profilePattern, "pets" to petsPattern))
+            val resolver = Resolver(newPatterns = mapOf("(Profile)" to profilePattern, "(Pet)" to petPattern, "(Pets)" to petsPattern))
+
+            val profile = parsedJSONObject("""{"name": "Sherlock"}""")
+            val pets = parsedJSONArray("""[{"name": "Dog"},{"name": "Cat"}]""")
+            val substitution = SubstitutionImpl.empty()
+                .upsertStoreUsing(StringValue("(profile:Profile)"), StringValue(profile.toUnformattedString()), resolver)
+                .upsertStoreUsing(StringValue("(pets:Pets)"), StringValue(pets.toUnformattedString()), resolver)
+
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/pets"),
+                body = bodyPattern,
+            )
+            val request = HttpRequest(
+                method = "POST",
+                path = "/pets",
+                body = parsedJSONObject("""{"profile": "$(profile)", "pets": "$(pets)"}"""),
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(substitution, request, resolver).value
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"profile": {"name": "Sherlock"}, "pets": [{"name": "Dog"}, {"name": "Cat"}]}""")
+            )
+        }
+
+        @Test
+        fun `should resolve composite object and array values from data lookup in request body`() {
+            val profilePattern = JSONObjectPattern(
+                typeAlias = "(Profile)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petPattern = JSONObjectPattern(
+                typeAlias = "(Pet)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petsPattern = ListPattern(petPattern, typeAlias = "(Pets)")
+            val bodyPattern = JSONObjectPattern(pattern = mapOf("profile" to profilePattern, "pets" to petsPattern))
+            val resolver = Resolver(newPatterns = mapOf("(Profile)" to profilePattern, "(Pet)" to petPattern, "(Pets)" to petsPattern))
+
+            val substitution = SubstitutionImpl.from(
+                resolver = resolver,
+                runningRequest = HttpRequest(method = "POST", path = "/profiles/10"),
+                originalRequest = HttpRequest(method = "POST", path = "/profiles/(ID:number)"),
+                data = parsedJSONObject("""
+                {
+                  "lookupData": {
+                    "dictionary": {
+                      "10": {
+                        "profile": {"name": "Sherlock"},
+                        "pets": [{"name": "Dog"}, {"name": "Cat"}]
+                      }
+                    }
+                  }
+                }
+                """.trimIndent())
+            )
+
+            val requestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/profiles/(ID:number)"),
+                body = bodyPattern,
+            )
+
+            val request = HttpRequest(
+                method = "POST",
+                path = "/profiles/10",
+                body = parsedJSONObject(
+                    """{"profile": "$(lookupData.dictionary[ID].profile)", "pets": "$(lookupData.dictionary[ID].pets)"}"""
+                ),
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(substitution, request, resolver).value
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"profile": {"name": "Sherlock"}, "pets": [{"name": "Dog"}, {"name": "Cat"}]}""")
+            )
+        }
+
+        @Test
+        fun `should resolve path query and header and body values`() {
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/pets/(id:string)"),
+                body = JSONObjectPattern(mapOf("name" to StringPattern())),
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("page" to QueryParameterScalarPattern(StringPattern()))),
+            )
+
+            val request = HttpRequest(
+                method = "GET",
+                path = "/pets/$(id)",
+                headers = mapOf("X-Trace" to "$(trace)"),
+                body = parsedJSONObject("""{"name": "$(name)"}"""),
+                queryParams = QueryParameters(mapOf("page" to "$(page)")),
+            )
+
+            val substitution = substitutionOf(
+                "id" to NumberValue(123),
+                "page" to NumberValue(2),
+                "name" to StringValue("John"),
+                "trace" to StringValue("abc"),
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(substitution, request, Resolver()).value
+            assertThat(resolved.path).isEqualTo("/pets/123")
+            assertThat(resolved.queryParams.asMap()).containsEntry("page", "2")
+            assertThat(resolved.headers).containsEntry("X-Trace", "abc")
+            assertThat(resolved.body.toUnformattedString()).isEqualTo("""{"name":"John"}""")
+        }
+
+        @Test
+        fun `should resolve security scheme values too`() {
+            val requestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/pets/(id:string)"),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("page" to QueryParameterScalarPattern(StringPattern()))),
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+                securitySchemes = listOf(
+                    APIKeyInHeaderSecurityScheme("X-Api-Key", null),
+                    APIKeyInQueryParamSecurityScheme("api_key", null)
+                )
+            )
+
+            val request = HttpRequest(
+                method = "GET",
+                path = "/pets/$(id)",
+                headers = mapOf("X-Trace" to "$(trace)", "X-Api-Key" to "$(header_key)"),
+                queryParams = QueryParameters(mapOf("page" to "$(page)", "api_key" to "$(api_key)")),
+            )
+
+            val substitution = substitutionOf(
+                "id" to NumberValue(123),
+                "page" to NumberValue(2),
+                "trace" to StringValue("abc"),
+                "api_key" to StringValue("secret"),
+                "header_key" to StringValue("header-secret")
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(substitution, request, Resolver()).value
+            assertThat(resolved.path).isEqualTo("/pets/123")
+            assertThat(resolved.queryParams.asMap()).containsEntry("page", "2")
+            assertThat(resolved.queryParams.asMap()).containsEntry("api_key", "secret")
+            assertThat(resolved.headers).containsEntry("X-Trace", "abc")
+            assertThat(resolved.headers).containsEntry("X-Api-Key", "header-secret")
+        }
+
+        @Test
+        fun `should use dictionary backed generation when substitutions are unresolved across request`() {
+            val addressPattern = JSONObjectPattern(
+                typeAlias = "(Address)",
+                pattern = mapOf("street" to StringPattern()),
+            )
+
+            val bodyPattern = JSONObjectPattern(
+                typeAlias = "(Pet)",
+                pattern = mapOf("name" to StringPattern(), "address" to addressPattern),
+            )
+
+            val requestPattern = HttpRequestPattern(
+                body = bodyPattern,
+                httpPathPattern = buildHttpPathPattern("/pets/(id:number)"),
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+                httpQueryParamPattern = HttpQueryParamPattern(mapOf("page" to QueryParameterScalarPattern(NumberPattern()))),
+            )
+
+            val request = HttpRequest(
+                method = "GET",
+                path = "/pets/$(missing-id)",
+                headers = mapOf("X-Trace" to "$(missing-trace)"),
+                queryParams = QueryParameters(mapOf("page" to "$(missing-page)")),
+                body = parsedJSONObject("""{"name": "$(missing-name)", "address": {"street": "$(missing-street)"}}"""),
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(Pet)" to bodyPattern, "(Address)" to addressPattern),
+                dictionary = Dictionary.fromYaml("""
+                PARAMETERS:
+                  PATH:
+                    id: 123
+                  QUERY:
+                    page: 7
+                  HEADER:
+                    X-Trace: trace-from-dictionary
+                Pet:
+                  name: Fido
+                Address:
+                  street: Baker Street
+                """.trimIndent())
+            )
+
+            val resolved = requestPattern.resolveSubstitutions(SubstitutionImpl.empty(), request, resolver).value
+            assertThat(resolved.path).isEqualTo("/pets/123")
+            assertThat(resolved.queryParams.asMap()).containsEntry("page", "7")
+            assertThat(resolved.headers).containsEntry("X-Trace", "trace-from-dictionary")
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"name": "Fido", "address": {"street": "Baker Street"}}""")
+            )
+        }
+
+        private fun substitutionOf(vararg mappings: Pair<String, Value>): Substitution {
+            return mappings.fold(SubstitutionImpl.empty()) { acc, (key, value) ->
+                acc.upsertStoreUsing(StringValue("($key:${value.type().typeName})"), value)
+            }
         }
     }
 

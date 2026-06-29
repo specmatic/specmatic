@@ -46,7 +46,7 @@ class OpenApiCoverageReportInputTest {
         }
 
         val report = input.generate()
-        val specPaths = report.getSpecConfigs().map { it.specification }
+        val specPaths = report.coverageReportSpecifications().map { it.specConfig.specification }
 
         assertThat(specPaths).hasSize(1)
         assertThat(specPaths).containsExactly("specs/openapi.yaml")

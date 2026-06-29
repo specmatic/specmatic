@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import java.net.URI
+
 private const val MIN_URL_PARTS_WHEN_PATH_EXISTS = 4
 private const val QUERY_PARAM_START_CHAR = '?'
 
@@ -35,3 +37,11 @@ class URLParts(url: String) {
 
     private fun noPathInURL() = parts.size < MIN_URL_PARTS_WHEN_PATH_EXISTS
 }
+
+// URL schemes are case-insensitive (RFC 3986), so compare them ignoring case.
+fun String?.isHttpScheme(): Boolean = equals("http", ignoreCase = true) || equals("https", ignoreCase = true)
+
+// URI.host is null for authorities Java rejects as hostnames (e.g. "backend_service"), even though the
+// authority is retained and the URL is reachable. Fall back to the raw authority, minus any userinfo/port.
+fun URI.hostOrAuthority(): String =
+    host ?: rawAuthority.orEmpty().substringAfterLast('@').substringBefore(':')

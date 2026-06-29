@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import io.specmatic.core.FailureReason
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -79,39 +80,6 @@ class MethodNotAllowedExamplesTest {
 
         assertThat(results.successCount).isEqualTo(3)
         assertThat(results.failureCount).isEqualTo(0)
-    }
-
-    @Test
-    fun `external 405 example generates exactly one 405 test in every resiliency mode`() {
-        val specFile = writeSpec(ordersSpec())
-        val exampleFile = writeExample(
-            name = "patch-with-post-body",
-            requestMethod = "PATCH",
-            requestPath = "/orders",
-            requestBody = """"body": { "data": "found" }""",
-            responseStatus = 405,
-            responseBody = """"body": { "error": "occurred" }""",
-            extraRequestHeaders = mapOf("X-Request-Mode" to "example")
-        )
-        val (feature, unusedExamples) = loadFeatureWithExamples(specFile, exampleFile)
-
-        assertThat(unusedExamples).isEmpty()
-
-        resiliencyModes().forEach { resiliencyMode ->
-            val generatedScenarios = feature
-                .copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-                .generateContractTestScenarios(emptyList())
-                .toList()
-            val generated405Scenarios = generatedScenarios
-                .filter { (originalScenario, _) -> originalScenario.status == 405 && originalScenario.hasExamples() }
-
-            assertThat(generated405Scenarios).hasSize(1)
-            assertThat(generatedScenarios.map { (_, generatedScenario) -> generatedScenario.value }.filter { it.isNegative })
-                .isEmpty()
-            val generatedRequest = generated405Scenarios.single().second.value.generateHttpRequest()
-            assertThat(generatedRequest.method).isEqualTo("PATCH")
-            assertThat(generatedRequest.hasHeader("X-Request-Mode", "example")).isTrue()
-        }
     }
 
     @Test
@@ -199,9 +167,9 @@ class MethodNotAllowedExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
-        assertThat(warningReport).contains("paths./orders.post.responses.405")
-        assertThat(warningReport).contains("External 405 examples are still loaded and used")
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).doesNotContain("paths./orders.post.responses.405")
+        assertThat(warningReport).doesNotContain(missingRequestExampleErrorMessageForTest("method-not-allowed"))
 
         val feature = specification.toFeature()
 
@@ -755,10 +723,6 @@ class MethodNotAllowedExamplesTest {
                       properties:
                         data:
                           type: string
-                    examples:
-                      method-not-allowed:
-                        value:
-                          data: found
               responses:
                 "405":
                   description: method not allowed

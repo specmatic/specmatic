@@ -90,6 +90,14 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
         )
     }
 
+    fun validateExample(contractFile: File, exampleFile: ExampleFromFile): ValidationResult {
+        val feature = parseContractFileToFeature(contractFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
+        return ValidationResult(
+            exampleValidationResult = validateExample(feature, exampleFile),
+            hookValidationResult = callLifecycleHook(feature, listOf(exampleFile))
+        )
+    }
+
     fun validateExample(feature: Feature, scenarioStub: ScenarioStub): Results {
         return feature.matchResultFlagBased(scenarioStub, ExampleMismatchMessages)
     }

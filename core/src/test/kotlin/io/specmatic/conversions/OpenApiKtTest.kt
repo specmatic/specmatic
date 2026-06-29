@@ -26,10 +26,6 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecificationAndRequestMismatchMessages
 import io.specmatic.test.TestExecutor
 import io.specmatic.trimmedLinesString
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.springframework.http.MediaType
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -866,17 +862,18 @@ Background:
 
         val petResponse = HttpStub(feature).use {
             val requestBody = ObjectMapper().writeValueAsString(Pet("scooby", "golden", 1, "retriever", 1))
-                .toRequestBody("application/json".toMediaTypeOrNull())
-            val request =
-                Request.Builder().url("http://localhost:9000/pets/1").addHeader("Content-Type", "application/json")
-                    .patch(requestBody).build()
-            val call = OkHttpClient().newCall(request)
-            call.execute()
+            it.client.execute(
+                HttpRequest(
+                    method = "PATCH",
+                    path = "/pets/1",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = parsedJSONObject(requestBody)
+                )
+            )
         }
 
-        assertThat(petResponse.isSuccessful).isTrue
-        assertThat(petResponse.code).isEqualTo(200)
-        assertThat(ObjectMapper().readValue(petResponse.body?.string(), Pet::class.java)).isNotNull
+        assertThat(petResponse.status).isEqualTo(200)
+        assertThat(ObjectMapper().readValue(petResponse.body.toStringLiteral(), Pet::class.java)).isNotNull
     }
 
     @Test
@@ -909,17 +906,17 @@ Background:
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
-            val request =
-                Request.Builder().url("http://localhost:9000/demo/circular-reference-non-nullable")
-                    .addHeader("Content-Type", "application/json")
-                    .get().build()
-            val call = OkHttpClient().newCall(request)
-            call.execute()
+            it.client.execute(
+                HttpRequest(
+                    method = "GET",
+                    path = "/demo/circular-reference-non-nullable",
+                    headers = mapOf("Content-Type" to "application/json")
+                )
+            )
         }
 
-        assertThat(resp.isSuccessful).isFalse
-        assertThat(resp.code).isEqualTo(400)
-        val body = resp.body?.string()
+        assertThat(resp.status).isEqualTo(400)
+        val body = resp.body.toStringLiteral()
         assertThat(body).contains("Invalid pattern cycle")
     }
 
@@ -938,17 +935,17 @@ Background:
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
-            val request =
-                Request.Builder().url("http://localhost:9000/demo/circular-reference-optional-non-nullable")
-                    .addHeader("Content-Type", "application/json")
-                    .get().build()
-            val call = OkHttpClient().newCall(request)
-            call.execute()
+            it.client.execute(
+                HttpRequest(
+                    method = "GET",
+                    path = "/demo/circular-reference-optional-non-nullable",
+                    headers = mapOf("Content-Type" to "application/json")
+                )
+            )
         }
 
-        val body = resp.body?.string()
-        assertThat(resp.isSuccessful).withFailMessage("Response unexpectedly failed. body=$body").isTrue
-        assertThat(resp.code).isEqualTo(200)
+        val body = resp.body.toStringLiteral()
+        assertThat(resp.status).withFailMessage("Response unexpectedly failed. body=$body").isEqualTo(200)
         val deserialized = ObjectMapper().readValue(body, OptionalCycleRoot::class.java)
         assertThat(deserialized).isNotNull
     }
@@ -968,17 +965,17 @@ Background:
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
-            val request =
-                Request.Builder().url("http://localhost:9000/demo/circular-reference-nullable")
-                    .addHeader("Content-Type", "application/json")
-                    .get().build()
-            val call = OkHttpClient().newCall(request)
-            call.execute()
+            it.client.execute(
+                HttpRequest(
+                    method = "GET",
+                    path = "/demo/circular-reference-nullable",
+                    headers = mapOf("Content-Type" to "application/json")
+                )
+            )
         }
 
-        val body = resp.body?.string()
-        assertThat(resp.isSuccessful).withFailMessage("Response unexpectedly failed. body=$body").isTrue
-        assertThat(resp.code).isEqualTo(200)
+        val body = resp.body.toStringLiteral()
+        assertThat(resp.status).withFailMessage("Response unexpectedly failed. body=$body").isEqualTo(200)
         val deserialized = ObjectMapper().readValue(body, NullableCycleHolder::class.java)
         assertThat(deserialized).isNotNull
     }
@@ -998,17 +995,17 @@ Background:
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
-            val request =
-                Request.Builder().url("http://localhost:9000/demo/circular-reference-polymorphic")
-                    .addHeader("Content-Type", "application/json")
-                    .get().build()
-            val call = OkHttpClient().newCall(request)
-            call.execute()
+            it.client.execute(
+                HttpRequest(
+                    method = "GET",
+                    path = "/demo/circular-reference-polymorphic",
+                    headers = mapOf("Content-Type" to "application/json")
+                )
+            )
         }
 
-        val body = resp.body?.string()
-        assertThat(resp.isSuccessful).withFailMessage("Response unexpectedly failed. body=$body").isTrue
-        assertThat(resp.code).isEqualTo(200)
+        val body = resp.body.toStringLiteral()
+        assertThat(resp.status).withFailMessage("Response unexpectedly failed. body=$body").isEqualTo(200)
         val deserialized = ObjectMapper().readValue(body, MyBaseHolder::class.java)
         assertThat(deserialized).isNotNull
     }

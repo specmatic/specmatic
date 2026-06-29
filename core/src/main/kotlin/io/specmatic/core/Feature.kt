@@ -923,6 +923,7 @@ data class Feature(
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
+
         return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).mapNotNull { decision ->
             decision.normalizeAcceptHeader().checkAcceptCompatibility()
         }.map { decision ->
@@ -1015,7 +1016,6 @@ data class Feature(
         concreteTestScenario.protocol,
         concreteTestScenario.specType,
         comment,
-        validators = listOf(ExamplePostValidator),
         workflow = workflow,
         originalScenario = originalScenario,
         reasoning = reasoning
@@ -1052,8 +1052,7 @@ data class Feature(
         val matchingScenarios = scenariosMatchingPathAndMethod(scenario, scenariosToLookInto)
 
         val badRequestResponses = matchingScenarios.filter {
-            it.httpResponsePattern.status in 400..499 &&
-                    !it.httpRequestPattern.hasUndeclaredRequestVariant()
+            it.httpResponsePattern.status in 400..499
         }
         val defaultResponses = matchingScenarios.filter { it.httpResponsePattern.status == DEFAULT_RESPONSE_CODE }
 
@@ -1154,9 +1153,6 @@ data class Feature(
             val scenario = if (scenarioDecision is Decision.Execute) scenarioDecision.value else scenarioDecision.context
             val badRequestOrDefault = getBadRequestsOrDefault(scenario)
             if (badRequestOrDefaultWasFilteredOut(badRequestOrDefault, scenario, originalScenarios)) {
-                return@mapNotNull null
-            }
-            if (badRequestOrDefault == null && hasOnlyUndeclaredRequestVariant4xxResponses(scenario)) {
                 return@mapNotNull null
             }
 
@@ -2476,8 +2472,7 @@ data class Feature(
                 if(strictMode.not()) logger.log("  $externalizedExamplePath")
 
                 try {
-                    val example = ScenarioStub.parse(File(externalizedExamplePath).readText())
-
+                    val example = ScenarioStub.parse(File(externalizedExamplePath).readText(), filePath = externalizedExamplePath)
                     val method = example.requestMethod()
                     val path = example.requestPath()
                     val responseCode = example.responseStatus()

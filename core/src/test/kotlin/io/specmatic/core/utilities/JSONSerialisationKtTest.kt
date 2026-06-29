@@ -1,6 +1,7 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
@@ -14,6 +15,13 @@ class JSONSerialisationKtTest {
     fun `should parse a JSON string with a UTF-8 BOM`() {
         val jsonContent = "\uFEFF{\"greeting\":\"hello\"}"
         assertDoesNotThrow { parsedJSONObject(jsonContent) }
+    }
+
+    @Test
+    fun `should be able to convert json string to appropriate value`() {
+        val jsonContent = "{\"key\": 123}"
+        val value = jsonStringToValue(jsonContent)
+        assertThat(value).isInstanceOf(JSONObjectValue::class.java)
     }
 
     @ParameterizedTest

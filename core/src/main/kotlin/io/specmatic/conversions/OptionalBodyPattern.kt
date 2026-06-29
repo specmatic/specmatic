@@ -25,7 +25,7 @@ data class OptionalBodyPattern(override val pattern: AnyPattern, private val bod
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        return scalarResolveSubstitutions(substitution, value, key, this, resolver)
+        return pattern.resolveSubstitutions(substitution, value, resolver, key)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {

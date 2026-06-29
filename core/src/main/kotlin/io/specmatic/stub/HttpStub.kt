@@ -25,7 +25,6 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.MismatchMessages
-import io.specmatic.core.MissingDataException
 import io.specmatic.core.MultiPartContent
 import io.specmatic.core.MultiPartContentValue
 import io.specmatic.core.MultiPartFileValue
@@ -59,6 +58,7 @@ import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
+import io.specmatic.core.substitution.MissingDataException
 import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -173,6 +173,7 @@ class HttpStub(
             feature.path to endPointFromHostAndPort(host, port, null)
         ),
         listeners: List<MockEventListener> = emptyList(),
+        strictMode: Boolean = false,
     ) : this(
         listOf(feature),
         contractInfoToHttpExpectations(listOf(Pair(feature, scenarioStubs))),
@@ -181,6 +182,7 @@ class HttpStub(
         log,
         specToStubBaseUrlMap = specToStubBaseUrlMap,
         listeners = listeners,
+        strictMode = strictMode
     )
 
     constructor(
@@ -231,10 +233,13 @@ class HttpStub(
     )
 
     private val httpExpectations: HttpExpectations = HttpExpectations(
+        strictMode = strictMode,
+        specmaticConfig = specmaticConfigInstance,
         static = staticHttpStubData(rawHttpStubs),
         transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
         specToBaseUrlMap = specToBaseUrlMap
     )
+
     private val firstMockedOpenApiSpec: MockedOpenApiSpec? by lazy {
         features.asSequence()
             .filter { it.path.isNotBlank() }
@@ -1169,10 +1174,9 @@ class HttpStub(
             val mockUsageReport = mockUsage.generate()
 
             ReportGenerator.generateReport(
-                coverageReportOperations = mockUsageReport.coverageReportOperations,
+                coverageReportSpecifications = mockUsage.coverageReportSpecifications(mockUsageReport.coverageReportOperations),
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
-                specConfigs = mockUsageReport.getSpecConfigs(),
                 coverage = mockUsageReport.coverage,
                 absoluteCoverage = mockUsageReport.absoluteCoverage,
                 reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")

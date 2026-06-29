@@ -1230,6 +1230,48 @@ paths:
     }
 
     @Test
+    fun `should retain undeclared request variant 4xx responses for generated negative response validation`() {
+        val path = "/orders/(id:string)"
+        val orderPostOk = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST", body = DeferredPattern("(RequestBody)")),
+            httpResponsePattern = HttpResponsePattern(status = 201),
+            patterns = mapOf("(RequestBody)" to toJSONObjectPattern("""{"digit": "(number)"}""", "(RequestBody")),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        ))
+
+        val orderPostBadRequest = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(httpPathPattern = HttpPathPattern.from(path), method = "POST"),
+            httpResponsePattern = HttpResponsePattern(status = 400),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        ))
+
+        val orderPostUnsupportedMediaType = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = HttpPathPattern.from(path),
+                method = "POST",
+                undeclaredRequestVariantMetadata = UndeclaredRequestVariantMetadata(responseStatus = 415)
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 415),
+            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
+        ))
+
+        val featureComplete = Feature(
+            name = "Orders Complete",
+            scenarios = listOf(orderPostOk, orderPostBadRequest, orderPostUnsupportedMediaType),
+            protocol = SpecmaticProtocol.HTTP
+        )
+
+        val results = featureComplete.negativeTestScenarios(originalScenarios = featureComplete.scenarios).toList()
+        assertThat(results).hasSize(4)
+
+        results.forEach { (_, generatedScenario) ->
+            val scenario = generatedScenario.value
+            assertThat(scenario.badRequestOrDefault?.badRequestResponses?.keys).contains(400, 415)
+            assertThat(scenario.matches(HttpResponse(status = 415)).isSuccess()).isTrue()
+        }
+    }
+
+    @Test
     fun `should NOT filter out scenario when 4xx definitions are missing from the Feature as well as originalScenarios`() {
         val path = "/orders/(id:string)"
         val orderPostOk = Scenario(ScenarioInfo(

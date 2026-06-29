@@ -9,7 +9,7 @@ import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.parseContractFileToFeature
-import io.specmatic.test.asserts.toFailure
+import io.specmatic.core.pattern.toFailure
 import java.io.File
 
 class OpenApiValidator: Validator<Feature> {

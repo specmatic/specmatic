@@ -2,8 +2,8 @@ package application.validate
 
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
+import io.specmatic.core.pattern.toFailure
 import io.specmatic.loader.SpecificationWithExamples
-import io.specmatic.test.asserts.toFailure
 import java.io.File
 
 class ValidationProcessor<Feature>(

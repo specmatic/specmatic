@@ -7,7 +7,6 @@ import io.specmatic.core.utilities.jsonStringToValueArray
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.*
-import io.specmatic.test.ExampleProcessor
 import java.io.File
 import java.math.BigDecimal
 
@@ -15,6 +14,7 @@ const val XML_ATTR_OPTIONAL_SUFFIX = ".opt"
 const val DEFAULT_OPTIONAL_SUFFIX = "?"
 const val UTF_BYTE_ORDER_MARK = "\uFEFF"
 val TOKEN_REGEX = Regex("""\([^)]+\)|\$(\w+)?\([^()]*\)""")
+private val DOLLAR_METHOD_OR_LOOKUP_PATTERN = Regex("^\\$(\\w+)?\\((.*)\\)$")
 
 fun withoutOptionality(key: String): String {
     return when {
@@ -103,7 +103,7 @@ private fun restrictionValues(tokens: List<String>): Map<String, String> =
             name to value
         }
 
-fun isPatternOrMatcherToken(patternValue: Any?): Boolean = isPatternToken(patternValue) || isMatcherToken(patternValue)
+fun isPatternOrMatcherToken(patternValue: Any?): Boolean = isPatternToken(patternValue) || isDollarMethodOrLookup(patternValue)
 
 fun isPatternToken(patternValue: Any?) =
     when (patternValue) {
@@ -112,7 +112,11 @@ fun isPatternToken(patternValue: Any?) =
         else -> false
     }
 
-fun isMatcherToken(patternValue: Any?) = ExampleProcessor.isSubstitutionToken(patternValue)
+fun isDollarMethodOrLookup(patternValue: Any?) = when (patternValue) {
+    is String -> DOLLAR_METHOD_OR_LOOKUP_PATTERN.matchEntire(patternValue) != null
+    is StringValue -> DOLLAR_METHOD_OR_LOOKUP_PATTERN.matchEntire(patternValue.string) != null
+    else -> false
+}
 
 internal fun getBuiltInPattern(patternString: String): Pattern =
     when {

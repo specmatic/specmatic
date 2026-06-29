@@ -2,6 +2,9 @@ package io.specmatic.mock
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.specmatic.core.*
+import io.specmatic.core.examples.preprocessor.ExamplePreProcessResult
+import io.specmatic.core.examples.preprocessor.PreProcessorAttributes
+import io.specmatic.core.examples.preprocessor.ExamplePreProcessor
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -38,7 +41,8 @@ data class ScenarioStub(
     val id: String? = null,
     val beforeFixtures: List<Value> = emptyList(),
     val afterFixtures: List<Value> = emptyList(),
-    val exampleType: ExampleType = ExampleType.EXTERNAL
+    val exampleType: ExampleType = ExampleType.EXTERNAL,
+    val preProcessorAttributes: PreProcessorAttributes = PreProcessorAttributes.Empty,
 ) {
     init {
         if (strictMode && !validationErrors.isSuccess()) validationErrors.throwOnFailure()
@@ -368,16 +372,20 @@ data class ScenarioStub(
 
     companion object {
         fun readFromFile(file: File, strictMode: Boolean = true): ScenarioStub {
-            return parse(file.readText(Charsets.UTF_8), strictMode).copy(filePath = file.path)
+            return parse(file.readText(Charsets.UTF_8), strictMode, file.path)
         }
 
         fun parse(text: String, strictMode: Boolean = true): ScenarioStub {
-            return parse(StringValue(text), strictMode)
+            return parse(StringValue(text), strictMode, null)
         }
 
-        fun parse(json: Value, strictMode: Boolean = true): ScenarioStub {
+        fun parse(text: String, strictMode: Boolean = true, filePath: String? = null): ScenarioStub {
+            return parse(StringValue(text), strictMode, filePath)
+        }
+
+        fun parse(json: Value, strictMode: Boolean = true, filePath: String? = null): ScenarioStub {
             val parsedJson = jsonStringToValueMap(json.toStringLiteral())
-            return mockFromJSON(parsedJson, strictMode)
+            return mockFromJSON(parsedJson, strictMode, filePath)
         }
     }
 }
@@ -396,28 +404,65 @@ const val BEFORE_FIXTURES = "before"
 const val AFTER_FIXTURES = "after"
 private val nonMetadataDataKeys = listOf(MOCK_HTTP_REQUEST, MOCK_HTTP_RESPONSE, PARTIAL)
 
-fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true): ScenarioStub {
-    val validationResult = FuzzyExampleJsonValidator.matches(mockSpec)
-    val data = mockSpec.filterKeys { it !in nonMetadataDataKeys }
-    return if (PARTIAL in mockSpec) {
-        parsePartialExample(mockSpec, data, validationResult, strictMode)
+fun mockFromJSON(mockSpec: Map<String, Value>, strictMode: Boolean = true, filePath: String? = null): ScenarioStub {
+    val result = preProcessAndValidate(mockSpec, filePath)
+    val data = result.outcome.filterKeys { it !in nonMetadataDataKeys }
+    return if (PARTIAL in result.outcome) {
+        parsePartialExample(
+            data = data,
+            filePath = filePath,
+            strictMode = strictMode,
+            mockSpec = result.outcome,
+            validationResult = result.result,
+            preProcessorAttributes = result.attributes,
+        )
     } else {
-        parseStandardExample(mockSpec, data, validationResult, strictMode)
+        parseStandardExample(
+            data = data,
+            filePath = filePath,
+            strictMode = strictMode,
+            mockSpec = result.outcome,
+            validationResult = result.result,
+            preProcessorAttributes = result.attributes,
+        )
     }
 }
 
-private fun parsePartialExample(mockSpec: Map<String, Value>, data: Map<String, Value>, validationResult: Result, strictMode: Boolean): ScenarioStub {
+private fun preProcessAndValidate(mockSpec: Map<String, Value>, filePath: String?): ExamplePreProcessResult {
+    val preProcessResult = ExamplePreProcessor.process(mockSpec, filePath)
+    val fuzzyValidationResult = FuzzyExampleJsonValidator.matches(preProcessResult.outcome)
+    val validationResult = Result.fromResults(listOf(preProcessResult.result, fuzzyValidationResult))
+    return preProcessResult.copy(result = validationResult)
+}
+
+private fun parsePartialExample(
+    strictMode: Boolean,
+    data: Map<String, Value>,
+    validationResult: Result,
+    filePath: String? = null,
+    mockSpec: Map<String, Value>,
+    preProcessorAttributes: PreProcessorAttributes = PreProcessorAttributes.Empty
+): ScenarioStub {
     val template = mockSpec[PARTIAL] as? JSONObjectValue ?: JSONObjectValue()
-    val parsedPartial = mockFromJSON(template.jsonObject.plus(data), strictMode)
+    val parsedPartial = mockFromJSON(template.jsonObject.plus(data), strictMode, filePath)
     return parsedPartial.copy(
         partial = parsedPartial,
         rawJsonData = JSONObjectValue(mockSpec),
         validationErrors = validationResult,
-        strictMode = strictMode
+        strictMode = strictMode,
+        filePath = filePath,
+        preProcessorAttributes = preProcessorAttributes,
     )
 }
 
-private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String, Value>, validationResult: Result, strictMode: Boolean): ScenarioStub {
+private fun parseStandardExample(
+    strictMode: Boolean,
+    data: Map<String, Value>,
+    validationResult: Result,
+    filePath: String? = null,
+    mockSpec: Map<String, Value>,
+    preProcessorAttributes: PreProcessorAttributes = PreProcessorAttributes.Empty
+): ScenarioStub {
     val mockRequest: HttpRequest = try {
         val reqMap = getJSONObjectValueOrNull(MOCK_HTTP_REQUEST, mockSpec)
         if (reqMap != null) HttpRequest.fromJSONLenient(reqMap) else HttpRequest("", "")
@@ -456,9 +501,11 @@ private fun parseStandardExample(mockSpec: Map<String, Value>, data: Map<String,
         rawJsonData = JSONObjectValue(mockSpec),
         validationErrors = validationResult,
         strictMode = strictMode,
+        filePath = filePath,
         id = id,
         beforeFixtures = beforeFixtures,
-        afterFixtures = afterFixtures
+        afterFixtures = afterFixtures,
+        preProcessorAttributes = preProcessorAttributes,
     )
 }
 

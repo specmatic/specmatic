@@ -4,6 +4,7 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
+import io.specmatic.core.Substitution
 import io.specmatic.core.filters.HasScenarioMetadata
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.FixtureExecutionResult
@@ -29,6 +30,7 @@ interface ContractTest : HasScenarioMetadata {
     fun runTest(testBaseURL: String, timeoutInMilliseconds: Long): ContractTestExecutionResult
     fun runTest(testExecutor: TestExecutor): ContractTestExecutionResult
     fun plusValidator(validator: ResponseValidator): ContractTest
+    fun withRequestValidator(validator: RequestValidator): ContractTest = this
 
     companion object {
         internal fun updateBasedOnResponseIfNegativeGeneration(scenario: Scenario, httpResponse: HttpResponse?): Scenario {
@@ -47,6 +49,7 @@ data class ContractTestExecutionResult(
 
 data class FixtureExecutionDetails(
     val combinedResult: Result,
+    val updatedSubstitution: Substitution,
     val fixtureExecutionResults: List<FixtureExecutionResult>? = null
 )
 

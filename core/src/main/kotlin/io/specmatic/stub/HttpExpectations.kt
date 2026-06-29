@@ -2,6 +2,7 @@ package io.specmatic.stub
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Result
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.mock.ScenarioStub
 
 class HttpExpectations private constructor (
@@ -12,11 +13,13 @@ class HttpExpectations private constructor (
     constructor(
         static: MutableList<HttpStubData>,
         transient: MutableList<HttpStubData> = mutableListOf(),
-        specToBaseUrlMap: Map<String, String> = emptyMap()
+        specToBaseUrlMap: Map<String, String> = emptyMap(),
+        strictMode: Boolean = false,
+        specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     ) : this(
-        static = ThreadSafeListOfStubs(static, specToBaseUrlMap),
-        transient = ThreadSafeListOfStubs(transient, specToBaseUrlMap),
-        dynamic = ThreadSafeListOfStubs(mutableListOf(), specToBaseUrlMap)
+        static = ThreadSafeListOfStubs(static, specToBaseUrlMap, strictMode, specmaticConfig),
+        transient = ThreadSafeListOfStubs(transient, specToBaseUrlMap, strictMode, specmaticConfig),
+        dynamic = ThreadSafeListOfStubs(mutableListOf(), specToBaseUrlMap, strictMode, specmaticConfig)
     )
 
     val stubCount: Int get() { return static.size }

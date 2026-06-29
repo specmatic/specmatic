@@ -48,9 +48,7 @@ import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
-import java.net.MalformedURLException
 import java.net.URI
-import java.net.URL
 import java.nio.file.Path
 import kotlin.collections.filterIsInstance
 import kotlin.collections.orEmpty
@@ -1659,12 +1657,12 @@ data class Source(
                 )
             }
 
-            cachedWebSpec ?: try {
-                val url = URL(specPath)
-                sourceBaseDir.resolve("web").resolve(url.host).resolve(url.path.removePrefix("/")).canonicalFile
-            } catch (_: MalformedURLException) {
-                sourceBaseDir.resolve(specPath).canonicalFile
-            }
+            val webUrl = runCatching { URI(specPath) }.getOrNull()
+                ?.takeIf { it.scheme.isHttpScheme() && !it.rawAuthority.isNullOrBlank() }
+
+            cachedWebSpec ?: webUrl?.let { url ->
+                sourceBaseDir.resolve("web").resolve(url.hostOrAuthority()).resolve(url.rawPath.removePrefix("/")).canonicalFile
+            } ?: sourceBaseDir.resolve(specPath).canonicalFile
         }
     }
 }
