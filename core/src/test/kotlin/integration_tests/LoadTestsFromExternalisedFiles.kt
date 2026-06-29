@@ -198,14 +198,12 @@ class LoadTestsFromExternalisedFiles {
         assertThat(unusedExamples).isEmpty()
     }
 
-    @Test
-    fun `should resolve lookup expressions in row values for positive and negative generated tests`() {
-        val specFile = File("src/test/resources/openapi/row_value_lookup/api.yaml")
-        val examplesDir = specFile.resolveSibling("api_examples")
-
-        Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
-            val feature = OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().copy(strictMode = true).loadExternalisedExamples()
-            feature.validateExamplesOrException()
+    @Nested
+    inner class RowValueLookupGenerationTest {
+        @Test
+        fun `should resolve lookup expressions in row values for positive and negative generated tests`() {
+            val specFile = File("src/test/resources/openapi/row_value_lookup/api.yaml")
+            val feature = loadRowValueLookupFeature(specFile)
 
             val observedRequests = mutableListOf<String>()
             val positiveRequests = mutableListOf<HttpRequest>()
@@ -213,49 +211,37 @@ class LoadTestsFromExternalisedFiles {
             val expectedPositiveRequestBody = parsedJSONObject("""{"name": "Sherlock"}""")
             val positiveHeaderPattern = Regex("A+")
 
-            val results = withServiceLoaderEntries(
-                mapOf(
-                    OpenAPIFixtureExecutor::class.java to RowValueLookupFixtureExecutor::class.java.name,
-                    ContractTestInterceptor::class.java to RowValueLookupContractTestInterceptor::class.java.name
-                )
-            ) {
-                feature.enableGenerativeTesting().executeTests(object : TestExecutor {
-                    override fun execute(request: HttpRequest): HttpResponse {
-                        println(request.toLogString())
-                        observedRequests.add(request.toLogString())
-                        assertThat(request.path).doesNotContain("\$(")
-                        assertThat(request.queryParams.toString()).doesNotContain("\$(")
-                        assertThat(request.headers.values.joinToString(" ")).doesNotContain("\$(")
-                        assertThat(request.body.toStringLiteral()).doesNotContain("\$(")
+            val results = executeRowValueLookupGenerativeTests(feature) { request ->
+                println(request.toLogString())
+                observedRequests.add(request.toLogString())
+                assertRequestHasNoUnresolvedLookupExpressions(request)
 
-                        val randomHeader = request.headers["Random-String"]
-                        val hasValidRandomHeader = randomHeader == null || positiveHeaderPattern.matches(randomHeader)
-                        val isPositiveRequest =
-                            request.path == "/orders/order-123" &&
-                                request.queryParams.asMap()["page"] == "page-7" &&
-                                request.headers["X-Tenant"] == "north" &&
-                                request.body == expectedPositiveRequestBody &&
-                                hasValidRandomHeader
+                val randomHeader = request.headers["Random-String"]
+                val hasValidRandomHeader = randomHeader == null || positiveHeaderPattern.matches(randomHeader)
+                val isPositiveRequest =
+                    request.path == "/orders/order-123" &&
+                        request.queryParams.asMap()["page"] == "page-7" &&
+                        request.headers["X-Tenant"] == "north" &&
+                        request.body == expectedPositiveRequestBody &&
+                        hasValidRandomHeader
 
-                        if (isPositiveRequest) {
-                            positiveRequests.add(request)
-                            return HttpResponse.ok(parsedJSONObject("""{"result": "accepted"}"""))
-                        }
-
-                        when {
-                            request.path != "/orders/order-123" -> negativeMutationEvidences.add("path")
-                            request.queryParams.asMap()["page"] != "page-7" -> negativeMutationEvidences.add("query")
-                            request.headers["X-Tenant"] != "north" -> negativeMutationEvidences.add("header")
-                            request.body != expectedPositiveRequestBody -> negativeMutationEvidences.add("body")
-                        }
-
-                        return HttpResponse(
-                            status = 400,
-                            body = parsedJSONObject("""{"message": "bad request"}"""),
-                            headers = mapOf("Content-Type" to "application/json")
-                        )
+                if (isPositiveRequest) {
+                    positiveRequests.add(request)
+                    HttpResponse.ok(parsedJSONObject("""{"result": "accepted"}"""))
+                } else {
+                    when {
+                        request.path != "/orders/order-123" -> negativeMutationEvidences.add("path")
+                        request.queryParams.asMap()["page"] != "page-7" -> negativeMutationEvidences.add("query")
+                        request.headers["X-Tenant"] != "north" -> negativeMutationEvidences.add("header")
+                        request.body != expectedPositiveRequestBody -> negativeMutationEvidences.add("body")
                     }
-                })
+
+                    HttpResponse(
+                        status = 400,
+                        body = parsedJSONObject("""{"message": "bad request"}"""),
+                        headers = mapOf("Content-Type" to "application/json")
+                    )
+                }
             }
 
             assertThat(results.success())
@@ -266,6 +252,72 @@ class LoadTestsFromExternalisedFiles {
             assertThat(positiveRequests)
                 .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
                 .isNotEmpty()
+        }
+
+        @Test
+        fun `should resolve lookup expressions when the top level body is substituted with a number`() {
+            val specFile = File("src/test/resources/openapi/row_value_lookup/top_level_number_body_api.yaml")
+            val feature = loadRowValueLookupFeature(specFile)
+
+            val observedRequests = mutableListOf<String>()
+            val positiveRequests = mutableListOf<HttpRequest>()
+            val negativeBodies = mutableListOf<Value>()
+
+            val results = executeRowValueLookupGenerativeTests(feature) { request ->
+                println(request.toLogString())
+                observedRequests.add(request.toLogString())
+                assertRequestHasNoUnresolvedLookupExpressions(request)
+
+                if (request.path == "/counts" && request.body.toUnformattedString().toIntOrNull() in setOf(42, 43)) {
+                    positiveRequests.add(request)
+                    HttpResponse.ok(parsedJSONObject("""{"result": "accepted"}"""))
+                } else {
+                    negativeBodies.add(request.body)
+                    HttpResponse(
+                        status = 400,
+                        body = parsedJSONObject("""{"message": "bad request"}"""),
+                        headers = mapOf("Content-Type" to "application/json")
+                    )
+                }
+            }
+
+            assertThat(results.success())
+                .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
+                .isTrue()
+
+            assertThat(negativeBodies).isNotEmpty
+            assertThat(positiveRequests)
+                .withFailMessage("Observed requests:\n%s\n\n%s", observedRequests.joinToString("\n\n"), results.report())
+                .isNotEmpty()
+        }
+
+        private fun loadRowValueLookupFeature(specFile: File): Feature {
+            val examplesDir = specFile.resolveSibling(specFile.nameWithoutExtension + "_examples")
+            return Flags.using(EXAMPLE_DIRECTORIES to examplesDir.canonicalPath) {
+                OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().copy(strictMode = true).loadExternalisedExamples().also {
+                    it.validateExamplesOrException()
+                }
+            }
+        }
+
+        private fun executeRowValueLookupGenerativeTests(feature: Feature, handler: (HttpRequest) -> HttpResponse): Results {
+            return withServiceLoaderEntries(
+                mapOf(
+                    OpenAPIFixtureExecutor::class.java to RowValueLookupFixtureExecutor::class.java.name,
+                    ContractTestInterceptor::class.java to RowValueLookupContractTestInterceptor::class.java.name
+                )
+            ) {
+                feature.enableGenerativeTesting().executeTests(object : TestExecutor {
+                    override fun execute(request: HttpRequest): HttpResponse = handler(request)
+                })
+            }
+        }
+
+        private fun assertRequestHasNoUnresolvedLookupExpressions(request: HttpRequest) {
+            assertThat(request.path).doesNotContain("$(")
+            assertThat(request.queryParams.toString()).doesNotContain("$(")
+            assertThat(request.headers.values.joinToString(" ")).doesNotContain("$(")
+            assertThat(request.body.toStringLiteral()).doesNotContain("$(")
         }
     }
 
@@ -1624,6 +1676,7 @@ class RowValueLookupFixtureExecutor : OpenAPIFixtureExecutor {
             .upsertStoreUsing(StringValue("(PAGE:string)"), StringValue("page-7"))
             .upsertStoreUsing(StringValue("(TENANT:string)"), StringValue("north"))
             .upsertStoreUsing(StringValue("(NAME:string)"), StringValue("Sherlock"))
+            .upsertStoreUsing(StringValue("(COUNT:number)"), NumberValue(42))
 
         return FixtureExecutionDetails(
             combinedResult = Result.Success(),

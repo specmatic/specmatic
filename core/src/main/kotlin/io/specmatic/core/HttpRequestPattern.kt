@@ -26,6 +26,7 @@ import io.specmatic.core.pattern.breadCrumb
 import io.specmatic.core.pattern.isDollarMethodOrLookup
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.pattern.isPatternToken
+import io.specmatic.core.pattern.isSubstitution
 import io.specmatic.core.pattern.newBasedOn
 import io.specmatic.core.pattern.newMapBasedOn
 import io.specmatic.core.pattern.parsedPattern
@@ -325,7 +326,7 @@ data class HttpRequestPattern(
             val bodyValue =
                 if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
                     httpRequest.body
-                } else if (isPatternToken(httpRequest.bodyString)) {
+                } else if (isPatternToken(httpRequest.bodyString) || isSubstitution(httpRequest.bodyString)) {
                     StringValue(httpRequest.bodyString)
                 } else {
                     body.parse(httpRequest.bodyString, resolver)
@@ -859,16 +860,17 @@ data class HttpRequestPattern(
 
             val newBodies: Sequence<ReturnValue<Pattern>> = returnValue(breadCrumb = "BODY") BODY@ {
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@BODY resolver.generateHttpRequestBodies(this.body, row)
-                val parsedValue = runCatching { body.parse(rawRequestBody, resolver) }.getOrElse { e ->
+                val parsedValue = runCatching {
+                    if (isSubstitution(rawRequestBody)) return@runCatching StringValue(rawRequestBody)
+                    val parsedValue = body.parse(rawRequestBody, resolver)
+                    if (!isInvalidRequestResponse(status)) resolver.matchesPattern(null, body, parsedValue).throwOnFailure()
+                    parsedValue
+                }.getOrElse { e ->
                     if (isInvalidRequestResponse(status)) StringValue(rawRequestBody)
                     else throw e
                 }
+
                 val requestBodyAsIs = ExactValuePattern(parsedValue)
-
-                if (!isInvalidRequestResponse(status)) {
-                    resolver.matchesPattern(null, body, parsedValue).throwOnFailure()
-                }
-
                 if (status in 200..299)
                     resolver.generateHttpRequestBodies(this.body, row, requestBodyAsIs)
                 else
@@ -1025,6 +1027,7 @@ data class HttpRequestPattern(
 
             val newBodies: Sequence<ReturnValue<out Pattern>> = (returnValue(breadCrumb = "BODY") returnNewBodies@ {
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@returnNewBodies body.negativeBasedOn(row, resolver)
+                if (isSubstitution(rawRequestBody)) return@returnNewBodies body.negativeBasedOn(row, resolver)
                 val parsedValue = body.parse(rawRequestBody, resolver)
                 body.matches(parsedValue, resolver).throwOnFailure()
                 this.body.negativeBasedOn(row.noteRequestBody(), resolver)

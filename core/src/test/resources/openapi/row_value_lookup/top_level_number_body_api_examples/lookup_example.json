@@ -1,0 +1,41 @@
+{
+  "before": [
+    {
+      "type": "http",
+      "http-request": {
+        "baseUrl": "http://localhost:8000",
+        "path": "/seed",
+        "method": "POST",
+        "body": {}
+      },
+      "http-response": {
+        "status": 200,
+        "body": {
+          "count": "(COUNT:number)"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ],
+  "partial": {
+    "http-request": {
+      "path": "/counts",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "$(COUNT)"
+    },
+    "http-response": {
+      "status": 200,
+      "body": {
+        "result": "accepted"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}
