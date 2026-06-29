@@ -197,6 +197,11 @@ data class HttpPathPattern(
                         }
                     }
 
+                    isSubstitution(rowValue) -> {
+                        val exactValuePattern = ExactValuePattern(StringValue(rowValue))
+                        urlPathParamPattern.copy(pattern = exactValuePattern)
+                    }
+
                     else -> attempt("Format error in example of path parameter \"$key\"") {
                         val value = urlPathParamPattern.parse(rowValue, resolver)
 
@@ -324,6 +329,11 @@ data class HttpPathPattern(
                         is Success -> sequenceOf(urlPathPattern.copy(pattern = rowPattern))
                         is Failure -> throw ContractException(result.toFailureReport())
                     }
+                }
+
+                isSubstitution(rowValue) -> {
+                    val exactValuePattern = ExactValuePattern(StringValue(rowValue))
+                    sequenceOf(urlPathPattern.copy(pattern = exactValuePattern))
                 }
 
                 else -> attempt("Format error in example of path parameter \"$key\"") {
