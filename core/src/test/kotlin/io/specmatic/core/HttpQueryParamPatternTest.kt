@@ -6,6 +6,7 @@ import io.specmatic.GENERATION
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -2936,7 +2937,7 @@ class HttpQueryParamPatternTest {
     inner class ResolveSubstitutionsTests {
         @Test
         fun `should resolve values in query params and extra keys`() {
-            val substitution = substitutionOf("$(id)" to "123", "$(extra)" to "456")
+            val substitution = substitutionOf("id" to NumberValue(123), "extra" to StringValue("456"))
             val queryPattern = HttpQueryParamPattern(mapOf("id" to QueryParameterScalarPattern(StringPattern())))
             val resolved = queryPattern.resolveSubstitutions(
                 queryParams = QueryParameters(mapOf("id" to "$(id)", "extra" to "$(extra)")),
@@ -2948,18 +2949,9 @@ class HttpQueryParamPatternTest {
             assertThat(resolved.asMap()).containsEntry("extra", "456")
         }
 
-        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
-            return object : Substitution {
-                override fun isDropDirective(value: Value): Boolean = false
-                override fun resolveIfLookup(value: Value): Value = value
-                override fun substitute(value: Value): ReturnValue<Value> = HasValue(value)
-                override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution = this
-                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
-                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
-                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
-                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
-                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
-                }
+        private fun substitutionOf(vararg mappings: Pair<String, Value>): Substitution {
+            return mappings.fold(SubstitutionImpl.empty()) { acc, (key, value) ->
+                acc.upsertStoreUsing(StringValue("($key:${value.type().typeName})"), value)
             }
         }
     }

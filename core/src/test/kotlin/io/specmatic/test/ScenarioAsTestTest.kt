@@ -12,7 +12,6 @@ import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
-import io.specmatic.core.Resolver
 import io.specmatic.core.Substitution
 import io.specmatic.core.HttpQueryParamPattern
 import io.specmatic.core.pattern.ExactValuePattern
@@ -89,7 +88,7 @@ class ScenarioAsTestTest {
 
         @Test
         fun `request generation should be able to use before fixture substitution store`() {
-            val substitution = SubstitutionImpl.empty(Resolver())
+            val substitution = SubstitutionImpl.empty()
             val originalScenario = Scenario(
                 ScenarioInfo(
                     specType = SpecType.OPENAPI,
@@ -140,7 +139,8 @@ class ScenarioAsTestTest {
             assertThat(headers["Authorization"]).isEqualTo("token-123")
             assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isNotNull
             assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(
-                StringValue("$(SECRET)"), StringPattern(), null)?.value
+                StringValue("$(SECRET)"), StringPattern(),
+            )?.value
             ).isEqualTo(StringValue("token-123"))
         }
 
@@ -148,7 +148,7 @@ class ScenarioAsTestTest {
         fun `after fixture should be able to use before and response substitution store`() {
             ServiceLoaderTestFixtureExecutor.reset()
 
-            val substitution = SubstitutionImpl.empty(Resolver())
+            val substitution = SubstitutionImpl.empty()
             val scenario = scenario(
                 exampleRow = Row(
                     scenarioStub = ScenarioStub(
@@ -200,9 +200,9 @@ class ScenarioAsTestTest {
             assertThat(result.result).isInstanceOf(Result.Success::class.java)
             assertThat(ServiceLoaderTestFixtureExecutor.calls).containsExactly("before", "after")
             assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution).isNotNull
-            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(SECRET)"), StringPattern(), null)?.value)
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(SECRET)"), StringPattern())?.value)
                 .isEqualTo(StringValue("token-123"))
-            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(QUERY_ID)"), StringPattern(), null)?.value)
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(QUERY_ID)"), StringPattern())?.value)
                 .isEqualTo(StringValue("query-456"))
         }
 
@@ -497,7 +497,7 @@ class ScenarioAsTestTest {
         scenario: Scenario,
         scenarios: List<Scenario> = listOf(scenario),
         originalScenario: Scenario = scenario,
-        substitution: Substitution = SubstitutionImpl.empty(Resolver())
+        substitution: Substitution = SubstitutionImpl.empty()
     ): ScenarioAsTest {
         val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP)
         return ScenarioAsTest(

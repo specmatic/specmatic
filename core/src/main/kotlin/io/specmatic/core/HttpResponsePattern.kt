@@ -188,8 +188,9 @@ data class HttpResponsePattern(
     }
 
     fun resolveSubstitutions(substitution: Substitution, response: HttpResponse, resolver: Resolver): ReturnValue<HttpResponse> {
+        val headersResolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
         val substitutedHeaders = this.headersPattern.resolveSubstitutions(
-            resolver = resolver,
+            resolver = headersResolver,
             headers = response.headers,
             substitution = substitution,
         ).breadCrumb(BreadCrumb.HEADER.value)

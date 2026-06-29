@@ -54,10 +54,7 @@ data class ScenarioAsTest(
     private val responseHandlerRegistry: ResponseHandlerRegistry = ResponseHandlerRegistry(feature, originalScenario),
     private val requestValidator: RequestValidator = DefaultRequestValidator,
     val reasoning: Reasoning = Reasoning(),
-    private val substitution: Substitution = SubstitutionImpl.empty(
-        resolver = scenario.resolver,
-        strictMode = feature.specmaticConfig.getTestStrictMode() ?: feature.strictMode
-    ),
+    private val substitution: Substitution = SubstitutionImpl.empty(strictMode = feature.specmaticConfig.getTestStrictMode() ?: feature.strictMode),
 ) : ContractTest {
     companion object {
         private var id: Value? = null

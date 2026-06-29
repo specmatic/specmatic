@@ -7,7 +7,6 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Result
 import io.specmatic.core.Results
-import io.specmatic.core.Resolver
 import io.specmatic.core.Scenario
 import io.specmatic.core.Substitution
 import io.specmatic.core.pattern.HasValue
@@ -74,14 +73,12 @@ class TestSubstitutionIntegrationTest {
             SubstitutionFixtureExecutor.positiveAfterUpdatedSubstitution.substitute(
                 StringValue("$(BEFORE_POSITIVE)"),
                 StringPattern(),
-                null
             )
         ).isEqualTo(HasValue(StringValue("beforePositive")))
         assertThat(
             SubstitutionFixtureExecutor.negativeAfterUpdatedSubstitution.substitute(
                 StringValue("$(BEFORE_NEGATIVE)"),
                 StringPattern(),
-                null
             )
         ).isEqualTo(HasValue(StringValue("beforeNegative")))
 
@@ -89,14 +86,12 @@ class TestSubstitutionIntegrationTest {
             SubstitutionFixtureExecutor.positiveAfterUpdatedSubstitution.substitute(
                 StringValue("$(AFTER_POSITIVE)"),
                 StringPattern(),
-                null
             )
         ).isEqualTo(HasValue(StringValue("afterPositive")))
         assertThat(
             SubstitutionFixtureExecutor.negativeAfterUpdatedSubstitution.substitute(
                 StringValue("$(AFTER_NEGATIVE)"),
                 StringPattern(),
-                null
             )
         ).isEqualTo(HasValue(StringValue("afterNegative")))
 
@@ -451,24 +446,24 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
 
         val beforeFixtureRequests = mutableListOf<Value>()
         val afterFixtureRequests = mutableListOf<Value>()
-        var updatedSubstitution: Substitution = SubstitutionImpl.empty(Resolver())
-        var positiveAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty(Resolver())
-        var negativeAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty(Resolver())
+        var updatedSubstitution: Substitution = SubstitutionImpl.empty()
+        var positiveAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty()
+        var negativeAfterUpdatedSubstitution: Substitution = SubstitutionImpl.empty()
 
         fun reset() {
             calls.clear()
             receivedContexts.clear()
             beforeFixtureRequests.clear()
             afterFixtureRequests.clear()
-            updatedSubstitution = SubstitutionImpl.empty(Resolver())
-            positiveAfterUpdatedSubstitution = SubstitutionImpl.empty(Resolver())
-            negativeAfterUpdatedSubstitution = SubstitutionImpl.empty(Resolver())
+            updatedSubstitution = SubstitutionImpl.empty()
+            positiveAfterUpdatedSubstitution = SubstitutionImpl.empty()
+            negativeAfterUpdatedSubstitution = SubstitutionImpl.empty()
         }
     }
 
     private fun assertSubstitutes(substitution: Substitution, lookupKey: String, expectedValue: String) {
         assertThat(
-            substitution.substitute(StringValue($$"$($$lookupKey)"), StringPattern(), null).value
+            substitution.substitute(StringValue($$"$($$lookupKey)"), StringPattern()).value
         ).isEqualTo(StringValue(expectedValue))
     }
 }

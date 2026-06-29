@@ -6,10 +6,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.ktor.util.reflect.*
 import io.specmatic.conversions.OpenApiSpecification
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.*
 import io.specmatic.test.TestExecutor
 import io.specmatic.toViolationReportString
-import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
@@ -1058,7 +1058,7 @@ internal class HttpHeadersPatternTest {
         fun `should resolve values in headers and extra keys`() {
             val httpHeaders = HttpHeadersPattern(mapOf("number" to NumberPattern()))
             val headers = mapOf("number" to "$(number)", "extraKey" to "$(extraKey)")
-            val substitution = substitutionOf("$(number)" to "999", "$(extraKey)" to "extraValue")
+            val substitution = substitutionOf("number" to NumberValue(999), "extraKey" to StringValue("extraValue"))
             val resolved = httpHeaders.resolveSubstitutions(headers, substitution, Resolver()).value
             assertThat(resolved).isEqualTo(mapOf("number" to "999", "extraKey" to "extraValue"))
         }
@@ -1066,24 +1066,15 @@ internal class HttpHeadersPatternTest {
         @Test
         fun `should be case insensitive for header keys`() {
             val httpHeaders = HttpHeadersPattern(mapOf("x-trace" to StringPattern()))
-            val substitution = substitutionOf("$(trace)" to "abc")
+            val substitution = substitutionOf("trace" to StringValue("abc"))
             val headers = mapOf("X-TRACE" to "$(trace)")
             val resolved = httpHeaders.resolveSubstitutions(headers, substitution, Resolver()).value
             assertThat(resolved).containsEntry("X-TRACE", "abc")
         }
 
-        private fun substitutionOf(vararg mappings: Pair<String, String>): Substitution {
-            return object : Substitution {
-                override fun isDropDirective(value: Value): Boolean = false
-                override fun resolveIfLookup(value: Value): Value = value
-                override fun substitute(value: Value): ReturnValue<Value> = HasValue(value)
-                override fun upsertStoreUsing(originalValue: Value, runningValue: Value): Substitution = this
-                override fun resolveIfLookup(value: Value, pattern: Pattern): Value = value
-                override fun substitute(value: Value, pattern: Pattern, key: String?): ReturnValue<Value> {
-                    val expression = (value as? StringValue)?.string ?: return HasValue(value)
-                    val resolved = mappings.toMap()[expression] ?: return HasValue(value)
-                    return HasValue(runCatching { pattern.parse(resolved, Resolver()) }.getOrDefault(StringValue(resolved)))
-                }
+        private fun substitutionOf(vararg mappings: Pair<String, Value>): Substitution {
+            return mappings.fold(SubstitutionImpl.empty()) { acc, (key, value) ->
+                acc.upsertStoreUsing(StringValue("($key:${value.type().typeName})"), value)
             }
         }
     }
