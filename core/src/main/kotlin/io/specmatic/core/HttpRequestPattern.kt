@@ -1043,17 +1043,12 @@ data class HttpRequestPattern(
             val newFormFieldsPatterns = newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }
             val newFormDataPartLists = newMultiPartBasedOn(multiPartFormDataPattern, row, resolver)
 
+            val securitySchemeInRow = securitySchemes.find { scheme -> scheme.isInRow(row) }
             sequence {
                 try {
                     // If security schemes are present, for now we'll just take the first scheme and assign it to each negative request pattern.
                     // Ideally we should generate negative patterns from the security schemes and use them.
-                    val positivePattern: HttpRequestPattern =
-                        newBasedOn(
-                            row,
-                            resolver,
-                            400
-                        ).first().value.copy(securitySchemes = listOf(securitySchemes.first()))
-
+                    val positivePattern: HttpRequestPattern = newBasedOn(row, resolver, 400).first().value
                     newHttpPathPatterns.forEach { pathParamPatternR ->
                         if (pathParamPatternR != null) {
                             yield(pathParamPatternR.ifValue { pathParamPattern ->
@@ -1093,6 +1088,14 @@ data class HttpRequestPattern(
                 } catch (t: Throwable) {
                     yield(HasException(t))
                 }
+            }.withSecuritySchemeElseFirst(row, securitySchemeInRow)
+        }
+    }
+
+    private fun Sequence<ReturnValue<HttpRequestPattern>>.withSecuritySchemeElseFirst(row: Row, scheme: OpenAPISecurityScheme?): Sequence<ReturnValue<HttpRequestPattern>> {
+        return this.map {
+            it.ifValue { requestPattern ->
+                scheme?.addTo(requestPattern, row) ?: requestPattern.copy(securitySchemes = listOf(securitySchemes.first()))
             }
         }
     }

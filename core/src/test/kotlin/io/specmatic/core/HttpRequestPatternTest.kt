@@ -1031,6 +1031,53 @@ internal class HttpRequestPatternTest {
         assertThat(newRequestPattern.headersPattern.contentType).isEqualTo("application/json")
     }
 
+    @Test
+    fun `negativeBasedOn should use security scheme from row when available`() {
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/pets/(id:number)"),
+            securitySchemes = listOf(
+                APIKeyInHeaderSecurityScheme("X-Api-Key", null),
+                APIKeyInQueryParamSecurityScheme("api_key", null)
+            )
+        )
+
+        val negativePatterns = requestPattern.negativeBasedOn(
+            row = Row(mapOf("id" to "10", "api_key" to "row-token")),
+            resolver = Resolver()
+        ).map { it.value }.toList()
+
+        assertThat(negativePatterns).isNotEmpty
+        assertThat(negativePatterns).allSatisfy { negativePattern ->
+            assertThat(negativePattern.httpQueryParamPattern.queryPatterns).containsKey("api_key")
+            assertThat(negativePattern.headersPattern.pattern).doesNotContainKey("X-Api-Key")
+        }
+    }
+
+    @Test
+    fun `negativeBasedOn should fallback to first security scheme when row has none`() {
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/pets/(id:number)"),
+            securitySchemes = listOf(
+                APIKeyInHeaderSecurityScheme("X-Api-Key", null),
+                APIKeyInQueryParamSecurityScheme("api_key", null)
+            )
+        )
+
+        val negativePatterns = requestPattern.negativeBasedOn(
+            row = Row(mapOf("id" to "10")),
+            resolver = Resolver()
+        ).map { it.value }.toList()
+
+        assertThat(negativePatterns).isNotEmpty
+        assertThat(negativePatterns).allSatisfy { negativePattern ->
+            assertThat(negativePattern.headersPattern.pattern).doesNotContainKey("X-Api-Key")
+            assertThat(negativePattern.httpQueryParamPattern.queryPatterns).doesNotContainKey("api_key")
+            assertThat(negativePattern.securitySchemes).contains(APIKeyInHeaderSecurityScheme("X-Api-Key", null))
+        }
+    }
+
     @Nested
     inner class GenerateV2Tests {
         @Test
