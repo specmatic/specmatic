@@ -1,0 +1,7 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": "bad"
+}

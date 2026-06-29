@@ -1,0 +1,27 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/upload",
+    "multipart-formdata": [
+      {
+        "name": "notes",
+        "content": "hello world",
+        "contentType": "text/plain",
+        "contentEncoding": "utf-8",
+        "description": "free text notes",
+        "category": "metadata"
+      },
+      {
+        "name": "attachment",
+        "filename": "report.csv",
+        "contentType": "text/csv",
+        "contentEncoding": "identity",
+        "description": "primary uploaded report",
+        "checksum": "abc123"
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200
+  }
+}

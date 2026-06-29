@@ -1,0 +1,6 @@
+{
+  "http-request": "bad",
+  "http-response": {
+    "status": 200
+  }
+}
