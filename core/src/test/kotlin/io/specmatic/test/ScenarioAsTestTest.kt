@@ -390,6 +390,43 @@ class ScenarioAsTestTest {
     }
 
     @Test
+    fun `runTest should seed substitution data from example when available`() {
+        ServiceLoaderTestFixtureExecutor.reset()
+        val testScenario = scenario(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    beforeFixtures = listOf(StringValue("before")),
+                    data = parsedJSONObject(
+                        """{"lookupData":{"dictionary":{"*":{"message":"from-example-data"}}}}"""
+                    )
+                )
+            )
+        )
+
+        val executionResult = withServiceLoaderEntries(
+            mapOf(
+                OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name,
+                ContractTestInterceptor::class.java to ServiceLoaderTestInterceptor::class.java.name
+            )
+        ) {
+            val feature = Feature(name = "feature", scenarios = listOf(testScenario), protocol = SpecmaticProtocol.HTTP)
+            ScenarioAsTest(
+                feature = feature,
+                scenario = testScenario,
+                specType = SpecType.OPENAPI,
+                flagsBased = feature.flagsBased,
+                originalScenario = testScenario,
+                protocol = SpecmaticProtocol.HTTP,
+            ).runTest(fixedResponseExecutor(body = "ok"))
+        }
+
+        assertThat(
+            ServiceLoaderTestFixtureExecutor.receivedSubstitution?.substitute(StringValue("$(lookupData.dictionary[ID].message)"))
+        ).isEqualTo(HasValue(StringValue("from-example-data")))
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `runTest should choose default response with matching content type when same-status content type does not match`() {
         val negativeScenario = negativeScenario(
             expectedResponses = mapOf(400 to listOf(expectationScenario(status = 400, contentType = "text/plain"))),

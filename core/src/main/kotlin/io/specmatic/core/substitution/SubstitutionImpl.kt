@@ -149,8 +149,8 @@ class SubstitutionImpl private constructor(
     companion object {
         const val DROP_DIRECTIVE = "$(drop)"
 
-        fun empty(strictMode: Boolean = false): SubstitutionImpl {
-            return SubstitutionImpl(strictMode = strictMode)
+        fun empty(data: JSONObjectValue = JSONObjectValue(), strictMode: Boolean = false): SubstitutionImpl {
+            return SubstitutionImpl(strictMode = strictMode, data = data)
         }
 
         fun from(
