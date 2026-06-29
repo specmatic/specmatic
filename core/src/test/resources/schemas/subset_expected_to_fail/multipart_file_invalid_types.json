@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/upload",
+    "multipart-formdata": [
+      {
+        "name": 123,
+        "filename": false,
+        "contentType": 99,
+        "contentEncoding": 42
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200
+  }
+}
