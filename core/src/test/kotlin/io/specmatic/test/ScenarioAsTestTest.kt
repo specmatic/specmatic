@@ -1,5 +1,9 @@
 package io.specmatic.test
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.verify
 import io.specmatic.core.Feature
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
@@ -14,6 +18,7 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.Substitution
 import io.specmatic.core.HttpQueryParamPattern
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.HasValue
 import io.specmatic.core.pattern.Row
@@ -442,6 +447,90 @@ class ScenarioAsTestTest {
         assertThat(updatedScenario.statusInDescription).isEqualTo("1000")
         assertThat(scenarioInRecord.statusInDescription).isEqualTo("1000")
         assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+    }
+
+    @Test
+    fun `runTest should call matcher when positive scenario has response body example`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any()) } returns Result.Success()
+
+        val responseBody = parsedJSONObject("""{"id": 10}""")
+        val scenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    body = JSONObjectPattern(mapOf("id" to NumberPattern())),
+                    headersPattern = HttpHeadersPattern(contentType = "application/json")
+                ),
+            )
+        ).copy(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    response = HttpResponse(
+                        status = 200,
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = responseBody
+                    )
+                )
+            )
+        )
+
+        scenarioAsTest(scenario).runTest(
+            fixedResponseExecutor(
+                status = 200,
+                body = """{"id": 10}""",
+                headers = mapOf("Content-Type" to "application/json")
+            )
+        )
+
+        verify(exactly = 1) { matcherEngine.matchResponseValue(responseBody, responseBody, any()) }
+    }
+
+    @Test
+    fun `runTest should not call matcher when negative scenario has response body example`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any()) } returns Result.Success()
+
+        val scenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 400,
+                    body = JSONObjectPattern(mapOf("error" to StringPattern())),
+                    headersPattern = HttpHeadersPattern(contentType = "application/json")
+                ),
+            )
+        ).copy(
+            isNegative = true,
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    response = HttpResponse(
+                        status = 200,
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = parsedJSONObject("""{"id": 10}""")
+                    )
+                )
+            )
+        )
+
+        scenarioAsTest(scenario).runTest(
+            fixedResponseExecutor(
+                status = 400,
+                body = """{"error": "bad request"}""",
+                headers = mapOf("Content-Type" to "application/json")
+            )
+        )
+
+        verify(exactly = 0) { matcherEngine.matchResponseValue(any(), any(), any()) }
     }
 
     @Test
