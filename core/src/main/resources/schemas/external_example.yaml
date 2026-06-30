@@ -101,6 +101,16 @@ components:
       required:
         - status
 
+    FixtureExecuteFor:
+      type: object
+      properties:
+        scenarios:
+          type: string
+          enum:
+            - all
+            - positive
+            - negative
+
     MultiPartFormData:
       oneOf:
         - $ref: "#/components/schemas/MultiPartContent"
@@ -137,3 +147,25 @@ components:
       required:
         - name
         - filename
+
+    HttpFixture:
+      type: object
+      properties:
+        type:
+          type: string
+        wait:
+          nullable: true
+          type: string
+        timeout:
+          nullable: true
+          type: string
+        retry:
+          nullable: true
+          $ref: "#/components/schemas/Retry"
+        executeFor:
+          nullable: true
+          $ref: "#/components/schemas/FixtureExecuteFor"
+        http-request:
+          $ref: "#/components/schemas/RequestSchema"
+        http-response:
+          $ref: "#/components/schemas/ResponseSchema"

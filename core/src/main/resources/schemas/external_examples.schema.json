@@ -118,6 +118,9 @@
         "retry": {
           "$ref": "#/$defs/Retry"
         },
+        "executeFor": {
+          "$ref": "#/$defs/FixtureExecuteFor"
+        },
         "http-request": {
           "$ref": "#/$defs/HTTPFixtureRequest"
         },
@@ -136,6 +139,16 @@
         },
         "delay": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FixtureExecuteFor": {
+      "type": "object",
+      "properties": {
+        "scenarios": {
+          "type": "string",
+          "enum": ["all", "positive", "negative"]
         }
       },
       "additionalProperties": false
