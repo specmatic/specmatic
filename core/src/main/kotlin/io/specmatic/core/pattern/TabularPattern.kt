@@ -193,7 +193,12 @@ fun newPatternsBasedOn(row: Row, key: String, pattern: Pattern, resolver: Resolv
         row.containsField(keyWithoutOptionality) -> {
             val rowValue = row.getField(keyWithoutOptionality)
 
-            if (isPatternToken(rowValue)) {
+            if (isSubstitution(rowValue)) {
+                val exactValuePattern = ExactValuePattern(StringValue(rowValue))
+                val generativePatterns: Sequence<ReturnValue<Pattern>> = resolver.generatedPatternsForGenerativeTests(pattern, key)
+                val sequence: Sequence<ReturnValue<Pattern>> = sequenceOf(HasValue(exactValuePattern))
+                sequence + generativePatterns
+            } else if (isPatternToken(rowValue)) {
                 val rowPattern = resolver.getPattern(rowValue)
 
                 attempt(breadCrumb = keyWithoutOptionality) {

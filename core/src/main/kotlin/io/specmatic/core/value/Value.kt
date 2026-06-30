@@ -2,8 +2,17 @@ package io.specmatic.core.value
 
 import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.value.fold.OpaqueValueCase
+import io.specmatic.core.value.fold.ValueVisitor
 
 interface Value {
+    fun <C, R> accept(
+        visitor: ValueVisitor<C, R>,
+        context: C = visitor.rootContext
+    ): R {
+        return visitor.opaque(OpaqueValueCase(value = this, context = context))
+    }
+
     fun valueErrorSnippet(): String = "${this.displayableValue()} (${this.displayableType()})"
 
     val httpContentType: String

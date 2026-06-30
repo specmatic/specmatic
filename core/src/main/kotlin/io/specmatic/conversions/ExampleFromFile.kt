@@ -13,7 +13,6 @@ import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.test.ExampleProcessor
 import java.io.File
 import java.net.URI
 
@@ -63,7 +62,7 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
             responseExample = response,
             isPartial = scenarioStub.partial != null,
             scenarioStub = scenarioStub
-        ).let { ExampleProcessor.resolve(it, ExampleProcessor::ifNotExitsToLookupPattern) }
+        )
     }
 
     val json: JSONObjectValue = scenarioStub.rawJsonData

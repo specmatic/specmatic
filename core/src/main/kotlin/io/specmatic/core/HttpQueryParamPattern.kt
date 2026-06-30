@@ -492,33 +492,73 @@ data class HttpQueryParamPattern(
     }
 
     fun fillInTheBlanks(queryParams: QueryParameters?, resolver: Resolver): ReturnValue<QueryParameters> {
-        val queryParamsToFill = queryParams ?: QueryParameters(emptyMap())
-        val effectivePatterns = effectiveQueryPatterns(queryParamsToFill)
+        return resolveQueryParams(queryParams = queryParams, resolver = resolver) { effectivePatterns, parsedQueryParams, updatedResolver ->
+            fill(
+                jsonPatternMap = effectivePatterns,
+                jsonValueMap = parsedQueryParams,
+                resolver = updatedResolver,
+                typeAlias = null,
+            )
+        }
+    }
+
+    fun resolveSubstitutions(queryParams: QueryParameters?, substitution: Substitution, resolver: Resolver): ReturnValue<QueryParameters> {
+        return resolveQueryParams(queryParams = queryParams, resolver = resolver) { effectivePatterns, parsedQueryParams, updatedResolver ->
+            resolveSubstitutions(
+                jsonPatternMap = effectivePatterns,
+                jsonValueMap = parsedQueryParams,
+                substitution = substitution,
+                resolver = updatedResolver,
+            )
+        }
+    }
+
+    private fun resolveQueryParams(
+        resolver: Resolver,
+        queryParams: QueryParameters?,
+        resolveValues: (effectivePatterns: Map<String, Pattern>, parsedQueryParams: Map<String, Value>, resolver: Resolver) -> ReturnValue<Map<String, Value>>
+    ): ReturnValue<QueryParameters> {
+        val queryParamsToResolve = queryParams ?: QueryParameters(emptyMap())
+        val effectivePatterns = effectiveQueryPatterns(queryParamsToResolve)
         val activeNestedObjectQueryParams = activeNestedObjectQueryParams()
-        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(queryParamsToFill, effectivePatterns, activeNestedObjectQueryParams, resolver)
-        val additionalQueryParams = matchingAdditionalQueryParams(parsedNestedObjectQueryParams.remainingQueryParams, effectivePatterns, resolver)
+        val parsedNestedObjectQueryParams = parseNestedObjectQueryParams(
+            queryParams = queryParamsToResolve,
+            effectivePatterns = effectivePatterns,
+            nestedObjectQueryParams = activeNestedObjectQueryParams,
+            resolver = resolver
+        )
+
+        val additionalQueryParams = matchingAdditionalQueryParams(
+            queryParams = parsedNestedObjectQueryParams.remainingQueryParams,
+            effectivePatterns = effectivePatterns,
+            resolver = resolver
+        )
+
         val adjustedQueryParams = when {
-            queryParamsToFill.paramPairs.isEmpty() -> QueryParameters(emptyMap())
+            queryParamsToResolve.paramPairs.isEmpty() -> QueryParameters(emptyMap())
             additionalProperties != null -> parsedNestedObjectQueryParams.remainingQueryParams.withoutMatching(effectivePatterns.normalizedKeys(), additionalProperties, resolver)
             else -> parsedNestedObjectQueryParams.remainingQueryParams
         }
 
         val updatedResolver = if (extensibleQueryParams) {
             resolver.withUnexpectedKeyCheck(IgnoreUnexpectedKeys)
-        } else resolver.withUnexpectedKeyCheck(ValidateUnexpectedKeys)
+        } else {
+            resolver.withUnexpectedKeyCheck(ValidateUnexpectedKeys)
+        }.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
 
         val parsedQueryParams = adjustedQueryParams.asValueMap().mapValues { (key, value) ->
-            val pattern = effectivePatterns[key] ?: effectivePatterns["${key}?"] ?: return@mapValues value
+            val pattern = effectivePatterns[key] ?: effectivePatterns["$key?"] ?: return@mapValues value
             runCatching { pattern.parse(value.toStringLiteral(), resolver) }.getOrDefault(value)
         } + parsedNestedObjectQueryParams.reconstructedObjectValues
 
-        return fill(
-            jsonPatternMap = effectivePatterns, jsonValueMap = parsedQueryParams,
-            resolver = updatedResolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value),
-            typeAlias = null
+        return resolveValues(
+            effectivePatterns,
+            parsedQueryParams,
+            updatedResolver
         ).realise(
             hasValue = { valuesMap, _ -> HasValue(QueryParameters(serializeNestedObjectQueryValues(valuesMap, activeNestedObjectQueryParams) + additionalQueryParams.paramPairs)) },
-            orException = { e -> e.cast() }, orFailure = { f -> f.cast() }
+            orException = { e -> e.cast() },
+            orFailure = { f -> f.cast() }
         )
     }
 
@@ -775,7 +815,7 @@ private fun Map<String, Pattern>.toQueryParameterDeclarations(): List<QueryParam
 private fun exactEncompassedQueryType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
     return when {
         isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
-        isMatcherToken(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
+        StringValue(valueString).isMatcherToken() -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
         else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
     }
 }

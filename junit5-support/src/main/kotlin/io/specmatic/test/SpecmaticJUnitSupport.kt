@@ -207,16 +207,15 @@ open class SpecmaticJUnitSupport {
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
         val coverageReport = openApiCoverage.generateWithoutHooks()
 
-        consoleLog("Generating CTRF report using  coverageReportOperations...")
+        consoleLog("Generating CTRF report using coverage report specifications...")
         ReportGenerator.generateReport(
             endTime = end,
             startTime = start,
             reportDir = File("$reportDirPath/test"),
-            coverageReportOperations = coverageReport.coverageOperations,
+            coverageReportSpecifications = coverageReport.coverageReportSpecifications(),
             coverage = coverageReport.totalCoveragePercentage,
             actuatorEnabled = coverageReport.actuatorEnabled,
             absoluteCoverage = coverageReport.absoluteCoveragePercentage,
-            specConfigs = coverageReport.getSpecConfigs(),
         )
     }
 

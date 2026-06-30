@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: Row Value Lookup Top Level Number Body API
+  version: 1.0.0
+paths:
+  /counts:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: integer
+              minimum: 42
+              maximum: 43
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - result
+                properties:
+                  result:
+                    type: string
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string

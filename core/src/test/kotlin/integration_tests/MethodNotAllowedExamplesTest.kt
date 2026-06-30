@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import io.specmatic.core.FailureReason
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -166,9 +167,9 @@ class MethodNotAllowedExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
-        assertThat(warningReport).contains("paths./orders.post.responses.405")
-        assertThat(warningReport).contains("External 405 examples are still loaded and used")
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).doesNotContain("paths./orders.post.responses.405")
+        assertThat(warningReport).doesNotContain(missingRequestExampleErrorMessageForTest("method-not-allowed"))
 
         val feature = specification.toFeature()
 
@@ -722,10 +723,6 @@ class MethodNotAllowedExamplesTest {
                       properties:
                         data:
                           type: string
-                    examples:
-                      method-not-allowed:
-                        value:
-                          data: found
               responses:
                 "405":
                   description: method not allowed

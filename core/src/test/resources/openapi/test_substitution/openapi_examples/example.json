@@ -1,0 +1,172 @@
+{
+    "before": [
+        {
+            "executeFor": {
+                "scenarios": "all"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/beforeAll",
+                "method": "POST",
+                "body": {}
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "before1": "(BEFORE_1:string)",
+                    "before2": "(BEFORE_2:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "positive"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/beforePositive",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "beforePositive": "(BEFORE_POSITIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "negative"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/beforeNegative",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "beforeNegative": "(BEFORE_NEGATIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        }
+    ],
+    "partial": {
+        "http-request": {
+            "path": "/test",
+            "method": "POST",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "before1": "$(BEFORE_1)",
+                "before2": "$(BEFORE_2)"
+            }
+        },
+        "http-response": {
+            "status": 200,
+            "body": {
+                "test": "(TEST:string)"
+            },
+            "status-text": "OK",
+            "headers": {
+                "Content-Type": "application/json"
+            }
+        }
+    },
+    "after": [
+        {
+            "executeFor": {
+                "scenarios": "all"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/afterAll",
+                "method": "POST",
+                "body": {
+                    "before1": "$(BEFORE_1)",
+                    "before2": "$(BEFORE_2)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "afterAll": "(AFTER_ALL:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "positive"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/afterPositive",
+                "method": "POST",
+                "body": {
+                    "test": "$(TEST)",
+                    "beforePositive": "$(BEFORE_POSITIVE)",
+                    "afterAll": "$(AFTER_ALL)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "afterPositive": "(AFTER_POSITIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        },
+        {
+            "executeFor": {
+                "scenarios": "negative"
+            },
+            "type": "http",
+            "http-request": {
+                "baseUrl": "http://localhost:8000",
+                "path": "/afterNegative",
+                "method": "POST",
+                "body": {
+                    "beforeNegative": "$(BEFORE_NEGATIVE)",
+                    "afterAll": "$(AFTER_ALL)"
+                }
+            },
+            "http-response": {
+                "status": 200,
+                "body": {
+                    "afterNegative": "(AFTER_NEGATIVE:string)"
+                },
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            }
+        }
+    ]
+}

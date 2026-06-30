@@ -101,3 +101,10 @@ fun resultOf(ruleViolation: RuleViolation? = null, f: () -> Result): Result {
         Result.Failure(message = exceptionCauseMessage(e), ruleViolation = ruleViolation)
     }
 }
+
+fun Throwable.toFailure(): Result.Failure {
+    return when (this) {
+        is ContractException -> this.failure()
+        else -> Result.Failure(exceptionCauseMessage(this))
+    }
+}

@@ -4,6 +4,7 @@ import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiLintViolations
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.lenient.CollectorContext
+import io.specmatic.conversions.missingRequestExampleErrorMessageForTest
 import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -336,9 +337,9 @@ class UnsupportedMediaTypeExamplesTest {
         specification.toScenarioInfos(collectorContext)
 
         val warningReport = collectorContext.toCollector().toResult().reportString()
-        assertThat(warningReport).contains(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
-        assertThat(warningReport).contains("paths./orders.post.responses.415")
-        assertThat(warningReport).contains("External 415 examples are still loaded and used")
+        assertThat(warningReport).doesNotContain(OpenApiLintViolations.UNDECLARED_REQUEST_VARIANT_RESPONSE_REQUIRES_EXTERNAL_EXAMPLE.id)
+        assertThat(warningReport).doesNotContain("paths./orders.post.responses.415")
+        assertThat(warningReport).doesNotContain(missingRequestExampleErrorMessageForTest("unsupported-media-type"))
 
         val feature = specification.toFeature()
 
@@ -1104,10 +1105,6 @@ ${requestContentTypes(contentTypes)}
                       properties:
                         data:
                           type: string
-                    examples:
-                      unsupported-media-type:
-                        value:
-                          data: found
               responses:
                 "415":
                   description: unsupported media type

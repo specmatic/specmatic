@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 import io.specmatic.core.value.*
@@ -144,14 +145,11 @@ class EmailPatternTest {
     fun `resolveSubstitutions should return value when no substitution needed`() {
         val pattern = EmailPattern()
         val resolver = Resolver()
-        val substitution = Substitution(
+        val substitution = SubstitutionImpl.from(
             HttpRequest("GET", "/", mapOf(), EmptyString),
             HttpRequest("GET", "/", mapOf(), EmptyString),
-            HttpPathPattern(emptyList(), ""),
-            HttpHeadersPattern(mapOf()),
-            EmptyStringPattern,
-            resolver,
-            JSONObjectValue(mapOf())
+            JSONObjectValue(mapOf()),
+            Resolver()
         )
         val emailValue = StringValue("test@example.com")
 
@@ -179,15 +177,7 @@ class EmailPatternTest {
                 ))
             ))
         ))
-        val substitution = Substitution(
-            runningRequest,
-            originalRequest,
-            HttpPathPattern(emptyList(), ""),
-            HttpHeadersPattern(mapOf()),
-            JSONObjectPattern(mapOf("department" to StringPattern())),
-            resolver,
-            dataLookup
-        )
+        val substitution = SubstitutionImpl.from(runningRequest, originalRequest, dataLookup, Resolver())
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].contact)")
 
         val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
@@ -197,7 +187,7 @@ class EmailPatternTest {
     }
 
     @Test
-    fun `resolveSubstitutions should fail when substituted value doesn't match email pattern`() {
+    fun `resolveSubstitutions should not fail when substituted value doesn't match email pattern`() {
         val pattern = EmailPattern()
         val originalRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("(DEPARTMENT:string)"))))
         val runningRequest = HttpRequest("POST", "/person", body = JSONObjectValue(mapOf("department" to StringValue("engineering"))))
@@ -211,20 +201,12 @@ class EmailPatternTest {
                 ))
             ))
         ))
-        val substitution = Substitution(
-            runningRequest,
-            originalRequest,
-            HttpPathPattern(emptyList(), ""),
-            HttpHeadersPattern(mapOf()),
-            JSONObjectPattern(mapOf("department" to StringPattern())),
-            resolver,
-            dataLookup
-        )
+        val substitution = SubstitutionImpl.from(runningRequest, originalRequest, dataLookup, Resolver())
         val valueExpression = StringValue("$(dataLookup.dept[DEPARTMENT].contact)")
 
         val result = pattern.resolveSubstitutions(substitution, valueExpression, resolver, null)
 
-        assertThat(result).isInstanceOf(HasFailure::class.java)
+        assertThat(result).isInstanceOf(HasValue::class.java)
     }
 
     @Test

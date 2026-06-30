@@ -17,6 +17,8 @@ const val SOAP_FAULT = "fault"
 private const val XML_RANDOM_NUMBER_CEILING = 3
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
+private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
+private const val XML_SCHEMA_INSTANCE_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
 
 private data class XMLHeaderName(
     val namespaceUri: String?,
@@ -382,13 +384,15 @@ data class XMLPattern(
     private fun matchAttributes(sampleData: XMLNode, resolver: Resolver): Result {
         val patternAttributesWithoutXmlns = pattern.attributes.filterNot {
             it.key == "xmlns" || it.key.startsWith("xmlns:") || it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+        }.let { attributesWithoutXmlns ->
+            dropSOAP11MetadataAttributes(attributesWithoutXmlns, pattern::attributeNamespaceUri)
         }
         val sampleAttributesWithoutXmlns: Map<String, StringValue> = sampleData.attributes.filterNot {
             it.key == "xmlns" ||
                     it.key.startsWith("xmlns:") ||
                     it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
         }.let { attributesWithoutXmlns ->
-            dropSOAP11Info(sampleData, attributesWithoutXmlns)
+            dropSOAP11MetadataAttributes(attributesWithoutXmlns, sampleData::attributeNamespaceUri)
         }
 
         val sampleAttributesForKeyCheck = sampleAttributesWithoutXmlns.filterNot { (key, _) ->
@@ -419,24 +423,24 @@ data class XMLPattern(
                 pattern.attributeWildcards.any { it.allows(attributeName, sampleData) }
     }
 
-    private fun dropSOAP11Info(
-        sampleData: XMLNode,
-        attributes: Map<String, StringValue>,
-    ): Map<String, StringValue> {
-        val withoutEncoding = attributes.filterNot { (key, _) ->
-            val prefix = key.substringBefore(":")
-            val name = key.substringAfter(":")
-            name == "encodingStyle" && sampleData.namespaces[prefix] == "http://schemas.xmlsoap.org/soap/envelope/"
+    private fun <T> dropSOAP11MetadataAttributes(
+        attributes: Map<String, T>,
+        attributeNamespaceUri: (String) -> String?,
+    ): Map<String, T> =
+        attributes.filterNot { (key, _) ->
+            val namespaceUri = runCatching { attributeNamespaceUri(key) }.getOrNull()
+            isSOAP11MetadataAttribute(key, namespaceUri)
         }
 
-        val withoutRPCType = withoutEncoding.filterNot { (key, _) ->
-            val prefix = key.substringBefore(":")
-            val name = key.substringAfter(":")
+    private fun isSOAP11MetadataAttribute(attributeName: String, namespaceUri: String?): Boolean {
+        val name = attributeName.substringAfter(":")
+        val prefix = attributeName.substringBefore(":", "")
 
-            name == "type" && sampleData.namespaces[prefix] == "http://www.w3.org/2001/XMLSchema-instance"
+        return when (name) {
+            "encodingStyle" -> namespaceUri == SOAP_ENVELOPE_NAMESPACE
+            "type" -> namespaceUri == XML_SCHEMA_INSTANCE_NAMESPACE || (namespaceUri == null && prefix == "xsi")
+            else -> false
         }
-
-        return withoutRPCType
     }
 
     private fun matchName(sampleData: XMLNode, resolver: Resolver): Result {
@@ -820,6 +824,7 @@ data class XMLPattern(
         return when {
             this is ListPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
+            this is XMLSequencePattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLPattern && occurMultipleTimes() ->
                 0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }

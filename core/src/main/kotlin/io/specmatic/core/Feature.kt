@@ -923,6 +923,7 @@ data class Feature(
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
+
         return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).mapNotNull { decision ->
             decision.normalizeAcceptHeader().checkAcceptCompatibility()
         }.map { decision ->
@@ -1015,7 +1016,6 @@ data class Feature(
         concreteTestScenario.protocol,
         concreteTestScenario.specType,
         comment,
-        validators = listOf(ExamplePostValidator),
         workflow = workflow,
         originalScenario = originalScenario,
         reasoning = reasoning

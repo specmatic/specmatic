@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.*
 import io.specmatic.core.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
@@ -1193,6 +1194,53 @@ internal class AnyPatternTest {
             val filledInValue = pattern.fillInTheBlanks(partialValue, resolver).value
 
             assertThat(filledInValue).isInstanceOf(BooleanValue::class.java)
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should use dictionary backed generation with discriminator`() {
+            val pattern = AnyPattern(
+                pattern = listOf(
+                    JSONObjectPattern(mapOf("type" to "sub1".toDiscriminator(), "text" to StringPattern()), typeAlias = "(Sub1)"),
+                    JSONObjectPattern(mapOf("type" to "sub2".toDiscriminator(), "amount" to NumberPattern()), typeAlias = "(Sub2)")
+                ),
+                typeAlias = "(Base)",
+                discriminator = Discriminator(
+                    property = "type",
+                    values = setOf("sub1", "sub2"),
+                    mapping = mapOf("sub1" to "#/components/schemas/Sub1", "sub2" to "#/components/schemas/Sub2")
+                )
+            )
+
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("Sub2: { amount: 999 }"))
+            val valueToBeResolved = JSONObjectValue(mapOf("type" to StringValue("sub2"), "amount" to StringValue("$(missing-amount)")))
+
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(
+                JSONObjectValue(
+                    mapOf(
+                        "type" to StringValue("sub2"),
+                        "amount" to NumberValue(999)
+                    )
+                )
+            )
+        }
+
+        @Test
+        fun `should use dictionary backed generation without discriminator`() {
+            val numberObjectPattern = JSONObjectPattern(mapOf("prop" to NumberPattern()))
+            val textObjectPattern = JSONObjectPattern(mapOf("prop" to StringPattern()))
+            val pattern = AnyPattern(
+                extensions = emptyMap(),
+                pattern = listOf(numberObjectPattern, textObjectPattern),
+            )
+
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("'*': { prop: 999 }"))
+            val valueToBeResolved = JSONObjectValue(mapOf("prop" to StringValue("$(missing-prop)")))
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("prop" to NumberValue(999))))
         }
     }
 

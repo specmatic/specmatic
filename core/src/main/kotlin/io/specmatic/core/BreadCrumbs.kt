@@ -1,6 +1,6 @@
 package io.specmatic.core
 
-import io.specmatic.test.asserts.WILDCARD_INDEX
+const val WILDCARD_INDEX = "[*]"
 
 @JvmInline
 value class BreadCrumb(val value: String) {

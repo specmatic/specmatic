@@ -187,21 +187,25 @@ data class HttpResponsePattern(
         )
     }
 
-    fun resolveSubstitutions(substitution: Substitution, response: HttpResponse): HttpResponse {
-        val substitutedHeaders = substitution.resolveHeaderSubstitutions(response.headers, headersPattern.pattern).breadCrumb(BreadCrumb.HEADER.value)
-        val responseBody = response.body
+    fun resolveSubstitutions(substitution: Substitution, response: HttpResponse, resolver: Resolver): ReturnValue<HttpResponse> {
+        val headersResolver = resolver.updateLookupPath(BreadCrumb.RESPONSE.value)
+        val substitutedHeaders = this.headersPattern.resolveSubstitutions(
+            resolver = headersResolver,
+            headers = response.headers,
+            substitution = substitution,
+        ).breadCrumb(BreadCrumb.HEADER.value)
 
+        val responseBody = response.body
         val parsedResponseBody= if(responseBody is StringValue) {
-            runCatching { body.parse(responseBody.string, substitution.resolver) }.getOrElse { responseBody }
+            runCatching { body.parse(responseBody.string, resolver) }.getOrElse { responseBody }
         } else {
             responseBody
         }
 
-        val substitutedBody = body.resolveSubstitutions(substitution, parsedResponseBody, substitution.resolver).breadCrumb("BODY")
-
+        val substitutedBody = body.resolveSubstitutions(substitution, parsedResponseBody, resolver).breadCrumb("BODY")
         return substitutedHeaders.combine(substitutedBody) { fullHeaders, fullBody ->
             response.copy(headers = fullHeaders, body = fullBody)
-        }.breadCrumb("RESPONSE").value
+        }.breadCrumb("RESPONSE")
     }
 
     fun fillInTheBlanks(partial: HttpResponse, resolver: Resolver): HttpResponse {

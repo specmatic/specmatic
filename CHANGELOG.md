@@ -10,10 +10,18 @@ Each release section should stand on its own and describe the behavior shipped i
 2. Summarize only customer-facing runtime behavior, CLI behavior, contract semantics, reporting behavior, or tooling that ships from this repo.
 3. Do not call out noise such as workflow edits, `ci skip`, raw version bumps, dependency churn, or minor refactors unless they materially change product behavior.
 4. Keep each section standalone. Do not tell readers to look in another repo for the real notes.
-5. When this repo rolls in bundled reporting or licensing changes, describe the shipped effect here instead of pointing to another changelog.
+5. Before drafting the section, compare the bundled dependency versions in the current `gradle.properties` against the last release tag's `gradle.properties` and identify every bundled repo version that changed.
+6. For each changed bundled repo version, inspect that repo's changelog or release notes for the exact version delta being shipped, then fold only the customer-facing effect into this section.
+7. If a bundled repo version changed but its release notes explicitly say there were no user-facing changes, do not add a bullet for it.
+8. When this repo rolls in bundled reporting or licensing changes, describe the shipped effect here instead of pointing to another changelog.
 
 ## Dependency Fold Instructions
 
+- Required check for this repo before writing the top release section:
+  - Compare `specmaticReporterVersion` in `gradle.properties` at `HEAD` vs the previous release tag.
+  - If that version changed, read the shipped `specmatic-reporter` release notes for the intervening version(s) and fold those customer-facing effects into this changelog.
+  - Then check which `specmatic-license` and `specmatic-html-reporter` version(s) were newly pulled in by that reporter version, and fold their customer-facing effects too.
+  - If any bundled repo explicitly reports no user-facing changes for the shipped version, omit it rather than adding dependency-noise bullets.
 - When generating notes for this repo, fold in customer-facing changes from:
   - `specmatic-reporter`, bumped in `specmatic/gradle.properties` via `specmaticReporterVersion`
 - Because `specmatic-reporter` itself folds in:
@@ -21,6 +29,23 @@ Each release section should stand on its own and describe the behavior shipped i
   - `specmatic-html-reporter`, copied into `specmatic-reporter/specmatic-reporter/src/main/resources/templates/ctrf-report/`
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
+
+## Unreleased (2.48.1)
+
+### Added
+
+- Added example preprocessor hooks so loaded examples can be transformed before validation and can attach derived data to the active stub scenario when needed.
+- Added support for interpolated substitution expressions, allowing values to be filled in and extracted from substrings.
+
+### Changed
+
+- Fixed a regression in negative test generation so undeclared `4xx` response variants such as `405 Method Not Allowed` and `415 Unsupported Media Type` continue to be exercised instead of being filtered out.
+- Improved URL handling across Postman import, proxy routing, remote spec loading, and web-source caching so mixed-case schemes, authorities with underscores, preserved user-info, and explicit ports behave more reliably.
+- Improved config-driven target resolution so Specmatic preserves scheme, host, port, path-prefix, and certificate details separately instead of flattening them into a base URL, which keeps more run and mock configurations intact.
+- Improved bundled CTRF reporting so coverage execution details now include spec-level coverage metrics and match operations back to the correct spec more reliably across absolute, relative, and normalized paths.
+- Improved bundled backward-compatibility HTML reporting so breakages in shared specs are attributed to the shared spec that actually changed, instead of being misreported against a referring spec when only one consumer is affected.
+- Substitutions to be lenient by default, i.e. missing variables now use auto-generated values, while enabling `strictMode` restores the previous behavior of failing instead of generating.
+- Substitutions stored values and data lookups can reuse composite JSON objects and arrays, and unresolved substitutions now fall back to dictionary-backed generation when available.
 
 ## 2.48.0 (2026-06-18)
 

@@ -1,7 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.ScalarType
-import io.specmatic.test.asserts.WILDCARD_INDEX
 import java.util.*
 import java.util.concurrent.CopyOnWriteArrayList
 

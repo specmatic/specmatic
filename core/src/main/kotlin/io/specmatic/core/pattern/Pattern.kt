@@ -120,7 +120,7 @@ fun patternFromValueUsing(
 ): Pattern {
     if(value !is StringValue) return parseValueToType(value)
     if(isPatternToken(value)) return DeferredPattern(value.string)
-    if (isMatcherToken(value)) {
+    if (isDollarMethodOrLookup(value)) {
         val loadedMatcherEngine =
             matcherEngine ?: throw IllegalStateException("Matcher is not supported in Specmatic Open Source")
         return loadedMatcherEngine.patternFrom(
@@ -178,9 +178,5 @@ fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
 }
 
 fun scalarResolveSubstitutions(substitution: Substitution, value: Value, key: String?, pattern: Pattern, resolver: Resolver): ReturnValue<Value> {
-    val resolvedValue = runCatching { substitution.resolveIfLookup(value, pattern) }.getOrElse { e -> return HasException(e) }
-    return substitution.substitute(resolvedValue, pattern, key).ifHasValue { returnValue: HasValue<Value> ->
-        val substitutedValue = returnValue.value
-        resolver.matchesPattern(null, pattern, substitutedValue).toReturnValue(substitutedValue)
-    }
+    return substitution.substitute(value, pattern, resolver, key)
 }

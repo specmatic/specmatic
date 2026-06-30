@@ -2,6 +2,9 @@ package io.specmatic.stub.report
 
 import io.specmatic.core.report.calculateAbsoluteCoverage
 import io.specmatic.core.report.calculateCoverage
+import io.specmatic.core.report.toCoverageReportSpecifications
+import io.specmatic.reporter.ctrf.CoverageReportSpecification
+import io.specmatic.reporter.ctrf.model.BaseCoverageReportOperation
 import io.specmatic.test.TestResultRecord
 
 class OpenApiMockUsage(
@@ -34,5 +37,9 @@ class OpenApiMockUsage(
             coverage = coverageReportOperations.calculateCoverage(),
             absoluteCoverage = coverageReportOperations.calculateAbsoluteCoverage(),
         )
+    }
+
+    fun coverageReportSpecifications(coverageReportOperations: List<BaseCoverageReportOperation>): List<CoverageReportSpecification> {
+        return coverageReportOperations.toCoverageReportSpecifications()
     }
 }

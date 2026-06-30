@@ -30,7 +30,8 @@ dependencies {
     implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.0")
     implementation("com.jayway.jsonpath:json-path:2.10.0")
-    implementation("io.github.zenwave360:json-schema-ref-parser-jvm:0.8.10")
+
+    implementation("io.zenwave360:json-schema-ref-parser-jvm:0.9.12")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")

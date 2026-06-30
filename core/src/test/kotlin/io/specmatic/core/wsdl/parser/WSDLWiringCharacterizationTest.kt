@@ -2,11 +2,11 @@ package io.specmatic.core.wsdl.parser
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
-import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.XMLChoiceGroupPattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.XMLSequencePattern
 import io.specmatic.core.pattern.XMLWildcardPattern
 import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.StringValue
@@ -40,24 +40,21 @@ class WSDLWiringCharacterizationTest {
 
         assertThat(rootNode.name).isEqualTo("SignonCustId")
         assertThat(rootNode.attributes[TYPE_ATTRIBUTE_NAME]?.toStringLiteral()).isEqualTo("SignonCustIdType")
-        assertThat(rootPattern).isInstanceOf(AnyPattern::class.java)
-        rootPattern as AnyPattern
-        assertThat(rootPattern.pattern).hasSize(2)
-        assertThat(rootPattern.pattern).allSatisfy { pattern ->
-            assertThat(pattern).isInstanceOf(XMLPattern::class.java)
+        assertThat(rootPattern).isInstanceOf(XMLPattern::class.java)
+        rootPattern as XMLPattern
+        assertThat(rootPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.realName })
+            .contains("Choice-ref:SPName")
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
+        assertThat(choiceGroup.choices).hasSize(2)
+        assertThat(choiceGroup.choices).allSatisfy { choice ->
+            assertThat(choice).allSatisfy { pattern ->
+                assertThat(pattern).isInstanceOf(XMLPattern::class.java)
+            }
         }
-        assertThat(rootPattern.pattern.map { (it as XMLPattern).toPrettyString() }).anySatisfy {
-            assertThat(it)
-                .contains("<Choice-ref:SPName>(string)</Choice-ref:SPName>")
-                .contains("<Choice-ref:CustId")
-            assertThat(it).doesNotContain("<Choice-ref:CustLoginId>(string)</Choice-ref:CustLoginId>")
-        }
-        assertThat(rootPattern.pattern.map { (it as XMLPattern).toPrettyString() }).anySatisfy {
-            assertThat(it)
-                .contains("<Choice-ref:SPName>(string)</Choice-ref:SPName>")
-                .contains("<Choice-ref:CustLoginId>(string)</Choice-ref:CustLoginId>")
-            assertThat(it).doesNotContain("<Choice-ref:CustPermId>")
-        }
+        assertThat(choiceNames(choiceGroup)).containsExactlyInAnyOrder(
+            listOf("CustId"),
+            listOf("CustLoginId")
+        )
     }
 
     @Test
@@ -69,14 +66,16 @@ class WSDLWiringCharacterizationTest {
         )
 
         val typeInfo = soapElement.deriveSpecmaticTypes("ScalarChoiceRequestType", emptyMap(), emptySet())
-        val rootPattern = typeInfo.types.getValue("ScalarChoiceRequestType") as AnyPattern
+        val rootPattern = typeInfo.types.getValue("ScalarChoiceRequestType") as XMLPattern
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
 
-        assertThat(rootPattern.pattern).hasSize(2)
-        assertThat(rootPattern.pattern.map { (it as XMLPattern).toPrettyString() }).allSatisfy {
-            assertThat(it).contains("<Choice-scalar:PrimaryName>(string)</Choice-scalar:PrimaryName>")
-            assertThat(it.contains("<Choice-scalar:CustomerNumber>(string)</Choice-scalar:CustomerNumber>"))
-                .isNotEqualTo(it.contains("<Choice-scalar:LoginId>(string)</Choice-scalar:LoginId>"))
-        }
+        assertThat(choiceGroup.minOccurs).isEqualTo(1)
+        assertThat(choiceGroup.maxOccurs).isEqualTo(1)
+        assertThat(choiceGroup.choices).hasSize(2)
+        assertThat(choiceNames(choiceGroup)).containsExactlyInAnyOrder(
+            listOf("CustomerNumber"),
+            listOf("LoginId")
+        )
     }
 
     @Test
@@ -88,19 +87,30 @@ class WSDLWiringCharacterizationTest {
         )
 
         val typeInfo = soapElement.deriveSpecmaticTypes("OptionalChoiceRequestType", emptyMap(), emptySet())
-        val rootPattern = typeInfo.types.getValue("OptionalChoiceRequestType") as AnyPattern
+        val rootPattern = typeInfo.types.getValue("OptionalChoiceRequestType") as XMLPattern
+        val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
 
-        assertThat(rootPattern.pattern).hasSize(2)
-        assertThat(rootPattern.pattern.map { (it as XMLPattern).toPrettyString() }).anySatisfy {
-            assertThat(it)
-                .contains("<Choice-optional:SPName>(string)</Choice-optional:SPName>")
-                .doesNotContain("CustLoginId")
-        }
-        assertThat(rootPattern.pattern.map { (it as XMLPattern).toPrettyString() }).anySatisfy {
-            assertThat(it)
-                .contains("<Choice-optional:SPName>(string)</Choice-optional:SPName>")
-                .contains("<Choice-optional:CustLoginId>(string)</Choice-optional:CustLoginId>")
-        }
+        assertThat(choiceGroup.minOccurs).isEqualTo(0)
+        assertThat(choiceGroup.maxOccurs).isEqualTo(1)
+        assertThat(choiceGroup.choices).hasSize(1)
+        assertThat(choiceGroup.matches(emptyList(), Resolver()).result).isInstanceOf(Result.Success::class.java)
+        assertThat(choiceNames(choiceGroup)).containsExactly(listOf("CustLoginId"))
+    }
+
+    @Test
+    fun `sequential choices remain compact instead of expanding into Cartesian variants`() {
+        val wsdl = WSDL(toXMLNode(sequentialChoiceWsdl()), "/path/to/sequential-choice.wsdl")
+
+        val soapElement = wsdl.getSOAPElement(
+            FullyQualifiedName("tns", "http://sequential-choice", "SequentialChoiceRequest")
+        )
+
+        val typeInfo = soapElement.deriveSpecmaticTypes("SequentialChoiceRequestType", emptyMap(), emptySet())
+        val rootPattern = typeInfo.types.getValue("SequentialChoiceRequestType")
+
+        assertThat(rootPattern).isInstanceOf(XMLPattern::class.java)
+        rootPattern as XMLPattern
+        assertThat(rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>()).hasSize(2)
     }
 
     @Test
@@ -115,10 +125,10 @@ class WSDLWiringCharacterizationTest {
         val resolver = Resolver(newPatterns = typeInfo.types.mapKeys { (typeName, _) -> withPatternDelimiters(typeName) })
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
-        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
         val generatedBodies = variants.map { XMLPattern(rootPattern.pattern.copy(nodes = listOf(rootPattern.pattern.nodes.first(), it))).generate(resolver).toStringLiteral() }
 
-        assertThat(variants).hasSize(6)
+        assertThat(variants).hasSize(3)
         assertThat(generatedBodies).anySatisfy {
             assertThat(it).contains("PrimaryName>") 
             assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(1)
@@ -129,18 +139,7 @@ class WSDLWiringCharacterizationTest {
             assertThat(it).doesNotContain("CustomerNumber>")
         }
         assertThat(generatedBodies).anySatisfy {
-            assertThat(countOccurrences(it, "<Choice-scalar-repeating:CustomerNumber>")).isEqualTo(2)
-            assertThat(it).doesNotContain("LoginId>")
-        }
-        assertThat(generatedBodies).anySatisfy {
             assertThat(it).contains("CustomerNumber>").contains("LoginId>")
-        }
-        assertThat(generatedBodies).anySatisfy {
-            assertThat(it).contains("LoginId>").contains("CustomerNumber>")
-        }
-        assertThat(generatedBodies).anySatisfy {
-            assertThat(countOccurrences(it, "<Choice-scalar-repeating:LoginId>")).isEqualTo(2)
-            assertThat(it).doesNotContain("CustomerNumber>")
         }
     }
 
@@ -172,20 +171,15 @@ class WSDLWiringCharacterizationTest {
         val resolver = Resolver(newPatterns = typeInfo.types)
         val rootPattern = typeInfo.types.getValue("RepeatingComplexChoiceRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
-        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
-        val sequences = variants.map { variant ->
-            variant.concreteSequence.orEmpty().map { occurrence ->
-                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
-            }
-        }
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+        val sequences = variants.map(::choiceNames)
 
-        assertThat(variants).hasSize(6)
-        assertThat(sequences).contains(listOf("CustomerByPermId"))
-        assertThat(sequences).contains(listOf("CustomerByLogin"))
-        assertThat(sequences).contains(listOf("CustomerByPermId", "CustomerByPermId"))
-        assertThat(sequences).contains(listOf("CustomerByPermId", "CustomerByLogin"))
-        assertThat(sequences).contains(listOf("CustomerByLogin", "CustomerByPermId"))
-        assertThat(sequences).contains(listOf("CustomerByLogin", "CustomerByLogin"))
+        assertThat(variants).hasSize(3)
+        assertThat(sequences).containsExactlyInAnyOrder(
+            listOf("CustomerByPermId"),
+            listOf("CustomerByLogin"),
+            listOf("CustomerByPermId", "CustomerByLogin")
+        )
     }
 
     @Test
@@ -200,26 +194,27 @@ class WSDLWiringCharacterizationTest {
         val resolver = Resolver(newPatterns = typeInfo.types)
         val rootPattern = typeInfo.types.getValue("RepeatingScalarChoiceMinTwoRequestType") as XMLPattern
         val choiceGroup = rootPattern.pattern.nodes.filterIsInstance<XMLChoiceGroupPattern>().single()
-        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLChoiceGroupPattern }.toList()
-        val sequences = variants.map { variant ->
-            variant.concreteSequence.orEmpty().map { occurrence ->
-                ((occurrence.single() as XMLPattern).pattern.name).substringAfter(":")
-            }
-        }
+        val variants = choiceGroup.newBasedOn(resolver).map { it as XMLSequencePattern }.toList()
+        val sequences = variants.map(::choiceNames)
 
-        assertThat(variants).hasSize(4)
+        assertThat(variants).hasSize(1)
         assertThat(sequences).allSatisfy { assertThat(it).hasSize(2) }
         assertThat(sequences).containsExactlyInAnyOrder(
-            listOf("CustomerNumber", "CustomerNumber"),
             listOf("CustomerNumber", "LoginId"),
-            listOf("LoginId", "CustomerNumber"),
-            listOf("LoginId", "LoginId"),
         )
     }
 
     private fun countOccurrences(text: String, token: String): Int {
         return text.windowed(token.length, 1).count { it == token }
     }
+
+    private fun choiceNames(sequence: XMLSequencePattern): List<String> =
+        sequence.members.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
+
+    private fun choiceNames(choiceGroup: XMLChoiceGroupPattern): List<List<String>> =
+        choiceGroup.choices.map { choice ->
+            choice.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
+        }
 
     @Test
     fun `getSOAPElement keeps simple primitive request payload wiring intact`() {
@@ -1359,6 +1354,66 @@ class WSDLWiringCharacterizationTest {
         val wsdlFile = File(path)
         return WSDL(toXMLNode(wsdlFile.readText()), wsdlFile.canonicalPath)
     }
+
+    private fun sequentialChoiceWsdl(): String =
+        """
+        <definitions name="SequentialChoiceService"
+                     targetNamespace="http://sequential-choice"
+                     xmlns:tns="http://sequential-choice"
+                     xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                     xmlns="http://schemas.xmlsoap.org/wsdl/">
+            <types>
+                <xsd:schema targetNamespace="http://sequential-choice" elementFormDefault="qualified">
+                    <xsd:element name="FirstA" type="xsd:string"/>
+                    <xsd:element name="FirstB" type="xsd:string"/>
+                    <xsd:element name="SecondA" type="xsd:string"/>
+                    <xsd:element name="SecondB" type="xsd:string"/>
+                    <xsd:element name="SequentialChoiceRequest">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:choice>
+                                    <xsd:element ref="tns:FirstA"/>
+                                    <xsd:element ref="tns:FirstB"/>
+                                </xsd:choice>
+                                <xsd:choice>
+                                    <xsd:element ref="tns:SecondA"/>
+                                    <xsd:element ref="tns:SecondB"/>
+                                </xsd:choice>
+                            </xsd:sequence>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:schema>
+            </types>
+            <message name="SequentialChoiceRequestMessage">
+                <part name="parameters" element="tns:SequentialChoiceRequest"/>
+            </message>
+            <message name="SequentialChoiceResponseMessage"/>
+            <portType name="SequentialChoicePortType">
+                <operation name="sequentialChoice">
+                    <input message="tns:SequentialChoiceRequestMessage"/>
+                    <output message="tns:SequentialChoiceResponseMessage"/>
+                </operation>
+            </portType>
+            <binding name="SequentialChoiceBinding" type="tns:SequentialChoicePortType">
+                <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+                <operation name="sequentialChoice">
+                    <soap:operation soapAction="/sequential-choice"/>
+                    <input>
+                        <soap:body use="literal"/>
+                    </input>
+                    <output>
+                        <soap:body use="literal"/>
+                    </output>
+                </operation>
+            </binding>
+            <service name="SequentialChoiceService">
+                <port name="SequentialChoicePort" binding="tns:SequentialChoiceBinding">
+                    <soap:address location="http://localhost:9000/sequential-choice"/>
+                </port>
+            </service>
+        </definitions>
+        """.trimIndent()
 
     private fun concreteRoot(pattern: XMLPattern, name: String, realName: String, namespace: String): XMLPattern =
         pattern.copy(pattern = pattern.pattern.copy(name = name, realName = realName, namespaceUri = namespace))

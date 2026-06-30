@@ -197,6 +197,11 @@ data class HttpPathPattern(
                         }
                     }
 
+                    isSubstitution(rowValue) -> {
+                        val exactValuePattern = ExactValuePattern(StringValue(rowValue))
+                        urlPathParamPattern.copy(pattern = exactValuePattern)
+                    }
+
                     else -> attempt("Format error in example of path parameter \"$key\"") {
                         val value = urlPathParamPattern.parse(rowValue, resolver)
 
@@ -326,6 +331,11 @@ data class HttpPathPattern(
                     }
                 }
 
+                isSubstitution(rowValue) -> {
+                    val exactValuePattern = ExactValuePattern(StringValue(rowValue))
+                    sequenceOf(urlPathPattern.copy(pattern = exactValuePattern))
+                }
+
                 else -> attempt("Format error in example of path parameter \"$key\"") {
                     val value = urlPathPattern.parse(rowValue, resolver)
 
@@ -427,6 +437,26 @@ data class HttpPathPattern(
     }
 
     fun fillInTheBlanks(path: String?, resolver: Resolver): ReturnValue<String> {
+        return resolvePathSegments(path, resolver) { urlPathPattern, value, segmentResolver ->
+            urlPathPattern.fillInTheBlanks(value = value, resolver = segmentResolver)
+        }
+    }
+
+    fun resolveSubstitutions(
+        substitution: Substitution,
+        path: String?,
+        resolver: Resolver
+    ): ReturnValue<String> {
+        return resolvePathSegments(path, resolver) { urlPathPattern, value, segmentResolver ->
+            urlPathPattern.resolveSubstitutions(substitution = substitution, value = value, resolver = segmentResolver)
+        }
+    }
+
+    private fun resolvePathSegments(
+        path: String?,
+        resolver: Resolver,
+        resolveSegment: (urlPathPattern: URLPathSegmentPattern, value: Value, resolver: Resolver) -> ReturnValue<Value>
+    ): ReturnValue<String> {
         if (path == null) return HasFailure("Path cannot be null")
         val pathSegments = extractPathSegments(path)
         if (pathSegmentPatterns.size != pathSegments.size) {
@@ -436,14 +466,13 @@ data class HttpPathPattern(
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.PATH.value)
         val generatedSegments = pathSegmentPatterns.zip(pathSegments).map { (urlPathPattern, token) ->
             val (key, keyPattern) = urlPathPattern.let { it.key.orEmpty() to it.pattern }
-            urlPathPattern.fillInTheBlanks(
-                value = urlPathPattern.tryParse(removeKeyFromParameterToken(token), updatedResolver),
-                resolver = updatedResolver.updateLookupPath(null, KeyWithPattern(key, keyPattern))
-            ).breadCrumb(urlPathPattern.key)
+            val value = urlPathPattern.tryParse(removeKeyFromParameterToken(token), updatedResolver)
+            val segmentResolver = updatedResolver.updateLookupPath(null, KeyWithPattern(key, keyPattern))
+            resolveSegment(urlPathPattern, value, segmentResolver).breadCrumb(urlPathPattern.key)
         }.listFold()
 
-        return generatedSegments.ifValue { value ->
-            value.map { it.toStringLiteral() }.joinToPath()
+        return generatedSegments.ifValue { values ->
+            values.map { it.toStringLiteral() }.joinToPath()
         }
     }
 
@@ -569,7 +598,7 @@ internal fun pathToPattern(rawPath: String): List<URLPathSegmentPattern> {
                 URLPathSegmentPattern(pattern, name)
             }
 
-            isMatcherToken(part) -> URLPathSegmentPattern(parsedPattern(part))
+            isDollarMethodOrLookup(part) -> URLPathSegmentPattern(parsedPattern(part))
 
             else -> URLPathSegmentPattern(ExactValuePattern(StringValue(part)))
         }

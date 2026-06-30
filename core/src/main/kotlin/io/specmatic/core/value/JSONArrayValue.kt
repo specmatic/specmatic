@@ -6,10 +6,28 @@ import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.valueArrayToJsonString
 import io.specmatic.core.utilities.valueArrayToUnformattedJsonString
+import io.specmatic.core.value.fold.IndexedListValueCase
+import io.specmatic.core.value.fold.Item
+import io.specmatic.core.value.fold.ValueVisitor
 
 typealias TypeDeclarationsCallType = (Value, String, Map<String, Pattern>, ExampleDeclarations) -> Pair<TypeDeclaration, ExampleDeclarations>
 
 data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value, ListValue, JSONComposite {
+    override fun <C, R> accept(visitor: ValueVisitor<C, R>, context: C): R {
+        return visitor.indexedList(
+            case = IndexedListValueCase(
+                value = this,
+                context = context,
+                items = {
+                    list.mapIndexed { index, child -> Item(index = index, value = child) }
+                },
+                rebuild = { items ->
+                    copy(list = items.map { item -> item.value })
+                }
+            )
+        )
+    }
+
     override val httpContentType: String = "application/json"
 
     override fun displayableValue(): String = toStringLiteral()
