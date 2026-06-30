@@ -3415,7 +3415,7 @@ class OpenApiSpecification(
         recordQueryParameterTypeCollisions(declarationEntries)
 
         val declarations = declarationEntries.map(QueryParameterPatternEntry::toDeclaration)
-        val queryPattern = effectiveQueryPatternsFor(declarations)
+        val queryPattern = queryPatternsFromParameterEntries(parsedQueryParameters.flatMap(QueryParameterParseResult::entries))
         val queryParameterPointers = parameterPointers + declarations.associateBy { it.wireKey }.mapNotNull { (wireKey, entry) ->
             entry.pointer?.let { pointer -> wireKey to pointer }
         }
@@ -3448,6 +3448,17 @@ class OpenApiSpecification(
                 source = source,
                 pointer = pointer
             )
+    }
+
+    private fun queryPatternsFromParameterEntries(entries: List<QueryParameterPatternEntry>): Map<String, Pattern> {
+        val lastEntryByWireKey = linkedMapOf<String, QueryParameterPatternEntry>()
+
+        entries.forEach { entry ->
+            lastEntryByWireKey.remove(entry.wireKey)
+            lastEntryByWireKey[entry.wireKey] = entry
+        }
+
+        return lastEntryByWireKey.values.associate { it.key to it.pattern }
     }
 
     private fun QueryParameterPatternEntry.diagnosticDisplayName(): String {

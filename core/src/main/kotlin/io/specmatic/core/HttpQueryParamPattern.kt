@@ -54,9 +54,8 @@ data class HttpQueryParamPattern(
     val queryParameterDeclarations: List<QueryParameterDeclaration> = queryPatterns.toQueryParameterDeclarations()
 ) {
 
-    private val effectiveQueryPatterns = effectiveQueryPatternsFor(queryParameterDeclarations)
-
-    val queryKeyNames = effectiveQueryPatterns.keys
+    val queryKeyNames: Set<String>
+        get() = runtimeEffectiveQueryPatterns().keys
 
     fun nestedObjectQueryParamsByName(): Map<String, NestedObjectQueryParam> {
         return nestedObjectQueryParams.associateBy { it.parameterName }
@@ -65,24 +64,45 @@ data class HttpQueryParamPattern(
     fun generate(resolver: Resolver): List<Pair<String, String>> {
         val updatedResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value).updateLookupForParam(BreadCrumb.QUERY.value)
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            effectiveQueryPatterns.map { it.key.removeSuffix("?") to it.value }.flatMap { (parameterName, pattern) ->
-                attempt(breadCrumb = parameterName) {
-                    val generatedValue =  updatedResolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
-                    val nestedObjectQueryParamPairs = (generatedValue as? JSONObjectValue)?.let {
-                        serializeNestedObjectQueryValue(parameterName, it, nestedObjectQueryParams)
-                    }
+            generateFromDeclarations(updatedResolver).lastValuesByWireKey()
+        }
+    }
 
-                    if (nestedObjectQueryParamPairs != null) {
-                        nestedObjectQueryParamPairs
-                    } else if(generatedValue is JSONArrayValue) {
-                        generatedValue.list.map { parameterName to it.toString() }
-                    }
-                    else {
-                        listOf(parameterName to generatedValue.toString())
-                    }
+    private fun generateFromDeclarations(resolver: Resolver): List<List<Pair<String, String>>> {
+        return queryParameterDeclarations
+            .filterNot { it.source.kind == QueryParameterSourceKind.NestedObjectProperty }
+            .map { declaration ->
+                attempt(breadCrumb = declaration.wireKey) {
+                    declaration.generateQueryParamPairs(resolver)
                 }
             }
+    }
+
+    private fun QueryParameterDeclaration.generateQueryParamPairs(resolver: Resolver): List<Pair<String, String>> {
+        val parameterName = wireKey
+        val generatedValue = resolver.withCyclePrevention(pattern) { it.generate(null, parameterName, pattern) }
+        val nestedObjectQueryParamPairs = (generatedValue as? JSONObjectValue)?.let {
+            serializeNestedObjectQueryValue(parameterName, it, nestedObjectQueryParams)
         }
+
+        return when {
+            nestedObjectQueryParamPairs != null -> nestedObjectQueryParamPairs
+            generatedValue is JSONArrayValue -> generatedValue.list.map { parameterName to it.toString() }
+            else -> listOf(parameterName to generatedValue.toString())
+        }
+    }
+
+    private fun List<List<Pair<String, String>>>.lastValuesByWireKey(): List<Pair<String, String>> {
+        val valuesByWireKey = linkedMapOf<String, List<Pair<String, String>>>()
+
+        forEach { generatedPairs ->
+            generatedPairs.groupBy { it.first }.forEach { (wireKey, values) ->
+                valuesByWireKey.remove(wireKey)
+                valuesByWireKey[wireKey] = values
+            }
+        }
+
+        return valuesByWireKey.values.flatten()
     }
 
     fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<HttpQueryParamPattern>> {
@@ -358,7 +378,7 @@ data class HttpQueryParamPattern(
 
     fun newBasedOn(resolver: Resolver): Sequence<HttpQueryParamPattern> {
         return attempt(breadCrumb = BreadCrumb.PARAM_QUERY.value) {
-            val queryParams = effectiveQueryPatterns
+            val queryParams = runtimeEffectiveQueryPatterns()
 
             queryParamCombinationsRespectingFormExplodedObjects(queryParams, Row()).flatMap { entry ->
                 newBasedOn(entry.mapKeys { withoutOptionality(it.key) }, resolver)
@@ -377,7 +397,7 @@ data class HttpQueryParamPattern(
 
     override fun toString(): String {
         return if (queryPatterns.isNotEmpty()) {
-            "?" + effectiveQueryPatterns.mapKeys { it.key.removeSuffix("?") }.map { (key, value) ->
+            "?" + runtimeEffectiveQueryPatterns().mapKeys { it.key.removeSuffix("?") }.map { (key, value) ->
                 "$key=$value"
             }.toList().joinToString(separator = "&")
         } else ""
@@ -612,7 +632,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(queryParams: QueryParameters): Map<String, Pattern> {
-        return activeFormExplodedObjectQueryParams().fold(effectiveQueryPatterns) { patterns, objectQueryParam ->
+        return activeFormExplodedObjectQueryParams().fold(runtimeEffectiveQueryPatterns()) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(queryParams::containsKey) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -624,7 +644,7 @@ data class HttpQueryParamPattern(
     }
 
     private fun effectiveQueryPatterns(row: Row): Map<String, Pattern> {
-        return activeFormExplodedObjectQueryParams().fold(effectiveQueryPatterns) { patterns, objectQueryParam ->
+        return activeFormExplodedObjectQueryParams().fold(runtimeEffectiveQueryPatterns()) { patterns, objectQueryParam ->
             when {
                 objectQueryParam.required || objectQueryParam.propertyKeys.any(row::containsField) ->
                     objectQueryParam.requiredPropertyKeys.fold(patterns) { updatedPatterns, propertyKey ->
@@ -655,6 +675,10 @@ data class HttpQueryParamPattern(
         return supersededObjectPropertiesByParameter(queryParameterDeclarations, sourceKind)
     }
 
+    private fun runtimeEffectiveQueryPatterns(): Map<String, Pattern> {
+        return effectiveQueryPatternsFor(queryParameterDeclarations)
+    }
+
     private fun FormExplodedObjectQueryParam.withoutProperties(propertyNames: Set<String>): FormExplodedObjectQueryParam {
         if (propertyNames.isEmpty()) return this
 
@@ -682,12 +706,9 @@ data class HttpQueryParamPattern(
 internal fun effectiveQueryPatternsFor(
     queryParameterDeclarations: List<QueryParameterDeclaration>
 ): Map<String, Pattern> {
-    val winnerByWireKey = queryParameterDeclarations.associateBy { it.wireKey }
-    val effectivePatterns = queryParameterDeclarations
-        .filter { declaration ->
-            declaration.source.kind != QueryParameterSourceKind.NestedObjectProperty &&
-                winnerByWireKey[declaration.wireKey] === declaration
-        }
+    val winnerByWireKey = winningDeclarationsByWireKey(queryParameterDeclarations)
+    val effectivePatterns = winnerByWireKey.values
+        .filter { declaration -> declaration.source.kind != QueryParameterSourceKind.NestedObjectProperty }
         .associate { declaration -> declaration.key to declaration.pattern }
 
     return supersededObjectPropertiesByParameter(
@@ -699,10 +720,21 @@ internal fun effectiveQueryPatternsFor(
     }
 }
 
+private fun winningDeclarationsByWireKey(queryParameterDeclarations: List<QueryParameterDeclaration>): Map<String, QueryParameterDeclaration> {
+    val winnerByWireKey = linkedMapOf<String, QueryParameterDeclaration>()
+
+    queryParameterDeclarations.forEach { declaration ->
+        winnerByWireKey.remove(declaration.wireKey)
+        winnerByWireKey[declaration.wireKey] = declaration
+    }
+
+    return winnerByWireKey
+}
+
 private fun supersededObjectPropertiesByParameter(
     queryParameterDeclarations: List<QueryParameterDeclaration>,
     sourceKind: QueryParameterSourceKind,
-    winnerByWireKey: Map<String, QueryParameterDeclaration> = queryParameterDeclarations.associateBy { it.wireKey }
+    winnerByWireKey: Map<String, QueryParameterDeclaration> = winningDeclarationsByWireKey(queryParameterDeclarations)
 ): Map<String, Set<String>> {
     return queryParameterDeclarations
         .filter { declaration ->

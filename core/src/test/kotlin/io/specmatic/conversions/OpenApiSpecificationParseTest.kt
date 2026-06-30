@@ -26,7 +26,6 @@ import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.NullPattern
 import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.QueryParameterObjectPattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
@@ -1133,7 +1132,7 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `last declared scalar query parameter should project referenced nested object query schema at runtime`() {
+    fun `last declared scalar query parameter should preserve referenced nested object query schema and project at runtime`() {
         val spec = """
             openapi: 3.0.0
             info:
@@ -1176,8 +1175,7 @@ class OpenApiSpecificationParseTest {
         val feature = OpenApiSpecification.fromYAML(spec, "").toFeature()
         val scenario = feature.scenarios.single()
         val queryParamPattern = scenario.httpRequestPattern.httpQueryParamPattern
-        val detailsPattern = queryParamPattern.queryPatterns.getValue("details") as QueryParameterObjectPattern
-        val detailsScalarPattern = detailsPattern.pattern as QueryParameterScalarPattern
+        val detailsScalarPattern = queryParamPattern.queryPatterns.getValue("details") as QueryParameterScalarPattern
 
         assertThat(detailsScalarPattern.pattern).isInstanceOf(DeferredPattern::class.java)
         assertThat(
@@ -1331,7 +1329,7 @@ class OpenApiSpecificationParseTest {
     }
 
     @Test
-    fun `different type collision across two form exploded object query params should select last object property at parse time`() {
+    fun `different type collision across two form exploded object query params should use last object property at runtime`() {
         val spec = """
             openapi: 3.0.0
             info:
