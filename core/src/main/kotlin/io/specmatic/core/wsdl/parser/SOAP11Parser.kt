@@ -379,11 +379,11 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     private fun WSDLTypeInfo.withWSDLTypeLookupIndex(namespace: String): WSDLTypeInfo {
         val indexableTypes = wsdl.typeNodesNeededForWSDLTypeLookup(namespace)
         if (indexableTypes.isEmpty()) {
-            return withoutWSDLTypeMetadata()
+            return this
         }
 
-        val lookupEntries = indexableTypes.wsdlTypeLookupEntries(namespace)
-        val types = indexableTypes.registerAsWSDLLookupTypes(namespace, this.types)
+        val lookupEntries = indexableTypes.wsdlTypeLookupEntries()
+        val types = indexableTypes.registerAsWSDLLookupTypes(this.types)
             .withWSDLTypeLookupMetadata(lookupEntries)
         return copy(
             members = members.withWSDLTypeLookupMetadata(lookupEntries),
@@ -421,9 +421,10 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
     }
 
-    private fun List<XMLNode>.wsdlTypeLookupEntries(namespace: String): List<WSDLTypeLookupEntry> {
+    private fun List<XMLNode>.wsdlTypeLookupEntries(): List<WSDLTypeLookupEntry> {
         return map { typeNode ->
             val name = typeNode.getAttributeValue("name")
+            val namespace = typeNode.schemaTargetNamespace()
             val schemaTypeName = FullyQualifiedName(typeNode.prefixFor(namespace), namespace, name)
             WSDLTypeLookupEntry(
                 typeName = WSDLTypeName(schemaTypeName.namespace, schemaTypeName.localName),
@@ -603,11 +604,11 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     }
 
     private fun List<XMLNode>.registerAsWSDLLookupTypes(
-        namespace: String,
         existingTypes: Map<String, Pattern>
     ): Map<String, Pattern> {
         return fold(existingTypes) { accumulatedTypes, typeNode ->
             val name = typeNode.getAttributeValue("name")
+            val namespace = typeNode.schemaTargetNamespace()
             val schemaTypeName = FullyQualifiedName(typeNode.prefixFor(namespace), namespace, name)
             val schemaSpecmaticTypeName = specmaticTypeName(schemaTypeName.qName)
 
@@ -634,6 +635,10 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     private fun XMLNode.prefixFor(namespace: String): String {
         return namespaces.entries.firstOrNull { it.value == namespace }?.key
             ?: wsdl.getSchemaNamespacePrefix(namespace)
+    }
+
+    private fun XMLNode.schemaTargetNamespace(): String {
+        return schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()
     }
 
     private fun XMLNode.hasActionableDerivation(): Boolean {

@@ -113,6 +113,44 @@ internal class WsdlSpecificationTest {
     }
 
     @Test
+    fun `request matching rejects unknown xsi type even when wsdl has no derived types`() {
+        val wsdlContract = wsdlContentToFeature(animalWithoutDerivedTypesWsdl(), "animal-without-derived-types.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            animalRequest(
+                """
+                <tns:Animal xmlns:tns="http://example.com/animals"
+                            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                            xsi:type="tns:MissingAnimal">
+                  <tns:name>Leo</tns:name>
+                </tns:Animal>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Unknown xsi:type")
+        assertThat(result.reportString()).contains("MissingAnimal")
+    }
+
+    @Test
+    fun `request generation uses wsdl leaf type from imported schema namespace`() {
+        val wsdlContract = wsdlContentToFeature(orderWithCrossNamespaceModelWsdl(), "order-service.wsdl")
+
+        val generatedBodies = wsdlContract.scenarios.single()
+            .generateTestScenarios(wsdlContract.flagsBased)
+            .map { it.value.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral() }
+            .toList()
+
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains("xsi:type=\"Order-model:OnlineOrder\"")
+            assertThat(body).contains("<Order-model:channel>")
+        }
+    }
+
+    @Test
     fun `request matching uses compatible xsi type from wsdl simple type restriction`() {
         val wsdlContract = wsdlContentToFeature(codeWsdl(), "code.wsdl")
         val scenario = wsdlContract.scenarios.single()
@@ -428,6 +466,137 @@ internal class WsdlSpecificationTest {
               <wsdl:service name="AnimalService">
                 <wsdl:port name="AnimalPort" binding="tns:AnimalBinding">
                   <soap:address location="http://localhost/animals"/>
+                </wsdl:port>
+              </wsdl:service>
+            </wsdl:definitions>
+        """.trimIndent()
+    }
+
+    private fun animalWithoutDerivedTypesWsdl(): String {
+        return """
+            <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                              xmlns:tns="http://example.com/animals"
+                              targetNamespace="http://example.com/animals">
+              <wsdl:types>
+                <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                           xmlns:tns="http://example.com/animals"
+                           targetNamespace="http://example.com/animals"
+                           elementFormDefault="qualified">
+                  <xs:element name="Animal" type="tns:Animal"/>
+                  <xs:element name="AnimalResponse" type="xs:string"/>
+
+                  <xs:complexType name="Animal">
+                    <xs:sequence>
+                      <xs:element name="name" type="xs:string"/>
+                    </xs:sequence>
+                  </xs:complexType>
+                </xs:schema>
+              </wsdl:types>
+
+              <wsdl:message name="submitAnimalInput">
+                <wsdl:part name="animal" element="tns:Animal"/>
+              </wsdl:message>
+              <wsdl:message name="submitAnimalOutput">
+                <wsdl:part name="animalResponse" element="tns:AnimalResponse"/>
+              </wsdl:message>
+
+              <wsdl:portType name="AnimalPortType">
+                <wsdl:operation name="SubmitAnimal">
+                  <wsdl:input message="tns:submitAnimalInput"/>
+                  <wsdl:output message="tns:submitAnimalOutput"/>
+                </wsdl:operation>
+              </wsdl:portType>
+
+              <wsdl:binding name="AnimalBinding" type="tns:AnimalPortType">
+                <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+                <wsdl:operation name="SubmitAnimal">
+                  <soap:operation soapAction="http://example.com/animals/SubmitAnimal"/>
+                  <wsdl:input><soap:body use="literal"/></wsdl:input>
+                  <wsdl:output><soap:body use="literal"/></wsdl:output>
+                </wsdl:operation>
+              </wsdl:binding>
+
+              <wsdl:service name="AnimalService">
+                <wsdl:port name="AnimalPort" binding="tns:AnimalBinding">
+                  <soap:address location="http://localhost/animals"/>
+                </wsdl:port>
+              </wsdl:service>
+            </wsdl:definitions>
+        """.trimIndent()
+    }
+
+    private fun orderWithCrossNamespaceModelWsdl(): String {
+        return """
+            <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                              xmlns:svc="http://example.com/order-service"
+                              xmlns:model="http://example.com/order-model"
+                              targetNamespace="http://example.com/order-service">
+              <wsdl:types>
+                <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                           xmlns:svc="http://example.com/order-service"
+                           xmlns:model="http://example.com/order-model"
+                           targetNamespace="http://example.com/order-service"
+                           elementFormDefault="qualified">
+                  <xs:element name="SubmitOrder" type="svc:SubmitOrderRequest"/>
+                  <xs:element name="SubmitOrderResponse" type="xs:string"/>
+
+                  <xs:complexType name="SubmitOrderRequest">
+                    <xs:sequence>
+                      <xs:element name="order" type="model:Order"/>
+                    </xs:sequence>
+                  </xs:complexType>
+                </xs:schema>
+
+                <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                           xmlns:model="http://example.com/order-model"
+                           targetNamespace="http://example.com/order-model"
+                           elementFormDefault="qualified">
+                  <xs:complexType name="Order">
+                    <xs:sequence>
+                      <xs:element name="orderNumber" type="xs:string"/>
+                    </xs:sequence>
+                  </xs:complexType>
+
+                  <xs:complexType name="OnlineOrder">
+                    <xs:complexContent>
+                      <xs:extension base="model:Order">
+                        <xs:sequence>
+                          <xs:element name="channel" type="xs:string"/>
+                        </xs:sequence>
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:schema>
+              </wsdl:types>
+
+              <wsdl:message name="submitOrderInput">
+                <wsdl:part name="request" element="svc:SubmitOrder"/>
+              </wsdl:message>
+              <wsdl:message name="submitOrderOutput">
+                <wsdl:part name="response" element="svc:SubmitOrderResponse"/>
+              </wsdl:message>
+
+              <wsdl:portType name="OrderPortType">
+                <wsdl:operation name="SubmitOrder">
+                  <wsdl:input message="svc:submitOrderInput"/>
+                  <wsdl:output message="svc:submitOrderOutput"/>
+                </wsdl:operation>
+              </wsdl:portType>
+
+              <wsdl:binding name="OrderBinding" type="svc:OrderPortType">
+                <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+                <wsdl:operation name="SubmitOrder">
+                  <soap:operation soapAction="http://example.com/order-service/SubmitOrder"/>
+                  <wsdl:input><soap:body use="literal"/></wsdl:input>
+                  <wsdl:output><soap:body use="literal"/></wsdl:output>
+                </wsdl:operation>
+              </wsdl:binding>
+
+              <wsdl:service name="OrderService">
+                <wsdl:port name="OrderPort" binding="svc:OrderBinding">
+                  <soap:address location="http://localhost/order-service"/>
                 </wsdl:port>
               </wsdl:service>
             </wsdl:definitions>
