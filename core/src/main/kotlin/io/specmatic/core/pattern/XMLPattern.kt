@@ -198,7 +198,7 @@ data class XMLPattern(
         if (cyclePreventionPattern != this && !resolver.hasCycle(cyclePreventionPattern)) {
             return resolver.withCyclePrevention(cyclePreventionPattern) { cyclePreventedResolver ->
                 matchesXMLNode(sampleData, cyclePreventedResolver)
-            } ?: Success()
+            }
         }
 
         return matchesXMLNode(sampleData, resolver)
@@ -216,9 +216,10 @@ data class XMLPattern(
         if (matchingType.wsdlTypeSelectionMode() == WSDLTypeSelectionMode.Polymorphic) {
             selectWSDLType(sampleData, matchingType, resolver)?.let { selectedType ->
                 val matchResult = when (selectedType) {
-                    is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
-                    is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
-                    is WSDLTypeSelection.Abstract -> abstractXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+                    is WSDLTypeSelection.Unknown,
+                    is WSDLTypeSelection.Invalid,
+                    is WSDLTypeSelection.Abstract -> failureForWSDLTypeSelection(selectedType)
+
                     is WSDLTypeSelection.Use -> matchWithType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
                 }
 
@@ -299,6 +300,15 @@ data class XMLPattern(
 
     private fun missingXSITypeForAbstractTypeResult(declaredType: WSDLTypeName): Failure {
         return Failure("Missing xsi:type for abstract WSDL type ${declaredType.namespace}#${declaredType.localName}; a concrete subtype is required.")
+    }
+
+    private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {
+        return when (selectedType) {
+            is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+            is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+            is WSDLTypeSelection.Abstract -> abstractXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+            is WSDLTypeSelection.Use -> error("Cannot convert a valid WSDL type selection to a failure")
+        }
     }
 
     private fun selectWSDLType(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
@@ -560,7 +570,7 @@ data class XMLPattern(
         attributes: Map<String, T>,
         attributeNamespaceUri: (String) -> String?,
     ): Map<String, T> {
-        if (!canDropPolymorphicXSITypeAttribute()) {
+        if (!shouldDropPolymorphicXSITypeAttribute()) {
             return attributes
         }
 
@@ -570,7 +580,7 @@ data class XMLPattern(
         }
     }
 
-    private fun canDropPolymorphicXSITypeAttribute(): Boolean =
+    private fun shouldDropPolymorphicXSITypeAttribute(): Boolean =
         pattern.wsdlTypeSelectionMode == WSDLTypeSelectionMode.Polymorphic
 
     private fun matchName(sampleData: XMLNode, resolver: Resolver): Result {
@@ -914,18 +924,6 @@ data class XMLPattern(
         }
 
         when (val selectedType = selectWSDLType(pattern.xsiTypeName(), declaredPattern, resolver)) {
-            is WSDLTypeSelection.Unknown -> throw ContractException(
-                unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType).toFailureReport()
-            )
-
-            is WSDLTypeSelection.Invalid -> throw ContractException(
-                invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType).toFailureReport()
-            )
-
-            is WSDLTypeSelection.Abstract -> throw ContractException(
-                abstractXSITypeResult(selectedType.assertedType, selectedType.declaredType).toFailureReport()
-            )
-
             is WSDLTypeSelection.Use -> {
                 if (pattern.xsiTypeName() == declaredWSDLType) {
                     return emptyList()
@@ -933,6 +931,12 @@ data class XMLPattern(
 
                 return listOfNotNull((selectedType.pattern as? XMLPattern)?.withCurrentWSDLTypeOnly())
             }
+
+            is WSDLTypeSelection.Unknown,
+            is WSDLTypeSelection.Invalid,
+            is WSDLTypeSelection.Abstract -> throw ContractException(
+                failureForWSDLTypeSelection(selectedType).toFailureReport()
+            )
 
             null -> Unit
         }
@@ -959,8 +963,19 @@ data class XMLPattern(
             return null
         }
 
+        if (!declaredPattern.hasComplexXMLShape()) {
+            return null
+        }
+
         return declaredPattern.withCurrentWSDLTypeOnly()
     }
+
+    private fun XMLPattern.hasComplexXMLShape(): Boolean =
+        pattern.nodes.any { it is XMLPattern } ||
+                pattern.attributes.keys.any { key ->
+                    !key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX) && !isNamespaceDeclarationAttribute(key)
+                } ||
+                pattern.attributeWildcards.isNotEmpty()
 
     override fun negativeBasedOn(
         row: Row,

@@ -68,3 +68,8 @@ data class WSDLTypeInfo(
         }
     }
 }
+
+internal fun XMLNode.isAbstractNamedComplexType(): Boolean =
+    name == "complexType" &&
+            attributes.containsKey("name") &&
+            attributes["abstract"]?.toStringLiteral()?.lowercase() == "true"

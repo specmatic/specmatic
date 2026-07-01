@@ -13,6 +13,7 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
+import io.specmatic.core.wsdl.parser.isAbstractNamedComplexType
 import io.specmatic.core.wsdl.payload.ComplexTypedSOAPPayload
 import io.specmatic.core.wsdl.payload.SOAPPayload
 
@@ -170,11 +171,6 @@ private fun XMLNode.fullyQualifiedNameFromQNameOrNull(qName: String): FullyQuali
     } catch (e: ContractException) {
         null
     }
-
-private fun XMLNode.isAbstractNamedComplexType(): Boolean =
-    name == "complexType" &&
-            attributes.containsKey("name") &&
-            attributes["abstract"]?.toStringLiteral()?.lowercase() == "true"
 
 internal fun XMLNode.namedTypeFullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
     val namespace = schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()

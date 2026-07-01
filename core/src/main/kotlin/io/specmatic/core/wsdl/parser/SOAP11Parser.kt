@@ -607,11 +607,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         return derivationNode()?.hasBaseOutsideXMLSchemaNamespace() == true
     }
 
-    private fun XMLNode.isAbstractNamedComplexType(): Boolean =
-        name == "complexType" &&
-                attributes.containsKey("name") &&
-                attributes["abstract"]?.toStringLiteral()?.lowercase() == "true"
-
     private fun XMLNode.derivationNode(): XMLNode? {
         val directRestriction = findFirstChildByName("restriction")
         val complexContent = findFirstChildByName("complexContent")

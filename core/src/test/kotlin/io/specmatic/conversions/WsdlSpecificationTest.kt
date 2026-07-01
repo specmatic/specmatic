@@ -1,7 +1,9 @@
 package io.specmatic.conversions
 
+import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Result
+import io.specmatic.core.Scenario
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -362,10 +364,7 @@ internal class WsdlSpecificationTest {
     fun `new based on includes base and derived concrete wsdl complex type candidates`() {
         val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
 
-        val generatedBodies = wsdlContract.scenarios.single()
-            .generateTestScenarios(wsdlContract.flagsBased)
-            .map { it.value.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral() }
-            .toList()
+        val generatedBodies = generatedRequestBodies(wsdlContract)
 
         assertThat(generatedBodies).anySatisfy { body ->
             assertThat(body).contains(":pet>")
@@ -387,10 +386,7 @@ internal class WsdlSpecificationTest {
     fun `new based on excludes abstract declared wsdl complex type and pins derived candidates with xsi type`() {
         val wsdlContract = wsdlContentToFeature(petSequenceWsdl(petIsAbstract = true), "pet-sequence.wsdl")
 
-        val generatedBodies = wsdlContract.scenarios.single()
-            .generateTestScenarios(wsdlContract.flagsBased)
-            .map { it.value.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral() }
-            .toList()
+        val generatedBodies = generatedRequestBodies(wsdlContract)
 
         assertThat(generatedBodies).noneSatisfy { body ->
             assertThat(body).contains(":pet>")
@@ -411,17 +407,13 @@ internal class WsdlSpecificationTest {
     @Test
     fun `pinned base wsdl complex type candidate generates only base shape`() {
         val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
-        val scenarios = wsdlContract.scenarios.single()
-            .generateTestScenarios(wsdlContract.flagsBased)
-            .map { it.value }
-            .toList()
-        val baseScenario = scenarios.first { scenario ->
-            val body = scenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
+        val baseScenario = generatedScenarios(wsdlContract).first { scenario ->
+            val body = generatedRequestBody(scenario, wsdlContract)
             body.contains(":pet>") && !body.contains("xsi:type")
         }
 
         val regeneratedBodies = (1..5).map {
-            baseScenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
+            generatedRequestBody(baseScenario, wsdlContract)
         }
 
         assertThat(regeneratedBodies).allSatisfy { body ->
@@ -435,16 +427,12 @@ internal class WsdlSpecificationTest {
     @Test
     fun `pinned derived wsdl complex type candidate generates only derived shape with xsi type`() {
         val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
-        val scenarios = wsdlContract.scenarios.single()
-            .generateTestScenarios(wsdlContract.flagsBased)
-            .map { it.value }
-            .toList()
-        val dogScenario = scenarios.first { scenario ->
-            scenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral().contains("xsi:type=\"Pet-sequence:Dog\"")
+        val dogScenario = generatedScenarios(wsdlContract).first { scenario ->
+            generatedRequestBody(scenario, wsdlContract).contains("xsi:type=\"Pet-sequence:Dog\"")
         }
 
         val regeneratedBodies = (1..5).map {
-            dogScenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
+            generatedRequestBody(dogScenario, wsdlContract)
         }
 
         assertThat(regeneratedBodies).allSatisfy { body ->
@@ -599,6 +587,20 @@ internal class WsdlSpecificationTest {
             )
         )
     }
+
+    private fun generatedRequestBodies(wsdlContract: Feature): List<String> =
+        generatedScenarios(wsdlContract).map { scenario ->
+            generatedRequestBody(scenario, wsdlContract)
+        }
+
+    private fun generatedScenarios(wsdlContract: Feature): List<Scenario> =
+        wsdlContract.scenarios.single()
+            .generateTestScenarios(wsdlContract.flagsBased)
+            .map { it.value }
+            .toList()
+
+    private fun generatedRequestBody(scenario: Scenario, wsdlContract: Feature): String =
+        scenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
 
     private fun animalWsdl(): String {
         return """

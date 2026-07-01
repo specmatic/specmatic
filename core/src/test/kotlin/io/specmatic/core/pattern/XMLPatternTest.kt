@@ -135,8 +135,8 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `generate uses compatible WSDL concrete subtype variants instead of base or intermediate types`() {
-            val resolver = Resolver(newPatterns = animalPatterns())
+        fun `generate uses compatible WSDL concrete subtype variants instead of abstract base or intermediate types`() {
+            val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
                 XMLTypeData(
                     name = "Animal",
@@ -161,8 +161,8 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `newBasedOn uses compatible WSDL concrete subtype variants instead of base or intermediate types`() {
-            val resolver = Resolver(newPatterns = animalPatterns())
+        fun `newBasedOn uses compatible WSDL concrete subtype variants instead of abstract base or intermediate types`() {
+            val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
                 XMLTypeData(
                     name = "Animal",
@@ -245,7 +245,7 @@ internal class XMLPatternTest {
 
         @Test
         fun `generate avoids xsi prefix when it is already bound to a different namespace`() {
-            val resolver = Resolver(newPatterns = animalPatterns())
+            val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
                 XMLTypeData(
                     name = "Animal",
@@ -799,7 +799,7 @@ internal class XMLPatternTest {
 
     }
 
-    private fun animalPatterns(): Map<String, Pattern> {
+    private fun animalPatterns(animalIsAbstract: Boolean = false): Map<String, Pattern> {
         val animal = XMLPattern(
             XMLTypeData(
                 name = "Animal",
@@ -808,6 +808,7 @@ internal class XMLPatternTest {
                 namespaceUri = ANIMAL_NAMESPACE,
                 wsdlTypeNamespace = ANIMAL_NAMESPACE,
                 wsdlTypeName = "Animal",
+                wsdlTypeIsAbstract = animalIsAbstract,
             )
         )
         val dog = XMLPattern(
