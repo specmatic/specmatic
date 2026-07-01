@@ -52,7 +52,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             accumulated.plus(childTypeInfo.types)
         }
         val wsdlType = element.typeMetadataName(wsdl, wsdlTypeReference)
-        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(wsdlType)
+        val wsdlTypeIsAbstract = complexType.complexType.isAbstractNamedComplexType()
+        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(wsdlType, wsdlTypeIsAbstract)
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
             1 -> XMLPattern(childTypeInfosWithWSDLTypeMetadata.single().xmlTypeData.copy(
                 attributes = attributePatterns,
@@ -81,6 +82,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             namespaces,
             wsdlTypeNamespace = wsdlType?.namespace,
             wsdlTypeName = wsdlType?.localName,
+            wsdlTypeIsAbstract = wsdlTypeIsAbstract,
         )
     }
 
@@ -128,13 +130,14 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
     }
 }
 
-private fun List<WSDLTypeInfo>.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?): List<WSDLTypeInfo> =
-    map { it.withTypeMetadata(wsdlType) }
+private fun List<WSDLTypeInfo>.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?, wsdlTypeIsAbstract: Boolean): List<WSDLTypeInfo> =
+    map { it.withTypeMetadata(wsdlType, wsdlTypeIsAbstract) }
 
-private fun WSDLTypeInfo.withTypeMetadata(wsdlType: FullyQualifiedName?): WSDLTypeInfo {
+private fun WSDLTypeInfo.withTypeMetadata(wsdlType: FullyQualifiedName?, wsdlTypeIsAbstract: Boolean): WSDLTypeInfo {
     return copy(
         wsdlTypeNamespace = wsdlType?.namespace,
         wsdlTypeName = wsdlType?.localName,
+        wsdlTypeIsAbstract = wsdlTypeIsAbstract,
     )
 }
 
@@ -167,6 +170,11 @@ private fun XMLNode.fullyQualifiedNameFromQNameOrNull(qName: String): FullyQuali
     } catch (e: ContractException) {
         null
     }
+
+private fun XMLNode.isAbstractNamedComplexType(): Boolean =
+    name == "complexType" &&
+            attributes.containsKey("name") &&
+            attributes["abstract"]?.toStringLiteral()?.lowercase() == "true"
 
 internal fun XMLNode.namedTypeFullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
     val namespace = schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()

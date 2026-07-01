@@ -49,6 +49,7 @@ private data class WSDLTypeLookupEntry(
     val typeName: WSDLTypeName,
     val typeKey: String,
     val baseTypeName: WSDLTypeName?,
+    val isAbstract: Boolean,
 )
 
 class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
@@ -404,6 +405,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     ?.fullyQualifiedNameFromAttribute("base")
                     ?.takeUnless { it.namespace == XML_SCHEMA_NAMESPACE }
                     ?.let { WSDLTypeName(it.namespace, it.localName) },
+                isAbstract = typeNode.isAbstractNamedComplexType(),
             )
         }
     }
@@ -426,6 +428,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                 knownTypeKeys = typeKeys,
                 compatibleTypeKeys = compatibleTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
                 concreteSubtypeKeys = concreteSubtypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                isAbstract = typeEntry.isAbstract,
             )
         }
     }
@@ -446,6 +449,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                 knownTypeKeys = typeKeys,
                 compatibleTypeKeys = compatibleTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
                 concreteSubtypeKeys = concreteSubtypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                isAbstract = typeEntry.isAbstract,
             )
         }
     }
@@ -481,6 +485,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         knownTypeKeys: Map<WSDLTypeName, String>,
         compatibleTypeKeys: Map<WSDLTypeName, String>,
         concreteSubtypeKeys: Map<WSDLTypeName, String>,
+        isAbstract: Boolean,
     ): Pattern {
         return when (this) {
             is XMLPattern -> copy(
@@ -489,6 +494,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     wsdlTypeName = pattern.wsdlTypeName ?: typeName.localName,
                     wsdlBaseTypeNamespace = pattern.wsdlBaseTypeNamespace ?: baseTypeName?.namespace,
                     wsdlBaseTypeName = pattern.wsdlBaseTypeName ?: baseTypeName?.localName,
+                    wsdlTypeIsAbstract = isAbstract,
                     wsdlKnownTypeKeys = knownTypeKeys,
                     wsdlCompatibleTypeKeys = compatibleTypeKeys,
                     wsdlConcreteSubtypeKeys = concreteSubtypeKeys,
@@ -503,6 +509,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                         knownTypeKeys,
                         compatibleTypeKeys,
                         concreteSubtypeKeys,
+                        isAbstract,
                     )
                 }
             )
@@ -519,6 +526,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     ): Map<WSDLTypeName, String> =
         entries
             .filter { entry -> entry.typeName == baseType || entry.isDerivedFrom(baseType, entriesByType) }
+            .filterNot(WSDLTypeLookupEntry::isAbstract)
             .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
             .toMap()
 
@@ -530,6 +538,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     ): Map<WSDLTypeName, String> {
         val descendants = entries
             .filter { entry -> entry.typeName != baseType && entry.isDerivedFrom(baseType, entriesByType) }
+            .filterNot(WSDLTypeLookupEntry::isAbstract)
             .map { it.typeName }
             .toSet()
 
@@ -597,6 +606,11 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     private fun XMLNode.hasActionableDerivation(): Boolean {
         return derivationNode()?.hasBaseOutsideXMLSchemaNamespace() == true
     }
+
+    private fun XMLNode.isAbstractNamedComplexType(): Boolean =
+        name == "complexType" &&
+                attributes.containsKey("name") &&
+                attributes["abstract"]?.toStringLiteral()?.lowercase() == "true"
 
     private fun XMLNode.derivationNode(): XMLNode? {
         val directRestriction = findFirstChildByName("restriction")

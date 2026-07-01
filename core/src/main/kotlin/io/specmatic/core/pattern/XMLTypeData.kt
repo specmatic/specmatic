@@ -12,6 +12,11 @@ internal const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
 data class WSDLTypeName(val namespace: String, val localName: String)
 
+enum class WSDLTypeSelectionMode {
+    Polymorphic,
+    CurrentTypeOnly
+}
+
 internal fun isXMLSchemaInstanceTypeAttribute(attributeName: String, namespaceUri: String?): Boolean =
     attributeName.localName() == "type" && namespaceUri == XML_SCHEMA_INSTANCE_NAMESPACE
 
@@ -29,6 +34,8 @@ data class XMLTypeData(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlTypeIsAbstract: Boolean = false,
+    val wsdlTypeSelectionMode: WSDLTypeSelectionMode = WSDLTypeSelectionMode.Polymorphic,
     val wsdlKnownTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlCompatibleTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlConcreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),

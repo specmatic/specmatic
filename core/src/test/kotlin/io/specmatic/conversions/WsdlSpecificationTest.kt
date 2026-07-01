@@ -229,6 +229,82 @@ internal class WsdlSpecificationTest {
     }
 
     @Test
+    fun `request matching uses concrete xsi type when declared wsdl complex type is abstract`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(petIsAbstract = true), "pet-sequence.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-sequence",
+                soapAction = "http://example.com/pet-sequence/RegisterSequence",
+                bodyNode = """
+                    <tns:RegisterSequence xmlns:tns="http://example.com/pet-sequence"
+                                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:pet xsi:type="tns:Dog">
+                        <tns:name>Rover</tns:name>
+                        <tns:breed>Labrador</tns:breed>
+                      </tns:pet>
+                    </tns:RegisterSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `request matching rejects abstract wsdl complex type without xsi type`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(petIsAbstract = true), "pet-sequence.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-sequence",
+                soapAction = "http://example.com/pet-sequence/RegisterSequence",
+                bodyNode = """
+                    <tns:RegisterSequence xmlns:tns="http://example.com/pet-sequence">
+                      <tns:pet>
+                        <tns:name>Rover</tns:name>
+                      </tns:pet>
+                    </tns:RegisterSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Missing xsi:type")
+        assertThat(result.reportString()).contains("Pet")
+    }
+
+    @Test
+    fun `request matching rejects abstract wsdl complex type asserted through xsi type`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(petIsAbstract = true), "pet-sequence.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-sequence",
+                soapAction = "http://example.com/pet-sequence/RegisterSequence",
+                bodyNode = """
+                    <tns:RegisterSequence xmlns:tns="http://example.com/pet-sequence"
+                                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:pet xsi:type="tns:Pet">
+                        <tns:name>Rover</tns:name>
+                      </tns:pet>
+                    </tns:RegisterSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("abstract")
+        assertThat(result.reportString()).contains("Pet")
+    }
+
+    @Test
     fun `request matching rejects incompatible known xsi type inside wsdl choice group`() {
         val wsdlContract = wsdlContentToFeature(petChoiceWsdl(), "pet-choice.wsdl")
         val scenario = wsdlContract.scenarios.single()
@@ -274,6 +350,128 @@ internal class WsdlSpecificationTest {
                         </tns:pet>
                       </tns:payload>
                     </tns:RegisterNestedSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `new based on includes base and derived concrete wsdl complex type candidates`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
+
+        val generatedBodies = wsdlContract.scenarios.single()
+            .generateTestScenarios(wsdlContract.flagsBased)
+            .map { it.value.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral() }
+            .toList()
+
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains(":pet>")
+            assertThat(body).doesNotContain("xsi:type")
+            assertThat(body).doesNotContain(":breed>")
+            assertThat(body).doesNotContain(":lives>")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains("xsi:type=\"Pet-sequence:Dog\"")
+            assertThat(body).contains(":breed>")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains("xsi:type=\"Pet-sequence:Cat\"")
+            assertThat(body).contains(":lives>")
+        }
+    }
+
+    @Test
+    fun `new based on excludes abstract declared wsdl complex type and pins derived candidates with xsi type`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(petIsAbstract = true), "pet-sequence.wsdl")
+
+        val generatedBodies = wsdlContract.scenarios.single()
+            .generateTestScenarios(wsdlContract.flagsBased)
+            .map { it.value.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral() }
+            .toList()
+
+        assertThat(generatedBodies).noneSatisfy { body ->
+            assertThat(body).contains(":pet>")
+            assertThat(body).doesNotContain("xsi:type")
+            assertThat(body).doesNotContain(":breed>")
+            assertThat(body).doesNotContain(":lives>")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains("xsi:type=\"Pet-sequence:Dog\"")
+            assertThat(body).contains(":breed>")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains("xsi:type=\"Pet-sequence:Cat\"")
+            assertThat(body).contains(":lives>")
+        }
+    }
+
+    @Test
+    fun `pinned base wsdl complex type candidate generates only base shape`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
+        val scenarios = wsdlContract.scenarios.single()
+            .generateTestScenarios(wsdlContract.flagsBased)
+            .map { it.value }
+            .toList()
+        val baseScenario = scenarios.first { scenario ->
+            val body = scenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
+            body.contains(":pet>") && !body.contains("xsi:type")
+        }
+
+        val regeneratedBodies = (1..5).map {
+            baseScenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
+        }
+
+        assertThat(regeneratedBodies).allSatisfy { body ->
+            assertThat(body).contains(":pet>")
+            assertThat(body).doesNotContain("xsi:type")
+            assertThat(body).doesNotContain(":breed>")
+            assertThat(body).doesNotContain(":lives>")
+        }
+    }
+
+    @Test
+    fun `pinned derived wsdl complex type candidate generates only derived shape with xsi type`() {
+        val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
+        val scenarios = wsdlContract.scenarios.single()
+            .generateTestScenarios(wsdlContract.flagsBased)
+            .map { it.value }
+            .toList()
+        val dogScenario = scenarios.first { scenario ->
+            scenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral().contains("xsi:type=\"Pet-sequence:Dog\"")
+        }
+
+        val regeneratedBodies = (1..5).map {
+            dogScenario.generateHttpRequest(wsdlContract.flagsBased).body.toStringLiteral()
+        }
+
+        assertThat(regeneratedBodies).allSatisfy { body ->
+            assertThat(body).contains("xsi:type=\"Pet-sequence:Dog\"")
+            assertThat(body).contains(":breed>")
+            assertThat(body).doesNotContain(":lives>")
+        }
+    }
+
+    @Test
+    fun `request matching uses cross namespace concrete xsi type when declared wsdl complex type is abstract`() {
+        val wsdlContract = wsdlContentToFeature(orderWithCrossNamespaceModelWsdl(orderIsAbstract = true), "order-service.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/order-service",
+                soapAction = "http://example.com/order-service/SubmitOrder",
+                bodyNode = """
+                    <svc:SubmitOrder xmlns:svc="http://example.com/order-service"
+                                     xmlns:model="http://example.com/order-model"
+                                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <svc:order xsi:type="model:OnlineOrder">
+                        <model:orderNumber>O-123</model:orderNumber>
+                        <model:channel>web</model:channel>
+                      </svc:order>
+                    </svc:SubmitOrder>
                 """.trimIndent()
             ),
             scenario.resolver
@@ -526,7 +724,9 @@ internal class WsdlSpecificationTest {
         """.trimIndent()
     }
 
-    private fun orderWithCrossNamespaceModelWsdl(): String {
+    private fun orderWithCrossNamespaceModelWsdl(orderIsAbstract: Boolean = false): String {
+        val orderAbstractAttribute = if (orderIsAbstract) """ abstract="true"""" else ""
+
         return """
             <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
                               xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
@@ -553,7 +753,7 @@ internal class WsdlSpecificationTest {
                            xmlns:model="http://example.com/order-model"
                            targetNamespace="http://example.com/order-model"
                            elementFormDefault="qualified">
-                  <xs:complexType name="Order">
+                  <xs:complexType name="Order"$orderAbstractAttribute>
                     <xs:sequence>
                       <xs:element name="orderNumber" type="xs:string"/>
                     </xs:sequence>
@@ -601,6 +801,22 @@ internal class WsdlSpecificationTest {
               </wsdl:service>
             </wsdl:definitions>
         """.trimIndent()
+    }
+
+    private fun petSequenceWsdl(petIsAbstract: Boolean = false): String {
+        return petWsdl(
+            namespace = "http://example.com/pet-sequence",
+            path = "/pet-sequence",
+            operation = "RegisterSequence",
+            requestType = """
+                <xs:complexType name="RegisterSequenceRequest">
+                  <xs:sequence>
+                    <xs:element name="pet" type="tns:Pet"/>
+                  </xs:sequence>
+                </xs:complexType>
+            """.trimIndent(),
+            petIsAbstract = petIsAbstract,
+        )
     }
 
     private fun petChoiceWsdl(): String {
@@ -655,7 +871,15 @@ internal class WsdlSpecificationTest {
         )
     }
 
-    private fun petWsdl(namespace: String, path: String, operation: String, requestType: String): String {
+    private fun petWsdl(
+        namespace: String,
+        path: String,
+        operation: String,
+        requestType: String,
+        petIsAbstract: Boolean = false,
+    ): String {
+        val petAbstractAttribute = if (petIsAbstract) """ abstract="true"""" else ""
+
         return """
             <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
                               xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
@@ -669,7 +893,7 @@ internal class WsdlSpecificationTest {
                   <xs:element name="$operation" type="tns:${operation}Request"/>
                   <xs:element name="${operation}Response" type="xs:string"/>
 
-                  <xs:complexType name="Pet">
+                  <xs:complexType name="Pet"$petAbstractAttribute>
                     <xs:sequence>
                       <xs:element name="name" type="xs:string"/>
                     </xs:sequence>
@@ -680,6 +904,16 @@ internal class WsdlSpecificationTest {
                       <xs:extension base="tns:Pet">
                         <xs:sequence>
                           <xs:element name="breed" type="xs:string"/>
+                        </xs:sequence>
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+
+                  <xs:complexType name="Cat">
+                    <xs:complexContent>
+                      <xs:extension base="tns:Pet">
+                        <xs:sequence>
+                          <xs:element name="lives" type="xs:integer"/>
                         </xs:sequence>
                       </xs:extension>
                     </xs:complexContent>
