@@ -22,6 +22,41 @@ private const val occursMultipleTimes: String = "$OCCURS_ATTRIBUTE_NAME=\"$MULTI
 private const val ANIMAL_NAMESPACE: String = "http://example.com/animals"
 private const val XML_SCHEMA_NAMESPACE: String = "http://www.w3.org/2001/XMLSchema"
 
+private val ANIMAL_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "Animal")
+private val DOG_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "Dog")
+private val WORKING_DOG_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "WorkingDog")
+private val CAT_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "Cat")
+private val VEHICLE_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "Vehicle")
+private val BASE_CODE_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "BaseCode")
+private val CONSTRAINED_CODE_TYPE = WSDLTypeName(ANIMAL_NAMESPACE, "ConstrainedCode")
+private val XML_SCHEMA_STRING_TYPE = WSDLTypeName(XML_SCHEMA_NAMESPACE, "string")
+
+private const val ANIMAL_TYPE_KEY = "(tns_Animal)"
+private const val DOG_TYPE_KEY = "(tns_Dog)"
+private const val WORKING_DOG_TYPE_KEY = "(tns_WorkingDog)"
+private const val CAT_TYPE_KEY = "(tns_Cat)"
+private const val VEHICLE_TYPE_KEY = "(tns_Vehicle)"
+private const val BASE_CODE_TYPE_KEY = "(tns_BaseCode)"
+private const val CONSTRAINED_CODE_TYPE_KEY = "(tns_ConstrainedCode)"
+private const val XML_SCHEMA_STRING_TYPE_KEY = "(xs_string)"
+
+private val ANIMAL_TYPE_KEYS = mapOf(
+    ANIMAL_TYPE to ANIMAL_TYPE_KEY,
+    DOG_TYPE to DOG_TYPE_KEY,
+    WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY,
+    CAT_TYPE to CAT_TYPE_KEY,
+    VEHICLE_TYPE to VEHICLE_TYPE_KEY,
+)
+
+private val CODE_TYPE_KEYS = mapOf(
+    BASE_CODE_TYPE to BASE_CODE_TYPE_KEY,
+    CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY,
+)
+
+private val CODE_TYPE_KEYS_WITH_XML_SCHEMA_TYPE = CODE_TYPE_KEYS + mapOf(
+    XML_SCHEMA_STRING_TYPE to XML_SCHEMA_STRING_TYPE_KEY
+)
+
 internal class XMLPatternTest {
     @Nested
     inner class GenerateValues {
@@ -833,12 +868,40 @@ internal class XMLPatternTest {
         )
 
         return mapOf(
-            "(tns_Animal)" to animal,
-            "(tns_Dog)" to dog,
-            "(tns_WorkingDog)" to workingDog,
-            "(tns_Cat)" to cat,
-            "(tns_Vehicle)" to vehicle,
-        ).withTestWSDLTypeLookupMetadata()
+            ANIMAL_TYPE_KEY to animal.withWSDLTypeLookupMetadata(
+                knownTypeKeys = ANIMAL_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(
+                    ANIMAL_TYPE to ANIMAL_TYPE_KEY,
+                    DOG_TYPE to DOG_TYPE_KEY,
+                    WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY,
+                    CAT_TYPE to CAT_TYPE_KEY,
+                ),
+                concreteSubtypeKeys = mapOf(
+                    WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY,
+                    CAT_TYPE to CAT_TYPE_KEY,
+                ),
+            ),
+            DOG_TYPE_KEY to dog.withWSDLTypeLookupMetadata(
+                knownTypeKeys = ANIMAL_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(
+                    DOG_TYPE to DOG_TYPE_KEY,
+                    WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY,
+                ),
+                concreteSubtypeKeys = mapOf(WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY),
+            ),
+            WORKING_DOG_TYPE_KEY to workingDog.withWSDLTypeLookupMetadata(
+                knownTypeKeys = ANIMAL_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY),
+            ),
+            CAT_TYPE_KEY to cat.withWSDLTypeLookupMetadata(
+                knownTypeKeys = ANIMAL_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(CAT_TYPE to CAT_TYPE_KEY),
+            ),
+            VEHICLE_TYPE_KEY to vehicle.withWSDLTypeLookupMetadata(
+                knownTypeKeys = ANIMAL_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(VEHICLE_TYPE to VEHICLE_TYPE_KEY),
+            ),
+        )
     }
 
     private fun animalWithoutDerivedPatterns(): Map<String, Pattern> {
@@ -865,8 +928,8 @@ internal class XMLPatternTest {
         )
 
         return mapOf(
-            "(tns_Animal)" to animal,
-            "(tns_Vehicle)" to vehicle,
+            ANIMAL_TYPE_KEY to animal,
+            VEHICLE_TYPE_KEY to vehicle,
         )
     }
 
@@ -895,9 +958,19 @@ internal class XMLPatternTest {
         )
 
         return mapOf(
-            "(tns_BaseCode)" to baseCode,
-            "(tns_ConstrainedCode)" to constrainedCode,
-        ).withTestWSDLTypeLookupMetadata()
+            BASE_CODE_TYPE_KEY to baseCode.withWSDLTypeLookupMetadata(
+                knownTypeKeys = CODE_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(
+                    BASE_CODE_TYPE to BASE_CODE_TYPE_KEY,
+                    CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY,
+                ),
+                concreteSubtypeKeys = mapOf(CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY),
+            ),
+            CONSTRAINED_CODE_TYPE_KEY to constrainedCode.withWSDLTypeLookupMetadata(
+                knownTypeKeys = CODE_TYPE_KEYS,
+                compatibleTypeKeys = mapOf(CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY),
+            ),
+        )
     }
 
     private fun codePatternsWithXMLSchemaNamespaceVariant(): Map<String, Pattern> {
@@ -914,41 +987,40 @@ internal class XMLPatternTest {
             )
         )
 
-        return (codePatterns() + mapOf("(xs_string)" to xmlSchemaString)).withTestWSDLTypeLookupMetadata()
-    }
+        return codePatterns().mapValues { (_, pattern) ->
+            when ((pattern as? XMLPattern)?.pattern?.wsdlTypeName()) {
+                BASE_CODE_TYPE -> pattern.withWSDLTypeLookupMetadata(
+                    knownTypeKeys = CODE_TYPE_KEYS_WITH_XML_SCHEMA_TYPE,
+                    compatibleTypeKeys = mapOf(
+                        BASE_CODE_TYPE to BASE_CODE_TYPE_KEY,
+                        CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY,
+                        XML_SCHEMA_STRING_TYPE to XML_SCHEMA_STRING_TYPE_KEY,
+                    ),
+                    concreteSubtypeKeys = mapOf(
+                        CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY,
+                        XML_SCHEMA_STRING_TYPE to XML_SCHEMA_STRING_TYPE_KEY,
+                    ),
+                )
 
-    private data class TestWSDLTypeLookupEntry(
-        val typeName: WSDLTypeName,
-        val typeKey: String,
-        val baseTypeName: WSDLTypeName?,
-    )
+                CONSTRAINED_CODE_TYPE -> pattern.withWSDLTypeLookupMetadata(
+                    knownTypeKeys = CODE_TYPE_KEYS_WITH_XML_SCHEMA_TYPE,
+                    compatibleTypeKeys = mapOf(CONSTRAINED_CODE_TYPE to CONSTRAINED_CODE_TYPE_KEY),
+                )
 
-    private fun Map<String, Pattern>.withTestWSDLTypeLookupMetadata(): Map<String, Pattern> {
-        val entries = mapNotNull { (key, pattern) -> pattern.testWSDLTypeLookupEntry(key) }
-        val typeKeys = entries.associate { entry -> entry.typeName to entry.typeKey }
-        val entriesByType = entries.associateBy { it.typeName }
-
-        return mapValues { (typeKey, pattern) ->
-            val entry = entries.firstOrNull { it.typeKey == typeKey } ?: return@mapValues pattern
-            pattern.withTestWSDLTypeLookupMetadata(
-                knownTypeKeys = typeKeys,
-                compatibleTypeKeys = testCompatibleTypeKeys(entry.typeName, entries, entriesByType, typeKeys),
-                concreteSubtypeKeys = testConcreteSubtypeKeys(entry.typeName, entries, entriesByType, typeKeys),
+                else -> pattern
+            }
+        } + mapOf(
+            XML_SCHEMA_STRING_TYPE_KEY to xmlSchemaString.withWSDLTypeLookupMetadata(
+                knownTypeKeys = CODE_TYPE_KEYS_WITH_XML_SCHEMA_TYPE,
+                compatibleTypeKeys = mapOf(XML_SCHEMA_STRING_TYPE to XML_SCHEMA_STRING_TYPE_KEY),
             )
-        }
+        )
     }
 
-    private fun Pattern.testWSDLTypeLookupEntry(typeKey: String): TestWSDLTypeLookupEntry? {
-        val typeData = (this as? XMLPattern)?.pattern ?: return null
-        val typeName = typeData.wsdlTypeName?.let { WSDLTypeName(typeData.wsdlTypeNamespace.orEmpty(), it) } ?: return null
-        val baseTypeName = typeData.wsdlBaseTypeName?.let { WSDLTypeName(typeData.wsdlBaseTypeNamespace.orEmpty(), it) }
-        return TestWSDLTypeLookupEntry(typeName, typeKey, baseTypeName)
-    }
-
-    private fun Pattern.withTestWSDLTypeLookupMetadata(
+    private fun Pattern.withWSDLTypeLookupMetadata(
         knownTypeKeys: Map<WSDLTypeName, String>,
         compatibleTypeKeys: Map<WSDLTypeName, String>,
-        concreteSubtypeKeys: Map<WSDLTypeName, String>,
+        concreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     ): Pattern {
         return when (this) {
             is XMLPattern -> copy(
@@ -961,7 +1033,7 @@ internal class XMLPatternTest {
 
             is AnyPattern -> copy(
                 pattern = pattern.map {
-                    it.withTestWSDLTypeLookupMetadata(
+                    it.withWSDLTypeLookupMetadata(
                         knownTypeKeys,
                         compatibleTypeKeys,
                         concreteSubtypeKeys,
@@ -971,46 +1043,6 @@ internal class XMLPatternTest {
 
             else -> this
         }
-    }
-
-    private fun testCompatibleTypeKeys(
-        baseType: WSDLTypeName,
-        entries: List<TestWSDLTypeLookupEntry>,
-        entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
-        typeKeys: Map<WSDLTypeName, String>,
-    ): Map<WSDLTypeName, String> =
-        entries
-            .filter { entry -> entry.typeName == baseType || entry.isDerivedFrom(baseType, entriesByType) }
-            .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
-            .toMap()
-
-    private fun testConcreteSubtypeKeys(
-        baseType: WSDLTypeName,
-        entries: List<TestWSDLTypeLookupEntry>,
-        entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
-        typeKeys: Map<WSDLTypeName, String>,
-    ): Map<WSDLTypeName, String> {
-        val descendants = entries
-            .filter { entry -> entry.typeName != baseType && entry.isDerivedFrom(baseType, entriesByType) }
-            .map { it.typeName }
-            .toSet()
-
-        return descendants
-            .filter { descendant -> entries.none { entry -> entry.typeName in descendants && entry.isDerivedFrom(descendant, entriesByType) } }
-            .mapNotNull { type -> typeKeys[type]?.let { key -> type to key } }
-            .toMap()
-    }
-
-    private fun TestWSDLTypeLookupEntry.isDerivedFrom(
-        baseType: WSDLTypeName,
-        entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
-    ): Boolean {
-        val directBaseType = baseTypeName ?: return false
-        if (directBaseType == baseType) {
-            return true
-        }
-
-        return entriesByType[directBaseType]?.isDerivedFrom(baseType, entriesByType) == true
     }
 
     @Nested
