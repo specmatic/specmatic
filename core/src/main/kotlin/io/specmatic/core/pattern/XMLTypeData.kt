@@ -29,11 +29,9 @@ data class XMLTypeData(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
-    val wsdlTypeKey: String? = null,
-    val wsdlBaseTypeKey: String? = null,
     val wsdlKnownTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
-    val wsdlMatchableTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
-    val wsdlLeafTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
+    val wsdlCompatibleTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
+    val wsdlConcreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()

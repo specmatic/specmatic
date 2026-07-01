@@ -5,6 +5,7 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.WSDLTypeName
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.withPatternDelimiters
@@ -391,36 +392,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         )
     }
 
-    private fun WSDLTypeInfo.withoutWSDLTypeMetadata(): WSDLTypeInfo {
-        return copy(
-            members = members.map { it.withoutWSDLTypeMetadata() },
-            types = types.filterValues { it.isReusableWSDLType() }
-                .mapValues { (_, pattern) -> pattern.withoutWSDLTypeMetadata() },
-            wsdlTypeNamespace = null,
-            wsdlTypeName = null,
-            wsdlBaseTypeNamespace = null,
-            wsdlBaseTypeName = null,
-        )
-    }
-
-    private fun Pattern.withoutWSDLTypeMetadata(): Pattern {
-        return when (this) {
-            is XMLPattern -> copy(pattern = pattern.copy(
-                nodes = pattern.nodes.map { it.withoutWSDLTypeMetadata() },
-                wsdlTypeNamespace = null,
-                wsdlTypeName = null,
-                wsdlBaseTypeNamespace = null,
-                wsdlBaseTypeName = null,
-                wsdlTypeKey = null,
-                wsdlBaseTypeKey = null,
-                wsdlKnownTypeKeys = emptyMap(),
-                wsdlMatchableTypeKeys = emptyMap(),
-                wsdlLeafTypeKeys = emptyMap(),
-            ))
-            else -> this
-        }
-    }
-
     private fun List<XMLNode>.wsdlTypeLookupEntries(): List<WSDLTypeLookupEntry> {
         return map { typeNode ->
             val name = typeNode.getAttributeValue("name")
@@ -442,7 +413,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             return this
         }
 
-        val typeKeys = entries.associate { entry -> entry.typeName to actualTypeKey(entry.typeKey, entry.typeName) }
+        val typeKeys = entries.associate { entry -> entry.typeName to registeredTypeKey(entry.typeKey, entry.typeName) }
         val entriesByType = entries.associateBy { it.typeName }
 
         return mapValues { (typeKey, pattern) ->
@@ -451,12 +422,10 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                 ?: return@mapValues pattern
             pattern.withWSDLTypeLookupMetadata(
                 typeName = typeEntry.typeName,
-                typeKey = typeKey,
                 baseTypeName = typeEntry.baseTypeName,
-                baseTypeKey = typeEntry.baseTypeName?.let(typeKeys::get),
                 knownTypeKeys = typeKeys,
-                matchableTypeKeys = matchableTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
-                leafTypeKeys = leafTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                compatibleTypeKeys = compatibleTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                concreteSubtypeKeys = concreteSubtypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
             )
         }
     }
@@ -471,20 +440,17 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
 
         return map { pattern ->
             val typeEntry = pattern.wsdlTypeNameForLookup()?.let(entriesByType::get) ?: return@map pattern
-            val typeKey = typeKeys[typeEntry.typeName] ?: return@map pattern
             pattern.withWSDLTypeLookupMetadata(
                 typeName = typeEntry.typeName,
-                typeKey = typeKey,
                 baseTypeName = typeEntry.baseTypeName,
-                baseTypeKey = typeEntry.baseTypeName?.let(typeKeys::get),
                 knownTypeKeys = typeKeys,
-                matchableTypeKeys = matchableTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
-                leafTypeKeys = leafTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                compatibleTypeKeys = compatibleTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                concreteSubtypeKeys = concreteSubtypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
             )
         }
     }
 
-    private fun Map<String, Pattern>.actualTypeKey(typeKey: String): String {
+    private fun Map<String, Pattern>.registeredTypeKey(typeKey: String): String {
         val delimitedTypeKey = withPatternDelimiters(typeKey.removeSurrounding("(", ")"))
         return when {
             containsKey(typeKey) -> typeKey
@@ -494,8 +460,8 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
     }
 
-    private fun Map<String, Pattern>.actualTypeKey(typeKey: String, typeName: WSDLTypeName): String =
-        actualTypeKey(typeKey).takeIf { containsKey(it) }
+    private fun Map<String, Pattern>.registeredTypeKey(typeKey: String, typeName: WSDLTypeName): String =
+        registeredTypeKey(typeKey).takeIf { containsKey(it) }
             ?: entries.firstOrNull { (_, pattern) -> pattern.wsdlTypeNameForLookup() == typeName }?.key
             ?: typeKey
 
@@ -504,19 +470,17 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             is XMLPattern -> pattern.wsdlTypeName?.let { typeName ->
                 WSDLTypeName(pattern.wsdlTypeNamespace.orEmpty(), typeName)
             }
-            is io.specmatic.core.pattern.AnyPattern -> pattern.asSequence().mapNotNull { it.wsdlTypeNameForLookup() }.firstOrNull()
+            is AnyPattern -> pattern.asSequence().mapNotNull { it.wsdlTypeNameForLookup() }.firstOrNull()
             else -> null
         }
     }
 
     private fun Pattern.withWSDLTypeLookupMetadata(
         typeName: WSDLTypeName,
-        typeKey: String,
         baseTypeName: WSDLTypeName?,
-        baseTypeKey: String?,
         knownTypeKeys: Map<WSDLTypeName, String>,
-        matchableTypeKeys: Map<WSDLTypeName, String>,
-        leafTypeKeys: Map<WSDLTypeName, String>,
+        compatibleTypeKeys: Map<WSDLTypeName, String>,
+        concreteSubtypeKeys: Map<WSDLTypeName, String>,
     ): Pattern {
         return when (this) {
             is XMLPattern -> copy(
@@ -525,24 +489,20 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     wsdlTypeName = pattern.wsdlTypeName ?: typeName.localName,
                     wsdlBaseTypeNamespace = pattern.wsdlBaseTypeNamespace ?: baseTypeName?.namespace,
                     wsdlBaseTypeName = pattern.wsdlBaseTypeName ?: baseTypeName?.localName,
-                    wsdlTypeKey = typeKey,
-                    wsdlBaseTypeKey = baseTypeKey,
                     wsdlKnownTypeKeys = knownTypeKeys,
-                    wsdlMatchableTypeKeys = matchableTypeKeys,
-                    wsdlLeafTypeKeys = leafTypeKeys,
+                    wsdlCompatibleTypeKeys = compatibleTypeKeys,
+                    wsdlConcreteSubtypeKeys = concreteSubtypeKeys,
                 )
             )
 
-            is io.specmatic.core.pattern.AnyPattern -> copy(
+            is AnyPattern -> copy(
                 pattern = pattern.map {
                     it.withWSDLTypeLookupMetadata(
                         typeName,
-                        typeKey,
                         baseTypeName,
-                        baseTypeKey,
                         knownTypeKeys,
-                        matchableTypeKeys,
-                        leafTypeKeys,
+                        compatibleTypeKeys,
+                        concreteSubtypeKeys,
                     )
                 }
             )
@@ -551,7 +511,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
     }
 
-    private fun matchableTypeKeys(
+    private fun compatibleTypeKeys(
         baseType: WSDLTypeName,
         entries: List<WSDLTypeLookupEntry>,
         entriesByType: Map<WSDLTypeName, WSDLTypeLookupEntry>,
@@ -562,7 +522,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
             .toMap()
 
-    private fun leafTypeKeys(
+    private fun concreteSubtypeKeys(
         baseType: WSDLTypeName,
         entries: List<WSDLTypeLookupEntry>,
         entriesByType: Map<WSDLTypeName, WSDLTypeLookupEntry>,
@@ -589,13 +549,6 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         }
 
         return entriesByType[directBaseType]?.isDerivedFrom(baseType, entriesByType) == true
-    }
-
-    private fun Pattern.isReusableWSDLType(): Boolean {
-        return when (this) {
-            is XMLPattern -> pattern.name == TYPE_NODE_NAME
-            else -> true
-        }
     }
 
     private fun WSDL.typeNodesNeededForWSDLTypeLookup(namespace: String): List<XMLNode> {

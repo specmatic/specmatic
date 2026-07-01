@@ -205,12 +205,6 @@ private fun XMLNode.typeMetadataName(wsdl: WSDL): FullyQualifiedName? {
     }
 }
 
-private fun XMLNode.namedTypeFullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
-    val namespace = schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()
-    val prefix = namespace.takeIf { it.isNotBlank() }?.let(wsdl::getSchemaNamespacePrefix).orEmpty()
-    return FullyQualifiedName(prefix, namespace, getAttributeValue("name"))
-}
-
 private fun XMLNode.baseTypeMetadataName(): FullyQualifiedName? {
     return restrictionNode(this)?.let { restriction ->
         restriction.attributes["base"]?.let { restriction.simpleTypeQualifiedNameFromAttribute("base") }

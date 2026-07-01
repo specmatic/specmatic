@@ -168,7 +168,7 @@ private fun XMLNode.fullyQualifiedNameFromQNameOrNull(qName: String): FullyQuali
         null
     }
 
-private fun XMLNode.namedTypeFullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
+internal fun XMLNode.namedTypeFullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
     val namespace = schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()
     val prefix = namespace.takeIf { it.isNotBlank() }?.let(wsdl::getSchemaNamespacePrefix).orEmpty()
     return FullyQualifiedName(prefix, namespace, getAttributeValue("name"))

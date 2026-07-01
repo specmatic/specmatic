@@ -100,7 +100,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `generate uses compatible WSDL leaf complex type variants instead of base or intermediate types`() {
+        fun `generate uses compatible WSDL concrete subtype variants instead of base or intermediate types`() {
             val resolver = Resolver(newPatterns = animalPatterns())
             val pattern = XMLPattern(
                 XMLTypeData(
@@ -121,12 +121,12 @@ internal class XMLPatternTest {
                     .containsExactly("tns:name", "tns:breed", "tns:job")
                 "tns:Cat" -> assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
                     .containsExactly("tns:name", "tns:lives")
-                else -> fail("Expected generate to pick a leaf WSDL type")
+                else -> fail("Expected generate to pick a concrete WSDL subtype")
             }
         }
 
         @Test
-        fun `newBasedOn uses compatible WSDL leaf complex type variants instead of base or intermediate types`() {
+        fun `newBasedOn uses compatible WSDL concrete subtype variants instead of base or intermediate types`() {
             val resolver = Resolver(newPatterns = animalPatterns())
             val pattern = XMLPattern(
                 XMLTypeData(
@@ -931,11 +931,9 @@ internal class XMLPatternTest {
         return mapValues { (typeKey, pattern) ->
             val entry = entries.firstOrNull { it.typeKey == typeKey } ?: return@mapValues pattern
             pattern.withTestWSDLTypeLookupMetadata(
-                typeKey = typeKey,
-                baseTypeKey = entry.baseTypeName?.let(typeKeys::get),
                 knownTypeKeys = typeKeys,
-                matchableTypeKeys = testMatchableTypeKeys(entry.typeName, entries, entriesByType, typeKeys),
-                leafTypeKeys = testLeafTypeKeys(entry.typeName, entries, entriesByType, typeKeys),
+                compatibleTypeKeys = testCompatibleTypeKeys(entry.typeName, entries, entriesByType, typeKeys),
+                concreteSubtypeKeys = testConcreteSubtypeKeys(entry.typeName, entries, entriesByType, typeKeys),
             )
         }
     }
@@ -948,31 +946,25 @@ internal class XMLPatternTest {
     }
 
     private fun Pattern.withTestWSDLTypeLookupMetadata(
-        typeKey: String,
-        baseTypeKey: String?,
         knownTypeKeys: Map<WSDLTypeName, String>,
-        matchableTypeKeys: Map<WSDLTypeName, String>,
-        leafTypeKeys: Map<WSDLTypeName, String>,
+        compatibleTypeKeys: Map<WSDLTypeName, String>,
+        concreteSubtypeKeys: Map<WSDLTypeName, String>,
     ): Pattern {
         return when (this) {
             is XMLPattern -> copy(
                 pattern = pattern.copy(
-                    wsdlTypeKey = typeKey,
-                    wsdlBaseTypeKey = baseTypeKey,
                     wsdlKnownTypeKeys = knownTypeKeys,
-                    wsdlMatchableTypeKeys = matchableTypeKeys,
-                    wsdlLeafTypeKeys = leafTypeKeys,
+                    wsdlCompatibleTypeKeys = compatibleTypeKeys,
+                    wsdlConcreteSubtypeKeys = concreteSubtypeKeys,
                 )
             )
 
             is AnyPattern -> copy(
                 pattern = pattern.map {
                     it.withTestWSDLTypeLookupMetadata(
-                        typeKey,
-                        baseTypeKey,
                         knownTypeKeys,
-                        matchableTypeKeys,
-                        leafTypeKeys,
+                        compatibleTypeKeys,
+                        concreteSubtypeKeys,
                     )
                 }
             )
@@ -981,7 +973,7 @@ internal class XMLPatternTest {
         }
     }
 
-    private fun testMatchableTypeKeys(
+    private fun testCompatibleTypeKeys(
         baseType: WSDLTypeName,
         entries: List<TestWSDLTypeLookupEntry>,
         entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
@@ -992,7 +984,7 @@ internal class XMLPatternTest {
             .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
             .toMap()
 
-    private fun testLeafTypeKeys(
+    private fun testConcreteSubtypeKeys(
         baseType: WSDLTypeName,
         entries: List<TestWSDLTypeLookupEntry>,
         entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,

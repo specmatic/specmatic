@@ -23,20 +23,6 @@ private sealed class WSDLTypeSelection {
     data class Use(val pattern: Pattern) : WSDLTypeSelection()
     data class Unknown(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
     data class Invalid(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
-
-    fun match(
-        sampleData: XMLNode,
-        resolver: Resolver,
-        unknownResult: (WSDLTypeName, WSDLTypeName) -> Failure,
-        invalidResult: (WSDLTypeName, WSDLTypeName) -> Failure,
-        matchWith: (Pattern, XMLNode, Resolver) -> Result
-    ): Result {
-        return when (this) {
-            is Unknown -> unknownResult(assertedType, declaredType)
-            is Invalid -> invalidResult(assertedType, declaredType)
-            is Use -> matchWith(pattern, sampleData, resolver)
-        }
-    }
 }
 
 private data class XMLHeaderName(
@@ -224,13 +210,13 @@ data class XMLPattern(
         val sampleDataWithoutEmptyHeader = dropEmptySOAPHeader(sampleData)
 
         selectWSDLType(sampleData, matchingType, resolver)?.let { selectedType ->
-            return selectedType.match(
-                sampleDataWithoutEmptyHeader,
-                resolver,
-                ::unknownXSITypeResult,
-                ::invalidXSITypeResult,
-                ::matchWithType
-            ).breadCrumb(pattern.name, resolver.locate(schemaPointer))
+            val matchResult = when (selectedType) {
+                is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+                is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+                is WSDLTypeSelection.Use -> matchWithType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
+            }
+
+            return matchResult.breadCrumb(pattern.name, resolver.locate(schemaPointer))
         }
 
         return when (matchingType) {
@@ -607,7 +593,7 @@ data class XMLPattern(
 
         val name = pattern.name
 
-        val wsdlVariants = effectiveWSDLVariantPatterns(resolver)
+        val wsdlVariants = wsdlSubtypePatternsForGeneration(resolver)
         if (wsdlVariants.isNotEmpty()) {
             return wsdlVariants.random().generateXML(resolver)
         }
@@ -668,7 +654,7 @@ data class XMLPattern(
             }
         }
 
-        val wsdlVariants = effectiveWSDLVariantPatterns(resolver)
+        val wsdlVariants = wsdlSubtypePatternsForGeneration(resolver)
         if (wsdlVariants.isNotEmpty()) {
             return wsdlVariants.asSequence().flatMap { selectedPattern ->
                 selectedPattern.newBasedOn(row, resolver)
@@ -784,7 +770,7 @@ data class XMLPattern(
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> {
-        val wsdlVariants = effectiveWSDLVariantPatterns(resolver)
+        val wsdlVariants = wsdlSubtypePatternsForGeneration(resolver)
         if (wsdlVariants.isNotEmpty()) {
             return wsdlVariants.asSequence().flatMap { selectedPattern ->
                 selectedPattern.newBasedOn(resolver)
@@ -859,7 +845,7 @@ data class XMLPattern(
         }
     }
 
-    private fun effectiveWSDLVariantPatterns(resolver: Resolver): List<XMLPattern> {
+    private fun wsdlSubtypePatternsForGeneration(resolver: Resolver): List<XMLPattern> {
         val declaredPattern = try {
             dereferenceType(resolver)
         } catch (e: ContractException) {
@@ -891,7 +877,7 @@ data class XMLPattern(
             null -> Unit
         }
 
-        val derivedPatterns = declaredPattern.leafDerivedWSDLPatterns(resolver).mapNotNull { derivedPattern ->
+        val derivedPatterns = declaredPattern.concreteSubtypeWSDLPatterns(resolver).mapNotNull { derivedPattern ->
             val derivedType = derivedPattern.pattern.wsdlTypeName() ?: return@mapNotNull null
             val mergedPattern = declaredPattern.mergeReferredPattern(derivedPattern) as? XMLPattern ?: return@mapNotNull null
             mergedPattern.withXSIType(derivedType)
@@ -1304,7 +1290,7 @@ private fun XMLNode.xsiTypeName(): WSDLTypeName? {
 }
 
 private fun Pattern.findPatternForWSDLType(typeName: WSDLTypeName, resolver: Resolver): Pattern? {
-    val typeKey = wsdlMatchableTypeKeys()[typeName] ?: return null
+    val typeKey = wsdlCompatibleTypeKeys()[typeName] ?: return null
     return resolver.patternForWSDLKey(typeKey)
 }
 
@@ -1317,8 +1303,8 @@ private fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
 private fun Pattern.knowsWSDLType(typeName: WSDLTypeName): Boolean =
     wsdlKnownTypeKeys().containsKey(typeName)
 
-private fun Pattern.leafDerivedWSDLPatterns(resolver: Resolver): List<XMLPattern> {
-    return wsdlLeafTypeKeys().values.flatMap { typeKey ->
+private fun Pattern.concreteSubtypeWSDLPatterns(resolver: Resolver): List<XMLPattern> {
+    return wsdlConcreteSubtypeKeys().values.flatMap { typeKey ->
         resolver.patternForWSDLKey(typeKey)?.xmlPatternVariants().orEmpty()
     }.filter { pattern ->
         pattern.pattern.wsdlTypeName()?.namespace != XML_SCHEMA_NAMESPACE
@@ -1346,18 +1332,18 @@ private fun Pattern.wsdlKnownTypeKeys(): Map<WSDLTypeName, String> {
     }
 }
 
-private fun Pattern.wsdlMatchableTypeKeys(): Map<WSDLTypeName, String> {
+private fun Pattern.wsdlCompatibleTypeKeys(): Map<WSDLTypeName, String> {
     return when (this) {
-        is XMLPattern -> pattern.wsdlMatchableTypeKeys
-        is AnyPattern -> pattern.flatMap { it.wsdlMatchableTypeKeys().entries }.associate { it.toPair() }
+        is XMLPattern -> pattern.wsdlCompatibleTypeKeys
+        is AnyPattern -> pattern.flatMap { it.wsdlCompatibleTypeKeys().entries }.associate { it.toPair() }
         else -> emptyMap()
     }
 }
 
-private fun Pattern.wsdlLeafTypeKeys(): Map<WSDLTypeName, String> {
+private fun Pattern.wsdlConcreteSubtypeKeys(): Map<WSDLTypeName, String> {
     return when (this) {
-        is XMLPattern -> pattern.wsdlLeafTypeKeys
-        is AnyPattern -> pattern.flatMap { it.wsdlLeafTypeKeys().entries }.associate { it.toPair() }
+        is XMLPattern -> pattern.wsdlConcreteSubtypeKeys
+        is AnyPattern -> pattern.flatMap { it.wsdlConcreteSubtypeKeys().entries }.associate { it.toPair() }
         else -> emptyMap()
     }
 }
