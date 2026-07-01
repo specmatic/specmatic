@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.XMLNode
+import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.namespacePrefix
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
@@ -50,9 +51,24 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
         val childTypes = childTypeInfos.fold(existingTypes) { accumulated, childTypeInfo ->
             accumulated.plus(childTypeInfo.types)
         }
+        val wsdlType = element.typeMetadataName(wsdl, wsdlTypeReference)
+        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(wsdlType)
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
-            1 -> XMLPattern(childTypeInfos.single().xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards, attributeNamespaceUris = attributeNamespaceUris))
-            else -> AnyPattern(pattern = childTypeInfos.map { XMLPattern(it.xmlTypeData.copy(attributes = attributePatterns, attributeWildcards = attributeWildcards, attributeNamespaceUris = attributeNamespaceUris)) }, extensions = emptyMap())
+            1 -> XMLPattern(childTypeInfosWithWSDLTypeMetadata.single().xmlTypeData.copy(
+                attributes = attributePatterns,
+                attributeWildcards = attributeWildcards,
+                attributeNamespaceUris = attributeNamespaceUris,
+            ))
+            else -> AnyPattern(
+                pattern = childTypeInfosWithWSDLTypeMetadata.map {
+                    XMLPattern(it.xmlTypeData.copy(
+                        attributes = attributePatterns,
+                        attributeWildcards = attributeWildcards,
+                        attributeNamespaceUris = attributeNamespaceUris,
+                    ))
+                },
+                extensions = emptyMap()
+            )
         }
         val types = childTypes.plus(specmaticTypeName to resolvedPattern)
 
@@ -60,9 +76,11 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         return WSDLTypeInfo(
             listOf(inPlaceNode),
-            listOf(XMLPattern(inPlaceNode)),
+            listOf(XMLPattern(inPlaceNode).withWSDLTypeMetadata(wsdlType)),
             types,
-            namespaces
+            namespaces,
+            wsdlTypeNamespace = wsdlType?.namespace,
+            wsdlTypeName = wsdlType?.localName,
         )
     }
 
@@ -108,6 +126,52 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         return ComplexTypedSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, complexType.getAttributes())
     }
+}
+
+private fun List<WSDLTypeInfo>.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?): List<WSDLTypeInfo> =
+    map { it.withTypeMetadata(wsdlType) }
+
+private fun WSDLTypeInfo.withTypeMetadata(wsdlType: FullyQualifiedName?): WSDLTypeInfo {
+    return copy(
+        wsdlTypeNamespace = wsdlType?.namespace,
+        wsdlTypeName = wsdlType?.localName,
+    )
+}
+
+private fun XMLPattern.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?): XMLPattern =
+    copy(
+        pattern = pattern.copy(
+            wsdlTypeNamespace = wsdlType?.namespace,
+            wsdlTypeName = wsdlType?.localName,
+        )
+    )
+
+private fun XMLNode.typeMetadataName(wsdl: WSDL, wsdlTypeReference: String): FullyQualifiedName? {
+    return when {
+        name == "complexType" -> namedTypeFullyQualifiedName(wsdl)
+        attributes.containsKey("type") -> fullyQualifiedNameFromAttributeOrNull("type")
+        else -> fullyQualifiedNameFromQNameOrNull(wsdlTypeReference)
+    }
+}
+
+private fun XMLNode.fullyQualifiedNameFromAttributeOrNull(attributeName: String): FullyQualifiedName? =
+    try {
+        fullyQualifiedNameFromAttribute(attributeName)
+    } catch (e: ContractException) {
+        null
+    }
+
+private fun XMLNode.fullyQualifiedNameFromQNameOrNull(qName: String): FullyQualifiedName? =
+    try {
+        fullyQualifiedNameFromQName(qName)
+    } catch (e: ContractException) {
+        null
+    }
+
+internal fun XMLNode.namedTypeFullyQualifiedName(wsdl: WSDL): FullyQualifiedName {
+    val namespace = schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()
+    val prefix = namespace.takeIf { it.isNotBlank() }?.let(wsdl::getSchemaNamespacePrefix).orEmpty()
+    return FullyQualifiedName(prefix, namespace, getAttributeValue("name"))
 }
 
 data class ComplexType(val complexType: XMLNode, val wsdl: WSDL) {

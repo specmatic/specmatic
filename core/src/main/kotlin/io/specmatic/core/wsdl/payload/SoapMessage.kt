@@ -1,9 +1,8 @@
 package io.specmatic.core.wsdl.payload
 
 import io.specmatic.core.value.XMLNode
+import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.toXMLNode
-import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
-import io.specmatic.core.wsdl.parser.message.OPTIONAL_ATTRIBUTE_VALUE
 import io.specmatic.core.wsdl.parser.message.primitiveNamespace
 
 fun soapMessage(bodyPayload: XMLNode, namespaces: Map<String, String>, headers: RequestHeaders): XMLNode {
@@ -17,7 +16,7 @@ fun soapMessage(bodyPayload: XMLNode, namespaces: Map<String, String>, headers: 
 
     val payloadNodes = listOfNotNull(headerNode, bodyNode)
 
-    return payload.copy(childNodes = payload.childNodes.plus(payloadNodes))
+    return payload.withChildNodes(payload.childNodes.plus(payloadNodes))
 }
 
 internal fun soapSkeleton(namespaces: Map<String, String>): XMLNode {
@@ -33,4 +32,8 @@ internal fun soapSkeleton(namespaces: Map<String, String>): XMLNode {
         """
             <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="$primitiveNamespace"$namespacesString></soapenv:Envelope>
         """)
+}
+
+internal fun XMLNode.withChildNodes(childNodes: List<XMLValue>): XMLNode {
+    return XMLNode(realName, attributes, childNodes, inheritNamespacesInChildren = true)
 }

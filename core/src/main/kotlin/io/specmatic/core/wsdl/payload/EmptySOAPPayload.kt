@@ -20,5 +20,5 @@ data class EmptySOAPPayload(private val soapMessageType: SOAPMessageType): SOAPP
 internal fun emptySoapMessage(): XMLNode {
     val payload = soapSkeleton(emptyMap())
     val bodyNode = toXMLNode("<soapenv:Body/>")
-    return payload.copy(childNodes = payload.childNodes.plus(bodyNode))
+    return payload.withChildNodes(payload.childNodes.plus(bodyNode))
 }

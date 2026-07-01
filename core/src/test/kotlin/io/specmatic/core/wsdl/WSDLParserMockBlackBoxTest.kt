@@ -16,6 +16,7 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.ServerSocket
@@ -615,7 +616,6 @@ class WSDLParserMockBlackBoxTest {
         val wsdlFile = tempDir.resolve("order-service.wsdl")
             .apply { writeText(minimizedOrderServiceWsdl()) }
         val feature = parseContractFileToFeature(wsdlFile)
-
         listOf(
             "xsi:type=\"OrderDetails\"",
             "xsi:type=\"ord:OrderDetails\"",
@@ -636,6 +636,43 @@ class WSDLParserMockBlackBoxTest {
             assertThat(response.headers["X-Specmatic-Type"]).isNotEqualTo("random")
             assertThat(response.body.toStringLiteral()).contains("matched-from-external-example")
         }
+    }
+
+    @Test
+    fun `mock for wsdl rejects request when xsi type is unknown`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("order-service.wsdl")
+            .apply { writeText(minimizedOrderServiceWsdl()) }
+        val feature = parseContractFileToFeature(wsdlFile)
+        val request = orderDetailsRequest("xsi:type=\"ord:MissingOrderDetails\"")
+
+        val response = HttpStub(feature, strictMode = true).use { stub ->
+            stub.client.execute(request)
+        }
+
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.body.toStringLiteral()).contains("No matching SOAP stub")
+    }
+
+    @Test
+    fun `mock for wsdl rejects example response when xsi type is unknown`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("order-service.wsdl")
+            .apply { writeText(minimizedOrderServiceWsdl()) }
+        val feature = parseContractFileToFeature(wsdlFile)
+        val scenarioStub = ScenarioStub(
+            request = orderDetailsRequest("xsi:type=\"ord:OrderDetails\""),
+            response = HttpResponse(
+                status = 200,
+                body = orderDetailsResponseBody("ord:MissingOrderDetails"),
+                headers = mapOf(CONTENT_TYPE to ContentType.Text.Xml.toString()),
+            ),
+        )
+
+        val exception = assertThrows<Exception> {
+            HttpStub(feature, listOf(scenarioStub)).close()
+        }
+
+        assertThat(exception.message).contains("Unknown xsi:type")
+        assertThat(exception.message).contains("MissingOrderDetails")
     }
 
     @Test
@@ -737,7 +774,7 @@ private fun orderDetailsRequest(orderTypeAttribute: String): HttpRequest =
         )
     )
 
-private fun orderDetailsResponseBody(): String =
+private fun orderDetailsResponseBody(orderType: String = "ord:OrderDetails"): String =
     """
     <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
       <s:Body>
@@ -745,7 +782,7 @@ private fun orderDetailsResponseBody(): String =
           <Message bodyType="XML" id="response-id" version="1.0" xmlns="http://example.com/order-model" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ord="http://example.com/order-model">
             <command>
               <retrieveOrderDetailsResponse id="response-command-id">
-                <order xsi:type="ord:OrderDetails">
+                <order xsi:type="$orderType">
                   <orderNumber>matched-from-external-example</orderNumber>
                 </order>
               </retrieveOrderDetailsResponse>
@@ -816,7 +853,7 @@ private fun minimizedOrderServiceWsdl(): String =
               <xsd:element minOccurs="0" maxOccurs="1" name="retrieveOrderDetailsRequest">
                 <xsd:complexType>
                   <xsd:sequence minOccurs="0" maxOccurs="1">
-                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:OrderDetails"/>
+                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:Order"/>
                   </xsd:sequence>
                   <xsd:attribute name="id" type="xsd:string" use="required"/>
                 </xsd:complexType>
@@ -824,17 +861,22 @@ private fun minimizedOrderServiceWsdl(): String =
               <xsd:element minOccurs="0" maxOccurs="1" name="retrieveOrderDetailsResponse">
                 <xsd:complexType>
                   <xsd:sequence minOccurs="0" maxOccurs="1">
-                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:OrderDetails"/>
+                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:Order"/>
                   </xsd:sequence>
                   <xsd:attribute name="id" type="xsd:string" use="required"/>
                 </xsd:complexType>
               </xsd:element>
             </xsd:choice>
           </xsd:complexType>
-          <xsd:complexType name="OrderDetails">
+          <xsd:complexType name="Order">
             <xsd:sequence minOccurs="0" maxOccurs="1">
               <xsd:element minOccurs="0" maxOccurs="1" name="orderNumber" type="xsd:string"/>
             </xsd:sequence>
+          </xsd:complexType>
+          <xsd:complexType name="OrderDetails">
+            <xsd:complexContent>
+              <xsd:extension base="ord:Order"/>
+            </xsd:complexContent>
           </xsd:complexType>
           <xsd:element name="Message" type="ord:Message"/>
         </xsd:schema>

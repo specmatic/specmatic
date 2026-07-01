@@ -1573,9 +1573,11 @@ class LoadTestsFromExternalisedFiles {
             @Test
             fun `should complain when discriminator is present but invalid`() {
                 Flags.using(EXAMPLE_DIRECTORIES to exampleWithInvalidDisc.canonicalPath) {
-                    val feature = parseContractFileToFeature(discriminatorSpecFile).copy(strictMode = true).loadExternalisedExamples()
-                    val filteredFeature = feature.copy(scenarios = feature.scenarios.filter { it.method == "POST" })
-                    val exception = assertThrows<ContractException> { filteredFeature.validateExamplesOrException() }
+                    val exception = assertThrows<ContractException> {
+                        val feature = parseContractFileToFeature(discriminatorSpecFile).copy(strictMode = true).loadExternalisedExamples()
+                        val filteredFeature = feature.copy(scenarios = feature.scenarios.filter { it.method == "POST" })
+                        filteredFeature.validateExamplesOrException()
+                    }
 
                     assertThat(exception.report()).contains(
                         "Error loading example for POST /pets -> 201 from ${exampleWithInvalidDisc.resolve("partial_example.json").canonicalPath}",

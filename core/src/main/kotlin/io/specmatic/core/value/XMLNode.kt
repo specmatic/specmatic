@@ -76,6 +76,25 @@ fun getNamespaces(attributes: Map<String, StringValue>): Map<String, String> =
         }
     }.toMap()
 
+private fun List<XMLValue>.withInheritedNamespaces(parentNamespaces: Map<String, String>, enabled: Boolean): List<XMLValue> {
+    if (!enabled) return this
+
+    return map { child ->
+        when (child) {
+            is XMLNode -> child.withInheritedNamespaces(parentNamespaces)
+            else -> child
+        }
+    }
+}
+
+private fun XMLNode.withInheritedNamespaces(parentNamespaces: Map<String, String>): XMLNode {
+    val updatedNamespaces = parentNamespaces.plus(getNamespaces(attributes))
+    return copy(
+        namespaces = updatedNamespaces,
+        childNodes = childNodes.withInheritedNamespaces(updatedNamespaces, enabled = true)
+    )
+}
+
 data class FullyQualifiedName(val prefix: String, val namespace: String, val localName: String) {
     val qName: String
         get() {
@@ -87,7 +106,25 @@ data class FullyQualifiedName(val prefix: String, val namespace: String, val loc
 }
 
 data class XMLNode(val name: String, val realName: String, val attributes: Map<String, StringValue>, val childNodes: List<XMLValue>, val namespacePrefix: String, val namespaces: Map<String, String>, val schema: XMLNode? = null) : XMLValue, ListValue {
-    constructor(realName: String, attributes: Map<String, StringValue>, childNodes: List<XMLValue>, parentNamespaces: Map<String, String> = emptyMap()) : this(realName.localName(), realName, attributes, childNodes, realName.namespacePrefix(), parentNamespaces.plus(getNamespaces(attributes)))
+    /**
+     * @param inheritNamespacesInChildren set this to true when rebuilding an XML tree from existing child XMLNodes.
+     * Parsed XML already receives inherited namespaces while parsing, but programmatically reconstructed nodes may
+     * need parent namespace mappings pushed into existing descendants so namespaced attributes can be resolved.
+     */
+    constructor(
+        realName: String,
+        attributes: Map<String, StringValue>,
+        childNodes: List<XMLValue>,
+        parentNamespaces: Map<String, String> = emptyMap(),
+        inheritNamespacesInChildren: Boolean = false,
+    ) : this(
+        realName.localName(),
+        realName,
+        attributes,
+        childNodes.withInheritedNamespaces(parentNamespaces.plus(getNamespaces(attributes)), inheritNamespacesInChildren),
+        realName.namespacePrefix(),
+        parentNamespaces.plus(getNamespaces(attributes))
+    )
 
     val oneLineDescription: String = "<$realName ${attributeString()}>"
 
@@ -216,6 +253,13 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
             else -> namespaces[prefix]
                 ?: throw ContractException("Namespace prefix $prefix cannot be resolved")
         }
+    }
+
+    fun attributeValueByNamespace(namespaceUri: String, localName: String): StringValue? {
+        return attributes.entries.firstOrNull { (attributeName, _) ->
+            attributeName.localName() == localName &&
+                    runCatching { attributeNamespaceUri(attributeName) }.getOrNull() == namespaceUri
+        }?.value
     }
 
     override val httpContentType: String = "text/xml"

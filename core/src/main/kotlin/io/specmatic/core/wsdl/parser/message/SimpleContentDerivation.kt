@@ -13,10 +13,13 @@ class SimpleContentDerivation(private var simpleContentNode: XMLNode, var wsdl: 
         typeStack: Set<String>
     ): List<WSDLTypeInfo> {
         val derivation = simpleContentNode.findSimpleContentDerivation()
+        val baseType = derivation.fullyQualifiedNameFromAttribute("base")
 
         val simpleTypeInfo = WSDLTypeInfo(
             nodes = listOf(simpleContentDerivationValue(derivation, wsdl)),
-            types = existingTypes
+            types = existingTypes,
+            wsdlBaseTypeNamespace = baseType.namespace,
+            wsdlBaseTypeName = baseType.localName,
         )
 
         return wsdlTypeInfos.map { it.plus(simpleTypeInfo) }
