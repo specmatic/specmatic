@@ -7,6 +7,7 @@ import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.XMLNode
 import org.junit.jupiter.api.Nested
 
 internal class HttpResponsePatternTest {
@@ -62,6 +63,60 @@ internal class HttpResponsePatternTest {
         val resultText = result.reportString()
         assertThat(resultText).contains(">> RESPONSE.HEADER.X-Data")
         assertThat(resultText).contains(">> RESPONSE.BODY")
+    }
+
+    @Test
+    fun `matches XML response with schema instance type declared using an inherited non xsi prefix`() {
+        val namespace = "http://example.com/animals"
+        val animalType = XMLPattern(
+            XMLTypeData(
+                name = "Animal",
+                realName = "tns:Animal",
+                nodes = listOf(XMLPattern("<tns:name xmlns:tns=\"$namespace\">(string)</tns:name>")),
+                namespaceUri = namespace,
+                wsdlTypeNamespace = namespace,
+                wsdlTypeName = "Animal",
+            )
+        )
+        val bodyPattern = XMLPattern(
+            XMLTypeData(
+                name = "root",
+                realName = "root",
+                nodes = listOf(
+                    XMLPattern(
+                        XMLTypeData(
+                            name = "Animal",
+                            realName = "tns:Animal",
+                            attributes = mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal"))),
+                            namespaceUri = namespace,
+                        )
+                    )
+                )
+            )
+        )
+        val responsePattern = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf(CONTENT_TYPE to ExactValuePattern(StringValue("text/xml")))),
+            body = bodyPattern,
+        )
+        val response = HttpResponse(
+            status = 200,
+            body = """
+                <root xmlns:typeNs="http://www.w3.org/2001/XMLSchema-instance" xmlns:tns="$namespace">
+                    <tns:Animal typeNs:type="tns:Animal">
+                        <tns:name>Leo</tns:name>
+                    </tns:Animal>
+                </root>
+            """.trimIndent(),
+            headers = mapOf(CONTENT_TYPE to "text/xml")
+        )
+
+        assertThat(responsePattern.matchesResponse(response, Resolver(newPatterns = mapOf("(tns_Animal)" to animalType))))
+            .isInstanceOf(Result.Success::class.java)
+        assertThat((response.body as XMLNode).getXMLNodeByPath("Animal").attributeNamespaceUri("typeNs:type"))
+            .isEqualTo("http://www.w3.org/2001/XMLSchema-instance")
+        assertThat(responsePattern.fillInTheBlanks(response, Resolver(newPatterns = mapOf("(tns_Animal)" to animalType))).body)
+            .isEqualTo(response.body)
     }
 
     @Test

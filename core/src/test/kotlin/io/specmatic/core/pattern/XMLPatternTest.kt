@@ -180,6 +180,63 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `newBasedOn uses existing compatible schema instance type with non xsi prefix`() {
+            val resolver = Resolver(newPatterns = animalPatterns())
+            val pattern = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(
+                        TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal")),
+                        "xmlns:tns" to ExactValuePattern(StringValue(ANIMAL_NAMESPACE)),
+                        "xmlns:typeNs" to ExactValuePattern(StringValue("http://www.w3.org/2001/XMLSchema-instance")),
+                        "typeNs:type" to ExactValuePattern(StringValue("tns:Dog")),
+                    ),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                    attributeNamespaceUris = mapOf("typeNs:type" to "http://www.w3.org/2001/XMLSchema-instance"),
+                )
+            )
+
+            val generated = pattern.newBasedOn(Row(), resolver)
+                .map { it.value as XMLPattern }
+                .map { it.generate(resolver) }
+                .toList()
+
+            assertThat(generated).hasSize(1)
+            assertThat(generated.single().attributes["typeNs:type"]?.toStringLiteral()).isEqualTo("tns:Dog")
+            assertThat(generated.single().childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
+                .containsExactly("tns:name", "tns:breed")
+        }
+
+        @Test
+        fun `generate avoids xsi prefix when it is already bound to a different namespace`() {
+            val resolver = Resolver(newPatterns = animalPatterns())
+            val pattern = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(
+                        TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal")),
+                        "xmlns:tns" to ExactValuePattern(StringValue(ANIMAL_NAMESPACE)),
+                        "xmlns:xsi" to ExactValuePattern(StringValue("http://example.com/not-schema-instance")),
+                    ),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                )
+            )
+
+            val generated = pattern.newBasedOn(Row(), resolver)
+                .map { it.value as XMLPattern }
+                .map { it.generate(resolver) }
+                .first()
+            val schemaInstanceTypeAttribute = generated.attributes.keys.single { it.endsWith(":type") }
+            val schemaInstancePrefix = schemaInstanceTypeAttribute.substringBefore(":")
+
+            assertThat(schemaInstancePrefix).isNotEqualTo("xsi")
+            assertThat(generated.namespaces["xsi"]).isEqualTo("http://example.com/not-schema-instance")
+            assertThat(generated.namespaces[schemaInstancePrefix]).isEqualTo("http://www.w3.org/2001/XMLSchema-instance")
+        }
+
+        @Test
         fun `newBasedOn uses compatible WSDL simple restriction variants instead of base type`() {
             val resolver = Resolver(newPatterns = codePatterns())
             val pattern = XMLPattern(
@@ -560,6 +617,59 @@ internal class XMLPatternTest {
             )
 
             assertThat(pattern.matches(value, resolver)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `schema instance type with non xsi prefix selects compatible WSDL derived complex type`() {
+            val resolver = Resolver(newPatterns = animalPatterns())
+            val pattern = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal"))),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                )
+            )
+            val value = toXMLNode(
+                """
+                <tns:Animal xmlns:tns="$ANIMAL_NAMESPACE"
+                            xmlns:typeNs="http://www.w3.org/2001/XMLSchema-instance"
+                            typeNs:type="tns:Dog">
+                  <tns:name>Fido</tns:name>
+                  <tns:breed>Beagle</tns:breed>
+                </tns:Animal>
+                """.trimIndent()
+            )
+
+            assertThat(pattern.matches(value, resolver)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `type attribute with wrong namespace does not select WSDL derived complex type`() {
+            val resolver = Resolver(newPatterns = animalPatterns())
+            val pattern = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal"))),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                )
+            )
+            val value = toXMLNode(
+                """
+                <tns:Animal xmlns:tns="$ANIMAL_NAMESPACE"
+                            xmlns:typeNs="http://example.com/not-schema-instance"
+                            typeNs:type="tns:Dog">
+                  <tns:name>Fido</tns:name>
+                  <tns:breed>Beagle</tns:breed>
+                </tns:Animal>
+                """.trimIndent()
+            )
+
+            val result = pattern.matches(value, resolver)
+
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat(result.reportString()).contains("typeNs:type")
         }
 
         @Test

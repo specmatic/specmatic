@@ -512,11 +512,10 @@ data class XMLPattern(
 
     private fun isSOAP11MetadataAttribute(attributeName: String, namespaceUri: String?): Boolean {
         val name = attributeName.substringAfter(":")
-        val prefix = attributeName.substringBefore(":", "")
 
         return when (name) {
             "encodingStyle" -> namespaceUri == SOAP_ENVELOPE_NAMESPACE
-            "type" -> namespaceUri == XML_SCHEMA_INSTANCE_NAMESPACE || (namespaceUri == null && prefix == "xsi")
+            "type" -> isXMLSchemaInstanceTypeAttribute(attributeName, namespaceUri)
             else -> false
         }
     }
@@ -640,7 +639,7 @@ data class XMLPattern(
             }
         }.toList()
 
-        return XMLNode(pattern.realName, newAttributes, nodes)
+        return XMLNode(pattern.realName, newAttributes, nodes, inheritNamespacesInChildren = true)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
@@ -763,7 +762,7 @@ data class XMLPattern(
             }
 
             newNodesList.map { newNodes ->
-                XMLPattern(XMLTypeData(pattern.name, pattern.realName, newAttributes, newNodes))
+                XMLPattern(pattern.copy(attributes = newAttributes, nodes = newNodes))
             }
         }.map { HasValue(it) }
     }
@@ -839,7 +838,7 @@ data class XMLPattern(
             )
 
             newNodesList.map { newNodes ->
-                XMLPattern(XMLTypeData(pattern.name, pattern.realName, newAttributes, newNodes.toList()))
+                XMLPattern(pattern.copy(attributes = newAttributes, nodes = newNodes.toList()))
             }
         }
     }
@@ -1274,13 +1273,7 @@ data class XMLPattern(
 }
 
 private fun XMLNode.xsiTypeName(): WSDLTypeName? {
-    val attribute = attributes.keys.firstOrNull { attributeName ->
-        attributeName.substringAfter(":") == "type" &&
-                (runCatching { attributeNamespaceUri(attributeName) }.getOrNull() == XML_SCHEMA_INSTANCE_NAMESPACE ||
-                        attributeName.substringBefore(":", "") == "xsi")
-    } ?: return null
-
-    val value = attributes.getValue(attribute).toStringLiteral()
+    val value = attributeValueByNamespace(XML_SCHEMA_INSTANCE_NAMESPACE, "type")?.toStringLiteral() ?: return null
     return runCatching {
         WSDLTypeName(resolveNamespace(value), value.localName())
     }.getOrNull()
@@ -1340,13 +1333,15 @@ private fun Pattern.wsdlTypeName(): WSDLTypeName? {
 private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {
     val typePrefix = pattern.prefixForNamespace(typeName.namespace) ?: pattern.prefixForElementNamespace(typeName.namespace) ?: pattern.availableNamespacePrefix()
     val typeAttributeValue = listOf(typePrefix, typeName.localName).filter(String::isNotBlank).joinToString(":")
-    val namespaceAttributes = pattern.namespaceAttributesForXSIType(typeName.namespace, typePrefix)
-    val xsiTypeAttribute = "xsi:type" to ExactValuePattern(StringValue(typeAttributeValue))
+    val schemaInstancePrefix = pattern.prefixForNamespace(XML_SCHEMA_INSTANCE_NAMESPACE) ?: pattern.availableNamespacePrefix("xsi")
+    val schemaInstanceTypeAttributeName = "$schemaInstancePrefix:type"
+    val namespaceAttributes = pattern.namespaceAttributesForXSIType(typeName.namespace, typePrefix, schemaInstancePrefix)
+    val xsiTypeAttribute = schemaInstanceTypeAttributeName to ExactValuePattern(StringValue(typeAttributeValue))
 
     return copy(
         pattern = pattern.copy(
             attributes = pattern.attributes + namespaceAttributes + xsiTypeAttribute,
-            attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf("xsi:type" to XML_SCHEMA_INSTANCE_NAMESPACE)
+            attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf(schemaInstanceTypeAttributeName to XML_SCHEMA_INSTANCE_NAMESPACE)
         )
     )
 }

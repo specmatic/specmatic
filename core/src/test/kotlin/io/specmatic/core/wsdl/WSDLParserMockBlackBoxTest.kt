@@ -615,7 +615,6 @@ class WSDLParserMockBlackBoxTest {
         val wsdlFile = tempDir.resolve("order-service.wsdl")
             .apply { writeText(minimizedOrderServiceWsdl()) }
         val feature = parseContractFileToFeature(wsdlFile)
-
         listOf(
             "xsi:type=\"OrderDetails\"",
             "xsi:type=\"ord:OrderDetails\"",
@@ -816,7 +815,7 @@ private fun minimizedOrderServiceWsdl(): String =
               <xsd:element minOccurs="0" maxOccurs="1" name="retrieveOrderDetailsRequest">
                 <xsd:complexType>
                   <xsd:sequence minOccurs="0" maxOccurs="1">
-                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:OrderDetails"/>
+                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:Order"/>
                   </xsd:sequence>
                   <xsd:attribute name="id" type="xsd:string" use="required"/>
                 </xsd:complexType>
@@ -824,17 +823,22 @@ private fun minimizedOrderServiceWsdl(): String =
               <xsd:element minOccurs="0" maxOccurs="1" name="retrieveOrderDetailsResponse">
                 <xsd:complexType>
                   <xsd:sequence minOccurs="0" maxOccurs="1">
-                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:OrderDetails"/>
+                    <xsd:element minOccurs="0" maxOccurs="unbounded" name="order" type="ord:Order"/>
                   </xsd:sequence>
                   <xsd:attribute name="id" type="xsd:string" use="required"/>
                 </xsd:complexType>
               </xsd:element>
             </xsd:choice>
           </xsd:complexType>
-          <xsd:complexType name="OrderDetails">
+          <xsd:complexType name="Order">
             <xsd:sequence minOccurs="0" maxOccurs="1">
               <xsd:element minOccurs="0" maxOccurs="1" name="orderNumber" type="xsd:string"/>
             </xsd:sequence>
+          </xsd:complexType>
+          <xsd:complexType name="OrderDetails">
+            <xsd:complexContent>
+              <xsd:extension base="ord:Order"/>
+            </xsd:complexContent>
           </xsd:complexType>
           <xsd:element name="Message" type="ord:Message"/>
         </xsd:schema>

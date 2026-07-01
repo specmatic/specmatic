@@ -87,6 +87,16 @@ internal class WsdlSpecificationTest {
             </tns:Animal>
             """.trimIndent()
         )
+        val dogRequestWithAlternateSchemaInstancePrefix = animalRequest(
+            """
+            <tns:Animal xmlns:tns="http://example.com/animals"
+                        xmlns:typeNs="http://www.w3.org/2001/XMLSchema-instance"
+                        typeNs:type="tns:Dog">
+              <tns:name>Fido</tns:name>
+              <tns:breed>Beagle</tns:breed>
+            </tns:Animal>
+            """.trimIndent()
+        )
         val vehicleRequest = animalRequest(
             """
             <tns:Animal xmlns:tns="http://example.com/animals"
@@ -98,6 +108,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(scenario.httpRequestPattern.matches(dogRequest, scenario.resolver)).isInstanceOf(Result.Success::class.java)
+        assertThat(scenario.httpRequestPattern.matches(dogRequestWithAlternateSchemaInstancePrefix, scenario.resolver)).isInstanceOf(Result.Success::class.java)
         assertThat(scenario.httpRequestPattern.matches(vehicleRequest, scenario.resolver)).isInstanceOf(Result.Failure::class.java)
     }
 
