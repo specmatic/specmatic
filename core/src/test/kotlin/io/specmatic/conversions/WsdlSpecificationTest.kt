@@ -165,6 +165,139 @@ internal class WsdlSpecificationTest {
         }
     }
 
+    @Test
+    fun `request matching uses compatible xsi type inside wsdl choice group`() {
+        val wsdlContract = wsdlContentToFeature(petChoiceWsdl(), "pet-choice.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-choice",
+                soapAction = "http://example.com/pet-choice/RegisterChoice",
+                bodyNode = """
+                    <tns:RegisterChoice xmlns:tns="http://example.com/pet-choice"
+                                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:pet xsi:type="tns:Dog">
+                        <tns:name>Rover</tns:name>
+                        <tns:breed>Labrador</tns:breed>
+                      </tns:pet>
+                    </tns:RegisterChoice>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `request matching rejects incompatible known xsi type inside wsdl choice group`() {
+        val wsdlContract = wsdlContentToFeature(petChoiceWsdl(), "pet-choice.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-choice",
+                soapAction = "http://example.com/pet-choice/RegisterChoice",
+                bodyNode = """
+                    <tns:RegisterChoice xmlns:tns="http://example.com/pet-choice"
+                                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:pet xsi:type="tns:Crocodile">
+                        <tns:toothCount>64</tns:toothCount>
+                      </tns:pet>
+                    </tns:RegisterChoice>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Invalid xsi:type")
+        assertThat(result.reportString()).contains("Crocodile")
+        assertThat(result.reportString()).contains("Pet")
+    }
+
+    @Test
+    fun `request matching uses compatible xsi type inside nested wsdl sequence`() {
+        val wsdlContract = wsdlContentToFeature(petNestedSequenceWsdl(), "pet-nested-sequence.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-nested-sequence",
+                soapAction = "http://example.com/pet-nested-sequence/RegisterNestedSequence",
+                bodyNode = """
+                    <tns:RegisterNestedSequence xmlns:tns="http://example.com/pet-nested-sequence"
+                                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:payload>
+                        <tns:pet xsi:type="tns:Dog">
+                          <tns:name>Rover</tns:name>
+                          <tns:breed>Labrador</tns:breed>
+                        </tns:pet>
+                      </tns:payload>
+                    </tns:RegisterNestedSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `request matching rejects incompatible known xsi type inside nested wsdl sequence`() {
+        val wsdlContract = wsdlContentToFeature(petNestedSequenceWsdl(), "pet-nested-sequence.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-nested-sequence",
+                soapAction = "http://example.com/pet-nested-sequence/RegisterNestedSequence",
+                bodyNode = """
+                    <tns:RegisterNestedSequence xmlns:tns="http://example.com/pet-nested-sequence"
+                                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:payload>
+                        <tns:pet xsi:type="tns:Crocodile">
+                          <tns:toothCount>64</tns:toothCount>
+                        </tns:pet>
+                      </tns:payload>
+                    </tns:RegisterNestedSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Invalid xsi:type")
+        assertThat(result.reportString()).contains("Crocodile")
+        assertThat(result.reportString()).contains("Pet")
+    }
+
+    @Test
+    fun `request matching keeps wsdl wildcard behavior independent of xsi type inheritance`() {
+        val wsdlContract = wsdlContentToFeature(petWildcardWsdl(), "pet-wildcard.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-wildcard",
+                soapAction = "http://example.com/pet-wildcard/RegisterWildcard",
+                bodyNode = """
+                    <tns:RegisterWildcard xmlns:tns="http://example.com/pet-wildcard"
+                                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                          xmlns:other="http://example.com/other">
+                      <other:Anything xsi:type="tns:Crocodile">
+                        <other:unexpected>value</other:unexpected>
+                      </other:Anything>
+                    </tns:RegisterWildcard>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
     private fun animalRequest(bodyNode: String): HttpRequest {
         return HttpRequest(
             method = "POST",
@@ -295,6 +428,130 @@ internal class WsdlSpecificationTest {
               <wsdl:service name="AnimalService">
                 <wsdl:port name="AnimalPort" binding="tns:AnimalBinding">
                   <soap:address location="http://localhost/animals"/>
+                </wsdl:port>
+              </wsdl:service>
+            </wsdl:definitions>
+        """.trimIndent()
+    }
+
+    private fun petChoiceWsdl(): String {
+        return petWsdl(
+            namespace = "http://example.com/pet-choice",
+            path = "/pet-choice",
+            operation = "RegisterChoice",
+            requestType = """
+                <xs:complexType name="RegisterChoiceRequest">
+                  <xs:choice>
+                    <xs:element name="pet" type="tns:Pet"/>
+                    <xs:element name="comment" type="xs:string"/>
+                  </xs:choice>
+                </xs:complexType>
+            """.trimIndent()
+        )
+    }
+
+    private fun petNestedSequenceWsdl(): String {
+        return petWsdl(
+            namespace = "http://example.com/pet-nested-sequence",
+            path = "/pet-nested-sequence",
+            operation = "RegisterNestedSequence",
+            requestType = """
+                <xs:complexType name="RegisterNestedSequenceRequest">
+                  <xs:sequence>
+                    <xs:element name="payload" type="tns:PetPayload"/>
+                  </xs:sequence>
+                </xs:complexType>
+
+                <xs:complexType name="PetPayload">
+                  <xs:sequence>
+                    <xs:element name="pet" type="tns:Pet"/>
+                  </xs:sequence>
+                </xs:complexType>
+            """.trimIndent()
+        )
+    }
+
+    private fun petWildcardWsdl(): String {
+        return petWsdl(
+            namespace = "http://example.com/pet-wildcard",
+            path = "/pet-wildcard",
+            operation = "RegisterWildcard",
+            requestType = """
+                <xs:complexType name="RegisterWildcardRequest">
+                  <xs:sequence>
+                    <xs:any namespace="##any" processContents="skip"/>
+                  </xs:sequence>
+                </xs:complexType>
+            """.trimIndent()
+        )
+    }
+
+    private fun petWsdl(namespace: String, path: String, operation: String, requestType: String): String {
+        return """
+            <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                              xmlns:tns="$namespace"
+                              targetNamespace="$namespace">
+              <wsdl:types>
+                <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                           xmlns:tns="$namespace"
+                           targetNamespace="$namespace"
+                           elementFormDefault="qualified">
+                  <xs:element name="$operation" type="tns:${operation}Request"/>
+                  <xs:element name="${operation}Response" type="xs:string"/>
+
+                  <xs:complexType name="Pet">
+                    <xs:sequence>
+                      <xs:element name="name" type="xs:string"/>
+                    </xs:sequence>
+                  </xs:complexType>
+
+                  <xs:complexType name="Dog">
+                    <xs:complexContent>
+                      <xs:extension base="tns:Pet">
+                        <xs:sequence>
+                          <xs:element name="breed" type="xs:string"/>
+                        </xs:sequence>
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+
+                  <xs:complexType name="Crocodile">
+                    <xs:sequence>
+                      <xs:element name="toothCount" type="xs:integer"/>
+                    </xs:sequence>
+                  </xs:complexType>
+
+                  $requestType
+                </xs:schema>
+              </wsdl:types>
+
+              <wsdl:message name="${operation}Input">
+                <wsdl:part name="request" element="tns:$operation"/>
+              </wsdl:message>
+              <wsdl:message name="${operation}Output">
+                <wsdl:part name="response" element="tns:${operation}Response"/>
+              </wsdl:message>
+
+              <wsdl:portType name="${operation}PortType">
+                <wsdl:operation name="$operation">
+                  <wsdl:input message="tns:${operation}Input"/>
+                  <wsdl:output message="tns:${operation}Output"/>
+                </wsdl:operation>
+              </wsdl:portType>
+
+              <wsdl:binding name="${operation}Binding" type="tns:${operation}PortType">
+                <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+                <wsdl:operation name="$operation">
+                  <soap:operation soapAction="$namespace/$operation"/>
+                  <wsdl:input><soap:body use="literal"/></wsdl:input>
+                  <wsdl:output><soap:body use="literal"/></wsdl:output>
+                </wsdl:operation>
+              </wsdl:binding>
+
+              <wsdl:service name="${operation}Service">
+                <wsdl:port name="${operation}Port" binding="tns:${operation}Binding">
+                  <soap:address location="http://localhost$path"/>
                 </wsdl:port>
               </wsdl:service>
             </wsdl:definitions>
