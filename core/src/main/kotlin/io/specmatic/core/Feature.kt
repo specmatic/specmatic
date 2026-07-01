@@ -2492,6 +2492,10 @@ data class Feature(
             logger.newLine()
         }
 
+        if (strictMode) {
+            featureWithExternalisedExamples.validateExamplesOrException()
+        }
+
         return featureWithExternalisedExamples to unusedExternalizedExamples
     }
 

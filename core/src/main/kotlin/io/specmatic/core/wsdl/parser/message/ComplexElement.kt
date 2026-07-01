@@ -51,9 +51,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
         val childTypes = childTypeInfos.fold(existingTypes) { accumulated, childTypeInfo ->
             accumulated.plus(childTypeInfo.types)
         }
-        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(
-            element.typeMetadataName(wsdl, wsdlTypeReference)
-        )
+        val wsdlType = element.typeMetadataName(wsdl, wsdlTypeReference)
+        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(wsdlType)
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
             1 -> XMLPattern(childTypeInfosWithWSDLTypeMetadata.single().xmlTypeData.copy(
                 attributes = attributePatterns,
@@ -77,9 +76,11 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
 
         return WSDLTypeInfo(
             listOf(inPlaceNode),
-            listOf(XMLPattern(inPlaceNode)),
+            listOf(XMLPattern(inPlaceNode).withWSDLTypeMetadata(wsdlType)),
             types,
-            namespaces
+            namespaces,
+            wsdlTypeNamespace = wsdlType?.namespace,
+            wsdlTypeName = wsdlType?.localName,
         )
     }
 
@@ -136,6 +137,14 @@ private fun WSDLTypeInfo.withTypeMetadata(wsdlType: FullyQualifiedName?): WSDLTy
         wsdlTypeName = wsdlType?.localName,
     )
 }
+
+private fun XMLPattern.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?): XMLPattern =
+    copy(
+        pattern = pattern.copy(
+            wsdlTypeNamespace = wsdlType?.namespace,
+            wsdlTypeName = wsdlType?.localName,
+        )
+    )
 
 private fun XMLNode.typeMetadataName(wsdl: WSDL, wsdlTypeReference: String): FullyQualifiedName? {
     return when {

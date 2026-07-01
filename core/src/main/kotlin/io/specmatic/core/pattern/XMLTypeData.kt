@@ -10,7 +10,7 @@ import io.specmatic.core.wsdl.parser.message.*
 internal const val XML_SCHEMA_INSTANCE_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
 internal const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
-internal data class WSDLTypeName(val namespace: String, val localName: String)
+data class WSDLTypeName(val namespace: String, val localName: String)
 
 internal fun isXMLSchemaInstanceTypeAttribute(attributeName: String, namespaceUri: String?): Boolean =
     attributeName.localName() == "type" && namespaceUri == XML_SCHEMA_INSTANCE_NAMESPACE
@@ -29,6 +29,11 @@ data class XMLTypeData(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlTypeKey: String? = null,
+    val wsdlBaseTypeKey: String? = null,
+    val wsdlKnownTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
+    val wsdlMatchableTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
+    val wsdlLeafTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()

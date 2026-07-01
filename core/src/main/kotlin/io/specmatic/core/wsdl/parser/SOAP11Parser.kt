@@ -5,7 +5,9 @@ import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.WSDLTypeName
 import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.xmlNode
@@ -40,6 +42,12 @@ private data class SOAPHeaderAccumulator(
 private data class SOAPHeaderInfo(
     val header: RequestHeaders.Header,
     val types: Map<String, Pattern>,
+)
+
+private data class WSDLTypeLookupEntry(
+    val typeName: WSDLTypeName,
+    val typeKey: String,
+    val baseTypeName: WSDLTypeName?,
 )
 
 class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
@@ -374,8 +382,13 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             return withoutWSDLTypeMetadata()
         }
 
+        val lookupEntries = indexableTypes.wsdlTypeLookupEntries(namespace)
         val types = indexableTypes.registerAsWSDLLookupTypes(namespace, this.types)
-        return copy(types = types)
+            .withWSDLTypeLookupMetadata(lookupEntries)
+        return copy(
+            members = members.withWSDLTypeLookupMetadata(lookupEntries),
+            types = types,
+        )
     }
 
     private fun WSDLTypeInfo.withoutWSDLTypeMetadata(): WSDLTypeInfo {
@@ -398,9 +411,183 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                 wsdlTypeName = null,
                 wsdlBaseTypeNamespace = null,
                 wsdlBaseTypeName = null,
+                wsdlTypeKey = null,
+                wsdlBaseTypeKey = null,
+                wsdlKnownTypeKeys = emptyMap(),
+                wsdlMatchableTypeKeys = emptyMap(),
+                wsdlLeafTypeKeys = emptyMap(),
             ))
             else -> this
         }
+    }
+
+    private fun List<XMLNode>.wsdlTypeLookupEntries(namespace: String): List<WSDLTypeLookupEntry> {
+        return map { typeNode ->
+            val name = typeNode.getAttributeValue("name")
+            val schemaTypeName = FullyQualifiedName(typeNode.prefixFor(namespace), namespace, name)
+            WSDLTypeLookupEntry(
+                typeName = WSDLTypeName(schemaTypeName.namespace, schemaTypeName.localName),
+                typeKey = "(${specmaticTypeName(schemaTypeName.qName)})",
+                baseTypeName = typeNode.derivationNode()
+                    ?.fullyQualifiedNameFromAttribute("base")
+                    ?.takeUnless { it.namespace == XML_SCHEMA_NAMESPACE }
+                    ?.let { WSDLTypeName(it.namespace, it.localName) },
+            )
+        }
+    }
+
+    private fun Map<String, Pattern>.withWSDLTypeLookupMetadata(entries: List<WSDLTypeLookupEntry>): Map<String, Pattern> {
+        if (entries.isEmpty()) {
+            return this
+        }
+
+        val typeKeys = entries.associate { entry -> entry.typeName to actualTypeKey(entry.typeKey, entry.typeName) }
+        val entriesByType = entries.associateBy { it.typeName }
+
+        return mapValues { (typeKey, pattern) ->
+            val typeEntry = entries.firstOrNull { typeKeys[it.typeName] == typeKey }
+                ?: pattern.wsdlTypeNameForLookup()?.let(entriesByType::get)
+                ?: return@mapValues pattern
+            pattern.withWSDLTypeLookupMetadata(
+                typeName = typeEntry.typeName,
+                typeKey = typeKey,
+                baseTypeName = typeEntry.baseTypeName,
+                baseTypeKey = typeEntry.baseTypeName?.let(typeKeys::get),
+                knownTypeKeys = typeKeys,
+                matchableTypeKeys = matchableTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                leafTypeKeys = leafTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+            )
+        }
+    }
+
+    private fun List<Pattern>.withWSDLTypeLookupMetadata(entries: List<WSDLTypeLookupEntry>): List<Pattern> {
+        if (entries.isEmpty()) {
+            return this
+        }
+
+        val typeKeys = entries.associate { entry -> entry.typeName to withPatternDelimiters(entry.typeKey.removeSurrounding("(", ")")) }
+        val entriesByType = entries.associateBy { it.typeName }
+
+        return map { pattern ->
+            val typeEntry = pattern.wsdlTypeNameForLookup()?.let(entriesByType::get) ?: return@map pattern
+            val typeKey = typeKeys[typeEntry.typeName] ?: return@map pattern
+            pattern.withWSDLTypeLookupMetadata(
+                typeName = typeEntry.typeName,
+                typeKey = typeKey,
+                baseTypeName = typeEntry.baseTypeName,
+                baseTypeKey = typeEntry.baseTypeName?.let(typeKeys::get),
+                knownTypeKeys = typeKeys,
+                matchableTypeKeys = matchableTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+                leafTypeKeys = leafTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
+            )
+        }
+    }
+
+    private fun Map<String, Pattern>.actualTypeKey(typeKey: String): String {
+        val delimitedTypeKey = withPatternDelimiters(typeKey.removeSurrounding("(", ")"))
+        return when {
+            containsKey(typeKey) -> typeKey
+            containsKey(delimitedTypeKey) -> delimitedTypeKey
+            containsKey(typeKey.removeSurrounding("(", ")")) -> typeKey.removeSurrounding("(", ")")
+            else -> typeKey
+        }
+    }
+
+    private fun Map<String, Pattern>.actualTypeKey(typeKey: String, typeName: WSDLTypeName): String =
+        actualTypeKey(typeKey).takeIf { containsKey(it) }
+            ?: entries.firstOrNull { (_, pattern) -> pattern.wsdlTypeNameForLookup() == typeName }?.key
+            ?: typeKey
+
+    private fun Pattern.wsdlTypeNameForLookup(): WSDLTypeName? {
+        return when (this) {
+            is XMLPattern -> pattern.wsdlTypeName?.let { typeName ->
+                WSDLTypeName(pattern.wsdlTypeNamespace.orEmpty(), typeName)
+            }
+            is io.specmatic.core.pattern.AnyPattern -> pattern.asSequence().mapNotNull { it.wsdlTypeNameForLookup() }.firstOrNull()
+            else -> null
+        }
+    }
+
+    private fun Pattern.withWSDLTypeLookupMetadata(
+        typeName: WSDLTypeName,
+        typeKey: String,
+        baseTypeName: WSDLTypeName?,
+        baseTypeKey: String?,
+        knownTypeKeys: Map<WSDLTypeName, String>,
+        matchableTypeKeys: Map<WSDLTypeName, String>,
+        leafTypeKeys: Map<WSDLTypeName, String>,
+    ): Pattern {
+        return when (this) {
+            is XMLPattern -> copy(
+                pattern = pattern.copy(
+                    wsdlTypeNamespace = pattern.wsdlTypeNamespace ?: typeName.namespace,
+                    wsdlTypeName = pattern.wsdlTypeName ?: typeName.localName,
+                    wsdlBaseTypeNamespace = pattern.wsdlBaseTypeNamespace ?: baseTypeName?.namespace,
+                    wsdlBaseTypeName = pattern.wsdlBaseTypeName ?: baseTypeName?.localName,
+                    wsdlTypeKey = typeKey,
+                    wsdlBaseTypeKey = baseTypeKey,
+                    wsdlKnownTypeKeys = knownTypeKeys,
+                    wsdlMatchableTypeKeys = matchableTypeKeys,
+                    wsdlLeafTypeKeys = leafTypeKeys,
+                )
+            )
+
+            is io.specmatic.core.pattern.AnyPattern -> copy(
+                pattern = pattern.map {
+                    it.withWSDLTypeLookupMetadata(
+                        typeName,
+                        typeKey,
+                        baseTypeName,
+                        baseTypeKey,
+                        knownTypeKeys,
+                        matchableTypeKeys,
+                        leafTypeKeys,
+                    )
+                }
+            )
+
+            else -> this
+        }
+    }
+
+    private fun matchableTypeKeys(
+        baseType: WSDLTypeName,
+        entries: List<WSDLTypeLookupEntry>,
+        entriesByType: Map<WSDLTypeName, WSDLTypeLookupEntry>,
+        typeKeys: Map<WSDLTypeName, String>,
+    ): Map<WSDLTypeName, String> =
+        entries
+            .filter { entry -> entry.typeName == baseType || entry.isDerivedFrom(baseType, entriesByType) }
+            .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
+            .toMap()
+
+    private fun leafTypeKeys(
+        baseType: WSDLTypeName,
+        entries: List<WSDLTypeLookupEntry>,
+        entriesByType: Map<WSDLTypeName, WSDLTypeLookupEntry>,
+        typeKeys: Map<WSDLTypeName, String>,
+    ): Map<WSDLTypeName, String> {
+        val descendants = entries
+            .filter { entry -> entry.typeName != baseType && entry.isDerivedFrom(baseType, entriesByType) }
+            .map { it.typeName }
+            .toSet()
+
+        return descendants
+            .filter { descendant -> entries.none { entry -> entry.typeName in descendants && entry.isDerivedFrom(descendant, entriesByType) } }
+            .mapNotNull { type -> typeKeys[type]?.let { key -> type to key } }
+            .toMap()
+    }
+
+    private fun WSDLTypeLookupEntry.isDerivedFrom(
+        baseType: WSDLTypeName,
+        entriesByType: Map<WSDLTypeName, WSDLTypeLookupEntry>,
+    ): Boolean {
+        val directBaseType = baseTypeName ?: return false
+        if (directBaseType == baseType) {
+            return true
+        }
+
+        return entriesByType[directBaseType]?.isDerivedFrom(baseType, entriesByType) == true
     }
 
     private fun Pattern.isReusableWSDLType(): Boolean {
@@ -411,7 +598,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     }
 
     private fun WSDL.typeNodesNeededForWSDLTypeLookup(namespace: String): List<XMLNode> {
-        val namedTypes = namedTypeNodes(namespace)
+        val namedTypes = schemas.keys.plus(namespace).distinct().flatMap(::namedTypeNodes)
         return namedTypes.takeIf { types -> types.any { it.hasActionableDerivation() } }.orEmpty()
     }
 

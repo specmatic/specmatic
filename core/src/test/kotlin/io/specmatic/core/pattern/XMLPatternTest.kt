@@ -700,7 +700,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `xsi type is ignored when WSDL type is unknown`() {
+        fun `xsi type fails when WSDL type is unknown`() {
             val resolver = Resolver(newPatterns = animalPatterns())
             val pattern = XMLPattern(
                 XMLTypeData(
@@ -720,7 +720,11 @@ internal class XMLPatternTest {
                 """.trimIndent()
             )
 
-            assertThat(pattern.matches(value, resolver)).isInstanceOf(Result.Success::class.java)
+            val result = pattern.matches(value, resolver)
+
+            assertThat(result).isInstanceOf(Result.Failure::class.java)
+            assertThat(result.reportString()).contains("Unknown xsi:type")
+            assertThat(result.reportString()).contains("UnknownType")
         }
 
         @Test
@@ -834,7 +838,7 @@ internal class XMLPatternTest {
             "(tns_WorkingDog)" to workingDog,
             "(tns_Cat)" to cat,
             "(tns_Vehicle)" to vehicle,
-        )
+        ).withTestWSDLTypeLookupMetadata()
     }
 
     private fun animalWithoutDerivedPatterns(): Map<String, Pattern> {
@@ -893,7 +897,7 @@ internal class XMLPatternTest {
         return mapOf(
             "(tns_BaseCode)" to baseCode,
             "(tns_ConstrainedCode)" to constrainedCode,
-        )
+        ).withTestWSDLTypeLookupMetadata()
     }
 
     private fun codePatternsWithXMLSchemaNamespaceVariant(): Map<String, Pattern> {
@@ -910,7 +914,111 @@ internal class XMLPatternTest {
             )
         )
 
-        return codePatterns() + mapOf("(xs_string)" to xmlSchemaString)
+        return (codePatterns() + mapOf("(xs_string)" to xmlSchemaString)).withTestWSDLTypeLookupMetadata()
+    }
+
+    private data class TestWSDLTypeLookupEntry(
+        val typeName: WSDLTypeName,
+        val typeKey: String,
+        val baseTypeName: WSDLTypeName?,
+    )
+
+    private fun Map<String, Pattern>.withTestWSDLTypeLookupMetadata(): Map<String, Pattern> {
+        val entries = mapNotNull { (key, pattern) -> pattern.testWSDLTypeLookupEntry(key) }
+        val typeKeys = entries.associate { entry -> entry.typeName to entry.typeKey }
+        val entriesByType = entries.associateBy { it.typeName }
+
+        return mapValues { (typeKey, pattern) ->
+            val entry = entries.firstOrNull { it.typeKey == typeKey } ?: return@mapValues pattern
+            pattern.withTestWSDLTypeLookupMetadata(
+                typeKey = typeKey,
+                baseTypeKey = entry.baseTypeName?.let(typeKeys::get),
+                knownTypeKeys = typeKeys,
+                matchableTypeKeys = testMatchableTypeKeys(entry.typeName, entries, entriesByType, typeKeys),
+                leafTypeKeys = testLeafTypeKeys(entry.typeName, entries, entriesByType, typeKeys),
+            )
+        }
+    }
+
+    private fun Pattern.testWSDLTypeLookupEntry(typeKey: String): TestWSDLTypeLookupEntry? {
+        val typeData = (this as? XMLPattern)?.pattern ?: return null
+        val typeName = typeData.wsdlTypeName?.let { WSDLTypeName(typeData.wsdlTypeNamespace.orEmpty(), it) } ?: return null
+        val baseTypeName = typeData.wsdlBaseTypeName?.let { WSDLTypeName(typeData.wsdlBaseTypeNamespace.orEmpty(), it) }
+        return TestWSDLTypeLookupEntry(typeName, typeKey, baseTypeName)
+    }
+
+    private fun Pattern.withTestWSDLTypeLookupMetadata(
+        typeKey: String,
+        baseTypeKey: String?,
+        knownTypeKeys: Map<WSDLTypeName, String>,
+        matchableTypeKeys: Map<WSDLTypeName, String>,
+        leafTypeKeys: Map<WSDLTypeName, String>,
+    ): Pattern {
+        return when (this) {
+            is XMLPattern -> copy(
+                pattern = pattern.copy(
+                    wsdlTypeKey = typeKey,
+                    wsdlBaseTypeKey = baseTypeKey,
+                    wsdlKnownTypeKeys = knownTypeKeys,
+                    wsdlMatchableTypeKeys = matchableTypeKeys,
+                    wsdlLeafTypeKeys = leafTypeKeys,
+                )
+            )
+
+            is AnyPattern -> copy(
+                pattern = pattern.map {
+                    it.withTestWSDLTypeLookupMetadata(
+                        typeKey,
+                        baseTypeKey,
+                        knownTypeKeys,
+                        matchableTypeKeys,
+                        leafTypeKeys,
+                    )
+                }
+            )
+
+            else -> this
+        }
+    }
+
+    private fun testMatchableTypeKeys(
+        baseType: WSDLTypeName,
+        entries: List<TestWSDLTypeLookupEntry>,
+        entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
+        typeKeys: Map<WSDLTypeName, String>,
+    ): Map<WSDLTypeName, String> =
+        entries
+            .filter { entry -> entry.typeName == baseType || entry.isDerivedFrom(baseType, entriesByType) }
+            .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
+            .toMap()
+
+    private fun testLeafTypeKeys(
+        baseType: WSDLTypeName,
+        entries: List<TestWSDLTypeLookupEntry>,
+        entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
+        typeKeys: Map<WSDLTypeName, String>,
+    ): Map<WSDLTypeName, String> {
+        val descendants = entries
+            .filter { entry -> entry.typeName != baseType && entry.isDerivedFrom(baseType, entriesByType) }
+            .map { it.typeName }
+            .toSet()
+
+        return descendants
+            .filter { descendant -> entries.none { entry -> entry.typeName in descendants && entry.isDerivedFrom(descendant, entriesByType) } }
+            .mapNotNull { type -> typeKeys[type]?.let { key -> type to key } }
+            .toMap()
+    }
+
+    private fun TestWSDLTypeLookupEntry.isDerivedFrom(
+        baseType: WSDLTypeName,
+        entriesByType: Map<WSDLTypeName, TestWSDLTypeLookupEntry>,
+    ): Boolean {
+        val directBaseType = baseTypeName ?: return false
+        if (directBaseType == baseType) {
+            return true
+        }
+
+        return entriesByType[directBaseType]?.isDerivedFrom(baseType, entriesByType) == true
     }
 
     @Nested

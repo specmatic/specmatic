@@ -16,6 +16,7 @@ import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.ServerSocket
@@ -638,6 +639,43 @@ class WSDLParserMockBlackBoxTest {
     }
 
     @Test
+    fun `mock for wsdl rejects request when xsi type is unknown`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("order-service.wsdl")
+            .apply { writeText(minimizedOrderServiceWsdl()) }
+        val feature = parseContractFileToFeature(wsdlFile)
+        val request = orderDetailsRequest("xsi:type=\"ord:MissingOrderDetails\"")
+
+        val response = HttpStub(feature, strictMode = true).use { stub ->
+            stub.client.execute(request)
+        }
+
+        assertThat(response.status).isEqualTo(400)
+        assertThat(response.body.toStringLiteral()).contains("No matching SOAP stub")
+    }
+
+    @Test
+    fun `mock for wsdl rejects example response when xsi type is unknown`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("order-service.wsdl")
+            .apply { writeText(minimizedOrderServiceWsdl()) }
+        val feature = parseContractFileToFeature(wsdlFile)
+        val scenarioStub = ScenarioStub(
+            request = orderDetailsRequest("xsi:type=\"ord:OrderDetails\""),
+            response = HttpResponse(
+                status = 200,
+                body = orderDetailsResponseBody("ord:MissingOrderDetails"),
+                headers = mapOf(CONTENT_TYPE to ContentType.Text.Xml.toString()),
+            ),
+        )
+
+        val exception = assertThrows<Exception> {
+            HttpStub(feature, listOf(scenarioStub)).close()
+        }
+
+        assertThat(exception.message).contains("Unknown xsi:type")
+        assertThat(exception.message).contains("MissingOrderDetails")
+    }
+
+    @Test
     fun `mock for soap version_1_2 wsdl returns the example soap response with appropriate content-type header`() {
         val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
         val wsdlExamplesPath = "src/test/resources/wsdl/cdata_test_soap12/data_api_examples"
@@ -736,7 +774,7 @@ private fun orderDetailsRequest(orderTypeAttribute: String): HttpRequest =
         )
     )
 
-private fun orderDetailsResponseBody(): String =
+private fun orderDetailsResponseBody(orderType: String = "ord:OrderDetails"): String =
     """
     <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
       <s:Body>
@@ -744,7 +782,7 @@ private fun orderDetailsResponseBody(): String =
           <Message bodyType="XML" id="response-id" version="1.0" xmlns="http://example.com/order-model" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ord="http://example.com/order-model">
             <command>
               <retrieveOrderDetailsResponse id="response-command-id">
-                <order xsi:type="ord:OrderDetails">
+                <order xsi:type="$orderType">
                   <orderNumber>matched-from-external-example</orderNumber>
                 </order>
               </retrieveOrderDetailsResponse>
