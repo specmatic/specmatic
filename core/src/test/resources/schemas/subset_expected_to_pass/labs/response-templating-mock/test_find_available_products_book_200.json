@@ -1,0 +1,28 @@
+{
+  "http-request": {
+    "path": "/findAvailableProducts",
+    "method": "GET",
+    "query": {
+      "from-date": "2026-02-15",
+      "to-date": "2026-02-15",
+      "type": "book"
+    },
+    "headers": {
+      "pageSize": "10"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": 1,
+      "name": "Harry Potter",
+      "type": "book",
+      "inventory": 100,
+      "createdOn": "2026-02-15"
+    },
+    "status-text": "OK",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

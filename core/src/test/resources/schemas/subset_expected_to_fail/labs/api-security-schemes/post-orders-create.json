@@ -1,0 +1,47 @@
+{
+  "before": [
+    {
+      "type": "http",
+      "executeFor": {
+        "scenarios": "all"
+      },
+      "http-request": {
+        "baseUrl": "${KEYCLOAK_BASE_URL:http://keycloak:8080}",
+        "path": "/realms/specmatic/protocol/openid-connect/token",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        "body": "grant_type=password&client_id=order-api&username=${KEYCLOAK_USER_USERNAME:user1}&password=${KEYCLOAK_USER_PASSWORD:password}"
+      },
+      "http-response": {
+        "status": 200,
+        "body": {
+          "access_token": "(ACCESS_TOKEN:string)"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ],
+  "partial": {
+    "http-request": {
+      "path": "/orders",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "productid": 10
+      }
+    },
+    "http-response": {
+      "status": 200,
+      "body": {},
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}

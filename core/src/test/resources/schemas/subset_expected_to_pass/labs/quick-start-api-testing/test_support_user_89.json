@@ -1,0 +1,26 @@
+{
+  "http-request": {
+    "path": "/verifyUser",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "userId": 89,
+      "department": "support"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "handledBy": "$match(exact: verification-service)",
+      "decision": "$match(exact: approved)",
+      "referenceCode": "$match(pattern: VRF-[0-9]{6})",
+      "processedOn": "$match(dataType: date)"
+    },
+    "status-text": "OK",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

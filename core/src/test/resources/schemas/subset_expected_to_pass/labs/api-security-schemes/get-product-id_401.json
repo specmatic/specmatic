@@ -1,0 +1,24 @@
+{
+  "http-request": {
+    "path": "/products/680.0",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic R1NUSEE6QlRPTVE="
+    },
+    "body": ""
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Gone",
+      "timestamp": "2026-07-01T12:26:22+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/products/680.0"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

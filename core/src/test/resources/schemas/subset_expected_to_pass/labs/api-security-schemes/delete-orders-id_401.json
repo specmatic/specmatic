@@ -1,0 +1,24 @@
+{
+  "http-request": {
+    "path": "/orders/292",
+    "method": "DELETE",
+    "headers": {
+      "X-API-Key": "kv-9f75a4e638480b91"
+    },
+    "body": ""
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Not Acceptable",
+      "timestamp": "2026-07-01T12:26:23+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/orders/292"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
