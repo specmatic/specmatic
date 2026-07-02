@@ -22,8 +22,8 @@ dependencies {
     implementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
 
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.5.1")
+    implementation("io.ktor:ktor-client-cio-jvm:3.5.1")
 
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
     implementation("org.junit.platform:junit-platform-reporting:1.14.4")

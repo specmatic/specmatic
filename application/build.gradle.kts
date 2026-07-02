@@ -21,9 +21,9 @@ dependencies {
     implementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
 
     implementation("info.picocli:picocli:4.7.7")
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-network-tls-jvm:2.3.13")
-    implementation("io.ktor:ktor-network-tls-certificates-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.5.1")
+    implementation("io.ktor:ktor-network-tls-jvm:3.5.1")
+    implementation("io.ktor:ktor-network-tls-certificates-jvm:3.5.1")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.0")
 
@@ -39,7 +39,7 @@ dependencies {
     implementation(project(":junit5-support"))
     implementation(project(":specmatic-mcp"))
 
-    implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-cio-jvm:3.5.1")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
     implementation("io.modelcontextprotocol.sdk:mcp-core:1.1.3")

@@ -7,10 +7,10 @@ dependencies {
     implementation(project(":specmatic-core"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0")
-    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
-    implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
-    implementation("io.ktor:ktor-client-content-negotiation-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:3.5.1")
+    implementation("io.ktor:ktor-client-cio-jvm:3.5.1")
+    implementation("io.ktor:ktor-serialization-jackson-jvm:3.5.1")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm:3.5.1")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.0")
     implementation("com.fasterxml.jackson.core:jackson-core:2.22.0")
