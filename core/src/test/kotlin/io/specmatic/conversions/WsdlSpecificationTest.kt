@@ -169,6 +169,21 @@ internal class WsdlSpecificationTest {
     }
 
     @Test
+    fun `new based on includes named simple type base and derived candidates`() {
+        val wsdlContract = wsdlContentToFeature(codeWsdl(), "code.wsdl")
+
+        val generatedBodies = generatedRequestBodies(wsdlContract)
+
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains(":Code>")
+            assertThat(body).doesNotContain("xsi:type")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).containsPattern("xsi:type=\"[^\"]+:ConstrainedCode\"")
+        }
+    }
+
+    @Test
     fun `request matching uses compatible xsi type from wsdl simple content extension`() {
         val wsdlContract = wsdlContentToFeature(taggedCodeWsdl(), "tagged-code.wsdl")
         val scenario = wsdlContract.scenarios.single()
@@ -307,6 +322,62 @@ internal class WsdlSpecificationTest {
     }
 
     @Test
+    fun `request matching reports incompatible abstract xsi type as invalid`() {
+        val wsdlContract = wsdlContentToFeature(
+            petSequenceWsdl(crocodileIsAbstract = true),
+            "pet-sequence.wsdl"
+        )
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-sequence",
+                soapAction = "http://example.com/pet-sequence/RegisterSequence",
+                bodyNode = """
+                    <tns:RegisterSequence xmlns:tns="http://example.com/pet-sequence"
+                                          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                      <tns:pet xsi:type="tns:Crocodile">
+                        <tns:toothCount>64</tns:toothCount>
+                      </tns:pet>
+                    </tns:RegisterSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Invalid xsi:type")
+        assertThat(result.reportString()).contains("Crocodile")
+        assertThat(result.reportString()).doesNotContain("it is abstract")
+    }
+
+    @Test
+    fun `request matching rejects nillable abstract wsdl complex type without xsi type`() {
+        val wsdlContract = wsdlContentToFeature(
+            petNillableSequenceWsdl(petIsAbstract = true),
+            "pet-nillable-sequence.wsdl"
+        )
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            soapRequest(
+                path = "/pet-nillable-sequence",
+                soapAction = "http://example.com/pet-nillable-sequence/RegisterNillableSequence",
+                bodyNode = """
+                    <tns:RegisterNillableSequence xmlns:tns="http://example.com/pet-nillable-sequence">
+                      <tns:pet/>
+                    </tns:RegisterNillableSequence>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Missing xsi:type")
+        assertThat(result.reportString()).contains("Pet")
+    }
+
+    @Test
     fun `request matching rejects incompatible known xsi type inside wsdl choice group`() {
         val wsdlContract = wsdlContentToFeature(petChoiceWsdl(), "pet-choice.wsdl")
         val scenario = wsdlContract.scenarios.single()
@@ -379,6 +450,28 @@ internal class WsdlSpecificationTest {
         assertThat(generatedBodies).anySatisfy { body ->
             assertThat(body).contains("xsi:type=\"Pet-sequence:Cat\"")
             assertThat(body).contains(":lives>")
+        }
+    }
+
+    @Test
+    fun `new based on includes intermediate and leaf concrete wsdl complex type candidates`() {
+        val wsdlContract = wsdlContentToFeature(animalWsdl(), "animal.wsdl")
+
+        val generatedBodies = generatedRequestBodies(wsdlContract)
+
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).contains(":Animal>")
+            assertThat(body).doesNotContain("xsi:type")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).containsPattern("xsi:type=\"[^\"]+:Dog\"")
+            assertThat(body).contains(":breed>")
+            assertThat(body).doesNotContain(":job>")
+        }
+        assertThat(generatedBodies).anySatisfy { body ->
+            assertThat(body).containsPattern("xsi:type=\"[^\"]+:WorkingDog\"")
+            assertThat(body).contains(":breed>")
+            assertThat(body).contains(":job>")
         }
     }
 
@@ -632,6 +725,16 @@ internal class WsdlSpecificationTest {
                     </xs:complexContent>
                   </xs:complexType>
 
+                  <xs:complexType name="WorkingDog">
+                    <xs:complexContent>
+                      <xs:extension base="tns:Dog">
+                        <xs:sequence>
+                          <xs:element name="job" type="xs:string"/>
+                        </xs:sequence>
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+
                   <xs:complexType name="Vehicle">
                     <xs:sequence>
                       <xs:element name="registration" type="xs:string"/>
@@ -805,7 +908,7 @@ internal class WsdlSpecificationTest {
         """.trimIndent()
     }
 
-    private fun petSequenceWsdl(petIsAbstract: Boolean = false): String {
+    private fun petSequenceWsdl(petIsAbstract: Boolean = false, crocodileIsAbstract: Boolean = false): String {
         return petWsdl(
             namespace = "http://example.com/pet-sequence",
             path = "/pet-sequence",
@@ -814,6 +917,23 @@ internal class WsdlSpecificationTest {
                 <xs:complexType name="RegisterSequenceRequest">
                   <xs:sequence>
                     <xs:element name="pet" type="tns:Pet"/>
+                  </xs:sequence>
+                </xs:complexType>
+            """.trimIndent(),
+            petIsAbstract = petIsAbstract,
+            crocodileIsAbstract = crocodileIsAbstract,
+        )
+    }
+
+    private fun petNillableSequenceWsdl(petIsAbstract: Boolean = false): String {
+        return petWsdl(
+            namespace = "http://example.com/pet-nillable-sequence",
+            path = "/pet-nillable-sequence",
+            operation = "RegisterNillableSequence",
+            requestType = """
+                <xs:complexType name="RegisterNillableSequenceRequest">
+                  <xs:sequence>
+                    <xs:element name="pet" type="tns:Pet" nillable="true"/>
                   </xs:sequence>
                 </xs:complexType>
             """.trimIndent(),
@@ -879,8 +999,10 @@ internal class WsdlSpecificationTest {
         operation: String,
         requestType: String,
         petIsAbstract: Boolean = false,
+        crocodileIsAbstract: Boolean = false,
     ): String {
         val petAbstractAttribute = if (petIsAbstract) """ abstract="true"""" else ""
+        val crocodileAbstractAttribute = if (crocodileIsAbstract) """ abstract="true"""" else ""
 
         return """
             <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
@@ -921,7 +1043,7 @@ internal class WsdlSpecificationTest {
                     </xs:complexContent>
                   </xs:complexType>
 
-                  <xs:complexType name="Crocodile">
+                  <xs:complexType name="Crocodile"$crocodileAbstractAttribute>
                     <xs:sequence>
                       <xs:element name="toothCount" type="xs:integer"/>
                     </xs:sequence>

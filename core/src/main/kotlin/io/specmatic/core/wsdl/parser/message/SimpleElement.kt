@@ -46,7 +46,13 @@ data class SimpleElement(
         namespaces: Map<String, String>,
         typeInfo: WSDLTypeInfo
     ): SOAPPayload {
-        return SimpleTypedSOAPPayload(soapMessageType, typeInfo.nodes.first() as XMLNode, namespaces)
+        val bodyNode = typeInfo.nodes.first() as XMLNode
+        return SimpleTypedSOAPPayload(
+            soapMessageType,
+            bodyNode,
+            namespaces,
+            typeInfo.members.firstOrNull() as? XMLPattern ?: XMLPattern(bodyNode),
+        )
     }
 
 }

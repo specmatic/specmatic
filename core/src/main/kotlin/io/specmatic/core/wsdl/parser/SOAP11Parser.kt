@@ -535,18 +535,12 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         entries: List<WSDLTypeLookupEntry>,
         entriesByType: Map<WSDLTypeName, WSDLTypeLookupEntry>,
         typeKeys: Map<WSDLTypeName, String>,
-    ): Map<WSDLTypeName, String> {
-        val descendants = entries
+    ): Map<WSDLTypeName, String> =
+        entries
             .filter { entry -> entry.typeName != baseType && entry.isDerivedFrom(baseType, entriesByType) }
             .filterNot(WSDLTypeLookupEntry::isAbstract)
-            .map { it.typeName }
-            .toSet()
-
-        return descendants
-            .filter { descendant -> entries.none { entry -> entry.typeName in descendants && entry.isDerivedFrom(descendant, entriesByType) } }
-            .mapNotNull { type -> typeKeys[type]?.let { key -> type to key } }
+            .mapNotNull { entry -> typeKeys[entry.typeName]?.let { key -> entry.typeName to key } }
             .toMap()
-    }
 
     private fun WSDLTypeLookupEntry.isDerivedFrom(
         baseType: WSDLTypeName,
