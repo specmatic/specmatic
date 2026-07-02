@@ -23,6 +23,7 @@ private sealed class WSDLTypeSelection {
     data class Use(val pattern: Pattern) : WSDLTypeSelection()
     data class Unknown(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
     data class Invalid(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
+    data class Abstract(val assertedType: WSDLTypeName, val declaredType: WSDLTypeName) : WSDLTypeSelection()
 }
 
 private data class XMLHeaderName(
@@ -107,6 +108,9 @@ data class XMLPattern(
     fun plusNamespaceUri(namespaceUri: String?): XMLPattern {
         return copy(pattern = pattern.copy(namespaceUri = namespaceUri?.takeIf { it.isNotBlank() }))
     }
+
+    fun withCurrentWSDLTypeOnly(): XMLPattern =
+        copy(pattern = pattern.copy(wsdlTypeSelectionMode = WSDLTypeSelectionMode.CurrentTypeOnly))
 
     override fun matches(sampleData: List<Value>, resolver: Resolver): ConsumeResult<Value, Value> {
         val xmlValues = sampleData.filterIsInstance<XMLValue>()
@@ -194,29 +198,41 @@ data class XMLPattern(
         if (cyclePreventionPattern != this && !resolver.hasCycle(cyclePreventionPattern)) {
             return resolver.withCyclePrevention(cyclePreventionPattern) { cyclePreventedResolver ->
                 matchesXMLNode(sampleData, cyclePreventedResolver)
-            } ?: Success()
+            }
         }
 
         return matchesXMLNode(sampleData, resolver)
     }
 
     private fun matchesXMLNode(sampleData: XMLNode, resolver: Resolver): Result {
-        if (pattern.isNillable()) {
-            if (sampleData.childNodes.isEmpty())
-                return Success()
-        }
-
         val matchingType = dereferenceType(resolver)
         val sampleDataWithoutEmptyHeader = dropEmptySOAPHeader(sampleData)
 
-        selectWSDLType(sampleData, matchingType, resolver)?.let { selectedType ->
-            val matchResult = when (selectedType) {
-                is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
-                is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
-                is WSDLTypeSelection.Use -> matchWithType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
+        if (matchingType.wsdlTypeSelectionMode() == WSDLTypeSelectionMode.Polymorphic) {
+            selectWSDLType(sampleData, matchingType, resolver)?.let { selectedType ->
+                val matchResult = when (selectedType) {
+                    is WSDLTypeSelection.Unknown,
+                    is WSDLTypeSelection.Invalid,
+                    is WSDLTypeSelection.Abstract -> failureForWSDLTypeSelection(selectedType)
+
+                    is WSDLTypeSelection.Use -> matchWithType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
+                }
+
+                return matchResult.breadCrumb(pattern.name, resolver.locate(schemaPointer))
             }
 
-            return matchResult.breadCrumb(pattern.name, resolver.locate(schemaPointer))
+            if (matchingType.isAbstractWSDLType()) {
+                val declaredType = matchingType.wsdlTypeName()
+                if (declaredType != null) {
+                    return missingXSITypeForAbstractTypeResult(declaredType)
+                        .breadCrumb(pattern.name, resolver.locate(schemaPointer))
+                }
+            }
+        }
+
+        if (pattern.isNillable()) {
+            if (sampleData.childNodes.isEmpty())
+                return Success()
         }
 
         return when (matchingType) {
@@ -277,6 +293,24 @@ data class XMLPattern(
         return Failure("Unknown xsi:type ${assertedType.namespace}#${assertedType.localName}; no matching type was found in the WSDL/schema set for $declaredDescription.")
     }
 
+    private fun abstractXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
+        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
+        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is abstract and cannot be used as a concrete WSDL type for $declaredDescription.")
+    }
+
+    private fun missingXSITypeForAbstractTypeResult(declaredType: WSDLTypeName): Failure {
+        return Failure("Missing xsi:type for abstract WSDL type ${declaredType.namespace}#${declaredType.localName}; a concrete subtype is required.")
+    }
+
+    private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {
+        return when (selectedType) {
+            is WSDLTypeSelection.Unknown -> unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+            is WSDLTypeSelection.Invalid -> invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+            is WSDLTypeSelection.Abstract -> abstractXSITypeResult(selectedType.assertedType, selectedType.declaredType)
+            is WSDLTypeSelection.Use -> error("Cannot convert a valid WSDL type selection to a failure")
+        }
+    }
+
     private fun selectWSDLType(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
         return selectWSDLType(sampleData.xsiTypeName(), declaredType, resolver)
     }
@@ -289,23 +323,28 @@ data class XMLPattern(
         }
 
         val declaredWSDLType = declaredType.wsdlTypeName() ?: return null
-        val assertedPattern = declaredType.findPatternForWSDLType(assertedType, resolver)
-            ?: resolver.findPatternForWSDLType(assertedType)
+        val payloadAssertedTypePattern = resolver.findPatternForWSDLType(assertedType)
+        val payloadAssertedTypePatternCompatibleWithDeclaredType = declaredType.findPatternForWSDLType(assertedType, resolver)
+            ?: payloadAssertedTypePattern
                 ?.takeIf { it.wsdlTypeName() == declaredWSDLType || it.isDerivedFrom(declaredWSDLType, resolver) }
         val assertedTypeIsKnown = declaredType.knowsWSDLType(assertedType) ||
-                resolver.findPatternForWSDLType(assertedType) != null
+                payloadAssertedTypePattern != null
 
         return when {
-            assertedPattern == null && !assertedTypeIsKnown ->
+            assertedType == declaredWSDLType && declaredType.isAbstractWSDLType() ->
+                WSDLTypeSelection.Abstract(assertedType, declaredWSDLType)
+
+            payloadAssertedTypePatternCompatibleWithDeclaredType == null && !assertedTypeIsKnown ->
                 WSDLTypeSelection.Unknown(assertedType, declaredWSDLType)
 
-            assertedType == declaredWSDLType ->
-                WSDLTypeSelection.Use(mergeReferredPattern(assertedPattern ?: declaredType))
+            payloadAssertedTypePatternCompatibleWithDeclaredType == null ->
+                WSDLTypeSelection.Invalid(assertedType, declaredWSDLType)
 
-            assertedPattern != null ->
-                WSDLTypeSelection.Use(mergeReferredPattern(assertedPattern))
+            payloadAssertedTypePatternCompatibleWithDeclaredType.isAbstractWSDLType() ->
+                WSDLTypeSelection.Abstract(assertedType, declaredWSDLType)
 
-            else -> WSDLTypeSelection.Invalid(assertedType, declaredWSDLType)
+            else ->
+                WSDLTypeSelection.Use(mergeReferredPattern(payloadAssertedTypePatternCompatibleWithDeclaredType))
         }
     }
 
@@ -466,6 +505,8 @@ data class XMLPattern(
             it.key == "xmlns" || it.key.startsWith("xmlns:") || it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
         }.let { attributesWithoutXmlns ->
             dropSOAP11MetadataAttributes(attributesWithoutXmlns, pattern::attributeNamespaceUri)
+        }.let { attributesWithoutXmlns ->
+            dropPolymorphicXSITypeAttribute(attributesWithoutXmlns, pattern::attributeNamespaceUri)
         }
         val sampleAttributesWithoutXmlns: Map<String, StringValue> = sampleData.attributes.filterNot {
             it.key == "xmlns" ||
@@ -473,6 +514,8 @@ data class XMLPattern(
                     it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
         }.let { attributesWithoutXmlns ->
             dropSOAP11MetadataAttributes(attributesWithoutXmlns, sampleData::attributeNamespaceUri)
+        }.let { attributesWithoutXmlns ->
+            dropPolymorphicXSITypeAttribute(attributesWithoutXmlns, sampleData::attributeNamespaceUri)
         }
 
         val sampleAttributesForKeyCheck = sampleAttributesWithoutXmlns.filterNot { (key, _) ->
@@ -517,10 +560,26 @@ data class XMLPattern(
 
         return when (name) {
             "encodingStyle" -> namespaceUri == SOAP_ENVELOPE_NAMESPACE
-            "type" -> isXMLSchemaInstanceTypeAttribute(attributeName, namespaceUri)
             else -> false
         }
     }
+
+    private fun <T> dropPolymorphicXSITypeAttribute(
+        attributes: Map<String, T>,
+        attributeNamespaceUri: (String) -> String?,
+    ): Map<String, T> {
+        if (!shouldDropPolymorphicXSITypeAttribute()) {
+            return attributes
+        }
+
+        return attributes.filterNot { (key, _) ->
+            val namespaceUri = runCatching { attributeNamespaceUri(key) }.getOrNull()
+            isXMLSchemaInstanceTypeAttribute(key, namespaceUri)
+        }
+    }
+
+    private fun shouldDropPolymorphicXSITypeAttribute(): Boolean =
+        pattern.wsdlTypeSelectionMode == WSDLTypeSelectionMode.Polymorphic
 
     private fun matchName(sampleData: XMLNode, resolver: Resolver): Result {
         if (sampleData.name != pattern.name)
@@ -593,9 +652,9 @@ data class XMLPattern(
 
         val name = pattern.name
 
-        val wsdlVariants = wsdlSubtypePatternsForGeneration(resolver)
-        if (wsdlVariants.isNotEmpty()) {
-            return wsdlVariants.random().generateXML(resolver)
+        val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
+        if (concreteWSDLTypeCandidates.isNotEmpty()) {
+            return concreteWSDLTypeCandidates.random().generateXML(resolver)
         }
 
         val resolvedPattern = dereferenceType(resolver) as XMLPattern
@@ -654,9 +713,9 @@ data class XMLPattern(
             }
         }
 
-        val wsdlVariants = wsdlSubtypePatternsForGeneration(resolver)
-        if (wsdlVariants.isNotEmpty()) {
-            return wsdlVariants.asSequence().flatMap { selectedPattern ->
+        val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
+        if (concreteWSDLTypeCandidates.isNotEmpty()) {
+            return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
                 selectedPattern.newBasedOn(row, resolver)
             }
         }
@@ -770,9 +829,9 @@ data class XMLPattern(
     }
 
     override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> {
-        val wsdlVariants = wsdlSubtypePatternsForGeneration(resolver)
-        if (wsdlVariants.isNotEmpty()) {
-            return wsdlVariants.asSequence().flatMap { selectedPattern ->
+        val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
+        if (concreteWSDLTypeCandidates.isNotEmpty()) {
+            return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
                 selectedPattern.newBasedOn(resolver)
             }
         }
@@ -845,7 +904,7 @@ data class XMLPattern(
         }
     }
 
-    private fun wsdlSubtypePatternsForGeneration(resolver: Resolver): List<XMLPattern> {
+    private fun concreteWSDLTypeCandidates(resolver: Resolver): List<XMLPattern> {
         val declaredPattern = try {
             dereferenceType(resolver)
         } catch (e: ContractException) {
@@ -856,35 +915,79 @@ data class XMLPattern(
             return emptyList()
         }
 
-        val declaredWSDLType = declaredPattern.pattern.wsdlTypeName() ?: return emptyList()
-        when (val selectedType = selectWSDLType(pattern.xsiTypeName(), declaredPattern, resolver)) {
-            is WSDLTypeSelection.Unknown -> throw ContractException(
-                unknownXSITypeResult(selectedType.assertedType, selectedType.declaredType).toFailureReport()
-            )
+        val lookupPattern = when {
+            declaredPattern.hasWSDLTypeLookupMetadata() -> declaredPattern
+            hasWSDLTypeLookupMetadata() -> this
+            else -> declaredPattern
+        }
 
-            is WSDLTypeSelection.Invalid -> throw ContractException(
-                invalidXSITypeResult(selectedType.assertedType, selectedType.declaredType).toFailureReport()
-            )
+        val declaredWSDLType = lookupPattern.pattern.wsdlTypeName() ?: return emptyList()
 
+        if (lookupPattern.pattern.wsdlTypeSelectionMode == WSDLTypeSelectionMode.CurrentTypeOnly) {
+            return emptyList()
+        }
+
+        when (val selectedType = selectWSDLType(pattern.xsiTypeName(), lookupPattern, resolver)) {
             is WSDLTypeSelection.Use -> {
                 if (pattern.xsiTypeName() == declaredWSDLType) {
                     return emptyList()
                 }
 
-                return listOfNotNull(selectedType.pattern as? XMLPattern)
+                return listOfNotNull((selectedType.pattern as? XMLPattern)?.withCurrentWSDLTypeOnly())
             }
+
+            is WSDLTypeSelection.Unknown,
+            is WSDLTypeSelection.Invalid,
+            is WSDLTypeSelection.Abstract -> throw ContractException(
+                failureForWSDLTypeSelection(selectedType).toFailureReport()
+            )
 
             null -> Unit
         }
 
-        val derivedPatterns = declaredPattern.concreteSubtypeWSDLPatterns(resolver).mapNotNull { derivedPattern ->
-            val derivedType = derivedPattern.pattern.wsdlTypeName() ?: return@mapNotNull null
-            val mergedPattern = declaredPattern.mergeReferredPattern(derivedPattern) as? XMLPattern ?: return@mapNotNull null
-            mergedPattern.withXSIType(derivedType)
+        val basePattern = concreteBaseWSDLTypeCandidate(lookupPattern)
+
+        val derivedPatterns = lookupPattern.concreteDerivedWSDLPatterns(resolver).mapNotNull { (derivedType, derivedPattern) ->
+            val mergedPattern = lookupPattern.mergeWSDLDerivedPattern(derivedPattern) ?: return@mapNotNull null
+            mergedPattern.withXSIType(derivedType).withCurrentWSDLTypeOnly()
         }
 
-        return derivedPatterns
+        val candidatePatterns = listOfNotNull(basePattern) + derivedPatterns
+
+        if (candidatePatterns.isEmpty() && lookupPattern.pattern.wsdlTypeIsAbstract) {
+            throw ContractException("Cannot select a concrete WSDL type for abstract type ${declaredWSDLType.namespace}#${declaredWSDLType.localName}; no concrete derived types were found.")
+        }
+
+        return candidatePatterns
     }
+
+    private fun concreteBaseWSDLTypeCandidate(declaredPattern: XMLPattern): XMLPattern? {
+        if (declaredPattern.pattern.wsdlTypeIsAbstract) {
+            return null
+        }
+
+        val declaredType = declaredPattern.pattern.wsdlTypeName() ?: return null
+        if (declaredType.namespace == XML_SCHEMA_NAMESPACE) {
+            return null
+        }
+
+        return declaredPattern.withCurrentWSDLTypeOnly()
+    }
+
+    private fun hasWSDLTypeLookupMetadata(): Boolean =
+        pattern.wsdlKnownTypeKeys.isNotEmpty() ||
+                pattern.wsdlCompatibleTypeKeys.isNotEmpty() ||
+                pattern.wsdlConcreteSubtypeKeys.isNotEmpty()
+
+    private fun mergeWSDLDerivedPattern(derivedPattern: Pattern): XMLPattern? {
+        return when (derivedPattern) {
+            is XMLPattern -> mergeReferredPattern(derivedPattern) as? XMLPattern
+            else -> wrapDerivedSimpleContentInDeclaredElement(derivedPattern)
+        }
+    }
+
+    private fun wrapDerivedSimpleContentInDeclaredElement(derivedPattern: Pattern): XMLPattern =
+        copy(pattern = pattern.copy(nodes = listOf(derivedPattern)))
 
     override fun negativeBasedOn(
         row: Row,
@@ -1303,25 +1406,20 @@ private fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
 private fun Pattern.knowsWSDLType(typeName: WSDLTypeName): Boolean =
     wsdlKnownTypeKeys().containsKey(typeName)
 
-private fun Pattern.concreteSubtypeWSDLPatterns(resolver: Resolver): List<XMLPattern> {
-    return wsdlConcreteSubtypeKeys().values.flatMap { typeKey ->
-        resolver.patternForWSDLKey(typeKey)?.xmlPatternVariants().orEmpty()
-    }.filter { pattern ->
-        pattern.pattern.wsdlTypeName()?.namespace != XML_SCHEMA_NAMESPACE
+private fun Pattern.concreteDerivedWSDLPatterns(resolver: Resolver): List<Pair<WSDLTypeName, Pattern>> {
+    return wsdlConcreteSubtypeKeys().mapNotNull { (typeName, typeKey) ->
+        if (typeName.namespace == XML_SCHEMA_NAMESPACE) return@mapNotNull null
+
+        val pattern = resolver.patternForWSDLKey(typeKey) ?: return@mapNotNull null
+        if (pattern.isAbstractWSDLType()) return@mapNotNull null
+
+        typeName to pattern
     }
 }
 
 private fun Resolver.patternForWSDLKey(typeKey: String): Pattern? {
     val rawTypeKey = withoutPatternDelimiters(typeKey)
     return newPatterns[typeKey] ?: newPatterns[withPatternDelimiters(rawTypeKey)] ?: newPatterns[rawTypeKey]
-}
-
-private fun Pattern.xmlPatternVariants(): List<XMLPattern> {
-    return when (this) {
-        is XMLPattern -> listOf(this)
-        is AnyPattern -> pattern.flatMap { it.xmlPatternVariants() }
-        else -> emptyList()
-    }
 }
 
 private fun Pattern.wsdlKnownTypeKeys(): Map<WSDLTypeName, String> {
@@ -1353,6 +1451,26 @@ private fun Pattern.wsdlTypeName(): WSDLTypeName? {
         is XMLPattern -> pattern.wsdlTypeName()
         is AnyPattern -> pattern.asSequence().mapNotNull { it.wsdlTypeName() }.firstOrNull()
         else -> null
+    }
+}
+
+private fun Pattern.isAbstractWSDLType(): Boolean {
+    return when (this) {
+        is XMLPattern -> pattern.wsdlTypeIsAbstract
+        is AnyPattern -> pattern.any { it.isAbstractWSDLType() }
+        else -> false
+    }
+}
+
+private fun Pattern.wsdlTypeSelectionMode(): WSDLTypeSelectionMode {
+    return when (this) {
+        is XMLPattern -> pattern.wsdlTypeSelectionMode
+        is AnyPattern -> pattern.asSequence()
+            .map { it.wsdlTypeSelectionMode() }
+            .firstOrNull { it == WSDLTypeSelectionMode.CurrentTypeOnly }
+            ?: WSDLTypeSelectionMode.Polymorphic
+
+        else -> WSDLTypeSelectionMode.Polymorphic
     }
 }
 

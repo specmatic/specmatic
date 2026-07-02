@@ -19,6 +19,7 @@ data class WSDLTypeInfo(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlTypeIsAbstract: Boolean = false,
 ) {
     fun getNamespaces(wsdlNamespaces: Map<String, String>): Map<String, String> {
         logger.debug(wsdlNamespaces.toString())
@@ -39,6 +40,7 @@ data class WSDLTypeInfo(
             this.wsdlTypeName ?: otherWSDLTypeInfo.wsdlTypeName,
             this.wsdlBaseTypeNamespace ?: otherWSDLTypeInfo.wsdlBaseTypeNamespace,
             this.wsdlBaseTypeName ?: otherWSDLTypeInfo.wsdlBaseTypeName,
+            this.wsdlTypeIsAbstract || otherWSDLTypeInfo.wsdlTypeIsAbstract,
         )
     }
 
@@ -55,6 +57,7 @@ data class WSDLTypeInfo(
                 wsdlTypeName = wsdlTypeName,
                 wsdlBaseTypeNamespace = wsdlBaseTypeNamespace,
                 wsdlBaseTypeName = wsdlBaseTypeName,
+                wsdlTypeIsAbstract = wsdlTypeIsAbstract,
             )
         }
 
@@ -65,3 +68,8 @@ data class WSDLTypeInfo(
         }
     }
 }
+
+internal fun XMLNode.isAbstractNamedComplexType(): Boolean =
+    name == "complexType" &&
+            attributes.containsKey("name") &&
+            attributes["abstract"]?.toStringLiteral()?.lowercase() == "true"

@@ -135,8 +135,8 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `generate uses compatible WSDL concrete subtype variants instead of base or intermediate types`() {
-            val resolver = Resolver(newPatterns = animalPatterns())
+        fun `generate uses compatible WSDL concrete subtype variants instead of abstract base type`() {
+            val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
                 XMLTypeData(
                     name = "Animal",
@@ -152,6 +152,8 @@ internal class XMLPatternTest {
             val generated = pattern.generate(resolver)
 
             when (generated.attributes["xsi:type"]?.toStringLiteral()) {
+                "tns:Dog" -> assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
+                    .containsExactly("tns:name", "tns:breed")
                 "tns:WorkingDog" -> assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
                     .containsExactly("tns:name", "tns:breed", "tns:job")
                 "tns:Cat" -> assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
@@ -161,8 +163,8 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `newBasedOn uses compatible WSDL concrete subtype variants instead of base or intermediate types`() {
-            val resolver = Resolver(newPatterns = animalPatterns())
+        fun `newBasedOn uses compatible WSDL concrete subtype variants instead of abstract base type`() {
+            val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
                 XMLTypeData(
                     name = "Animal",
@@ -181,8 +183,7 @@ internal class XMLPatternTest {
                 .toList()
 
             assertThat(generated.map { it.attributes["xsi:type"]?.toStringLiteral() })
-                .containsExactlyInAnyOrder("tns:WorkingDog", "tns:Cat")
-            assertThat(generated).noneMatch { it.attributes["xsi:type"]?.toStringLiteral() == "tns:Dog" }
+                .containsExactlyInAnyOrder("tns:Dog", "tns:WorkingDog", "tns:Cat")
             assertThat(generated).noneMatch { it.attributes["xsi:type"] == null }
         }
 
@@ -245,7 +246,7 @@ internal class XMLPatternTest {
 
         @Test
         fun `generate avoids xsi prefix when it is already bound to a different namespace`() {
-            val resolver = Resolver(newPatterns = animalPatterns())
+            val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
                 XMLTypeData(
                     name = "Animal",
@@ -272,7 +273,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `newBasedOn uses compatible WSDL simple restriction variants instead of base type`() {
+        fun `newBasedOn includes named WSDL simple base type and compatible variants`() {
             val resolver = Resolver(newPatterns = codePatterns())
             val pattern = XMLPattern(
                 XMLTypeData(
@@ -292,8 +293,9 @@ internal class XMLPatternTest {
                 .toList()
 
             assertThat(generated.map { it.attributes["xsi:type"]?.toStringLiteral() })
-                .containsOnly("tns:ConstrainedCode")
-            assertThat(generated.map { it.childNodes.single().toStringLiteral() })
+                .contains(null, "tns:ConstrainedCode")
+            assertThat(generated.filter { it.attributes["xsi:type"]?.toStringLiteral() == "tns:ConstrainedCode" }
+                .map { it.childNodes.single().toStringLiteral() })
                 .allMatch { value -> value.matches(Regex("[A-Z0-9]{6,}")) }
         }
 
@@ -318,7 +320,8 @@ internal class XMLPatternTest {
                 .toList()
 
             assertThat(generated.map { it.attributes["xsi:type"]?.toStringLiteral() })
-                .containsOnly("tns:ConstrainedCode")
+                .contains(null, "tns:ConstrainedCode")
+                .doesNotContain("xs:string")
         }
 
         @Test
@@ -799,7 +802,7 @@ internal class XMLPatternTest {
 
     }
 
-    private fun animalPatterns(): Map<String, Pattern> {
+    private fun animalPatterns(animalIsAbstract: Boolean = false): Map<String, Pattern> {
         val animal = XMLPattern(
             XMLTypeData(
                 name = "Animal",
@@ -808,6 +811,7 @@ internal class XMLPatternTest {
                 namespaceUri = ANIMAL_NAMESPACE,
                 wsdlTypeNamespace = ANIMAL_NAMESPACE,
                 wsdlTypeName = "Animal",
+                wsdlTypeIsAbstract = animalIsAbstract,
             )
         )
         val dog = XMLPattern(
@@ -877,6 +881,7 @@ internal class XMLPatternTest {
                     CAT_TYPE to CAT_TYPE_KEY,
                 ),
                 concreteSubtypeKeys = mapOf(
+                    DOG_TYPE to DOG_TYPE_KEY,
                     WORKING_DOG_TYPE to WORKING_DOG_TYPE_KEY,
                     CAT_TYPE to CAT_TYPE_KEY,
                 ),

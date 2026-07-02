@@ -13,6 +13,7 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
+import io.specmatic.core.wsdl.parser.isAbstractNamedComplexType
 import io.specmatic.core.wsdl.payload.ComplexTypedSOAPPayload
 import io.specmatic.core.wsdl.payload.SOAPPayload
 
@@ -52,7 +53,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             accumulated.plus(childTypeInfo.types)
         }
         val wsdlType = element.typeMetadataName(wsdl, wsdlTypeReference)
-        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(wsdlType)
+        val wsdlTypeIsAbstract = complexType.complexType.isAbstractNamedComplexType()
+        val childTypeInfosWithWSDLTypeMetadata = childTypeInfos.withWSDLTypeMetadata(wsdlType, wsdlTypeIsAbstract)
         val resolvedPattern: Pattern = when (childTypeInfos.size) {
             1 -> XMLPattern(childTypeInfosWithWSDLTypeMetadata.single().xmlTypeData.copy(
                 attributes = attributePatterns,
@@ -81,6 +83,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
             namespaces,
             wsdlTypeNamespace = wsdlType?.namespace,
             wsdlTypeName = wsdlType?.localName,
+            wsdlTypeIsAbstract = wsdlTypeIsAbstract,
         )
     }
 
@@ -128,13 +131,14 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
     }
 }
 
-private fun List<WSDLTypeInfo>.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?): List<WSDLTypeInfo> =
-    map { it.withTypeMetadata(wsdlType) }
+private fun List<WSDLTypeInfo>.withWSDLTypeMetadata(wsdlType: FullyQualifiedName?, wsdlTypeIsAbstract: Boolean): List<WSDLTypeInfo> =
+    map { it.withTypeMetadata(wsdlType, wsdlTypeIsAbstract) }
 
-private fun WSDLTypeInfo.withTypeMetadata(wsdlType: FullyQualifiedName?): WSDLTypeInfo {
+private fun WSDLTypeInfo.withTypeMetadata(wsdlType: FullyQualifiedName?, wsdlTypeIsAbstract: Boolean): WSDLTypeInfo {
     return copy(
         wsdlTypeNamespace = wsdlType?.namespace,
         wsdlTypeName = wsdlType?.localName,
+        wsdlTypeIsAbstract = wsdlTypeIsAbstract,
     )
 }
 
