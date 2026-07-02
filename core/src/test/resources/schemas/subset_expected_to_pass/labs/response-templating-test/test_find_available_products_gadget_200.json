@@ -1,0 +1,28 @@
+{
+  "http-request": {
+    "path": "/findAvailableProducts",
+    "method": "GET",
+    "query": {
+      "from-date": "2026-02-15",
+      "to-date": "2026-02-15",
+      "type": "gadget"
+    },
+    "headers": {
+      "pageSize": "10"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": "$match(exact:2)",
+      "name": "$match(exact:iPhone)",
+      "type": "$match(exact:gadget)",
+      "inventory": "$match(exact:500)",
+      "createdOn": "$match(dataType:date)"
+    },
+    "status-text": "OK",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

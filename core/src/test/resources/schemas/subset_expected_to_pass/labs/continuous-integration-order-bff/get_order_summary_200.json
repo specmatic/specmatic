@@ -1,0 +1,14 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/order-summary/101"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "orderId": 101,
+      "displayStatus": "Accepted",
+      "priorityBadge": "EXPRESS"
+    }
+  }
+}

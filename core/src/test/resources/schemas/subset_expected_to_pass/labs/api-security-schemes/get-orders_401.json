@@ -1,0 +1,28 @@
+{
+  "http-request": {
+    "path": "/orders",
+    "method": "GET",
+    "query": {
+      "productid": "294",
+      "status": "Never_married"
+    },
+    "headers": {
+      "Authorization": "Basic UUtHTlY6VFJRS0k="
+    },
+    "body": ""
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Conflict",
+      "timestamp": "2026-07-01T12:26:22+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/orders"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

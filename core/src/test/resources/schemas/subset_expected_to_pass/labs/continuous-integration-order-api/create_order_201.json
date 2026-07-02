@@ -1,0 +1,22 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/orders",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "productId": "SKU-123",
+      "quantity": 2,
+      "priority": "express"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "id": 101,
+      "status": "ACCEPTED",
+      "priority": "express"
+    }
+  }
+}
