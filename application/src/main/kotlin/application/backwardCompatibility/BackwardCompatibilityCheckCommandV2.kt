@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.module.ExampleModule
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.logger
-import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -23,6 +25,11 @@ import kotlin.io.path.pathString
 )
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
+    private val exampleValidationModule = ExampleValidationModule(specmaticConfig = specmaticConfig)
+    private val exampleModule = ExampleModule(specmaticConfig)
+    private val specmaticConfigWithoutInlineExampleWarnings = object : SpecmaticConfig by specmaticConfig {
+        override fun getIgnoreInlineExampleWarnings(): Boolean = true
+    }
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
         val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature, effectiveRepoDir)
@@ -96,7 +103,7 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     override fun getFeatureFromSpecPath(path: String): Feature {
         logger.disableInfoLogging()
         return try {
-            val feature = OpenApiSpecification.fromFile(path).toFeature()
+            val feature = OpenApiSpecification.fromFile(path, specmaticConfigWithoutInlineExampleWarnings).toFeature()
             val specificationPath = File(path).canonicalFile
                 .relativeTo(File(effectiveRepoDir).canonicalFile).invariantSeparatorsPath
             feature.copy(
@@ -110,74 +117,59 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
 
     override fun regexForMatchingReferred(schemaFileName: String) = schemaFileName
 
-    override fun getSpecsOfChangedExternalisedExamples(filesChangedInCurrentBranch: Set<String>): Set<String> {
-        data class CollectedFiles(
-            val specifications: MutableSet<String> = mutableSetOf(),
-            val examplesMissingSpecifications: MutableList<String> = mutableListOf(),
-            val ignoredFiles: MutableList<String> = mutableListOf()
-        )
+    override fun getSpecsOfChangedExternalisedExamples(
+        filesChangedInCurrentBranch: Set<String>
+    ): Set<String> {
+        return filesChangedInCurrentBranch.asSequence().filter {
+            File(it).isExternalisedExample()
+        }.mapNotNull {
+            getParentExamplesDirectory(Paths.get(it))
+        }.distinct().flatMap { examplesDir ->
+            val specBasePath = examplesDir.parent.resolve(
+                examplesDir.fileName.toString().removeSuffix("_examples")
+            )
 
-        val collectedFiles = filesChangedInCurrentBranch.fold(CollectedFiles()) { acc, filePath ->
-            val path = Paths.get(filePath)
-            val examplesDir = getParentExamplesDirectory(path)
-
-            if (examplesDir == null) {
-                acc.ignoredFiles.add(filePath)
-            } else {
-                val parentPath = examplesDir.parent
-                val strippedPath = parentPath.resolve(examplesDir.fileName.toString().removeSuffix("_examples"))
-                val specFiles = findSpecFiles(strippedPath)
-
-                if (specFiles.isNotEmpty()) {
-                    acc.specifications.addAll(specFiles.map { it.toString() })
-                } else {
-                    acc.examplesMissingSpecifications.add(filePath)
-                }
-            }
-            acc
-        }
-
-        val result = collectedFiles.specifications.toMutableSet()
-
-        collectedFiles.examplesMissingSpecifications.forEach { filePath ->
-            val path = Paths.get(filePath)
-            val examplesDir = getParentExamplesDirectory(path)
-            if (examplesDir != null) {
-                val parentPath = examplesDir.parent
-                val strippedPath = parentPath.resolve(examplesDir.fileName.toString().removeSuffix("_examples"))
-                val specFiles = findSpecFiles(strippedPath)
-                if (specFiles.isNotEmpty()) {
-                    result.addAll(specFiles.map { it.toString() })
-                } else {
-                    result.add("${strippedPath}.yaml")
-                }
-            }
-        }
-
-        return result
+            findSpecFiles(specBasePath)
+                .map { it.toString() }
+                .ifEmpty { listOf("$specBasePath.yaml") }
+        }.toSet()
     }
 
     fun getParentExamplesDirectory(path: Path): Path? {
         return generateSequence(path, Path::getParent).find {
-            it.pathString.endsWith("_examples") || it.pathString.endsWith("_tests")
+            it.pathString.endsWith("_examples")
         }
     }
 
-    override fun areExamplesValid(feature: IFeature, which: String): Boolean {
+    override fun File.isExternalisedExample(): Boolean = isFile && extension == "json" && runCatching { ScenarioStub.readFromFile(this) }.isSuccess
+
+    override fun evaluateExternalisedExamplesForBackwardCompatibility(feature: IFeature): ExternalisedExampleBackwardCompatibilityEvaluation {
         feature as Feature
+        logger.disableInfoLogging()
         return try {
-            feature.validateExamplesOrException()
-            true
-        } catch (t: Throwable) {
-            logger.log(exceptionCauseMessage(t))
-            println()
-            false
-        }
-    }
+            val repoDir = File(effectiveRepoDir).canonicalFile
+            val externalExampleDirectories = exampleModule.getExamplesDirPaths(File(feature.path))
+                .filter(File::isDirectory)
 
-    override fun getUnusedExamples(feature: IFeature): Set<String> {
-        feature as Feature
-        return feature.loadExternalisedExamplesAndListUnloadableExamples().second
+            val externalExampleFiles = externalExampleDirectories
+                .flatMap { examplesDir ->
+                    examplesDir.walk().filter { it.isFile && it.extension == "json" }.toList()
+                }
+                .distinctBy { it.canonicalPath }
+
+            ExternalisedExampleBackwardCompatibilityEvaluation(
+                validationResults = exampleValidationModule.validateExamples(feature, examples = externalExampleFiles),
+                directories = externalExampleDirectories
+                    .map { it.canonicalFile.relativeTo(repoDir).invariantSeparatorsPath }
+                    .toSet(),
+                files = externalExampleFiles
+                    .map { it.canonicalFile.relativeTo(repoDir).invariantSeparatorsPath }
+                    .toSet(),
+                unloadableExamples = feature.loadExternalisedExamplesAndListUnloadableExamples().second
+            )
+        } finally {
+            logger.enableInfoLogging()
+        }
     }
 
     private fun findSpecFiles(path: Path): List<Path> {

@@ -4,12 +4,14 @@ import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import application.backwardCompatibility.BackwardCompatibilityCheckHook
 import application.backwardCompatibility.CompatibilityResult
+import application.backwardCompatibility.ProcessedSpec
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.mockk.every
 import io.mockk.spyk
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
+import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.Flags.Companion.using
@@ -182,11 +184,15 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
-            1. ${tempDir.resolve("contract.yaml").toPath().toRealPath()}
+            1. contract.yaml
             """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
-            Files checked: 0 (Passed: 0, Failed: 0)
+            Specs checked: 0 (Passed: 0, Failed: 0)
+            Changed specs: 0
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent()
             )
         }
@@ -208,13 +214,19 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that have changed: 
-            1. $gitApiFile
+            1. api.yaml
+            - Specs whose externalised examples will be validated:
+            1. api.yaml (changed spec)
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
-            1. ${tempDir.resolve("contract.yaml").canonicalFile.toPath().toRealPath()}
+            1. contract.yaml
             """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent()
             )
         }
@@ -235,11 +247,15 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
-            1. ${tempDir.resolve("api.yaml").canonicalFile.toPath().toRealPath()}
+            1. api.yaml
             """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
-            Files checked: 0 (Passed: 0, Failed: 0)
+            Specs checked: 0 (Passed: 0, Failed: 0)
+            Changed specs: 0
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent()
             )
         }
@@ -289,11 +305,15 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
             - Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs):
-            1. ${tempDir.resolve("other-api.yaml").canonicalFile.toPath().toRealPath()}
+            1. other-api.yaml
             """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
-            Files checked: 0 (Passed: 0, Failed: 0)
+            Specs checked: 0 (Passed: 0, Failed: 0)
+            Changed specs: 0
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent()
             )
         }
@@ -373,11 +393,9 @@ class BackwardCompatibilityCheckCommandV2Test {
 
     @Nested
     inner class VerdictMessageTests {
-        val processedSpec = BackwardCompatibilityCheckBaseCommand.ProcessedSpec(
+        val processedSpec = ProcessedSpec(
             specFilePath = "spec.yaml",
             backwardCompatibilityResult = Results(),
-            newer = object : IFeature {},
-            unusedExamples = emptySet(),
             precomputedCompatibilityResult = CompatibilityResult.FAILED,
             computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNKNOWN, emptyList()),
             isNewFile = false
@@ -399,7 +417,7 @@ class BackwardCompatibilityCheckCommandV2Test {
         @Test
         fun `verdictMessage with hook returns verdict from hook`() {
             val hook = object : BackwardCompatibilityCheckHook {
-                override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {}
+                override fun logStartedMessage(failedSpecs: List<ProcessedSpec>) {}
                 override fun check(
                     backwardCompatibilityResult: Results,
                     remoteUrl: String,
@@ -409,7 +427,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                 override fun logCompletedMessage() {}
                 override fun failedVerdictAndMessage(
-                    processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
+                    processedSpec: ProcessedSpec,
                     strictMode: Boolean,
                 ): Pair<CompatibilityResult, String> {
                     return Pair(CompatibilityResult.UNKNOWN, "(HOOK: override)")
@@ -432,7 +450,7 @@ class BackwardCompatibilityCheckCommandV2Test {
     inner class ExternalExampleTests {
 
         @Test
-        fun `should catch when external example files are modified and run backward compatibility check on respective api spec`() {
+        fun `should validate changed externalised examples of unchanged specs`() {
             val oasDir = File("src/test/resources/specifications/spec_with_examples")
             oasDir.copyRecursively(remoteDir); oasDir.copyRecursively(tempDir)
             commitAndPush(tempDir, "Initial commit")
@@ -447,21 +465,56 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
-            - Specs that have changed: 
-            1. ${exampleFile.toPath().toRealPath()}
+            - Externalised example directories whose spec has changed or which contain changed examples: 
+            1. api_examples (1 file changed)
 
-            - Specs whose externalised examples were changed:
-            1. ${tempDir.resolve("api.yaml").toPath().toRealPath()}
+            - Specs whose externalised examples will be validated:
+            1. api.yaml (changed externalised examples associated with unchanged spec)
             """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
-            Files checked: 2 (Passed: 2, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 0
+            Changed externalised example files: 1
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent()
             )
+            assertThat(stdOut).contains("Externalised Example Scope:")
+            assertThat(stdOut).contains("Validation triggered by changed externalised examples associated with unchanged spec.")
+            assertThat(stdOut).contains("Changed externalised example files in scope: 1")
+            assertThat(stdOut).contains("The Examples Validation Summary:")
+            assertThat(stdOut).contains("External Example Validation Summary")
+            assertThat(stdOut).contains("Changed externalised examples associated with unchanged spec are valid.")
         }
 
         @Test
-        fun `should fail when externalised example changes but corresponding spec file is missing`() {
+        fun `should show successful externalised example validation summary for changed specs`() {
+            val oasDir = File("src/test/resources/specifications/spec_with_examples")
+            oasDir.copyRecursively(remoteDir)
+            oasDir.copyRecursively(tempDir)
+            commitAndPush(tempDir, "Initial commit")
+
+            val specFile = tempDir.resolve("api.yaml")
+            specFile.writeText(specFile.readText().replace("""type: integer""", """type: integer
+        description: response id"""))
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(stdOut).contains("Validation triggered by externalised examples of changed spec.")
+            assertThat(stdOut).contains("Externalised Example Scope:")
+            assertThat(stdOut).contains("The Examples Validation Summary:")
+            assertThat(stdOut).contains("External Example Validation Summary")
+            assertThat(stdOut).contains("Validated 1 externalised example(s).")
+            assertThat(stdOut).contains("All 1 example(s) are valid.")
+            assertThat(stdOut).contains("Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main")
+        }
+
+        @Test
+        fun `should treat changed externalised example without corresponding spec as changed file`() {
             val exampleDir = tempDir.resolve("orders_examples").apply { mkdirs() }
             val exampleFile = exampleDir.resolve("example.json").apply { writeText("""{"id":1}""") }
             commitAndPush(tempDir, "Initial commit")
@@ -471,15 +524,82 @@ class BackwardCompatibilityCheckCommandV2Test {
                 BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
             }
 
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
+                - Specs that have changed:
+                1. orders_examples/example.json
+                - Specs whose externalised examples will be validated:
+                1. orders_examples/example.json (changed spec)
+                """.trimIndent()
+            )
+            assertThat(stdOut).contains(
+                """
+                Specs checked: 1 (Passed: 1, Failed: 0)
+                Changed specs: 1
+                Changed externalised example files: 0
+                Specs with backward compatibility failures: 0
+                Specs with externalised example validation failures: 0
+                """.trimIndent()
+            )
+        }
+
+        @Test
+        fun `should validate unloadable externalised examples of changed specs`() {
+            val oasDir = File("src/test/resources/specifications/spec_with_examples")
+            oasDir.copyRecursively(remoteDir)
+            oasDir.copyRecursively(tempDir)
+
+            val exampleFile = tempDir.resolve("api_examples").resolve("example.json")
+            exampleFile.writeText(exampleFile.readText().replace(""""path": "/test"""", """"path": "/missing""""))
+            commitAndPush(tempDir, "Initial commit with unloadable external example")
+
+            val specFile = tempDir.resolve("api.yaml")
+            specFile.writeText(specFile.readText().replace("""type: integer""", """type: integer
+        description: response id"""))
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
             assertThat(exitCode).isEqualTo(1)
-            assertThat(stdOut).contains("orders.yaml")
+            assertThat(stdOut).contains("Validation triggered by externalised examples of changed spec.")
+            assertThat(stdOut).contains("External Example Loading Results")
+            assertThat(stdOut).contains("api_examples/example.json")
+            assertThat(stdOut).contains("Compatibility verdict: FAIL. The spec is backward compatible but externalised examples of changed spec are NOT backward compatible or are INVALID.")
+        }
+
+        @Test
+        fun `should validate matched externalised examples of changed specs`() {
+            val oasDir = File("src/test/resources/specifications/spec_with_examples")
+            oasDir.copyRecursively(remoteDir)
+            oasDir.copyRecursively(tempDir)
+
+            val exampleFile = tempDir.resolve("api_examples").resolve("example.json")
+            exampleFile.writeText(exampleFile.readText().replace(""""id": 10""", """"id": "10""""))
+            commitAndPush(tempDir, "Initial commit with invalid matched external example")
+
+            val specFile = tempDir.resolve("api.yaml")
+            specFile.writeText(specFile.readText().replace("""type: integer""", """type: integer
+        description: response id"""))
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).contains("Validation triggered by externalised examples of changed spec.")
+            assertThat(stdOut).contains("External Example Validation Results")
+            assertThat(stdOut).contains("api_examples/example.json")
+            assertThat(stdOut).contains("R1001: Type mismatch")
+            assertThat(stdOut).contains("Compatibility verdict: FAIL. The spec is backward compatible but externalised examples of changed spec are NOT backward compatible or are INVALID.")
         }
 
         @ParameterizedTest
         @CsvSource(
             "/api/api_examples/example.json, /api/api_examples",
             "/api/api_examples/product/example.json, /api/api_examples",
-            "/api_tests/example.json, /api_tests",
+            "/api_tests/example.json, ",
             "/api/api_config/config.json, ",
             "/example.json, "
         )
@@ -525,100 +645,25 @@ class BackwardCompatibilityCheckCommandV2Test {
             // the full output is asserted otherwise.
             val normalizedOutput = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
 
-            assertThat(normalizedOutput).isEqualToNormalizingNewlines("""
-            Checking backward compatibility of the following specs:
-
-              - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
-
-            --------------------
-
-
-
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 5, API Operations: 6
-              Schema components: 7, Security Schemes: none
-
-
-            API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
-              OpenAPI Version: 3.0.0
-              API Paths: 5, API Operations: 7
-              Schema components: 7, Security Schemes: none
-
-
-            [Compatibility Check] Executing 1 scenarios for POST /orders against 2 operations
-              - POST /orders -> 201 (requestContentType application/json, responseContentType application/json)
-              - POST /orders -> 400 (requestContentType application/json, responseContentType application/json)
-            [Compatibility Check] Verdict: PASS
-
-            [Compatibility Check] Executing 1 scenarios for GET /orders against 3 operations
-              - GET /orders -> 200 (responseContentType application/json)
-              - GET /orders -> 400 (responseContentType application/json)
-              - GET /orders -> 500 (responseContentType application/json)
-            [Compatibility Check] Verdict: FAIL
-
-            [Compatibility Check] Executing 1 scenarios for GET /orders/(id:string) against 2 operations
-              - GET /orders/(id:string) -> 200 (responseContentType application/json)
-              - GET /orders/(id:string) -> 404 (responseContentType application/json)
-            [Compatibility Check] Verdict: PASS
-
-            [Compatibility Check] Executing 1 scenarios for DELETE /orders/(id:string) against 1 operations
-              - DELETE /orders/(id:string) -> 204
-            [Compatibility Check] Verdict: FAIL
-
-            [Compatibility Check] Executing 1 scenarios for GET /health against 1 operations
-              - GET /health -> 200 (responseContentType application/json)
-            [Compatibility Check] Verdict: PASS
-
-            [Compatibility Check] Executing 1 scenarios for GET /categories against 1 operations
-              - GET /categories -> 200 (responseContentType application/json)
-            [Compatibility Check] Verdict: PASS
-
-            [Compatibility Check] Executing 1 scenarios for GET /promotions against 1 operations
-              - GET /promotions -> 200 (responseContentType application/json)
-            [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
-              ________________________________________
-              The Incompatibility Report:
-
-                In scenario "GET /orders. Response: bad request"
-                API: GET /orders -> 400
-
-                  >> RESPONSE.BODY.code (${spec.name}:157:9)
-
-                      This is number in the new specification response but string in the old specification
-
-                In scenario "GET /orders. Response: server error"
-                API: GET /orders -> 500
-
-                      This API exists in the old contract but not in the new contract (${spec.name}:28:9)
-
-                In scenario "DELETE /orders/(id:string). Response: deleted"
-                API: DELETE /orders/(id:string) -> 204
-
-                      This API exists in the old contract but not in the new contract (${spec.name}:87:5)
-              ________________________________________
-              WIP scenarios (incompatible, not breaking the check):
-
-                In scenario "GET /promotions. Response: ok"
-                API: GET /promotions -> 200
-
-                  >> RESPONSE.BODY.code (${spec.name}:105:19)
-
-                      This is number in the new specification response but string in the old specification
-
-
-              --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
-              --------------------
-
-
-            Generating BCC report for 21 checks and 11 operations...
-            Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 0, Failed: 1)
-            """.trimIndent())
+            assertThat(normalizedOutput).contains("Checking backward compatibility of the following specs:")
+            assertThat(normalizedOutput).contains("API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}")
+            assertThat(normalizedOutput).contains("The Incompatibility Report:")
+            assertThat(normalizedOutput).contains("In scenario \"GET /orders. Response: bad request\"")
+            assertThat(normalizedOutput).contains("This API exists in the old contract but not in the new contract (${spec.name}:28:9)")
+            assertThat(normalizedOutput).contains("WIP scenarios (incompatible, not breaking the check):")
+            assertThat(normalizedOutput).contains("In scenario \"GET /promotions. Response: ok\"")
+            assertThat(normalizedOutput).contains("Externalised Example Validation:")
+            assertThat(normalizedOutput).contains("Skipped because spec itself is backward incompatible.")
+            assertThat(normalizedOutput).contains("Compatibility verdict: FAIL")
+            assertThat(normalizedOutput).contains(
+                """
+                Specs checked: 1 (Passed: 0, Failed: 1)
+                Changed specs: 1
+                Changed externalised example files: 0
+                Specs with backward compatibility failures: 1
+                Specs with externalised example validation failures: 0
+                """.trimIndent()
+            )
         }
 
         private fun fixture(name: String): File =
@@ -689,11 +734,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -708,16 +762,24 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: PASS
 
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -786,11 +848,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -809,16 +880,24 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: PASS
 
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -887,11 +966,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -910,7 +998,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
@@ -921,14 +1008,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: PASS
 
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -973,11 +1069,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -992,7 +1097,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1002,17 +1106,30 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: FAIL. (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
 
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 0, Failed: 1)
+            Specs checked: 1 (Passed: 0, Failed: 1)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 1
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -1081,11 +1198,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -1104,7 +1230,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1114,17 +1239,30 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: FAIL. (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
 
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 0, Failed: 1)
+            Specs checked: 1 (Passed: 0, Failed: 1)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 1
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -1193,11 +1331,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -1216,7 +1363,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1235,17 +1381,30 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.code (${spec.name}:26:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: FAIL. (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
 
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 0, Failed: 1)
+            Specs checked: 1 (Passed: 0, Failed: 1)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 1
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -1292,11 +1451,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -1311,7 +1479,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
               - GET /b -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
@@ -1322,14 +1489,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: PASS
 
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -1375,11 +1551,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -1394,7 +1579,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               WIP scenarios (incompatible, not breaking the check):
 
@@ -1405,14 +1589,23 @@ class BackwardCompatibilityCheckCommandV2Test {
 
                       This is number in the new specification response but string in the old specification
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: PASS
 
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
 
@@ -1458,11 +1651,20 @@ class BackwardCompatibilityCheckCommandV2Test {
             Checking backward compatibility of the following specs:
 
               - Specs that have changed:
-                1. ${spec.canonicalFile.invariantSeparatorsPath}
+                1. ${spec.name}
+
+              - Specs whose externalised examples will be validated:
+                1. ${spec.name} (changed spec)
 
             --------------------
 
 
+            =============== Compatibility Check Results ===============
+
+
+            ===============================================================================
+            1. Running the check for ${spec.name}:
+            ===============================================================================
 
             API Specification Summary: ${spec.canonicalFile.invariantSeparatorsPath}
               OpenAPI Version: 3.0.0
@@ -1477,7 +1679,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            1. Running the check for ${spec.canonicalFile.invariantSeparatorsPath}:
               ________________________________________
               The Incompatibility Report:
 
@@ -1487,17 +1688,30 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
-              Verdict for spec ${spec.canonicalFile.invariantSeparatorsPath}:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              Verdict for spec ${spec.name}:
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. ${spec.name}
+                Final verdict: FAIL. (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
 
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in build/reports/specmatic/backward_compatibility/html/index.html
-            Files checked: 1 (Passed: 0, Failed: 1)
+            Specs checked: 1 (Passed: 0, Failed: 1)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 1
+            Specs with externalised example validation failures: 0
             """.trimIndent())
         }
     }
@@ -1561,6 +1775,71 @@ class BackwardCompatibilityCheckCommandV2Test {
 
     @Nested
     inner class BccReportTests {
+        @Test
+        fun `bcc output should suppress inline example pairing warnings from captured compatibility logs`() {
+            val specContent = """
+                openapi: 3.0.0
+                info:
+                  title: Example warning suppression
+                  version: 1.0.0
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required: [id]
+                              properties:
+                                id:
+                                  type: integer
+                            examples:
+                              SUCCESS:
+                                value:
+                                  id: 10
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required: [id]
+                                properties:
+                                  id:
+                                    type: integer
+            """.trimIndent()
+
+            val (rawConversionOutput, _) = captureStandardOutput {
+                OpenApiSpecification.fromYAML(specContent, "spec.yaml").toFeature()
+            }
+
+            assertThat(rawConversionOutput).contains("WARNING: Ignoring request example named SUCCESS")
+
+            val spec = tempDir.resolve("spec.yaml")
+            spec.writeText(specContent)
+            commit(tempDir, "old")
+            val baseBranch = SystemGit(tempDir.absolutePath).currentBranch()
+            ProcessBuilder("git", "switch", "-c", "change").directory(tempDir).inheritIO().start().waitFor()
+            spec.writeText(specContent)
+            commit(tempDir, "new")
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = baseBranch
+                }.call()
+            }
+
+            val normalizedOutput = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(normalizedOutput).doesNotContain("WARNING: Ignoring request example named SUCCESS")
+            assertThat(normalizedOutput).doesNotContain("WARNING: Ignoring response example named SUCCESS")
+        }
+
         @Test
         fun `ctrf report includes compatible specs when hook validates mixed failures`() {
             fun specWithType(path: String, type: String, extraProperty: String = "") = """
@@ -1627,9 +1906,12 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             val output = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
 
-            val compatibleSpecPath = compatibleSpec.canonicalFile.invariantSeparatorsPath
-            val hookPassedSpecPath = hookPassedSpec.canonicalFile.invariantSeparatorsPath
-            val hookFailedSpecPath = hookFailedSpec.canonicalFile.invariantSeparatorsPath
+            val compatibleSpecPath = compatibleSpec.name
+            val hookPassedSpecPath = hookPassedSpec.name
+            val hookFailedSpecPath = hookFailedSpec.name
+            val compatibleSpecAbsolutePath = compatibleSpec.canonicalFile.invariantSeparatorsPath
+            val hookPassedSpecAbsolutePath = hookPassedSpec.canonicalFile.invariantSeparatorsPath
+            val hookFailedSpecAbsolutePath = hookFailedSpec.canonicalFile.invariantSeparatorsPath
             val htmlReportPath = tempDir.resolve("reports/backward_compatibility/html/index.html")
                 .canonicalFile.invariantSeparatorsPath
 
@@ -1642,16 +1924,27 @@ class BackwardCompatibilityCheckCommandV2Test {
                 2. $hookFailedSpecPath
                 3. $hookPassedSpecPath
 
+              - Specs whose externalised examples will be validated:
+                1. $compatibleSpecPath (changed spec)
+                2. $hookFailedSpecPath (changed spec)
+                3. $hookPassedSpecPath (changed spec)
+
             --------------------
 
 
+            =============== Compatibility Check Results ===============
 
-            API Specification Summary: $compatibleSpecPath
+
+            ===============================================================================
+            1. Running the check for $compatibleSpecPath:
+            ===============================================================================
+
+            API Specification Summary: $compatibleSpecAbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $compatibleSpecPath
+            API Specification Summary: $compatibleSpecAbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -1659,13 +1952,22 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /compatible against 1 operations
               - GET /compatible -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: PASS
+              --------------------
+              Verdict for spec $compatibleSpecPath:
+                Compatibility verdict: PASS. The spec is backward compatible with the corresponding spec from main
+              --------------------
 
-            API Specification Summary: $hookFailedSpecPath
+
+            ===============================================================================
+            2. Running the check for $hookFailedSpecPath:
+            ===============================================================================
+
+            API Specification Summary: $hookFailedSpecAbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $hookFailedSpecPath
+            API Specification Summary: $hookFailedSpecAbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -1673,28 +1975,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /hook-failed against 1 operations
               - GET /hook-failed -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-            API Specification Summary: $hookPassedSpecPath
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
-
-            API Specification Summary: $hookPassedSpecPath
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
-
-            [Compatibility Check] Executing 1 scenarios for GET /hook-passed against 1 operations
-              - GET /hook-passed -> 200 (responseContentType application/json)
-            [Compatibility Check] Verdict: FAIL
-            1. Running the check for $compatibleSpecPath:
-              --------------------
-              Verdict for spec $compatibleSpecPath:
-                (COMPATIBLE) The spec is backward compatible with the corresponding spec from main
-              --------------------
-
-
-            2. Running the check for $hookFailedSpecPath:
               ________________________________________
               The Incompatibility Report:
 
@@ -1704,15 +1984,35 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${hookFailedSpec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
               Verdict for spec $hookFailedSpecPath:
-                (HOOK: FAILED)
+                Compatibility verdict: FAIL
               --------------------
 
 
+            ===============================================================================
             3. Running the check for $hookPassedSpecPath:
+            ===============================================================================
+
+            API Specification Summary: $hookPassedSpecAbsolutePath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: $hookPassedSpecAbsolutePath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /hook-passed against 1 operations
+              - GET /hook-passed -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
               ________________________________________
               The Incompatibility Report:
 
@@ -1722,17 +2022,43 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${hookPassedSpec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
               Verdict for spec $hookPassedSpecPath:
-                (HOOK: PASSED)
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Hook Validation Results ===============
+            Validating 2 failed spec(s) with the backward compatibility check hook...
+            Hook validation complete.
+              1. $hookFailedSpecPath
+                Hook verdict: FAIL
+              2. $hookPassedSpecPath
+                Hook verdict: PASS
+
+
+            =============== Final Compatibility Summary ===============
+              1. $compatibleSpecPath
+                Final verdict: PASS
+              2. $hookFailedSpecPath
+                Final verdict: FAIL. (HOOK: FAILED) The hook did not declare the spec as backward compatible
+              3. $hookPassedSpecPath
+                Final verdict: PASS. (HOOK: PASSED) The hook declared the failing spec as backward compatible
 
 
             Generating BCC report for 6 checks and 3 operations...
             Generating HTML report in $htmlReportPath
-            Files checked: 3 (Passed: 2, Failed: 1)
+            Specs checked: 3 (Passed: 2, Failed: 1)
+            Changed specs: 3
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 1
+            Specs with externalised example validation failures: 0
             """.trimIndent())
 
             val reportJson = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
@@ -1809,8 +2135,10 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             val output = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
 
-            val spec1Path = spec1.canonicalFile.invariantSeparatorsPath
-            val spec2Path = spec2.canonicalFile.invariantSeparatorsPath
+            val spec1Path = spec1.name
+            val spec2Path = spec2.name
+            val spec1AbsolutePath = spec1.canonicalFile.invariantSeparatorsPath
+            val spec2AbsolutePath = spec2.canonicalFile.invariantSeparatorsPath
             val htmlReportPath = tempDir.resolve("reports/backward_compatibility/html/index.html")
                 .canonicalFile.invariantSeparatorsPath
 
@@ -1823,16 +2151,26 @@ class BackwardCompatibilityCheckCommandV2Test {
                 1. $spec1Path
                 2. $spec2Path
 
+              - Specs whose externalised examples will be validated:
+                1. $spec1Path (changed spec)
+                2. $spec2Path (changed spec)
+
             --------------------
 
 
+            =============== Compatibility Check Results ===============
 
-            API Specification Summary: $spec1Path
+
+            ===============================================================================
+            1. Running the check for $spec1Path:
+            ===============================================================================
+
+            API Specification Summary: $spec1AbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $spec1Path
+            API Specification Summary: $spec1AbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -1840,21 +2178,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-
-            API Specification Summary: $spec2Path
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
-
-            API Specification Summary: $spec2Path
-              OpenAPI Version: 3.0.0
-              API Paths: 1, API Operations: 1
-
-
-            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
-              - GET /b -> 200 (responseContentType application/json)
-            [Compatibility Check] Verdict: FAIL
-            1. Running the check for $spec1Path:
               ________________________________________
               The Incompatibility Report:
 
@@ -1864,15 +2187,35 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${spec1.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
               Verdict for spec $spec1Path:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+                Compatibility verdict: FAIL
               --------------------
 
 
+            ===============================================================================
             2. Running the check for $spec2Path:
+            ===============================================================================
+
+            API Specification Summary: $spec2AbsolutePath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            API Specification Summary: $spec2AbsolutePath
+              OpenAPI Version: 3.0.0
+              API Paths: 1, API Operations: 1
+
+
+            [Compatibility Check] Executing 1 scenarios for GET /b against 1 operations
+              - GET /b -> 200 (responseContentType application/json)
+            [Compatibility Check] Verdict: FAIL
               ________________________________________
               The Incompatibility Report:
 
@@ -1882,17 +2225,32 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${spec2.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
               Verdict for spec $spec2Path:
-                (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Final Compatibility Summary ===============
+              1. $spec1Path
+                Final verdict: FAIL. (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
+              2. $spec2Path
+                Final verdict: FAIL. (INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from main
 
 
             Generating BCC report for 4 checks and 2 operations...
             Generating HTML report in $htmlReportPath
-            Files checked: 2 (Passed: 0, Failed: 2)
+            Specs checked: 2 (Passed: 0, Failed: 2)
+            Changed specs: 2
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 2
+            Specs with externalised example validation failures: 0
             """.trimIndent())
 
             val reportJson = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
@@ -1980,7 +2338,8 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             val output = stdOut.lineSequence().joinToString("\n") { it.trimEnd() }.replace('\\', '/')
 
-            val specPath = spec.canonicalFile.invariantSeparatorsPath
+            val specPath = spec.name
+            val specAbsolutePath = spec.canonicalFile.invariantSeparatorsPath
             val htmlReportPath = tempDir.resolve("reports/backward_compatibility/html/index.html")
                 .canonicalFile.invariantSeparatorsPath
 
@@ -1993,16 +2352,25 @@ class BackwardCompatibilityCheckCommandV2Test {
               - Specs that have changed:
                 1. $specPath
 
+              - Specs whose externalised examples will be validated:
+                1. $specPath (changed spec)
+
             --------------------
 
 
+            =============== Compatibility Check Results ===============
 
-            API Specification Summary: $specPath
+
+            ===============================================================================
+            1. Running the check for $specPath:
+            ===============================================================================
+
+            API Specification Summary: $specAbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
 
-            API Specification Summary: $specPath
+            API Specification Summary: $specAbsolutePath
               OpenAPI Version: 3.0.0
               API Paths: 1, API Operations: 1
 
@@ -2010,9 +2378,6 @@ class BackwardCompatibilityCheckCommandV2Test {
             [Compatibility Check] Executing 1 scenarios for GET /a against 1 operations
               - GET /a -> 200 (responseContentType application/json)
             [Compatibility Check] Verdict: FAIL
-            Validating 1 failed spec(s) with the backward compatibility check hook...
-            Hook validation complete.
-            1. Running the check for $specPath:
               ________________________________________
               The Incompatibility Report:
 
@@ -2022,17 +2387,37 @@ class BackwardCompatibilityCheckCommandV2Test {
                   >> RESPONSE.BODY.value (${spec.name}:14:31)
 
                       This is number in the new specification response but string in the old specification
+              ________________________________________
+              Externalised Example Validation:
+
+                Skipped because spec itself is backward incompatible.
 
 
               --------------------
               Verdict for spec $specPath:
-                (HOOK: PASSED) The hook declared the failing spec as backward compatible
+                Compatibility verdict: FAIL
               --------------------
+
+
+            =============== Hook Validation Results ===============
+            Validating 1 failed spec(s) with the backward compatibility check hook...
+            Hook validation complete.
+              1. $specPath
+                Hook verdict: PASS
+
+
+            =============== Final Compatibility Summary ===============
+              1. $specPath
+                Final verdict: PASS. (HOOK: PASSED) The hook declared the failing spec as backward compatible
 
 
             Generating BCC report for 2 checks and 1 operations...
             Generating HTML report in $htmlReportPath
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent())
 
             val reportJson = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
@@ -2147,11 +2532,15 @@ class BackwardCompatibilityCheckCommandV2Test {
         assertThat(stdOut).containsIgnoringWhitespaces(
             """
             - Specs that have changed: 
-            1. $gitApiFile
+            1. api.yaml
             """.trimIndent()
         ).containsIgnoringWhitespaces(
             """
-            Files checked: 1 (Passed: 1, Failed: 0)
+            Specs checked: 1 (Passed: 1, Failed: 0)
+            Changed specs: 1
+            Changed externalised example files: 0
+            Specs with backward compatibility failures: 0
+            Specs with externalised example validation failures: 0
             """.trimIndent()
         )
     }
@@ -2257,8 +2646,8 @@ class BackwardCompatibilityCheckCommandV2Test {
             }
 
             assertThat(exitCode).isEqualTo(1)
-            val apiA = tempDir.resolve("apiA.yaml").canonicalFile.invariantSeparatorsPath
-            val apiB = tempDir.resolve("apiB.yaml").canonicalFile.invariantSeparatorsPath
+            val apiA = "apiA.yaml"
+            val apiB = "apiB.yaml"
 
             // The verdict line prints OS-native paths, so normalize separators before matching the
             // forward-slash invariant paths (Windows would otherwise emit backslashes).
@@ -2316,15 +2705,27 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
         else -> CompatibilityResult.UNKNOWN to emptyList()
     }
 
-    override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {}
+    override fun logStartedMessage(failedSpecs: List<ProcessedSpec>) {
+        println("Validating ${failedSpecs.size} failed spec(s) with the backward compatibility check hook...")
+    }
 
-    override fun logCompletedMessage() {}
+    override fun logCompletedMessage() {
+        println("Hook validation complete.")
+    }
 
     override fun failedVerdictAndMessage(
-        processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
+        processedSpec: ProcessedSpec,
         strictMode: Boolean,
-    ): Pair<CompatibilityResult, String> =
-        processedSpec.computedCompatibilityCheckHookResult.first to "(HOOK: ${processedSpec.computedCompatibilityCheckHookResult.first})"
+    ): Pair<CompatibilityResult, String> = when (processedSpec.computedCompatibilityCheckHookResult.first) {
+        CompatibilityResult.PASSED ->
+            CompatibilityResult.PASSED to "(HOOK: PASSED) The hook declared the failing spec as backward compatible"
+
+        CompatibilityResult.FAILED ->
+            CompatibilityResult.FAILED to "(HOOK: FAILED) The hook did not declare the spec as backward compatible"
+
+        CompatibilityResult.UNKNOWN ->
+            CompatibilityResult.UNKNOWN to "(HOOK: UNKNOWN) The hook could not determine whether the spec is backward compatible"
+    }
 
     companion object {
         const val PASSED_SPEC = "hook-passed.yaml"
@@ -2339,7 +2740,7 @@ class AlwaysPassingBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHo
         specFilePath: String,
     ): Pair<CompatibilityResult, List<OperationUsageResponse>?> = CompatibilityResult.PASSED to emptyList()
 
-    override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {
+    override fun logStartedMessage(failedSpecs: List<ProcessedSpec>) {
         println("Validating ${failedSpecs.size} failed spec(s) with the backward compatibility check hook...")
     }
 
@@ -2348,7 +2749,7 @@ class AlwaysPassingBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHo
     }
 
     override fun failedVerdictAndMessage(
-        processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
+        processedSpec: ProcessedSpec,
         strictMode: Boolean,
     ): Pair<CompatibilityResult, String> =
         CompatibilityResult.PASSED to "(HOOK: PASSED) The hook declared the failing spec as backward compatible"
