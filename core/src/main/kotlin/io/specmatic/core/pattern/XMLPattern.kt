@@ -1065,11 +1065,11 @@ data class XMLPattern(
     override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
         return when {
             occurMultipleTimes() ->
-                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map {
-                    generate(resolver) as XMLValue
+                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).flatMap {
+                    generatedValueAsXMLChildValues(generate(resolver))
                 }
 
-            else -> listOf(generate(resolver) as XMLValue)
+            else -> generatedValueAsXMLChildValues(generate(resolver))
         }
     }
 

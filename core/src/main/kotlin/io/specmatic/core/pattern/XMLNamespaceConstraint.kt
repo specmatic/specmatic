@@ -205,7 +205,7 @@ data class XMLWildcardPattern(
     }
 
     override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return (generate(resolver) as XMLNode).childNodes
+        return generatedContainerChildValues(resolver)
     }
 
     private fun generatedNode(): XMLNode {

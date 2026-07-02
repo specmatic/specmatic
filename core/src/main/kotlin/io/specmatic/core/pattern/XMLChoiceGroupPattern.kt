@@ -5,7 +5,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
@@ -126,11 +125,7 @@ data class XMLChoiceGroupPattern(
                     } ?: return@flatMap emptyList()
                 }
 
-                when (generated) {
-                    is XMLNode -> listOf(generated)
-                    is XMLValue -> listOf(generated)
-                    else -> listOf(StringValue(generated.toStringLiteral()))
-                }
+                generatedValueAsXMLChildValues(generated)
             }
         }
     }
@@ -511,15 +506,7 @@ data class XMLSequencePattern(
         return members.flatMap { pattern ->
             when (pattern) {
                 is XMLChildGenerationPattern -> pattern.generateXMLChildValues(resolver)
-                else -> {
-                    val generated = pattern.generate(resolver)
-
-                    when (generated) {
-                        is XMLNode -> listOf(generated)
-                        is XMLValue -> listOf(generated)
-                        else -> listOf(StringValue(generated.toStringLiteral()))
-                    }
-                }
+                else -> generatedValueAsXMLChildValues(pattern.generate(resolver))
             }
         }
     }

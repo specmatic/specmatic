@@ -137,7 +137,7 @@ data class ListPattern(
     }
 
     override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return (generate(resolver) as XMLNode).childNodes
+        return generatedContainerChildValues(resolver)
     }
 
     private fun dictionaryLookup(resolver: Resolver): Value {

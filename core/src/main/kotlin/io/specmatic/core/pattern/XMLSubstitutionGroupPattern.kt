@@ -71,7 +71,7 @@ data class XMLSubstitutionGroupPattern(
     }
 
     override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return listOf(generate(resolver) as XMLValue)
+        return generatedValueAsXMLChildValues(generate(resolver))
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
