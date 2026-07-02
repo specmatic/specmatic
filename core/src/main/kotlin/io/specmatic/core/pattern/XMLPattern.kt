@@ -1064,11 +1064,7 @@ data class XMLPattern(
 
     private fun Pattern.generateNodes(resolver: Resolver): List<Value> {
         return when {
-            this is ListPattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLSubstitutionGroupPattern -> listOf(generate(resolver))
-            this is XMLSequencePattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
+            this is XMLChildGenerationPattern -> generateXMLChildValues(resolver)
             this is XMLPattern && occurMultipleTimes() ->
                 0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }
 

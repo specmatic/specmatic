@@ -12,7 +12,7 @@ data class ListPattern(
     override val example: List<String?>? = null,
     override val extensions: Map<String, Any>  = emptyMap(),
     val itemsPointer: String? = null
-) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
+) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
@@ -134,6 +134,10 @@ data class ListPattern(
     override fun generate(resolver: Resolver): Value {
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         return resolver.resolveExample(example, pattern) ?: dictionaryLookup(resolverWithEmptyType)
+    }
+
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return (generate(resolver) as XMLNode).childNodes
     }
 
     private fun dictionaryLookup(resolver: Resolver): Value {

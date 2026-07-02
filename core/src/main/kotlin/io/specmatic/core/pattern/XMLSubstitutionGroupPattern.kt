@@ -15,7 +15,7 @@ data class XMLSubstitutionGroupPattern(
     val headElementName: String,
     val candidates: List<Pattern>,
     override val typeAlias: String? = null
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
         get() = candidates
 
@@ -68,6 +68,10 @@ data class XMLSubstitutionGroupPattern(
         val candidate = candidates.firstOrNull()
             ?: throw ContractException("Cannot generate XML for substitutionGroup $headElementName because it has no candidates.")
         return candidate.generate(resolver)
+    }
+
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return listOf(generate(resolver) as XMLValue)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
