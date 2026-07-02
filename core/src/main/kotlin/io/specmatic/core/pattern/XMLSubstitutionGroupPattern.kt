@@ -27,7 +27,7 @@ data class XMLSubstitutionGroupPattern(
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
             is XMLNode -> matchCandidates(listOf(sampleData), resolver).result
-            else -> Failure("Expected XML but got ${sampleData?.displayableType() ?: "nothing"}")
+            else -> xmlTypeMismatch(sampleData)
         }
     }
 
@@ -40,8 +40,10 @@ data class XMLSubstitutionGroupPattern(
         return matchCandidates(xmlValues, resolver)
     }
 
-    private fun matchCandidates(sampleData: List<XMLValue>, resolver: Resolver): ConsumeResult<Value, Value> {
-        val candidateMatches = candidates.map { candidate -> CandidateMatch(candidate, candidate.matches(sampleData, resolver)) }
+    private fun matchCandidates(xmlValues: List<XMLValue>, resolver: Resolver): ConsumeResult<Value, Value> {
+        val candidateMatches = candidates.map { candidate ->
+            CandidateMatch(candidate, candidate.matches(xmlValues, resolver))
+        }
         val successfulMatch = candidateMatches
             .map(CandidateMatch::match)
             .filter { it.result is Success }
@@ -50,10 +52,10 @@ data class XMLSubstitutionGroupPattern(
             return successfulMatch
         }
 
-        val firstNode = sampleData.firstOrNull()
-        if (firstNode is XMLNode) {
+        val actualNode = xmlValues.firstOrNull() as? XMLNode
+        if (actualNode != null) {
             val matchingNameFailure = candidateMatches
-                .firstOrNull { it.matchesElementName(firstNode) }
+                .firstOrNull { it.matchesElementName(actualNode) }
                 ?.match
 
             if (matchingNameFailure != null) {
@@ -61,7 +63,7 @@ data class XMLSubstitutionGroupPattern(
             }
         }
 
-        return ConsumeResult(substitutionGroupMismatch(firstNode), sampleData)
+        return ConsumeResult(substitutionGroupMismatch(actualNode), xmlValues)
     }
 
     override fun generate(resolver: Resolver): Value {
@@ -75,9 +77,7 @@ data class XMLSubstitutionGroupPattern(
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
-        candidates.asSequence().flatMap { candidate ->
-            candidate.newBasedOn(row, resolver)
-        }
+        candidates.asSequence().flatMap { it.newBasedOn(row, resolver) }
 
     override fun negativeBasedOn(
         row: Row,
@@ -85,10 +85,10 @@ data class XMLSubstitutionGroupPattern(
         config: NegativePatternConfiguration
     ): Sequence<ReturnValue<Pattern>> =
         candidates.asSequence()
-            .flatMap { candidate -> candidate.negativeBasedOn(row, resolver, config) }
+            .flatMap { it.negativeBasedOn(row, resolver, config) }
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> =
-        candidates.asSequence().flatMap { candidate -> candidate.newBasedOn(resolver) }
+        candidates.asSequence().flatMap { it.newBasedOn(resolver) }
 
     override fun parse(value: String, resolver: Resolver): Value {
         return toXMLNode(parseXML(value))
@@ -139,6 +139,9 @@ data class XMLSubstitutionGroupPattern(
             "Expected one of the substitutionGroup members for $headElementName: ${candidateDisplayNames()}, but got $actual."
         )
     }
+
+    private fun xmlTypeMismatch(actualValue: Value?): Failure =
+        Failure("Expected XML but got ${actualValue?.displayableType() ?: "nothing"}")
 
     private fun candidateDisplayNames(): String =
         candidateElementNames().joinToString(", ").ifBlank { "<none>" }
