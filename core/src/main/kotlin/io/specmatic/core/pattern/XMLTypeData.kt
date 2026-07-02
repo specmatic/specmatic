@@ -82,6 +82,9 @@ data class XMLTypeData(
                 val childNodeText = nodes.flatMap {
                     when (it) {
                         is XMLPattern -> listOf(it.toGherkinString(additionalIndent, indent + additionalIndent))
+                        is XMLSubstitutionGroupPattern -> listOf(
+                            XMLPattern(it.generate(Resolver()) as XMLNode).toGherkinString(additionalIndent, indent + additionalIndent)
+                        )
                         is XMLWildcardPattern -> (it.generate(Resolver()) as XMLNode).childNodes.map { generated ->
                             XMLPattern(generated as XMLNode).toGherkinString(additionalIndent, indent + additionalIndent)
                         }
@@ -101,6 +104,7 @@ data class XMLTypeData(
         val childXMLNodes = nodes.map {
             when(it) {
                 is XMLPattern -> it.toGherkinXMLNode()
+                is XMLSubstitutionGroupPattern -> it.generate(Resolver()) as XMLNode
                 is XMLWildcardPattern -> null
                 else -> StringValue(it.pattern.toString())
             }

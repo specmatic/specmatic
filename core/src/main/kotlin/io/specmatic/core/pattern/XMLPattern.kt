@@ -1066,6 +1066,7 @@ data class XMLPattern(
         return when {
             this is ListPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
+            this is XMLSubstitutionGroupPattern -> listOf(generate(resolver))
             this is XMLSequencePattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLPattern && occurMultipleTimes() ->

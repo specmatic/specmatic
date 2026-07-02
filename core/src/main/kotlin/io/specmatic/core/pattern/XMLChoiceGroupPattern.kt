@@ -515,6 +515,7 @@ data class XMLSequencePattern(
         return when {
             this is XMLSequencePattern -> (generated as XMLNode).childNodes
             this is XMLChoiceGroupPattern -> (generated as XMLNode).childNodes
+            this is XMLSubstitutionGroupPattern -> listOf(generated as XMLValue)
             this is XMLWildcardPattern -> (generated as XMLNode).childNodes
             this is ListPattern -> (generated as XMLNode).childNodes
             generated is XMLNode -> listOf(generated)
