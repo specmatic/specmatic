@@ -45,7 +45,7 @@ dependencies {
     implementation("io.modelcontextprotocol.sdk:mcp-core:1.1.3")
     implementation("io.modelcontextprotocol.sdk:mcp-json-jackson2:1.1.3")
 
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.4.0")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
 
