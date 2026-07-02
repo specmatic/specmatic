@@ -86,7 +86,7 @@ data class XMLPattern(
     override val typeAlias: String? = null,
     val schemaPointer: String? = null,
     val attributePointers: Map<String, String> = emptyMap()
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     constructor(
         node: XMLNode,
         typeAlias: String? = null,
@@ -1062,12 +1062,20 @@ data class XMLPattern(
         return cyclePreventionPattern != this && resolver.hasCycle(cyclePreventionPattern)
     }
 
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return when {
+            occurMultipleTimes() ->
+                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map {
+                    generate(resolver) as XMLValue
+                }
+
+            else -> listOf(generate(resolver) as XMLValue)
+        }
+    }
+
     private fun Pattern.generateNodes(resolver: Resolver): List<Value> {
         return when {
             this is XMLChildGenerationPattern -> generateXMLChildValues(resolver)
-            this is XMLPattern && occurMultipleTimes() ->
-                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }
-
             else -> listOf(generate(resolver))
         }
     }
