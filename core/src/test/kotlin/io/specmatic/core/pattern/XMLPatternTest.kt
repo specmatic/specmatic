@@ -1726,6 +1726,19 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `repeated xml child projects generated child nodes through xml child generation interface`() {
+            val repeatedTitle = XMLPattern("<title $occursMultipleTimes>(number)</title>")
+            val generatedChildren = repeatedTitle.generateXMLChildValues(Resolver())
+
+            assertThat(generatedChildren).hasSizeBetween(1, 2)
+            assertThat(generatedChildren).allSatisfy(Consumer { generatedChild ->
+                val title = generatedChild as XMLNode
+                assertThat(title.name).isEqualTo("title")
+                assertThat(title.attributes).doesNotContainKey(OCCURS_ATTRIBUTE_NAME)
+            })
+        }
+
+        @Test
         fun `xml with a typed node that occurs multiple times generates multiple nodes`() {
             val nameType = XMLPattern("<name><nameid $occursMultipleTimes $TYPE_ATTRIBUTE_NAME=\"Nameid\" /></name>")
             val nameIdType = XMLPattern("<nameid>(number)</nameid>")
