@@ -18,15 +18,15 @@ dependencies {
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.22.0")
 
-    implementation("org.junit.jupiter:junit-jupiter-engine:5.14.4")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
+    implementation("org.junit.jupiter:junit-jupiter-engine:6.1.1")
+    implementation("org.junit.jupiter:junit-jupiter-api:6.1.1")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.1.1")
 
     implementation("io.ktor:ktor-client-core-jvm:2.3.13")
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
 
-    implementation("org.junit.platform:junit-platform-launcher:1.14.4")
-    implementation("org.junit.platform:junit-platform-reporting:1.14.4")
+    implementation("org.junit.platform:junit-platform-launcher:6.1.1")
+    implementation("org.junit.platform:junit-platform-reporting:6.1.1")
 
     implementation("org.fusesource.jansi:jansi:2.4.3")
 }
