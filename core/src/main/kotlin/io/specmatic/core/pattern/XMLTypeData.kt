@@ -10,7 +10,15 @@ import io.specmatic.core.wsdl.parser.message.*
 internal const val XML_SCHEMA_INSTANCE_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
 internal const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
-data class WSDLTypeName(val namespace: String, val localName: String)
+data class WSDLTypeName(val namespace: String, val localName: String) {
+    fun displayNameForError(): String {
+        return if (namespace.isNotBlank()) {
+            "$localName (namespace: $namespace)"
+        } else {
+            localName
+        }
+    }
+}
 
 enum class WSDLTypeSelectionMode {
     Polymorphic,

@@ -133,7 +133,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Unknown xsi:type")
+        assertThat(result.reportString()).contains("Unknown type")
         assertThat(result.reportString()).contains("MissingAnimal")
     }
 
@@ -291,7 +291,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Missing xsi:type")
+        assertThat(result.reportString()).contains("Missing type for abstract WSDL type")
         assertThat(result.reportString()).contains("Pet")
     }
 
@@ -346,7 +346,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Invalid xsi:type")
+        assertThat(result.reportString()).contains("Invalid type")
         assertThat(result.reportString()).contains("Crocodile")
         assertThat(result.reportString()).doesNotContain("it is abstract")
     }
@@ -373,7 +373,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Missing xsi:type")
+        assertThat(result.reportString()).contains("Missing type for abstract WSDL type")
         assertThat(result.reportString()).contains("Pet")
     }
 
@@ -399,7 +399,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Invalid xsi:type")
+        assertThat(result.reportString()).contains("Invalid type")
         assertThat(result.reportString()).contains("Crocodile")
         assertThat(result.reportString()).contains("Pet")
     }
@@ -585,7 +585,7 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Invalid xsi:type")
+        assertThat(result.reportString()).contains("Invalid type")
         assertThat(result.reportString()).contains("Crocodile")
         assertThat(result.reportString()).contains("Pet")
     }

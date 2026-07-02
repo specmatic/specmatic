@@ -284,22 +284,30 @@ data class XMLPattern(
     }
 
     private fun invalidXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is known to Specmatic but is not compatible with $declaredDescription.")
+        return Failure(
+            "Invalid type ${assertedType.displayNameForError()}; " +
+                "it is not compatible with base type ${declaredType.displayNameForError()}."
+        )
     }
 
     private fun unknownXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Unknown xsi:type ${assertedType.namespace}#${assertedType.localName}; no matching type was found in the WSDL/schema set for $declaredDescription.")
+        return Failure(
+            "Unknown type ${assertedType.displayNameForError()}; " +
+                "no matching type was found in the WSDL/schema set for base type ${declaredType.displayNameForError()}."
+        )
     }
 
     private fun abstractXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is abstract and cannot be used as a concrete WSDL type for $declaredDescription.")
+        return Failure(
+            "Invalid type ${assertedType.displayNameForError()}; " +
+                "it is abstract and cannot be used as a concrete WSDL type for the ${declaredType.displayNameForError()} element."
+        )
     }
 
     private fun missingXSITypeForAbstractTypeResult(declaredType: WSDLTypeName): Failure {
-        return Failure("Missing xsi:type for abstract WSDL type ${declaredType.namespace}#${declaredType.localName}; a concrete subtype is required.")
+        return Failure(
+            "Missing type for abstract WSDL type ${declaredType.displayNameForError()}; a concrete subtype is required."
+        )
     }
 
     private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {

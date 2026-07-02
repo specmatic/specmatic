@@ -136,7 +136,7 @@ data class XMLSubstitutionGroupPattern(
         }
 
         return Failure(
-            "Expected one of the substitutionGroup members for $headElementName: ${candidateDisplayNames()}, but got $actual."
+            "Expected one of the substitutionGroup members for $headElementName (${candidateDisplayNames()}), but got $actual."
         )
     }
 

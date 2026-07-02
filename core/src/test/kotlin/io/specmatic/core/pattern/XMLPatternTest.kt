@@ -734,7 +734,8 @@ internal class XMLPatternTest {
             val result = pattern.matches(value, resolver)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).contains("Invalid xsi:type")
+            assertThat(result.reportString()).contains("Invalid type")
+            assertThat(result.reportString()).contains("base type")
         }
 
         @Test
@@ -761,7 +762,7 @@ internal class XMLPatternTest {
             val result = pattern.matches(value, resolver)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).contains("Unknown xsi:type")
+            assertThat(result.reportString()).contains("Unknown type")
             assertThat(result.reportString()).contains("UnknownType")
         }
 

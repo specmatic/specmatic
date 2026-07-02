@@ -103,6 +103,22 @@ data class FullyQualifiedName(val prefix: String, val namespace: String, val loc
             else
                 localName
         }
+
+    fun displayNameForError(): String {
+        return if (prefix.isNotBlank()) {
+            qName
+        } else {
+            qualifyLocalNameForError(localName, namespace)
+        }
+    }
+
+    private fun qualifyLocalNameForError(localName: String, namespace: String): String {
+        return if (namespace.isNotBlank()) {
+            "$localName (namespace: $namespace)"
+        } else {
+            localName
+        }
+    }
 }
 
 data class XMLNode(val name: String, val realName: String, val attributes: Map<String, StringValue>, val childNodes: List<XMLValue>, val namespacePrefix: String, val namespaces: Map<String, String>, val schema: XMLNode? = null) : XMLValue, ListValue {

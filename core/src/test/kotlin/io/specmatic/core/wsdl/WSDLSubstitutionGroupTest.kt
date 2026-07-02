@@ -135,9 +135,10 @@ class WSDLSubstitutionGroupTest {
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat((result as Result.Failure).toFailureReport().toText())
             .contains("substitutionGroup")
-            .contains("{http://example.com/animals}Pet")
+            .contains("Pet")
             .contains("Dog")
             .contains("Cat")
+            .doesNotContain("{http://example.com/animals}Pet")
     }
 
     @Test
@@ -169,7 +170,8 @@ class WSDLSubstitutionGroupTest {
 
         assertThat(exception.message)
             .contains("substitutionGroup")
-            .contains("{http://example.com/animals}Pet")
+            .contains("Pet")
+            .doesNotContain("{http://example.com/animals}Pet")
     }
 
     private fun writePetService(

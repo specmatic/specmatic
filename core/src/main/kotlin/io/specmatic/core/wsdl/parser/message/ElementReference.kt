@@ -22,7 +22,7 @@ data class ElementReference(val child: XMLNode, val wsdl: WSDL) : ChildElementTy
         val substitutionMembers = wsdl.getSubstitutionGroupMembers(fullyQualifiedName, child.schema)
         if (substitutionMembers.isEmpty()) {
             if (resolvedChild.isAbstractSubstitutionHead()) {
-                throw ContractException("Expected substitutionGroup members for ${fullyQualifiedName.displayName}, but none were found.")
+                throw ContractException("Expected substitutionGroup members for ${fullyQualifiedName.displayNameForError()}, but none were found.")
             }
 
             return Pair(specmaticTypeName, resolvedChild)
@@ -64,7 +64,7 @@ private data class SubstitutionGroupElement(
         }
 
         if (candidates.isEmpty()) {
-            throw ContractException("Expected substitutionGroup members for ${head.name.displayName}, but none were found.")
+            throw ContractException("Expected substitutionGroup members for ${head.name.displayNameForError()}, but none were found.")
         }
 
         val candidateInfo = candidates.runningFold(
@@ -84,7 +84,7 @@ private data class SubstitutionGroupElement(
         }.last()
 
         return headTypeInfo.copy(
-            members = listOf(XMLSubstitutionGroupPattern(head.name.displayName, candidateInfo.patterns)),
+            members = listOf(XMLSubstitutionGroupPattern(head.name.displayNameForError(), candidateInfo.patterns)),
             types = headTypeInfo.types.plus(candidateInfo.types),
             namespacePrefixes = headTypeInfo.namespacePrefixes.plus(candidateInfo.namespacePrefixes),
         )
@@ -120,6 +120,3 @@ private fun XMLNode.fullyQualifiedNameFromGlobalElement(): FullyQualifiedName {
     val prefix = namespaces.entries.firstOrNull { (_, uri) -> uri == namespace }?.key.orEmpty()
     return FullyQualifiedName(prefix, namespace, getAttributeValue("name"))
 }
-
-private val FullyQualifiedName.displayName: String
-    get() = "{${namespace}}$localName"
