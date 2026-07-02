@@ -1,0 +1,23 @@
+{
+  "id": "tax-invoice-for-order-456",
+  "name": "raise-tax-invoice-order-456",
+  "http-request": {
+    "method": "POST",
+    "path": "/tax/invoices",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "orderId": 456,
+      "invoiceDate": "2025-04-14"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "invoiceId": "INV-456",
+      "status": "SHIPPED",
+      "orderId": 456
+    }
+  }
+}

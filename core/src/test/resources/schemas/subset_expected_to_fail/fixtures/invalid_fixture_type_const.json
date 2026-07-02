@@ -1,0 +1,21 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  },
+  "before": [
+    {
+      "type": "tcp",
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "GET"
+      },
+      "http-response": {
+        "status": 200
+      }
+    }
+  ]
+}

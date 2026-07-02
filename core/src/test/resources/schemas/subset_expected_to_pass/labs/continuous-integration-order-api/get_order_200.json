@@ -1,0 +1,14 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders/101"
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": 101,
+      "status": "ACCEPTED",
+      "priority": "express"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/products",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {}
+    },
+    "http-response": {
+      "status": 201,
+      "body": {
+        "id": 1234
+      },
+      "status-text": "Created",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}

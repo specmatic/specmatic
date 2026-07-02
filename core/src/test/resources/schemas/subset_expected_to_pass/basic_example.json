@@ -1,0 +1,26 @@
+{
+  "name": "basic example",
+  "transient": true,
+  "delay-in-seconds": 1,
+  "http-stub-id": "stub-123",
+  "http-request": {
+    "method": "POST",
+    "path": "/orders",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "id": 10,
+      "status": "NEW"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "accepted": true
+    }
+  }
+}

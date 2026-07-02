@@ -1,0 +1,14 @@
+{
+  "name": "valid metadata wrapper",
+  "transient": true,
+  "delay-in-seconds": "bad",
+  "delay-in-milliseconds": "nope",
+  "http-stub-id": 123,
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  }
+}

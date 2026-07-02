@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/external-example-metadata-and-http.schema.json",
+  "title": "External Examples Schema",
+  "description": "A schema for external examples in Specmatic",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Example"
+    },
+    {
+      "$ref": "#/$defs/PartialExample"
+    }
+  ],
+  "$defs": {
+    "AnyValue": {},
+    "Metadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "transient": {
+          "type": "boolean"
+        },
+        "delay-in-seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delay-in-milliseconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "http-stub-id": {
+          "type": "string"
+        }
+      }
+    },
+    "Example": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "$ref": "#/$defs/RequestResponseSchema"
+        },
+        {
+          "$ref": "#/$defs/FixtureHooks"
+        }
+      ]
+    },
+    "RequestResponseSchema": {
+      "type": "object",
+      "properties": {
+        "http-request": {
+          "$ref": "#/$defs/RequestSchema"
+        },
+        "http-response": {
+          "$ref": "#/$defs/ResponseSchema"
+        }
+      },
+      "required": ["http-request", "http-response"]
+    },
+    "PartialExample": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "partial": {
+              "$ref": "#/$defs/PartialRequestResponseSchema"
+            }
+          },
+          "required": ["partial"]
+        },
+        {
+          "$ref": "#/$defs/FixtureHooks"
+        }
+      ]
+    },
+    "FixtureHooks": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fixture"
+          }
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fixture"
+          }
+        }
+      }
+    },
+    "Fixture": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HttpFixture"
+        }
+      ]
+    },
+    "HttpFixture": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "http"
+        },
+        "wait": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "retry": {
+          "$ref": "#/$defs/Retry"
+        },
+        "executeFor": {
+          "$ref": "#/$defs/FixtureExecuteFor"
+        },
+        "http-request": {
+          "$ref": "#/$defs/HTTPFixtureRequest"
+        },
+        "http-response": {
+          "$ref": "#/$defs/HTTPFixtureResponse"
+        }
+      },
+      "required": ["type", "http-request", "http-response"],
+      "additionalProperties": false
+    },
+    "Retry": {
+      "type": "object",
+      "properties": {
+        "max-attempts": {
+          "type": "integer"
+        },
+        "delay": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FixtureExecuteFor": {
+      "type": "object",
+      "properties": {
+        "scenarios": {
+          "type": "string",
+          "enum": ["all", "positive", "negative"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "HTTPFixtureRequest": {
+      "type": "object",
+      "properties": {
+        "baseUrl": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        }
+      },
+      "required": ["baseUrl", "method"],
+      "additionalProperties": false
+    },
+    "HTTPFixtureResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        }
+      },
+      "required": ["status"],
+      "additionalProperties": false
+    },
+    "PartialRequestResponseSchema": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Metadata"
+        },
+        {
+          "$ref": "#/$defs/RequestResponseSchema"
+        }
+      ]
+    },
+    "RequestSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "query": {
+          "type": "object"
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        },
+        "form-fields": {
+          "type": "object"
+        },
+        "multipart-formdata": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MultiPartFormData"
+          }
+        },
+        "bodyRegex": {
+          "type": "string"
+        }
+      },
+      "required": ["method", "path"]
+    },
+    "ResponseSchema": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "$ref": "#/$defs/AnyValue"
+        },
+        "externalisedResponseCommand": {
+          "type": "string"
+        }
+      },
+      "required": ["status"]
+    },
+    "MultiPartFormData": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MultiPartContent"
+        },
+        {
+          "$ref": "#/$defs/MultiPartFile"
+        }
+      ]
+    },
+    "MultiPartContent": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "content"]
+    },
+    "MultiPartFile": {
+      "type": "object",
+      "properties": {
+        "contentEncoding": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "filename"]
+    }
+  }
+}

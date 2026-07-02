@@ -1,0 +1,27 @@
+{
+  "transient": true,
+  "delay-in-seconds": 2,
+  "http-request": {
+    "path": "/orders",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authenticate": "(string)",
+      "Idempotency-Key": "(uuid)"
+    },
+    "body": {
+      "productid": 1234,
+      "count": "(number)"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "id": 1234
+    },
+    "status-text": "Created",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

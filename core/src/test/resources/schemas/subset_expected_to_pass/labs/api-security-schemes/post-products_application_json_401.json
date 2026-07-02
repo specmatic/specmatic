@@ -1,0 +1,29 @@
+{
+  "http-request": {
+    "path": "/products",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer dolores"
+    },
+    "body": {
+      "name": "Diogenes",
+      "type": "book",
+      "inventory": 833
+    }
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Loop Detected",
+      "timestamp": "2026-07-01T12:26:22+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/products"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

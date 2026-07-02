@@ -1,0 +1,18 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/products",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "name": "UniqueName"
+      }
+    },
+    "http-response": {
+      "status": 202,
+      "status-text": "Accepted"
+    }
+  }
+}
