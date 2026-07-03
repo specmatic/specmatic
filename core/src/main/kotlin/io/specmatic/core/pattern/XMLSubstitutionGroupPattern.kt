@@ -147,7 +147,7 @@ data class XMLSubstitutionGroupPattern(
         candidateElementNames().joinToString(", ").ifBlank { "<none>" }
 
     private fun candidateElementNames(): Set<String> =
-        candidates.flatMap(::elementNames).toSet()
+        candidates.flatMap(::elementDisplayNames).toSet()
 
     private data class CandidateMatch(
         val candidate: Pattern,
@@ -165,6 +165,15 @@ data class XMLSubstitutionGroupPattern(
             is XMLPattern -> listOf(candidate.pattern.name, candidate.pattern.realName)
             is AnyPattern -> candidate.pattern.flatMap(::elementNames)
             is XMLSequencePattern -> candidate.members.flatMap(::elementNames)
+            else -> listOf(candidate.typeName)
+        }
+    }
+
+    private fun elementDisplayNames(candidate: Pattern): List<String> {
+        return when (candidate) {
+            is XMLPattern -> listOf(candidate.pattern.realName)
+            is AnyPattern -> candidate.pattern.flatMap(::elementDisplayNames)
+            is XMLSequencePattern -> candidate.members.flatMap(::elementDisplayNames)
             else -> listOf(candidate.typeName)
         }
     }

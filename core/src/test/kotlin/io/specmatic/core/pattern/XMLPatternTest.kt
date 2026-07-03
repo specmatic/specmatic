@@ -735,7 +735,9 @@ internal class XMLPatternTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).contains("Invalid type")
+            assertThat(result.reportString()).contains("tns:Vehicle")
             assertThat(result.reportString()).contains("base type")
+            assertThat(result.reportString()).contains("Animal")
         }
 
         @Test
@@ -763,7 +765,7 @@ internal class XMLPatternTest {
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
             assertThat(result.reportString()).contains("Unknown type")
-            assertThat(result.reportString()).contains("UnknownType")
+            assertThat(result.reportString()).contains("tns:UnknownType")
         }
 
         @Test

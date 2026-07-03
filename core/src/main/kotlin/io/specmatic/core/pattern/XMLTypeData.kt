@@ -10,13 +10,32 @@ import io.specmatic.core.wsdl.parser.message.*
 internal const val XML_SCHEMA_INSTANCE_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
 internal const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
-data class WSDLTypeName(val namespace: String, val localName: String) {
+data class WSDLTypeName(
+    val namespace: String,
+    val localName: String,
+    val prefix: String? = null
+) {
     fun displayNameForError(): String {
-        return if (namespace.isNotBlank()) {
+        return if (!prefix.isNullOrBlank()) {
+            "$prefix:$localName"
+        } else if (namespace.isNotBlank()) {
             "$localName (namespace: $namespace)"
         } else {
             localName
         }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is WSDLTypeName) return false
+
+        return namespace == other.namespace && localName == other.localName
+    }
+
+    override fun hashCode(): Int {
+        var result = namespace.hashCode()
+        result = 31 * result + localName.hashCode()
+        return result
     }
 }
 
@@ -179,13 +198,14 @@ data class XMLTypeData(
             else -> attributes["xmlns:$prefix"]?.let { (it as? ExactValuePattern)?.pattern?.toStringLiteral() }.orEmpty()
         }
 
-        return WSDLTypeName(namespace, value.localName())
+        return WSDLTypeName(namespace, value.localName(), value.namespacePrefix().ifBlank { null })
     }
 
     internal fun wsdlTypeName(): WSDLTypeName? {
         val namespace = wsdlTypeNamespace ?: return null
         val name = wsdlTypeName ?: return null
-        return WSDLTypeName(namespace, name)
+        return wsdlKnownTypeKeys.keys.firstOrNull { it.namespace == namespace && it.localName == name }
+            ?: WSDLTypeName(namespace, name)
     }
 
     internal fun namespaceAttributesForXSIType(

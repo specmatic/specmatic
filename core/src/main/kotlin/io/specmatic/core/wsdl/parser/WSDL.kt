@@ -121,7 +121,7 @@ fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
     val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
     val rootPrefixes: Map<String, String> = prefixToNamespaceMap(rootDefinition)
 
-    return WSDL(rootDefinition, definitions, populatedSchemas, typesNode, namespaceToPrefixMap(rootDefinition).plus(schemaPrefixes), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
+    return WSDL(rootDefinition, definitions, populatedSchemas, typesNode, schemaPrefixes.plus(namespaceToPrefixMap(rootDefinition)), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
 }
 
 fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> {

@@ -1401,7 +1401,7 @@ private fun XMLNode.xsiTypeName(): WSDLTypeName? {
             value.namespacePrefix().isBlank() -> elementNamespaceUriOrNull().orEmpty()
             else -> resolveNamespace(value)
         }
-        WSDLTypeName(namespace, value.localName())
+        WSDLTypeName(namespace, value.localName(), value.namespacePrefix().ifBlank { null })
     }.getOrNull()
 }
 

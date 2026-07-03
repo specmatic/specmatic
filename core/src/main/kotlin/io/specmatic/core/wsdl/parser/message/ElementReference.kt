@@ -117,6 +117,10 @@ private fun XMLNode.isAbstractGlobalElement(): Boolean =
 
 private fun XMLNode.fullyQualifiedNameFromGlobalElement(): FullyQualifiedName {
     val namespace = schema?.attributes?.get("targetNamespace")?.toStringLiteral().orEmpty()
-    val prefix = namespaces.entries.firstOrNull { (_, uri) -> uri == namespace }?.key.orEmpty()
+    val prefix = attributes.entries.firstNotNullOfOrNull { (attributeName, value) ->
+        attributeName
+            .removePrefix("xmlns:")
+            .takeIf { attributeName.startsWith("xmlns:") && value.toStringLiteral() == namespace }
+    } ?: namespaces.entries.firstOrNull { (_, uri) -> uri == namespace }?.key.orEmpty()
     return FullyQualifiedName(prefix, namespace, getAttributeValue("name"))
 }
