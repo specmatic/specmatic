@@ -174,9 +174,409 @@ class WSDLTest {
             .contains("<id>123</id>")
     }
 
+    @Test
+    fun `simple complex type wsdl loop passes without examples`() {
+        val feature = wsdlContentToFeature(simpleComplexTypeWsdl(), "simple-complex.wsdl")
+
+        val result = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isGreaterThan(0)
+    }
+
+    @Test
+    fun `simple complex type wsdl loop passes with examples`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("simple-complex.wsdl").apply { writeText(simpleComplexTypeWsdl()) }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("create_product.json").writeText(simpleComplexTypeExample())
+
+        val result = executeWsdlLoopWithExamples(wsdlFile, examplesDir)
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `abstract complex type wsdl loop passes without examples`() {
+        val feature = wsdlContentToFeature(abstractDerivedTypeWsdl(), "abstract-derived.wsdl")
+
+        val result = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isGreaterThan(0)
+    }
+
+    @Test
+    fun `abstract complex type wsdl loop passes with examples`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("abstract-derived.wsdl").apply { writeText(abstractDerivedTypeWsdl()) }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("retrieve_order.json").writeText(abstractDerivedTypeExample())
+
+        val result = executeWsdlLoopWithExamples(wsdlFile, examplesDir)
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `substitution group wsdl loop passes without examples`() {
+        val feature = wsdlContentToFeature(substitutionGroupWsdl(), "substitution-group.wsdl")
+
+        val result = HttpStub(feature).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isGreaterThan(0)
+    }
+
+    @Test
+    fun `substitution group wsdl loop passes with examples`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("substitution-group.wsdl").apply { writeText(substitutionGroupWsdl()) }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("register_animal.json").writeText(substitutionGroupExample())
+
+        val result = executeWsdlLoopWithExamples(wsdlFile, examplesDir)
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+    }
+
     private fun readContracts(filename: String): Pair<String, String> {
         val wsdlContent = readTextResource("wsdl/$filename.wsdl")
         val expectedGherkin = readTextResource("wsdl/$filename.$CONTRACT_EXTENSION").trimIndent().trim()
         return Pair(wsdlContent, expectedGherkin)
     }
 }
+
+private fun executeWsdlLoopWithExamples(wsdlFile: File, examplesDir: File): Results {
+    val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+        .loadExternalisedExamples()
+    val scenarioStubs = examplesDir.listFiles()?.sortedBy(File::getName)?.map(ScenarioStub::readFromFile).orEmpty()
+
+    assertDoesNotThrow { feature.validateExamplesOrException() }
+
+    return HttpStub(feature, scenarioStubs).use { stub ->
+        feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse = stub.client.execute(request)
+        })
+    }
+}
+
+private fun simpleComplexTypeWsdl(): String =
+    """
+    <wsdl:definitions xmlns:tns="http://example.com/simple-service"
+                      xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                      xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                      targetNamespace="http://example.com/simple-service">
+      <wsdl:binding name="ProductServiceBinding" type="tns:ProductService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="CreateProduct">
+          <soap:operation soapAction="http://example.com/simple-service/CreateProduct" style="document"/>
+          <wsdl:input><soap:body use="literal"/></wsdl:input>
+          <wsdl:output><soap:body use="literal"/></wsdl:output>
+        </wsdl:operation>
+      </wsdl:binding>
+      <wsdl:message name="CreateProductSoapIn">
+        <wsdl:part name="parameters" element="tns:CreateProduct"/>
+      </wsdl:message>
+      <wsdl:message name="CreateProductSoapOut">
+        <wsdl:part name="parameters" element="tns:CreateProductResponse"/>
+      </wsdl:message>
+      <wsdl:portType name="ProductService">
+        <wsdl:operation name="CreateProduct">
+          <wsdl:input message="tns:CreateProductSoapIn"/>
+          <wsdl:output message="tns:CreateProductSoapOut"/>
+        </wsdl:operation>
+      </wsdl:portType>
+      <wsdl:service name="ProductService">
+        <wsdl:port name="ProductServicePort" binding="tns:ProductServiceBinding">
+          <soap:address location="/CreateProduct"/>
+        </wsdl:port>
+      </wsdl:service>
+      <wsdl:types>
+        <xsd:schema targetNamespace="http://example.com/simple-service" elementFormDefault="qualified">
+          <xsd:complexType name="Product">
+            <xsd:sequence>
+              <xsd:element name="name" type="xsd:string"/>
+              <xsd:element name="type" type="xsd:string"/>
+            </xsd:sequence>
+          </xsd:complexType>
+          <xsd:element name="CreateProduct">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="product" type="tns:Product"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="CreateProductResponse">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="product" type="tns:Product"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:schema>
+      </wsdl:types>
+    </wsdl:definitions>
+    """.trimIndent()
+
+private fun simpleComplexTypeExample(): String =
+    """
+    {
+      "http-request": {
+        "path": "/CreateProduct",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "\"http://example.com/simple-service/CreateProduct\""
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><CreateProduct xmlns=\"http://example.com/simple-service\"><product><name>Phone</name><type>Gadget</type></product></CreateProduct></s:Body></s:Envelope>"
+      },
+      "http-response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/xml"
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><CreateProductResponse xmlns=\"http://example.com/simple-service\"><product><name>Phone</name><type>Gadget</type></product></CreateProductResponse></s:Body></s:Envelope>"
+      }
+    }
+    """.trimIndent()
+
+private fun abstractDerivedTypeWsdl(): String =
+    """
+    <wsdl:definitions xmlns:tns="http://example.com/order-service"
+                      xmlns:ord="http://example.com/order-model"
+                      xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                      xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                      targetNamespace="http://example.com/order-service">
+      <wsdl:binding name="OrderServiceBinding" type="tns:OrderService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="RetrieveOrderDetails">
+          <soap:operation soapAction="http://example.com/order-service/RetrieveOrderDetails" style="document"/>
+          <wsdl:input><soap:body use="literal"/></wsdl:input>
+          <wsdl:output><soap:body use="literal"/></wsdl:output>
+        </wsdl:operation>
+      </wsdl:binding>
+      <wsdl:message name="RetrieveOrderDetailsSoapIn">
+        <wsdl:part name="parameters" element="tns:RetrieveOrderDetails"/>
+      </wsdl:message>
+      <wsdl:message name="RetrieveOrderDetailsSoapOut">
+        <wsdl:part name="parameters" element="tns:RetrieveOrderDetailsResponse"/>
+      </wsdl:message>
+      <wsdl:portType name="OrderService">
+        <wsdl:operation name="RetrieveOrderDetails">
+          <wsdl:input message="tns:RetrieveOrderDetailsSoapIn"/>
+          <wsdl:output message="tns:RetrieveOrderDetailsSoapOut"/>
+        </wsdl:operation>
+      </wsdl:portType>
+      <wsdl:service name="OrderService">
+        <wsdl:port name="OrderServicePort" binding="tns:OrderServiceBinding">
+          <soap:address location="/RetrieveOrderDetails"/>
+        </wsdl:port>
+      </wsdl:service>
+      <wsdl:types>
+        <xsd:schema targetNamespace="http://example.com/order-service" elementFormDefault="qualified">
+          <xsd:element name="RetrieveOrderDetails">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element ref="ord:Message"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="RetrieveOrderDetailsResponse">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element ref="ord:Message"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:import namespace="http://example.com/order-model"/>
+        </xsd:schema>
+        <xsd:schema targetNamespace="http://example.com/order-model" elementFormDefault="qualified">
+          <xsd:complexType name="Message">
+            <xsd:sequence>
+              <xsd:element name="command" type="ord:Command"/>
+            </xsd:sequence>
+          </xsd:complexType>
+          <xsd:complexType name="Command">
+            <xsd:choice minOccurs="1" maxOccurs="1">
+              <xsd:element name="retrieveOrderDetailsRequest">
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="order" type="ord:Order"/>
+                  </xsd:sequence>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="retrieveOrderDetailsResponse">
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element name="order" type="ord:Order"/>
+                  </xsd:sequence>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:choice>
+          </xsd:complexType>
+          <xsd:complexType name="Order" abstract="true">
+            <xsd:sequence>
+              <xsd:element name="orderNumber" type="xsd:string"/>
+            </xsd:sequence>
+          </xsd:complexType>
+          <xsd:complexType name="OrderDetails">
+            <xsd:complexContent>
+              <xsd:extension base="ord:Order">
+                <xsd:sequence>
+                  <xsd:element name="productName" type="xsd:string" minOccurs="0"/>
+                </xsd:sequence>
+              </xsd:extension>
+            </xsd:complexContent>
+          </xsd:complexType>
+          <xsd:complexType name="OrderSummary">
+            <xsd:complexContent>
+              <xsd:extension base="ord:Order">
+                <xsd:sequence>
+                  <xsd:element name="status" type="xsd:string" minOccurs="0"/>
+                </xsd:sequence>
+              </xsd:extension>
+            </xsd:complexContent>
+          </xsd:complexType>
+          <xsd:element name="Message" type="ord:Message"/>
+        </xsd:schema>
+      </wsdl:types>
+    </wsdl:definitions>
+    """.trimIndent()
+
+private fun abstractDerivedTypeExample(): String =
+    """
+    {
+      "http-request": {
+        "path": "/RetrieveOrderDetails",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "\"http://example.com/order-service/RetrieveOrderDetails\""
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><RetrieveOrderDetails xmlns=\"http://example.com/order-service\"><Message xmlns=\"http://example.com/order-model\" xmlns:ord=\"http://example.com/order-model\"><command><retrieveOrderDetailsRequest><order xsi:type=\"ord:OrderDetails\"><orderNumber>100234569</orderNumber><productName>Phone</productName></order></retrieveOrderDetailsRequest></command></Message></RetrieveOrderDetails></s:Body></s:Envelope>"
+      },
+      "http-response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/xml"
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RetrieveOrderDetailsResponse xmlns=\"http://example.com/order-service\"><Message xmlns=\"http://example.com/order-model\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ord=\"http://example.com/order-model\"><command><retrieveOrderDetailsResponse><order xsi:type=\"ord:OrderDetails\"><orderNumber>100234569</orderNumber><productName>Phone</productName></order></retrieveOrderDetailsResponse></command></Message></RetrieveOrderDetailsResponse></s:Body></s:Envelope>"
+      }
+    }
+    """.trimIndent()
+
+private fun substitutionGroupWsdl(): String =
+    """
+    <wsdl:definitions xmlns:tns="http://example.com/animal-service"
+                      xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                      xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                      targetNamespace="http://example.com/animal-service">
+      <wsdl:binding name="AnimalServiceBinding" type="tns:AnimalService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="RegisterAnimal">
+          <soap:operation soapAction="http://example.com/animal-service/RegisterAnimal" style="document"/>
+          <wsdl:input><soap:body use="literal"/></wsdl:input>
+          <wsdl:output><soap:body use="literal"/></wsdl:output>
+        </wsdl:operation>
+      </wsdl:binding>
+      <wsdl:message name="RegisterAnimalSoapIn">
+        <wsdl:part name="parameters" element="tns:RegisterAnimal"/>
+      </wsdl:message>
+      <wsdl:message name="RegisterAnimalSoapOut">
+        <wsdl:part name="parameters" element="tns:RegisterAnimalResponse"/>
+      </wsdl:message>
+      <wsdl:portType name="AnimalService">
+        <wsdl:operation name="RegisterAnimal">
+          <wsdl:input message="tns:RegisterAnimalSoapIn"/>
+          <wsdl:output message="tns:RegisterAnimalSoapOut"/>
+        </wsdl:operation>
+      </wsdl:portType>
+      <wsdl:service name="AnimalService">
+        <wsdl:port name="AnimalServicePort" binding="tns:AnimalServiceBinding">
+          <soap:address location="/RegisterAnimal"/>
+        </wsdl:port>
+      </wsdl:service>
+      <wsdl:types>
+        <xsd:schema targetNamespace="http://example.com/animal-service" elementFormDefault="qualified">
+          <xsd:complexType name="Animal" abstract="true">
+            <xsd:sequence>
+              <xsd:element name="name" type="xsd:string"/>
+            </xsd:sequence>
+          </xsd:complexType>
+          <xsd:complexType name="Dog">
+            <xsd:complexContent>
+              <xsd:extension base="tns:Animal">
+                <xsd:sequence>
+                  <xsd:element name="breed" type="xsd:string" minOccurs="0"/>
+                </xsd:sequence>
+              </xsd:extension>
+            </xsd:complexContent>
+          </xsd:complexType>
+          <xsd:complexType name="Cat">
+            <xsd:complexContent>
+              <xsd:extension base="tns:Animal">
+                <xsd:sequence>
+                  <xsd:element name="indoor" type="xsd:string" minOccurs="0"/>
+                </xsd:sequence>
+              </xsd:extension>
+            </xsd:complexContent>
+          </xsd:complexType>
+          <xsd:element name="Animal" type="tns:Animal" abstract="true"/>
+          <xsd:element name="Dog" substitutionGroup="tns:Animal" type="tns:Dog"/>
+          <xsd:element name="Cat" substitutionGroup="tns:Animal" type="tns:Cat"/>
+          <xsd:element name="RegisterAnimal">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element ref="tns:Animal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="RegisterAnimalResponse">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element ref="tns:Animal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:schema>
+      </wsdl:types>
+    </wsdl:definitions>
+    """.trimIndent()
+
+private fun substitutionGroupExample(): String =
+    """
+    {
+      "http-request": {
+        "path": "/RegisterAnimal",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "\"http://example.com/animal-service/RegisterAnimal\""
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimal xmlns=\"http://example.com/animal-service\"><Dog><name>Pepper</name><breed>Beagle</breed></Dog></RegisterAnimal></s:Body></s:Envelope>"
+      },
+      "http-response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/xml"
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimalResponse xmlns=\"http://example.com/animal-service\"><Dog><name>Pepper</name><breed>Beagle</breed></Dog></RegisterAnimalResponse></s:Body></s:Envelope>"
+      }
+    }
+    """.trimIndent()
