@@ -198,6 +198,41 @@ class ExampleFromFileTest {
     }
 
     @Test
+    fun `should normalize soapaction header casing in example rows`() {
+        val jsonContent = """
+            {
+                "name": "soap-example",
+                "http-request": {
+                    "method": "POST",
+                    "path": "/soap",
+                    "headers": {
+                        "Content-Type": "text/xml; charset=utf-8",
+                        "Soapaction": "\"urn:test-action\""
+                    },
+                    "body": "<Envelope />"
+                },
+                "http-response": {
+                    "status": 200,
+                    "body": "<Envelope />"
+                }
+            }
+        """.trimIndent()
+
+        val file = createTempFile(jsonContent)
+        val exampleFromFile = (ExampleFromFile.fromFile(file) as HasValue).value
+
+        val row = exampleFromFile.toRow()
+
+        assertThat(row.containsField("SOAPAction")).isTrue()
+        assertThat(row.getField("SOAPAction")).isEqualTo("\"urn:test-action\"")
+        assertThat(row.containsField("Soapaction")).isFalse()
+
+        val requestExample = row.requestExample!!
+        assertThat(requestExample.headers).containsEntry("SOAPAction", "\"urn:test-action\"")
+        assertThat(requestExample.headers).doesNotContainKey("Soapaction")
+    }
+
+    @Test
     fun `should handle string request and response bodies`() {
         val jsonContent = """
             {
