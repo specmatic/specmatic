@@ -201,6 +201,36 @@ class WSDLTest {
     }
 
     @Test
+    fun `wsdl examples run once against mock without generating optional request data`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("optional-request.wsdl").apply { writeText(optionalRequestElementWsdl()) }
+        val examplesDir = tempDir.resolve("optional-request_examples").apply { mkdirs() }
+        examplesDir.resolve("submit_ticket.json").writeText(optionalRequestElementExample())
+
+        val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+        val scenarioStubs = examplesDir.listFiles()?.sortedBy(File::getName)?.map(ScenarioStub::readFromFile).orEmpty()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+
+        val requestBodies = mutableListOf<String>()
+        val result = HttpStub(feature, scenarioStubs).use { stub ->
+            feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    requestBodies.add(request.body.toStringLiteral())
+                    return stub.client.execute(request)
+                }
+            })
+        }
+
+        assertThat(result.success()).withFailMessage(result.report()).isTrue()
+        assertThat(result.successCount).isEqualTo(1)
+        assertThat(requestBodies).hasSize(1)
+        assertThat(requestBodies.single())
+            .contains("<ticketId>TCK-123</ticketId>")
+            .doesNotContain("comment")
+    }
+
+    @Test
     fun `abstract complex type wsdl loop passes without examples`() {
         val feature = wsdlContentToFeature(abstractDerivedTypeWsdl(), "abstract-derived.wsdl")
 
@@ -350,6 +380,82 @@ private fun simpleComplexTypeExample(): String =
           "Content-Type": "text/xml"
         },
         "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><CreateProductResponse xmlns=\"http://example.com/simple-service\"><product><name>Phone</name><type>Gadget</type></product></CreateProductResponse></s:Body></s:Envelope>"
+      }
+    }
+    """.trimIndent()
+
+private fun optionalRequestElementWsdl(): String =
+    """
+    <wsdl:definitions xmlns:tns="http://example.com/ticket-service"
+                      xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                      xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                      targetNamespace="http://example.com/ticket-service">
+      <wsdl:binding name="TicketServiceBinding" type="tns:TicketService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="SubmitTicket">
+          <soap:operation soapAction="http://example.com/ticket-service/SubmitTicket" style="document"/>
+          <wsdl:input><soap:body use="literal"/></wsdl:input>
+          <wsdl:output><soap:body use="literal"/></wsdl:output>
+        </wsdl:operation>
+      </wsdl:binding>
+      <wsdl:message name="SubmitTicketSoapIn">
+        <wsdl:part name="parameters" element="tns:SubmitTicket"/>
+      </wsdl:message>
+      <wsdl:message name="SubmitTicketSoapOut">
+        <wsdl:part name="parameters" element="tns:SubmitTicketResponse"/>
+      </wsdl:message>
+      <wsdl:portType name="TicketService">
+        <wsdl:operation name="SubmitTicket">
+          <wsdl:input message="tns:SubmitTicketSoapIn"/>
+          <wsdl:output message="tns:SubmitTicketSoapOut"/>
+        </wsdl:operation>
+      </wsdl:portType>
+      <wsdl:service name="TicketService">
+        <wsdl:port name="TicketServicePort" binding="tns:TicketServiceBinding">
+          <soap:address location="/SubmitTicket"/>
+        </wsdl:port>
+      </wsdl:service>
+      <wsdl:types>
+        <xsd:schema targetNamespace="http://example.com/ticket-service" elementFormDefault="qualified">
+          <xsd:element name="SubmitTicket">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="ticketId" type="xsd:string"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="SubmitTicketResponse">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="confirmation" type="xsd:string"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:schema>
+      </wsdl:types>
+    </wsdl:definitions>
+    """.trimIndent()
+
+private fun optionalRequestElementExample(): String =
+    """
+    {
+      "http-request": {
+        "path": "/SubmitTicket",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "\"http://example.com/ticket-service/SubmitTicket\""
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><SubmitTicket xmlns=\"http://example.com/ticket-service\"><ticketId>TCK-123</ticketId></SubmitTicket></s:Body></s:Envelope>"
+      },
+      "http-response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/xml"
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><SubmitTicketResponse xmlns=\"http://example.com/ticket-service\"><confirmation>accepted</confirmation></SubmitTicketResponse></s:Body></s:Envelope>"
       }
     }
     """.trimIndent()
