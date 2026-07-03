@@ -14,7 +14,6 @@ const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
 const val TYPE_ATTRIBUTE_NAME = "specmatic_type"
 const val SOAP_BODY = "body"
 const val SOAP_FAULT = "fault"
-private const val XML_RANDOM_NUMBER_CEILING = 3
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
 private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -712,7 +711,10 @@ data class XMLPattern(
         }.map { pattern ->
             attempt(breadCrumb = name) {
                 val generatedNodes = when {
+                    pattern.shouldSkipOptionalXMLNodeDueToCycle(resolver) -> emptyList()
                     pattern.hasXMLReferenceCycle(resolver) -> emptyList()
+                    pattern is XMLPattern && pattern.isOptional() -> pattern.generateNodes(resolver)
+                    pattern is XMLPattern && pattern.occurMultipleTimes() -> pattern.generateNodes(resolver)
                     pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateNodes(resolver)
                     else -> resolver.withCyclePrevention(
                         pattern.cyclePreventionPattern(),
@@ -734,7 +736,15 @@ data class XMLPattern(
         return XMLNode(pattern.realName, newAttributes, nodes, inheritNamespacesInChildren = true)
     }
 
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
+        newBasedOnWithOccurrences(row, resolver).map { generatedPattern ->
+            generatedPattern.ifValue { it.withoutXMLOccurrenceMarkers() }
+        }
+
+    private fun newBasedOnWithOccurrences(
+        row: Row,
+        resolver: Resolver
+    ): Sequence<ReturnValue<Pattern>> {
         if (!pattern.isConcrete()) {
             val dereferenced = dereferenceType(resolver)
             if (dereferenced !is XMLPattern) {
@@ -747,7 +757,7 @@ data class XMLPattern(
         val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
         if (concreteWSDLTypeCandidates.isNotEmpty()) {
             return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
-                selectedPattern.newBasedOn(row, resolver)
+                selectedPattern.newBasedOnWithOccurrences(row, resolver)
             }
         }
 
@@ -807,7 +817,7 @@ data class XMLPattern(
                                                 when (dereferenced) {
                                                     is XMLPattern -> when {
                                                         dereferenced.occurMultipleTimes() -> {
-                                                            dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                            dereferenced.newBasedOnWithOccurrences(row, cyclePreventedResolver)
                                                                 .map {
                                                                     (it.value as XMLPattern).withTypeReferenceFrom(
                                                                         childPattern
@@ -816,7 +826,7 @@ data class XMLPattern(
                                                         }
 
                                                         dereferenced.isOptional() -> {
-                                                            dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                            dereferenced.newBasedOnWithOccurrences(row, cyclePreventedResolver)
                                                                 .map {
                                                                     (it.value as XMLPattern).withTypeReferenceFrom(
                                                                         childPattern
@@ -824,7 +834,7 @@ data class XMLPattern(
                                                                 }.plus(null)
                                                         }
 
-                                                        else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                        else -> dereferenced.newBasedOnWithOccurrences(row, cyclePreventedResolver)
                                                             .map {
                                                                 (it.value as XMLPattern).withTypeReferenceFrom(
                                                                     childPattern
@@ -859,11 +869,14 @@ data class XMLPattern(
         }.map { HasValue(it) }
     }
 
-    override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> {
+    override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> =
+        newBasedOnWithOccurrences(resolver).map { it.withoutXMLOccurrenceMarkers() as XMLPattern }
+
+    private fun newBasedOnWithOccurrences(resolver: Resolver): Sequence<XMLPattern> {
         val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
         if (concreteWSDLTypeCandidates.isNotEmpty()) {
             return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
-                selectedPattern.newBasedOn(resolver)
+                selectedPattern.newBasedOnWithOccurrences(resolver)
             }
         }
 
@@ -898,17 +911,17 @@ data class XMLPattern(
                                         when (dereferenced) {
                                             is XMLPattern -> when {
                                                 dereferenced.occurMultipleTimes() -> {
-                                                    dereferenced.newBasedOn(cyclePreventedResolver)
+                                                    dereferenced.newBasedOnWithOccurrences(cyclePreventedResolver)
                                                         .map { it.withTypeReferenceFrom(childPattern) }
                                                 }
 
                                                 dereferenced.isOptional() -> {
-                                                    dereferenced.newBasedOn(cyclePreventedResolver)
+                                                    dereferenced.newBasedOnWithOccurrences(cyclePreventedResolver)
                                                         .map { it.withTypeReferenceFrom(childPattern) }
                                                         .plus(null)
                                                 }
 
-                                                else -> dereferenced.newBasedOn(cyclePreventedResolver)
+                                                else -> dereferenced.newBasedOnWithOccurrences(cyclePreventedResolver)
                                                     .map { it.withTypeReferenceFrom(childPattern) }
                                             }
 
@@ -1064,6 +1077,25 @@ data class XMLPattern(
         return copy(pattern = pattern.copy(attributes = pattern.attributes + mapOf(TYPE_ATTRIBUTE_NAME to referencedType)))
     }
 
+    private fun Pattern.withoutXMLOccurrenceMarkers(): Pattern =
+        when (this) {
+            is XMLPattern -> copy(
+                pattern = pattern.copy(
+                    attributes = pattern.attributes - OCCURS_ATTRIBUTE_NAME,
+                    nodes = pattern.nodes.map { it.withoutXMLOccurrenceMarkers() }
+                )
+            )
+
+            is XMLSequencePattern -> copy(members = members.map { it.withoutXMLOccurrenceMarkers() })
+            is XMLChoiceGroupPattern -> copy(choices = choices.map { choice ->
+                choice.map { it.withoutXMLOccurrenceMarkers() }
+            })
+            is ListPattern -> copy(pattern = pattern.withoutXMLOccurrenceMarkers())
+            is RestPattern -> copy(pattern = pattern.withoutXMLOccurrenceMarkers())
+            is AnyPattern -> copy(pattern = pattern.map { it.withoutXMLOccurrenceMarkers() })
+            else -> this
+        }
+
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple
 
     private fun isOptional(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Optional
@@ -1093,14 +1125,38 @@ data class XMLPattern(
         return cyclePreventionPattern != this && resolver.hasCycle(cyclePreventionPattern)
     }
 
+    private fun Pattern.shouldSkipOptionalXMLNodeDueToCycle(resolver: Resolver): Boolean =
+        this is XMLPattern && isOptional() && hasXMLReferenceCycle(resolver)
+
+    private fun XMLPattern.generateOptionalNodes(resolver: Resolver): List<Value> {
+        if (resolver.hasCycle(cyclePreventionPattern())) return emptyList()
+        if (!kotlin.random.Random.nextBoolean()) return emptyList()
+
+        return resolver.withCyclePrevention(
+            cyclePreventionPattern(),
+            returnNullOnCycle = true
+        ) { cyclePreventedResolver ->
+            listOf(generateSelectedOptionalNode(cyclePreventedResolver))
+        } ?: emptyList()
+    }
+
+    private fun XMLPattern.generateSelectedOptionalNode(resolver: Resolver): XMLNode {
+        val dereferenced = dereferenceType(resolver)
+        return when (dereferenced) {
+            is XMLPattern -> dereferenced.generateXML(resolver)
+            else -> dereferenced.generate(resolver) as XMLNode
+        }
+    }
+
     private fun Pattern.generateNodes(resolver: Resolver): List<Value> {
         return when {
             this is ListPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLSequencePattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLPattern && occurMultipleTimes() ->
-                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }
+            this is XMLPattern && isOptional() -> generateOptionalNodes(resolver)
+
+            this is XMLPattern && occurMultipleTimes() -> listOf(generate(resolver))
 
             else -> listOf(generate(resolver))
         }

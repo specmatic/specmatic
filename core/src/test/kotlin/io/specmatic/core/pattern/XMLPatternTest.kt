@@ -357,6 +357,36 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `optional xml node generation produces zero or one occurrence`() {
+            val type = XMLPattern("<data><item $isOptional>(string)</item></data>")
+
+            val generatedCounts = 1.rangeTo(100).map {
+                type.generate(Resolver()).childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }
+            }
+
+            assertThat(generatedCounts).allSatisfy(Consumer { count ->
+                assertThat(count).isIn(0, 1)
+            })
+            assertThat(generatedCounts).contains(0, 1)
+        }
+
+        @Test
+        fun `recursive optional xml node generation skips schema already being generated`() {
+            val nodeType = XMLPattern("<SPECMATIC_TYPE><id>(string)</id><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></SPECMATIC_TYPE>")
+            val type = XMLPattern("<data><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></data>")
+            val resolver = Resolver(newPatterns = mapOf("(Node)" to nodeType))
+
+            val generatedChildren = 1.rangeTo(100).mapNotNull {
+                type.generate(resolver).childNodes.filterIsInstance<XMLNode>().firstOrNull { it.name == "child" }
+            }
+
+            assertThat(generatedChildren).isNotEmpty()
+            assertThat(generatedChildren).allSatisfy(Consumer { child ->
+                assertThat(child.childNodes.filterIsInstance<XMLNode>().map { it.name }).containsExactly("id")
+            })
+        }
+
+        @Test
         fun `values should be generated for nested values`() {
             val customerType = XMLPattern("<SPECMATIC_TYPE><name>John</name></SPECMATIC_TYPE>")
             val salesDataType = XMLPattern("<sales><customer specmatic_type=\"Customer\" /></sales>")
@@ -1060,7 +1090,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `creates two combinations per mandatory field with optional children`() {
+        fun `creates two executable combinations per mandatory field with optional children`() {
             val personType = XMLPattern("""
                 <person>
                     <name>(string)</name>
@@ -1089,8 +1119,8 @@ internal class XMLPatternTest {
                 <person>
                   <name>(string)</name>
                   <address specmatic_type="Address">
-                    <flat_no specmatic_occurs="optional">(string)</flat_no>
-                    <street specmatic_occurs="optional">(string)</street>
+                    <flat_no>(string)</flat_no>
+                    <street>(string)</street>
                   </address>
                 </person>
                 """.trimIndent().trimmedLinesString())
@@ -1104,7 +1134,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `creates three combinations per optional field with optional children`() {
+        fun `creates three executable combinations per optional field with optional children`() {
             val personType = XMLPattern("""
                 <person>
                     <name>(string)</name>
@@ -1132,9 +1162,9 @@ internal class XMLPatternTest {
             assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
                 <person>
                   <name>(string)</name>
-                  <address specmatic_occurs="optional" specmatic_type="Address">
-                    <flat_no specmatic_occurs="optional">(string)</flat_no>
-                    <street specmatic_occurs="optional">(string)</street>
+                  <address specmatic_type="Address">
+                    <flat_no>(string)</flat_no>
+                    <street>(string)</street>
                   </address>
                 </person>
                 """.trimIndent().trimmedLinesString())
@@ -1142,7 +1172,7 @@ internal class XMLPatternTest {
             assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
                 <person>
                   <name>(string)</name>
-                  <address specmatic_occurs="optional" specmatic_type="Address"/>
+                  <address specmatic_type="Address"/>
                 </person>
                 """.trimIndent().trimmedLinesString())
 
@@ -1696,13 +1726,13 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `direct generation of an xml node that occurs multiple times generates at most two occurrences`() {
+        fun `direct generation of an xml node that occurs multiple times generates one occurrence`() {
             val nameType = XMLPattern("<name><title $occursMultipleTimes>(number)</title></name>")
 
             val generated = nameType.generate(Resolver())
             val generatedChildren = generated.childNodes.filterIsInstance<XMLNode>()
 
-            assertThat(generatedChildren).hasSizeBetween(1, 2)
+            assertThat(generatedChildren).hasSize(1)
             assertThat(generatedChildren.map { it.name }).containsOnly("title")
         }
 
