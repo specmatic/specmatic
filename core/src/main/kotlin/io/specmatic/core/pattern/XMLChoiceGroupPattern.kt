@@ -5,7 +5,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
@@ -16,7 +15,7 @@ data class XMLChoiceGroupPattern(
     val minOccurs: Int = 1,
     val maxOccurs: Int? = 1,
     override val typeAlias: String? = null
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
         get() = choices
 
@@ -106,7 +105,11 @@ data class XMLChoiceGroupPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        val generatedNodes = generateOccurrenceSequence(resolver).flatMap { alternative ->
+        return XMLNode("", "", emptyMap(), generateXMLChildValues(resolver), "", emptyMap())
+    }
+
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return generateOccurrenceSequence(resolver).flatMap { alternative ->
             alternative.flatMap { pattern ->
                 if (pattern.hasXMLChoiceReferenceCycle(resolver)) {
                     return@flatMap emptyList()
@@ -122,15 +125,9 @@ data class XMLChoiceGroupPattern(
                     } ?: return@flatMap emptyList()
                 }
 
-                when (generated) {
-                    is XMLNode -> listOf(generated)
-                    is XMLValue -> listOf(generated)
-                    else -> listOf(StringValue(generated.toStringLiteral()))
-                }
+                generatedValueAsXMLChildValues(generated)
             }
         }
-
-        return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
     }
 
     private fun generateOccurrenceSequence(resolver: Resolver): List<List<Pattern>> {
@@ -475,7 +472,7 @@ data class XMLChoiceGroupPattern(
 data class XMLSequencePattern(
     val members: List<Pattern>,
     override val typeAlias: String? = null
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
         get() = members
 
@@ -502,24 +499,15 @@ data class XMLSequencePattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        val generatedNodes = members.flatMap { pattern ->
-            pattern.generateXMLSequenceNodes(resolver)
-        }
-
-        return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
+        return XMLNode("", "", emptyMap(), generateXMLChildValues(resolver), "", emptyMap())
     }
 
-    private fun Pattern.generateXMLSequenceNodes(resolver: Resolver): List<XMLValue> {
-        val generated = generate(resolver)
-
-        return when {
-            this is XMLSequencePattern -> (generated as XMLNode).childNodes
-            this is XMLChoiceGroupPattern -> (generated as XMLNode).childNodes
-            this is XMLWildcardPattern -> (generated as XMLNode).childNodes
-            this is ListPattern -> (generated as XMLNode).childNodes
-            generated is XMLNode -> listOf(generated)
-            generated is XMLValue -> listOf(generated)
-            else -> listOf(StringValue(generated.toStringLiteral()))
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return members.flatMap { pattern ->
+            when (pattern) {
+                is XMLChildGenerationPattern -> pattern.generateXMLChildValues(resolver)
+                else -> generatedValueAsXMLChildValues(pattern.generate(resolver))
+            }
         }
     }
 

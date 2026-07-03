@@ -14,23 +14,35 @@ import io.specmatic.license.core.SpecmaticProtocol
 import java.io.File
 
 private fun namespaceToPrefixMap(wsdlNode: XMLNode): Map<String, String> {
-    return wsdlNode.attributes.filterKeys {
+    val explicitPrefixes = wsdlNode.attributes.filterKeys {
         it.startsWith("xmlns:")
     }.mapValues {
         it.value.toStringLiteral()
     }.map {
         Pair(it.value, it.key.removePrefix("xmlns:"))
     }.toMap()
+
+    val defaultNamespace = wsdlNode.attributes["xmlns"]?.toStringLiteral()
+        ?.let { namespace -> mapOf(namespace to "") }
+        .orEmpty()
+
+    return defaultNamespace.plus(explicitPrefixes)
 }
 
 private fun prefixToNamespaceMap(wsdlNode: XMLNode): Map<String, String> {
-    return wsdlNode.attributes.filterKeys {
+    val explicitPrefixes = wsdlNode.attributes.filterKeys {
         it.startsWith("xmlns:")
     }.mapValues {
         it.value.toStringLiteral()
     }.mapKeys {
         it.key.removePrefix("xmlns:")
     }
+
+    val defaultNamespace = wsdlNode.attributes["xmlns"]?.toStringLiteral()
+        ?.let { namespace -> mapOf("" to namespace) }
+        .orEmpty()
+
+    return defaultNamespace.plus(explicitPrefixes)
 }
 
 private fun definitionsFrom(rootDefinitionXML: XMLNode, parentWSDL: File): List<XMLNode> {
@@ -107,11 +119,9 @@ fun WSDL(rootDefinition: XMLNode, wsdlPath: String): WSDL {
 
     val schemaPrefixes: Map<String, String> = schemaPrefixesFrom(schemas)
     val reversedSchemaPrefixes: Map<String, String> = schemaPrefixes.entries.associate { it.value to it.key }
-    val rootPrefixes: Map<String, String> = rootDefinition.attributes.filterKeys { it.startsWith("xmlns:") }.map {
-        it.key.split(":")[1] to it.value.string
-    }.toMap()
+    val rootPrefixes: Map<String, String> = prefixToNamespaceMap(rootDefinition)
 
-    return WSDL(rootDefinition, definitions, populatedSchemas, typesNode, namespaceToPrefixMap(rootDefinition).plus(schemaPrefixes), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
+    return WSDL(rootDefinition, definitions, populatedSchemas, typesNode, schemaPrefixes.plus(namespaceToPrefixMap(rootDefinition)), reversedSchemaPrefixes.plus(rootPrefixes), prefixToNamespaceMap(rootDefinition))
 }
 
 fun schemaPrefixesFrom(schemas: Map<String, XMLNode>): Map<String, String> {
@@ -176,7 +186,8 @@ private data class SchemaLookupKey(
 private data class WsdlIndexes(
     val definitions: Map<DefinitionLookupKey, XMLNode>,
     val schemas: Map<SchemaLookupKey, XMLNode>,
-    val namedSchemas: Map<NamedSchemaLookupKey, XMLNode>
+    val namedSchemas: Map<NamedSchemaLookupKey, XMLNode>,
+    val substitutionGroups: Map<NamedSchemaLookupKey, List<XMLNode>>
 )
 
 private data class NamedSchemaLookupKey(
@@ -188,7 +199,8 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     private val indexes = WsdlIndexes(
         definitions = indexDefinitions(definitions),
         schemas = indexSchemas(schemas),
-        namedSchemas = indexNamedSchemas(schemas)
+        namedSchemas = indexNamedSchemas(schemas),
+        substitutionGroups = indexSubstitutionGroups(schemas)
     )
 
     fun allNamespaces(): Map<String, String> {
@@ -340,10 +352,14 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         return findNamedSchemaNode(namespace, typeName, localSchema)
     }
 
+    private fun findGlobalElement(typeName: String, namespace: String, localSchema: XMLNode? = null): XMLNode {
+        return findSchemaNode("element", namespace, typeName, localSchema)
+    }
+
     fun getSOAPElement(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null, otherRefAttributes: Map<String, StringValue> = emptyMap()): WSDLElement {
         val schema = findSchema(fullyQualifiedName.namespace, localSchema)
 
-        val node = findElement(fullyQualifiedName.localName, fullyQualifiedName.namespace, localSchema).addSchema(schema).let {
+        val node = findGlobalElement(fullyQualifiedName.localName, fullyQualifiedName.namespace, localSchema).addSchema(schema).let {
             it.copy(attributes = it.attributes.plus(otherRefAttributes))
         }
 
@@ -352,6 +368,11 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         } else {
             ReferredType(fullyQualifiedName.qName, node, this)
         }
+    }
+
+    fun getSubstitutionGroupMembers(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): List<XMLNode> {
+        val resolvedNamespace = resolvedSchemaNamespace(fullyQualifiedName.namespace, localSchema)
+        return indexes.substitutionGroups[NamedSchemaLookupKey(resolvedNamespace, fullyQualifiedName.localName)].orEmpty()
     }
 
     fun namedTypeNodes(namespace: String, localSchema: XMLNode? = null): List<XMLNode> {
@@ -537,6 +558,16 @@ private fun indexNamedSchemas(schemas: Map<String, XMLNode>): Map<NamedSchemaLoo
                 }
             }
     }.firstByKey()
+}
+
+private fun indexSubstitutionGroups(schemas: Map<String, XMLNode>): Map<NamedSchemaLookupKey, List<XMLNode>> {
+    return schemas.values
+        .flatMap { schema -> schema.childNodes.filterIsInstance<XMLNode>() }
+        .filter { node -> node.name == "element" && node.attributes.containsKey("substitutionGroup") }
+        .groupBy { node ->
+            val head = node.fullyQualifiedNameFromAttribute("substitutionGroup")
+            NamedSchemaLookupKey(head.namespace, head.localName)
+        }
 }
 
 private fun <K, V> List<Pair<K, V>>.firstByKey(): Map<K, V> =

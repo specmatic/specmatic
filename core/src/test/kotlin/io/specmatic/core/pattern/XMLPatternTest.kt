@@ -734,7 +734,10 @@ internal class XMLPatternTest {
             val result = pattern.matches(value, resolver)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).contains("Invalid xsi:type")
+            assertThat(result.reportString()).contains("Invalid type")
+            assertThat(result.reportString()).contains("tns:Vehicle")
+            assertThat(result.reportString()).contains("base type")
+            assertThat(result.reportString()).contains("Animal")
         }
 
         @Test
@@ -761,8 +764,8 @@ internal class XMLPatternTest {
             val result = pattern.matches(value, resolver)
 
             assertThat(result).isInstanceOf(Result.Failure::class.java)
-            assertThat(result.reportString()).contains("Unknown xsi:type")
-            assertThat(result.reportString()).contains("UnknownType")
+            assertThat(result.reportString()).contains("Unknown type")
+            assertThat(result.reportString()).contains("tns:UnknownType")
         }
 
         @Test
@@ -1722,6 +1725,19 @@ internal class XMLPatternTest {
 
                 assertThat(first.name).isEqualTo("title")
                 assertThat(first.attributes).doesNotContainKey(OCCURS_ATTRIBUTE_NAME)
+            })
+        }
+
+        @Test
+        fun `repeated xml child projects generated child nodes through xml child generation interface`() {
+            val repeatedTitle = XMLPattern("<title $occursMultipleTimes>(number)</title>")
+            val generatedChildren = repeatedTitle.generateXMLChildValues(Resolver())
+
+            assertThat(generatedChildren).hasSizeBetween(1, 2)
+            assertThat(generatedChildren).allSatisfy(Consumer { generatedChild ->
+                val title = generatedChild as XMLNode
+                assertThat(title.name).isEqualTo("title")
+                assertThat(title.attributes).doesNotContainKey(OCCURS_ATTRIBUTE_NAME)
             })
         }
 

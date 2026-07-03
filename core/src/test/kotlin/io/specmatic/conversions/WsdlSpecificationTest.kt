@@ -133,8 +133,31 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Unknown xsi:type")
-        assertThat(result.reportString()).contains("MissingAnimal")
+        assertThat(result.reportString()).contains("Unknown type")
+        assertThat(result.reportString()).contains("tns:MissingAnimal")
+    }
+
+    @Test
+    fun `request matching reports unknown unprefixed xsi type using namespace fallback`() {
+        val wsdlContract = wsdlContentToFeature(animalWithoutDerivedTypesWsdl(), "animal-without-derived-types.wsdl")
+        val scenario = wsdlContract.scenarios.single()
+
+        val result = scenario.httpRequestPattern.matches(
+            animalRequest(
+                """
+                <Animal xmlns="http://example.com/animals"
+                        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                        xsi:type="MissingAnimal">
+                  <name>Leo</name>
+                </Animal>
+                """.trimIndent()
+            ),
+            scenario.resolver
+        )
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).contains("Unknown type MissingAnimal (namespace: http://example.com/animals)")
+        assertThat(result.reportString()).contains("base type Animal (namespace: http://example.com/animals)")
     }
 
     @Test
@@ -147,8 +170,8 @@ internal class WsdlSpecificationTest {
             .toList()
 
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"Order-model:OnlineOrder\"")
-            assertThat(body).contains("<Order-model:channel>")
+            assertThat(body).contains("xsi:type=\"model:OnlineOrder\"")
+            assertThat(body).contains(":channel>")
         }
     }
 
@@ -291,8 +314,9 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Missing xsi:type")
-        assertThat(result.reportString()).contains("Pet")
+        assertThat(result.reportString()).contains("Missing type for abstract WSDL type")
+        assertThat(result.reportString()).contains("tns:Pet")
+        assertThat(result.reportString()).doesNotContain("namespace:")
     }
 
     @Test
@@ -318,7 +342,8 @@ internal class WsdlSpecificationTest {
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).contains("abstract")
-        assertThat(result.reportString()).contains("Pet")
+        assertThat(result.reportString()).contains("tns:Pet")
+        assertThat(result.reportString()).doesNotContain("namespace:")
     }
 
     @Test
@@ -346,9 +371,10 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Invalid xsi:type")
-        assertThat(result.reportString()).contains("Crocodile")
+        assertThat(result.reportString()).contains("Invalid type")
+        assertThat(result.reportString()).contains("tns:Crocodile")
         assertThat(result.reportString()).doesNotContain("it is abstract")
+        assertThat(result.reportString()).doesNotContain("namespace:")
     }
 
     @Test
@@ -373,8 +399,9 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Missing xsi:type")
-        assertThat(result.reportString()).contains("Pet")
+        assertThat(result.reportString()).contains("Missing type for abstract WSDL type")
+        assertThat(result.reportString()).contains("tns:Pet")
+        assertThat(result.reportString()).doesNotContain("namespace:")
     }
 
     @Test
@@ -399,9 +426,10 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Invalid xsi:type")
-        assertThat(result.reportString()).contains("Crocodile")
-        assertThat(result.reportString()).contains("Pet")
+        assertThat(result.reportString()).contains("Invalid type")
+        assertThat(result.reportString()).contains("tns:Crocodile")
+        assertThat(result.reportString()).contains("tns:Pet")
+        assertThat(result.reportString()).doesNotContain("namespace:")
     }
 
     @Test
@@ -444,11 +472,11 @@ internal class WsdlSpecificationTest {
             assertThat(body).doesNotContain(":lives>")
         }
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"Pet-sequence:Dog\"")
+            assertThat(body).contains("xsi:type=\"tns:Dog\"")
             assertThat(body).contains(":breed>")
         }
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"Pet-sequence:Cat\"")
+            assertThat(body).contains("xsi:type=\"tns:Cat\"")
             assertThat(body).contains(":lives>")
         }
     }
@@ -488,11 +516,11 @@ internal class WsdlSpecificationTest {
             assertThat(body).doesNotContain(":lives>")
         }
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"Pet-sequence:Dog\"")
+            assertThat(body).contains("xsi:type=\"tns:Dog\"")
             assertThat(body).contains(":breed>")
         }
         assertThat(generatedBodies).anySatisfy { body ->
-            assertThat(body).contains("xsi:type=\"Pet-sequence:Cat\"")
+            assertThat(body).contains("xsi:type=\"tns:Cat\"")
             assertThat(body).contains(":lives>")
         }
     }
@@ -521,7 +549,7 @@ internal class WsdlSpecificationTest {
     fun `pinned derived wsdl complex type candidate generates only derived shape with xsi type`() {
         val wsdlContract = wsdlContentToFeature(petSequenceWsdl(), "pet-sequence.wsdl")
         val dogScenario = generatedScenarios(wsdlContract).first { scenario ->
-            generatedRequestBody(scenario, wsdlContract).contains("xsi:type=\"Pet-sequence:Dog\"")
+            generatedRequestBody(scenario, wsdlContract).contains("xsi:type=\"tns:Dog\"")
         }
 
         val regeneratedBodies = (1..5).map {
@@ -529,7 +557,7 @@ internal class WsdlSpecificationTest {
         }
 
         assertThat(regeneratedBodies).allSatisfy { body ->
-            assertThat(body).contains("xsi:type=\"Pet-sequence:Dog\"")
+            assertThat(body).contains("xsi:type=\"tns:Dog\"")
             assertThat(body).contains(":breed>")
             assertThat(body).doesNotContain(":lives>")
         }
@@ -585,9 +613,10 @@ internal class WsdlSpecificationTest {
         )
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("Invalid xsi:type")
-        assertThat(result.reportString()).contains("Crocodile")
-        assertThat(result.reportString()).contains("Pet")
+        assertThat(result.reportString()).contains("Invalid type")
+        assertThat(result.reportString()).contains("tns:Crocodile")
+        assertThat(result.reportString()).contains("tns:Pet")
+        assertThat(result.reportString()).doesNotContain("namespace:")
     }
 
     @Test

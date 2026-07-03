@@ -86,7 +86,7 @@ data class XMLPattern(
     override val typeAlias: String? = null,
     val schemaPointer: String? = null,
     val attributePointers: Map<String, String> = emptyMap()
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     constructor(
         node: XMLNode,
         typeAlias: String? = null,
@@ -284,22 +284,30 @@ data class XMLPattern(
     }
 
     private fun invalidXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is known to Specmatic but is not compatible with $declaredDescription.")
+        return Failure(
+            "Invalid type ${assertedType.displayNameForError()}; " +
+                "it is not compatible with base type ${declaredType.displayNameForError()}."
+        )
     }
 
     private fun unknownXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Unknown xsi:type ${assertedType.namespace}#${assertedType.localName}; no matching type was found in the WSDL/schema set for $declaredDescription.")
+        return Failure(
+            "Unknown type ${assertedType.displayNameForError()}; " +
+                "no matching type was found in the WSDL/schema set for base type ${declaredType.displayNameForError()}."
+        )
     }
 
     private fun abstractXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is abstract and cannot be used as a concrete WSDL type for $declaredDescription.")
+        return Failure(
+            "Invalid type ${assertedType.displayNameForError()}; " +
+                "it is abstract and cannot be used as a concrete WSDL type for the ${declaredType.displayNameForError()} element."
+        )
     }
 
     private fun missingXSITypeForAbstractTypeResult(declaredType: WSDLTypeName): Failure {
-        return Failure("Missing xsi:type for abstract WSDL type ${declaredType.namespace}#${declaredType.localName}; a concrete subtype is required.")
+        return Failure(
+            "Missing type for abstract WSDL type ${declaredType.displayNameForError()}; a concrete subtype is required."
+        )
     }
 
     private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {
@@ -1062,15 +1070,20 @@ data class XMLPattern(
         return cyclePreventionPattern != this && resolver.hasCycle(cyclePreventionPattern)
     }
 
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return when {
+            occurMultipleTimes() ->
+                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).flatMap {
+                    generatedValueAsXMLChildValues(generate(resolver))
+                }
+
+            else -> generatedValueAsXMLChildValues(generate(resolver))
+        }
+    }
+
     private fun Pattern.generateNodes(resolver: Resolver): List<Value> {
         return when {
-            this is ListPattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLChoiceGroupPattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLSequencePattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
-            this is XMLPattern && occurMultipleTimes() ->
-                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).map { generate(resolver) }
-
+            this is XMLChildGenerationPattern -> generateXMLChildValues(resolver)
             else -> listOf(generate(resolver))
         }
     }
@@ -1388,7 +1401,7 @@ private fun XMLNode.xsiTypeName(): WSDLTypeName? {
             value.namespacePrefix().isBlank() -> elementNamespaceUriOrNull().orEmpty()
             else -> resolveNamespace(value)
         }
-        WSDLTypeName(namespace, value.localName())
+        WSDLTypeName(namespace, value.localName(), value.namespacePrefix().ifBlank { null })
     }.getOrNull()
 }
 
