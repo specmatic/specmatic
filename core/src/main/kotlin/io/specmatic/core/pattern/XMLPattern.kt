@@ -215,7 +215,7 @@ data class XMLPattern(
                     is WSDLTypeSelection.Invalid,
                     is WSDLTypeSelection.Abstract -> failureForWSDLTypeSelection(selectedType)
 
-                    is WSDLTypeSelection.Use -> matchWithType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
+                    is WSDLTypeSelection.Use -> matchWithSelectedType(selectedType.pattern, sampleDataWithoutEmptyHeader, resolver)
                 }
 
                 return matchResult.breadCrumb(pattern.name, resolver.locate(schemaPointer))
@@ -259,10 +259,10 @@ data class XMLPattern(
         }.breadCrumb(pattern.name, resolver.locate(schemaPointer))
     }
 
-    private fun matchWithType(matchingType: Pattern, sampleData: XMLNode, resolver: Resolver): Result {
+    private fun matchWithSelectedType(matchingType: Pattern, sampleData: XMLNode, resolver: Resolver): Result {
         return when (matchingType) {
             is XMLPattern -> {
-                matchName(sampleData, resolver).ifSuccess {
+                matchingType.matchName(sampleData, resolver).ifSuccess {
                     matchingType.matchNamespaces(sampleData)
                 }.ifSuccess {
                     matchingType.matchAttributes(sampleData, resolver)
@@ -270,6 +270,14 @@ data class XMLPattern(
                     matchingType.matchNodes(sampleData, resolver)
                 }
             }
+
+            else -> matchWithType(matchingType, sampleData, resolver)
+        }
+    }
+
+    private fun matchWithType(matchingType: Pattern, sampleData: XMLNode, resolver: Resolver): Result {
+        return when (matchingType) {
+            is XMLPattern -> matchWithSelectedType(matchingType.withElementNameFrom(pattern), sampleData, resolver)
 
             is AnyPattern -> matchingType.matches(sampleData, resolver)
             else -> {
@@ -320,7 +328,11 @@ data class XMLPattern(
     }
 
     private fun selectWSDLType(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
-        return selectWSDLType(sampleData.xsiTypeName(), declaredType, resolver)
+        sampleData.xsiTypeName()?.let { assertedType ->
+            return selectWSDLType(assertedType, declaredType, resolver)
+        }
+
+        return selectWSDLTypeByElementName(sampleData, declaredType, resolver)
     }
 
     private fun selectWSDLType(assertedType: WSDLTypeName?, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
@@ -353,6 +365,25 @@ data class XMLPattern(
 
             else ->
                 WSDLTypeSelection.Use(mergeReferredPattern(payloadAssertedTypePatternCompatibleWithDeclaredType))
+        }
+    }
+
+    private fun selectWSDLTypeByElementName(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
+        val declaredWSDLType = declaredType.wsdlTypeName() ?: return null
+        val payloadElementName = sampleData.wsdlElementName()
+        val declaredXMLPattern = declaredType as? XMLPattern ?: return null
+        val selectedPattern = declaredType.concreteDerivedWSDLPatterns(resolver)
+            .firstOrNull { (typeName, _) -> typeName == payloadElementName }
+            ?.second
+            ?: return null
+
+        val mergedPattern = declaredXMLPattern.mergeWSDLDerivedPattern(selectedPattern)
+            ?.withElementNameFrom(sampleData)
+            ?: return WSDLTypeSelection.Invalid(payloadElementName, declaredWSDLType)
+
+        return when {
+            mergedPattern.pattern.wsdlTypeIsAbstract -> WSDLTypeSelection.Abstract(payloadElementName, declaredWSDLType)
+            else -> WSDLTypeSelection.Use(mergedPattern)
         }
     }
 
@@ -1405,6 +1436,9 @@ private fun XMLNode.xsiTypeName(): WSDLTypeName? {
     }.getOrNull()
 }
 
+private fun XMLNode.wsdlElementName(): WSDLTypeName =
+    WSDLTypeName(elementNamespaceUriOrNull().orEmpty(), name)
+
 private fun Pattern.findPatternForWSDLType(typeName: WSDLTypeName, resolver: Resolver): Pattern? {
     val typeKey = wsdlCompatibleTypeKeys()[typeName] ?: return null
     return resolver.patternForWSDLKey(typeKey)
@@ -1523,6 +1557,21 @@ private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {
         )
     )
 }
+
+private fun XMLPattern.withElementNameFrom(node: XMLNode): XMLPattern =
+    withElementName(node.name, node.realName, node.elementNamespaceUriOrNull())
+
+private fun XMLPattern.withElementNameFrom(typeData: XMLTypeData): XMLPattern =
+    withElementName(typeData.name, typeData.realName, typeData.namespaceUri)
+
+private fun XMLPattern.withElementName(name: String, realName: String, namespaceUri: String?): XMLPattern =
+    copy(
+        pattern = pattern.copy(
+            name = name,
+            realName = realName,
+            namespaceUri = namespaceUri,
+        )
+    )
 
 private fun <T> PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(value: T, s: String): T {
     return value

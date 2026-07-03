@@ -544,7 +544,10 @@ fun requestFromJSON(json: Map<String, Value>): HttpRequest {
 }
 
 fun adjustForSOAP(headers: Map<String, String>): Map<String, String> {
-    if (headers.containsKey("SOAPAction")) return headers
+    val soapActionHeader = headers.entries.find { it.key.equals("SOAPAction", ignoreCase = true) }
+    if (soapActionHeader != null) {
+        return headers.minus(soapActionHeader.key) + ("SOAPAction" to soapActionHeader.value)
+    }
 
     val rawContentType = headers["Content-Type"] ?: return headers
 

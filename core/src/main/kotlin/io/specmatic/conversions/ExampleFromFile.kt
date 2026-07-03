@@ -36,7 +36,11 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
     fun toRow(specmaticConfig: SpecmaticConfig = SpecmaticConfig(), logger: LogStrategy = io.specmatic.core.log.logger): Row {
         logger.log("Loading test file ${this.expectationFilePath}")
 
-        val examples: Map<String, String> = request.headers
+        val normalizedHeaders = request.headers.mapKeys { (key, _) ->
+            if (key.equals("SOAPAction", ignoreCase = true)) "SOAPAction" else key
+        }
+
+        val examples: Map<String, String> = normalizedHeaders
             .plus(queryParams)
             .plus(requestBody?.let { mapOf("(REQUEST-BODY)" to it.toStringLiteral()) } ?: emptyMap())
 
