@@ -12,6 +12,8 @@ internal const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
 data class WSDLTypeName(val namespace: String, val localName: String)
 
+data class WSDLSubstitutionGroupMember(val elementName: WSDLTypeName, val typeName: WSDLTypeName)
+
 enum class WSDLTypeSelectionMode {
     Polymorphic,
     CurrentTypeOnly
@@ -39,6 +41,7 @@ data class XMLTypeData(
     val wsdlKnownTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlCompatibleTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlConcreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),
+    val wsdlSubstitutionGroupMembers: Map<WSDLTypeName, WSDLSubstitutionGroupMember> = emptyMap(),
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()

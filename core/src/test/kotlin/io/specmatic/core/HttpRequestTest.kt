@@ -304,6 +304,26 @@ internal class HttpRequestTest {
     }
 
     @Test
+    fun `should recognize SOAPAction case insensitively when formulating unmatched request message`() {
+        val request = HttpRequest(
+            "POST",
+            "/test",
+            headers = mapOf("Soapaction" to "test"),
+            body = toXMLNode("<Envelope/>")
+        )
+
+        assertThat(request.requestNotRecognized())
+            .isEqualTo("No matching SOAP stub or contract found for SOAPAction test and path /test")
+    }
+
+    @Test
+    fun `should extract SOAP 1_2 action from content type header case insensitively`() {
+        val adjustedHeaders = adjustForSOAP(mapOf("content-type" to "application/soap+xml; action=urn:test"))
+
+        assertThat(adjustedHeaders).containsEntry("SOAPAction", "\"urn:test\"")
+    }
+
+    @Test
     fun `should formulate a loggable error message describing the XML-REST request without strict mode`() {
         assertThat(
             LenientRequestNotRecognizedMessages().xmlOverHttp(

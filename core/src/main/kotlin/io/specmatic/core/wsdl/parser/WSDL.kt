@@ -6,6 +6,8 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.WSDLSubstitutionGroupMember
+import io.specmatic.core.pattern.WSDLTypeName
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.SOAPVersion
@@ -176,7 +178,8 @@ private data class SchemaLookupKey(
 private data class WsdlIndexes(
     val definitions: Map<DefinitionLookupKey, XMLNode>,
     val schemas: Map<SchemaLookupKey, XMLNode>,
-    val namedSchemas: Map<NamedSchemaLookupKey, XMLNode>
+    val namedSchemas: Map<NamedSchemaLookupKey, XMLNode>,
+    val substitutionGroups: Map<WSDLTypeName, List<WSDLSubstitutionGroupMember>>
 )
 
 private data class NamedSchemaLookupKey(
@@ -188,7 +191,8 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
     private val indexes = WsdlIndexes(
         definitions = indexDefinitions(definitions),
         schemas = indexSchemas(schemas),
-        namedSchemas = indexNamedSchemas(schemas)
+        namedSchemas = indexNamedSchemas(schemas),
+        substitutionGroups = indexSubstitutionGroups(schemas)
     )
 
     fun allNamespaces(): Map<String, String> {
@@ -353,6 +357,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             ReferredType(fullyQualifiedName.qName, node, this)
         }
     }
+
+    fun substitutionGroupMembersFor(headElementName: FullyQualifiedName): List<WSDLSubstitutionGroupMember> =
+        indexes.substitutionGroups[WSDLTypeName(headElementName.namespace, headElementName.localName)].orEmpty()
 
     fun namedTypeNodes(namespace: String, localSchema: XMLNode? = null): List<XMLNode> {
         val resolvedNamespace = namespaceOrSchemaNamespace(namespace, localSchema) ?: return emptyList()
@@ -538,6 +545,30 @@ private fun indexNamedSchemas(schemas: Map<String, XMLNode>): Map<NamedSchemaLoo
             }
     }.firstByKey()
 }
+
+private fun indexSubstitutionGroups(schemas: Map<String, XMLNode>): Map<WSDLTypeName, List<WSDLSubstitutionGroupMember>> {
+    return schemas.flatMap { (namespace, schema) ->
+        schema.childNodes.filterIsInstance<XMLNode>()
+            .filter { it.name == "element" && it.attributes.containsKey("substitutionGroup") }
+            .mapNotNull { node ->
+                val elementName = node.attributes["name"]?.toStringLiteral() ?: return@mapNotNull null
+                val typeName = node.fullyQualifiedNameFromAttributeOrNull("type") ?: return@mapNotNull null
+                val headElementName = node.fullyQualifiedNameFromAttribute("substitutionGroup")
+
+                WSDLTypeName(headElementName.namespace, headElementName.localName) to WSDLSubstitutionGroupMember(
+                    elementName = WSDLTypeName(namespace, elementName),
+                    typeName = WSDLTypeName(typeName.namespace, typeName.localName)
+                )
+            }
+    }.groupBy({ it.first }, { it.second })
+}
+
+private fun XMLNode.fullyQualifiedNameFromAttributeOrNull(attributeName: String): FullyQualifiedName? =
+    try {
+        fullyQualifiedNameFromAttribute(attributeName)
+    } catch (_: ContractException) {
+        null
+    }
 
 private fun <K, V> List<Pair<K, V>>.firstByKey(): Map<K, V> =
     LinkedHashMap<K, V>().also { indexedValues ->

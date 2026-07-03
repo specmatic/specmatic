@@ -56,6 +56,7 @@ data class Resolver(
     val maxTestRequestCombinations: Int = Int.MAX_VALUE,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val randomArraySize: Int? = null,
+    val xmlGenerationDecisions: XMLGenerationDecisions = RandomXMLGenerationDecisions,
 ) {
     fun locate(pointer: String?): SourceLocation? {
         if (pointer == null) return null

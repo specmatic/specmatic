@@ -6,6 +6,7 @@ import io.specmatic.core.*
 import io.specmatic.core.utilities.contractStubPaths
 import io.specmatic.core.utilities.contractTestPathsFrom
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
@@ -254,6 +255,19 @@ class WSDLTest {
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
         assertThat(result.successCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `derived type element name is rejected without substitution group`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("abstract-derived.wsdl").apply { writeText(abstractDerivedTypeWsdl()) }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("retrieve_order_wrong_element.json").writeText(abstractDerivedTypeWrongElementNameExample())
+
+        val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }
+            .hasMessageContaining("OrderDetails")
     }
 
     @Test
@@ -586,6 +600,28 @@ private fun abstractDerivedTypeExample(): String =
     }
     """.trimIndent()
 
+private fun abstractDerivedTypeWrongElementNameExample(): String =
+    """
+    {
+      "http-request": {
+        "path": "/RetrieveOrderDetails",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "\"http://example.com/order-service/RetrieveOrderDetails\""
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RetrieveOrderDetails xmlns=\"http://example.com/order-service\"><Message xmlns=\"http://example.com/order-model\"><command><retrieveOrderDetailsRequest><OrderDetails><orderNumber>100234569</orderNumber><productName>Phone</productName></OrderDetails></retrieveOrderDetailsRequest></command></Message></RetrieveOrderDetails></s:Body></s:Envelope>"
+      },
+      "http-response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/xml"
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RetrieveOrderDetailsResponse xmlns=\"http://example.com/order-service\"><Message xmlns=\"http://example.com/order-model\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:ord=\"http://example.com/order-model\"><command><retrieveOrderDetailsResponse><order xsi:type=\"ord:OrderDetails\"><orderNumber>100234569</orderNumber><productName>Phone</productName></order></retrieveOrderDetailsResponse></command></Message></RetrieveOrderDetailsResponse></s:Body></s:Envelope>"
+      }
+    }
+    """.trimIndent()
+
 private fun substitutionGroupWsdl(): String =
     """
     <wsdl:definitions xmlns:tns="http://example.com/animal-service"
@@ -644,7 +680,7 @@ private fun substitutionGroupWsdl(): String =
             </xsd:complexContent>
           </xsd:complexType>
           <xsd:element name="Animal" type="tns:Animal" abstract="true"/>
-          <xsd:element name="Dog" substitutionGroup="tns:Animal" type="tns:Dog"/>
+          <xsd:element name="DomesticDog" substitutionGroup="tns:Animal" type="tns:Dog"/>
           <xsd:element name="Cat" substitutionGroup="tns:Animal" type="tns:Cat"/>
           <xsd:element name="RegisterAnimal">
             <xsd:complexType>
@@ -675,14 +711,14 @@ private fun substitutionGroupExample(): String =
           "Content-Type": "text/xml; charset=utf-8",
           "SOAPAction": "\"http://example.com/animal-service/RegisterAnimal\""
         },
-        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimal xmlns=\"http://example.com/animal-service\"><Dog><name>Pepper</name><breed>Beagle</breed></Dog></RegisterAnimal></s:Body></s:Envelope>"
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimal xmlns=\"http://example.com/animal-service\"><DomesticDog><name>Pepper</name><breed>Beagle</breed></DomesticDog></RegisterAnimal></s:Body></s:Envelope>"
       },
       "http-response": {
         "status": 200,
         "headers": {
           "Content-Type": "text/xml"
         },
-        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimalResponse xmlns=\"http://example.com/animal-service\"><Dog><name>Pepper</name><breed>Beagle</breed></Dog></RegisterAnimalResponse></s:Body></s:Envelope>"
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimalResponse xmlns=\"http://example.com/animal-service\"><DomesticDog><name>Pepper</name><breed>Beagle</breed></DomesticDog></RegisterAnimalResponse></s:Body></s:Envelope>"
       }
     }
     """.trimIndent()

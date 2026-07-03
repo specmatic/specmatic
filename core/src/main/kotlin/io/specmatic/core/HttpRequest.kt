@@ -361,9 +361,11 @@ data class HttpRequest(
         val method = this.method!!
         val path = this.path ?: "/"
 
+        val soapAction = getHeader(soapActionHeader)
+
         return when {
-            this.headers.containsKey(soapActionHeader) ->
-                requestNotRecognizedMessages.soap(this.headers.getValue(soapActionHeader), path)
+            soapAction != null ->
+                requestNotRecognizedMessages.soap(soapAction, path)
 
             this.body is XMLNode ->
                 requestNotRecognizedMessages.xmlOverHttp(method, path)
@@ -549,7 +551,7 @@ fun adjustForSOAP(headers: Map<String, String>): Map<String, String> {
         return headers.minus(soapActionHeader.key) + ("SOAPAction" to soapActionHeader.value)
     }
 
-    val rawContentType = headers["Content-Type"] ?: return headers
+    val rawContentType = headers.entries.find { it.key.equals("Content-Type", ignoreCase = true) }?.value ?: return headers
 
     val contentType = try { ContentType.parse(rawContentType) } catch (_: Throwable) { return headers }
 

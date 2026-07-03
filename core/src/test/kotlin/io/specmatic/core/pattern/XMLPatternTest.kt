@@ -360,30 +360,25 @@ internal class XMLPatternTest {
         fun `optional xml node generation produces zero or one occurrence`() {
             val type = XMLPattern("<data><item $isOptional>(string)</item></data>")
 
-            val generatedCounts = 1.rangeTo(100).map {
-                type.generate(Resolver()).childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }
-            }
+            val skipped = type.generate(Resolver(xmlGenerationDecisions = FixedXMLGenerationDecisions(false)))
+            val included = type.generate(Resolver(xmlGenerationDecisions = FixedXMLGenerationDecisions(true)))
 
-            assertThat(generatedCounts).allSatisfy(Consumer { count ->
-                assertThat(count).isIn(0, 1)
-            })
-            assertThat(generatedCounts).contains(0, 1)
+            assertThat(skipped.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(0)
+            assertThat(included.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(1)
         }
 
         @Test
         fun `recursive optional xml node generation skips schema already being generated`() {
             val nodeType = XMLPattern("<SPECMATIC_TYPE><id>(string)</id><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></SPECMATIC_TYPE>")
             val type = XMLPattern("<data><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></data>")
-            val resolver = Resolver(newPatterns = mapOf("(Node)" to nodeType))
+            val resolver = Resolver(
+                newPatterns = mapOf("(Node)" to nodeType),
+                xmlGenerationDecisions = FixedXMLGenerationDecisions(true)
+            )
 
-            val generatedChildren = 1.rangeTo(100).mapNotNull {
-                type.generate(resolver).childNodes.filterIsInstance<XMLNode>().firstOrNull { it.name == "child" }
-            }
+            val generatedChild = type.generate(resolver).childNodes.filterIsInstance<XMLNode>().single { it.name == "child" }
 
-            assertThat(generatedChildren).isNotEmpty()
-            assertThat(generatedChildren).allSatisfy(Consumer { child ->
-                assertThat(child.childNodes.filterIsInstance<XMLNode>().map { it.name }).containsExactly("id")
-            })
+            assertThat(generatedChild.childNodes.filterIsInstance<XMLNode>().map { it.name }).containsExactly("id")
         }
 
         @Test
@@ -2145,4 +2140,14 @@ internal class XMLPatternTest {
             """.trimIndent(),
             isSOAP = true
         )
+}
+
+private class FixedXMLGenerationDecisions(private vararg val decisions: Boolean) : XMLGenerationDecisions {
+    private var index = 0
+
+    override fun includeOptionalXMLNode(): Boolean {
+        val decision = decisions.getOrElse(index) { decisions.last() }
+        index += 1
+        return decision
+    }
 }

@@ -363,14 +363,17 @@ data class XMLPattern(
         val declaredWSDLType = declaredType.wsdlTypeName() ?: return null
         val payloadElementName = sampleData.wsdlElementName()
         val declaredXMLPattern = declaredType as? XMLPattern ?: return null
-        val selectedPattern = declaredType.concreteDerivedWSDLPatterns(resolver)
-            .firstOrNull { (typeName, _) -> typeName == payloadElementName }
-            ?.second
-            ?: return null
+        val substitutionGroupMember = declaredType.wsdlSubstitutionGroupMembers()[payloadElementName] ?: return null
+        val selectedPattern = declaredType.findPatternForWSDLType(substitutionGroupMember.typeName, resolver)
+            ?: resolver.findPatternForWSDLType(substitutionGroupMember.typeName)
+            ?: return WSDLTypeSelection.Unknown(substitutionGroupMember.typeName, declaredWSDLType)
+        val compatiblePattern = selectedPattern.takeIf {
+            it.wsdlTypeName() == declaredWSDLType || it.isDerivedFrom(declaredWSDLType, resolver)
+        } ?: return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
 
-        val mergedPattern = declaredXMLPattern.mergeWSDLDerivedPattern(selectedPattern)
+        val mergedPattern = declaredXMLPattern.mergeWSDLDerivedPattern(compatiblePattern)
             ?.withElementNameFrom(sampleData)
-            ?: return WSDLTypeSelection.Invalid(payloadElementName, declaredWSDLType)
+            ?: return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
 
         return when {
             mergedPattern.pattern.wsdlTypeIsAbstract -> WSDLTypeSelection.Abstract(payloadElementName, declaredWSDLType)
@@ -1063,6 +1066,7 @@ data class XMLPattern(
                         realName = this.pattern.realName,
                         attributes = attributes,
                         namespaceUri = this.pattern.namespaceUri,
+                        wsdlSubstitutionGroupMembers = referred.pattern.wsdlSubstitutionGroupMembers + this.pattern.wsdlSubstitutionGroupMembers,
                     ),
                 )
             }
@@ -1130,7 +1134,7 @@ data class XMLPattern(
 
     private fun XMLPattern.generateOptionalNodes(resolver: Resolver): List<Value> {
         if (resolver.hasCycle(cyclePreventionPattern())) return emptyList()
-        if (!kotlin.random.Random.nextBoolean()) return emptyList()
+        if (!resolver.xmlGenerationDecisions.includeOptionalXMLNode()) return emptyList()
 
         return resolver.withCyclePrevention(
             cyclePreventionPattern(),
@@ -1532,6 +1536,14 @@ private fun Pattern.wsdlConcreteSubtypeKeys(): Map<WSDLTypeName, String> {
     return when (this) {
         is XMLPattern -> pattern.wsdlConcreteSubtypeKeys
         is AnyPattern -> pattern.flatMap { it.wsdlConcreteSubtypeKeys().entries }.associate { it.toPair() }
+        else -> emptyMap()
+    }
+}
+
+private fun Pattern.wsdlSubstitutionGroupMembers(): Map<WSDLTypeName, WSDLSubstitutionGroupMember> {
+    return when (this) {
+        is XMLPattern -> pattern.wsdlSubstitutionGroupMembers
+        is AnyPattern -> pattern.flatMap { it.wsdlSubstitutionGroupMembers().entries }.associate { it.toPair() }
         else -> emptyMap()
     }
 }
