@@ -205,7 +205,7 @@ data class XMLWildcardPattern(
     override fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue {
         val generatedNodes = 0.until(state.decisions.numberOfXMLNodesFor(minOccurs, maxOccurs))
             .map { generatedNode() }
-        return GeneratedXMLValue(XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap()), state)
+        return GeneratedXMLValue(XMLNode.container(generatedNodes), state)
     }
 
     private fun generatedNode(): XMLNode {
@@ -289,7 +289,7 @@ data class XMLWildcardPattern(
             ?: ConsumeResult(Failure(lengthError), others)
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value =
-        XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        XMLNode.container(valueList.map { it as XMLValue })
 
     override val typeName: String = "xml-wildcard"
     override val pattern: Any

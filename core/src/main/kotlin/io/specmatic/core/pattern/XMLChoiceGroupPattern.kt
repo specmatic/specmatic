@@ -117,7 +117,7 @@ data class XMLChoiceGroupPattern(
             generatedOccurrencesSoFar.followedBy(generatedBranchNodes)
         }
 
-        return GeneratedXMLValue(XMLNode("", "", emptyMap(), generatedChoiceOccurrences.nodes, "", emptyMap()), generatedChoiceOccurrences.nextState)
+        return GeneratedXMLValue(XMLNode.container(generatedChoiceOccurrences.nodes), generatedChoiceOccurrences.nextState)
     }
 
     private fun generateSelectedChoiceMember(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedXMLNodes {
@@ -293,7 +293,7 @@ data class XMLChoiceGroupPattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLValue })
     }
 
     override fun encompasses(
@@ -516,7 +516,7 @@ data class XMLSequencePattern(
             generatedMembersSoFar.followedBy(generateSequenceMember(memberPattern, resolver, generatedMembersSoFar.nextState))
         }
 
-        return GeneratedXMLValue(XMLNode("", "", emptyMap(), generatedSequenceMembers.nodes, "", emptyMap()), generatedSequenceMembers.nextState)
+        return GeneratedXMLValue(XMLNode.container(generatedSequenceMembers.nodes), generatedSequenceMembers.nextState)
     }
 
     private fun generateSequenceMember(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedXMLNodes {
@@ -549,7 +549,7 @@ data class XMLSequencePattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLValue })
     }
 
     override fun encompasses(

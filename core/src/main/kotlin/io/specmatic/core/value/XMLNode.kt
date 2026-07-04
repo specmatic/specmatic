@@ -106,6 +106,11 @@ data class FullyQualifiedName(val prefix: String, val namespace: String, val loc
 }
 
 data class XMLNode(val name: String, val realName: String, val attributes: Map<String, StringValue>, val childNodes: List<XMLValue>, val namespacePrefix: String, val namespaces: Map<String, String>, val schema: XMLNode? = null) : XMLValue, ListValue {
+    companion object {
+        fun container(childNodes: List<XMLValue>): XMLNode =
+            XMLNode("", "", emptyMap(), childNodes, "", emptyMap())
+    }
+
     /**
      * @param inheritNamespacesInChildren set this to true when rebuilding an XML tree from existing child XMLNodes.
      * Parsed XML already receives inherited namespaces while parsing, but programmatically reconstructed nodes may
@@ -362,7 +367,7 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
     }
 
     override fun listOf(valueList: List<Value>): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLNode }, "", emptyMap())
+        return container(valueList.map { it as XMLNode })
     }
 
     override fun toString(): String = toStringLiteral()

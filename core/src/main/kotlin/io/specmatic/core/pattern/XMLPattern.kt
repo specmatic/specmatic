@@ -678,7 +678,7 @@ data class XMLPattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLNode }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLNode })
     }
 
     override fun generate(resolver: Resolver): XMLNode =
