@@ -7,7 +7,13 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 
 sealed interface XMLChildGenerationPattern : Pattern {
-    fun generateXMLChildValues(resolver: Resolver): List<XMLValue>
+    fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes
+
+    fun generateXML(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
+        generateXMLNodes(resolver, XMLGenerationState(decisions)).asContainer()
+
+    fun generateXMLChildValues(resolver: Resolver): List<XMLValue> =
+        generateXMLNodes(resolver, XMLGenerationState()).nodes
 
     fun generatedValueAsXMLChildValues(generated: Value): List<XMLValue> {
         return when (generated) {

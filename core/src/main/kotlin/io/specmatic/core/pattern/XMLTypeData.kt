@@ -15,6 +15,8 @@ data class WSDLTypeName(
     val localName: String,
     val prefix: String? = null
 ) {
+    fun generationKey(): String = "$namespace#$localName"
+
     fun displayNameForError(): String {
         return if (!prefix.isNullOrBlank()) {
             "$prefix:$localName"
@@ -39,6 +41,23 @@ data class WSDLTypeName(
     }
 }
 
+enum class WSDLTypeDerivationMethod {
+    Extension,
+    Restriction
+}
+
+data class WSDLSubstitutionGroupMember(
+    val elementName: WSDLTypeName,
+    val typeName: WSDLTypeName,
+    val headTypeName: WSDLTypeName? = null,
+    val nillable: Boolean = false,
+    val isAbstract: Boolean = false,
+    val defaultValue: String? = null,
+    val fixedValue: String? = null,
+    val headBlocksSubstitution: Boolean = false,
+    val headBlockedDerivationMethods: Set<WSDLTypeDerivationMethod> = emptySet()
+)
+
 enum class WSDLTypeSelectionMode {
     Polymorphic,
     CurrentTypeOnly
@@ -61,11 +80,13 @@ data class XMLTypeData(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlBaseTypeDerivationMethod: WSDLTypeDerivationMethod? = null,
     val wsdlTypeIsAbstract: Boolean = false,
     val wsdlTypeSelectionMode: WSDLTypeSelectionMode = WSDLTypeSelectionMode.Polymorphic,
     val wsdlKnownTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlCompatibleTypeKeys: Map<WSDLTypeName, String> = emptyMap(),
     val wsdlConcreteSubtypeKeys: Map<WSDLTypeName, String> = emptyMap(),
+    val wsdlSubstitutionGroupMembers: Map<WSDLTypeName, WSDLSubstitutionGroupMember> = emptyMap(),
 ) {
     fun hasType(): Boolean = attributes.containsKey(TYPE_ATTRIBUTE_NAME)
     fun hasBeenDereferenced(): Boolean = hasType() && nodes.isNotEmpty()
@@ -183,6 +204,25 @@ data class XMLTypeData(
         return attributes[NILLABLE_ATTRIBUTE_NAME].let {
             it is ExactValuePattern && it.pattern.toStringLiteral().lowercase() == "true"
         }
+    }
+
+    fun withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLTypeData {
+        val nillableAttribute = when {
+            member.nillable -> mapOf(NILLABLE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("true")))
+            else -> emptyMap()
+        }
+
+        val nodesWithFixedValue = when {
+            member.fixedValue != null && nodes.size == 1 && nodes.single() !is XMLPattern ->
+                listOf(ExactValuePattern(StringValue(member.fixedValue)))
+
+            else -> nodes
+        }
+
+        return copy(
+            attributes = attributes + nillableAttribute,
+            nodes = nodesWithFixedValue
+        )
     }
 
     internal fun xsiTypeName(): WSDLTypeName? {

@@ -5,6 +5,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
@@ -46,7 +47,8 @@ internal class ComplexTypeExtensionTest {
             members = listOf(
                 XMLPattern(toXMLNode("<data1>(string)</data1>")),
                 XMLPattern(toXMLNode("<data2>(number)</data2>"))
-            )
+            ),
+            wsdlBaseTypeDerivationMethod = WSDLTypeDerivationMethod.Extension,
         )
         assertThat(wsdlTypeInfo).containsExactly(expected)
     }
@@ -64,6 +66,6 @@ internal class ComplexTypeExtensionTest {
 
         val wsdlTypeInfo = ComplexTypeExtension(child, wsdl, "ParentType").process(listOf(WSDLTypeInfo()), emptyMap(), emptySet())
 
-        assertThat(wsdlTypeInfo).containsExactly(WSDLTypeInfo())
+        assertThat(wsdlTypeInfo).containsExactly(WSDLTypeInfo(wsdlBaseTypeDerivationMethod = WSDLTypeDerivationMethod.Extension))
     }
 }

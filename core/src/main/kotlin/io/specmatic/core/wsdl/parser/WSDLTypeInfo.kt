@@ -1,9 +1,12 @@
 package io.specmatic.core.wsdl.parser
 
 import io.specmatic.core.log.logger
+import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.WSDLSubstitutionGroupMember
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.value.CDATAValue
 import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
@@ -19,6 +22,7 @@ data class WSDLTypeInfo(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlBaseTypeDerivationMethod: WSDLTypeDerivationMethod? = null,
     val wsdlTypeIsAbstract: Boolean = false,
 ) {
     fun getNamespaces(wsdlNamespaces: Map<String, String>): Map<String, String> {
@@ -40,12 +44,18 @@ data class WSDLTypeInfo(
             this.wsdlTypeName ?: otherWSDLTypeInfo.wsdlTypeName,
             this.wsdlBaseTypeNamespace ?: otherWSDLTypeInfo.wsdlBaseTypeNamespace,
             this.wsdlBaseTypeName ?: otherWSDLTypeInfo.wsdlBaseTypeName,
+            this.wsdlBaseTypeDerivationMethod ?: otherWSDLTypeInfo.wsdlBaseTypeDerivationMethod,
             this.wsdlTypeIsAbstract || otherWSDLTypeInfo.wsdlTypeIsAbstract,
         )
     }
 
     val effectiveMembers: List<Pattern>
         get() = if (members.isNotEmpty()) members else nodes.map(::toPattern)
+
+    fun withSubstitutionGroupMembers(substitutionGroupMembers: List<WSDLSubstitutionGroupMember>): WSDLTypeInfo {
+        if (substitutionGroupMembers.isEmpty()) return this
+        return copy(members = members.map { withSubstitutionGroupMembers(it, substitutionGroupMembers) })
+    }
 
     val xmlTypeData: XMLTypeData
         get() {
@@ -57,6 +67,7 @@ data class WSDLTypeInfo(
                 wsdlTypeName = wsdlTypeName,
                 wsdlBaseTypeNamespace = wsdlBaseTypeNamespace,
                 wsdlBaseTypeName = wsdlBaseTypeName,
+                wsdlBaseTypeDerivationMethod = wsdlBaseTypeDerivationMethod,
                 wsdlTypeIsAbstract = wsdlTypeIsAbstract,
             )
         }
@@ -65,6 +76,22 @@ data class WSDLTypeInfo(
         return when (xmlValue) {
             is XMLNode -> XMLPattern(xmlValue)
             is StringValue, is CDATAValue, is BinaryValue -> xmlValue.exactMatchElseType()
+        }
+    }
+
+    private fun withSubstitutionGroupMembers(
+        pattern: Pattern,
+        substitutionGroupMembers: List<WSDLSubstitutionGroupMember>
+    ): Pattern {
+        return when (pattern) {
+            is XMLPattern -> pattern.copy(
+                pattern = pattern.pattern.copy(
+                    wsdlSubstitutionGroupMembers = substitutionGroupMembers.associateBy { it.elementName }
+                )
+            )
+
+            is AnyPattern -> pattern.copy(pattern = pattern.pattern.map { withSubstitutionGroupMembers(it, substitutionGroupMembers) })
+            else -> pattern
         }
     }
 }

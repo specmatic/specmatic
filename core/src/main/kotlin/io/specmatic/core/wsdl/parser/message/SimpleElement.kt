@@ -3,6 +3,7 @@ package io.specmatic.core.wsdl.parser.message
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.StringValue
@@ -183,6 +184,7 @@ private fun WSDLTypeInfo.withWSDLTypeMetadata(typeSourceNode: XMLNode, wsdl: WSD
         wsdlTypeName = wsdlType?.localName,
         wsdlBaseTypeNamespace = baseType?.namespace,
         wsdlBaseTypeName = baseType?.localName,
+        wsdlBaseTypeDerivationMethod = typeSourceNode.baseTypeDerivationMethod(),
     )
 }
 
@@ -198,6 +200,7 @@ private fun List<Pattern>.withWSDLTypeMetadata(
                     wsdlTypeName = wsdlType?.localName,
                     wsdlBaseTypeNamespace = baseType?.namespace,
                     wsdlBaseTypeName = baseType?.localName,
+                    wsdlBaseTypeDerivationMethod = WSDLTypeDerivationMethod.Restriction.takeIf { baseType != null },
                 )
             )
             else -> pattern
@@ -216,6 +219,9 @@ private fun XMLNode.baseTypeMetadataName(): FullyQualifiedName? {
         restriction.attributes["base"]?.let { restriction.simpleTypeQualifiedNameFromAttribute("base") }
     }
 }
+
+private fun XMLNode.baseTypeDerivationMethod(): WSDLTypeDerivationMethod? =
+    WSDLTypeDerivationMethod.Restriction.takeIf { restrictionNode(this)?.attributes?.containsKey("base") == true }
 
 private fun restrictionFacets(element: XMLNode): StringRestrictions {
     val restrictionNode = restrictionNode(element) ?: return StringRestrictions()

@@ -94,6 +94,50 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `generate includes an optional typed XML type only once per document`() {
+            val responseType = XMLPattern("<response><first $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/><second $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/></response>")
+            val sharedType = XMLPattern("<shared><value>(string)</value></shared>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Shared)" to sharedType)
+            )
+
+            val generated = responseType.generateXML(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+
+            val generatedChildren = generated.childNodes.filterIsInstance<XMLNode>()
+            assertThat(generatedChildren.map(XMLNode::name)).containsExactly("first")
+            assertThat(generatedChildren.single().getXMLNodeByPath("value").childNodes).hasSize(1)
+        }
+
+        @Test
+        fun `generate can include a repeated optional typed XML type when the repeat decision allows it`() {
+            val responseType = XMLPattern("<response><first $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/><second $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/></response>")
+            val sharedType = XMLPattern("<shared><value>(string)</value></shared>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Shared)" to sharedType)
+            )
+
+            val generated = responseType.generateXML(resolver, FixedRepeatedOptionalXMLGenerationDecisions(true)) as XMLNode
+
+            assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::name))
+                .containsExactly("first", "second")
+        }
+
+        @Test
+        fun `generate includes different optional typed XML types in the same document`() {
+            val responseType = XMLPattern("<response><name $isOptional $TYPE_ATTRIBUTE_NAME=\"Name\"/><address $isOptional $TYPE_ATTRIBUTE_NAME=\"Address\"/></response>")
+            val nameType = XMLPattern("<name><value>(string)</value></name>")
+            val addressType = XMLPattern("<address><line>(string)</line></address>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Name)" to nameType, "(Address)" to addressType)
+            )
+
+            val generated = responseType.generateXML(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+
+            assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::name))
+                .containsExactly("name", "address")
+        }
+
+        @Test
         fun `generate a value with namespace intact`() {
             val itemsType = parsedPattern("<ns1:items xmlns:ns1=\"http://example.com/items\">(string)</ns1:items>")
 
@@ -160,6 +204,28 @@ internal class XMLPatternTest {
                     .containsExactly("tns:name", "tns:lives")
                 else -> fail("Expected generate to pick a concrete WSDL subtype")
             }
+        }
+
+        @Test
+        fun `generate uses compatible WSDL subtype when declared type dereferences to any pattern`() {
+            val resolver = Resolver(newPatterns = animalChoicePatterns(animalIsAbstract = true))
+            val pattern = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(
+                        TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal")),
+                        "xmlns:tns" to ExactValuePattern(StringValue(ANIMAL_NAMESPACE)),
+                    ),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                )
+            )
+
+            val generated = pattern.generate(resolver)
+
+            assertThat(generated.attributes["xsi:type"]?.toStringLiteral()).isEqualTo("tns:Dog")
+            assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
+                .containsExactly("tns:name", "tns:breed")
         }
 
         @Test
@@ -354,6 +420,31 @@ internal class XMLPatternTest {
         fun `anything value becomes a random string`() {
             val xmlNode = XMLPattern("<data>(anything)</data>").generate(Resolver())
             assertThat(xmlNode.childNodes.first().toStringLiteral()).isNotBlank()
+        }
+
+        @Test
+        fun `optional xml node generation produces zero or one occurrence`() {
+            val type = XMLPattern("<data><item $isOptional>(string)</item></data>")
+
+            val skipped = type.generateXML(Resolver(), FixedXMLGenerationDecisions(false)) as XMLNode
+            val included = type.generateXML(Resolver(), FixedXMLGenerationDecisions(true)) as XMLNode
+
+            assertThat(skipped.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(0)
+            assertThat(included.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(1)
+        }
+
+        @Test
+        fun `recursive optional xml node generation skips schema already being generated`() {
+            val nodeType = XMLPattern("<SPECMATIC_TYPE><id>(string)</id><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></SPECMATIC_TYPE>")
+            val type = XMLPattern("<data><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></data>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Node)" to nodeType)
+            )
+
+            val generated = type.generateXML(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+            val generatedChild = generated.childNodes.filterIsInstance<XMLNode>().single { it.name == "child" }
+
+            assertThat(generatedChild.childNodes.filterIsInstance<XMLNode>().map { it.name }).containsExactly("id")
         }
 
         @Test
@@ -658,6 +749,112 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `substitution group merge keeps concrete type xml attributes stricter than declared element attributes`() {
+            val domesticDogElement = WSDLTypeName(ANIMAL_NAMESPACE, "DomesticDog")
+            val animal = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf("kind" to StringPattern()),
+                    nodes = listOf(XMLPattern("<tns:name xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:name>")),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                    wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                    wsdlTypeName = "Animal",
+                )
+            )
+            val dog = XMLPattern(
+                XMLTypeData(
+                    name = "Dog",
+                    realName = "tns:Dog",
+                    attributes = mapOf("kind" to ExactValuePattern(StringValue("dog"))),
+                    nodes = listOf(
+                        XMLPattern("<tns:name xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:name>"),
+                        XMLPattern("<tns:breed xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:breed>")
+                    ),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                    wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                    wsdlTypeName = "Dog",
+                    wsdlBaseTypeNamespace = ANIMAL_NAMESPACE,
+                    wsdlBaseTypeName = "Animal",
+                )
+            )
+            val resolver = Resolver(
+                newPatterns = mapOf(
+                    ANIMAL_TYPE_KEY to animal.withWSDLTypeLookupMetadata(
+                        knownTypeKeys = ANIMAL_TYPE_KEYS,
+                        compatibleTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                        concreteSubtypeKeys = mapOf(DOG_TYPE to DOG_TYPE_KEY),
+                    ),
+                    DOG_TYPE_KEY to dog.withWSDLTypeLookupMetadata(
+                        knownTypeKeys = ANIMAL_TYPE_KEYS,
+                        compatibleTypeKeys = mapOf(DOG_TYPE to DOG_TYPE_KEY),
+                    ),
+                )
+            )
+            val declaredAnimal = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(
+                        TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal")),
+                        "kind" to StringPattern(),
+                    ),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                    wsdlSubstitutionGroupMembers = mapOf(
+                        domesticDogElement to WSDLSubstitutionGroupMember(domesticDogElement, DOG_TYPE)
+                    )
+                )
+            )
+
+            val mismatchedKind = toXMLNode(
+                """
+                <DomesticDog xmlns="$ANIMAL_NAMESPACE" kind="cat">
+                  <name>Pepper</name>
+                  <breed>Beagle</breed>
+                </DomesticDog>
+                """.trimIndent()
+            )
+            val matchedKind = toXMLNode(
+                """
+                <DomesticDog xmlns="$ANIMAL_NAMESPACE" kind="dog">
+                  <name>Pepper</name>
+                  <breed>Beagle</breed>
+                </DomesticDog>
+                """.trimIndent()
+            )
+
+            assertThat(declaredAnimal.matches(mismatchedKind, resolver)).isInstanceOf(Result.Failure::class.java)
+            assertThat(declaredAnimal.matches(matchedKind, resolver)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `substitution group element selects member type when declared WSDL type dereferences to any pattern`() {
+            val domesticDogElement = WSDLTypeName(ANIMAL_NAMESPACE, "DomesticDog")
+            val resolver = Resolver(newPatterns = animalChoicePatterns(animalIsAbstract = true))
+            val declaredAnimal = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal"))),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                    wsdlSubstitutionGroupMembers = mapOf(
+                        domesticDogElement to WSDLSubstitutionGroupMember(domesticDogElement, DOG_TYPE)
+                    )
+                )
+            )
+            val domesticDog = toXMLNode(
+                """
+                <DomesticDog xmlns="$ANIMAL_NAMESPACE">
+                  <name>Fido</name>
+                  <breed>Beagle</breed>
+                </DomesticDog>
+                """.trimIndent()
+            )
+
+            assertThat(declaredAnimal.matches(domesticDog, resolver)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
         fun `schema instance type with non xsi prefix selects compatible WSDL derived complex type`() {
             val resolver = Resolver(newPatterns = animalPatterns())
             val pattern = XMLPattern(
@@ -803,6 +1000,61 @@ internal class XMLPatternTest {
             anything.matches(xml)
         }
 
+    }
+
+    private fun animalChoicePatterns(animalIsAbstract: Boolean = false): Map<String, Pattern> {
+        val animalName = XMLPattern(
+            XMLTypeData(
+                name = "Animal",
+                realName = "tns:Animal",
+                nodes = listOf(XMLPattern("<tns:name xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:name>")),
+                namespaceUri = ANIMAL_NAMESPACE,
+                wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlTypeName = "Animal",
+                wsdlTypeIsAbstract = animalIsAbstract,
+            )
+        )
+        val animalTag = XMLPattern(
+            XMLTypeData(
+                name = "Animal",
+                realName = "tns:Animal",
+                nodes = listOf(XMLPattern("<tns:tag xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:tag>")),
+                namespaceUri = ANIMAL_NAMESPACE,
+                wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlTypeName = "Animal",
+                wsdlTypeIsAbstract = animalIsAbstract,
+            )
+        )
+        val dog = XMLPattern(
+            XMLTypeData(
+                name = "Dog",
+                realName = "tns:Dog",
+                nodes = listOf(
+                    XMLPattern("<tns:name xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:name>"),
+                    XMLPattern("<tns:breed xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:breed>")
+                ),
+                namespaceUri = ANIMAL_NAMESPACE,
+                wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlTypeName = "Dog",
+                wsdlBaseTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlBaseTypeName = "Animal",
+            )
+        )
+
+        return mapOf(
+            ANIMAL_TYPE_KEY to AnyPattern(
+                pattern = listOf(animalName, animalTag),
+                extensions = emptyMap()
+            ).withWSDLTypeLookupMetadata(
+                knownTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                compatibleTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                concreteSubtypeKeys = mapOf(DOG_TYPE to DOG_TYPE_KEY),
+            ),
+            DOG_TYPE_KEY to dog.withWSDLTypeLookupMetadata(
+                knownTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                compatibleTypeKeys = mapOf(DOG_TYPE to DOG_TYPE_KEY),
+            ),
+        )
     }
 
     private fun animalPatterns(animalIsAbstract: Boolean = false): Map<String, Pattern> {
@@ -1063,7 +1315,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `creates two combinations per mandatory field with optional children`() {
+        fun `creates two executable combinations per mandatory field with optional children`() {
             val personType = XMLPattern("""
                 <person>
                     <name>(string)</name>
@@ -1092,8 +1344,8 @@ internal class XMLPatternTest {
                 <person>
                   <name>(string)</name>
                   <address specmatic_type="Address">
-                    <flat_no specmatic_occurs="optional">(string)</flat_no>
-                    <street specmatic_occurs="optional">(string)</street>
+                    <flat_no>(string)</flat_no>
+                    <street>(string)</street>
                   </address>
                 </person>
                 """.trimIndent().trimmedLinesString())
@@ -1107,7 +1359,7 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `creates three combinations per optional field with optional children`() {
+        fun `creates three executable combinations per optional field with optional children`() {
             val personType = XMLPattern("""
                 <person>
                     <name>(string)</name>
@@ -1135,9 +1387,9 @@ internal class XMLPatternTest {
             assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
                 <person>
                   <name>(string)</name>
-                  <address specmatic_occurs="optional" specmatic_type="Address">
-                    <flat_no specmatic_occurs="optional">(string)</flat_no>
-                    <street specmatic_occurs="optional">(string)</street>
+                  <address specmatic_type="Address">
+                    <flat_no>(string)</flat_no>
+                    <street>(string)</street>
                   </address>
                 </person>
                 """.trimIndent().trimmedLinesString())
@@ -1145,7 +1397,7 @@ internal class XMLPatternTest {
             assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
                 <person>
                   <name>(string)</name>
-                  <address specmatic_occurs="optional" specmatic_type="Address"/>
+                  <address specmatic_type="Address"/>
                 </person>
                 """.trimIndent().trimmedLinesString())
 
@@ -1699,13 +1951,13 @@ internal class XMLPatternTest {
         }
 
         @Test
-        fun `direct generation of an xml node that occurs multiple times generates at most two occurrences`() {
+        fun `direct generation of an xml node that occurs multiple times generates one occurrence`() {
             val nameType = XMLPattern("<name><title $occursMultipleTimes>(number)</title></name>")
 
             val generated = nameType.generate(Resolver())
             val generatedChildren = generated.childNodes.filterIsInstance<XMLNode>()
 
-            assertThat(generatedChildren).hasSizeBetween(1, 2)
+            assertThat(generatedChildren).hasSize(1)
             assertThat(generatedChildren.map { it.name }).containsOnly("title")
         }
 
@@ -2131,4 +2383,26 @@ internal class XMLPatternTest {
             """.trimIndent(),
             isSOAP = true
         )
+}
+
+private class FixedXMLGenerationDecisions(private vararg val decisions: Boolean) : XMLGenerationDecisions {
+    private var index = 0
+
+    override fun includeOptionalXMLNode(): Boolean {
+        val decision = decisions.getOrElse(index) { decisions.last() }
+        index += 1
+        return decision
+    }
+}
+
+private class FixedRepeatedOptionalXMLGenerationDecisions(private vararg val decisions: Boolean) : XMLGenerationDecisions {
+    private var index = 0
+
+    override fun includeOptionalXMLNode(): Boolean {
+        val decision = decisions.getOrElse(index) { decisions.last() }
+        index += 1
+        return decision
+    }
+
+    override fun includeRepeatedOptionalXMLType(): Boolean = true
 }

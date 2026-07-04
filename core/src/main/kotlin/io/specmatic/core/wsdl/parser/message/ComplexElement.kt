@@ -19,7 +19,8 @@ import io.specmatic.core.wsdl.payload.SOAPPayload
 
 data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, val wsdl: WSDL, val namespaceQualification: NamespaceQualification? = null): WSDLElement {
     override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, Pattern>, typeStack: Set<String>): WSDLTypeInfo {
-        if(specmaticTypeName in typeStack)
+        val trimmedTypeName = specmaticTypeName.trim()
+        if (specmaticTypeName in typeStack || trimmedTypeName in typeStack || specmaticTypeName in existingTypes || trimmedTypeName in existingTypes)
             return shallowRecursiveTypeReference(specmaticTypeName, existingTypes)
 
         val complexType = try {
@@ -114,7 +115,8 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
         return eliminateAnnotationsAndAttributes(complexType.childNodes.filterIsInstance<XMLNode>()).map {
             complexTypeChildNode(it, wsdl, parentTypeName)
         }.fold(listOf(WSDLTypeInfo())) { wsdlTypeInfos, child ->
-            child.process(wsdlTypeInfos, existingTypes, typeStack)
+            val knownTypes = wsdlTypeInfos.knownTypes(existingTypes)
+            child.process(wsdlTypeInfos, knownTypes, typeStack.plus(knownTypes.keys))
         }
     }
 
@@ -204,9 +206,15 @@ internal fun generateChildren(
     return eliminateAnnotationsAndAttributes(complexType.childNodes.filterIsInstance<XMLNode>()).map {
         complexTypeChildNode(it, wsdl, parentTypeName)
     }.fold(listOf(WSDLTypeInfo())) { wsdlTypeInfos, child ->
-        child.process(wsdlTypeInfos, existingTypes, typeStack)
+        val knownTypes = wsdlTypeInfos.knownTypes(existingTypes)
+        child.process(wsdlTypeInfos, knownTypes, typeStack.plus(knownTypes.keys))
     }
 }
+
+private fun List<WSDLTypeInfo>.knownTypes(existingTypes: Map<String, Pattern>): Map<String, Pattern> =
+    fold(existingTypes) { accumulatedTypes, typeInfo ->
+        accumulatedTypes.plus(typeInfo.types)
+    }
 
 private fun eliminateAnnotationsAndAttributes(childNodes: List<XMLNode>) =
     childNodes.filterNot { it.name == "annotation" || it.name == "attribute" || it.name == "attributeGroup" || it.name == "anyAttribute" }

@@ -2,6 +2,7 @@ package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
@@ -20,6 +21,7 @@ class SimpleContentDerivation(private var simpleContentNode: XMLNode, var wsdl: 
             types = existingTypes,
             wsdlBaseTypeNamespace = baseType.namespace,
             wsdlBaseTypeName = baseType.localName,
+            wsdlBaseTypeDerivationMethod = derivation.wsdlTypeDerivationMethod(),
         )
 
         return wsdlTypeInfos.map { it.plus(simpleTypeInfo) }
@@ -41,3 +43,10 @@ private fun simpleContentDerivationValue(derivation: XMLNode, wsdl: WSDL) =
 
 private fun XMLNode.baseAsTypeNode(): XMLNode =
     copy(attributes = attributes.plus("type" to attributes.getValue("base")))
+
+private fun XMLNode.wsdlTypeDerivationMethod(): WSDLTypeDerivationMethod? =
+    when (name) {
+        "extension" -> WSDLTypeDerivationMethod.Extension
+        "restriction" -> WSDLTypeDerivationMethod.Restriction
+        else -> null
+    }

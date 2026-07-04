@@ -104,40 +104,47 @@ data class XMLChoiceGroupPattern(
         }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), generateXMLChildValues(resolver), "", emptyMap())
-    }
+    override fun generate(resolver: Resolver): Value =
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
 
-    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return generateOccurrenceSequence(resolver).flatMap { alternative ->
-            alternative.flatMap { pattern ->
-                if (pattern.hasXMLChoiceReferenceCycle(resolver)) {
-                    return@flatMap emptyList()
-                }
-
-                val generated = when {
-                    pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generate(resolver)
-                    else -> resolver.withCyclePrevention(
-                        pattern.xmlChoiceCyclePreventionPattern(),
-                        returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
-                    ) { cyclePreventedResolver ->
-                        pattern.generate(cyclePreventedResolver)
-                    } ?: return@flatMap emptyList()
-                }
-
-                generatedValueAsXMLChildValues(generated)
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val selectedBranches = chooseBranchesForEachOccurrence(state.decisions)
+        val generatedChoiceOccurrences = selectedBranches.fold(GeneratedNodes.none(state)) { generatedOccurrencesSoFar, selectedBranch ->
+            val generatedBranchNodes = selectedBranch.fold(GeneratedNodes.none(generatedOccurrencesSoFar.nextState)) { generatedBranchSoFar, memberPattern ->
+                generatedBranchSoFar.followedBy(generateSelectedChoiceMemberXMLNodes(memberPattern, resolver, generatedBranchSoFar.nextState))
             }
+
+            generatedOccurrencesSoFar.followedBy(generatedBranchNodes)
         }
+
+        return generatedChoiceOccurrences
     }
 
-    private fun generateOccurrenceSequence(resolver: Resolver): List<List<Pattern>> {
-        val upperBound = maxOccurs ?: max(minOccurs, 2)
-        val count = when {
-            upperBound <= minOccurs -> minOccurs
-            else -> (minOccurs..upperBound).random()
+    private fun generateSelectedChoiceMemberXMLNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver)) {
+            return GeneratedNodes.none(state)
         }
 
-        return 0.until(count).map { choices.random() }
+        val generated = when {
+            pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateXMLNodes(resolver, state)
+            else -> resolver.withCyclePrevention(
+                pattern.xmlChoiceCyclePreventionPattern(),
+                returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
+            ) { cyclePreventedResolver ->
+                generateXMLNodesFrom(pattern, cyclePreventedResolver, state)
+            } ?: return GeneratedNodes.none(state)
+        }
+
+        return generated
+    }
+
+    private fun chooseBranchesForEachOccurrence(decisions: XMLGenerationDecisions): List<List<Pattern>> {
+        val count = decisions.numberOfXMLNodesFor(minOccurs, maxOccurs)
+        if (count <= 0 || choices.isEmpty()) return emptyList()
+
+        return 0.until(count).map {
+            choices[decisions.chooseXMLChoiceBranch(choices.size)]
+        }
     }
 
     private fun Pattern.xmlChoiceCyclePreventionPattern(): Pattern {
@@ -153,6 +160,9 @@ data class XMLChoiceGroupPattern(
     private fun Pattern.canReturnNullOnXMLChoiceCycle(): Boolean {
         return this is XMLPattern && (occurMultipleTimes() || pattern.getNodeOccurrence() == NodeOccurrence.Optional)
     }
+
+    private fun Pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver: Resolver): Boolean =
+        hasXMLChoiceReferenceCycle(resolver)
 
     private fun XMLPattern.hasTypeReference(): Boolean = referredType != null
 
@@ -283,7 +293,7 @@ data class XMLChoiceGroupPattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLValue })
     }
 
     override fun encompasses(
@@ -498,17 +508,19 @@ data class XMLSequencePattern(
         }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), generateXMLChildValues(resolver), "", emptyMap())
+    override fun generate(resolver: Resolver): Value =
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
+
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val generatedSequenceMembers = members.fold(GeneratedNodes.none(state)) { generatedMembersSoFar, memberPattern ->
+            generatedMembersSoFar.followedBy(generateSequenceMemberXMLNodes(memberPattern, resolver, generatedMembersSoFar.nextState))
+        }
+
+        return generatedSequenceMembers
     }
 
-    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return members.flatMap { pattern ->
-            when (pattern) {
-                is XMLChildGenerationPattern -> pattern.generateXMLChildValues(resolver)
-                else -> generatedValueAsXMLChildValues(pattern.generate(resolver))
-            }
-        }
+    private fun generateSequenceMemberXMLNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        return generateXMLNodesFrom(pattern, resolver, state)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
@@ -527,7 +539,7 @@ data class XMLSequencePattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLValue })
     }
 
     override fun encompasses(

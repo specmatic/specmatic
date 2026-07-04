@@ -6,6 +6,9 @@ import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.WSDLSubstitutionGroupMember
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
+import io.specmatic.core.pattern.WSDLTypeName
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.SOAPVersion
@@ -187,7 +190,8 @@ private data class WsdlIndexes(
     val definitions: Map<DefinitionLookupKey, XMLNode>,
     val schemas: Map<SchemaLookupKey, XMLNode>,
     val namedSchemas: Map<NamedSchemaLookupKey, XMLNode>,
-    val substitutionGroups: Map<NamedSchemaLookupKey, List<XMLNode>>
+    val substitutionGroups: Map<NamedSchemaLookupKey, List<XMLNode>>,
+    val substitutionGroupMembers: Map<WSDLTypeName, List<WSDLSubstitutionGroupMember>>
 )
 
 private data class NamedSchemaLookupKey(
@@ -200,7 +204,8 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         definitions = indexDefinitions(definitions),
         schemas = indexSchemas(schemas),
         namedSchemas = indexNamedSchemas(schemas),
-        substitutionGroups = indexSubstitutionGroups(schemas)
+        substitutionGroups = indexSubstitutionGroups(schemas),
+        substitutionGroupMembers = indexSubstitutionGroupMembers(schemas)
     )
 
     fun allNamespaces(): Map<String, String> {
@@ -369,6 +374,9 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
             ReferredType(fullyQualifiedName.qName, node, this)
         }
     }
+
+    fun substitutionGroupMembersFor(headElementName: FullyQualifiedName): List<WSDLSubstitutionGroupMember> =
+        indexes.substitutionGroupMembers[WSDLTypeName(headElementName.namespace, headElementName.localName)].orEmpty()
 
     fun getSubstitutionGroupMembers(fullyQualifiedName: FullyQualifiedName, localSchema: XMLNode? = null): List<XMLNode> {
         val resolvedNamespace = resolvedSchemaNamespace(fullyQualifiedName.namespace, localSchema)
@@ -559,6 +567,84 @@ private fun indexNamedSchemas(schemas: Map<String, XMLNode>): Map<NamedSchemaLoo
             }
     }.firstByKey()
 }
+
+private fun indexSubstitutionGroupMembers(schemas: Map<String, XMLNode>): Map<WSDLTypeName, List<WSDLSubstitutionGroupMember>> {
+    val globalElements = globalElementDeclarations(schemas)
+
+    return schemas.flatMap { (namespace, schema) ->
+        schema.childNodes.filterIsInstance<XMLNode>()
+            .filter { it.name == "element" && it.attributes.containsKey("substitutionGroup") }
+            .mapNotNull { node ->
+                val elementName = node.attributes["name"]?.toStringLiteral() ?: return@mapNotNull null
+                val typeName = node.fullyQualifiedNameFromAttributeOrNull("type") ?: return@mapNotNull null
+                val headElementName = node.fullyQualifiedNameFromAttribute("substitutionGroup")
+                val headWSDLTypeName = WSDLTypeName(headElementName.namespace, headElementName.localName)
+                val headElement = globalElements[headWSDLTypeName]
+                val headBlockRules = headElement.substitutionGroupHeadBlockRules()
+                val headTypeName = headElement
+                    ?.fullyQualifiedNameFromAttributeOrNull("type")
+                    ?.let { WSDLTypeName(it.namespace, it.localName, it.prefix.ifBlank { null }) }
+
+                headWSDLTypeName to WSDLSubstitutionGroupMember(
+                    elementName = WSDLTypeName(namespace, elementName),
+                    typeName = WSDLTypeName(typeName.namespace, typeName.localName, typeName.prefix.ifBlank { null }),
+                    headTypeName = headTypeName,
+                    nillable = node.booleanAttribute("nillable"),
+                    isAbstract = node.booleanAttribute("abstract"),
+                    defaultValue = node.attributes["default"]?.toStringLiteral(),
+                    fixedValue = node.attributes["fixed"]?.toStringLiteral(),
+                    headBlocksSubstitution = headBlockRules.blocksSubstitution,
+                    headBlockedDerivationMethods = headBlockRules.blockedDerivationMethods,
+                )
+            }
+    }.groupBy({ it.first }, { it.second })
+}
+
+private fun globalElementDeclarations(schemas: Map<String, XMLNode>): Map<WSDLTypeName, XMLNode> =
+    schemas.flatMap { (namespace, schema) ->
+        schema.childNodes.filterIsInstance<XMLNode>()
+            .filter { it.name == "element" }
+            .mapNotNull { node ->
+                val elementName = node.attributes["name"]?.toStringLiteral() ?: return@mapNotNull null
+                WSDLTypeName(namespace, elementName) to node
+            }
+    }.firstByKey()
+
+private data class SubstitutionGroupHeadBlockRules(
+    val blocksSubstitution: Boolean = false,
+    val blockedDerivationMethods: Set<WSDLTypeDerivationMethod> = emptySet()
+)
+
+private fun XMLNode?.substitutionGroupHeadBlockRules(): SubstitutionGroupHeadBlockRules {
+    val blockValues = this?.attributes?.get("block")?.toStringLiteral()?.split(Regex("\\s+")).orEmpty().filter(String::isNotBlank)
+    if ("#all" in blockValues) {
+        return SubstitutionGroupHeadBlockRules(
+            blocksSubstitution = true,
+            blockedDerivationMethods = setOf(WSDLTypeDerivationMethod.Extension, WSDLTypeDerivationMethod.Restriction)
+        )
+    }
+
+    return SubstitutionGroupHeadBlockRules(
+        blocksSubstitution = "substitution" in blockValues,
+        blockedDerivationMethods = blockValues.mapNotNull {
+            when (it) {
+                "extension" -> WSDLTypeDerivationMethod.Extension
+                "restriction" -> WSDLTypeDerivationMethod.Restriction
+                else -> null
+            }
+        }.toSet()
+    )
+}
+
+private fun XMLNode.booleanAttribute(attributeName: String): Boolean =
+    attributes[attributeName]?.toStringLiteral()?.lowercase() == "true"
+
+private fun XMLNode.fullyQualifiedNameFromAttributeOrNull(attributeName: String): FullyQualifiedName? =
+    try {
+        fullyQualifiedNameFromAttribute(attributeName)
+    } catch (_: ContractException) {
+        null
+    }
 
 private fun indexSubstitutionGroups(schemas: Map<String, XMLNode>): Map<NamedSchemaLookupKey, List<XMLNode>> {
     return schemas.values

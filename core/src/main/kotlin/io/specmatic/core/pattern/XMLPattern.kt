@@ -14,7 +14,6 @@ const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
 const val TYPE_ATTRIBUTE_NAME = "specmatic_type"
 const val SOAP_BODY = "body"
 const val SOAP_FAULT = "fault"
-private const val XML_RANDOM_NUMBER_CEILING = 3
 private const val SOAP_ENVELOPE = "Envelope"
 private const val SOAP_HEADER = "Header"
 private const val SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -262,6 +261,10 @@ data class XMLPattern(
     private fun matchWithSelectedType(matchingType: Pattern, sampleData: XMLNode, resolver: Resolver): Result {
         return when (matchingType) {
             is XMLPattern -> {
+                if (matchingType.pattern.isNillable() && sampleData.childNodes.isEmpty()) {
+                    return Success()
+                }
+
                 matchingType.matchName(sampleData, resolver).ifSuccess {
                     matchingType.matchNamespaces(sampleData)
                 }.ifSuccess {
@@ -332,7 +335,7 @@ data class XMLPattern(
             return selectWSDLType(assertedType, declaredType, resolver)
         }
 
-        return selectWSDLTypeByElementName(sampleData, declaredType, resolver)
+        return selectWSDLTypeUsingSubstitutionGroupElementName(sampleData, declaredType, resolver)
     }
 
     private fun selectWSDLType(assertedType: WSDLTypeName?, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
@@ -368,22 +371,49 @@ data class XMLPattern(
         }
     }
 
-    private fun selectWSDLTypeByElementName(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
+    private fun selectWSDLTypeUsingSubstitutionGroupElementName(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
         val declaredWSDLType = declaredType.wsdlTypeName() ?: return null
         val payloadElementName = sampleData.wsdlElementName()
-        val declaredXMLPattern = declaredType as? XMLPattern ?: return null
-        val selectedPattern = declaredType.concreteDerivedWSDLPatterns(resolver)
-            .firstOrNull { (typeName, _) -> typeName == payloadElementName }
-            ?.second
-            ?: return null
+        val substitutionGroupMember = declaredType.wsdlSubstitutionGroupMembers()[payloadElementName] ?: return null
+        if (substitutionGroupMember.headBlocksSubstitution) {
+            return WSDLTypeSelection.Invalid(substitutionGroupMember.elementName, declaredWSDLType)
+        }
+        if (substitutionGroupMember.isAbstract) {
+            return WSDLTypeSelection.Abstract(substitutionGroupMember.elementName, declaredWSDLType)
+        }
 
-        val mergedPattern = declaredXMLPattern.mergeWSDLDerivedPattern(selectedPattern)
-            ?.withElementNameFrom(sampleData)
-            ?: return WSDLTypeSelection.Invalid(payloadElementName, declaredWSDLType)
+        val selectedPattern = declaredType.findPatternForWSDLType(substitutionGroupMember.typeName, resolver)
+            ?: resolver.findPatternForWSDLType(substitutionGroupMember.typeName)
+            ?: return WSDLTypeSelection.Unknown(substitutionGroupMember.typeName, declaredWSDLType)
+        val compatiblePattern = selectedPattern.takeIf {
+            it.wsdlTypeName() == declaredWSDLType || it.isDerivedFrom(declaredWSDLType, resolver)
+        } ?: return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
+        if (compatiblePattern.usesDerivationBlockedBySubstitutionHead(declaredWSDLType, substitutionGroupMember, resolver)) {
+            return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
+        }
+
+        if (compatiblePattern.isAbstractWSDLType()) {
+            return WSDLTypeSelection.Abstract(substitutionGroupMember.typeName, declaredWSDLType)
+        }
+
+        val mergedPatterns = xmlPatternAlternatives(declaredType).flatMap { declaredXMLPattern ->
+            declaredXMLPattern.mergeWSDLDerivedPatternAlternatives(compatiblePattern)
+        }.map {
+            it.withSubstitutionMemberElementDeclaration(substitutionGroupMember).withElementNameFrom(sampleData)
+        }.distinct()
+
+        if (mergedPatterns.isEmpty()) {
+            return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
+        }
+
+        val materializedPattern: Pattern = when (mergedPatterns.size) {
+            1 -> mergedPatterns.single()
+            else -> AnyPattern(pattern = mergedPatterns, extensions = emptyMap())
+        }
 
         return when {
-            mergedPattern.pattern.wsdlTypeIsAbstract -> WSDLTypeSelection.Abstract(payloadElementName, declaredWSDLType)
-            else -> WSDLTypeSelection.Use(mergedPattern)
+            materializedPattern.isAbstractWSDLType() -> WSDLTypeSelection.Abstract(payloadElementName, declaredWSDLType)
+            else -> WSDLTypeSelection.Use(materializedPattern)
         }
     }
 
@@ -656,93 +686,132 @@ data class XMLPattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLNode }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLNode })
     }
 
-    override fun generate(resolver: Resolver): XMLNode {
-        val cyclePreventionPattern = cyclePreventionPattern()
-        if (cyclePreventionPattern != this) {
-            if (resolver.hasCycle(cyclePreventionPattern)) {
-                if (canReturnNullOnCycle()) {
-                    return XMLNode(pattern.realName, emptyMap(), emptyList())
-                }
+    override fun generate(resolver: Resolver): XMLNode =
+        generateXMLNodes(resolver, XMLGenerationState()).asSingleXMLNode()
 
-                throw recursiveGenerationException(this)
-            }
+    override fun generateXML(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
+        generateXMLNodes(resolver, XMLGenerationState(decisions)).asSingleXMLNode()
 
-            return resolver.withCyclePrevention(
-                cyclePreventionPattern,
-                returnNullOnCycle = canReturnNullOnCycle()
-            ) { cyclePreventedResolver ->
-                generateXML(cyclePreventedResolver)
-            } ?: XMLNode(pattern.realName, emptyMap(), emptyList())
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val patternBeingGenerated = cyclePreventionPattern()
+        if (patternBeingGenerated == this) {
+            return generateXMLAfterDereferencing(resolver, state)
         }
 
-        return generateXML(resolver)
+        if (resolver.hasCycle(patternBeingGenerated)) {
+            if (canReturnNullOnCycle()) {
+                return emptyGeneratedXMLNode(state)
+            }
+
+            throw recursiveGenerationException(this)
+        }
+
+        return resolver.withCyclePrevention(
+            patternBeingGenerated,
+            returnNullOnCycle = canReturnNullOnCycle()
+        ) { cyclePreventedResolver ->
+            generateXMLAfterDereferencing(cyclePreventedResolver, state)
+        } ?: emptyGeneratedXMLNode(state)
     }
 
-    private fun generateXML(resolver: Resolver): XMLNode {
+    private fun generateXMLAfterDereferencing(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         if (!pattern.isConcrete()) {
             val dereferenced = dereferenceType(resolver)
             if (dereferenced !is XMLPattern) {
-                return dereferenced.generate(resolver) as XMLNode
+                return generateXMLNodesFrom(dereferenced, resolver, state)
             }
         }
 
-        val name = pattern.name
-
-        val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
-        if (concreteWSDLTypeCandidates.isNotEmpty()) {
-            return concreteWSDLTypeCandidates.random().generateXML(resolver)
+        val concreteWSDLType = concreteWSDLTypeCandidates(resolver).randomOrNull()
+        if (concreteWSDLType != null) {
+            return concreteWSDLType.generateXMLAfterDereferencing(resolver, state)
         }
 
         val resolvedPattern = dereferenceType(resolver) as XMLPattern
+        val generatedAttributes = resolvedPattern.generateAttributesForXMLNode(resolver, pattern.name)
+        val generatedChildNodes = resolvedPattern.generateChildrenForCurrentNode(resolver, state, pattern.name)
 
-        val nonSpecmaticAttributes =
-            resolvedPattern.pattern.attributes.filterNot {
-                it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
-            }
+        return GeneratedNodes.fromGeneratedValue(
+            XMLNode(pattern.realName, generatedAttributes, generatedChildNodes.nodes, inheritNamespacesInChildren = true),
+            generatedChildNodes.nextState
+        )
+    }
 
-        val newAttributes = nonSpecmaticAttributes.mapKeys { entry ->
+    private fun generateAttributesForXMLNode(resolver: Resolver, attributeBreadCrumbName: String): Map<String, StringValue> {
+        val nonSpecmaticAttributes = pattern.attributes.filterNot {
+            it.key.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+        }
+        val generatedAttributes = nonSpecmaticAttributes.mapKeys { entry ->
             withoutOptionality(entry.key)
-        }.mapValues { (key, pattern) ->
-            attempt(breadCrumb = "$name.$key") {
-                resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                    cyclePreventedResolver.generate(key, pattern)
+        }.mapValues { (key, attributePattern) ->
+            attempt(breadCrumb = "$attributeBreadCrumbName.$key") {
+                resolver.withCyclePrevention(attributePattern) { cyclePreventedResolver ->
+                    cyclePreventedResolver.generate(key, attributePattern)
                 }
             }
         }.mapValues {
             StringValue(it.value.toStringLiteral())
         }
 
-        val nodes = resolvedPattern.pattern.nodes.asSequence().map {
-            resolvedHop(it, resolver)
-        }.map { pattern ->
-            attempt(breadCrumb = name) {
-                val generatedNodes = when {
-                    pattern.hasXMLReferenceCycle(resolver) -> emptyList()
-                    pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateNodes(resolver)
-                    else -> resolver.withCyclePrevention(
-                        pattern.cyclePreventionPattern(),
-                        returnNullOnCycle = pattern.canReturnNullOnCycle()
-                    ) { cyclePreventedResolver ->
-                        pattern.generateNodes(cyclePreventedResolver)
-                    }
-                }
-
-                generatedNodes ?: recursiveGenerationFallback(pattern)
-            }
-        }.flatten().map {
-            when (it) {
-                is XMLValue -> it
-                else -> StringValue(it.toStringLiteral())
-            }
-        }.toList()
-
-        return XMLNode(pattern.realName, newAttributes, nodes, inheritNamespacesInChildren = true)
+        return generatedAttributes
     }
 
-    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
+    private fun generateChildrenForCurrentNode(
+        resolver: Resolver,
+        state: XMLGenerationState,
+        childBreadCrumbName: String
+    ): GeneratedNodes =
+        pattern.nodes.asSequence().map {
+            resolvedHop(it, resolver)
+        }.fold(GeneratedNodes.none(state)) { generatedChildrenSoFar, childPattern ->
+            val generatedChildNodes = attempt(breadCrumb = childBreadCrumbName) {
+                generateXMLNodesOrRecursiveFallback(childPattern, resolver, generatedChildrenSoFar.nextState)
+            }
+            generatedChildrenSoFar.followedBy(generatedChildNodes)
+        }
+
+    private fun generateXMLNodesOrRecursiveFallback(
+        childPattern: Pattern,
+        resolver: Resolver,
+        state: XMLGenerationState
+    ): GeneratedNodes {
+        val generatedChildNodes = generateXMLNodesIfAllowed(childPattern, resolver, state)
+        return generatedChildNodes ?: GeneratedNodes.fromGeneratedValues(recursiveGenerationFallback(childPattern), state)
+    }
+
+    private fun generateXMLNodesIfAllowed(
+        childPattern: Pattern,
+        resolver: Resolver,
+        state: XMLGenerationState
+    ): GeneratedNodes? =
+        when {
+            childPattern.shouldSkipXMLNodeDueToCycleCutoff(resolver) -> GeneratedNodes.none(state)
+            childPattern is XMLPattern && childPattern.isOptional() -> childPattern.generateOptionalChildWhenSelected(resolver, state)
+            childPattern is XMLPattern && childPattern.occurMultipleTimes() -> childPattern.generateRepeatedChildXMLNodes(resolver, state)
+            childPattern is XMLPattern && childPattern.hasTypeReference() -> generateXMLNodesForPattern(childPattern, resolver, state)
+            else -> resolver.withCyclePrevention(
+                childPattern.cyclePreventionPattern(),
+                returnNullOnCycle = childPattern.canReturnNullOnCycle()
+            ) { cyclePreventedResolver ->
+                generateXMLNodesForPattern(childPattern, cyclePreventedResolver, state)
+            }
+        }
+
+    private fun emptyGeneratedXMLNode(state: XMLGenerationState): GeneratedNodes =
+        GeneratedNodes.fromGeneratedValue(XMLNode(pattern.realName, emptyMap(), emptyList()), state)
+
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
+        newBasedOnWithOccurrences(row, resolver).map { generatedPattern ->
+            generatedPattern.ifValue { it.withoutXMLOccurrenceMarkers() }
+        }
+
+    private fun newBasedOnWithOccurrences(
+        row: Row,
+        resolver: Resolver
+    ): Sequence<ReturnValue<Pattern>> {
         if (!pattern.isConcrete()) {
             val dereferenced = dereferenceType(resolver)
             if (dereferenced !is XMLPattern) {
@@ -755,7 +824,7 @@ data class XMLPattern(
         val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
         if (concreteWSDLTypeCandidates.isNotEmpty()) {
             return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
-                selectedPattern.newBasedOn(row, resolver)
+                selectedPattern.newBasedOnWithOccurrences(row, resolver)
             }
         }
 
@@ -815,7 +884,7 @@ data class XMLPattern(
                                                 when (dereferenced) {
                                                     is XMLPattern -> when {
                                                         dereferenced.occurMultipleTimes() -> {
-                                                            dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                            dereferenced.newBasedOnWithOccurrences(row, cyclePreventedResolver)
                                                                 .map {
                                                                     (it.value as XMLPattern).withTypeReferenceFrom(
                                                                         childPattern
@@ -824,7 +893,7 @@ data class XMLPattern(
                                                         }
 
                                                         dereferenced.isOptional() -> {
-                                                            dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                            dereferenced.newBasedOnWithOccurrences(row, cyclePreventedResolver)
                                                                 .map {
                                                                     (it.value as XMLPattern).withTypeReferenceFrom(
                                                                         childPattern
@@ -832,7 +901,7 @@ data class XMLPattern(
                                                                 }.plus(null)
                                                         }
 
-                                                        else -> dereferenced.newBasedOn(row, cyclePreventedResolver)
+                                                        else -> dereferenced.newBasedOnWithOccurrences(row, cyclePreventedResolver)
                                                             .map {
                                                                 (it.value as XMLPattern).withTypeReferenceFrom(
                                                                     childPattern
@@ -867,11 +936,14 @@ data class XMLPattern(
         }.map { HasValue(it) }
     }
 
-    override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> {
+    override fun newBasedOn(resolver: Resolver): Sequence<XMLPattern> =
+        newBasedOnWithOccurrences(resolver).map { it.withoutXMLOccurrenceMarkers() as XMLPattern }
+
+    private fun newBasedOnWithOccurrences(resolver: Resolver): Sequence<XMLPattern> {
         val concreteWSDLTypeCandidates = concreteWSDLTypeCandidates(resolver)
         if (concreteWSDLTypeCandidates.isNotEmpty()) {
             return concreteWSDLTypeCandidates.asSequence().flatMap { selectedPattern ->
-                selectedPattern.newBasedOn(resolver)
+                selectedPattern.newBasedOnWithOccurrences(resolver)
             }
         }
 
@@ -906,17 +978,17 @@ data class XMLPattern(
                                         when (dereferenced) {
                                             is XMLPattern -> when {
                                                 dereferenced.occurMultipleTimes() -> {
-                                                    dereferenced.newBasedOn(cyclePreventedResolver)
+                                                    dereferenced.newBasedOnWithOccurrences(cyclePreventedResolver)
                                                         .map { it.withTypeReferenceFrom(childPattern) }
                                                 }
 
                                                 dereferenced.isOptional() -> {
-                                                    dereferenced.newBasedOn(cyclePreventedResolver)
+                                                    dereferenced.newBasedOnWithOccurrences(cyclePreventedResolver)
                                                         .map { it.withTypeReferenceFrom(childPattern) }
                                                         .plus(null)
                                                 }
 
-                                                else -> dereferenced.newBasedOn(cyclePreventedResolver)
+                                                else -> dereferenced.newBasedOnWithOccurrences(cyclePreventedResolver)
                                                     .map { it.withTypeReferenceFrom(childPattern) }
                                             }
 
@@ -950,19 +1022,15 @@ data class XMLPattern(
             return emptyList()
         }
 
-        if (declaredPattern !is XMLPattern) {
-            return emptyList()
-        }
-
         val lookupPattern = when {
-            declaredPattern.hasWSDLTypeLookupMetadata() -> declaredPattern
-            hasWSDLTypeLookupMetadata() -> this
+            containsWSDLTypeLookupMetadata(declaredPattern) -> declaredPattern
+            containsWSDLTypeLookupMetadata(this) -> this
             else -> declaredPattern
         }
 
-        val declaredWSDLType = lookupPattern.pattern.wsdlTypeName() ?: return emptyList()
+        val declaredWSDLType = lookupPattern.wsdlTypeName() ?: return emptyList()
 
-        if (lookupPattern.pattern.wsdlTypeSelectionMode == WSDLTypeSelectionMode.CurrentTypeOnly) {
+        if (lookupPattern.wsdlTypeSelectionMode() == WSDLTypeSelectionMode.CurrentTypeOnly) {
             return emptyList()
         }
 
@@ -972,7 +1040,7 @@ data class XMLPattern(
                     return emptyList()
                 }
 
-                return listOfNotNull((selectedType.pattern as? XMLPattern)?.withCurrentWSDLTypeOnly())
+                return xmlPatternAlternatives(selectedType.pattern).map { it.withCurrentWSDLTypeOnly() }
             }
 
             is WSDLTypeSelection.Unknown,
@@ -984,39 +1052,38 @@ data class XMLPattern(
             null -> Unit
         }
 
-        val basePattern = concreteBaseWSDLTypeCandidate(lookupPattern)
+        val basePatterns = concreteBaseWSDLTypeCandidates(lookupPattern)
+        val concreteDerivedTypes = lookupPattern.concreteDerivedWSDLPatterns(resolver)
 
-        val derivedPatterns = lookupPattern.concreteDerivedWSDLPatterns(resolver).mapNotNull { (derivedType, derivedPattern) ->
-            val mergedPattern = lookupPattern.mergeWSDLDerivedPattern(derivedPattern) ?: return@mapNotNull null
-            mergedPattern.withXSIType(derivedType).withCurrentWSDLTypeOnly()
+        val derivedPatterns = xmlPatternAlternatives(lookupPattern).flatMap { declaredXMLPattern ->
+            concreteDerivedTypes.flatMap { (derivedType, derivedPattern) ->
+                declaredXMLPattern.mergeWSDLDerivedPatternAlternatives(derivedPattern).map { mergedPattern ->
+                    mergedPattern.withXSIType(derivedType).withCurrentWSDLTypeOnly()
+                }
+            }
         }
 
-        val candidatePatterns = listOfNotNull(basePattern) + derivedPatterns
+        val candidatePatterns = (basePatterns + derivedPatterns).distinct()
 
-        if (candidatePatterns.isEmpty() && lookupPattern.pattern.wsdlTypeIsAbstract) {
+        if (candidatePatterns.isEmpty() && lookupPattern.isAbstractWSDLType()) {
             throw ContractException("Cannot select a concrete WSDL type for abstract type ${declaredWSDLType.namespace}#${declaredWSDLType.localName}; no concrete derived types were found.")
         }
 
         return candidatePatterns
     }
 
-    private fun concreteBaseWSDLTypeCandidate(declaredPattern: XMLPattern): XMLPattern? {
-        if (declaredPattern.pattern.wsdlTypeIsAbstract) {
-            return null
+    private fun concreteBaseWSDLTypeCandidates(declaredPattern: Pattern): List<XMLPattern> {
+        if (declaredPattern.isAbstractWSDLType()) {
+            return emptyList()
         }
 
-        val declaredType = declaredPattern.pattern.wsdlTypeName() ?: return null
+        val declaredType = declaredPattern.wsdlTypeName() ?: return emptyList()
         if (declaredType.namespace == XML_SCHEMA_NAMESPACE) {
-            return null
+            return emptyList()
         }
 
-        return declaredPattern.withCurrentWSDLTypeOnly()
+        return xmlPatternAlternatives(declaredPattern).map { it.withCurrentWSDLTypeOnly() }
     }
-
-    private fun hasWSDLTypeLookupMetadata(): Boolean =
-        pattern.wsdlKnownTypeKeys.isNotEmpty() ||
-                pattern.wsdlCompatibleTypeKeys.isNotEmpty() ||
-                pattern.wsdlConcreteSubtypeKeys.isNotEmpty()
 
     private fun mergeWSDLDerivedPattern(derivedPattern: Pattern): XMLPattern? {
         return when (derivedPattern) {
@@ -1025,8 +1092,49 @@ data class XMLPattern(
         }
     }
 
+    private fun mergeWSDLDerivedPatternAlternatives(derivedPattern: Pattern): List<XMLPattern> {
+        return when (derivedPattern) {
+            is AnyPattern -> derivedPattern.pattern.flatMap(::mergeWSDLDerivedPatternAlternatives)
+            else -> listOfNotNull(mergeWSDLDerivedPattern(derivedPattern))
+        }.distinct()
+    }
+
     private fun wrapDerivedSimpleContentInDeclaredElement(derivedPattern: Pattern): XMLPattern =
         copy(pattern = pattern.copy(nodes = listOf(derivedPattern)))
+
+    private fun withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLPattern =
+        copy(pattern = pattern.withSubstitutionMemberElementDeclaration(member))
+
+    private fun withXSIType(typeName: WSDLTypeName): XMLPattern {
+        val typePrefix = pattern.prefixForNamespace(typeName.namespace) ?: pattern.prefixForElementNamespace(typeName.namespace) ?: pattern.availableNamespacePrefix()
+        val typeAttributeValue = listOf(typePrefix, typeName.localName).filter(String::isNotBlank).joinToString(":")
+        val schemaInstancePrefix = pattern.prefixForNamespace(XML_SCHEMA_INSTANCE_NAMESPACE) ?: pattern.availableNamespacePrefix("xsi")
+        val schemaInstanceTypeAttributeName = "$schemaInstancePrefix:type"
+        val namespaceAttributes = pattern.namespaceAttributesForXSIType(typeName.namespace, typePrefix, schemaInstancePrefix)
+        val xsiTypeAttribute = schemaInstanceTypeAttributeName to ExactValuePattern(StringValue(typeAttributeValue))
+
+        return copy(
+            pattern = pattern.copy(
+                attributes = pattern.attributes + namespaceAttributes + xsiTypeAttribute,
+                attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf(schemaInstanceTypeAttributeName to XML_SCHEMA_INSTANCE_NAMESPACE)
+            )
+        )
+    }
+
+    private fun withElementNameFrom(node: XMLNode): XMLPattern =
+        withElementName(node.name, node.realName, node.elementNamespaceUriOrNull())
+
+    private fun withElementNameFrom(typeData: XMLTypeData): XMLPattern =
+        withElementName(typeData.name, typeData.realName, typeData.namespaceUri)
+
+    private fun withElementName(name: String, realName: String, namespaceUri: String?): XMLPattern =
+        copy(
+            pattern = pattern.copy(
+                name = name,
+                realName = realName,
+                namespaceUri = namespaceUri,
+            )
+        )
 
     override fun negativeBasedOn(
         row: Row,
@@ -1049,15 +1157,17 @@ data class XMLPattern(
     private fun mergeReferredPattern(referred: Pattern): Pattern {
         return when (referred) {
             is XMLPattern -> {
-                val attributesFromReferring = this.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
-                val attributesFromReferred = referred.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
-                val attributes = attributesFromReferred + attributesFromReferring
+                val attributes = mergeReferringElementAndReferredTypeAttributes(
+                    referringElementAttributes = pattern.attributes,
+                    referredTypeAttributes = referred.pattern.attributes
+                )
                 referred.copy(
                     pattern = referred.pattern.copy(
                         name = this.pattern.name,
                         realName = this.pattern.realName,
                         attributes = attributes,
                         namespaceUri = this.pattern.namespaceUri,
+                        wsdlSubstitutionGroupMembers = referred.pattern.wsdlSubstitutionGroupMembers + this.pattern.wsdlSubstitutionGroupMembers,
                     ),
                 )
             }
@@ -1067,10 +1177,49 @@ data class XMLPattern(
         }
     }
 
+    private fun mergeReferringElementAndReferredTypeAttributes(
+        referringElementAttributes: Map<String, Pattern>,
+        referredTypeAttributes: Map<String, Pattern>
+    ): Map<String, Pattern> {
+        val referringAttributes = referringElementAttributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
+        val referredAttributesWithoutType = referredTypeAttributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
+
+        val referringMetadata = referringAttributes.filterKeys(::isXMLPatternMetadataAttribute)
+        val referringXMLAttributes = referringAttributes.filterKeys { !isXMLPatternMetadataAttribute(it) }
+        val referredMetadata = referredAttributesWithoutType.filterKeys(::isXMLPatternMetadataAttribute)
+        val referredXMLAttributes = referredAttributesWithoutType.filterKeys { !isXMLPatternMetadataAttribute(it) }
+
+        return referredMetadata + referringXMLAttributes + referredXMLAttributes + referringMetadata
+    }
+
+    private fun isXMLPatternMetadataAttribute(attributeName: String): Boolean =
+        attributeName == "xmlns" ||
+                attributeName.startsWith("xmlns:") ||
+                attributeName.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
+
     private fun withTypeReferenceFrom(original: XMLPattern): XMLPattern {
         val referencedType = original.pattern.attributes[TYPE_ATTRIBUTE_NAME] ?: return this
         return copy(pattern = pattern.copy(attributes = pattern.attributes + mapOf(TYPE_ATTRIBUTE_NAME to referencedType)))
     }
+
+    private fun Pattern.withoutXMLOccurrenceMarkers(): Pattern =
+        when (this) {
+            is XMLPattern -> copy(
+                pattern = pattern.copy(
+                    attributes = pattern.attributes - OCCURS_ATTRIBUTE_NAME,
+                    nodes = pattern.nodes.map { it.withoutXMLOccurrenceMarkers() }
+                )
+            )
+
+            is XMLSequencePattern -> copy(members = members.map { it.withoutXMLOccurrenceMarkers() })
+            is XMLChoiceGroupPattern -> copy(choices = choices.map { choice ->
+                choice.map { it.withoutXMLOccurrenceMarkers() }
+            })
+            is ListPattern -> copy(pattern = pattern.withoutXMLOccurrenceMarkers())
+            is RestPattern -> copy(pattern = pattern.withoutXMLOccurrenceMarkers())
+            is AnyPattern -> copy(pattern = pattern.map { it.withoutXMLOccurrenceMarkers() })
+            else -> this
+        }
 
     fun occurMultipleTimes(): Boolean = pattern.getNodeOccurrence() == NodeOccurrence.Multiple
 
@@ -1092,7 +1241,7 @@ data class XMLPattern(
         throw recursiveGenerationException(pattern)
     }
 
-    private fun XMLPattern.canBeOmittedAfterCycle(): Boolean = occurMultipleTimes() || isOptional()
+    private fun canBeOmittedAfterCycle(): Boolean = occurMultipleTimes() || isOptional()
 
     private fun Pattern.canReturnNullOnCycle(): Boolean = this is XMLPattern && canBeOmittedAfterCycle()
 
@@ -1101,25 +1250,67 @@ data class XMLPattern(
         return cyclePreventionPattern != this && resolver.hasCycle(cyclePreventionPattern)
     }
 
-    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return when {
-            occurMultipleTimes() ->
-                0.until(randomNumber(XML_RANDOM_NUMBER_CEILING)).flatMap {
-                    generatedValueAsXMLChildValues(generate(resolver))
-                }
+    private fun Pattern.shouldSkipXMLNodeDueToCycleCutoff(resolver: Resolver): Boolean =
+        hasXMLReferenceCycle(resolver)
 
-            else -> generatedValueAsXMLChildValues(generate(resolver))
+    private fun generateOptionalChildWhenSelected(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (resolver.hasCycle(cyclePreventionPattern())) return GeneratedNodes.none(state)
+
+        val optionalTypeKey = optionalTypeKeyForGenerationState(resolver)
+        if (!state.decisions.includeOptionalXMLNode()) return GeneratedNodes.none(state)
+        if (state.shouldSkipRepeatedOptionalType(optionalTypeKey)) {
+            return GeneratedNodes.none(state)
+        }
+
+        val stateAfterRememberingOptionalType = state.afterGeneratingOptionalType(optionalTypeKey)
+
+        val generated = resolver.withCyclePrevention(
+            cyclePreventionPattern(),
+            returnNullOnCycle = true
+        ) { cyclePreventedResolver ->
+            generateOptionalChildXMLNodes(cyclePreventedResolver, stateAfterRememberingOptionalType)
+        } ?: return GeneratedNodes.none(stateAfterRememberingOptionalType)
+
+        return generated
+    }
+
+    private fun generateOptionalChildXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val dereferenced = dereferenceType(resolver)
+        return when (dereferenced) {
+            is XMLPattern -> dereferenced.generateXMLAfterDereferencing(resolver, state)
+            else -> generateXMLNodesFrom(dereferenced, resolver, state)
         }
     }
 
-    private fun Pattern.generateNodes(resolver: Resolver): List<Value> {
+    private fun generateRepeatedChildXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (resolver.hasCycle(cyclePreventionPattern())) return GeneratedNodes.none(state)
+
+        val generatedOccurrences = 0.until(state.decisions.numberOfMultipleXMLNodes().coerceAtLeast(0))
+            .fold(GeneratedNodes.none(state)) { generatedOccurrencesSoFar, _ ->
+                val generated = generateXMLNodes(resolver, generatedOccurrencesSoFar.nextState)
+                generatedOccurrencesSoFar.followedBy(generated)
+            }
+
+        return generatedOccurrences
+    }
+
+    private fun optionalTypeKeyForGenerationState(resolver: Resolver): String? {
+        referredType?.let { return it }
+        pattern.wsdlTypeName()?.let { return it.generationKey() }
+
+        val dereferenced = dereferenceType(resolver) as? XMLPattern ?: return null
+        return dereferenced.referredType ?: dereferenced.pattern.wsdlTypeName()?.generationKey()
+    }
+
+    private fun generateXMLNodesForPattern(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         return when {
-            this is XMLChildGenerationPattern -> generateXMLChildValues(resolver)
-            else -> listOf(generate(resolver))
+            pattern is XMLPattern && pattern.isOptional() -> pattern.generateOptionalChildWhenSelected(resolver, state)
+            pattern is XMLPattern && pattern.occurMultipleTimes() -> pattern.generateRepeatedChildXMLNodes(resolver, state)
+            else -> generateXMLNodesFrom(pattern, resolver, state)
         }
     }
 
-    private fun XMLPattern.hasTypeReference(): Boolean = referredType != null
+    private fun hasTypeReference(): Boolean = referredType != null
 
     private fun Pattern.cyclePreventionPattern(): Pattern {
         val referredType = (this as? XMLPattern)?.referredType ?: return this
@@ -1444,7 +1635,7 @@ private fun Pattern.findPatternForWSDLType(typeName: WSDLTypeName, resolver: Res
     return resolver.patternForWSDLKey(typeKey)
 }
 
-private fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
+internal fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
     return newPatterns.values.firstOrNull { pattern ->
         pattern.wsdlTypeName() == typeName
     }
@@ -1461,6 +1652,19 @@ private fun Pattern.concreteDerivedWSDLPatterns(resolver: Resolver): List<Pair<W
         if (pattern.isAbstractWSDLType()) return@mapNotNull null
 
         typeName to pattern
+    }
+}
+
+private fun containsWSDLTypeLookupMetadata(pattern: Pattern): Boolean =
+    pattern.wsdlKnownTypeKeys().isNotEmpty() ||
+            pattern.wsdlCompatibleTypeKeys().isNotEmpty() ||
+            pattern.wsdlConcreteSubtypeKeys().isNotEmpty()
+
+private fun xmlPatternAlternatives(pattern: Pattern): List<XMLPattern> {
+    return when (pattern) {
+        is XMLPattern -> listOf(pattern)
+        is AnyPattern -> pattern.pattern.flatMap(::xmlPatternAlternatives)
+        else -> emptyList()
     }
 }
 
@@ -1493,6 +1697,14 @@ private fun Pattern.wsdlConcreteSubtypeKeys(): Map<WSDLTypeName, String> {
     }
 }
 
+private fun Pattern.wsdlSubstitutionGroupMembers(): Map<WSDLTypeName, WSDLSubstitutionGroupMember> {
+    return when (this) {
+        is XMLPattern -> pattern.wsdlSubstitutionGroupMembers
+        is AnyPattern -> pattern.flatMap { it.wsdlSubstitutionGroupMembers().entries }.associate { it.toPair() }
+        else -> emptyMap()
+    }
+}
+
 private fun Pattern.wsdlTypeName(): WSDLTypeName? {
     return when (this) {
         is XMLPattern -> pattern.wsdlTypeName()
@@ -1521,13 +1733,38 @@ private fun Pattern.wsdlTypeSelectionMode(): WSDLTypeSelectionMode {
     }
 }
 
-private fun Pattern.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): Boolean {
+internal fun Pattern.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): Boolean {
     return when (this) {
-        is XMLPattern -> pattern.isDerivedFrom(baseType, resolver)
+        is XMLPattern -> pattern.isDerivedFrom(baseType, resolver) ||
+                referredType?.let { resolver.patternForWSDLKey(it)?.isDerivedFrom(baseType, resolver) } == true
         is AnyPattern -> pattern.any { it.isDerivedFrom(baseType, resolver) }
         else -> false
     }
 }
+
+internal fun Pattern.usesBlockedDerivationToReach(
+    baseType: WSDLTypeName,
+    blockedMethods: Set<WSDLTypeDerivationMethod>,
+    resolver: Resolver
+): Boolean {
+    if (blockedMethods.isEmpty()) {
+        return false
+    }
+
+    return when (this) {
+        is XMLPattern -> pattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) ||
+                referredType?.let { resolver.patternForWSDLKey(it)?.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) } == true
+        is AnyPattern -> pattern.any { it.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) }
+        else -> false
+    }
+}
+
+private fun Pattern.usesDerivationBlockedBySubstitutionHead(
+    declaredType: WSDLTypeName,
+    substitutionGroupMember: WSDLSubstitutionGroupMember,
+    resolver: Resolver
+): Boolean =
+    usesBlockedDerivationToReach(declaredType, substitutionGroupMember.headBlockedDerivationMethods, resolver)
 
 private fun XMLTypeData.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): Boolean {
     val directBase = wsdlBaseTypeName?.let { baseName ->
@@ -1542,36 +1779,27 @@ private fun XMLTypeData.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver
     return basePattern.isDerivedFrom(baseType, resolver)
 }
 
-private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {
-    val typePrefix = pattern.prefixForNamespace(typeName.namespace) ?: pattern.prefixForElementNamespace(typeName.namespace) ?: pattern.availableNamespacePrefix()
-    val typeAttributeValue = listOf(typePrefix, typeName.localName).filter(String::isNotBlank).joinToString(":")
-    val schemaInstancePrefix = pattern.prefixForNamespace(XML_SCHEMA_INSTANCE_NAMESPACE) ?: pattern.availableNamespacePrefix("xsi")
-    val schemaInstanceTypeAttributeName = "$schemaInstancePrefix:type"
-    val namespaceAttributes = pattern.namespaceAttributesForXSIType(typeName.namespace, typePrefix, schemaInstancePrefix)
-    val xsiTypeAttribute = schemaInstanceTypeAttributeName to ExactValuePattern(StringValue(typeAttributeValue))
+private fun XMLTypeData.usesBlockedDerivationToReach(
+    baseType: WSDLTypeName,
+    blockedMethods: Set<WSDLTypeDerivationMethod>,
+    resolver: Resolver
+): Boolean {
+    val directBase = wsdlBaseTypeName?.let { baseName ->
+        WSDLTypeName(wsdlBaseTypeNamespace.orEmpty(), baseName)
+    } ?: return false
 
-    return copy(
-        pattern = pattern.copy(
-            attributes = pattern.attributes + namespaceAttributes + xsiTypeAttribute,
-            attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf(schemaInstanceTypeAttributeName to XML_SCHEMA_INSTANCE_NAMESPACE)
-        )
-    )
+    val directMethodIsBlocked = wsdlBaseTypeDerivationMethod in blockedMethods
+    if (directBase == baseType) {
+        return directMethodIsBlocked
+    }
+
+    val basePattern = resolver.findPatternForWSDLType(directBase) ?: return false
+    if (!basePattern.isDerivedFrom(baseType, resolver)) {
+        return false
+    }
+
+    return directMethodIsBlocked || basePattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver)
 }
-
-private fun XMLPattern.withElementNameFrom(node: XMLNode): XMLPattern =
-    withElementName(node.name, node.realName, node.elementNamespaceUriOrNull())
-
-private fun XMLPattern.withElementNameFrom(typeData: XMLTypeData): XMLPattern =
-    withElementName(typeData.name, typeData.realName, typeData.namespaceUri)
-
-private fun XMLPattern.withElementName(name: String, realName: String, namespaceUri: String?): XMLPattern =
-    copy(
-        pattern = pattern.copy(
-            name = name,
-            realName = realName,
-            namespaceUri = namespaceUri,
-        )
-    )
 
 private fun <T> PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(value: T, s: String): T {
     return value

@@ -36,7 +36,8 @@ data class ElementReference(val child: XMLNode, val wsdl: WSDL) : ChildElementTy
                     .minus("substitutionGroup")
                     .plus(otherRefAttributes)
                 SubstitutionCandidate(memberName, wsdl.getSOAPElement(memberName, member.schema, memberAttributes))
-            }
+            },
+            substitutionGroupMembers = wsdl.substitutionGroupMembersFor(fullyQualifiedName)
         )
 
         return Pair(specmaticTypeName, substitutionGroup)
@@ -50,7 +51,8 @@ private data class SubstitutionCandidate(
 
 private data class SubstitutionGroupElement(
     val head: SubstitutionCandidate,
-    val substitutes: List<SubstitutionCandidate>
+    val substitutes: List<SubstitutionCandidate>,
+    val substitutionGroupMembers: List<io.specmatic.core.pattern.WSDLSubstitutionGroupMember>
 ) : WSDLElement {
     override fun deriveSpecmaticTypes(
         specmaticTypeName: String,
@@ -84,7 +86,13 @@ private data class SubstitutionGroupElement(
         }.last()
 
         return headTypeInfo.copy(
-            members = listOf(XMLSubstitutionGroupPattern(head.name.displayNameForError(), candidateInfo.patterns)),
+            members = listOf(
+                XMLSubstitutionGroupPattern(
+                    head.name.displayNameForError(),
+                    candidateInfo.patterns,
+                    substitutionGroupMembers = substitutionGroupMembers
+                )
+            ),
             types = headTypeInfo.types.plus(candidateInfo.types),
             namespacePrefixes = headTypeInfo.namespacePrefixes.plus(candidateInfo.namespacePrefixes),
         )

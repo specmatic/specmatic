@@ -9,11 +9,13 @@ import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
+import io.specmatic.core.value.localName
 import io.specmatic.core.value.toXMLNode
 
 data class XMLSubstitutionGroupPattern(
     val headElementName: String,
     val candidates: List<Pattern>,
+    val substitutionGroupMembers: List<WSDLSubstitutionGroupMember> = emptyList(),
     override val typeAlias: String? = null
 ) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
@@ -41,6 +43,12 @@ data class XMLSubstitutionGroupPattern(
     }
 
     private fun matchCandidates(xmlValues: List<XMLValue>, resolver: Resolver): ConsumeResult<Value, Value> {
+        val actualNode = xmlValues.firstOrNull() as? XMLNode
+        val invalidMember = invalidSubstitutionGroupMember(actualNode, resolver)
+        if (invalidMember != null) {
+            return ConsumeResult(invalidMember, xmlValues)
+        }
+
         val candidateMatches = candidates.map { candidate ->
             CandidateMatch(candidate, candidate.matches(xmlValues, resolver))
         }
@@ -52,7 +60,6 @@ data class XMLSubstitutionGroupPattern(
             return successfulMatch
         }
 
-        val actualNode = xmlValues.firstOrNull() as? XMLNode
         if (actualNode != null) {
             val matchingNameFailure = candidateMatches
                 .firstOrNull { it.matchesElementName(actualNode) }
@@ -67,13 +74,13 @@ data class XMLSubstitutionGroupPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        val candidate = candidates.firstOrNull()
-            ?: throw ContractException("Cannot generate XML for substitutionGroup $headElementName because it has no candidates.")
-        return candidate.generate(resolver)
+        return generateXMLNodes(resolver, XMLGenerationState()).asContainer()
     }
 
-    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
-        return generatedValueAsXMLChildValues(generate(resolver))
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val candidate = candidates.firstOrNull()
+            ?: throw ContractException("Cannot generate XML for substitutionGroup $headElementName because it has no candidates.")
+        return generateXMLNodesFrom(candidate, resolver, state)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
@@ -128,6 +135,34 @@ data class XMLSubstitutionGroupPattern(
             ?: Failure("substitutionGroup $headElementName does not encompass ${otherCandidate.typeName}")
     }
 
+    private fun invalidSubstitutionGroupMember(actualNode: XMLNode?, resolver: Resolver): Failure? {
+        actualNode ?: return null
+        val member = substitutionGroupMemberFor(actualNode) ?: return null
+
+        if (member.headBlocksSubstitution) {
+            return Failure("Invalid substitutionGroup member ${actualNode.realName}; substitution is blocked for $headElementName.")
+        }
+
+        if (member.isAbstract) {
+            return Failure("Invalid substitutionGroup member ${actualNode.realName}; it is abstract and cannot be used as a concrete substitutionGroup member for $headElementName.")
+        }
+
+        val headTypeName = member.headTypeName ?: return null
+        val candidate = candidateFor(actualNode) ?: return null
+        if (candidate.usesBlockedDerivationToReach(headTypeName, member.headBlockedDerivationMethods, resolver)) {
+            return Failure("Invalid substitutionGroup member ${actualNode.realName}; type ${member.typeName.displayNameForError()} uses a derivation blocked by $headElementName.")
+        }
+
+        return null
+    }
+
+    private fun substitutionGroupMemberFor(node: XMLNode): WSDLSubstitutionGroupMember? {
+        val nodeTypeName = WSDLTypeName(node.elementNamespaceUriOrNull().orEmpty(), node.name)
+        return substitutionGroupMembers.firstOrNull { member ->
+            member.elementName == nodeTypeName || member.elementName.localName == node.name || member.elementName.localName == node.realName.localName()
+        }
+    }
+
     private fun substitutionGroupMismatch(actualValue: XMLValue? = null): Failure {
         val actual = when (actualValue) {
             is XMLNode -> actualValue.realName
@@ -157,6 +192,14 @@ data class XMLSubstitutionGroupPattern(
     private fun CandidateMatch.matchesElementName(node: XMLNode): Boolean {
         return elementNames(candidate).any { candidateName ->
             candidateName == node.name || candidateName == node.realName
+        }
+    }
+
+    private fun candidateFor(node: XMLNode): Pattern? {
+        return candidates.firstOrNull { candidate ->
+            elementNames(candidate).any { candidateName ->
+                candidateName == node.name || candidateName == node.realName
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.toXMLNode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -211,6 +212,36 @@ class XMLChoiceGroupPatternTest {
 
         assertThat(generatedNodeNames(materialized)).containsExactly("A")
         assertThat(materialized.generate(resolver).toStringLiteral()).contains("<A>example value</A>")
+    }
+
+    @Test
+    fun `generate omits optional choice when optional generation says no`() {
+        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 1).generateXML(
+            resolver,
+            FixedXMLChoiceGenerationDecisions(includeOptional = false)
+        ) as XMLNode
+
+        assertThat(generated.childNodes).isEmpty()
+    }
+
+    @Test
+    fun `generate includes one optional choice selected by generation decisions`() {
+        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 3).generateXML(
+            resolver,
+            FixedXMLChoiceGenerationDecisions(includeOptional = true, branchIndex = 1)
+        ) as XMLNode
+
+        assertThat(generatedNodeNames(generated)).containsExactly("B")
+    }
+
+    @Test
+    fun `generate uses minimum required occurrences for repeated choices`() {
+        val generated = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 4).generateXML(
+            resolver,
+            FixedXMLChoiceGenerationDecisions(branchIndex = 1)
+        ) as XMLNode
+
+        assertThat(generatedNodeNames(generated)).containsExactly("B", "B")
     }
 
     @Test
@@ -456,6 +487,10 @@ class XMLChoiceGroupPatternTest {
     private fun generatedNodeNames(choiceGroup: XMLSequencePattern): List<String> {
         val generated = choiceGroup.generate(resolver) as io.specmatic.core.value.XMLNode
 
+        return generatedNodeNames(generated)
+    }
+
+    private fun generatedNodeNames(generated: XMLNode): List<String> {
         return generated.childNodes.filterIsInstance<io.specmatic.core.value.XMLNode>().map { childNode ->
             childNode.name.substringAfter(":")
         }
@@ -470,4 +505,13 @@ class XMLChoiceGroupPatternTest {
     private fun assertFailure(result: Result) {
         assertThat(result).isInstanceOf(Result.Failure::class.java)
     }
+}
+
+private class FixedXMLChoiceGenerationDecisions(
+    private val includeOptional: Boolean = true,
+    private val branchIndex: Int = 0
+) : XMLGenerationDecisions {
+    override fun includeOptionalXMLNode(): Boolean = includeOptional
+
+    override fun chooseXMLChoiceBranch(choiceCount: Int): Int = branchIndex.coerceIn(0, choiceCount - 1)
 }

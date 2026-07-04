@@ -4,6 +4,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.XMLChoiceGroupPattern
+import io.specmatic.core.pattern.XMLGenerationDecisions
 import io.specmatic.core.pattern.TYPE_ATTRIBUTE_NAME
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLSequencePattern
@@ -215,6 +216,10 @@ class WSDLWiringCharacterizationTest {
         choiceGroup.choices.map { choice ->
             choice.map { pattern -> (pattern as XMLPattern).pattern.realName.substringAfter(":") }
         }
+
+    private object IncludeOptionalXMLNodes : XMLGenerationDecisions {
+        override fun includeOptionalXMLNode(): Boolean = true
+    }
 
     @Test
     fun `getSOAPElement keeps simple primitive request payload wiring intact`() {
@@ -438,7 +443,7 @@ class WSDLWiringCharacterizationTest {
             )
         )
 
-        val generated = rootPattern.generate(resolver).toStringLiteral()
+        val generated = rootPattern.generateXML(resolver, IncludeOptionalXMLNodes).toStringLiteral()
 
         assertThat(generated).contains(":Root").contains(":b")
         assertThat(countOccurrences(generated, "<tns:a>")).isLessThan(3)
