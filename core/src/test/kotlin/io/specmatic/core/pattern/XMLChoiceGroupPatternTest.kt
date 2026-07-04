@@ -216,7 +216,7 @@ class XMLChoiceGroupPatternTest {
 
     @Test
     fun `generate omits optional choice when optional generation says no`() {
-        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 1).generate(
+        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 1).generateXML(
             resolver,
             FixedXMLChoiceGenerationDecisions(includeOptional = false)
         ) as XMLNode
@@ -226,7 +226,7 @@ class XMLChoiceGroupPatternTest {
 
     @Test
     fun `generate includes one optional choice selected by generation decisions`() {
-        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 3).generate(
+        val generated = choiceGroup("A", "B", minOccurs = 0, maxOccurs = 3).generateXML(
             resolver,
             FixedXMLChoiceGenerationDecisions(includeOptional = true, branchIndex = 1)
         ) as XMLNode
@@ -236,7 +236,7 @@ class XMLChoiceGroupPatternTest {
 
     @Test
     fun `generate uses minimum required occurrences for repeated choices`() {
-        val generated = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 4).generate(
+        val generated = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 4).generateXML(
             resolver,
             FixedXMLChoiceGenerationDecisions(branchIndex = 1)
         ) as XMLNode

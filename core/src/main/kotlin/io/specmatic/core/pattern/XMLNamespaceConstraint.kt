@@ -200,9 +200,9 @@ data class XMLWildcardPattern(
     }
 
     override fun generate(resolver: Resolver): Value =
-        generateNodes(resolver, XMLGenerationState()).asContainer()
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
 
-    override fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val generatedNodes = 0.until(state.decisions.numberOfXMLNodesFor(minOccurs, maxOccurs))
             .map { generatedNode() }
         return GeneratedNodes(generatedNodes, state)

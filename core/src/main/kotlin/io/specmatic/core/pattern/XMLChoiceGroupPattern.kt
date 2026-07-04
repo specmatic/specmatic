@@ -105,13 +105,13 @@ data class XMLChoiceGroupPattern(
     }
 
     override fun generate(resolver: Resolver): Value =
-        generateNodes(resolver, XMLGenerationState()).asContainer()
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
 
-    override fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val selectedBranches = chooseBranchesForEachOccurrence(state.decisions)
         val generatedChoiceOccurrences = selectedBranches.fold(GeneratedNodes.none(state)) { generatedOccurrencesSoFar, selectedBranch ->
             val generatedBranchNodes = selectedBranch.fold(GeneratedNodes.none(generatedOccurrencesSoFar.nextState)) { generatedBranchSoFar, memberPattern ->
-                generatedBranchSoFar.followedBy(generateSelectedChoiceMember(memberPattern, resolver, generatedBranchSoFar.nextState))
+                generatedBranchSoFar.followedBy(generateSelectedChoiceMemberXMLNodes(memberPattern, resolver, generatedBranchSoFar.nextState))
             }
 
             generatedOccurrencesSoFar.followedBy(generatedBranchNodes)
@@ -120,18 +120,18 @@ data class XMLChoiceGroupPattern(
         return generatedChoiceOccurrences
     }
 
-    private fun generateSelectedChoiceMember(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+    private fun generateSelectedChoiceMemberXMLNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         if (pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver)) {
             return GeneratedNodes.none(state)
         }
 
         val generated = when {
-            pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateNodes(resolver, state)
+            pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateXMLNodes(resolver, state)
             else -> resolver.withCyclePrevention(
                 pattern.xmlChoiceCyclePreventionPattern(),
                 returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
             ) { cyclePreventedResolver ->
-                generateNodesFrom(pattern, cyclePreventedResolver, state)
+                generateXMLNodesFrom(pattern, cyclePreventedResolver, state)
             } ?: return GeneratedNodes.none(state)
         }
 
@@ -509,18 +509,18 @@ data class XMLSequencePattern(
     }
 
     override fun generate(resolver: Resolver): Value =
-        generateNodes(resolver, XMLGenerationState()).asContainer()
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
 
-    override fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val generatedSequenceMembers = members.fold(GeneratedNodes.none(state)) { generatedMembersSoFar, memberPattern ->
-            generatedMembersSoFar.followedBy(generateSequenceMember(memberPattern, resolver, generatedMembersSoFar.nextState))
+            generatedMembersSoFar.followedBy(generateSequenceMemberXMLNodes(memberPattern, resolver, generatedMembersSoFar.nextState))
         }
 
         return generatedSequenceMembers
     }
 
-    private fun generateSequenceMember(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
-        return generateNodesFrom(pattern, resolver, state)
+    private fun generateSequenceMemberXMLNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        return generateXMLNodesFrom(pattern, resolver, state)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =

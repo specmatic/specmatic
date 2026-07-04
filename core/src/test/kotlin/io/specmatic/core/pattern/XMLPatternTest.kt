@@ -101,7 +101,7 @@ internal class XMLPatternTest {
                 newPatterns = mapOf("(Shared)" to sharedType)
             )
 
-            val generated = responseType.generate(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+            val generated = responseType.generateXML(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
 
             val generatedChildren = generated.childNodes.filterIsInstance<XMLNode>()
             assertThat(generatedChildren.map(XMLNode::name)).containsExactly("first")
@@ -116,7 +116,7 @@ internal class XMLPatternTest {
                 newPatterns = mapOf("(Shared)" to sharedType)
             )
 
-            val generated = responseType.generate(resolver, FixedRepeatedOptionalXMLGenerationDecisions(true)) as XMLNode
+            val generated = responseType.generateXML(resolver, FixedRepeatedOptionalXMLGenerationDecisions(true)) as XMLNode
 
             assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::name))
                 .containsExactly("first", "second")
@@ -131,7 +131,7 @@ internal class XMLPatternTest {
                 newPatterns = mapOf("(Name)" to nameType, "(Address)" to addressType)
             )
 
-            val generated = responseType.generate(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+            val generated = responseType.generateXML(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
 
             assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::name))
                 .containsExactly("name", "address")
@@ -426,8 +426,8 @@ internal class XMLPatternTest {
         fun `optional xml node generation produces zero or one occurrence`() {
             val type = XMLPattern("<data><item $isOptional>(string)</item></data>")
 
-            val skipped = type.generate(Resolver(), FixedXMLGenerationDecisions(false)) as XMLNode
-            val included = type.generate(Resolver(), FixedXMLGenerationDecisions(true)) as XMLNode
+            val skipped = type.generateXML(Resolver(), FixedXMLGenerationDecisions(false)) as XMLNode
+            val included = type.generateXML(Resolver(), FixedXMLGenerationDecisions(true)) as XMLNode
 
             assertThat(skipped.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(0)
             assertThat(included.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(1)
@@ -441,7 +441,7 @@ internal class XMLPatternTest {
                 newPatterns = mapOf("(Node)" to nodeType)
             )
 
-            val generated = type.generate(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+            val generated = type.generateXML(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
             val generatedChild = generated.childNodes.filterIsInstance<XMLNode>().single { it.name == "child" }
 
             assertThat(generatedChild.childNodes.filterIsInstance<XMLNode>().map { it.name }).containsExactly("id")

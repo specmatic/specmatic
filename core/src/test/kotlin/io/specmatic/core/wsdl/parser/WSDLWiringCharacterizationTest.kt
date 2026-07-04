@@ -443,7 +443,7 @@ class WSDLWiringCharacterizationTest {
             )
         )
 
-        val generated = rootPattern.generate(resolver, IncludeOptionalXMLNodes).toStringLiteral()
+        val generated = rootPattern.generateXML(resolver, IncludeOptionalXMLNodes).toStringLiteral()
 
         assertThat(generated).contains(":Root").contains(":b")
         assertThat(countOccurrences(generated, "<tns:a>")).isLessThan(3)

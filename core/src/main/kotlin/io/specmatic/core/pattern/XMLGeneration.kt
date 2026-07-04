@@ -84,14 +84,14 @@ data class GeneratedNodes(
 }
 
 interface XMLGenerativePattern {
-    fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes
+    fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes
 
-    fun generate(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
-        generateNodes(resolver, XMLGenerationState(decisions)).asContainer()
+    fun generateXML(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
+        generateXMLNodes(resolver, XMLGenerationState(decisions)).asContainer()
 }
 
-fun generateNodesFrom(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes =
+fun generateXMLNodesFrom(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes =
     when (pattern) {
-        is XMLGenerativePattern -> pattern.generateNodes(resolver, state)
+        is XMLGenerativePattern -> pattern.generateXMLNodes(resolver, state)
         else -> GeneratedNodes.fromGeneratedValue(pattern.generate(resolver), state)
     }

@@ -136,7 +136,7 @@ data class ListPattern(
         return resolver.resolveExample(example, pattern) ?: dictionaryLookup(resolverWithEmptyType)
     }
 
-    override fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
         resolver.resolveExample(example, pattern)?.let {
             return GeneratedNodes.fromGeneratedContainer(it, state)
@@ -148,19 +148,19 @@ data class ListPattern(
             return GeneratedNodes.fromGeneratedContainer(valueFromDict, state)
         }
 
-        return generateListNodesByGeneratingItems(resolverWithEmptyType, state)
+        return generateListXMLNodesByGeneratingItems(resolverWithEmptyType, state)
     }
 
     private fun dictionaryLookup(resolver: Resolver): Value {
         return resolver.generateList(this)
     }
 
-    private fun generateListNodesByGeneratingItems(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+    private fun generateListXMLNodesByGeneratingItems(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val listResolver = resolver.updateLookupPath(this, pattern)
         val numberOfItemsToGenerate = listResolver.randomArraySize ?: randomNumber(DEFAULT_RANDOM_ARRAY_SIZE + 1)
         val generatedListItems = 0.until(numberOfItemsToGenerate).fold(GeneratedNodes.none(state)) { generatedItemsSoFar, index ->
             val generated = attempt(breadCrumb = "[$index (random)]") {
-                generateNodesFrom(pattern, listResolver, generatedItemsSoFar.nextState)
+                generateXMLNodesFrom(pattern, listResolver, generatedItemsSoFar.nextState)
             }
             generatedItemsSoFar.followedBy(generated)
         }
