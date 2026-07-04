@@ -163,6 +163,28 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `generate uses compatible WSDL subtype when declared type dereferences to any pattern`() {
+            val resolver = Resolver(newPatterns = animalChoicePatterns(animalIsAbstract = true))
+            val pattern = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(
+                        TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal")),
+                        "xmlns:tns" to ExactValuePattern(StringValue(ANIMAL_NAMESPACE)),
+                    ),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                )
+            )
+
+            val generated = pattern.generate(resolver)
+
+            assertThat(generated.attributes["xsi:type"]?.toStringLiteral()).isEqualTo("tns:Dog")
+            assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::realName))
+                .containsExactly("tns:name", "tns:breed")
+        }
+
+        @Test
         fun `newBasedOn uses compatible WSDL concrete subtype variants instead of abstract base type`() {
             val resolver = Resolver(newPatterns = animalPatterns(animalIsAbstract = true))
             val pattern = XMLPattern(
@@ -762,6 +784,33 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `substitution group element selects member type when declared WSDL type dereferences to any pattern`() {
+            val domesticDogElement = WSDLTypeName(ANIMAL_NAMESPACE, "DomesticDog")
+            val resolver = Resolver(newPatterns = animalChoicePatterns(animalIsAbstract = true))
+            val declaredAnimal = XMLPattern(
+                XMLTypeData(
+                    name = "Animal",
+                    realName = "tns:Animal",
+                    attributes = mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal"))),
+                    namespaceUri = ANIMAL_NAMESPACE,
+                    wsdlSubstitutionGroupMembers = mapOf(
+                        domesticDogElement to WSDLSubstitutionGroupMember(domesticDogElement, DOG_TYPE)
+                    )
+                )
+            )
+            val domesticDog = toXMLNode(
+                """
+                <DomesticDog xmlns="$ANIMAL_NAMESPACE">
+                  <name>Fido</name>
+                  <breed>Beagle</breed>
+                </DomesticDog>
+                """.trimIndent()
+            )
+
+            assertThat(declaredAnimal.matches(domesticDog, resolver)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
         fun `schema instance type with non xsi prefix selects compatible WSDL derived complex type`() {
             val resolver = Resolver(newPatterns = animalPatterns())
             val pattern = XMLPattern(
@@ -904,6 +953,61 @@ internal class XMLPatternTest {
             anything.matches(xml)
         }
 
+    }
+
+    private fun animalChoicePatterns(animalIsAbstract: Boolean = false): Map<String, Pattern> {
+        val animalName = XMLPattern(
+            XMLTypeData(
+                name = "Animal",
+                realName = "tns:Animal",
+                nodes = listOf(XMLPattern("<tns:name xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:name>")),
+                namespaceUri = ANIMAL_NAMESPACE,
+                wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlTypeName = "Animal",
+                wsdlTypeIsAbstract = animalIsAbstract,
+            )
+        )
+        val animalTag = XMLPattern(
+            XMLTypeData(
+                name = "Animal",
+                realName = "tns:Animal",
+                nodes = listOf(XMLPattern("<tns:tag xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:tag>")),
+                namespaceUri = ANIMAL_NAMESPACE,
+                wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlTypeName = "Animal",
+                wsdlTypeIsAbstract = animalIsAbstract,
+            )
+        )
+        val dog = XMLPattern(
+            XMLTypeData(
+                name = "Dog",
+                realName = "tns:Dog",
+                nodes = listOf(
+                    XMLPattern("<tns:name xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:name>"),
+                    XMLPattern("<tns:breed xmlns:tns=\"$ANIMAL_NAMESPACE\">(string)</tns:breed>")
+                ),
+                namespaceUri = ANIMAL_NAMESPACE,
+                wsdlTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlTypeName = "Dog",
+                wsdlBaseTypeNamespace = ANIMAL_NAMESPACE,
+                wsdlBaseTypeName = "Animal",
+            )
+        )
+
+        return mapOf(
+            ANIMAL_TYPE_KEY to AnyPattern(
+                pattern = listOf(animalName, animalTag),
+                extensions = emptyMap()
+            ).withWSDLTypeLookupMetadata(
+                knownTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                compatibleTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                concreteSubtypeKeys = mapOf(DOG_TYPE to DOG_TYPE_KEY),
+            ),
+            DOG_TYPE_KEY to dog.withWSDLTypeLookupMetadata(
+                knownTypeKeys = mapOf(ANIMAL_TYPE to ANIMAL_TYPE_KEY, DOG_TYPE to DOG_TYPE_KEY),
+                compatibleTypeKeys = mapOf(DOG_TYPE to DOG_TYPE_KEY),
+            ),
+        )
     }
 
     private fun animalPatterns(animalIsAbstract: Boolean = false): Map<String, Pattern> {
