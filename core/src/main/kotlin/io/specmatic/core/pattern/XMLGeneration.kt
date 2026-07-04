@@ -49,33 +49,31 @@ data class XMLGenerationState(
         }
 }
 
-data class GeneratedXMLValue(
-    val value: Value,
-    val nextState: XMLGenerationState
-) {
-    fun asSingleGeneratedNode(): GeneratedXMLNodes =
-        GeneratedXMLNodes.fromValue(value, nextState)
-
-    fun asGeneratedChildNodes(): GeneratedXMLNodes =
-        GeneratedXMLNodes((value as XMLNode).childNodes, nextState)
-}
-
-data class GeneratedXMLNodes(
+data class GeneratedNodes(
     val nodes: List<XMLValue>,
     val nextState: XMLGenerationState
 ) {
-    fun followedBy(other: GeneratedXMLNodes): GeneratedXMLNodes =
+    fun followedBy(other: GeneratedNodes): GeneratedNodes =
         copy(nodes = nodes.plus(other.nodes), nextState = other.nextState)
 
+    fun asContainer(): XMLNode =
+        XMLNode.container(nodes)
+
+    fun asSingleXMLNode(): XMLNode =
+        nodes.single() as XMLNode
+
     companion object {
-        fun none(state: XMLGenerationState): GeneratedXMLNodes =
-            GeneratedXMLNodes(emptyList(), state)
+        fun none(state: XMLGenerationState): GeneratedNodes =
+            GeneratedNodes(emptyList(), state)
 
-        fun fromValue(value: Value, state: XMLGenerationState): GeneratedXMLNodes =
-            GeneratedXMLNodes(listOf(toXMLValue(value)), state)
+        fun fromGeneratedValue(value: Value, state: XMLGenerationState): GeneratedNodes =
+            GeneratedNodes(listOf(toXMLValue(value)), state)
 
-        fun fromValues(values: List<Value>, state: XMLGenerationState): GeneratedXMLNodes =
-            GeneratedXMLNodes(values.map(::toXMLValue), state)
+        fun fromGeneratedContainer(value: Value, state: XMLGenerationState): GeneratedNodes =
+            GeneratedNodes((value as XMLNode).childNodes, state)
+
+        fun fromGeneratedValues(values: List<Value>, state: XMLGenerationState): GeneratedNodes =
+            GeneratedNodes(values.map(::toXMLValue), state)
 
         private fun toXMLValue(value: Value): XMLValue =
             when (value) {
@@ -86,14 +84,14 @@ data class GeneratedXMLNodes(
 }
 
 interface XMLGenerativePattern {
-    fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue
+    fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes
 
     fun generate(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
-        generateXMLValue(resolver, XMLGenerationState(decisions)).value
+        generateNodes(resolver, XMLGenerationState(decisions)).asContainer()
 }
 
-fun generateXMLValueFrom(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue =
+fun generateNodesFrom(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes =
     when (pattern) {
-        is XMLGenerativePattern -> pattern.generateXMLValue(resolver, state)
-        else -> GeneratedXMLValue(pattern.generate(resolver), state)
+        is XMLGenerativePattern -> pattern.generateNodes(resolver, state)
+        else -> GeneratedNodes.fromGeneratedValue(pattern.generate(resolver), state)
     }

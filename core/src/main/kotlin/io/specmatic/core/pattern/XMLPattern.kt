@@ -682,9 +682,12 @@ data class XMLPattern(
     }
 
     override fun generate(resolver: Resolver): XMLNode =
-        generateXMLValue(resolver, XMLGenerationState()).value as XMLNode
+        generateNodes(resolver, XMLGenerationState()).asSingleXMLNode()
 
-    override fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue {
+    override fun generate(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
+        generateNodes(resolver, XMLGenerationState(decisions)).asSingleXMLNode()
+
+    override fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val patternBeingGenerated = cyclePreventionPattern()
         if (patternBeingGenerated == this) {
             return generateXMLAfterDereferencing(resolver, state)
@@ -692,7 +695,7 @@ data class XMLPattern(
 
         if (resolver.hasCycle(patternBeingGenerated)) {
             if (canReturnNullOnCycle()) {
-                return emptyGeneratedXMLNode(state)
+                return emptyGeneratedNode(state)
             }
 
             throw recursiveGenerationException(this)
@@ -703,14 +706,14 @@ data class XMLPattern(
             returnNullOnCycle = canReturnNullOnCycle()
         ) { cyclePreventedResolver ->
             generateXMLAfterDereferencing(cyclePreventedResolver, state)
-        } ?: emptyGeneratedXMLNode(state)
+        } ?: emptyGeneratedNode(state)
     }
 
-    private fun generateXMLAfterDereferencing(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue {
+    private fun generateXMLAfterDereferencing(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         if (!pattern.isConcrete()) {
             val dereferenced = dereferenceType(resolver)
             if (dereferenced !is XMLPattern) {
-                return generateXMLValueFrom(dereferenced, resolver, state)
+                return generateNodesFrom(dereferenced, resolver, state)
             }
         }
 
@@ -721,9 +724,9 @@ data class XMLPattern(
 
         val resolvedPattern = dereferenceType(resolver) as XMLPattern
         val generatedAttributes = resolvedPattern.generateAttributesForXMLNode(resolver, pattern.name)
-        val generatedChildNodes = resolvedPattern.generateChildNodesAndCarryState(resolver, state, pattern.name)
+        val generatedChildNodes = resolvedPattern.generateChildrenForCurrentNode(resolver, state, pattern.name)
 
-        return GeneratedXMLValue(
+        return GeneratedNodes.fromGeneratedValue(
             XMLNode(pattern.realName, generatedAttributes, generatedChildNodes.nodes, inheritNamespacesInChildren = true),
             generatedChildNodes.nextState
         )
@@ -748,49 +751,49 @@ data class XMLPattern(
         return generatedAttributes
     }
 
-    private fun generateChildNodesAndCarryState(
+    private fun generateChildrenForCurrentNode(
         resolver: Resolver,
         state: XMLGenerationState,
         childBreadCrumbName: String
-    ): GeneratedXMLNodes =
+    ): GeneratedNodes =
         pattern.nodes.asSequence().map {
             resolvedHop(it, resolver)
-        }.fold(GeneratedXMLNodes.none(state)) { generatedChildrenSoFar, childPattern ->
+        }.fold(GeneratedNodes.none(state)) { generatedChildrenSoFar, childPattern ->
             val generatedChildNodes = attempt(breadCrumb = childBreadCrumbName) {
-                generateChildNodesOrRecursiveFallback(childPattern, resolver, generatedChildrenSoFar.nextState)
+                generateNodesOrRecursiveFallback(childPattern, resolver, generatedChildrenSoFar.nextState)
             }
             generatedChildrenSoFar.followedBy(generatedChildNodes)
         }
 
-    private fun generateChildNodesOrRecursiveFallback(
+    private fun generateNodesOrRecursiveFallback(
         childPattern: Pattern,
         resolver: Resolver,
         state: XMLGenerationState
-    ): GeneratedXMLNodes {
-        val generatedChildNodes = generateChildNodesIfAllowed(childPattern, resolver, state)
-        return generatedChildNodes ?: GeneratedXMLNodes.fromValues(recursiveGenerationFallback(childPattern), state)
+    ): GeneratedNodes {
+        val generatedChildNodes = generateNodesIfAllowed(childPattern, resolver, state)
+        return generatedChildNodes ?: GeneratedNodes.fromGeneratedValues(recursiveGenerationFallback(childPattern), state)
     }
 
-    private fun generateChildNodesIfAllowed(
+    private fun generateNodesIfAllowed(
         childPattern: Pattern,
         resolver: Resolver,
         state: XMLGenerationState
-    ): GeneratedXMLNodes? =
+    ): GeneratedNodes? =
         when {
-            childPattern.shouldSkipXMLNodeDueToCycleCutoff(resolver) -> GeneratedXMLNodes.none(state)
+            childPattern.shouldSkipXMLNodeDueToCycleCutoff(resolver) -> GeneratedNodes.none(state)
             childPattern is XMLPattern && childPattern.isOptional() -> childPattern.generateOptionalChildWhenSelected(resolver, state)
             childPattern is XMLPattern && childPattern.occurMultipleTimes() -> childPattern.generateRepeatedChildNodes(resolver, state)
-            childPattern is XMLPattern && childPattern.hasTypeReference() -> generateChildPatternNodes(childPattern, resolver, state)
+            childPattern is XMLPattern && childPattern.hasTypeReference() -> generatePatternNodes(childPattern, resolver, state)
             else -> resolver.withCyclePrevention(
                 childPattern.cyclePreventionPattern(),
                 returnNullOnCycle = childPattern.canReturnNullOnCycle()
             ) { cyclePreventedResolver ->
-                generateChildPatternNodes(childPattern, cyclePreventedResolver, state)
+                generatePatternNodes(childPattern, cyclePreventedResolver, state)
             }
         }
 
-    private fun emptyGeneratedXMLNode(state: XMLGenerationState): GeneratedXMLValue =
-        GeneratedXMLValue(XMLNode(pattern.realName, emptyMap(), emptyList()), state)
+    private fun emptyGeneratedNode(state: XMLGenerationState): GeneratedNodes =
+        GeneratedNodes.fromGeneratedValue(XMLNode(pattern.realName, emptyMap(), emptyList()), state)
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
         newBasedOnWithOccurrences(row, resolver).map { generatedPattern ->
@@ -1242,13 +1245,13 @@ data class XMLPattern(
     private fun Pattern.shouldSkipXMLNodeDueToCycleCutoff(resolver: Resolver): Boolean =
         hasXMLReferenceCycle(resolver)
 
-    private fun generateOptionalChildWhenSelected(resolver: Resolver, state: XMLGenerationState): GeneratedXMLNodes {
-        if (resolver.hasCycle(cyclePreventionPattern())) return GeneratedXMLNodes.none(state)
+    private fun generateOptionalChildWhenSelected(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (resolver.hasCycle(cyclePreventionPattern())) return GeneratedNodes.none(state)
 
         val optionalTypeKey = optionalTypeKeyForGenerationState(resolver)
-        if (!state.decisions.includeOptionalXMLNode()) return GeneratedXMLNodes.none(state)
+        if (!state.decisions.includeOptionalXMLNode()) return GeneratedNodes.none(state)
         if (state.shouldSkipRepeatedOptionalType(optionalTypeKey)) {
-            return GeneratedXMLNodes.none(state)
+            return GeneratedNodes.none(state)
         }
 
         val stateAfterRememberingOptionalType = state.afterGeneratingOptionalType(optionalTypeKey)
@@ -1258,26 +1261,26 @@ data class XMLPattern(
             returnNullOnCycle = true
         ) { cyclePreventedResolver ->
             generateOptionalChildValue(cyclePreventedResolver, stateAfterRememberingOptionalType)
-        } ?: return GeneratedXMLNodes.none(stateAfterRememberingOptionalType)
+        } ?: return GeneratedNodes.none(stateAfterRememberingOptionalType)
 
-        return generated.asSingleGeneratedNode()
+        return generated
     }
 
-    private fun generateOptionalChildValue(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue {
+    private fun generateOptionalChildValue(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val dereferenced = dereferenceType(resolver)
         return when (dereferenced) {
             is XMLPattern -> dereferenced.generateXMLAfterDereferencing(resolver, state)
-            else -> generateXMLValueFrom(dereferenced, resolver, state)
+            else -> generateNodesFrom(dereferenced, resolver, state)
         }
     }
 
-    private fun generateRepeatedChildNodes(resolver: Resolver, state: XMLGenerationState): GeneratedXMLNodes {
-        if (resolver.hasCycle(cyclePreventionPattern())) return GeneratedXMLNodes.none(state)
+    private fun generateRepeatedChildNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (resolver.hasCycle(cyclePreventionPattern())) return GeneratedNodes.none(state)
 
         val generatedOccurrences = 0.until(state.decisions.numberOfMultipleXMLNodes().coerceAtLeast(0))
-            .fold(GeneratedXMLNodes.none(state)) { generatedOccurrencesSoFar, _ ->
-                val generated = generateXMLValue(resolver, generatedOccurrencesSoFar.nextState)
-                generatedOccurrencesSoFar.followedBy(generated.asSingleGeneratedNode())
+            .fold(GeneratedNodes.none(state)) { generatedOccurrencesSoFar, _ ->
+                val generated = generateNodes(resolver, generatedOccurrencesSoFar.nextState)
+                generatedOccurrencesSoFar.followedBy(generated)
             }
 
         return generatedOccurrences
@@ -1291,19 +1294,11 @@ data class XMLPattern(
         return dereferenced.referredType ?: dereferenced.pattern.wsdlTypeName()?.generationKey()
     }
 
-    private fun generateChildPatternNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedXMLNodes {
+    private fun generatePatternNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         return when {
-            pattern is ListPattern -> generateXMLValueFrom(pattern, resolver, state).asGeneratedChildNodes()
-            pattern is XMLChoiceGroupPattern -> generateXMLValueFrom(pattern, resolver, state).asGeneratedChildNodes()
-            pattern is XMLSequencePattern -> generateXMLValueFrom(pattern, resolver, state).asGeneratedChildNodes()
-            pattern is XMLWildcardPattern -> generateXMLValueFrom(pattern, resolver, state).asGeneratedChildNodes()
             pattern is XMLPattern && pattern.isOptional() -> pattern.generateOptionalChildWhenSelected(resolver, state)
-
             pattern is XMLPattern && pattern.occurMultipleTimes() -> pattern.generateRepeatedChildNodes(resolver, state)
-
-            else -> {
-                generateXMLValueFrom(pattern, resolver, state).asSingleGeneratedNode()
-            }
+            else -> generateNodesFrom(pattern, resolver, state)
         }
     }
 

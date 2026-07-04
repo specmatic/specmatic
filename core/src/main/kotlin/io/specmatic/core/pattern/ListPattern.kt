@@ -136,34 +136,36 @@ data class ListPattern(
         return resolver.resolveExample(example, pattern) ?: dictionaryLookup(resolverWithEmptyType)
     }
 
-    override fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue {
+    override fun generateNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val resolverWithEmptyType = withEmptyType(pattern, resolver)
-        resolver.resolveExample(example, pattern)?.let { return GeneratedXMLValue(it, state) }
+        resolver.resolveExample(example, pattern)?.let {
+            return GeneratedNodes.fromGeneratedContainer(it, state)
+        }
 
         val patternFocused = resolverWithEmptyType.updateLookupPath(typeAlias)
         val valueFromDict = patternFocused.dictionary.getValueFor(patternFocused.dictionaryLookupPath, this, resolverWithEmptyType)
         if (valueFromDict != null) {
-            return GeneratedXMLValue(valueFromDict, state)
+            return GeneratedNodes.fromGeneratedContainer(valueFromDict, state)
         }
 
-        return generateListValueByGeneratingItems(resolverWithEmptyType, state)
+        return generateListNodesByGeneratingItems(resolverWithEmptyType, state)
     }
 
     private fun dictionaryLookup(resolver: Resolver): Value {
         return resolver.generateList(this)
     }
 
-    private fun generateListValueByGeneratingItems(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue {
+    private fun generateListNodesByGeneratingItems(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
         val listResolver = resolver.updateLookupPath(this, pattern)
         val numberOfItemsToGenerate = listResolver.randomArraySize ?: randomNumber(DEFAULT_RANDOM_ARRAY_SIZE + 1)
-        val generatedListItems = 0.until(numberOfItemsToGenerate).fold(GeneratedXMLNodes.none(state)) { generatedItemsSoFar, index ->
+        val generatedListItems = 0.until(numberOfItemsToGenerate).fold(GeneratedNodes.none(state)) { generatedItemsSoFar, index ->
             val generated = attempt(breadCrumb = "[$index (random)]") {
-                generateXMLValueFrom(pattern, listResolver, generatedItemsSoFar.nextState)
+                generateNodesFrom(pattern, listResolver, generatedItemsSoFar.nextState)
             }
-            generatedItemsSoFar.followedBy(generated.asSingleGeneratedNode())
+            generatedItemsSoFar.followedBy(generated)
         }
 
-        return GeneratedXMLValue(pattern.listOf(generatedListItems.nodes, resolver), generatedListItems.nextState)
+        return generatedListItems
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
