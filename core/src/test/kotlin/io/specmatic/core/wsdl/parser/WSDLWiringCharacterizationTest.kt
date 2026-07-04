@@ -440,11 +440,10 @@ class WSDLWiringCharacterizationTest {
             newPatterns = mapOf(
                 "(A)" to typeA,
                 "(B)" to typeB,
-            ),
-            xmlGenerationDecisions = IncludeOptionalXMLNodes,
+            )
         )
 
-        val generated = rootPattern.generate(resolver).toStringLiteral()
+        val generated = rootPattern.generate(resolver, IncludeOptionalXMLNodes).toStringLiteral()
 
         assertThat(generated).contains(":Root").contains(":b")
         assertThat(countOccurrences(generated, "<tns:a>")).isLessThan(3)

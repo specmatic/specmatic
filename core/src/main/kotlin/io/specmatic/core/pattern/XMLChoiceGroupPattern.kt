@@ -5,7 +5,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
@@ -16,7 +15,7 @@ data class XMLChoiceGroupPattern(
     val minOccurs: Int = 1,
     val maxOccurs: Int? = 1,
     override val typeAlias: String? = null
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLGenerativePattern {
     override val pattern: Any
         get() = choices
 
@@ -105,40 +104,45 @@ data class XMLChoiceGroupPattern(
         }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        val generatedNodes = generateOccurrenceSequence(resolver).flatMap { alternative ->
-            alternative.flatMap { pattern ->
-                if (pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver)) {
-                    return@flatMap emptyList()
-                }
+    override fun generate(resolver: Resolver): Value =
+        generateXMLValue(resolver, XMLGenerationState()).value
 
-                val generated = when {
-                    pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generate(resolver)
-                    else -> resolver.withCyclePrevention(
-                        pattern.xmlChoiceCyclePreventionPattern(),
-                        returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
-                    ) { cyclePreventedResolver ->
-                        pattern.generate(cyclePreventedResolver)
-                    } ?: return@flatMap emptyList()
-                }
-
-                when (generated) {
-                    is XMLNode -> listOf(generated)
-                    is XMLValue -> listOf(generated)
-                    else -> listOf(StringValue(generated.toStringLiteral()))
-                }
+    override fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): XMLGenerationResult {
+        val generatedChoiceOccurrences = generateOccurrenceSequence(state.decisions).fold(XMLGeneratedNodes(emptyList(), state)) { generatedOccurrencesSoFar, alternative ->
+            val generatedAlternativeNodes = alternative.fold(XMLGeneratedNodes(emptyList(), generatedOccurrencesSoFar.state)) { generatedAlternativeSoFar, pattern ->
+                generatedAlternativeSoFar.plus(generateXMLChoiceNodes(pattern, resolver, generatedAlternativeSoFar.state))
             }
+
+            generatedOccurrencesSoFar.plus(generatedAlternativeNodes)
         }
 
-        return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
+        return XMLGenerationResult(XMLNode("", "", emptyMap(), generatedChoiceOccurrences.nodes, "", emptyMap()), generatedChoiceOccurrences.state)
     }
 
-    private fun generateOccurrenceSequence(resolver: Resolver): List<List<Pattern>> {
-        val count = resolver.xmlGenerationDecisions.numberOfXMLNodesFor(minOccurs, maxOccurs)
+    private fun generateXMLChoiceNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): XMLGeneratedNodes {
+        if (pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver)) {
+            return XMLGeneratedNodes(emptyList(), state)
+        }
+
+        val generated = when {
+            pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateXMLValue(resolver, state)
+            else -> resolver.withCyclePrevention(
+                pattern.xmlChoiceCyclePreventionPattern(),
+                returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
+            ) { cyclePreventedResolver ->
+                generateXMLValueFor(pattern, cyclePreventedResolver, state)
+            } ?: return XMLGeneratedNodes(emptyList(), state)
+        }
+
+        return generated.asGeneratedXMLValue()
+    }
+
+    private fun generateOccurrenceSequence(decisions: XMLGenerationDecisions): List<List<Pattern>> {
+        val count = decisions.numberOfXMLNodesFor(minOccurs, maxOccurs)
         if (count <= 0 || choices.isEmpty()) return emptyList()
 
         return 0.until(count).map {
-            choices[resolver.xmlGenerationDecisions.chooseXMLChoiceBranch(choices.size)]
+            choices[decisions.chooseXMLChoiceBranch(choices.size)]
         }
     }
 
@@ -477,7 +481,7 @@ data class XMLChoiceGroupPattern(
 data class XMLSequencePattern(
     val members: List<Pattern>,
     override val typeAlias: String? = null
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLGenerativePattern {
     override val pattern: Any
         get() = members
 
@@ -503,26 +507,29 @@ data class XMLSequencePattern(
         }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        val generatedNodes = members.flatMap { pattern ->
-            pattern.generateXMLSequenceNodes(resolver)
+    override fun generate(resolver: Resolver): Value =
+        generateXMLValue(resolver, XMLGenerationState()).value
+
+    override fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): XMLGenerationResult {
+        val generatedSequenceMembers = members.fold(XMLGeneratedNodes(emptyList(), state)) { generatedMembersSoFar, pattern ->
+            generatedMembersSoFar.plus(generateXMLSequenceNodes(pattern, resolver, generatedMembersSoFar.state))
         }
 
-        return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
+        return XMLGenerationResult(XMLNode("", "", emptyMap(), generatedSequenceMembers.nodes, "", emptyMap()), generatedSequenceMembers.state)
     }
 
-    private fun Pattern.generateXMLSequenceNodes(resolver: Resolver): List<XMLValue> {
-        val generated = generate(resolver)
+    private fun generateXMLSequenceNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): XMLGeneratedNodes {
+        val generated = generateXMLValueFor(pattern, resolver, state)
 
-        return when {
-            this is XMLSequencePattern -> (generated as XMLNode).childNodes
-            this is XMLChoiceGroupPattern -> (generated as XMLNode).childNodes
-            this is XMLWildcardPattern -> (generated as XMLNode).childNodes
-            this is ListPattern -> (generated as XMLNode).childNodes
-            generated is XMLNode -> listOf(generated)
-            generated is XMLValue -> listOf(generated)
-            else -> listOf(StringValue(generated.toStringLiteral()))
+        val generatedNodes = when {
+            pattern is XMLSequencePattern -> generated.asGeneratedXMLChildNodes().nodes
+            pattern is XMLChoiceGroupPattern -> generated.asGeneratedXMLChildNodes().nodes
+            pattern is XMLWildcardPattern -> generated.asGeneratedXMLChildNodes().nodes
+            pattern is ListPattern -> generated.asGeneratedXMLChildNodes().nodes
+            else -> generated.asGeneratedXMLValue().nodes
         }
+
+        return XMLGeneratedNodes(generatedNodes, generated.state)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =

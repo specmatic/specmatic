@@ -3,6 +3,8 @@ package io.specmatic.core.pattern
 interface XMLGenerationDecisions {
     fun includeOptionalXMLNode(): Boolean
 
+    fun includeRepeatedOptionalXMLType(): Boolean = false
+
     fun numberOfMultipleXMLNodes(): Int = 1
 
     fun numberOfXMLNodesFor(minOccurs: Int, maxOccurs: Int?): Int {
@@ -20,4 +22,6 @@ interface XMLGenerationDecisions {
 
 object RandomXMLGenerationDecisions : XMLGenerationDecisions {
     override fun includeOptionalXMLNode(): Boolean = kotlin.random.Random.nextBoolean()
+
+    override fun includeRepeatedOptionalXMLType(): Boolean = kotlin.random.Random.nextBoolean()
 }

@@ -111,7 +111,7 @@ internal class XMLWildcardPatternTest {
     fun `optional wildcard generates no nodes when optional generation says no`() {
         val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 0, maxOccurs = null)
 
-        val generated = wildcard.generate(Resolver(xmlGenerationDecisions = FixedXMLWildcardGenerationDecisions(false))) as XMLNode
+        val generated = wildcard.generate(Resolver(), FixedXMLWildcardGenerationDecisions(false)) as XMLNode
 
         assertThat(generated.childNodes).isEmpty()
     }
@@ -120,7 +120,7 @@ internal class XMLWildcardPatternTest {
     fun `optional wildcard generates one node when optional generation says yes`() {
         val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 0, maxOccurs = null)
 
-        val generated = wildcard.generate(Resolver(xmlGenerationDecisions = FixedXMLWildcardGenerationDecisions(true))) as XMLNode
+        val generated = wildcard.generate(Resolver(), FixedXMLWildcardGenerationDecisions(true)) as XMLNode
 
         assertThat(generated.childNodes).hasSize(1)
     }

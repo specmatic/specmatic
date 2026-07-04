@@ -12,7 +12,7 @@ data class ListPattern(
     override val example: List<String?>? = null,
     override val extensions: Map<String, Any>  = emptyMap(),
     val itemsPointer: String? = null
-) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
+) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLGenerativePattern {
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
@@ -136,8 +136,34 @@ data class ListPattern(
         return resolver.resolveExample(example, pattern) ?: dictionaryLookup(resolverWithEmptyType)
     }
 
+    override fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): XMLGenerationResult {
+        val resolverWithEmptyType = withEmptyType(pattern, resolver)
+        resolver.resolveExample(example, pattern)?.let { return XMLGenerationResult(it, state) }
+
+        val patternFocused = resolverWithEmptyType.updateLookupPath(typeAlias)
+        val valueFromDict = patternFocused.dictionary.getValueFor(patternFocused.dictionaryLookupPath, this, resolverWithEmptyType)
+        if (valueFromDict != null) {
+            return XMLGenerationResult(valueFromDict, state)
+        }
+
+        return generateRandomXMLList(resolverWithEmptyType, state)
+    }
+
     private fun dictionaryLookup(resolver: Resolver): Value {
         return resolver.generateList(this)
+    }
+
+    private fun generateRandomXMLList(resolver: Resolver, state: XMLGenerationState): XMLGenerationResult {
+        val listResolver = resolver.updateLookupPath(this, pattern)
+        val maxLimit = listResolver.randomArraySize ?: randomNumber(DEFAULT_RANDOM_ARRAY_SIZE + 1)
+        val generatedListItems = 0.until(maxLimit).fold(XMLGeneratedNodes(emptyList(), state)) { generatedItemsSoFar, index ->
+            val generated = attempt(breadCrumb = "[$index (random)]") {
+                generateXMLValueFor(pattern, listResolver, generatedItemsSoFar.state)
+            }
+            generatedItemsSoFar.plus(generated.asGeneratedXMLValue())
+        }
+
+        return XMLGenerationResult(pattern.listOf(generatedListItems.nodes, resolver), generatedListItems.state)
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {

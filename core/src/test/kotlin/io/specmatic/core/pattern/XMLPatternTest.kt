@@ -94,6 +94,50 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `generate includes an optional typed XML type only once per document`() {
+            val responseType = XMLPattern("<response><first $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/><second $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/></response>")
+            val sharedType = XMLPattern("<shared><value>(string)</value></shared>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Shared)" to sharedType)
+            )
+
+            val generated = responseType.generate(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+
+            val generatedChildren = generated.childNodes.filterIsInstance<XMLNode>()
+            assertThat(generatedChildren.map(XMLNode::name)).containsExactly("first")
+            assertThat(generatedChildren.single().getXMLNodeByPath("value").childNodes).hasSize(1)
+        }
+
+        @Test
+        fun `generate can include a repeated optional typed XML type when the repeat decision allows it`() {
+            val responseType = XMLPattern("<response><first $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/><second $isOptional $TYPE_ATTRIBUTE_NAME=\"Shared\"/></response>")
+            val sharedType = XMLPattern("<shared><value>(string)</value></shared>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Shared)" to sharedType)
+            )
+
+            val generated = responseType.generate(resolver, FixedRepeatedOptionalXMLGenerationDecisions(true)) as XMLNode
+
+            assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::name))
+                .containsExactly("first", "second")
+        }
+
+        @Test
+        fun `generate includes different optional typed XML types in the same document`() {
+            val responseType = XMLPattern("<response><name $isOptional $TYPE_ATTRIBUTE_NAME=\"Name\"/><address $isOptional $TYPE_ATTRIBUTE_NAME=\"Address\"/></response>")
+            val nameType = XMLPattern("<name><value>(string)</value></name>")
+            val addressType = XMLPattern("<address><line>(string)</line></address>")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Name)" to nameType, "(Address)" to addressType)
+            )
+
+            val generated = responseType.generate(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+
+            assertThat(generated.childNodes.filterIsInstance<XMLNode>().map(XMLNode::name))
+                .containsExactly("name", "address")
+        }
+
+        @Test
         fun `generate a value with namespace intact`() {
             val itemsType = parsedPattern("<ns1:items xmlns:ns1=\"http://example.com/items\">(string)</ns1:items>")
 
@@ -382,8 +426,8 @@ internal class XMLPatternTest {
         fun `optional xml node generation produces zero or one occurrence`() {
             val type = XMLPattern("<data><item $isOptional>(string)</item></data>")
 
-            val skipped = type.generate(Resolver(xmlGenerationDecisions = FixedXMLGenerationDecisions(false)))
-            val included = type.generate(Resolver(xmlGenerationDecisions = FixedXMLGenerationDecisions(true)))
+            val skipped = type.generate(Resolver(), FixedXMLGenerationDecisions(false)) as XMLNode
+            val included = type.generate(Resolver(), FixedXMLGenerationDecisions(true)) as XMLNode
 
             assertThat(skipped.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(0)
             assertThat(included.childNodes.filterIsInstance<XMLNode>().count { it.name == "item" }).isEqualTo(1)
@@ -394,11 +438,11 @@ internal class XMLPatternTest {
             val nodeType = XMLPattern("<SPECMATIC_TYPE><id>(string)</id><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></SPECMATIC_TYPE>")
             val type = XMLPattern("<data><child $isOptional $TYPE_ATTRIBUTE_NAME=\"Node\" /></data>")
             val resolver = Resolver(
-                newPatterns = mapOf("(Node)" to nodeType),
-                xmlGenerationDecisions = FixedXMLGenerationDecisions(true)
+                newPatterns = mapOf("(Node)" to nodeType)
             )
 
-            val generatedChild = type.generate(resolver).childNodes.filterIsInstance<XMLNode>().single { it.name == "child" }
+            val generated = type.generate(resolver, FixedXMLGenerationDecisions(true)) as XMLNode
+            val generatedChild = generated.childNodes.filterIsInstance<XMLNode>().single { it.name == "child" }
 
             assertThat(generatedChild.childNodes.filterIsInstance<XMLNode>().map { it.name }).containsExactly("id")
         }
@@ -2333,4 +2377,16 @@ private class FixedXMLGenerationDecisions(private vararg val decisions: Boolean)
         index += 1
         return decision
     }
+}
+
+private class FixedRepeatedOptionalXMLGenerationDecisions(private vararg val decisions: Boolean) : XMLGenerationDecisions {
+    private var index = 0
+
+    override fun includeOptionalXMLNode(): Boolean {
+        val decision = decisions.getOrElse(index) { decisions.last() }
+        index += 1
+        return decision
+    }
+
+    override fun includeRepeatedOptionalXMLType(): Boolean = true
 }
