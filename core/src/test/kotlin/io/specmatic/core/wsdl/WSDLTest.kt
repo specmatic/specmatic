@@ -296,6 +296,108 @@ class WSDLTest {
         assertThat(result.successCount).isEqualTo(1)
     }
 
+    @Test
+    fun `substitution group member marked abstract is rejected`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("substitution-group.wsdl").apply {
+            writeText(
+                substitutionGroupWsdl().replace(
+                    """<xsd:element name="DomesticDog" substitutionGroup="tns:Animal" type="tns:Dog"/>""",
+                    """<xsd:element name="DomesticDog" substitutionGroup="tns:Animal" type="tns:Dog" abstract="true"/>"""
+                )
+            )
+        }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("register_animal.json").writeText(substitutionGroupExample())
+
+        val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }
+            .hasMessageContaining("abstract")
+    }
+
+    @Test
+    fun `substitution group respects substitution block on the head element`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("substitution-group.wsdl").apply {
+            writeText(
+                substitutionGroupWsdl().replace(
+                    """<xsd:element name="Animal" type="tns:Animal" abstract="true"/>""",
+                    """<xsd:element name="Animal" type="tns:Animal" abstract="true" block="substitution"/>"""
+                )
+            )
+        }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("register_animal.json").writeText(substitutionGroupExample())
+
+        val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }
+            .hasMessageContaining("DomesticDog")
+    }
+
+    @Test
+    fun `nested substitution group respects substitution block on referenced head element`(@TempDir tempDir: File) {
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("register_animal.json").writeText(nestedSubstitutionGroupExample())
+
+        val unblockedWsdlFile = tempDir.resolve("nested-substitution-group.wsdl").apply {
+            writeText(nestedSubstitutionGroupWsdl())
+        }
+        val unblockedFeature = parseContractFileToFeature(unblockedWsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertDoesNotThrow { unblockedFeature.validateExamplesOrException() }
+
+        val blockedWsdlFile = tempDir.resolve("nested-substitution-group-blocked.wsdl").apply {
+            writeText(nestedSubstitutionGroupWsdl(idBlockAttribute = """ block="substitution""""))
+        }
+        val blockedFeature = parseContractFileToFeature(blockedWsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertThatThrownBy { blockedFeature.validateExamplesOrException() }
+            .hasMessageContaining("petId")
+    }
+
+    @Test
+    fun `substitution group respects extension block on the head element`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("substitution-group.wsdl").apply {
+            writeText(
+                substitutionGroupWsdl().replace(
+                    """<xsd:element name="Animal" type="tns:Animal" abstract="true"/>""",
+                    """<xsd:element name="Animal" type="tns:Animal" abstract="true" block="extension"/>"""
+                )
+            )
+        }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("register_animal.json").writeText(substitutionGroupExample())
+
+        val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertThatThrownBy { feature.validateExamplesOrException() }
+            .hasMessageContaining("Dog")
+    }
+
+    @Test
+    fun `nillable substitution group member accepts empty substituted element`(@TempDir tempDir: File) {
+        val wsdlFile = tempDir.resolve("substitution-group.wsdl").apply {
+            writeText(
+                substitutionGroupWsdl().replace(
+                    """<xsd:element name="DomesticDog" substitutionGroup="tns:Animal" type="tns:Dog"/>""",
+                    """<xsd:element name="DomesticDog" substitutionGroup="tns:Animal" type="tns:Dog" nillable="true"/>"""
+                )
+            )
+        }
+        val examplesDir = tempDir.resolve("examples").apply { mkdirs() }
+        examplesDir.resolve("register_animal.json").writeText(nillableSubstitutionGroupExample())
+
+        val feature = parseContractFileToFeature(wsdlFile, exampleDirPaths = listOf(examplesDir.canonicalPath))
+            .loadExternalisedExamples()
+
+        assertDoesNotThrow { feature.validateExamplesOrException() }
+    }
+
     private fun readContracts(filename: String): Pair<String, String> {
         val wsdlContent = readTextResource("wsdl/$filename.wsdl")
         val expectedGherkin = readTextResource("wsdl/$filename.$CONTRACT_EXTENSION").trimIndent().trim()
@@ -719,6 +821,96 @@ private fun substitutionGroupExample(): String =
           "Content-Type": "text/xml"
         },
         "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimalResponse xmlns=\"http://example.com/animal-service\"><DomesticDog><name>Pepper</name><breed>Beagle</breed></DomesticDog></RegisterAnimalResponse></s:Body></s:Envelope>"
+      }
+    }
+    """.trimIndent()
+
+private fun nillableSubstitutionGroupExample(): String =
+    substitutionGroupExample()
+        .replace("<DomesticDog><name>Pepper</name><breed>Beagle</breed></DomesticDog>", "<DomesticDog/>")
+
+private fun nestedSubstitutionGroupWsdl(idBlockAttribute: String = ""): String =
+    """
+    <wsdl:definitions xmlns:tns="http://example.com/animal-service"
+                      xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                      xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                      targetNamespace="http://example.com/animal-service">
+      <wsdl:binding name="AnimalServiceBinding" type="tns:AnimalService">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+        <wsdl:operation name="RegisterAnimal">
+          <soap:operation soapAction="http://example.com/animal-service/RegisterAnimal" style="document"/>
+          <wsdl:input><soap:body use="literal"/></wsdl:input>
+          <wsdl:output><soap:body use="literal"/></wsdl:output>
+        </wsdl:operation>
+      </wsdl:binding>
+      <wsdl:message name="RegisterAnimalSoapIn">
+        <wsdl:part name="parameters" element="tns:RegisterAnimal"/>
+      </wsdl:message>
+      <wsdl:message name="RegisterAnimalSoapOut">
+        <wsdl:part name="parameters" element="tns:RegisterAnimalResponse"/>
+      </wsdl:message>
+      <wsdl:portType name="AnimalService">
+        <wsdl:operation name="RegisterAnimal">
+          <wsdl:input message="tns:RegisterAnimalSoapIn"/>
+          <wsdl:output message="tns:RegisterAnimalSoapOut"/>
+        </wsdl:operation>
+      </wsdl:portType>
+      <wsdl:service name="AnimalService">
+        <wsdl:port name="AnimalServicePort" binding="tns:AnimalServiceBinding">
+          <soap:address location="/RegisterAnimal"/>
+        </wsdl:port>
+      </wsdl:service>
+      <wsdl:types>
+        <xsd:schema targetNamespace="http://example.com/animal-service" elementFormDefault="qualified">
+          <xsd:simpleType name="Identifier">
+            <xsd:restriction base="xsd:string"/>
+          </xsd:simpleType>
+          <xsd:element name="id" type="tns:Identifier"$idBlockAttribute/>
+          <xsd:element name="petId" substitutionGroup="tns:id" type="tns:Identifier"/>
+          <xsd:complexType name="Animal">
+            <xsd:sequence>
+              <xsd:element ref="tns:id"/>
+              <xsd:element name="name" type="xsd:string"/>
+            </xsd:sequence>
+          </xsd:complexType>
+          <xsd:element name="RegisterAnimal">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="animal" type="tns:Animal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="RegisterAnimalResponse">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="animal" type="tns:Animal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:schema>
+      </wsdl:types>
+    </wsdl:definitions>
+    """.trimIndent()
+
+private fun nestedSubstitutionGroupExample(): String =
+    """
+    {
+      "http-request": {
+        "path": "/RegisterAnimal",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "text/xml; charset=utf-8",
+          "SOAPAction": "\"http://example.com/animal-service/RegisterAnimal\""
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimal xmlns=\"http://example.com/animal-service\"><animal><petId>PET-123</petId><name>Pepper</name></animal></RegisterAnimal></s:Body></s:Envelope>"
+      },
+      "http-response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/xml"
+        },
+        "body": "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\"><s:Body><RegisterAnimalResponse xmlns=\"http://example.com/animal-service\"><animal><petId>PET-123</petId><name>Pepper</name></animal></RegisterAnimalResponse></s:Body></s:Envelope>"
       }
     }
     """.trimIndent()

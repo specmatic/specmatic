@@ -12,7 +12,21 @@ internal const val XML_SCHEMA_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
 data class WSDLTypeName(val namespace: String, val localName: String)
 
-data class WSDLSubstitutionGroupMember(val elementName: WSDLTypeName, val typeName: WSDLTypeName)
+enum class WSDLTypeDerivationMethod {
+    Extension,
+    Restriction
+}
+
+data class WSDLSubstitutionGroupMember(
+    val elementName: WSDLTypeName,
+    val typeName: WSDLTypeName,
+    val nillable: Boolean = false,
+    val isAbstract: Boolean = false,
+    val defaultValue: String? = null,
+    val fixedValue: String? = null,
+    val headBlocksSubstitution: Boolean = false,
+    val headBlockedDerivationMethods: Set<WSDLTypeDerivationMethod> = emptySet()
+)
 
 enum class WSDLTypeSelectionMode {
     Polymorphic,
@@ -36,6 +50,7 @@ data class XMLTypeData(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlBaseTypeDerivationMethod: WSDLTypeDerivationMethod? = null,
     val wsdlTypeIsAbstract: Boolean = false,
     val wsdlTypeSelectionMode: WSDLTypeSelectionMode = WSDLTypeSelectionMode.Polymorphic,
     val wsdlKnownTypeKeys: Map<WSDLTypeName, String> = emptyMap(),

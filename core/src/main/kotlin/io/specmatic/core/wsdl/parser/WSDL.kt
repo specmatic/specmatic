@@ -7,6 +7,7 @@ import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.WSDLSubstitutionGroupMember
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.pattern.WSDLTypeName
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.value.*
@@ -547,6 +548,8 @@ private fun indexNamedSchemas(schemas: Map<String, XMLNode>): Map<NamedSchemaLoo
 }
 
 private fun indexSubstitutionGroups(schemas: Map<String, XMLNode>): Map<WSDLTypeName, List<WSDLSubstitutionGroupMember>> {
+    val globalElements = globalElementDeclarations(schemas)
+
     return schemas.flatMap { (namespace, schema) ->
         schema.childNodes.filterIsInstance<XMLNode>()
             .filter { it.name == "element" && it.attributes.containsKey("substitutionGroup") }
@@ -554,14 +557,61 @@ private fun indexSubstitutionGroups(schemas: Map<String, XMLNode>): Map<WSDLType
                 val elementName = node.attributes["name"]?.toStringLiteral() ?: return@mapNotNull null
                 val typeName = node.fullyQualifiedNameFromAttributeOrNull("type") ?: return@mapNotNull null
                 val headElementName = node.fullyQualifiedNameFromAttribute("substitutionGroup")
+                val headWSDLTypeName = WSDLTypeName(headElementName.namespace, headElementName.localName)
+                val headBlockRules = globalElements[headWSDLTypeName].substitutionGroupHeadBlockRules()
 
-                WSDLTypeName(headElementName.namespace, headElementName.localName) to WSDLSubstitutionGroupMember(
+                headWSDLTypeName to WSDLSubstitutionGroupMember(
                     elementName = WSDLTypeName(namespace, elementName),
-                    typeName = WSDLTypeName(typeName.namespace, typeName.localName)
+                    typeName = WSDLTypeName(typeName.namespace, typeName.localName),
+                    nillable = node.booleanAttribute("nillable"),
+                    isAbstract = node.booleanAttribute("abstract"),
+                    defaultValue = node.attributes["default"]?.toStringLiteral(),
+                    fixedValue = node.attributes["fixed"]?.toStringLiteral(),
+                    headBlocksSubstitution = headBlockRules.blocksSubstitution,
+                    headBlockedDerivationMethods = headBlockRules.blockedDerivationMethods,
                 )
             }
     }.groupBy({ it.first }, { it.second })
 }
+
+private fun globalElementDeclarations(schemas: Map<String, XMLNode>): Map<WSDLTypeName, XMLNode> =
+    schemas.flatMap { (namespace, schema) ->
+        schema.childNodes.filterIsInstance<XMLNode>()
+            .filter { it.name == "element" }
+            .mapNotNull { node ->
+                val elementName = node.attributes["name"]?.toStringLiteral() ?: return@mapNotNull null
+                WSDLTypeName(namespace, elementName) to node
+            }
+    }.firstByKey()
+
+private data class SubstitutionGroupHeadBlockRules(
+    val blocksSubstitution: Boolean = false,
+    val blockedDerivationMethods: Set<WSDLTypeDerivationMethod> = emptySet()
+)
+
+private fun XMLNode?.substitutionGroupHeadBlockRules(): SubstitutionGroupHeadBlockRules {
+    val blockValues = this?.attributes?.get("block")?.toStringLiteral()?.split(Regex("\\s+")).orEmpty().filter(String::isNotBlank)
+    if ("#all" in blockValues) {
+        return SubstitutionGroupHeadBlockRules(
+            blocksSubstitution = true,
+            blockedDerivationMethods = setOf(WSDLTypeDerivationMethod.Extension, WSDLTypeDerivationMethod.Restriction)
+        )
+    }
+
+    return SubstitutionGroupHeadBlockRules(
+        blocksSubstitution = "substitution" in blockValues,
+        blockedDerivationMethods = blockValues.mapNotNull {
+            when (it) {
+                "extension" -> WSDLTypeDerivationMethod.Extension
+                "restriction" -> WSDLTypeDerivationMethod.Restriction
+                else -> null
+            }
+        }.toSet()
+    )
+}
+
+private fun XMLNode.booleanAttribute(attributeName: String): Boolean =
+    attributes[attributeName]?.toStringLiteral()?.lowercase() == "true"
 
 private fun XMLNode.fullyQualifiedNameFromAttributeOrNull(attributeName: String): FullyQualifiedName? =
     try {

@@ -8,6 +8,7 @@ import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
+import io.specmatic.core.wsdl.parser.message.NILLABLE_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 
 const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
@@ -261,6 +262,10 @@ data class XMLPattern(
     private fun matchWithSelectedType(matchingType: Pattern, sampleData: XMLNode, resolver: Resolver): Result {
         return when (matchingType) {
             is XMLPattern -> {
+                if (matchingType.pattern.isNillable() && sampleData.childNodes.isEmpty()) {
+                    return Success()
+                }
+
                 matchingType.matchName(sampleData, resolver).ifSuccess {
                     matchingType.matchNamespaces(sampleData)
                 }.ifSuccess {
@@ -323,7 +328,7 @@ data class XMLPattern(
             return selectWSDLType(assertedType, declaredType, resolver)
         }
 
-        return selectWSDLTypeByElementName(sampleData, declaredType, resolver)
+        return selectWSDLTypeUsingSubstitutionGroupElementName(sampleData, declaredType, resolver)
     }
 
     private fun selectWSDLType(assertedType: WSDLTypeName?, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
@@ -359,19 +364,30 @@ data class XMLPattern(
         }
     }
 
-    private fun selectWSDLTypeByElementName(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
+    private fun selectWSDLTypeUsingSubstitutionGroupElementName(sampleData: XMLNode, declaredType: Pattern, resolver: Resolver): WSDLTypeSelection? {
         val declaredWSDLType = declaredType.wsdlTypeName() ?: return null
         val payloadElementName = sampleData.wsdlElementName()
         val declaredXMLPattern = declaredType as? XMLPattern ?: return null
         val substitutionGroupMember = declaredType.wsdlSubstitutionGroupMembers()[payloadElementName] ?: return null
+        if (substitutionGroupMember.headBlocksSubstitution) {
+            return WSDLTypeSelection.Invalid(substitutionGroupMember.elementName, declaredWSDLType)
+        }
+        if (substitutionGroupMember.isAbstract) {
+            return WSDLTypeSelection.Abstract(substitutionGroupMember.elementName, declaredWSDLType)
+        }
+
         val selectedPattern = declaredType.findPatternForWSDLType(substitutionGroupMember.typeName, resolver)
             ?: resolver.findPatternForWSDLType(substitutionGroupMember.typeName)
             ?: return WSDLTypeSelection.Unknown(substitutionGroupMember.typeName, declaredWSDLType)
         val compatiblePattern = selectedPattern.takeIf {
             it.wsdlTypeName() == declaredWSDLType || it.isDerivedFrom(declaredWSDLType, resolver)
         } ?: return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
+        if (compatiblePattern.usesDerivationBlockedBySubstitutionHead(declaredWSDLType, substitutionGroupMember, resolver)) {
+            return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
+        }
 
         val mergedPattern = declaredXMLPattern.mergeWSDLDerivedPattern(compatiblePattern)
+            ?.withSubstitutionMemberElementDeclaration(substitutionGroupMember)
             ?.withElementNameFrom(sampleData)
             ?: return WSDLTypeSelection.Invalid(substitutionGroupMember.typeName, declaredWSDLType)
 
@@ -1036,6 +1052,28 @@ data class XMLPattern(
     private fun wrapDerivedSimpleContentInDeclaredElement(derivedPattern: Pattern): XMLPattern =
         copy(pattern = pattern.copy(nodes = listOf(derivedPattern)))
 
+    private fun XMLPattern.withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLPattern =
+        copy(pattern = pattern.withSubstitutionMemberElementDeclaration(member))
+
+    private fun XMLTypeData.withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLTypeData {
+        val nillableAttribute = when {
+            member.nillable -> mapOf(NILLABLE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("true")))
+            else -> emptyMap()
+        }
+
+        val nodesWithFixedValue = when {
+            member.fixedValue != null && nodes.size == 1 && nodes.single() !is XMLPattern ->
+                listOf(ExactValuePattern(StringValue(member.fixedValue)))
+
+            else -> nodes
+        }
+
+        return copy(
+            attributes = attributes + nillableAttribute,
+            nodes = nodesWithFixedValue
+        )
+    }
+
     override fun negativeBasedOn(
         row: Row,
         resolver: Resolver,
@@ -1057,9 +1095,10 @@ data class XMLPattern(
     private fun mergeReferredPattern(referred: Pattern): Pattern {
         return when (referred) {
             is XMLPattern -> {
-                val attributesFromReferring = this.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
-                val attributesFromReferred = referred.pattern.attributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
-                val attributes = attributesFromReferred + attributesFromReferring
+                val attributes = mergeReferringElementAndReferredTypeAttributes(
+                    referringElementAttributes = pattern.attributes,
+                    referredTypeAttributes = referred.pattern.attributes
+                )
                 referred.copy(
                     pattern = referred.pattern.copy(
                         name = this.pattern.name,
@@ -1075,6 +1114,26 @@ data class XMLPattern(
             else -> referred
         }
     }
+
+    private fun mergeReferringElementAndReferredTypeAttributes(
+        referringElementAttributes: Map<String, Pattern>,
+        referredTypeAttributes: Map<String, Pattern>
+    ): Map<String, Pattern> {
+        val referringAttributes = referringElementAttributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
+        val referredAttributesWithoutType = referredTypeAttributes.filterKeys { it != TYPE_ATTRIBUTE_NAME }
+
+        val referringMetadata = referringAttributes.filterKeys(::isXMLPatternMetadataAttribute)
+        val referringXMLAttributes = referringAttributes.filterKeys { !isXMLPatternMetadataAttribute(it) }
+        val referredMetadata = referredAttributesWithoutType.filterKeys(::isXMLPatternMetadataAttribute)
+        val referredXMLAttributes = referredAttributesWithoutType.filterKeys { !isXMLPatternMetadataAttribute(it) }
+
+        return referredMetadata + referringXMLAttributes + referredXMLAttributes + referringMetadata
+    }
+
+    private fun isXMLPatternMetadataAttribute(attributeName: String): Boolean =
+        attributeName == "xmlns" ||
+                attributeName.startsWith("xmlns:") ||
+                attributeName.startsWith(SPECMATIC_XML_ATTRIBUTE_PREFIX)
 
     private fun withTypeReferenceFrom(original: XMLPattern): XMLPattern {
         val referencedType = original.pattern.attributes[TYPE_ATTRIBUTE_NAME] ?: return this
@@ -1584,6 +1643,29 @@ private fun Pattern.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): B
     }
 }
 
+private fun Pattern.usesBlockedDerivationToReach(
+    baseType: WSDLTypeName,
+    blockedMethods: Set<WSDLTypeDerivationMethod>,
+    resolver: Resolver
+): Boolean {
+    if (blockedMethods.isEmpty()) {
+        return false
+    }
+
+    return when (this) {
+        is XMLPattern -> pattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver)
+        is AnyPattern -> pattern.any { it.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) }
+        else -> false
+    }
+}
+
+private fun Pattern.usesDerivationBlockedBySubstitutionHead(
+    declaredType: WSDLTypeName,
+    substitutionGroupMember: WSDLSubstitutionGroupMember,
+    resolver: Resolver
+): Boolean =
+    usesBlockedDerivationToReach(declaredType, substitutionGroupMember.headBlockedDerivationMethods, resolver)
+
 private fun XMLTypeData.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): Boolean {
     val directBase = wsdlBaseTypeName?.let { baseName ->
         WSDLTypeName(wsdlBaseTypeNamespace.orEmpty(), baseName)
@@ -1595,6 +1677,28 @@ private fun XMLTypeData.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver
 
     val basePattern = resolver.findPatternForWSDLType(directBase) ?: return false
     return basePattern.isDerivedFrom(baseType, resolver)
+}
+
+private fun XMLTypeData.usesBlockedDerivationToReach(
+    baseType: WSDLTypeName,
+    blockedMethods: Set<WSDLTypeDerivationMethod>,
+    resolver: Resolver
+): Boolean {
+    val directBase = wsdlBaseTypeName?.let { baseName ->
+        WSDLTypeName(wsdlBaseTypeNamespace.orEmpty(), baseName)
+    } ?: return false
+
+    val directMethodIsBlocked = wsdlBaseTypeDerivationMethod in blockedMethods
+    if (directBase == baseType) {
+        return directMethodIsBlocked
+    }
+
+    val basePattern = resolver.findPatternForWSDLType(directBase) ?: return false
+    if (!basePattern.isDerivedFrom(baseType, resolver)) {
+        return false
+    }
+
+    return directMethodIsBlocked || basePattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver)
 }
 
 private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {

@@ -7,6 +7,7 @@ import io.specmatic.core.pattern.NodeOccurrence
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.WSDLTypeName
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.FullyQualifiedName
@@ -49,6 +50,7 @@ private data class WSDLTypeLookupEntry(
     val typeName: WSDLTypeName,
     val typeKey: String,
     val baseTypeName: WSDLTypeName?,
+    val baseTypeDerivationMethod: WSDLTypeDerivationMethod?,
     val isAbstract: Boolean,
 )
 
@@ -405,6 +407,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     ?.fullyQualifiedNameFromAttribute("base")
                     ?.takeUnless { it.namespace == XML_SCHEMA_NAMESPACE }
                     ?.let { WSDLTypeName(it.namespace, it.localName) },
+                baseTypeDerivationMethod = typeNode.derivationNode()?.wsdlTypeDerivationMethod(),
                 isAbstract = typeNode.isAbstractNamedComplexType(),
             )
         }
@@ -425,6 +428,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             pattern.withWSDLTypeLookupMetadata(
                 typeName = typeEntry.typeName,
                 baseTypeName = typeEntry.baseTypeName,
+                baseTypeDerivationMethod = typeEntry.baseTypeDerivationMethod,
                 knownTypeKeys = typeKeys,
                 compatibleTypeKeys = compatibleTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
                 concreteSubtypeKeys = concreteSubtypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
@@ -446,6 +450,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             pattern.withWSDLTypeLookupMetadata(
                 typeName = typeEntry.typeName,
                 baseTypeName = typeEntry.baseTypeName,
+                baseTypeDerivationMethod = typeEntry.baseTypeDerivationMethod,
                 knownTypeKeys = typeKeys,
                 compatibleTypeKeys = compatibleTypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
                 concreteSubtypeKeys = concreteSubtypeKeys(typeEntry.typeName, entries, entriesByType, typeKeys),
@@ -482,6 +487,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     private fun Pattern.withWSDLTypeLookupMetadata(
         typeName: WSDLTypeName,
         baseTypeName: WSDLTypeName?,
+        baseTypeDerivationMethod: WSDLTypeDerivationMethod?,
         knownTypeKeys: Map<WSDLTypeName, String>,
         compatibleTypeKeys: Map<WSDLTypeName, String>,
         concreteSubtypeKeys: Map<WSDLTypeName, String>,
@@ -494,6 +500,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     wsdlTypeName = pattern.wsdlTypeName ?: typeName.localName,
                     wsdlBaseTypeNamespace = pattern.wsdlBaseTypeNamespace ?: baseTypeName?.namespace,
                     wsdlBaseTypeName = pattern.wsdlBaseTypeName ?: baseTypeName?.localName,
+                    wsdlBaseTypeDerivationMethod = pattern.wsdlBaseTypeDerivationMethod ?: baseTypeDerivationMethod,
                     wsdlTypeIsAbstract = isAbstract,
                     wsdlKnownTypeKeys = knownTypeKeys,
                     wsdlCompatibleTypeKeys = compatibleTypeKeys,
@@ -506,6 +513,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
                     it.withWSDLTypeLookupMetadata(
                         typeName,
                         baseTypeName,
+                        baseTypeDerivationMethod,
                         knownTypeKeys,
                         compatibleTypeKeys,
                         concreteSubtypeKeys,
@@ -612,6 +620,13 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             ?: simpleContent?.findFirstChildByName("extension")
             ?: simpleContent?.findFirstChildByName("restriction")
     }
+
+    private fun XMLNode.wsdlTypeDerivationMethod(): WSDLTypeDerivationMethod? =
+        when (name) {
+            "extension" -> WSDLTypeDerivationMethod.Extension
+            "restriction" -> WSDLTypeDerivationMethod.Restriction
+            else -> null
+        }
 
     private fun XMLNode.hasBaseOutsideXMLSchemaNamespace(): Boolean {
         val baseType = attributes["base"]?.toStringLiteral() ?: return false

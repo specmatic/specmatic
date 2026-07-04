@@ -2,6 +2,7 @@ package io.specmatic.core.wsdl.parser.message
 
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
@@ -79,9 +80,20 @@ class ComplexTypeExtension(
 private fun List<WSDLTypeInfo>.withBaseTypeMetadata(derivation: XMLNode): List<WSDLTypeInfo> {
     val baseType = derivation.resolvedBaseTypeName()
     return map {
-        it.copy(wsdlBaseTypeNamespace = baseType?.namespace, wsdlBaseTypeName = baseType?.localName)
+        it.copy(
+            wsdlBaseTypeNamespace = baseType?.namespace,
+            wsdlBaseTypeName = baseType?.localName,
+            wsdlBaseTypeDerivationMethod = derivation.wsdlTypeDerivationMethod()
+        )
     }
 }
+
+private fun XMLNode.wsdlTypeDerivationMethod(): WSDLTypeDerivationMethod? =
+    when (name) {
+        "extension" -> WSDLTypeDerivationMethod.Extension
+        "restriction" -> WSDLTypeDerivationMethod.Restriction
+        else -> null
+    }
 
 private fun XMLNode.resolvedBaseTypeName() =
     fullyQualifiedNameFromAttribute("base").takeIf { it.namespace.isNotBlank() }

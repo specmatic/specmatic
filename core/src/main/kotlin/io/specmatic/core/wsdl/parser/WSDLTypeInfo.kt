@@ -4,6 +4,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.value.CDATAValue
 import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
@@ -19,6 +20,7 @@ data class WSDLTypeInfo(
     val wsdlTypeName: String? = null,
     val wsdlBaseTypeNamespace: String? = null,
     val wsdlBaseTypeName: String? = null,
+    val wsdlBaseTypeDerivationMethod: WSDLTypeDerivationMethod? = null,
     val wsdlTypeIsAbstract: Boolean = false,
 ) {
     fun getNamespaces(wsdlNamespaces: Map<String, String>): Map<String, String> {
@@ -40,6 +42,7 @@ data class WSDLTypeInfo(
             this.wsdlTypeName ?: otherWSDLTypeInfo.wsdlTypeName,
             this.wsdlBaseTypeNamespace ?: otherWSDLTypeInfo.wsdlBaseTypeNamespace,
             this.wsdlBaseTypeName ?: otherWSDLTypeInfo.wsdlBaseTypeName,
+            this.wsdlBaseTypeDerivationMethod ?: otherWSDLTypeInfo.wsdlBaseTypeDerivationMethod,
             this.wsdlTypeIsAbstract || otherWSDLTypeInfo.wsdlTypeIsAbstract,
         )
     }
@@ -57,6 +60,7 @@ data class WSDLTypeInfo(
                 wsdlTypeName = wsdlTypeName,
                 wsdlBaseTypeNamespace = wsdlBaseTypeNamespace,
                 wsdlBaseTypeName = wsdlBaseTypeName,
+                wsdlBaseTypeDerivationMethod = wsdlBaseTypeDerivationMethod,
                 wsdlTypeIsAbstract = wsdlTypeIsAbstract,
             )
         }
