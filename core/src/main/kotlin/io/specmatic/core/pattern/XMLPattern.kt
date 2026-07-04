@@ -8,7 +8,6 @@ import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.parseXML
 import io.specmatic.core.value.*
 import io.specmatic.core.wsdl.parser.message.MULTIPLE_ATTRIBUTE_VALUE
-import io.specmatic.core.wsdl.parser.message.NILLABLE_ATTRIBUTE_NAME
 import io.specmatic.core.wsdl.parser.message.OCCURS_ATTRIBUTE_NAME
 
 const val SPECMATIC_XML_ATTRIBUTE_PREFIX = "${APPLICATION_NAME_LOWER_CASE}_"
@@ -1052,27 +1051,39 @@ data class XMLPattern(
     private fun wrapDerivedSimpleContentInDeclaredElement(derivedPattern: Pattern): XMLPattern =
         copy(pattern = pattern.copy(nodes = listOf(derivedPattern)))
 
-    private fun XMLPattern.withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLPattern =
+    private fun withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLPattern =
         copy(pattern = pattern.withSubstitutionMemberElementDeclaration(member))
 
-    private fun XMLTypeData.withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLTypeData {
-        val nillableAttribute = when {
-            member.nillable -> mapOf(NILLABLE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("true")))
-            else -> emptyMap()
-        }
-
-        val nodesWithFixedValue = when {
-            member.fixedValue != null && nodes.size == 1 && nodes.single() !is XMLPattern ->
-                listOf(ExactValuePattern(StringValue(member.fixedValue)))
-
-            else -> nodes
-        }
+    private fun withXSIType(typeName: WSDLTypeName): XMLPattern {
+        val typePrefix = pattern.prefixForNamespace(typeName.namespace) ?: pattern.prefixForElementNamespace(typeName.namespace) ?: pattern.availableNamespacePrefix()
+        val typeAttributeValue = listOf(typePrefix, typeName.localName).filter(String::isNotBlank).joinToString(":")
+        val schemaInstancePrefix = pattern.prefixForNamespace(XML_SCHEMA_INSTANCE_NAMESPACE) ?: pattern.availableNamespacePrefix("xsi")
+        val schemaInstanceTypeAttributeName = "$schemaInstancePrefix:type"
+        val namespaceAttributes = pattern.namespaceAttributesForXSIType(typeName.namespace, typePrefix, schemaInstancePrefix)
+        val xsiTypeAttribute = schemaInstanceTypeAttributeName to ExactValuePattern(StringValue(typeAttributeValue))
 
         return copy(
-            attributes = attributes + nillableAttribute,
-            nodes = nodesWithFixedValue
+            pattern = pattern.copy(
+                attributes = pattern.attributes + namespaceAttributes + xsiTypeAttribute,
+                attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf(schemaInstanceTypeAttributeName to XML_SCHEMA_INSTANCE_NAMESPACE)
+            )
         )
     }
+
+    private fun withElementNameFrom(node: XMLNode): XMLPattern =
+        withElementName(node.name, node.realName, node.elementNamespaceUriOrNull())
+
+    private fun withElementNameFrom(typeData: XMLTypeData): XMLPattern =
+        withElementName(typeData.name, typeData.realName, typeData.namespaceUri)
+
+    private fun withElementName(name: String, realName: String, namespaceUri: String?): XMLPattern =
+        copy(
+            pattern = pattern.copy(
+                name = name,
+                realName = realName,
+                namespaceUri = namespaceUri,
+            )
+        )
 
     override fun negativeBasedOn(
         row: Row,
@@ -1179,7 +1190,7 @@ data class XMLPattern(
         throw recursiveGenerationException(pattern)
     }
 
-    private fun XMLPattern.canBeOmittedAfterCycle(): Boolean = occurMultipleTimes() || isOptional()
+    private fun canBeOmittedAfterCycle(): Boolean = occurMultipleTimes() || isOptional()
 
     private fun Pattern.canReturnNullOnCycle(): Boolean = this is XMLPattern && canBeOmittedAfterCycle()
 
@@ -1191,7 +1202,7 @@ data class XMLPattern(
     private fun Pattern.shouldSkipOptionalXMLNodeDueToCycle(resolver: Resolver): Boolean =
         this is XMLPattern && isOptional() && hasXMLReferenceCycle(resolver)
 
-    private fun XMLPattern.generateOptionalNodes(resolver: Resolver): List<Value> {
+    private fun generateOptionalNodes(resolver: Resolver): List<Value> {
         if (resolver.hasCycle(cyclePreventionPattern())) return emptyList()
         if (!resolver.xmlGenerationDecisions.includeOptionalXMLNode()) return emptyList()
 
@@ -1203,7 +1214,7 @@ data class XMLPattern(
         } ?: emptyList()
     }
 
-    private fun XMLPattern.generateSelectedOptionalNode(resolver: Resolver): XMLNode {
+    private fun generateSelectedOptionalNode(resolver: Resolver): XMLNode {
         val dereferenced = dereferenceType(resolver)
         return when (dereferenced) {
             is XMLPattern -> dereferenced.generateXML(resolver)
@@ -1225,7 +1236,7 @@ data class XMLPattern(
         }
     }
 
-    private fun XMLPattern.hasTypeReference(): Boolean = referredType != null
+    private fun hasTypeReference(): Boolean = referredType != null
 
     private fun Pattern.cyclePreventionPattern(): Pattern {
         val referredType = (this as? XMLPattern)?.referredType ?: return this
@@ -1700,37 +1711,6 @@ private fun XMLTypeData.usesBlockedDerivationToReach(
 
     return directMethodIsBlocked || basePattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver)
 }
-
-private fun XMLPattern.withXSIType(typeName: WSDLTypeName): XMLPattern {
-    val typePrefix = pattern.prefixForNamespace(typeName.namespace) ?: pattern.prefixForElementNamespace(typeName.namespace) ?: pattern.availableNamespacePrefix()
-    val typeAttributeValue = listOf(typePrefix, typeName.localName).filter(String::isNotBlank).joinToString(":")
-    val schemaInstancePrefix = pattern.prefixForNamespace(XML_SCHEMA_INSTANCE_NAMESPACE) ?: pattern.availableNamespacePrefix("xsi")
-    val schemaInstanceTypeAttributeName = "$schemaInstancePrefix:type"
-    val namespaceAttributes = pattern.namespaceAttributesForXSIType(typeName.namespace, typePrefix, schemaInstancePrefix)
-    val xsiTypeAttribute = schemaInstanceTypeAttributeName to ExactValuePattern(StringValue(typeAttributeValue))
-
-    return copy(
-        pattern = pattern.copy(
-            attributes = pattern.attributes + namespaceAttributes + xsiTypeAttribute,
-            attributeNamespaceUris = pattern.attributeNamespaceUris + mapOf(schemaInstanceTypeAttributeName to XML_SCHEMA_INSTANCE_NAMESPACE)
-        )
-    )
-}
-
-private fun XMLPattern.withElementNameFrom(node: XMLNode): XMLPattern =
-    withElementName(node.name, node.realName, node.elementNamespaceUriOrNull())
-
-private fun XMLPattern.withElementNameFrom(typeData: XMLTypeData): XMLPattern =
-    withElementName(typeData.name, typeData.realName, typeData.namespaceUri)
-
-private fun XMLPattern.withElementName(name: String, realName: String, namespaceUri: String?): XMLPattern =
-    copy(
-        pattern = pattern.copy(
-            name = name,
-            realName = realName,
-            namespaceUri = namespaceUri,
-        )
-    )
 
 private fun <T> PLACEHOLDER_USE_GIT_BLAME_TO_FIND_RELEVANT_COMMIT(value: T, s: String): T {
     return value

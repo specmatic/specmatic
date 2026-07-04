@@ -172,6 +172,25 @@ data class XMLTypeData(
         }
     }
 
+    fun withSubstitutionMemberElementDeclaration(member: WSDLSubstitutionGroupMember): XMLTypeData {
+        val nillableAttribute = when {
+            member.nillable -> mapOf(NILLABLE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("true")))
+            else -> emptyMap()
+        }
+
+        val nodesWithFixedValue = when {
+            member.fixedValue != null && nodes.size == 1 && nodes.single() !is XMLPattern ->
+                listOf(ExactValuePattern(StringValue(member.fixedValue)))
+
+            else -> nodes
+        }
+
+        return copy(
+            attributes = attributes + nillableAttribute,
+            nodes = nodesWithFixedValue
+        )
+    }
+
     internal fun xsiTypeName(): WSDLTypeName? {
         val attribute = attributes.keys.firstOrNull { attributeName ->
             isXMLSchemaInstanceTypeAttribute(attributeName, attributeNamespaceUri(attributeName))

@@ -1,9 +1,7 @@
 package io.specmatic.core.wsdl.parser.message
 
-import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.WSDLSubstitutionGroupMember
-import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
@@ -47,20 +45,3 @@ private data class SubstitutionGroupElementReference(
         return delegate.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
     }
 }
-
-private fun WSDLTypeInfo.withSubstitutionGroupMembers(substitutionGroupMembers: List<WSDLSubstitutionGroupMember>): WSDLTypeInfo {
-    if (substitutionGroupMembers.isEmpty()) return this
-    return copy(members = members.map { it.withSubstitutionGroupMembers(substitutionGroupMembers) })
-}
-
-private fun Pattern.withSubstitutionGroupMembers(substitutionGroupMembers: List<WSDLSubstitutionGroupMember>): Pattern =
-    when (this) {
-        is XMLPattern -> copy(
-            pattern = pattern.copy(
-                wsdlSubstitutionGroupMembers = substitutionGroupMembers.associateBy { it.elementName }
-            )
-        )
-
-        is AnyPattern -> copy(pattern = pattern.map { it.withSubstitutionGroupMembers(substitutionGroupMembers) })
-        else -> this
-    }
