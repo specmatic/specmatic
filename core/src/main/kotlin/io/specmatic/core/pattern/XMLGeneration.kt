@@ -92,6 +92,6 @@ interface XMLGenerativePattern {
 
 fun generateXMLNodesFrom(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes =
     when (pattern) {
-        is XMLGenerativePattern -> pattern.generateXMLNodes(resolver, state)
+        is XMLChildGenerationPattern -> pattern.generateXMLNodes(resolver, state)
         else -> GeneratedNodes.fromGeneratedValue(pattern.generate(resolver), state)
     }

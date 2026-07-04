@@ -401,12 +401,12 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             val namespace = typeNode.schemaTargetNamespace()
             val schemaTypeName = FullyQualifiedName(typeNode.prefixFor(namespace), namespace, name)
             WSDLTypeLookupEntry(
-                typeName = WSDLTypeName(schemaTypeName.namespace, schemaTypeName.localName),
+                typeName = WSDLTypeName(schemaTypeName.namespace, schemaTypeName.localName, schemaTypeName.prefix.ifBlank { null }),
                 typeKey = "(${specmaticTypeName(schemaTypeName.qName)})",
                 baseTypeName = typeNode.derivationNode()
                     ?.fullyQualifiedNameFromAttribute("base")
                     ?.takeUnless { it.namespace == XML_SCHEMA_NAMESPACE }
-                    ?.let { WSDLTypeName(it.namespace, it.localName) },
+                    ?.let { WSDLTypeName(it.namespace, it.localName, it.prefix.ifBlank { null }) },
                 baseTypeDerivationMethod = typeNode.derivationNode()?.wsdlTypeDerivationMethod(),
                 isAbstract = typeNode.isAbstractNamedComplexType(),
             )
@@ -477,7 +477,9 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
     private fun Pattern.wsdlTypeNameForLookup(): WSDLTypeName? {
         return when (this) {
             is XMLPattern -> pattern.wsdlTypeName?.let { typeName ->
-                WSDLTypeName(pattern.wsdlTypeNamespace.orEmpty(), typeName)
+                pattern.wsdlKnownTypeKeys.keys.firstOrNull { knownType ->
+                    knownType.namespace == pattern.wsdlTypeNamespace.orEmpty() && knownType.localName == typeName
+                } ?: WSDLTypeName(pattern.wsdlTypeNamespace.orEmpty(), typeName)
             }
             is AnyPattern -> pattern.asSequence().mapNotNull { it.wsdlTypeNameForLookup() }.firstOrNull()
             else -> null

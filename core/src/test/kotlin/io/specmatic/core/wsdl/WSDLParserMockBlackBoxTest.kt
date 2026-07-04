@@ -671,7 +671,7 @@ class WSDLParserMockBlackBoxTest {
             HttpStub(feature, listOf(scenarioStub)).close()
         }
 
-        assertThat(exception.message).contains("Unknown xsi:type")
+        assertThat(exception.message).contains("Unknown type")
         assertThat(exception.message).contains("MissingOrderDetails")
     }
 

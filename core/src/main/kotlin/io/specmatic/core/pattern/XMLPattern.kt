@@ -85,7 +85,7 @@ data class XMLPattern(
     override val typeAlias: String? = null,
     val schemaPointer: String? = null,
     val attributePointers: Map<String, String> = emptyMap()
-) : Pattern, SequenceType, XMLGenerativePattern {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     constructor(
         node: XMLNode,
         typeAlias: String? = null,
@@ -295,22 +295,30 @@ data class XMLPattern(
     }
 
     private fun invalidXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is known to Specmatic but is not compatible with $declaredDescription.")
+        return Failure(
+            "Invalid type ${assertedType.displayNameForError()}; " +
+                "it is not compatible with base type ${declaredType.displayNameForError()}."
+        )
     }
 
     private fun unknownXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Unknown xsi:type ${assertedType.namespace}#${assertedType.localName}; no matching type was found in the WSDL/schema set for $declaredDescription.")
+        return Failure(
+            "Unknown type ${assertedType.displayNameForError()}; " +
+                "no matching type was found in the WSDL/schema set for base type ${declaredType.displayNameForError()}."
+        )
     }
 
     private fun abstractXSITypeResult(assertedType: WSDLTypeName, declaredType: WSDLTypeName): Failure {
-        val declaredDescription = "${declaredType.namespace}#${declaredType.localName}"
-        return Failure("Invalid xsi:type ${assertedType.namespace}#${assertedType.localName}; it is abstract and cannot be used as a concrete WSDL type for $declaredDescription.")
+        return Failure(
+            "Invalid type ${assertedType.displayNameForError()}; " +
+                "it is abstract and cannot be used as a concrete WSDL type for the ${declaredType.displayNameForError()} element."
+        )
     }
 
     private fun missingXSITypeForAbstractTypeResult(declaredType: WSDLTypeName): Failure {
-        return Failure("Missing xsi:type for abstract WSDL type ${declaredType.namespace}#${declaredType.localName}; a concrete subtype is required.")
+        return Failure(
+            "Missing type for abstract WSDL type ${declaredType.displayNameForError()}; a concrete subtype is required."
+        )
     }
 
     private fun failureForWSDLTypeSelection(selectedType: WSDLTypeSelection): Failure {
@@ -1615,7 +1623,7 @@ private fun XMLNode.xsiTypeName(): WSDLTypeName? {
             value.namespacePrefix().isBlank() -> elementNamespaceUriOrNull().orEmpty()
             else -> resolveNamespace(value)
         }
-        WSDLTypeName(namespace, value.localName())
+        WSDLTypeName(namespace, value.localName(), value.namespacePrefix().ifBlank { null })
     }.getOrNull()
 }
 
@@ -1627,7 +1635,7 @@ private fun Pattern.findPatternForWSDLType(typeName: WSDLTypeName, resolver: Res
     return resolver.patternForWSDLKey(typeKey)
 }
 
-private fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
+internal fun Resolver.findPatternForWSDLType(typeName: WSDLTypeName): Pattern? {
     return newPatterns.values.firstOrNull { pattern ->
         pattern.wsdlTypeName() == typeName
     }
@@ -1725,15 +1733,16 @@ private fun Pattern.wsdlTypeSelectionMode(): WSDLTypeSelectionMode {
     }
 }
 
-private fun Pattern.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): Boolean {
+internal fun Pattern.isDerivedFrom(baseType: WSDLTypeName, resolver: Resolver): Boolean {
     return when (this) {
-        is XMLPattern -> pattern.isDerivedFrom(baseType, resolver)
+        is XMLPattern -> pattern.isDerivedFrom(baseType, resolver) ||
+                referredType?.let { resolver.patternForWSDLKey(it)?.isDerivedFrom(baseType, resolver) } == true
         is AnyPattern -> pattern.any { it.isDerivedFrom(baseType, resolver) }
         else -> false
     }
 }
 
-private fun Pattern.usesBlockedDerivationToReach(
+internal fun Pattern.usesBlockedDerivationToReach(
     baseType: WSDLTypeName,
     blockedMethods: Set<WSDLTypeDerivationMethod>,
     resolver: Resolver
@@ -1743,7 +1752,8 @@ private fun Pattern.usesBlockedDerivationToReach(
     }
 
     return when (this) {
-        is XMLPattern -> pattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver)
+        is XMLPattern -> pattern.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) ||
+                referredType?.let { resolver.patternForWSDLKey(it)?.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) } == true
         is AnyPattern -> pattern.any { it.usesBlockedDerivationToReach(baseType, blockedMethods, resolver) }
         else -> false
     }

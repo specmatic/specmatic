@@ -146,7 +146,7 @@ data class XMLWildcardPattern(
     val maxOccurs: Int? = 1,
     val targetNamespace: String? = null,
     override val typeAlias: String? = null
-) : Pattern, XMLGenerativePattern {
+) : Pattern, XMLChildGenerationPattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when {
             sampleData !is XMLNode -> dataTypeMismatchResult("xml wildcard", sampleData, resolver.mismatchMessages)
@@ -206,6 +206,10 @@ data class XMLWildcardPattern(
         val generatedNodes = 0.until(state.decisions.numberOfXMLNodesFor(minOccurs, maxOccurs))
             .map { generatedNode() }
         return GeneratedNodes(generatedNodes, state)
+    }
+
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return generatedContainerChildValues(resolver)
     }
 
     private fun generatedNode(): XMLNode {

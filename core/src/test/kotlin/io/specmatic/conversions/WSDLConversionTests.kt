@@ -538,7 +538,7 @@ class WSDLConversionTests {
                     And request-header SOAPAction (SoapAction)
                     And request-body
                     ""${'"'}
-                    <soapenv:Envelope xmlns:SOAPService="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+                    <soapenv:Envelope xmlns:qr="http://specmatic.io/SOAPService/" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
                       <soapenv:Body>
                         <qr:simpleInputMessage specmatic_type="SimpleOperationInput"/>
                       </soapenv:Body>

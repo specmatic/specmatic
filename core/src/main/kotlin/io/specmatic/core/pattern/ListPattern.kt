@@ -12,7 +12,7 @@ data class ListPattern(
     override val example: List<String?>? = null,
     override val extensions: Map<String, Any>  = emptyMap(),
     val itemsPointer: String? = null
-) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLGenerativePattern {
+) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 

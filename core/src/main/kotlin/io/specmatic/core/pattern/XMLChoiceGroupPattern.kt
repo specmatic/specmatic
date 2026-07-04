@@ -15,7 +15,7 @@ data class XMLChoiceGroupPattern(
     val minOccurs: Int = 1,
     val maxOccurs: Int? = 1,
     override val typeAlias: String? = null
-) : Pattern, SequenceType, XMLGenerativePattern {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
         get() = choices
 
@@ -482,7 +482,7 @@ data class XMLChoiceGroupPattern(
 data class XMLSequencePattern(
     val members: List<Pattern>,
     override val typeAlias: String? = null
-) : Pattern, SequenceType, XMLGenerativePattern {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
         get() = members
 
