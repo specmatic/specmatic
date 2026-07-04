@@ -6,44 +6,76 @@ import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 
+interface XMLGenerationDecisions {
+    fun includeOptionalXMLNode(): Boolean
+
+    fun includeRepeatedOptionalXMLType(): Boolean = false
+
+    fun numberOfMultipleXMLNodes(): Int = 1
+
+    fun numberOfXMLNodesFor(minOccurs: Int, maxOccurs: Int?): Int {
+        val maximumOccurrences = maxOccurs ?: Int.MAX_VALUE
+        val requiredOccurrences = minOccurs.coerceAtMost(maximumOccurrences)
+
+        if (requiredOccurrences > 0) return requiredOccurrences
+        if (maximumOccurrences == 0) return 0
+
+        return if (includeOptionalXMLNode()) 1 else 0
+    }
+
+    fun chooseXMLChoiceBranch(choiceCount: Int): Int = kotlin.random.Random.nextInt(choiceCount)
+}
+
+object RandomXMLGenerationDecisions : XMLGenerationDecisions {
+    override fun includeOptionalXMLNode(): Boolean = kotlin.random.Random.nextBoolean()
+
+    override fun includeRepeatedOptionalXMLType(): Boolean = kotlin.random.Random.nextBoolean()
+}
+
 data class XMLGenerationState(
     val decisions: XMLGenerationDecisions = RandomXMLGenerationDecisions,
-    private val generatedOptionalTypeKeys: Set<String> = emptySet()
+    private val optionalTypeKeysAlreadyGenerated: Set<String> = emptySet()
 ) {
-    fun hasGeneratedOptionalType(typeKey: String?): Boolean =
-        typeKey != null && generatedOptionalTypeKeys.contains(typeKey)
+    fun hasAlreadyGeneratedOptionalType(typeKey: String?): Boolean =
+        typeKey != null && optionalTypeKeysAlreadyGenerated.contains(typeKey)
 
-    fun withGeneratedOptionalType(typeKey: String?): XMLGenerationState =
+    fun shouldSkipRepeatedOptionalType(typeKey: String?): Boolean =
+        hasAlreadyGeneratedOptionalType(typeKey) && !decisions.includeRepeatedOptionalXMLType()
+
+    fun afterGeneratingOptionalType(typeKey: String?): XMLGenerationState =
         when (typeKey) {
             null -> this
-            else -> copy(generatedOptionalTypeKeys = generatedOptionalTypeKeys.plus(typeKey))
+            else -> copy(optionalTypeKeysAlreadyGenerated = optionalTypeKeysAlreadyGenerated.plus(typeKey))
         }
 }
 
-data class XMLGenerationResult(
+data class GeneratedXMLValue(
     val value: Value,
-    val state: XMLGenerationState
+    val nextState: XMLGenerationState
 ) {
-    fun asGeneratedXMLValue(): XMLGeneratedNodes =
-        XMLGeneratedNodes.fromValue(value, state)
+    fun asSingleGeneratedNode(): GeneratedXMLNodes =
+        GeneratedXMLNodes.fromValue(value, nextState)
 
-    fun asGeneratedXMLChildNodes(): XMLGeneratedNodes =
-        XMLGeneratedNodes((value as XMLNode).childNodes, state)
+    fun asGeneratedChildNodes(): GeneratedXMLNodes =
+        GeneratedXMLNodes((value as XMLNode).childNodes, nextState)
 }
 
-data class XMLGeneratedNodes(
+data class GeneratedXMLNodes(
     val nodes: List<XMLValue>,
-    val state: XMLGenerationState
+    val nextState: XMLGenerationState
 ) {
-    fun plus(other: XMLGeneratedNodes): XMLGeneratedNodes =
-        copy(nodes = nodes.plus(other.nodes), state = other.state)
+    fun followedBy(other: GeneratedXMLNodes): GeneratedXMLNodes =
+        copy(nodes = nodes.plus(other.nodes), nextState = other.nextState)
 
     companion object {
-        fun fromValue(value: Value, state: XMLGenerationState): XMLGeneratedNodes =
-            XMLGeneratedNodes(listOf(toXMLValue(value)), state)
+        fun none(state: XMLGenerationState): GeneratedXMLNodes =
+            GeneratedXMLNodes(emptyList(), state)
 
-        fun fromValues(values: List<Value>, state: XMLGenerationState): XMLGeneratedNodes =
-            XMLGeneratedNodes(values.map(::toXMLValue), state)
+        fun fromValue(value: Value, state: XMLGenerationState): GeneratedXMLNodes =
+            GeneratedXMLNodes(listOf(toXMLValue(value)), state)
+
+        fun fromValues(values: List<Value>, state: XMLGenerationState): GeneratedXMLNodes =
+            GeneratedXMLNodes(values.map(::toXMLValue), state)
 
         private fun toXMLValue(value: Value): XMLValue =
             when (value) {
@@ -54,14 +86,14 @@ data class XMLGeneratedNodes(
 }
 
 interface XMLGenerativePattern {
-    fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): XMLGenerationResult
+    fun generateXMLValue(resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue
 
     fun generate(resolver: Resolver, decisions: XMLGenerationDecisions): Value =
         generateXMLValue(resolver, XMLGenerationState(decisions)).value
 }
 
-fun generateXMLValueFor(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): XMLGenerationResult =
+fun generateXMLValueFrom(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedXMLValue =
     when (pattern) {
         is XMLGenerativePattern -> pattern.generateXMLValue(resolver, state)
-        else -> XMLGenerationResult(pattern.generate(resolver), state)
+        else -> GeneratedXMLValue(pattern.generate(resolver), state)
     }
