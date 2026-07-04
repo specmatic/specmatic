@@ -200,7 +200,8 @@ data class XMLWildcardPattern(
     }
 
     override fun generate(resolver: Resolver): Value {
-        val generatedNodes = 0.until(minOccurs).map { generatedNode() }
+        val generatedNodes = 0.until(resolver.xmlGenerationDecisions.numberOfXMLNodesFor(minOccurs, maxOccurs))
+            .map { generatedNode() }
         return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
     }
 

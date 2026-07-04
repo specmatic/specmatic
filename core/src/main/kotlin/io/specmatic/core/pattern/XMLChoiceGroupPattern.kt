@@ -108,7 +108,7 @@ data class XMLChoiceGroupPattern(
     override fun generate(resolver: Resolver): Value {
         val generatedNodes = generateOccurrenceSequence(resolver).flatMap { alternative ->
             alternative.flatMap { pattern ->
-                if (pattern.hasXMLChoiceReferenceCycle(resolver)) {
+                if (pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver)) {
                     return@flatMap emptyList()
                 }
 
@@ -134,13 +134,12 @@ data class XMLChoiceGroupPattern(
     }
 
     private fun generateOccurrenceSequence(resolver: Resolver): List<List<Pattern>> {
-        val upperBound = maxOccurs ?: max(minOccurs, 2)
-        val count = when {
-            upperBound <= minOccurs -> minOccurs
-            else -> (minOccurs..upperBound).random()
-        }
+        val count = resolver.xmlGenerationDecisions.numberOfXMLNodesFor(minOccurs, maxOccurs)
+        if (count <= 0 || choices.isEmpty()) return emptyList()
 
-        return 0.until(count).map { choices.random() }
+        return 0.until(count).map {
+            choices[resolver.xmlGenerationDecisions.chooseXMLChoiceBranch(choices.size)]
+        }
     }
 
     private fun Pattern.xmlChoiceCyclePreventionPattern(): Pattern {
@@ -156,6 +155,9 @@ data class XMLChoiceGroupPattern(
     private fun Pattern.canReturnNullOnXMLChoiceCycle(): Boolean {
         return this is XMLPattern && (occurMultipleTimes() || pattern.getNodeOccurrence() == NodeOccurrence.Optional)
     }
+
+    private fun Pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver: Resolver): Boolean =
+        hasXMLChoiceReferenceCycle(resolver)
 
     private fun XMLPattern.hasTypeReference(): Boolean = referredType != null
 

@@ -742,8 +742,7 @@ data class XMLPattern(
         }.map { pattern ->
             attempt(breadCrumb = name) {
                 val generatedNodes = when {
-                    pattern.shouldSkipOptionalXMLNodeDueToCycle(resolver) -> emptyList()
-                    pattern.hasXMLReferenceCycle(resolver) -> emptyList()
+                    pattern.shouldSkipXMLNodeDueToCycleCutoff(resolver) -> emptyList()
                     pattern is XMLPattern && pattern.isOptional() -> pattern.generateNodes(resolver)
                     pattern is XMLPattern && pattern.occurMultipleTimes() -> pattern.generateNodes(resolver)
                     pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateNodes(resolver)
@@ -1214,8 +1213,8 @@ data class XMLPattern(
         return cyclePreventionPattern != this && resolver.hasCycle(cyclePreventionPattern)
     }
 
-    private fun Pattern.shouldSkipOptionalXMLNodeDueToCycle(resolver: Resolver): Boolean =
-        this is XMLPattern && isOptional() && hasXMLReferenceCycle(resolver)
+    private fun Pattern.shouldSkipXMLNodeDueToCycleCutoff(resolver: Resolver): Boolean =
+        hasXMLReferenceCycle(resolver)
 
     private fun generateOptionalNodes(resolver: Resolver): List<Value> {
         if (resolver.hasCycle(cyclePreventionPattern())) return emptyList()
@@ -1237,6 +1236,14 @@ data class XMLPattern(
         }
     }
 
+    private fun generateMultipleNodes(resolver: Resolver): List<Value> {
+        if (resolver.hasCycle(cyclePreventionPattern())) return emptyList()
+
+        return 0.until(resolver.xmlGenerationDecisions.numberOfMultipleXMLNodes().coerceAtLeast(0)).map {
+            generate(resolver)
+        }
+    }
+
     private fun Pattern.generateNodes(resolver: Resolver): List<Value> {
         return when {
             this is ListPattern -> (generate(resolver) as XMLNode).childNodes
@@ -1245,7 +1252,7 @@ data class XMLPattern(
             this is XMLWildcardPattern -> (generate(resolver) as XMLNode).childNodes
             this is XMLPattern && isOptional() -> generateOptionalNodes(resolver)
 
-            this is XMLPattern && occurMultipleTimes() -> listOf(generate(resolver))
+            this is XMLPattern && occurMultipleTimes() -> generateMultipleNodes(resolver)
 
             else -> listOf(generate(resolver))
         }
