@@ -75,7 +75,6 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Changed
 
-- Improved validation and diagnostics for `405` and `415` rejection examples so Specmatic now fails more clearly when examples are missing, unreachable, or tied to the wrong request method or media type.
 - Improved OpenAPI handling for undeclared request variants by using valid XML placeholders for unsupported media types and by correctly handling schemas wrapped in a single `allOf`.
 
 ## 2.47.0 (2026-06-16)
