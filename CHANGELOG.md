@@ -49,17 +49,12 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## 2.49.0 (2026-06-29)
 
-- Fix regression in handling of 4xx status codes beyond 400
-- Eliminate 405 and 415 example warnings at parse time as there's nothing that can really be done about them
-- WSDL parser optimisations
-- Improvements to xsi:type handling (WSDL/SOAP)
-
-## 2.48.1 (2026-06-28)
-
 ### Added
 
 - Added example preprocessor hooks so loaded examples can be transformed before validation and can attach derived data to the active stub scenario when needed.
 - Added support for interpolated substitution expressions, allowing values to be filled in and extracted from substrings.
+- WSDL parser optimisations
+- Improvements to xsi:type handling (WSDL/SOAP)
 
 ### Changed
 
