@@ -30,13 +30,29 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## 1.20.0 (2026-07-06)
+## 2.50.0 (2026-07-06)
 
 ### Added
 
-- Added support more WSDL features: substitutionGroup, type extension matching and abstract types
+- Added support the following WSDL features
+  - substitution groups
+  - polymorphic type extension matching
+  - abstract types and elements
 - WSDL parser performance was improved. Loading of complicated WSDLs should now be much snappier
 - Fixes to handle SOAPAction header case insensitively in mock, and fixes to other edge cases
+
+## 2.49.1 (2026-06-30)
+
+### Changed
+
+- Response assertions in contract tests should not run for negative tests
+
+## 2.49.0 (2026-06-29)
+
+- Fix regression in handling of 4xx status codes beyond 400
+- Eliminate 405 and 415 example warnings at parse time as there's nothing that can really be done about them
+- WSDL parser optimisations
+- Improvements to xsi:type handling (WSDL/SOAP)
 
 ## 2.48.1 (2026-06-28)
 
