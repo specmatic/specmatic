@@ -30,7 +30,15 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased (2.48.1)
+## 1.20.0 (2026-07-06)
+
+### Added
+
+- Added support more WSDL features: substitutionGroup, type extension matching and abstract types
+- WSDL parser performance was improved. Loading of complicated WSDLs should now be much snappier
+- Fixes to handle SOAPAction header case insensitively in mock, and fixes to other edge cases
+
+## 2.48.1 (2026-06-28)
 
 ### Added
 
