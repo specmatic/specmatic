@@ -1368,15 +1368,9 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(sources = transformedSources)
     }
 
-    override fun withResolvedFilesystemDirectories(workingDirectory: File): SpecmaticConfig {
+    override fun withCanonicalizedDefinitionFilesystemSources(workingDirectory: File): SpecmaticConfig {
         val transformedSources = this.sources.map { source ->
-            if (source.provider == SourceProvider.filesystem) {
-                val dir = source.directory ?: "."
-                val resolvedDir = if (File(dir).isAbsolute) File(dir) else workingDirectory.resolve(dir).normalize()
-                source.copy(directory = resolvedDir.canonicalPath)
-            } else {
-                source
-            }
+            source.withResolvedFilesystemDirectory(workingDirectory)
         }
         return this.copy(sources = transformedSources)
     }
@@ -1682,6 +1676,15 @@ data class Source(
                 sourceBaseDir.resolve("web").resolve(url.hostOrAuthority()).resolve(url.rawPath.removePrefix("/")).canonicalFile
             } ?: sourceBaseDir.resolve(specPath).canonicalFile
         }
+    }
+
+    fun withResolvedFilesystemDirectory(workingDirectory: File): Source {
+        if (this.provider == SourceProvider.filesystem) {
+            val dir = this.directory ?: "."
+            val resolvedDir = if (File(dir).isAbsolute) File(dir) else workingDirectory.resolve(dir).normalize()
+            return this.copy(directory = resolvedDir.canonicalPath)
+        }
+        return this
     }
 }
 

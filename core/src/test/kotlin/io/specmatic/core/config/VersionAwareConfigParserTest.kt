@@ -260,7 +260,7 @@ class VersionAwareConfigParserTest {
         }
         val config = configFile.toSpecmaticConfig()
         val workingDir = File("/tmp/specmatic-test-workdir-v2").canonicalFile
-        val resolved = config.withResolvedFilesystemDirectories(workingDir)
+        val resolved = config.withCanonicalizedDefinitionFilesystemSources(workingDir)
         val sources = SpecmaticConfigV1V2Common.getSources(resolved as SpecmaticConfigV1V2Common)
         assertThat(sources).hasSize(1)
         assertThat(sources.first().directory).isEqualTo(workingDir.resolve("specs").canonicalPath)

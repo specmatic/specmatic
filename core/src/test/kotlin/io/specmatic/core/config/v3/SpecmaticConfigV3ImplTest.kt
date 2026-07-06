@@ -737,7 +737,7 @@ class SpecmaticConfigV3ImplTest {
                         - test.yaml
             """.trimIndent())
 
-            val resolved = config.withResolvedFilesystemDirectories(workingDir)
+            val resolved = config.withCanonicalizedDefinitionFilesystemSources(workingDir)
             val entries = resolved.getSpecificationSources().flatMap { it.test }
             assertThat(entries).isNotEmpty()
             assertThat(entries.map { it.directory }).containsOnly(workingDir.resolve("specs").canonicalPath)

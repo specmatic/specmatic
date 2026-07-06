@@ -79,7 +79,7 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
         return this.copy(git = this.git.copy(matchBranch = matchBranch))
     }
 
-    fun withResolvedFilesystemDirectories(workingDirectory: File): SourceV3 {
+    fun  withCanonicalizedSources(workingDirectory: File): SourceV3 {
         if (this.fileSystem == null) return this
         val dir = this.fileSystem.directory ?: "."
         val resolvedDir = if (File(dir).isAbsolute) File(dir) else workingDirectory.resolve(dir).normalize()

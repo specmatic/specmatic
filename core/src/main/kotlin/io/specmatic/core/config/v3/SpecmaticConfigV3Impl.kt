@@ -808,15 +808,15 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return this.copy(specmaticConfig = updatedConfig)
     }
 
-    override fun withResolvedFilesystemDirectories(workingDirectory: File): SpecmaticConfig {
+    override fun withCanonicalizedDefinitionFilesystemSources(workingDirectory: File): SpecmaticConfig {
         val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
-        val updatedSut = systemUnderTest.withResolvedFilesystemDirectories(resolver, workingDirectory)
+        val updatedSut = systemUnderTest.withCanonicalizedDefinitionFilesystemSources(resolver, workingDirectory)
 
         val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
-        val updatedDependencies = dependencies.withResolvedFilesystemDirectories(resolver, workingDirectory)
+        val updatedDependencies = dependencies.withCanonicalizedDefinitionFilesystemSources(resolver, workingDirectory)
 
         val updatedComponents = specmaticConfig.components?.let { components ->
-            val updatedSources = components.sources?.mapValues { (_, source) -> source.withResolvedFilesystemDirectories(workingDirectory) }
+            val updatedSources = components.sources?.mapValues { (_, source) -> source.withCanonicalizedSources(workingDirectory) }
             components.copy(sources = updatedSources)
         }
 

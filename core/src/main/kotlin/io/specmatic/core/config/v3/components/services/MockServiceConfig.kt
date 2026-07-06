@@ -193,16 +193,13 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
         )
     }
 
-    fun withResolvedFilesystemDirectories(resolver: RefOrValueResolver, workingDirectory: File): MockServiceConfig {
+    fun withCanonicalizedDefinitionFilesystemSources(resolver: RefOrValueResolver, workingDirectory: File): MockServiceConfig {
         return copy(
             services = services.map { value ->
-                val service = value.service.resolveElseThrow(resolver)
-                val updatedDefinitions = service.definitions.map { wrappedDefinition ->
-                    val definition = wrappedDefinition.definition
-                    val source = definition.source.resolveElseThrow(resolver).withResolvedFilesystemDirectories(workingDirectory)
-                    wrappedDefinition.copy(definition = definition.copy(source = RefOrValue.Value(source)))
-                }
-                value.copy(service = RefOrValue.Value(service.copy(definitions = updatedDefinitions)))
+                val updatedService = value.service
+                    .resolveElseThrow(resolver)
+                    .withCanonicalizedDefinitionFilesystemSources(resolver,workingDirectory)
+                value.copy(service = RefOrValue.Value(updatedService))
             }
         )
     }
