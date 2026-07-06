@@ -174,6 +174,16 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
         return this.copy(service = RefOrValue.Value(service.copy(definitions = updatedDefinition)))
     }
 
+    fun withResolvedFilesystemDirectories(resolver: RefOrValueResolver, workingDirectory: File): TestServiceConfig {
+        val service = this.service.resolveElseThrow(resolver)
+        val updatedDefinition = service.definitions.map { wrappedDefinition ->
+            val definition = wrappedDefinition.definition
+            val source = definition.source.resolveElseThrow(resolver).withResolvedFilesystemDirectories(workingDirectory)
+            wrappedDefinition.copy(definition = definition.copy(source = RefOrValue.Value(source)))
+        }
+        return this.copy(service = RefOrValue.Value(service.copy(definitions = updatedDefinition)))
+    }
+
     fun withExamples(resolver: SpecmaticConfigV3Resolver, exampleDirectories: List<String>): TestServiceConfig {
         val service = this.service.resolveElseThrow(resolver)
         val existingData = service.data ?: Data()

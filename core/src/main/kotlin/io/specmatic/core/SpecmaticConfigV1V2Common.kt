@@ -1368,6 +1368,24 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(sources = transformedSources)
     }
 
+    override fun withResolvedFilesystemDirectories(workingDirectory: File): SpecmaticConfig {
+        val transformedSources = this.sources.map { source ->
+            if (source.provider == SourceProvider.filesystem) {
+                val dir = source.directory ?: "."
+                val resolvedDir = if (File(dir).isAbsolute) File(dir) else workingDirectory.resolve(dir).normalize()
+                source.copy(directory = resolvedDir.canonicalPath)
+            } else {
+                source
+            }
+        }
+        return this.copy(sources = transformedSources)
+    }
+
+    override fun toYaml(): String {
+        val versionedConfig = SpecmaticConfigVersion.convertToVersionedConfig(this, getVersion())
+        return yamlMapper.writeValueAsString(versionedConfig)
+    }
+
     @JsonIgnore
     override fun testSpecPathFromConfigFor(specFile: File): String? {
         val source = testSourceFromConfig(specFile) ?: return null

@@ -418,6 +418,8 @@ interface SpecmaticConfig {
     fun withStubFilter(filter: String? = null): SpecmaticConfig
     fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfig
     fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig
+    fun withResolvedFilesystemDirectories(workingDirectory: File): SpecmaticConfig
+    fun toYaml(): String
 
     @JsonIgnore
     fun testSpecPathFromConfigFor(specFile: File): String?

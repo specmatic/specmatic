@@ -5,12 +5,13 @@ import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.ServerOrigin
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"))
 sealed interface WsdlRunOptions : IRunOptions { val type: RunOptionType? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlTestConfig(
+    override val type: RunOptionType? = null,
     val baseUrl: String? = null,
     val host: String? = null,
     val port: Int? = null,
@@ -26,13 +27,9 @@ data class WsdlTestConfig(
         return ServerOrigin.from("http", host ?: "localhost", port)
     }
 
-    @JsonIgnore
-    override val type: RunOptionType? = null
-
-    @JsonProperty("type")
-    private fun setType(input: RunOptionType?) {
-        require(input == null || input == RunOptionType.TEST) {
-            "Invalid type '$input' for AsyncApiTestConfig, expected '${RunOptionType.TEST.value}'"
+    init {
+        require(type == null || type == RunOptionType.TEST) {
+            "Invalid type '$type' for WsdlTestConfig, expected '${RunOptionType.TEST.value}'"
         }
     }
 
@@ -47,6 +44,7 @@ data class WsdlTestConfig(
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlMockConfig(
+    override val type: RunOptionType? = null,
     val baseUrl: String? = null,
     val host: String? = null,
     val port: Int? = null,
@@ -63,13 +61,9 @@ data class WsdlMockConfig(
         return ServerOrigin.from(scheme, host ?: "0.0.0.0", port)
     }
 
-    @JsonIgnore
-    override val type: RunOptionType? = null
-
-    @JsonProperty("type")
-    private fun setType(input: RunOptionType?) {
-        require(input == null || input == RunOptionType.MOCK) {
-            "Invalid type '$input' for AsyncApiMockConfig, expected '${RunOptionType.MOCK.value}'"
+    init {
+        require(type == null || type == RunOptionType.MOCK) {
+            "Invalid type '$type' for WsdlMockConfig, expected '${RunOptionType.MOCK.value}'"
         }
     }
 
