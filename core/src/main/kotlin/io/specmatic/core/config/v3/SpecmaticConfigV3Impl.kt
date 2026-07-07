@@ -448,7 +448,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getTestSwaggerUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUrl
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUrlOrFirstSpecSwaggerUrl()
     }
 
     override fun getTestSwaggerUIBaseUrl(): String? {

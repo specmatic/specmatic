@@ -58,6 +58,63 @@ class SpecmaticConfigV3ImplTest {
     fun `should return similar values between v2 and v3 test data`(testCase: TestCase) = testCase.run(tempDir)
 
     @Test
+    fun `should resolve swagger url from openapi run options spec`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: api-spec
+                            path: api.yaml
+                runOptions:
+                  openapi:
+                    specs:
+                      - spec:
+                          id: api-spec
+                          swaggerUrl: http://localhost:8080/v3/api-docs
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestSwaggerUrl()).isEqualTo("http://localhost:8080/v3/api-docs")
+    }
+
+    @Test
+    fun `should prefer openapi run options swagger url over spec swagger url`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: api-spec
+                            path: api.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/top-level-api-docs
+                    specs:
+                      - spec:
+                          id: api-spec
+                          swaggerUrl: http://localhost:8080/spec-api-docs
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestSwaggerUrl()).isEqualTo("http://localhost:8080/top-level-api-docs")
+    }
+
+    @Test
     fun `should resolve test certificate from v3 run options`() {
         val config = v3Config(
             """
