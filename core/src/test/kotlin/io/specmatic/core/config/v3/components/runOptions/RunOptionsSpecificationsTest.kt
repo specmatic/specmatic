@@ -21,6 +21,13 @@ class RunOptionsSpecificationsTest {
     }
 
     @Test
+    fun `openapi test specs should support swaggerUrl as a test-only override`() {
+        val runOptions = OpenApiTestRunOptionsSpecifications(OpenApiTestRunOptionsSpecifications.Value(swaggerUrl = "http://localhost:8080/v3/api-docs"))
+
+        assertEquals("http://localhost:8080/v3/api-docs", runOptions.spec.swaggerUrl)
+    }
+
+    @Test
     fun `wsdl getServerOrigin should return baseUrl when present`() {
         val runOptions = WsdlRunOptionsSpecifications(WsdlRunOptionsSpecifications.Value(baseUrl = "http://example.com"))
         assertEquals(ServerOrigin.from("http://example.com"), runOptions.getServerOrigin("localhost"))

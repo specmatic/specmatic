@@ -127,7 +127,55 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
 
     @JsonIgnore
     override fun isNoOpOverride(): Boolean {
-        return spec.baseUrl == null && spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.securitySchemes == null && spec.swaggerUrl == null
+        return spec.baseUrl == null && spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.securitySchemes == null
+    }
+
+    @JsonIgnore
+    fun getSecuritySchemes(): Map<String, SecuritySchemeConfigurationV3>? {
+        return spec.securitySchemes
+    }
+
+    @JsonIgnore
+    override fun getServerOrigin(defaultHost: String): ServerOrigin? {
+        if (spec.baseUrl != null) return ServerOrigin.from(spec.baseUrl)
+        if (spec.port == null) return null
+        return ServerOrigin.from("http", spec.host ?: defaultHost, spec.port)
+    }
+
+    data class Value(
+        val id: String? = null,
+        val baseUrl: String? = null,
+        val host: String? = null,
+        val port: Int? = null,
+        val overlayFilePath: String? = null,
+        val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
+    )
+}
+
+data class OpenApiTestRunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
+    @JsonIgnore
+    override fun getId(): String? {
+        return spec.id
+    }
+
+    @JsonIgnore
+    override fun getOverlayFilePath(): String? {
+        return spec.overlayFilePath
+    }
+
+    @JsonIgnore
+    override fun getConfig(): Map<String, Any> {
+        return emptyMap()
+    }
+
+    @JsonIgnore
+    override fun isNoOpOverride(): Boolean {
+        return spec.baseUrl == null &&
+            spec.host == null &&
+            spec.port == null &&
+            spec.overlayFilePath == null &&
+            spec.securitySchemes == null &&
+            spec.swaggerUrl == null
     }
 
     @JsonIgnore

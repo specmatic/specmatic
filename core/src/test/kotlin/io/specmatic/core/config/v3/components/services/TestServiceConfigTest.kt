@@ -4,7 +4,7 @@ import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlTestConfig
-import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
+import io.specmatic.core.config.v3.components.runOptions.OpenApiTestRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufTestConfig
 import io.specmatic.core.config.v3.components.runOptions.RunOptionsSpecifications
@@ -135,8 +135,8 @@ class TestServiceConfigTest {
                     openapi = OpenApiTestConfig(
                         baseUrl = "http://default-base-url:9000",
                         specs = listOf(
-                            OpenApiRunOptionsSpecifications(
-                                spec = OpenApiRunOptionsSpecifications.Value(
+                            OpenApiTestRunOptionsSpecifications(
+                                spec = OpenApiTestRunOptionsSpecifications.Value(
                                     id = "orders-spec",
                                     baseUrl = "http://spec-level-base-url:9001"
                                 )
@@ -180,8 +180,8 @@ class TestServiceConfigTest {
                     openapi = OpenApiTestConfig(
                         baseUrl = "http://default-base-url:9000",
                         specs = listOf(
-                            OpenApiRunOptionsSpecifications(
-                                spec = OpenApiRunOptionsSpecifications.Value(
+                            OpenApiTestRunOptionsSpecifications(
+                                spec = OpenApiTestRunOptionsSpecifications.Value(
                                     id = "different-spec-id",
                                     baseUrl = "http://spec-level-base-url:9001"
                                 )
