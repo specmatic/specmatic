@@ -471,9 +471,10 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     ): ApplicationApiSource? {
         if (specType != SpecType.OPENAPI) return null
 
+        getActuatorUrl()?.let { return ApplicationApiSource.Actuator(it) }
+
         val openApiTestConfig = specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)
-            ?: return getActuatorUrl()?.let(ApplicationApiSource::Actuator)
-                ?: fallbackSwaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
+            ?: return fallbackSwaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
 
         val specSpecificSwaggerUrl = specmaticConfig.systemUnderTest
             .getSpecDefinitionFor(specFile, resolver)
@@ -484,8 +485,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             ?.swaggerUrl
         val swaggerUrlForSpec = specSpecificSwaggerUrl ?: openApiTestConfig.swaggerUrl
 
-        return getActuatorUrl()?.let(ApplicationApiSource::Actuator)
-            ?: swaggerUrlForSpec?.let(ApplicationApiSource::Swagger)
+        return swaggerUrlForSpec?.let(ApplicationApiSource::Swagger)
             ?: (openApiTestConfig.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
     }
 
