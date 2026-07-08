@@ -540,6 +540,37 @@ internal class SpecmaticConfigKtTest {
     }
 
     @ParameterizedTest
+    @MethodSource("v2ApplicationApiSourceCases")
+    fun `should resolve v2 application api source using default precedence`(case: V2ApplicationApiSourceCase) {
+        val config = SpecmaticConfigV1V2Common(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(
+                actuatorUrl = case.actuatorUrl,
+                swaggerUrl = case.swaggerUrl,
+                swaggerUIBaseURL = case.swaggerUIBaseUrl
+            )
+        )
+
+        assertThat(config.getTestApplicationApiSource(File("api.yaml"), SpecType.OPENAPI, case.fallbackSwaggerUiBaseUrl))
+            .isEqualTo(case.expectedSource)
+    }
+
+    @Test
+    fun `should not resolve application api source for non openapi specs`() {
+        val config = SpecmaticConfigV1V2Common(
+            version = SpecmaticConfigVersion.VERSION_2,
+            test = TestConfiguration(
+                actuatorUrl = "http://actuator.example",
+                swaggerUrl = "http://swagger.example",
+                swaggerUIBaseURL = "http://swagger-ui.example"
+            )
+        )
+
+        assertThat(config.getTestApplicationApiSource(File("api.graphql"), SpecType.GRAPHQL, "http://fallback.example"))
+            .isNull()
+    }
+
+    @ParameterizedTest
     @MethodSource("testFilterPropertyCases")
     fun `should prefer v2 test config over system properties for test filter fields`(case: TestFilterPropertyCase) {
         val config = SpecmaticConfigV1V2Common(
@@ -2026,6 +2057,42 @@ internal class SpecmaticConfigKtTest {
         }
 
         @JvmStatic
+        fun v2ApplicationApiSourceCases(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    V2ApplicationApiSourceCase(
+                        actuatorUrl = "http://actuator.example",
+                        swaggerUrl = "http://swagger.example",
+                        swaggerUIBaseUrl = "http://swagger-ui.example",
+                        fallbackSwaggerUiBaseUrl = "http://fallback.example",
+                        expectedSource = ApplicationApiSource.Actuator("http://actuator.example")
+                    )
+                ),
+                Arguments.of(
+                    V2ApplicationApiSourceCase(
+                        swaggerUrl = "http://swagger.example",
+                        swaggerUIBaseUrl = "http://swagger-ui.example",
+                        fallbackSwaggerUiBaseUrl = "http://fallback.example",
+                        expectedSource = ApplicationApiSource.Swagger("http://swagger.example")
+                    )
+                ),
+                Arguments.of(
+                    V2ApplicationApiSourceCase(
+                        swaggerUIBaseUrl = "http://swagger-ui.example",
+                        fallbackSwaggerUiBaseUrl = "http://fallback.example",
+                        expectedSource = ApplicationApiSource.SwaggerUi("http://swagger-ui.example")
+                    )
+                ),
+                Arguments.of(
+                    V2ApplicationApiSourceCase(
+                        fallbackSwaggerUiBaseUrl = "http://fallback.example",
+                        expectedSource = ApplicationApiSource.SwaggerUi("http://fallback.example")
+                    )
+                )
+            )
+        }
+
+        @JvmStatic
         fun testFilterPropertyCases(): Stream<Arguments> {
             return Stream.of(
                 Arguments.of(
@@ -2074,5 +2141,13 @@ internal class SpecmaticConfigKtTest {
         val propertyName: String,
         val configValue: String,
         val systemPropertyValue: String
+    )
+
+    data class V2ApplicationApiSourceCase(
+        val actuatorUrl: String? = null,
+        val swaggerUrl: String? = null,
+        val swaggerUIBaseUrl: String? = null,
+        val fallbackSwaggerUiBaseUrl: String? = null,
+        val expectedSource: ApplicationApiSource
     )
 }
