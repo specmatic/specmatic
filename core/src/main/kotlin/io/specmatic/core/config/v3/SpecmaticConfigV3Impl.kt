@@ -62,7 +62,7 @@ import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.runOptions.IRunOptions
 import io.specmatic.core.config.v3.components.runOptions.MockRunOptions
 import io.specmatic.core.config.v3.components.runOptions.OpenApiMockConfig
-import io.specmatic.core.config.v3.components.runOptions.OpenApiTestRunOptionsSpecifications
+import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufRunOptions
 import io.specmatic.core.config.v3.components.services.MockServiceConfig
@@ -480,7 +480,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
             .getSpecDefinitionFor(specFile, resolver)
             ?.getSpecificationId()
             ?.let(openApiTestConfig::getMatchingSpecification)
-            ?.let { it as? OpenApiTestRunOptionsSpecifications }
+            ?.let { it as? OpenApiRunOptionsSpecifications }
             ?.spec
             ?.swaggerUrl
         val swaggerUrlForSpec = specSpecificSwaggerUrl ?: openApiTestConfig.swaggerUrl
@@ -705,7 +705,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun getOpenAPISecurityConfigurationScheme(specFile: File, scheme: String): SecuritySchemeConfiguration? {
         val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return null
         val testRunOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, SpecType.OPENAPI) ?: return null
-        val specData = testRunOpts.getMatchingSpecification(specId) as? OpenApiTestRunOptionsSpecifications ?: return null
+        val specData = testRunOpts.getMatchingSpecification(specId) as? OpenApiRunOptionsSpecifications ?: return null
         val matchingScheme = specData.getSecuritySchemes()?.get(scheme) ?: return null
         return matchingScheme.toSecuritySchemeConfiguration()
     }
@@ -868,7 +868,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     override fun getSecurityConfiguration(specFile: File): SecurityConfiguration? {
         val specId = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)?.getSpecificationId() ?: return null
         val testRunOpts = specmaticConfig.systemUnderTest.getRunOptions(resolver, SpecType.OPENAPI) ?: return null
-        val specData = testRunOpts.getMatchingSpecification(specId) as? OpenApiTestRunOptionsSpecifications ?: return null
+        val specData = testRunOpts.getMatchingSpecification(specId) as? OpenApiRunOptionsSpecifications ?: return null
         val schemes = specData.getSecuritySchemes()?.mapValues { it.value.toSecuritySchemeConfiguration() } ?: return null
         return SecurityConfiguration(OpenAPI = OpenAPISecurityConfiguration(schemes))
     }

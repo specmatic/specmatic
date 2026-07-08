@@ -14,7 +14,6 @@ import io.specmatic.core.config.v3.components.SecuritySchemeType
 import io.specmatic.core.config.v3.components.runOptions.AsyncApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.GraphQLSdlTestConfig
 import io.specmatic.core.config.v3.components.runOptions.OpenApiRunOptionsSpecifications
-import io.specmatic.core.config.v3.components.runOptions.OpenApiTestRunOptionsSpecifications
 import io.specmatic.core.config.v3.components.runOptions.OpenApiTestConfig
 import io.specmatic.core.config.v3.components.runOptions.ProtobufTestConfig
 import io.specmatic.core.config.v3.components.runOptions.RunOptionsSpecifications
@@ -94,20 +93,7 @@ class SystemUnderTestMapper {
             actuatorUrl = view.testConfig?.actuatorUrl,
             swaggerUiBaseUrl = view.testConfig?.swaggerUIBaseURL,
             cert = view.testConfig?.https?.let { RefOrValue.Value(it) },
-            specs = overrides.openApi.values.map { it.toOpenApiTestRunOptionsSpecifications() },
-        )
-    }
-
-    private fun OpenApiRunOptionsSpecifications.Value.toOpenApiTestRunOptionsSpecifications(): OpenApiTestRunOptionsSpecifications {
-        return OpenApiTestRunOptionsSpecifications(
-            OpenApiTestRunOptionsSpecifications.Value(
-                id = id,
-                baseUrl = baseUrl,
-                host = host,
-                port = port,
-                overlayFilePath = overlayFilePath,
-                securitySchemes = securitySchemes,
-            )
+            specs = overrides.openApi.values.map(::OpenApiRunOptionsSpecifications),
         )
     }
 

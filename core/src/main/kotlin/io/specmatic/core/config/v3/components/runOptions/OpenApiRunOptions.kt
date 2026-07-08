@@ -26,7 +26,7 @@ data class OpenApiTestConfig(
     val swaggerUrl: String? = null,
     val actuatorUrl: String? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<OpenApiTestRunOptionsSpecifications>? = null
+    override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions, ConfigWithCert {
     override val config: Map<String, Any> = emptyMap()
 
