@@ -222,6 +222,88 @@ class SpecmaticConfigV3ImplTest {
     }
 
     @Test
+    fun `should resolve application api source using swagger UI base url before fallback`() {
+        val specDir = tempDir.resolve("swagger-ui-fallback").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+                    swaggerUiBaseUrl: http://localhost:8080/swagger-ui
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://localhost:8080/swagger-ui"))
+    }
+
+    @Test
+    fun `should resolve application api source using fallback swagger UI base url`() {
+        val specDir = tempDir.resolve("fallback-swagger-ui").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://localhost:9000"))
+    }
+
+    @Test
+    fun `should resolve application api source using endpointsAPI property before swagger sources`() {
+        val specDir = tempDir.resolve("endpoints-api-property").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/apis
+            """.trimIndent()
+        )
+
+        System.setProperty("endpointsAPI", "http://localhost:8080/actuator")
+        try {
+            assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+                .isEqualTo(ApplicationApiSource.Actuator("http://localhost:8080/actuator"))
+        } finally {
+            System.clearProperty("endpointsAPI")
+        }
+    }
+
+    @Test
     fun `should resolve test certificate from v3 run options`() {
         val config = v3Config(
             """

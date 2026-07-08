@@ -152,73 +152,20 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
-    fun `characterization testBaseURL is used before spec baseUrl for swagger UI fallback`(@TempDir tempDir: File) {
+    fun `should query swagger UI fallback source before executing dynamic tests`(@TempDir tempDir: File) {
         MockHttpServer().use { testBaseUrlServer ->
-            MockHttpServer().use { specBaseUrlServer ->
-                testBaseUrlServer.serveSwagger("/from-test-base-url")
-                specBaseUrlServer.serveSwagger("/from-spec-base-url")
+            testBaseUrlServer.serveSwagger("/from-swagger-ui-fallback")
 
-                val configFile = writeSwaggerUiFallbackConfig(tempDir, specBaseUrlServer.baseUrl)
-
-                SpecmaticJUnitSupport.settingsStaging.set(
-                    ContractTestSettings(configFile = configFile.canonicalPath, testBaseURL = testBaseUrlServer.baseUrl)
-                )
-
-                try {
-                    val support = SpecmaticJUnitSupport()
-                    support.contractTest().toList()
-
-                    assertThat(support.openApiCoverage.getApplicationAPIs()).contains(API("GET", "/from-test-base-url"))
-                    assertThat(support.openApiCoverage.getApplicationAPIs()).doesNotContain(API("GET", "/from-spec-base-url"))
-                } finally {
-                    SpecmaticJUnitSupport.settingsStaging.remove()
-                }
-            }
-        }
-    }
-
-    @Test
-    fun `characterization config baseUrl is used before spec baseUrl for swagger UI fallback`(@TempDir tempDir: File) {
-        MockHttpServer().use { configBaseUrlServer ->
-            MockHttpServer().use { specBaseUrlServer ->
-                configBaseUrlServer.serveSwagger("/from-config-base-url")
-                specBaseUrlServer.serveSwagger("/from-spec-base-url")
-
-                val configFile = writeSwaggerUiFallbackConfig(
-                    tempDir = tempDir,
-                    specBaseUrl = specBaseUrlServer.baseUrl,
-                    openApiBaseUrl = configBaseUrlServer.baseUrl
-                )
-
-                SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.canonicalPath))
-
-                try {
-                    val support = SpecmaticJUnitSupport()
-                    support.contractTest().toList()
-
-                    assertThat(support.openApiCoverage.getApplicationAPIs()).contains(API("GET", "/from-config-base-url"))
-                    assertThat(support.openApiCoverage.getApplicationAPIs()).doesNotContain(API("GET", "/from-spec-base-url"))
-                } finally {
-                    SpecmaticJUnitSupport.settingsStaging.remove()
-                }
-            }
-        }
-    }
-
-    @Test
-    fun `characterization spec baseUrl is used for swagger UI fallback when higher priority fallbacks are absent`(@TempDir tempDir: File) {
-        MockHttpServer().use { specBaseUrlServer ->
-            specBaseUrlServer.serveSwagger("/from-spec-base-url")
-
-            val configFile = writeSwaggerUiFallbackConfig(tempDir, specBaseUrlServer.baseUrl)
-
-            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.canonicalPath))
+            val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(contractPaths = specFile.canonicalPath, testBaseURL = testBaseUrlServer.baseUrl)
+            )
 
             try {
                 val support = SpecmaticJUnitSupport()
                 support.contractTest().toList()
 
-                assertThat(support.openApiCoverage.getApplicationAPIs()).contains(API("GET", "/from-spec-base-url"))
+                assertThat(support.openApiCoverage.getApplicationAPIs()).contains(API("GET", "/from-swagger-ui-fallback"))
             } finally {
                 SpecmaticJUnitSupport.settingsStaging.remove()
             }
@@ -1350,37 +1297,10 @@ paths:
         }
     }
 
-    private fun writeSwaggerUiFallbackConfig(tempDir: File, specBaseUrl: String, openApiBaseUrl: String? = null): File {
-        val specDir = tempDir.resolve("specs").apply { mkdirs() }
-        specDir.resolve("orders.yaml").writeText(openApiSpec("orders", "/orders"))
-
-        val openApiBaseUrlYaml = openApiBaseUrl?.let { "baseUrl: $it" }.orEmpty()
-        val configFile = tempDir.resolve("specmatic.yaml")
-        configFile.writeText(
-            """
-            version: 3
-            systemUnderTest:
-              service:
-                definitions:
-                  - definition:
-                      source:
-                        filesystem:
-                          directory: ${specDir.canonicalPath}
-                      specs:
-                        - spec:
-                            id: orders
-                            path: orders.yaml
-                runOptions:
-                  openapi:
-                    $openApiBaseUrlYaml
-                    specs:
-                      - spec:
-                          id: orders
-                          baseUrl: $specBaseUrl
-            """.trimIndent()
-        )
-
-        return configFile
+    private fun writeOpenApiSpec(tempDir: File, name: String): File {
+        return tempDir.resolve(name).apply {
+            writeText(openApiSpec("orders", "/orders"))
+        }
     }
 
     private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, maxTestCount: Int? = null): File {
