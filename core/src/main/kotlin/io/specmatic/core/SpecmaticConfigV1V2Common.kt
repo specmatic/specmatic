@@ -922,6 +922,19 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource? {
+        if (specType != SpecType.OPENAPI) return null
+
+        return getActuatorUrl()?.let(ApplicationApiSource::Actuator)
+            ?: getTestSwaggerUrl()?.let(ApplicationApiSource::Swagger)
+            ?: (getTestSwaggerUIBaseUrl() ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+    }
+
+    @JsonIgnore
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfigV1V2Common {
         val testConfig = test ?: TestConfiguration()
         return this.copy(
