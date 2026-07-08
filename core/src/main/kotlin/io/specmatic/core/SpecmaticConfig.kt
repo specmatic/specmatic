@@ -231,6 +231,19 @@ interface SpecmaticConfig {
     fun getActuatorUrl(): String?
 
     @JsonIgnore
+    fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource? {
+        if (specType != SpecType.OPENAPI) return null
+
+        return getActuatorUrl()?.let(ApplicationApiSource::Actuator)
+            ?: getTestSwaggerUrl()?.let(ApplicationApiSource::Swagger)
+            ?: (getTestSwaggerUIBaseUrl() ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+    }
+
+    @JsonIgnore
     fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
 
     @JsonIgnore
