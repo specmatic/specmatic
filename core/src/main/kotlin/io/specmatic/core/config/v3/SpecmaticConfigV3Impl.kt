@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3
 import io.specmatic.conversions.SPECMATIC_BASIC_AUTH_TOKEN
 import io.specmatic.conversions.SPECMATIC_OAUTH2_TOKEN
 import io.specmatic.core.APIKeySecuritySchemeConfiguration
+import io.specmatic.core.ApplicationApiSource
 import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.AttributeSelectionPatternDetails
 import io.specmatic.core.Auth
@@ -448,7 +449,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getTestSwaggerUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUrl
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.firstConfiguredSwaggerUrl()
     }
 
     override fun getTestSwaggerUIBaseUrl(): String? {
@@ -461,6 +462,31 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun getActuatorUrl(): String? {
         return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
+    }
+
+    override fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource? {
+        if (specType != SpecType.OPENAPI) return null
+
+        getActuatorUrl()?.let { return ApplicationApiSource.Actuator(it) }
+
+        val openApiTestConfig = specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)
+            ?: return fallbackSwaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
+
+        val specSpecificSwaggerUrl = specmaticConfig.systemUnderTest
+            .getSpecDefinitionFor(specFile, resolver)
+            ?.getSpecificationId()
+            ?.let(openApiTestConfig::getMatchingSpecification)
+            ?.let { it as? OpenApiRunOptionsSpecifications }
+            ?.spec
+            ?.swaggerUrl
+        val swaggerUrlForSpec = specSpecificSwaggerUrl ?: openApiTestConfig.swaggerUrl
+
+        return swaggerUrlForSpec?.let(ApplicationApiSource::Swagger)
+            ?: (openApiTestConfig.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
     }
 
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig {

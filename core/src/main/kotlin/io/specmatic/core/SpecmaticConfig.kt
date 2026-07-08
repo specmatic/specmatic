@@ -231,6 +231,13 @@ interface SpecmaticConfig {
     fun getActuatorUrl(): String?
 
     @JsonIgnore
+    fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource?
+
+    @JsonIgnore
     fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
 
     @JsonIgnore
