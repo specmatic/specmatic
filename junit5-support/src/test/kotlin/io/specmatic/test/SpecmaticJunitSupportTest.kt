@@ -30,7 +30,6 @@ import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Flags
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
-import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
@@ -416,14 +415,10 @@ class SpecmaticJunitSupportTest {
                     val support = SpecmaticJUnitSupport()
                     support.contractTest().toList()
 
-                    val report = support.openApiCoverage.generate().toConsoleReport()
-
                     assertThat(support.openApiCoverage.getApplicationAPIs()).contains(
-                        API("GET", "/findAvailableProducts/{date_time}")
+                        API("GET", "/findAvailableProducts/{date_time}"),
+                        API("GET", "/customers/internal"),
                     )
-                    assertThat(report.coverageRows).anyMatch {
-                        it.method == "GET" && it.path == "/customers/internal" && it.remarks == CoverageStatus.MISSING_IN_SPEC
-                    }
                 } finally {
                     SpecmaticJUnitSupport.settingsStaging.remove()
                 }

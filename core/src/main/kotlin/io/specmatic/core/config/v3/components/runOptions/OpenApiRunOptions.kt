@@ -31,7 +31,7 @@ data class OpenApiTestConfig(
     override val config: Map<String, Any> = emptyMap()
 
     @JsonIgnore
-    fun swaggerUrlOrFirstSpecSwaggerUrl(): String? {
+    fun firstConfiguredSwaggerUrl(): String? {
         return swaggerUrl ?: specs?.firstNotNullOfOrNull { it.spec.swaggerUrl }
     }
 

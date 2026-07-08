@@ -109,14 +109,7 @@ open class SpecmaticJUnitSupport {
         return reportConfiguration
     }
 
-    private fun fetchApplicationApisFromSwagger(
-        source: ApplicationApiSource,
-    ): List<API>? {
-        val swaggerDocUrl = when (source) {
-            is ApplicationApiSource.Swagger -> source.url
-            is ApplicationApiSource.SwaggerUi -> "${source.url}/swagger/v1/swagger.yaml"
-            is ApplicationApiSource.Actuator -> return null
-        }
+    private fun fetchApplicationApisFromOpenApiDocument(swaggerDocUrl: String): List<API>? {
         val request = HttpRequest(path = "/", method = "GET")
         val response = HttpClient(
             swaggerDocUrl,
@@ -128,7 +121,7 @@ open class SpecmaticJUnitSupport {
         }
 
         if (response.status != 200) {
-            logger.debug("Failed to query application API source, status code: ${response.status}")
+            logger.debug("Failed to query OpenAPI document source, status code: ${response.status}")
             return null
         }
 
@@ -141,8 +134,8 @@ open class SpecmaticJUnitSupport {
     private fun fetchApplicationApisFrom(source: ApplicationApiSource): List<API>? {
         return when (source) {
             is ApplicationApiSource.Actuator -> fetchApplicationApisFromActuator(source)
-            is ApplicationApiSource.Swagger -> fetchApplicationApisFromSwagger(source)
-            is ApplicationApiSource.SwaggerUi -> fetchApplicationApisFromSwagger(source)
+            is ApplicationApiSource.Swagger -> fetchApplicationApisFromOpenApiDocument(source.url)
+            is ApplicationApiSource.SwaggerUi -> fetchApplicationApisFromOpenApiDocument("${source.url}/swagger/v1/swagger.yaml")
         }
     }
 
@@ -191,14 +184,13 @@ open class SpecmaticJUnitSupport {
     }
 
     private fun addApplicationApisFromConfiguredSources(applicationApiSources: List<ApplicationApiSource>) {
-        var anySourceAvailable = false
+        val applicationApisByAvailableSource = applicationApiSources.mapNotNull(::fetchApplicationApisFrom)
 
-        applicationApiSources.forEach { source ->
-            val apis = fetchApplicationApisFrom(source) ?: return@forEach
+        applicationApisByAvailableSource.forEach { apis ->
             openApiCoverage.addAPIs(apis)
-            anySourceAvailable = true
         }
 
+        val anySourceAvailable = applicationApisByAvailableSource.isNotEmpty()
         openApiCoverage.setEndpointsAPIFlag(anySourceAvailable)
 
         if (!anySourceAvailable) {
