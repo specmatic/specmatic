@@ -1053,6 +1053,84 @@ class SpecmaticConfigV3ImplTest {
         }
 
         @Test
+        fun `withResolvedFilesystemDirectories should resolve relative directories against working directory`() {
+            writeSpec("specs/test.yaml")
+            val workingDir = File("/tmp/specmatic-test-workdir").canonicalFile
+            val config = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - test.yaml
+            """.trimIndent())
+
+            val resolved = config.withCanonicalizedDefinitionFilesystemSources(workingDir)
+            val entries = resolved.getSpecificationSources().flatMap { it.test }
+            assertThat(entries).isNotEmpty()
+            assertThat(entries.map { it.directory }).containsOnly(workingDir.resolve("specs").canonicalPath)
+
+            val yaml = resolved.toYaml()
+            assertThat(yaml).contains(workingDir.resolve("specs").canonicalPath)
+        }
+
+        @Test
+        fun `toYaml should serialize and deserialize protobuf runOptions correctly`(@TempDir tempDir: File) {
+            val file = tempDir.resolve("test_proto.yaml").apply {
+                writeText("""
+                version: 3
+                components:
+                  runOptions:
+                    orderAndProductGrpcServiceMock:
+                      protobuf:
+                        type: mock
+                        host: localhost
+                        port: 10000
+                """.trimIndent())
+            }
+            val config = file.toSpecmaticConfig()
+            val serialized = config.toYaml()
+            println("SERIALIZED YAML:\n${serialized}")
+            val serializedFile = tempDir.resolve("serialized_proto.yaml").apply { writeText(serialized) }
+            val deserialized = serializedFile.toSpecmaticConfig()
+            assertThat(deserialized).isNotNull
+        }
+
+        @Test
+        fun `toYaml should serialize and deserialize wsdl, asyncapi, and graphql runOptions correctly`(@TempDir tempDir: File) {
+            val file = tempDir.resolve("test_all.yaml").apply {
+                writeText("""
+                version: 3
+                components:
+                  runOptions:
+                    myServiceMock:
+                      wsdl:
+                        type: mock
+                        host: localhost
+                        port: 8080
+                      asyncapi:
+                        type: mock
+                        inMemoryBroker:
+                          host: localhost
+                          port: 9092
+                      graphqlsdl:
+                        type: mock
+                        host: localhost
+                        port: 4000
+                """.trimIndent())
+            }
+            val config = file.toSpecmaticConfig()
+            val serialized = config.toYaml()
+            val serializedFile = tempDir.resolve("serialized_all.yaml").apply { writeText(serialized) }
+            val deserialized = serializedFile.toSpecmaticConfig()
+            assertThat(deserialized).isNotNull
+        }
+
+        @Test
         fun `plusExamples should append examples to test and mock sources`() {
             writeSpec("specs/test.yaml")
             writeSpec("specs/stub.yaml")

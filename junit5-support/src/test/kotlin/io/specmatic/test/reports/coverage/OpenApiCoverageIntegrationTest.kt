@@ -7,6 +7,7 @@ import io.specmatic.core.TestConfig
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.utilities.contractTestPathsFrom
+import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXML
 import io.specmatic.license.core.SpecmaticProtocol
@@ -92,7 +93,7 @@ class OpenApiCoverageIntegrationTest {
             )
         }
 
-        ContractTestScope(specFile, tempDir).execute { server ->
+        ContractTestScope(specFile, tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/orders", "PATCH") {
                 body("""{"data":"found"}""")
                 respond(HttpResponse(status = 405, headers = mapOf("Content-Type" to "application/json"), body = parsedJsonValue("""{"error":"occurred"}""")))
@@ -174,7 +175,7 @@ class OpenApiCoverageIntegrationTest {
             )
         }
 
-        ContractTestScope(specFile, tempDir).execute { server ->
+        ContractTestScope(specFile, tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/orders", "POST") {
                 header("Content-Type", "text/plain")
                 body("request sent here")
@@ -327,7 +328,7 @@ class OpenApiCoverageIntegrationTest {
                             type: string
         """.trimIndent()
 
-        ContractTestScope.from(specYaml, tempDir).execute(SpecmaticConfig().enableResiliencyTests()) { server ->
+        ContractTestScope.from(specYaml, tempDir).execute(v3Config(tempDir).enableResiliencyTests()) { server ->
             server.on("/orders", "GET") {
                 header("X-Header", "(number)")
                 respond(200)
@@ -403,7 +404,7 @@ class OpenApiCoverageIntegrationTest {
                   description: OK
         """.trimIndent()
 
-        ContractTestScope.from(specYaml, tempDir).execute { server ->
+        ContractTestScope.from(specYaml, tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/orders", "GET") { respond(405) }
         }.verifyOpenApiCoverage {
             assertThat(totalOperations).isEqualTo(1)
@@ -433,7 +434,7 @@ class OpenApiCoverageIntegrationTest {
                   description: OK
         """.trimIndent()
 
-        ContractTestScope.from(specYaml, tempDir).execute { server ->
+        ContractTestScope.from(specYaml, tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/orders", "GET") {
                 respond(500)
             }
@@ -479,7 +480,7 @@ class OpenApiCoverageIntegrationTest {
             </soap:Envelope>""".toXML()
         )
 
-        ContractTestScope(wsdlSpecFile, tempDir).execute { server ->
+        ContractTestScope(wsdlSpecFile, tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/ws", "POST") {
                 header("SOAPAction", "/addInventory")
                 body("(anything)")
@@ -518,3 +519,8 @@ class OpenApiCoverageIntegrationTest {
     }
 
 }
+
+private fun v3Config(tempDir: File) =
+    tempDir.resolve("specmatic.yaml").apply {
+        writeText("version: 3")
+    }.toSpecmaticConfig()

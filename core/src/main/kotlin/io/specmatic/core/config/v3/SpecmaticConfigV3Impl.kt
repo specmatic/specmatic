@@ -28,6 +28,7 @@ import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecificationSource
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getEffectiveBranchForSource
 import io.specmatic.core.TESTS_DIRECTORY_ENV_VAR
 import io.specmatic.core.TESTS_DIRECTORY_PROPERTY
@@ -831,6 +832,26 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
         val updatedConfig = specmaticConfig.copy(systemUnderTest = updatedSut, dependencies = updatedDependencies)
         return this.copy(specmaticConfig = updatedConfig)
+    }
+
+    override fun withCanonicalizedDefinitionFilesystemSources(workingDirectory: File): SpecmaticConfig {
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
+        val updatedSut = systemUnderTest.withCanonicalizedDefinitionFilesystemSources(resolver, workingDirectory)
+
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withCanonicalizedDefinitionFilesystemSources(resolver, workingDirectory)
+
+        val updatedComponents = specmaticConfig.components?.let { components ->
+            val updatedSources = components.sources?.mapValues { (_, source) -> source.withCanonicalizedSources(workingDirectory) }
+            components.copy(sources = updatedSources)
+        }
+
+        val updatedConfig = specmaticConfig.copy(systemUnderTest = updatedSut, dependencies = updatedDependencies, components = updatedComponents)
+        return this.copy(specmaticConfig = updatedConfig)
+    }
+
+    override fun toYaml(): String {
+        return yamlMapper.writeValueAsString(this.specmaticConfig)
     }
 
     override fun testSpecPathFromConfigFor(specFile: File): String? {

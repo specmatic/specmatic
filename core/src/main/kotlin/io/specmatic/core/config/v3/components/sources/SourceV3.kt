@@ -79,6 +79,13 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
         return this.copy(git = this.git.copy(matchBranch = matchBranch))
     }
 
+    fun  withCanonicalizedSources(workingDirectory: File): SourceV3 {
+        if (this.fileSystem == null) return this
+        val dir = this.fileSystem.directory ?: "."
+        val resolvedDir = if (File(dir).isAbsolute) File(dir) else workingDirectory.resolve(dir).normalize()
+        return this.copy(fileSystem = this.fileSystem.copy(directory = resolvedDir.canonicalPath))
+    }
+
     data class Git(val url: String? = null, val branch: String? = null, val matchBranch: Boolean? = null, val auth: GitAuthentication? = null) {
         fun resolveSpecification(specification: File): File {
             val workingDirectory = File(getConfigFilePath()).parentFile ?: File(".")

@@ -246,6 +246,27 @@ class VersionAwareConfigParserTest {
             .isEqualTo("prefix-$propertyValue-suffix")
     }
 
+    @Test
+    fun `withResolvedFilesystemDirectories on V2 config`() {
+        val configFile = tempDir.resolve("specmatic.yaml").apply {
+            writeText("""
+            version: 2
+            contracts:
+              - filesystem:
+                  directory: ./specs
+                provides:
+                  - simple.yaml
+            """.trimIndent())
+        }
+        val config = configFile.toSpecmaticConfig()
+        val workingDir = File("/tmp/specmatic-test-workdir-v2").canonicalFile
+        val resolved = config.withCanonicalizedDefinitionFilesystemSources(workingDir)
+        val sources = SpecmaticConfigV1V2Common.getSources(resolved as SpecmaticConfigV1V2Common)
+        assertThat(sources).hasSize(1)
+        assertThat(sources.first().directory).isEqualTo(workingDir.resolve("specs").canonicalPath)
+        assertThat(resolved.toYaml()).contains(workingDir.resolve("specs").canonicalPath)
+    }
+
     @ParameterizedTest(name = "isConfigTemplate({0}) -> {1}")
     @MethodSource("isConfigTemplateCases")
     fun `isConfigTemplate identifies template expressions`(value: String, expected: Boolean) {
