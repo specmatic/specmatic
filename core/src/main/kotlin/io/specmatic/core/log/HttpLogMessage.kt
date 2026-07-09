@@ -159,7 +159,7 @@ data class HttpLogMessage(
         val method = request.method
 
         return path.startsWith("/_$APPLICATION_NAME_LOWER_CASE/") ||
-            path == "/swagger/v1/swagger.yaml" ||
+            path == DEFAULT_SWAGGER_SPEC_YAML_PATH ||
             (method.equals("HEAD", ignoreCase = true) && path == "/") ||
             (method.equals("GET", ignoreCase = true) && path == "/actuator/health")
     }

@@ -2,6 +2,7 @@ package io.specmatic.core.config.v3
 
 import io.specmatic.core.ApplicationApiSource
 import io.specmatic.core.Configuration
+import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SourceProvider
@@ -190,6 +191,44 @@ class SpecmaticConfigV3ImplTest {
 
         assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
             .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090/order-and-cart-api-docs"))
+        assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8080/default-api-docs"))
+    }
+
+    @Test
+    fun `should derive application api source from spec base url before openapi swagger url`() {
+        val specDir = tempDir.resolve("spec-base-url").apply { mkdirs() }
+        val orderSpec = specDir.resolve("order.yaml").apply { writeText("openapi: 3.0.0") }
+        val cartSpec = specDir.resolve("cart.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: order
+                            path: order.yaml
+                        - spec:
+                            id: cart
+                            path: cart.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/default-api-docs
+                    specs:
+                      - spec:
+                          id: order
+                          baseUrl: http://localhost:9090/
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
         assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
             .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8080/default-api-docs"))
     }

@@ -18,6 +18,7 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.swagger.v3.core.util.Yaml
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -1001,7 +1002,7 @@ class HttpStub(
 
     private fun swaggerSpecResponseFormat(httpRequest: HttpRequest): SwaggerSpecResponseFormat? =
         when (httpRequest.path) {
-            SWAGGER_SPEC_YAML_PATH -> SwaggerSpecResponseFormat.YAML
+            DEFAULT_SWAGGER_SPEC_YAML_PATH -> SwaggerSpecResponseFormat.YAML
             SWAGGER_SPEC_JSON_PATH -> SwaggerSpecResponseFormat.JSON
             else -> null
         }
@@ -1926,11 +1927,10 @@ internal fun isFetchContractsRequest(httpRequest: HttpRequest): Boolean =
 internal fun isFetchLoadLogRequest(httpRequest: HttpRequest): Boolean =
     isPath(httpRequest.path, "load_log") && httpRequest.method == "GET"
 
-private const val SWAGGER_SPEC_YAML_PATH = "/swagger/v1/swagger.yaml"
 private const val SWAGGER_SPEC_JSON_PATH = "/swagger/v1/swagger.json"
 
 internal fun isSwaggerSpecRequest(httpRequest: HttpRequest): Boolean =
-    httpRequest.method == "GET" && (httpRequest.path == SWAGGER_SPEC_YAML_PATH || httpRequest.path == SWAGGER_SPEC_JSON_PATH)
+    httpRequest.method == "GET" && (httpRequest.path == DEFAULT_SWAGGER_SPEC_YAML_PATH || httpRequest.path == SWAGGER_SPEC_JSON_PATH)
 
 internal fun isExpectationCreation(httpRequest: HttpRequest) =
     isPath(httpRequest.path, "expectations") && httpRequest.method == "POST"

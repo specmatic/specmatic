@@ -10,6 +10,7 @@ import io.specmatic.core.Auth
 import io.specmatic.core.BasicAuthSecuritySchemeConfiguration
 import io.specmatic.core.CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR
 import io.specmatic.core.CUSTOM_IMPLICIT_STUB_BASE_PROPERTY
+import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.CertRegistry
 import io.specmatic.core.Configuration
 import io.specmatic.core.OpenAPISecurityConfiguration
@@ -476,16 +477,15 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         val openApiTestConfig = specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)
             ?: return fallbackSwaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
 
-        val specSpecificSwaggerUrl = specmaticConfig.systemUnderTest
+        val specSpecificOpenApiTestConfig = specmaticConfig.systemUnderTest
             .getSpecDefinitionFor(specFile, resolver)
             ?.getSpecificationId()
             ?.let(openApiTestConfig::getMatchingSpecification)
             ?.let { it as? OpenApiRunOptionsSpecifications }
-            ?.spec
-            ?.swaggerUrl
-        val swaggerUrlForSpec = specSpecificSwaggerUrl ?: openApiTestConfig.swaggerUrl
 
-        return swaggerUrlForSpec?.let(ApplicationApiSource::Swagger)
+        return specSpecificOpenApiTestConfig?.spec?.swaggerUrl?.let(ApplicationApiSource::Swagger)
+            ?: specSpecificOpenApiTestConfig?.spec?.baseUrl?.let(::defaultSwaggerUrlFor)?.let(ApplicationApiSource::Swagger)
+            ?: openApiTestConfig.swaggerUrl?.let(ApplicationApiSource::Swagger)
             ?: (openApiTestConfig.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
     }
 
@@ -872,4 +872,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         val schemes = specData.getSecuritySchemes()?.mapValues { it.value.toSecuritySchemeConfiguration() } ?: return null
         return SecurityConfiguration(OpenAPI = OpenAPISecurityConfiguration(schemes))
     }
+}
+
+private fun defaultSwaggerUrlFor(baseUrl: String): String {
+    return baseUrl.trimEnd('/') + DEFAULT_SWAGGER_SPEC_YAML_PATH
 }
