@@ -135,7 +135,7 @@ open class SpecmaticJUnitSupport {
         return when (source) {
             is ApplicationApiSource.Actuator -> fetchApplicationApisFromActuator(source)
             is ApplicationApiSource.Swagger -> fetchApplicationApisFromOpenApiDocument(source.url)
-            is ApplicationApiSource.SwaggerUi -> fetchApplicationApisFromOpenApiDocument("${source.url}/swagger/v1/swagger.yaml")
+            is ApplicationApiSource.SwaggerUi -> fetchApplicationApisFromOpenApiDocument(source.url.trimEnd('/') + DEFAULT_SWAGGER_SPEC_YAML_PATH)
         }
     }
 
