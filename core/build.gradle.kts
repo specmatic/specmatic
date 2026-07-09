@@ -29,7 +29,7 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.13")
     implementation("io.ktor:ktor-serialization-jackson-jvm:2.3.13")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.1")
-    implementation("com.jayway.jsonpath:json-path:2.10.0")
+    implementation("com.jayway.jsonpath:json-path:3.0.0")
 
     implementation("io.zenwave360:json-schema-ref-parser-jvm:0.9.12")
 
