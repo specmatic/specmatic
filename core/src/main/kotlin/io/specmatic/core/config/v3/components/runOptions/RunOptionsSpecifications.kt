@@ -132,7 +132,9 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
             spec.port == null &&
             spec.overlayFilePath == null &&
             spec.securitySchemes == null &&
-            spec.swaggerUrl == null
+            spec.swaggerUrl == null &&
+            spec.swaggerUiBaseUrl == null &&
+            spec.actuatorUrl == null
     }
 
     @JsonIgnore
@@ -155,5 +157,7 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
         val overlayFilePath: String? = null,
         val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
         val swaggerUrl: String? = null,
+        val swaggerUiBaseUrl: String? = null,
+        val actuatorUrl: String? = null,
     )
 }

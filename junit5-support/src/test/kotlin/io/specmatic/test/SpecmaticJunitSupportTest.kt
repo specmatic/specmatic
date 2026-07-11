@@ -427,6 +427,64 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
+    fun `should fetch application apis from swagger UI base urls configured per spec`(@TempDir tempDir: File) {
+        val specDir = tempDir.resolve("specs").apply { mkdirs() }
+        specDir.resolve("orders.yaml").writeText(openApiSpec("orders", "/orders", "/cart"))
+        specDir.resolve("customers.yaml").writeText(openApiSpec("customers", "/customers"))
+
+        MockHttpServer().use { orderSwaggerUi ->
+            MockHttpServer().use { customerSwaggerUi ->
+                orderSwaggerUi.serveSwagger("/findAvailableProducts/{date_time}")
+                customerSwaggerUi.serveSwagger("/customers/internal")
+
+                val configFile = tempDir.resolve("specmatic.yaml").apply {
+                    writeText(
+                        """
+                        version: 3
+                        systemUnderTest:
+                          service:
+                            definitions:
+                              - definition:
+                                  source:
+                                    filesystem:
+                                      directory: ${specDir.canonicalPath}
+                                  specs:
+                                    - spec:
+                                        id: orders
+                                        path: orders.yaml
+                                    - spec:
+                                        id: customers
+                                        path: customers.yaml
+                            runOptions:
+                              openapi:
+                                specs:
+                                  - spec:
+                                      id: orders
+                                      swaggerUiBaseUrl: ${orderSwaggerUi.baseUrl}
+                                  - spec:
+                                      id: customers
+                                      swaggerUiBaseUrl: ${customerSwaggerUi.baseUrl}
+                        """.trimIndent()
+                    )
+                }
+
+                SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.canonicalPath))
+                try {
+                    val support = SpecmaticJUnitSupport()
+                    support.contractTest().toList()
+
+                    assertThat(support.openApiCoverage.getApplicationAPIs()).contains(
+                        API("GET", "/findAvailableProducts/{date_time}"),
+                        API("GET", "/customers/internal"),
+                    )
+                } finally {
+                    SpecmaticJUnitSupport.settingsStaging.remove()
+                }
+            }
+        }
+    }
+
+    @Test
     fun `strict mode only runs tests for APIs with external examples`(@TempDir tempDir: File) {
         // Create OpenAPI spec with 2 endpoints
         val openApiSpec = """
