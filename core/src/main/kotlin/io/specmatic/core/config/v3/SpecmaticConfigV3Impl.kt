@@ -450,7 +450,7 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     }
 
     override fun getTestSwaggerUrl(): String? {
-        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.firstConfiguredSwaggerUrl()
+        return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.swaggerUrl
     }
 
     override fun getTestSwaggerUIBaseUrl(): String? {
@@ -472,21 +472,20 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
     ): ApplicationApiSource? {
         if (specType != SpecType.OPENAPI) return null
 
-        getActuatorUrl()?.let { return ApplicationApiSource.Actuator(it) }
-
         val openApiTestConfig = specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)
-            ?: return fallbackSwaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
 
-        val specSpecificOpenApiTestConfig = specmaticConfig.systemUnderTest
-            .getSpecDefinitionFor(specFile, resolver)
-            ?.getSpecificationId()
-            ?.let(openApiTestConfig::getMatchingSpecification)
-            ?.let { it as? OpenApiRunOptionsSpecifications }
+        val specSpecificOpenApiTestConfig = openApiTestConfig?.let { openApiConfig ->
+            specmaticConfig.systemUnderTest
+                .getSpecDefinitionFor(specFile, resolver)
+                ?.getSpecificationId()
+                ?.let(openApiConfig::getMatchingSpecification)
+                ?.let { it as? OpenApiRunOptionsSpecifications }
+        }
 
-        return specSpecificOpenApiTestConfig?.spec?.swaggerUrl?.let(ApplicationApiSource::Swagger)
-            ?: specSpecificOpenApiTestConfig?.spec?.baseUrl?.let(::defaultSwaggerUrlFor)?.let(ApplicationApiSource::Swagger)
-            ?: openApiTestConfig.swaggerUrl?.let(ApplicationApiSource::Swagger)
-            ?: (openApiTestConfig.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+        return specSpecificOpenApiTestConfig?.let(::applicationApiSourceFor)
+            ?: getActuatorUrl()?.let(ApplicationApiSource::Actuator)
+            ?: openApiTestConfig?.swaggerUrl?.let(ApplicationApiSource::Swagger)
+            ?: (openApiTestConfig?.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
     }
 
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig {
@@ -876,4 +875,11 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
 private fun defaultSwaggerUrlFor(baseUrl: String): String {
     return baseUrl.trimEnd('/') + DEFAULT_SWAGGER_SPEC_YAML_PATH
+}
+
+private fun applicationApiSourceFor(runOptions: OpenApiRunOptionsSpecifications): ApplicationApiSource? {
+    return runOptions.spec.actuatorUrl?.let(ApplicationApiSource::Actuator)
+        ?: runOptions.spec.swaggerUrl?.let(ApplicationApiSource::Swagger)
+        ?: runOptions.getServerOrigin("localhost")?.toBaseUrl()?.let(::defaultSwaggerUrlFor)?.let(ApplicationApiSource::Swagger)
+        ?: runOptions.spec.swaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
 }

@@ -60,7 +60,7 @@ class SpecmaticConfigV3ImplTest {
     fun `should return similar values between v2 and v3 test data`(testCase: TestCase) = testCase.run(tempDir)
 
     @Test
-    fun `should resolve swagger url from openapi run options spec`() {
+    fun `should not resolve swagger url from an arbitrary openapi run options spec`() {
         val config = v3Config(
             """
             version: 3
@@ -84,7 +84,7 @@ class SpecmaticConfigV3ImplTest {
             """.trimIndent()
         )
 
-        assertThat(config.getTestSwaggerUrl()).isEqualTo("http://localhost:8080/v3/api-docs")
+        assertThat(config.getTestSwaggerUrl()).isNull()
     }
 
     @Test
@@ -117,7 +117,126 @@ class SpecmaticConfigV3ImplTest {
     }
 
     @Test
-    fun `should resolve application api source using actuator before swagger urls`() {
+    fun `should use matching spec application api sources before top level sources`() {
+        val specDir = tempDir.resolve("spec-application-api-sources").apply { mkdirs() }
+        val swaggerSpec = specDir.resolve("swagger.yaml").apply { writeText("openapi: 3.0.0") }
+        val swaggerUiSpec = specDir.resolve("swagger-ui.yaml").apply { writeText("openapi: 3.0.0") }
+        val baseUrlSpec = specDir.resolve("base-url.yaml").apply { writeText("openapi: 3.0.0") }
+        val hostAndPortSpec = specDir.resolve("host-and-port.yaml").apply { writeText("openapi: 3.0.0") }
+        val portOnlySpec = specDir.resolve("port-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val actuatorSpec = specDir.resolve("actuator.yaml").apply { writeText("openapi: 3.0.0") }
+        val hostOnlySpec = specDir.resolve("host-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: swagger
+                            path: swagger.yaml
+                        - spec:
+                            id: swagger-ui
+                            path: swagger-ui.yaml
+                        - spec:
+                            id: base-url
+                            path: base-url.yaml
+                        - spec:
+                            id: host-and-port
+                            path: host-and-port.yaml
+                        - spec:
+                            id: port-only
+                            path: port-only.yaml
+                        - spec:
+                            id: actuator
+                            path: actuator.yaml
+                        - spec:
+                            id: host-only
+                            path: host-only.yaml
+                runOptions:
+                  openapi:
+                    actuatorUrl: http://top.example/actuator
+                    swaggerUrl: http://top.example/openapi.yaml
+                    swaggerUiBaseUrl: http://top.example/swagger-ui
+                    specs:
+                      - spec:
+                          id: swagger
+                          swaggerUrl: http://swagger.example/openapi.yaml
+                      - spec:
+                          id: swagger-ui
+                          swaggerUiBaseUrl: http://swagger-ui.example
+                      - spec:
+                          id: base-url
+                          baseUrl: http://base-url.example
+                      - spec:
+                          id: host-and-port
+                          host: host-and-port.example
+                          port: 8083
+                      - spec:
+                          id: port-only
+                          port: 8084
+                      - spec:
+                          id: actuator
+                          actuatorUrl: http://actuator.example/mappings
+                      - spec:
+                          id: host-only
+                          host: host-only.example
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(swaggerSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://swagger.example/openapi.yaml"))
+        assertThat(config.getTestApplicationApiSource(swaggerUiSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://swagger-ui.example"))
+        assertThat(config.getTestApplicationApiSource(baseUrlSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://base-url.example$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(hostAndPortSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://host-and-port.example:8083$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(portOnlySpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8084$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(actuatorSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Actuator("http://actuator.example/mappings"))
+        assertThat(config.getTestApplicationApiSource(hostOnlySpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Actuator("http://top.example/actuator"))
+    }
+
+    @Test
+    fun `should not return spec application api sources from top level getters`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: api
+                            path: api.yaml
+                runOptions:
+                  openapi:
+                    specs:
+                      - spec:
+                          id: api
+                          actuatorUrl: http://spec.example/actuator
+                          swaggerUiBaseUrl: http://spec.example/swagger-ui
+            """.trimIndent()
+        )
+
+        assertThat(config.getActuatorUrl()).isNull()
+        assertThat(config.getTestSwaggerUIBaseUrl()).isNull()
+    }
+
+    @Test
+    fun `should resolve matching spec swagger url before top level actuator`() {
         val specDir = tempDir.resolve("specs").apply { mkdirs() }
         val orderSpec = specDir.resolve("order.yaml").apply { writeText("openapi: 3.0.0") }
         val cartSpec = specDir.resolve("cart.yaml").apply { writeText("openapi: 3.0.0") }
@@ -151,7 +270,7 @@ class SpecmaticConfigV3ImplTest {
         )
 
         assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
-            .isEqualTo(ApplicationApiSource.Actuator("http://localhost:8080/actuator"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090/order-and-cart-api-docs"))
         assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
             .isEqualTo(ApplicationApiSource.Actuator("http://localhost:8080/actuator"))
     }

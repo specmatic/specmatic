@@ -31,11 +31,6 @@ data class OpenApiTestConfig(
     override val config: Map<String, Any> = emptyMap()
 
     @JsonIgnore
-    fun firstConfiguredSwaggerUrl(): String? {
-        return swaggerUrl ?: specs?.firstNotNullOfOrNull { it.spec.swaggerUrl }
-    }
-
-    @JsonIgnore
     override fun gerServerOrigin(): ServerOrigin? {
         if (baseUrl != null) return ServerOrigin.from(baseUrl)
         if (port == null) return null

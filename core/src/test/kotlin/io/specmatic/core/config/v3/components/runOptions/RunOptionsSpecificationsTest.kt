@@ -2,6 +2,7 @@ package io.specmatic.core.config.v3.components.runOptions
 
 import io.specmatic.core.config.v3.ServerOrigin
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class RunOptionsSpecificationsTest {
@@ -18,6 +19,24 @@ class RunOptionsSpecificationsTest {
 
         val portOnly = OpenApiRunOptionsSpecifications(OpenApiRunOptionsSpecifications.Value(port = 9000))
         assertEquals(ServerOrigin.from("http", "0.0.0.0", 9000), portOnly.getServerOrigin("0.0.0.0"))
+    }
+
+    @Test
+    fun `openapi actuator url should be treated as a spec override`() {
+        val runOptions = OpenApiRunOptionsSpecifications(
+            OpenApiRunOptionsSpecifications.Value(actuatorUrl = "http://example.com/actuator")
+        )
+
+        assertFalse(runOptions.isNoOpOverride())
+    }
+
+    @Test
+    fun `openapi swagger UI base url should be treated as a spec override`() {
+        val runOptions = OpenApiRunOptionsSpecifications(
+            OpenApiRunOptionsSpecifications.Value(swaggerUiBaseUrl = "http://example.com/swagger-ui")
+        )
+
+        assertFalse(runOptions.isNoOpOverride())
     }
 
     @Test
