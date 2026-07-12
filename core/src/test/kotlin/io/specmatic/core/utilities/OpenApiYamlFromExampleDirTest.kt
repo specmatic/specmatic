@@ -2,6 +2,9 @@ package io.specmatic.core.utilities
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.NamedStub
+import io.specmatic.core.QueryParameters
+import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.proxy.ProxyOperation
 import io.swagger.v3.oas.models.OpenAPI
@@ -13,6 +16,40 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class OpenApiYamlFromExampleDirTest {
+    @Test
+    fun `infers an openapi operation directly from recorded traffic`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/orders/(id:number)",
+            headers = mapOf("Content-Type" to "application/json; charset=utf-8", "X-Retry" to "3"),
+            body = parsedJSON("""{"name":"coffee","quantity":2}"""),
+            queryParams = QueryParameters(mapOf("active" to "true")),
+        )
+        val response = HttpResponse(
+            status = 201,
+            headers = mapOf("Content-Type" to "application/json"),
+            body = parsedJSON("""{"id":10,"accepted":true}"""),
+        )
+
+        val openApi = openApiFromTraffic(
+            featureName = "Orders",
+            namedStubs = listOf(NamedStub("create order", ScenarioStub(request, response))),
+        )
+
+        assertThat(openApi).isNotNull
+        val operation = openApi!!.paths["/orders/{id}"]!!.post
+        assertThat(operation.parameters.map { it.name }).contains("id", "active", "X-Retry")
+        assertThat(operation.requestBody.content).containsKey("application/json")
+        assertThat(operation.responses).containsKey("201")
+        assertThat(operation.responses["201"]!!.content).containsKey("application/json")
+        assertThat(openApi.components.schemas).isNotEmpty
+    }
+
+    @Test
+    fun `returns null when there is no recorded traffic`() {
+        assertThat(openApiFromTraffic("Empty", emptyList())).isNull()
+    }
+
     @Test
     fun `openapi spec should respect proxy operation path sort order`(@TempDir tempDir: File) {
         writeStub(tempDir, "a.json", httpMethod = "GET", path = "/orders")

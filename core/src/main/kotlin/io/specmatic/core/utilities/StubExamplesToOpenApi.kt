@@ -1,10 +1,16 @@
 package io.specmatic.core.utilities
 
-import io.specmatic.core.NamedStub
-import io.specmatic.core.parseGherkinStringToFeature
-import io.specmatic.core.toGherkinFeature
+import io.specmatic.core.*
+import io.specmatic.core.pattern.*
+import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.UseExampleDeclarations
+import io.specmatic.core.value.dictionaryToDeclarations
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.proxy.ProxyOperation
+import io.specmatic.reporter.model.SpecType
+import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.core.util.Yaml
 import java.io.File
 import kotlin.collections.flatten
@@ -16,16 +22,155 @@ fun openApiYamlFromExampleDir(examplesDir: File, featureName: String = "New feat
         val stub = ScenarioStub.readFromFile(file)
         val name = stub.name ?: file.nameWithoutExtension
         NamedStub(name, file.nameWithoutExtension, stub)
-    }.let {
-        orderStubsByProxyOperations(it, sortOrder)
     }
 
     if (namedStubs.isEmpty()) return null
 
-    val gherkin = toGherkinFeature(featureName, namedStubs)
-    val feature = parseGherkinStringToFeature(gherkin)
-    val openApi = feature.toOpenApi()
-    return Yaml.pretty(openApi)
+    return Yaml.pretty(openApiFromTraffic(featureName, namedStubs, sortOrder))
+}
+
+fun openApiFromTraffic(featureName: String, namedStubs: List<NamedStub>, sortOrder: List<ProxyOperation> = emptyList()): OpenAPI? {
+    if (namedStubs.isEmpty()) return null
+
+    val scenarios = orderStubsByProxyOperations(namedStubs, sortOrder).map(::scenarioFromTraffic)
+    return Feature(scenarios = scenarios, name = featureName, protocol = SpecmaticProtocol.HTTP).toOpenApi()
+}
+
+private data class RequestInference(
+    val pattern: HttpRequestPattern,
+    val types: Map<String, Pattern>,
+    val examples: ExampleDeclarations,
+)
+
+private data class ResponseInference(
+    val pattern: HttpResponsePattern,
+    val types: Map<String, Pattern>,
+)
+
+private data class ResponseBodyInference(
+    val pattern: Pattern,
+    val types: Map<String, Pattern>,
+)
+
+private fun scenarioFromTraffic(namedStub: NamedStub): Scenario {
+    val request = namedStub.stub.requestElsePartialRequest()
+    val response = namedStub.stub.response
+    val requestInference = inferRequest(request)
+    val responseInference = inferResponse(response, requestInference.types)
+    val exampleRow = Row(
+        columnNames = requestInference.examples.examples.keys.toList(),
+        values = requestInference.examples.examples.values.toList(),
+        name = namedStub.name,
+        requestExample = request,
+        responseExample = response,
+        scenarioStub = namedStub.stub,
+    )
+
+    return Scenario(
+        name = namedStub.name,
+        httpRequestPattern = requestInference.pattern,
+        httpResponsePattern = responseInference.pattern,
+        examples = listOf(Examples(exampleRow.columnNames, listOf(exampleRow))),
+        patterns = responseInference.types.mapKeys { (name, _) -> withPatternDelimiters(withoutPatternDelimiters(name)) },
+        protocol = SpecmaticProtocol.HTTP,
+        specType = SpecType.OPENAPI,
+    )
+}
+
+private fun inferRequest(request: HttpRequest): RequestInference {
+    val method = request.method ?: throw ContractException("Can't generate a spec file without the http method.")
+    val path = request.path ?: throw ContractException("Can't generate a contract without the url.")
+    val initialExamples = UseExampleDeclarations()
+    val (queryPatterns, queryTypes, queryExamples) = dictionaryToDeclarations(
+        queryParamsToScalarMap(request.queryParams),
+        emptyMap(),
+        initialExamples,
+    )
+    val (contentType, otherHeaders) = partitionOnContentType(request.headers)
+    val (headerPatterns, headerTypes, headerExamples) = dictionaryToDeclarations(
+        stringMapToScalarMap(otherHeaders),
+        queryTypes,
+        queryExamples,
+    )
+    val headersWithContentType = contentType?.value?.substringBefore(';')?.let { value ->
+        headerPatterns + (contentType.key to ExactValuePattern(StringValue(value)))
+    } ?: headerPatterns
+
+    val bodyInference = inferRequestPayload(request, headerTypes, headerExamples)
+    return RequestInference(
+        pattern = HttpRequestPattern(
+            headersPattern = HttpHeadersPattern(headersWithContentType),
+            httpPathPattern = buildHttpPathPattern(path.replace(" ", "%20")),
+            httpQueryParamPattern = HttpQueryParamPattern(queryPatterns.mapValues { (_, pattern) ->
+                QueryParameterScalarPattern(pattern)
+            }),
+            method = method,
+            body = bodyInference.body,
+            formFieldsPattern = bodyInference.formFields,
+            multiPartFormDataPattern = bodyInference.multiPart,
+        ),
+        types = bodyInference.types,
+        examples = bodyInference.examples,
+    )
+}
+
+private data class RequestPayloadInference(
+    val body: Pattern = EmptyStringPattern,
+    val formFields: Map<String, Pattern> = emptyMap(),
+    val multiPart: List<MultiPartFormDataPattern> = emptyList(),
+    val types: Map<String, Pattern>,
+    val examples: ExampleDeclarations,
+)
+
+private fun inferRequestPayload(
+    request: HttpRequest,
+    types: Map<String, Pattern>,
+    examples: ExampleDeclarations,
+): RequestPayloadInference = when {
+    request.multiPartFormData.isNotEmpty() -> RequestPayloadInference(
+        multiPart = request.multiPartFormData.map { it.inferType() },
+        types = types,
+        examples = examples,
+    )
+    request.formFields.isNotEmpty() -> {
+        val (patterns, updatedTypes, updatedExamples) = dictionaryToDeclarations(
+            stringMapToValueMap(request.formFields), types, examples,
+        )
+        RequestPayloadInference(formFields = patterns, types = updatedTypes, examples = updatedExamples)
+    }
+    request.body == EmptyString || request.body == NoBodyValue -> RequestPayloadInference(types = types, examples = examples)
+    else -> {
+        val (declaration, updatedExamples) = request.body.typeDeclarationWithoutKey("RequestBody", types, examples)
+        RequestPayloadInference(
+            body = DeferredPattern(declaration.typeValue),
+            types = declaration.types,
+            examples = updatedExamples,
+        )
+    }
+}
+
+private fun inferResponse(response: HttpResponse, initialTypes: Map<String, Pattern>): ResponseInference {
+    if (response.status <= 0) throw ContractException("Can't generate a contract without a response status")
+
+    val (contentType, otherHeaders) = partitionOnContentType(response.headers)
+    val (headerPatterns, headerTypes, _) = dictionaryToDeclarations(
+        stringMapToScalarMap(otherHeaders), initialTypes, DiscardExampleDeclarations(),
+    )
+    val headersWithContentType = contentType?.value?.substringBefore(';')?.let { value ->
+        headerPatterns + (contentType.key to ExactValuePattern(StringValue(value)))
+    } ?: headerPatterns
+    val payload = adjustPayloadForContentType(response.body, response.headers)
+    val bodyInference = if (payload == EmptyString) {
+        ResponseBodyInference(EmptyStringPattern, headerTypes)
+    } else {
+        val (declaration, _) = payload.typeDeclarationWithKey("ResponseBody", headerTypes, DiscardExampleDeclarations())
+        ResponseBodyInference(DeferredPattern(declaration.typeValue), declaration.types)
+    }
+
+    return ResponseInference(
+        pattern = HttpResponsePattern(HttpHeadersPattern(headersWithContentType), response.status, bodyInference.pattern),
+        types = bodyInference.types,
+    )
 }
 
 private fun indexOperationsByMethod(sortOrder: List<ProxyOperation>): Map<String, List<IndexedValue<ProxyOperation>>> {
