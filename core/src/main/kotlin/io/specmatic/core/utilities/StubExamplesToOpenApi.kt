@@ -57,6 +57,10 @@ private fun scenarioFromTraffic(namedStub: NamedStub): Scenario {
     val response = namedStub.stub.response
     val requestInference = inferRequest(request)
     val responseInference = inferResponse(response, requestInference.types)
+    val namedPatterns = responseInference.types.mapKeys { (name, _) -> withPatternDelimiters(withoutPatternDelimiters(name)) }
+    val materializedPatterns = namedPatterns.mapValues { (_, pattern) ->
+        materializeGeneratedPattern(pattern, namedPatterns.keys)
+    }
     val exampleRow = Row(
         columnNames = requestInference.examples.examples.keys.toList(),
         values = requestInference.examples.examples.values.toList(),
@@ -68,13 +72,46 @@ private fun scenarioFromTraffic(namedStub: NamedStub): Scenario {
 
     return Scenario(
         name = namedStub.name,
-        httpRequestPattern = requestInference.pattern,
-        httpResponsePattern = responseInference.pattern,
+        httpRequestPattern = requestInference.pattern.copy(
+            headersPattern = requestInference.pattern.headersPattern.copy(
+                pattern = materializeGeneratedPatterns(requestInference.pattern.headersPattern.pattern, namedPatterns.keys),
+            ),
+            body = materializeGeneratedPattern(requestInference.pattern.body, namedPatterns.keys),
+            formFieldsPattern = materializeGeneratedPatterns(requestInference.pattern.formFieldsPattern, namedPatterns.keys),
+        ),
+        httpResponsePattern = responseInference.pattern.copy(
+            headersPattern = responseInference.pattern.headersPattern.copy(
+                pattern = materializeGeneratedPatterns(responseInference.pattern.headersPattern.pattern, namedPatterns.keys),
+            ),
+            body = materializeGeneratedPattern(responseInference.pattern.body, namedPatterns.keys),
+        ),
         examples = listOf(Examples(exampleRow.columnNames, listOf(exampleRow))),
-        patterns = responseInference.types.mapKeys { (name, _) -> withPatternDelimiters(withoutPatternDelimiters(name)) },
+        patterns = materializedPatterns,
         protocol = SpecmaticProtocol.HTTP,
         specType = SpecType.OPENAPI,
     )
+}
+
+private fun materializeGeneratedPatterns(patterns: Map<String, Pattern>, namedPatterns: Set<String>): Map<String, Pattern> =
+    patterns.mapValues { (_, pattern) -> materializeGeneratedPattern(pattern, namedPatterns) }
+
+private fun materializeGeneratedPattern(pattern: Pattern, namedPatterns: Set<String>): Pattern = when (pattern) {
+    is DeferredPattern -> when (pattern.pattern) {
+        in namedPatterns -> pattern
+        else -> parsedPattern(pattern.pattern)
+    }
+    is TabularPattern -> pattern.copy(pattern = pattern.pattern.mapValues { (_, child) ->
+        materializeGeneratedPattern(child, namedPatterns)
+    })
+    is JSONObjectPattern -> pattern.copy(pattern = pattern.pattern.mapValues { (_, child) ->
+        materializeGeneratedPattern(child, namedPatterns)
+    })
+    is JSONArrayPattern -> pattern.copy(pattern = pattern.pattern.map { child ->
+        materializeGeneratedPattern(child, namedPatterns)
+    })
+    is ListPattern -> pattern.copy(pattern = materializeGeneratedPattern(pattern.pattern, namedPatterns))
+    is LookupRowPattern -> pattern.copy(pattern = materializeGeneratedPattern(pattern.pattern, namedPatterns))
+    else -> pattern
 }
 
 private fun inferRequest(request: HttpRequest): RequestInference {

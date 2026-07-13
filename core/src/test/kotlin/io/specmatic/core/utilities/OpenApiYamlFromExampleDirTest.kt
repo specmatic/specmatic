@@ -4,7 +4,9 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.NamedStub
 import io.specmatic.core.QueryParameters
+import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.proxy.ProxyOperation
 import io.swagger.v3.oas.models.OpenAPI
@@ -16,6 +18,154 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class OpenApiYamlFromExampleDirTest {
+    @Test
+    fun `infers scalar request bodies without creating a dangling component reference`() {
+        val openApi = openApiFromTraffic(
+            "Scalar",
+            listOf(namedStub(
+                "echo",
+                HttpRequest("POST", "/echo", mapOf("Content-Type" to "text/plain"), StringValue("hello")),
+                HttpResponse.ok("world"),
+            )),
+        )!!
+
+        val schema = openApi.paths["/echo"]!!.post.requestBody.content["text/plain"]!!.schema
+        assertThat(schema.type).isEqualTo("string")
+        assertThat(schema.`$ref`).isNull()
+    }
+
+    @Test
+    fun `infers arrays nested inside json bodies as array schemas`() {
+        val openApi = openApiFromTraffic(
+            "Arrays",
+            listOf(namedStub(
+                "create",
+                HttpRequest("POST", "/items", body = parsedJSON("""{"tags":["one","two"]}""")),
+                HttpResponse.ok("created"),
+            )),
+        )!!
+
+        val requestSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("RequestBody") }.value
+        val tagsSchema = requestSchema.properties["tags"]!!
+        assertThat(tagsSchema.type).isEqualTo("array")
+        assertThat(tagsSchema.items!!.type).isEqualTo("string")
+    }
+
+    @Test
+    fun `infers scalar types when example names collide across request locations`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/collisions",
+            headers = mapOf("id" to "2"),
+            body = parsedJSON("""{"id":3}"""),
+            queryParams = QueryParameters(mapOf("id" to "1")),
+        )
+
+        val openApi = openApiFromTraffic(
+            "Collisions",
+            listOf(namedStub("collisions", request, HttpResponse.ok("done"))),
+        )!!
+
+        val headerSchema = openApi.paths["/collisions"]!!.post.parameters.single { it.`in` == "header" }.schema
+        assertThat(headerSchema.type).isEqualTo("integer")
+        assertThat(headerSchema.`$ref`).isNull()
+    }
+
+    @Test
+    fun `infers form field schemas`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/login",
+            formFields = mapOf("attempt" to "2", "remember" to "true"),
+        )
+
+        val openApi = openApiFromTraffic(
+            "Forms",
+            listOf(namedStub("login", request, HttpResponse.ok("accepted"))),
+        )!!
+
+        val schema = openApi.paths["/login"]!!.post.requestBody.content["application/x-www-form-urlencoded"]!!.schema
+        assertThat(schema.properties["attempt"]!!.type).isEqualTo("integer")
+        assertThat(schema.properties["remember"]!!.type).isEqualTo("boolean")
+    }
+
+    @Test
+    fun `parses json response strings using the recorded content type`() {
+        val response = HttpResponse(
+            400,
+            mapOf("content-type" to "application/problem+json; charset=utf-8"),
+            StringValue("""{"message":"bad"}"""),
+        )
+
+        val openApi = openApiFromTraffic(
+            "Errors",
+            listOf(namedStub("error", HttpRequest("GET", "/errors"), response)),
+        )!!
+
+        val operationResponse = openApi.paths["/errors"]!!.get.responses["400"]!!
+        assertThat(operationResponse.content).containsKey("application/problem+json")
+        val responseSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("ResponseBody") }.value
+        assertThat(responseSchema.properties["message"]!!.type).isEqualTo("string")
+    }
+
+    @Test
+    fun `makes fields optional when they are absent from another recording`() {
+        val openApi = openApiFromTraffic(
+            "Orders",
+            listOf(
+                namedStub(
+                    "create",
+                    HttpRequest("POST", "/orders", body = parsedJSON("""{"name":"coffee","note":"hot"}""")),
+                    HttpResponse(201, body = parsedJSON("""{"id":1,"state":"created"}""")),
+                ),
+                namedStub(
+                    "create",
+                    HttpRequest("POST", "/orders", body = parsedJSON("""{"name":"tea"}""")),
+                    HttpResponse(201, body = parsedJSON("""{"id":2}""")),
+                ),
+            ),
+        )!!
+
+        val requestSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("RequestBody") }.value
+        val responseSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("ResponseBody") }.value
+        assertThat(requestSchema.required).contains("name").doesNotContain("note")
+        assertThat(responseSchema.required).contains("id").doesNotContain("state")
+    }
+
+    @Test
+    fun `rejects traffic without a request method`() {
+        val exception = assertThrows(ContractException::class.java) {
+            openApiFromTraffic("Invalid", listOf(namedStub("invalid", HttpRequest(path = "/items"), HttpResponse.ok("ok"))))
+        }
+
+        assertThat(exception.message).contains("without the http method")
+    }
+
+    @Test
+    fun `rejects traffic without a request path`() {
+        val exception = assertThrows(ContractException::class.java) {
+            openApiFromTraffic("Invalid", listOf(namedStub("invalid", HttpRequest(method = "GET"), HttpResponse.ok("ok"))))
+        }
+
+        assertThat(exception.message).contains("without the url")
+    }
+
+    @Test
+    fun `rejects traffic without a response status`() {
+        val exception = assertThrows(ContractException::class.java) {
+            openApiFromTraffic("Invalid", listOf(namedStub("invalid", HttpRequest("GET", "/items"), HttpResponse())))
+        }
+
+        assertThat(exception.message).contains("without a response status")
+    }
+
+    @Test
+    fun `returns null when the example directory does not exist`(@TempDir tempDir: File) {
+        val missingDirectory = tempDir.resolve("missing")
+
+        assertThat(openApiYamlFromExampleDir(missingDirectory, sortOrder = emptyList())).isNull()
+    }
+
     @Test
     fun `infers an openapi operation directly from recorded traffic`() {
         val request = HttpRequest(
@@ -94,6 +244,9 @@ class OpenApiYamlFromExampleDirTest {
         val stub = ScenarioStub(request = HttpRequest(method = httpMethod, path = path), response = HttpResponse.ok("ok"))
         dir.resolve(fileName).writeText(stub.toJSON().toStringLiteral())
     }
+
+    private fun namedStub(name: String, request: HttpRequest, response: HttpResponse): NamedStub =
+        NamedStub(name, ScenarioStub(request, response))
 
     private fun proxyOperation(method: String, path: String): ProxyOperation =
         ProxyOperation(method = method, pathPattern = OpenApiPath.from(path).toHttpPathPattern())
