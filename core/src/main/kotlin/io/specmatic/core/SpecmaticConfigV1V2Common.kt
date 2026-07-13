@@ -931,7 +931,8 @@ data class SpecmaticConfigV1V2Common(
 
         return getActuatorUrl()?.let(ApplicationApiSource::Actuator)
             ?: getTestSwaggerUrl()?.let(ApplicationApiSource::Swagger)
-            ?: (getTestSwaggerUIBaseUrl() ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+            ?: getTestSwaggerUIBaseUrl()?.let(ApplicationApiSource::SwaggerUi)
+            ?: fallbackSwaggerUiBaseUrl?.let { ApplicationApiSource.SwaggerUi(it, isExplicitlyConfigured = false) }
     }
 
     @JsonIgnore

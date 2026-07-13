@@ -194,11 +194,11 @@ class SpecmaticConfigV3ImplTest {
         assertThat(config.getTestApplicationApiSource(swaggerUiSpec, SpecType.OPENAPI, "http://runtime.example"))
             .isEqualTo(ApplicationApiSource.SwaggerUi("http://swagger-ui.example"))
         assertThat(config.getTestApplicationApiSource(baseUrlSpec, SpecType.OPENAPI, "http://runtime.example"))
-            .isEqualTo(ApplicationApiSource.Swagger("http://base-url.example$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://base-url.example$DEFAULT_SWAGGER_SPEC_YAML_PATH", isExplicitlyConfigured = false))
         assertThat(config.getTestApplicationApiSource(hostAndPortSpec, SpecType.OPENAPI, "http://runtime.example"))
-            .isEqualTo(ApplicationApiSource.Swagger("http://host-and-port.example:8083$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://host-and-port.example:8083$DEFAULT_SWAGGER_SPEC_YAML_PATH", isExplicitlyConfigured = false))
         assertThat(config.getTestApplicationApiSource(portOnlySpec, SpecType.OPENAPI, "http://runtime.example"))
-            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8084$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8084$DEFAULT_SWAGGER_SPEC_YAML_PATH", isExplicitlyConfigured = false))
         assertThat(config.getTestApplicationApiSource(actuatorSpec, SpecType.OPENAPI, "http://runtime.example"))
             .isEqualTo(ApplicationApiSource.Actuator("http://actuator.example/mappings"))
         assertThat(config.getTestApplicationApiSource(hostOnlySpec, SpecType.OPENAPI, "http://runtime.example"))
@@ -347,7 +347,7 @@ class SpecmaticConfigV3ImplTest {
         )
 
         assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
-            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090$DEFAULT_SWAGGER_SPEC_YAML_PATH", isExplicitlyConfigured = false))
         assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
             .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8080/default-api-docs"))
     }
@@ -474,7 +474,7 @@ class SpecmaticConfigV3ImplTest {
         )
 
         assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
-            .isEqualTo(ApplicationApiSource.SwaggerUi("http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://localhost:9000", isExplicitlyConfigured = false))
     }
 
     @Test

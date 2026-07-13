@@ -486,7 +486,8 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return specSpecificOpenApiTestConfig?.let(::applicationApiSourceFor)
             ?: getActuatorUrl()?.let(ApplicationApiSource::Actuator)
             ?: openApiTestConfig?.swaggerUrl?.let(ApplicationApiSource::Swagger)
-            ?: (openApiTestConfig?.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+            ?: openApiTestConfig?.swaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
+            ?: fallbackSwaggerUiBaseUrl?.let { ApplicationApiSource.SwaggerUi(it, isExplicitlyConfigured = false) }
     }
 
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig {
@@ -901,6 +902,8 @@ private fun defaultSwaggerUrlFor(baseUrl: String): String {
 private fun applicationApiSourceFor(runOptions: OpenApiRunOptionsSpecifications): ApplicationApiSource? {
     return runOptions.spec.actuatorUrl?.let(ApplicationApiSource::Actuator)
         ?: runOptions.spec.swaggerUrl?.let(ApplicationApiSource::Swagger)
-        ?: runOptions.getServerOrigin("localhost")?.toBaseUrl()?.let(::defaultSwaggerUrlFor)?.let(ApplicationApiSource::Swagger)
+        ?: runOptions.getServerOrigin("localhost")?.toBaseUrl()?.let(::defaultSwaggerUrlFor)?.let {
+            ApplicationApiSource.Swagger(it, isExplicitlyConfigured = false)
+        }
         ?: runOptions.spec.swaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
 }

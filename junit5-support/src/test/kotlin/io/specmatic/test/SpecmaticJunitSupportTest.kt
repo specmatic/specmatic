@@ -104,6 +104,7 @@ class SpecmaticJunitSupportTest {
                 Arguments.of(null, "http://config.example", "http://spec.example", "http://config.example"),
                 Arguments.of(null, null, "http://spec.example", "http://spec.example")
             )
+
     }
 
     @Test
@@ -1356,7 +1357,11 @@ paths:
         }
     }
 
-    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, maxTestCount: Int? = null): File {
+    private fun writeSpecmaticConfig(
+        tempDir: File,
+        baseUrl: String? = null,
+        maxTestCount: Int? = null,
+    ): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
             version = SpecmaticConfigVersion.VERSION_3,
