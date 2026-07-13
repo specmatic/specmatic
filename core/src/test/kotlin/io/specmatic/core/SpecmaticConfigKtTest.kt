@@ -2086,7 +2086,7 @@ internal class SpecmaticConfigKtTest {
                 Arguments.of(
                     V2ApplicationApiSourceCase(
                         fallbackSwaggerUiBaseUrl = "http://fallback.example",
-                        expectedSource = ApplicationApiSource.SwaggerUi("http://fallback.example")
+                        expectedSource = ApplicationApiSource.SwaggerUi("http://fallback.example", isExplicitlyConfigured = false)
                     )
                 )
             )

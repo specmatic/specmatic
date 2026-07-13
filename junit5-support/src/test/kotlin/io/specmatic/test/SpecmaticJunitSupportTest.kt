@@ -61,6 +61,23 @@ import java.io.PrintStream
 import java.net.ServerSocket
 import java.util.*
 
+enum class ExplicitApplicationApiSource(
+    val displayName: String,
+    val requestPath: String,
+) {
+    ACTUATOR("actuator URL", "/"),
+    SWAGGER("Swagger URL", "/"),
+    SWAGGER_UI("Swagger UI base URL", "/swagger/v1/swagger.yaml");
+
+    fun openApiConfig(url: String): OpenApiTestConfig {
+        return when (this) {
+            ACTUATOR -> OpenApiTestConfig(actuatorUrl = url)
+            SWAGGER -> OpenApiTestConfig(swaggerUrl = url)
+            SWAGGER_UI -> OpenApiTestConfig(swaggerUiBaseUrl = url)
+        }
+    }
+}
+
 class SpecmaticJunitSupportTest {
     companion object {
         val initialPropertyKeys = System.getProperties().mapKeys { it.key.toString() }.keys
@@ -103,6 +120,20 @@ class SpecmaticJunitSupportTest {
                 Arguments.of("http://override.example", "http://config.example", "http://spec.example", "http://override.example"),
                 Arguments.of(null, "http://config.example", "http://spec.example", "http://config.example"),
                 Arguments.of(null, null, "http://spec.example", "http://spec.example")
+            )
+
+        @JvmStatic
+        fun explicitApplicationApiSourceCases(): List<Arguments> =
+            ExplicitApplicationApiSource.entries.map { Arguments.of(it) }
+
+        @JvmStatic
+        fun emptyApplicationApiSourceCases(): List<Arguments> =
+            listOf(
+                Arguments.of(ExplicitApplicationApiSource.ACTUATOR, """{"contexts":{}}"""),
+                Arguments.of(
+                    ExplicitApplicationApiSource.SWAGGER,
+                    """{"openapi":"3.0.0","info":{"title":"empty","version":"1.0.0"},"paths":{}}""",
+                ),
             )
     }
 
@@ -481,6 +512,188 @@ class SpecmaticJunitSupportTest {
                     SpecmaticJUnitSupport.settingsStaging.remove()
                 }
             }
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("explicitApplicationApiSourceCases")
+    fun `should report connectivity errors for explicit application api sources`(
+        source: ExplicitApplicationApiSource,
+        @TempDir tempDir: File,
+    ) {
+        val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+        val unusedPort = ServerSocket(0).use { it.localPort }
+        val sourceUrl = "http://localhost:$unusedPort"
+        val configFile = writeSpecmaticConfig(tempDir, openApiConfig = source.openApiConfig(sourceUrl))
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath)
+        )
+
+        val output = captureStdout {
+            assertDoesNotThrow { SpecmaticJUnitSupport().contractTest().toList() }
+        }
+
+        assertThat(output)
+            .contains("ERROR", "explicitly configured ${source.displayName}", sourceUrl)
+            .containsIgnoringCase("connect")
+    }
+
+    @ParameterizedTest
+    @MethodSource("explicitApplicationApiSourceCases")
+    fun `should report non-200 responses for explicit application api sources`(
+        source: ExplicitApplicationApiSource,
+        @TempDir tempDir: File,
+    ) {
+        val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+        MockHttpServer().use { server ->
+            server.on(source.requestPath, "GET") { respond(503) }
+            val configFile = writeSpecmaticConfig(tempDir, openApiConfig = source.openApiConfig(server.baseUrl))
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath)
+            )
+
+            val output = captureStdout { SpecmaticJUnitSupport().contractTest().toList() }
+
+            assertThat(output).contains(
+                "ERROR",
+                "explicitly configured ${source.displayName}",
+                server.baseUrl,
+                "Received HTTP status 503",
+            )
+        }
+    }
+
+    @Test
+    fun `should report malformed Swagger documents from an explicit URL`(@TempDir tempDir: File) {
+        val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+        MockHttpServer().use { server ->
+            server.on("/", "GET") {
+                respond(HttpResponse(status = 200, body = parsedJsonValue("""{"not":"openapi"}""")))
+            }
+            val configFile = writeSpecmaticConfig(
+                tempDir,
+                openApiConfig = OpenApiTestConfig(swaggerUrl = server.baseUrl),
+            )
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath)
+            )
+
+            val output = captureStdout { SpecmaticJUnitSupport().contractTest().toList() }
+
+            assertThat(output).contains("ERROR", "explicitly configured Swagger URL", server.baseUrl)
+        }
+    }
+
+    @Test
+    fun `should report malformed actuator responses from an explicit URL`(@TempDir tempDir: File) {
+        val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+        MockHttpServer().use { server ->
+            server.on("/", "GET") {
+                respond(HttpResponse(status = 200, body = parsedJsonValue("""{"not":"actuator"}""")))
+            }
+            val configFile = writeSpecmaticConfig(
+                tempDir,
+                openApiConfig = OpenApiTestConfig(actuatorUrl = server.baseUrl),
+            )
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath)
+            )
+
+            val output = captureStdout { SpecmaticJUnitSupport().contractTest().toList() }
+
+            assertThat(output).contains("ERROR", "explicitly configured actuator URL", server.baseUrl)
+        }
+    }
+
+    @Test
+    fun `should not report connectivity errors for an inferred application api source`(@TempDir tempDir: File) {
+        val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+        val unusedPort = ServerSocket(0).use { it.localPort }
+        SpecmaticJUnitSupport.settingsStaging.set(
+            ContractTestSettings(contractPaths = specFile.canonicalPath, testBaseURL = "http://localhost:$unusedPort")
+        )
+
+        val output = captureStdout { SpecmaticJUnitSupport().contractTest().toList() }
+
+        assertThat(output).doesNotContain("ERROR", "explicitly configured")
+    }
+
+    @Test
+    fun `should retain APIs from successful sources when another explicit source is unreachable`(@TempDir tempDir: File) {
+        val specDir = tempDir.resolve("specs").apply { mkdirs() }
+        specDir.resolve("orders.yaml").writeText(openApiSpec("orders", "/orders"))
+        specDir.resolve("customers.yaml").writeText(openApiSpec("customers", "/customers"))
+        val unusedPort = ServerSocket(0).use { it.localPort }
+
+        MockHttpServer().use { customerSwagger ->
+            customerSwagger.on("/", "GET") {
+                respond(HttpResponse(status = 200, body = parsedJsonValue(openApiJson("customers-app", "/customers/internal"))))
+            }
+            val unreachableUrl = "http://localhost:$unusedPort"
+            val configFile = tempDir.resolve("specmatic.yaml").apply {
+                writeText(
+                    """
+                    version: 3
+                    systemUnderTest:
+                      service:
+                        definitions:
+                          - definition:
+                              source:
+                                filesystem:
+                                  directory: ${specDir.canonicalPath}
+                              specs:
+                                - spec:
+                                    id: orders
+                                    path: orders.yaml
+                                - spec:
+                                    id: customers
+                                    path: customers.yaml
+                        runOptions:
+                          openapi:
+                            specs:
+                              - spec:
+                                  id: orders
+                                  swaggerUrl: $unreachableUrl
+                              - spec:
+                                  id: customers
+                                  swaggerUrl: ${customerSwagger.baseUrl}
+                    """.trimIndent()
+                )
+            }
+            SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.canonicalPath))
+            val support = SpecmaticJUnitSupport()
+
+            val output = captureStdout { support.contractTest().toList() }
+
+            assertThat(output).contains("ERROR", unreachableUrl)
+            assertThat(support.openApiCoverage.getApplicationAPIs()).contains(API("GET", "/customers/internal"))
+            assertThat(support.openApiCoverage.isEndpointsApiSet()).isTrue()
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("emptyApplicationApiSourceCases")
+    fun `should accept valid application api responses containing no APIs`(
+        source: ExplicitApplicationApiSource,
+        responseBody: String,
+        @TempDir tempDir: File,
+    ) {
+        val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+        MockHttpServer().use { server ->
+            server.on(source.requestPath, "GET") {
+                respond(HttpResponse(status = 200, body = parsedJsonValue(responseBody)))
+            }
+            val configFile = writeSpecmaticConfig(tempDir, openApiConfig = source.openApiConfig(server.baseUrl))
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(contractPaths = specFile.canonicalPath, configFile = configFile.canonicalPath)
+            )
+            val support = SpecmaticJUnitSupport()
+
+            val output = captureStdout { support.contractTest().toList() }
+
+            assertThat(output).doesNotContain("ERROR")
+            assertThat(support.openApiCoverage.isEndpointsApiSet()).isTrue()
+            assertThat(support.openApiCoverage.getApplicationAPIs()).isEmpty()
         }
     }
 
@@ -1356,7 +1569,12 @@ paths:
         }
     }
 
-    private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, maxTestCount: Int? = null): File {
+    private fun writeSpecmaticConfig(
+        tempDir: File,
+        baseUrl: String? = null,
+        maxTestCount: Int? = null,
+        openApiConfig: OpenApiTestConfig = OpenApiTestConfig(baseUrl = baseUrl),
+    ): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
             version = SpecmaticConfigVersion.VERSION_3,
@@ -1364,7 +1582,7 @@ paths:
                 service = RefOrValue.Value(
                     CommonServiceConfig(
                         definitions = emptyList(),
-                        runOptions = RefOrValue.Value(TestRunOptions(openapi = OpenApiTestConfig(baseUrl = baseUrl))),
+                        runOptions = RefOrValue.Value(TestRunOptions(openapi = openApiConfig)),
                         settings = RefOrValue.Value(TestSettings(maxTestCount = maxTestCount))
                     )
                 )
