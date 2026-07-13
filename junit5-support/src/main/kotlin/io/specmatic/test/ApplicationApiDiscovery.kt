@@ -9,7 +9,6 @@ import io.specmatic.core.HttpResponse
 import io.specmatic.core.KeyData
 import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
@@ -128,11 +127,10 @@ internal class ApplicationApiDiscovery(
         source: ApplicationApiSource,
         failure: ApplicationApiFetchResult.Failure,
     ) {
-        val message = "Could not use ${source.displayName()} at ${source.url}: ${failure.reason}"
         if (source.isExplicitlyConfigured) {
-            logger.logError(ContractException(message))
+            logger.log("WARNING: Could not use ${source.displayName()} at ${source.url}: ${failure.reason}")
         } else {
-            logger.debug(message)
+            logger.debug("Could not use inferred ${source.displayName()} at ${source.url}: ${failure.reason}")
         }
     }
 
@@ -142,8 +140,7 @@ internal class ApplicationApiDiscovery(
             is ApplicationApiSource.Swagger -> "Swagger URL"
             is ApplicationApiSource.SwaggerUi -> "Swagger UI base URL"
         }
-        val origin = if (isExplicitlyConfigured) "explicitly configured" else "inferred"
-        return "$origin $sourceType"
+        return sourceType
     }
 
     private sealed interface ApplicationApiFetchResult {

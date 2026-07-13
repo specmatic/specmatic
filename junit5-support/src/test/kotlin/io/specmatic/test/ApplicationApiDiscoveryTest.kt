@@ -47,7 +47,8 @@ class ApplicationApiDiscoveryTest {
         }
 
         assertThat(output)
-            .contains("ERROR", "explicitly configured ${sourceCase.displayName}", sourceUrl)
+            .contains("WARNING: Could not use ${sourceCase.displayName} at $sourceUrl")
+            .doesNotContain("ERROR", "explicitly configured")
             .containsIgnoringCase("connect")
         assertThat(coverage.isEndpointsApiSet()).isFalse()
     }
@@ -62,12 +63,9 @@ class ApplicationApiDiscoveryTest {
             discovery.discover(listOf(sourceCase.source(sourceUrl)), coverage())
         }
 
-        assertThat(output).contains(
-            "ERROR",
-            "explicitly configured ${sourceCase.displayName}",
-            sourceUrl,
-            "Received HTTP status 503",
-        )
+        assertThat(output)
+            .contains("WARNING: Could not use ${sourceCase.displayName} at $sourceUrl: Received HTTP status 503")
+            .doesNotContain("ERROR", "explicitly configured")
     }
 
     @Test
@@ -81,7 +79,7 @@ class ApplicationApiDiscoveryTest {
             discovery.discover(listOf(ApplicationApiSource.Swagger(sourceUrl)), coverage())
         }
 
-        assertThat(output).contains("ERROR", "explicitly configured Swagger URL", sourceUrl)
+        assertThat(output).contains("WARNING", "Swagger URL", sourceUrl).doesNotContain("ERROR")
     }
 
     @Test
@@ -95,7 +93,7 @@ class ApplicationApiDiscoveryTest {
             discovery.discover(listOf(ApplicationApiSource.Actuator(sourceUrl)), coverage())
         }
 
-        assertThat(output).contains("ERROR", "explicitly configured actuator URL", sourceUrl)
+        assertThat(output).contains("WARNING", "actuator URL", sourceUrl).doesNotContain("ERROR")
     }
 
     @Test
@@ -110,7 +108,7 @@ class ApplicationApiDiscoveryTest {
             )
         }
 
-        assertThat(output).doesNotContain("ERROR", "explicitly configured")
+        assertThat(output).doesNotContain("ERROR", "WARNING", "explicitly configured")
     }
 
     @Test
@@ -142,7 +140,7 @@ class ApplicationApiDiscoveryTest {
         }
 
         assertThat(requestedUrls).containsExactly(unavailableUrl, successfulUrl)
-        assertThat(output).contains("ERROR", unavailableUrl)
+        assertThat(output).contains("WARNING", unavailableUrl).doesNotContain("ERROR")
         assertThat(coverage.getApplicationAPIs()).contains(API("GET", "/customers/internal"))
         assertThat(coverage.isEndpointsApiSet()).isTrue()
     }
@@ -162,7 +160,7 @@ class ApplicationApiDiscoveryTest {
             discovery.discover(listOf(sourceCase.source("http://application.example")), coverage)
         }
 
-        assertThat(output).doesNotContain("ERROR")
+        assertThat(output).doesNotContain("ERROR", "WARNING")
         assertThat(coverage.isEndpointsApiSet()).isTrue()
         assertThat(coverage.getApplicationAPIs()).isEmpty()
     }
