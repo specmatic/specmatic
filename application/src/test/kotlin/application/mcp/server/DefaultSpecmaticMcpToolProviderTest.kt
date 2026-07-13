@@ -33,7 +33,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         val tool = tools.first { it.tool().name() == "run_contract_test" }
         
         val args = mapOf(
-            "openApiSpec" to "openapi: 3.0.0",
+            "specFilePath" to "spec.yaml",
             "apiBaseUrl" to "http://localhost:8080",
             "specFormat" to "yaml"
         )
@@ -49,7 +49,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         
         verify { 
             contractTestTool.runContractTest(
-                RunTestArgs(openApiSpec = "openapi: 3.0.0", apiBaseUrl = "http://localhost:8080", specFormat = "yaml"),
+                RunTestArgs(specFilePath = "spec.yaml", apiBaseUrl = "http://localhost:8080", specFormat = "yaml"),
                 resiliency = false
             ) 
         }
@@ -61,7 +61,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         val tool = tools.first { it.tool().name() == "run_resiliency_test" }
         
         val args = mapOf(
-            "openApiSpec" to "openapi: 3.0.0",
+            "specFilePath" to "spec.yaml",
             "apiBaseUrl" to "http://localhost:8080"
         )
         val request = McpSchema.CallToolRequest("run_resiliency_test", args)
@@ -75,7 +75,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         
         verify { 
             contractTestTool.runContractTest(
-                RunTestArgs(openApiSpec = "openapi: 3.0.0", apiBaseUrl = "http://localhost:8080"),
+                RunTestArgs(specFilePath = "spec.yaml", apiBaseUrl = "http://localhost:8080"),
                 resiliency = true
             ) 
         }
@@ -138,7 +138,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         val tool = tools.first { it.tool().name() == "run_contract_test" }
         
         val args = mapOf(
-            "openApiSpec" to "openapi: 3.0.0",
+            "specFilePath" to "spec.yaml",
             "apiBaseUrl" to "http://localhost:8080"
         )
         val request = McpSchema.CallToolRequest("run_contract_test", args)
@@ -149,7 +149,7 @@ class DefaultSpecmaticMcpToolProviderTest {
 
         verify { 
             contractTestTool.runContractTest(
-                RunTestArgs(openApiSpec = "openapi: 3.0.0", apiBaseUrl = "http://localhost:8080", specFormat = "yaml"),
+                RunTestArgs(specFilePath = "spec.yaml", apiBaseUrl = "http://localhost:8080", specFormat = "yaml"),
                 resiliency = false
             ) 
         }

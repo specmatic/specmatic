@@ -32,11 +32,11 @@ class DefaultSpecmaticMcpToolProvider(
             description = "Run Specmatic contract tests against an API using OpenAPI specification",
             inputSchema = toolSchema(
                 properties = mapOf(
-                    "openApiSpec" to stringProperty("The OpenAPI specification content (YAML or JSON)"),
+                    "specFilePath" to stringProperty("Path to the OpenAPI specification file (yaml or json)"),
                     "apiBaseUrl" to stringProperty("The base URL of the API to test against"),
                     "specFormat" to stringProperty("Format of the OpenAPI spec (yaml or json)")
                 ),
-                required = listOf("openApiSpec", "apiBaseUrl")
+                required = listOf("specFilePath", "apiBaseUrl")
             )
         ) { request ->
             safeToolCall {
@@ -93,11 +93,11 @@ class DefaultSpecmaticMcpToolProvider(
             description = "Run Specmatic resiliency tests against an API using OpenAPI specification",
             inputSchema = toolSchema(
                 properties = mapOf(
-                    "openApiSpec" to stringProperty("The OpenAPI specification content (YAML or JSON)"),
+                    "specFilePath" to stringProperty("Path to the OpenAPI specification file (yaml or json)"),
                     "apiBaseUrl" to stringProperty("The base URL of the API to test against"),
                     "specFormat" to stringProperty("Format of the OpenAPI spec (yaml or json)")
                 ),
-                required = listOf("openApiSpec", "apiBaseUrl")
+                required = listOf("specFilePath", "apiBaseUrl")
             )
         ) { request ->
             safeToolCall {
