@@ -5,6 +5,7 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.ApplicationApiSource
 import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.KeyData
 import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
@@ -14,9 +15,32 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.test.reports.coverage.OpenApiCoverage
 
-internal class ApplicationApiDiscovery(
+internal fun interface ApplicationApiSourceClient {
+    fun get(applicationApiSourceUrl: String): HttpResponse
+}
+
+internal fun interface ApplicationApiSourceKeyDataProvider {
+    fun get(applicationApiSourceUrl: String): KeyData?
+}
+
+internal class HttpApplicationApiSourceClient(
     private val prettyPrint: Boolean,
-    private val keyDataFor: (String) -> KeyData?,
+    private val keyDataProvider: ApplicationApiSourceKeyDataProvider,
+) : ApplicationApiSourceClient {
+    override fun get(applicationApiSourceUrl: String): HttpResponse {
+        return HttpClient(
+            applicationApiSourceUrl,
+            log = ignoreLog,
+            prettyPrint = prettyPrint,
+            keyData = keyDataProvider.get(applicationApiSourceUrl),
+        ).use { httpClient ->
+            httpClient.execute(HttpRequest("GET"))
+        }
+    }
+}
+
+internal class ApplicationApiDiscovery(
+    private val sourceClient: ApplicationApiSourceClient,
 ) {
     fun discover(sources: List<ApplicationApiSource>, coverage: OpenApiCoverage) {
         val sourceFetches = sources.map { source ->
@@ -54,7 +78,7 @@ internal class ApplicationApiDiscovery(
     }
 
     private fun fetchApplicationApisFromOpenApiDocument(swaggerDocUrl: String): ApplicationApiFetchResult {
-        val response = executeGet(swaggerDocUrl, HttpRequest(path = "/", method = "GET"))
+        val response = sourceClient.get(swaggerDocUrl)
         if (response.status != 200) {
             return ApplicationApiFetchResult.Failure("Received HTTP status ${response.status}")
         }
@@ -68,7 +92,7 @@ internal class ApplicationApiDiscovery(
     }
 
     private fun fetchApplicationApisFromActuator(source: ApplicationApiSource.Actuator): ApplicationApiFetchResult {
-        val response = executeGet(source.url, HttpRequest("GET"))
+        val response = sourceClient.get(source.url)
         if (response.status != 200) {
             return ApplicationApiFetchResult.Failure("Received HTTP status ${response.status}")
         }
@@ -98,15 +122,6 @@ internal class ApplicationApiDiscovery(
                 }
             }
         )
-    }
-
-    private fun executeGet(url: String, request: HttpRequest) = HttpClient(
-        url,
-        log = ignoreLog,
-        prettyPrint = prettyPrint,
-        keyData = keyDataFor(url),
-    ).use { httpClient ->
-        httpClient.execute(request)
     }
 
     private fun reportApplicationApiFetchFailure(

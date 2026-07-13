@@ -95,6 +95,13 @@ open class SpecmaticJUnitSupport {
         httpInteractionsLog = httpInteractionsLog
     )
 
+    private val applicationApiDiscovery = ApplicationApiDiscovery(
+        HttpApplicationApiSourceClient(
+            prettyPrint = prettyPrint,
+            keyDataProvider = ApplicationApiSourceKeyDataProvider(::keyDataFor),
+        )
+    )
+
     private val threads: Vector<String> = Vector<String>()
 
     private fun getReportConfiguration(): ReportConfiguration {
@@ -367,7 +374,7 @@ open class SpecmaticJUnitSupport {
         val suiteAbortMessage = AtomicReference<String?>(null)
 
         try {
-            ApplicationApiDiscovery(prettyPrint, ::keyDataFor).discover(applicationApiSources, openApiCoverage)
+            applicationApiDiscovery.discover(applicationApiSources, openApiCoverage)
         } catch (exception: Throwable) {
             openApiCoverage.setEndpointsAPIFlag(false)
             logger.debug(exception, "Failed to query application API source with error")
