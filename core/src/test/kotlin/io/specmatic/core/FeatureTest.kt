@@ -9,6 +9,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.discriminator.DiscriminatorBasedItem
 import io.specmatic.core.discriminator.DiscriminatorMetadata
 import io.specmatic.core.examples.module.ExampleValidationModule
+import io.specmatic.core.examples.source.PreLoadedExampleObjects
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
@@ -26,6 +27,8 @@ import io.specmatic.stub.createStubFromContracts
 import io.specmatic.test.ScenarioTestGenerationException
 import io.specmatic.test.ScenarioTestGenerationFailure
 import io.specmatic.test.TestExecutor
+import io.specmatic.test.interceptor.ContractTestInterceptor
+import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.json.JSONObject
@@ -3728,136 +3731,6 @@ paths:
         }
     }
 
-    @Test
-    fun `should perform assertions on the response for test created from example file`(@TempDir tempDir: File) {
-        val apiSpecification = """
-        openapi: 3.0.0
-        info:
-          title: Simple API
-          version: 1.0.0
-        paths:
-          /test:
-            post:
-              summary: Test Example
-              requestBody:
-                required: true
-                content:
-                  application/json:
-                    schema:
-                      ${"$"}ref: '#/components/schemas/ExampleRequest'
-              responses:
-                '200':
-                  description: Successful response
-                  content:
-                    application/json:
-                      schema:
-                        ${"$"}ref: '#/components/schemas/ExampleResponse'
-        components:
-          schemas:
-            ExampleRequest:
-              type: object
-              required:
-                - name
-                - age
-              properties:
-                name:
-                  type: string
-                age:
-                  type: integer
-                isEligible:
-                  type: boolean
-            ExampleResponse:
-              allOf:
-                - ${"$"}ref: '#/components/schemas/ExampleRequest'
-                - type: object
-                  required:
-                    - id
-                  properties:
-                    id:
-                      type: string
-        """.trimIndent()
-        val example = """
-        {
-          "partial": {
-            "http-request": {
-              "method": "POST",
-              "path": "/test",
-              "body": {
-                "name": "(string)",
-                "isEligible": true
-              }
-            },
-            "http-response": {
-              "status": 200,
-              "body": {
-                "id": "(string)",
-                "name": "${"$"}eq(REQUEST.BODY.name)",
-                "age": "${"$"}eq(REQUEST.BODY.age)",
-                "isEligible": "${"$"}eq(REQUEST.BODY.isEligible)"
-              }
-            }
-          }
-        }
-        """.trimIndent()
-        val dictionary = """
-        ExampleRequest:
-          name: John Doe
-          age: 999
-          isEligible: false
-        """.trimIndent()
-
-        val apiSpecFile = tempDir.resolve("api.yaml").apply { writeText(apiSpecification) }
-        val examplesDir = tempDir.resolve("api_examples").apply { mkdirs() }
-        val exampleFile = examplesDir.resolve("example.json").apply { writeText(example) }
-        tempDir.resolve("api_dictionary.yaml").apply { writeText(dictionary) }
-
-        val feature = parseContractFileToFeature(apiSpecFile)
-        val contractTest = feature.createContractTestFromExampleFile(exampleFile.canonicalPath).value
-
-        val expectedRequestBody = parsedJSONObject("""{"name" : "John Doe", "isEligible" : true, "age" : 999}""")
-        val result = contractTest.runTest(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertThat(request.body).isEqualTo(expectedRequestBody)
-                return HttpResponse.ok(
-                    parsedJSONObject("""{"name" : "Jane Doe", "isEligible" : false, "age" : 123, "id": "10"}""")
-                ).also {
-                    println(request.toLogString())
-                    println()
-                    println(it.toLogString())
-                }
-            }
-        }).result
-
-        assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).isEqualToNormalizingWhitespace(
-            """
-        In scenario "Test Example. Response: Successful response"
-        API: POST /test -> 200
-        ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.BODY.name",
-                    details = "Expected \"Jane Doe\" to equal \"John Doe\"",
-                    StandardRuleViolation.VALUE_MISMATCH
-                )
-            }
-        ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.BODY.age",
-                    details = "Expected 123 to equal 999",
-                    StandardRuleViolation.VALUE_MISMATCH
-                )
-            }
-        ${
-                toViolationReportString(
-                    breadCrumb = "RESPONSE.BODY.isEligible",
-                    details = "Expected false to equal true",
-                    StandardRuleViolation.VALUE_MISMATCH
-                )
-            }
-        """.trimIndent()
-        )
-    }
-
     @Nested
     inner class GenerateDiscriminatorDetailsBasedRequestResponsePairsTest {
         private val feature = Feature(name = "feature", protocol = SpecmaticProtocol.HTTP)
@@ -4961,5 +4834,132 @@ paths:
 
         assertThat(matchedScenario?.method).isEqualTo("POST")
         assertThat(matchedScenario?.status).isEqualTo(415)
+    }
+
+    @Nested
+    inner class StrictSubstitutionConfigWiring {
+        @Test
+        fun `contract test fails unresolved substitution with strict mode`() {
+            val specFilePath = "src/test/resources/openapi/spec_with_dictionary/spec.yaml"
+            val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true)
+            every { specmaticConfig.getTestStrictMode() } returns true
+            every { specmaticConfig.getWorkflowDetails() } returns null
+
+            val examples = PreLoadedExampleObjects.transform(
+                specmaticConfig = specmaticConfig,
+                examples = listOf(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/data", body = parsedJSON("""{"name": "$(MISSING)"}""")),
+                        response = HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                    )
+                )
+            )
+
+            val feature = OpenApiSpecification.fromFile(specFilePath, specmaticConfig).toFeature()
+            val (updatedFeature) = feature.loadExternalisedExamplesAndListUnloadableExamples(
+                exampleSource = PreLoadedExampleObjects(examples = examples)
+            )
+
+            val results = ContractTestInterceptor.withLoaderForTest (
+                loader = {
+                    object : ContractTestInterceptor {
+                        override fun updateRequest(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpRequest: HttpRequest,
+                            substitution: Substitution
+                        ): InterceptResult<HttpRequest> {
+                            return InterceptResult.Processed(
+                                value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+                            )
+                        }
+
+                        override fun updateSubstitution(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpResponse: HttpResponse,
+                            substitution: Substitution
+                        ): InterceptResult<Substitution> {
+                            return InterceptResult.PassThrough
+                        }
+                    }
+                },
+                block = {
+                    updatedFeature.executeTests(object : TestExecutor {
+                        override fun execute(request: HttpRequest): HttpResponse {
+                            throw IllegalStateException("Should not be called")
+                        }
+                    })
+                }
+            )
+
+            assertThat(results.success()).withFailMessage { results.report() }.isFalse
+            assertThat(results.failureCount).withFailMessage { results.report() }.isEqualTo(1)
+            assertThat(results.report()).contains("""
+            Could not resolve expression $(MISSING) as no variable by the name MISSING was found
+            """.trimIndent())
+        }
+    }
+
+    @Nested
+    inner class LenientSubstitutionConfigWiring {
+        @Test
+        fun `contract test falls back to generated when strict mode is disabled`() {
+            val specFilePath = "src/test/resources/openapi/spec_with_dictionary/spec.yaml"
+            val examples = PreLoadedExampleObjects.transform(
+                specmaticConfig = SpecmaticConfig(),
+                examples = listOf(
+                    ScenarioStub(
+                        request = HttpRequest("POST", "/data", body = parsedJSON("""{"name": "$(MISSING)"}""")),
+                        response = HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                    )
+                )
+            )
+
+            val feature = OpenApiSpecification.fromFile(specFilePath).toFeature()
+            val (updatedFeature) = feature.loadExternalisedExamplesAndListUnloadableExamples(
+                exampleSource = PreLoadedExampleObjects(examples = examples)
+            )
+
+            val results = ContractTestInterceptor.withLoaderForTest (
+                loader = {
+                    object : ContractTestInterceptor {
+                        override fun updateRequest(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpRequest: HttpRequest,
+                            substitution: Substitution
+                        ): InterceptResult<HttpRequest> {
+                            return InterceptResult.Processed(
+                                value = originalScenario.resolveRequestSubstitutions(httpRequest, substitution)
+                            )
+                        }
+
+                        override fun updateSubstitution(
+                            testScenario: Scenario,
+                            originalScenario: Scenario,
+                            httpResponse: HttpResponse,
+                            substitution: Substitution
+                        ): InterceptResult<Substitution> {
+                            return InterceptResult.PassThrough
+                        }
+                    }
+                },
+                block = {
+                    updatedFeature.executeTests(object : TestExecutor {
+                        override fun execute(request: HttpRequest): HttpResponse {
+                            assertThat(request.body.toStringLiteral()).doesNotContain("$(MISSING_ID)")
+                            return HttpResponse(200, body = parsedJSON("""{"data": "123"}"""))
+                        }
+                    })
+                }
+            )
+
+            assertThat(results.success()).withFailMessage { results.report() }.isTrue
+            assertThat(results.successCount).withFailMessage { results.report() }.isEqualTo(1)
+            assertThat(results.report()).doesNotContain("""
+            Could not resolve expression $(MISSING) as no variable by the name MISSING was found
+            """.trimIndent())
+        }
     }
 }

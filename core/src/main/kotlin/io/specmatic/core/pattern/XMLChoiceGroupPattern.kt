@@ -5,7 +5,6 @@ import io.specmatic.core.Result
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
-import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
@@ -15,16 +14,18 @@ data class XMLChoiceGroupPattern(
     val choices: List<List<Pattern>>,
     val minOccurs: Int = 1,
     val maxOccurs: Int? = 1,
-    val concreteSequence: List<List<Pattern>>? = null,
     override val typeAlias: String? = null
-) : Pattern, SequenceType {
+) : Pattern, SequenceType, XMLChildGenerationPattern {
     override val pattern: Any
-        get() = concreteSequence ?: choices
+        get() = choices
 
     override val typeName: String = "xml-choice-group"
 
     override val memberList: MemberList
-        get() = MemberList(concreteSequence?.flatten() ?: choices.firstOrNull() ?: emptyList(), null)
+        get() = MemberList(
+            choices.firstOrNull() ?: emptyList(),
+            null
+        )
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
@@ -55,14 +56,12 @@ data class XMLChoiceGroupPattern(
             results += ConsumeResult(Success(), remaining)
         }
 
-        val maxReached = concreteSequence?.let { matchedCount >= it.size } ?: maxOccurs?.let { matchedCount >= it } ?: false
+        val maxReached = maxOccurs?.let { matchedCount >= it } ?: false
         if (maxReached) {
             return results
         }
 
-        val alternatives = concreteSequence?.let { listOf(it[matchedCount]) } ?: choices
-
-        alternatives.forEach { alternative ->
+        choices.forEach { alternative ->
             val matchedAlternative = matchAlternative(alternative, remaining, resolver)
             when (matchedAlternative.result) {
                 is Success -> {
@@ -92,51 +91,60 @@ data class XMLChoiceGroupPattern(
         remaining: List<XMLValue>,
         resolver: Resolver
     ): ConsumeResult<Value, Value> {
-        return alternative.fold(ConsumeResult<Value, Value>(Success(), remaining)) { consumeResult, pattern ->
+        val matched = alternative.fold(ConsumeResult<Value, Value>(Success(), remaining)) { consumeResult, pattern ->
             when (consumeResult.result) {
                 is Failure -> consumeResult
                 else -> pattern.matches(consumeResult.remainder, resolver)
             }
         }
+
+        return when (matched.result) {
+            is Failure -> matched.copy(remainder = remaining)
+            else -> matched
+        }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        val occurrences = concreteSequence ?: generateOccurrenceSequence(resolver)
-        val generatedNodes = occurrences.flatMap { alternative ->
-            alternative.flatMap { pattern ->
-                if (pattern.hasXMLChoiceReferenceCycle(resolver)) {
-                    return@flatMap emptyList()
-                }
+    override fun generate(resolver: Resolver): Value =
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
 
-                val generated = when {
-                    pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generate(resolver)
-                    else -> resolver.withCyclePrevention(
-                        pattern.xmlChoiceCyclePreventionPattern(),
-                        returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
-                    ) { cyclePreventedResolver ->
-                        pattern.generate(cyclePreventedResolver)
-                    } ?: return@flatMap emptyList()
-                }
-
-                when (generated) {
-                    is XMLNode -> listOf(generated)
-                    is XMLValue -> listOf(generated)
-                    else -> listOf(StringValue(generated.toStringLiteral()))
-                }
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val selectedBranches = chooseBranchesForEachOccurrence(state.decisions)
+        val generatedChoiceOccurrences = selectedBranches.fold(GeneratedNodes.none(state)) { generatedOccurrencesSoFar, selectedBranch ->
+            val generatedBranchNodes = selectedBranch.fold(GeneratedNodes.none(generatedOccurrencesSoFar.nextState)) { generatedBranchSoFar, memberPattern ->
+                generatedBranchSoFar.followedBy(generateSelectedChoiceMemberXMLNodes(memberPattern, resolver, generatedBranchSoFar.nextState))
             }
+
+            generatedOccurrencesSoFar.followedBy(generatedBranchNodes)
         }
 
-        return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
+        return generatedChoiceOccurrences
     }
 
-    private fun generateOccurrenceSequence(resolver: Resolver): List<List<Pattern>> {
-        val upperBound = maxOccurs ?: max(minOccurs, 2)
-        val count = when {
-            upperBound <= minOccurs -> minOccurs
-            else -> (minOccurs..upperBound).random()
+    private fun generateSelectedChoiceMemberXMLNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        if (pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver)) {
+            return GeneratedNodes.none(state)
         }
 
-        return 0.until(count).map { choices.random() }
+        val generated = when {
+            pattern is XMLPattern && pattern.hasTypeReference() -> pattern.generateXMLNodes(resolver, state)
+            else -> resolver.withCyclePrevention(
+                pattern.xmlChoiceCyclePreventionPattern(),
+                returnNullOnCycle = pattern.canReturnNullOnXMLChoiceCycle()
+            ) { cyclePreventedResolver ->
+                generateXMLNodesFrom(pattern, cyclePreventedResolver, state)
+            } ?: return GeneratedNodes.none(state)
+        }
+
+        return generated
+    }
+
+    private fun chooseBranchesForEachOccurrence(decisions: XMLGenerationDecisions): List<List<Pattern>> {
+        val count = decisions.numberOfXMLNodesFor(minOccurs, maxOccurs)
+        if (count <= 0 || choices.isEmpty()) return emptyList()
+
+        return 0.until(count).map {
+            choices[decisions.chooseXMLChoiceBranch(choices.size)]
+        }
     }
 
     private fun Pattern.xmlChoiceCyclePreventionPattern(): Pattern {
@@ -153,20 +161,19 @@ data class XMLChoiceGroupPattern(
         return this is XMLPattern && (occurMultipleTimes() || pattern.getNodeOccurrence() == NodeOccurrence.Optional)
     }
 
+    private fun Pattern.shouldSkipXMLChoiceDueToCycleCutoff(resolver: Resolver): Boolean =
+        hasXMLChoiceReferenceCycle(resolver)
+
     private fun XMLPattern.hasTypeReference(): Boolean = referredType != null
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {
-        if (concreteSequence != null) {
-            return sequenceOf(HasValue(this))
-        }
-
-        return concreteSequences { alternative ->
+        return representativeMaterializedSequences { choiceBranch ->
             listCombinations(
-                alternative.map { pattern ->
+                choiceBranch.map { pattern ->
                     HasValue(pattern.newBasedOnXMLChoice(row, resolver))
                 }
             ).map { it.value }
-        }.map { HasValue(copy(concreteSequence = it)) }
+        }.map { HasValue(materializedSequencePattern(it)) }
     }
 
     override fun negativeBasedOn(
@@ -176,17 +183,13 @@ data class XMLChoiceGroupPattern(
     ): Sequence<ReturnValue<Pattern>> = emptySequence()
 
     override fun newBasedOn(resolver: Resolver): Sequence<Pattern> {
-        if (concreteSequence != null) {
-            return sequenceOf(this)
-        }
-
-        return concreteSequences { alternative ->
+        return representativeMaterializedSequences { choiceBranch ->
             listCombinations(
-                alternative.map { pattern ->
+                choiceBranch.map { pattern ->
                     HasValue(pattern.newBasedOnXMLChoice(resolver))
                 }
             ).map { it.value }
-        }.map { copy(concreteSequence = it) }
+        }.map(::materializedSequencePattern)
     }
 
     private fun Pattern.newBasedOnXMLChoice(row: Row, resolver: Resolver): Sequence<Pattern?> {
@@ -215,46 +218,73 @@ data class XMLChoiceGroupPattern(
         } ?: sequenceOf(null)
     }
 
-    private fun concreteSequences(
-        expandAlternative: (List<Pattern>) -> Sequence<List<Pattern>>
-    ): Sequence<List<List<Pattern>>> {
-        val counts = occurrenceCounts()
+    private fun materializedSequencePattern(selectedBranches: List<List<Pattern>>): Pattern =
+        XMLSequencePattern(selectedBranches.flatten())
 
-        return counts.asSequence().flatMap { count ->
-            branchSelections(count).asSequence().flatMap { selection ->
-                expandSelections(selection, expandAlternative)
+    private fun representativeMaterializedSequences(
+        examplesForChoiceBranch: (List<Pattern>) -> Sequence<List<Pattern>>
+    ): Sequence<List<List<Pattern>>> {
+        return representativeOccurrenceCounts().asSequence().flatMap { occurrenceCount ->
+            representativeChoiceSelections(occurrenceCount).asSequence().flatMap { selectedBranches ->
+                materializedVariantsFor(selectedBranches, examplesForChoiceBranch)
             }
         }
     }
 
-    private fun occurrenceCounts(): List<Int> {
+    private fun representativeOccurrenceCounts(): List<Int> {
         val upperBound = maxOccurs ?: max(minOccurs, 2)
-        return (minOccurs..upperBound).toList()
+        return listOfNotNull(
+            0.takeIf { minOccurs == 0 },
+            minOccurs.takeIf { minOccurs > 0 },
+            upperBound.takeIf { upperBound > minOccurs }
+        ).distinct()
     }
 
-    private fun branchSelections(count: Int): List<List<List<Pattern>>> {
+    private fun representativeChoiceSelections(occurrenceCount: Int): List<List<List<Pattern>>> {
+        if (occurrenceCount == 0) {
+            return listOf(emptyList())
+        }
+
+        if (choices.isEmpty()) {
+            return emptyList()
+        }
+
+        return when {
+            occurrenceCount <= choices.size -> combinationsOfChoiceBranches(choices, occurrenceCount)
+            else -> listOf(0.until(occurrenceCount).map { index -> choices[index % choices.size] })
+        }
+    }
+
+    private fun combinationsOfChoiceBranches(
+        remainingChoices: List<List<Pattern>>,
+        count: Int
+    ): List<List<List<Pattern>>> {
         if (count == 0) {
             return listOf(emptyList())
         }
 
-        return branchSelections(count - 1).flatMap { partial ->
-            choices.map { choice -> partial + listOf(choice) }
+        return remainingChoices.flatMapIndexed { index, choice ->
+            combinationsOfChoiceBranches(remainingChoices.drop(index + 1), count - 1).map { rest ->
+                listOf(choice) + rest
+            }
         }
     }
 
-    private fun expandSelections(
-        selection: List<List<Pattern>>,
-        expandAlternative: (List<Pattern>) -> Sequence<List<Pattern>>
+    private fun materializedVariantsFor(
+        selectedBranches: List<List<Pattern>>,
+        examplesForChoiceBranch: (List<Pattern>) -> Sequence<List<Pattern>>
     ): Sequence<List<List<Pattern>>> {
-        if (selection.isEmpty()) {
+        if (selectedBranches.isEmpty()) {
             return sequenceOf(emptyList())
         }
 
-        val head = expandAlternative(selection.first())
-        val tail = expandSelections(selection.drop(1), expandAlternative)
+        val firstBranchExamples = examplesForChoiceBranch(selectedBranches.first())
+        val remainingBranchExamples = materializedVariantsFor(selectedBranches.drop(1), examplesForChoiceBranch)
 
-        return head.flatMap { headPatterns ->
-            tail.map { tailPatterns -> listOf(headPatterns) + tailPatterns }
+        return firstBranchExamples.flatMap { firstBranchPatterns ->
+            remainingBranchExamples.map { remainingBranchPatterns ->
+                listOf(firstBranchPatterns) + remainingBranchPatterns
+            }
         }
     }
 
@@ -263,7 +293,7 @@ data class XMLChoiceGroupPattern(
     }
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
-        return XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        return XMLNode.container(valueList.map { it as XMLValue })
     }
 
     override fun encompasses(
@@ -272,13 +302,277 @@ data class XMLChoiceGroupPattern(
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        val patterns = newBasedOn(thisResolver).take(thisResolver.maxTestRequestCombinations).toList()
-        if (patterns.isEmpty()) {
-            return Failure("Choice group had no valid expansions")
+        return encompassesResolved(
+            resolvedHop(otherPattern, otherResolver),
+            otherPattern,
+            thisResolver,
+            otherResolver,
+            typeStack
+        )
+    }
+
+    private fun encompassesResolved(
+        otherResolvedPattern: Pattern,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        return when (otherResolvedPattern) {
+            is XMLChoiceGroupPattern -> Result.fromResults(
+                listOf(occurrenceRange.encompassesRange(otherResolvedPattern.occurrenceRange)) +
+                    choices.encompassesEveryChoiceBranchFrom(
+                        otherResolvedPattern.choices,
+                        otherPattern,
+                        thisResolver,
+                        otherResolver,
+                        typeStack
+                    )
+            )
+
+            is XMLSequencePattern -> encompassesMaterializedSequence(
+                otherResolvedPattern.members,
+                thisResolver,
+                otherResolver,
+                typeStack
+            )
+
+            else -> Result.fromResults(
+                listOf(occurrenceRange.encompassesRange(exactOccurrenceRange(1))) +
+                    listOf(
+                        choices.hasBranchThatEncompasses(
+                            listOf(otherResolvedPattern),
+                            otherPattern,
+                            thisResolver,
+                            otherResolver,
+                            typeStack
+                        )
+                    )
+            )
+        }
+    }
+
+    private val occurrenceRange: XMLOccurrenceRange
+        get() = XMLOccurrenceRange(minOccurs, maxOccurs)
+
+    private fun exactOccurrenceRange(count: Int): XMLOccurrenceRange = XMLOccurrenceRange(count, count)
+
+    private fun XMLOccurrenceRange.encompassesRange(other: XMLOccurrenceRange): Result {
+        return when {
+            encompasses(other) -> Success()
+            else -> Failure("Choice occurrence range $this does not encompass $other")
+        }
+    }
+
+    private fun List<List<Pattern>>.encompassesEveryChoiceBranchFrom(
+        otherChoices: List<List<Pattern>>,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): List<Result> {
+        return otherChoices.map { otherChoice ->
+            hasBranchThatEncompasses(otherChoice, otherPattern, thisResolver, otherResolver, typeStack)
+        }
+    }
+
+    private fun List<List<Pattern>>.hasBranchThatEncompasses(
+        otherSequence: List<Pattern>,
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        val successfulResult = asSequence()
+            .map { candidateBranch ->
+                candidateBranch.encompassesWholeSequence(otherSequence, thisResolver, otherResolver, typeStack)
+            }.find { it is Success }
+
+        return successfulResult ?: Failure("Choice group does not encompass ${otherPattern.typeName}")
+    }
+
+    private fun encompassesMaterializedSequence(
+        otherSequence: List<Pattern>,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        return choices.consumeMaterializedSequence(otherSequence, 0, thisResolver, otherResolver, typeStack)
+            ?: Failure("Choice group does not encompass xml-sequence")
+    }
+
+    private fun List<List<Pattern>>.consumeMaterializedSequence(
+        remaining: List<Pattern>,
+        matchedCount: Int,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result? {
+        if (remaining.isEmpty()) {
+            return occurrenceRange.encompassesRange(exactOccurrenceRange(matchedCount))
         }
 
-        return patterns.asSequence().map { pattern ->
-            pattern.encompasses(otherPattern, thisResolver, otherResolver, typeStack)
-        }.find { it is Success } ?: Failure("Choice group does not encompass ${otherPattern.typeName}")
+        val maxReached = maxOccurs?.let { matchedCount >= it } ?: false
+        if (maxReached) {
+            return null
+        }
+
+        val results = mapNotNull { choice ->
+            val consumedChoice = choice.consumeEncompassedPrefix(
+                remaining,
+                thisResolver,
+                otherResolver,
+                typeStack
+            )
+            val consumed = remaining.size - consumedChoice.remainder.size
+
+            when {
+                consumedChoice.result is Success && consumed > 0 ->
+                    consumeMaterializedSequence(
+                        consumedChoice.remainder,
+                        matchedCount + 1,
+                        thisResolver,
+                        otherResolver,
+                        typeStack
+                    )
+
+                else -> null
+            }
+        }
+
+        return results.find { it is Success } ?: results.firstOrNull()
+    }
+
+    private fun List<Pattern>.encompassesWholeSequence(
+        otherSequence: List<Pattern>,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        val result = consumeEncompassedPrefix(otherSequence, thisResolver, otherResolver, typeStack)
+
+        return when {
+            result.result is Failure -> result.result
+            result.remainder.isNotEmpty() -> Failure("Choice branch length $size does not encompass ${otherSequence.size}")
+            else -> Success()
+        }
+    }
+
+    private fun List<Pattern>.consumeEncompassedPrefix(
+        otherSequence: List<Pattern>,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): ConsumeResult<Pattern, Pattern> {
+        return fold(ConsumeResult<Pattern, Pattern>(Success(), otherSequence)) { consumeResult, myPattern ->
+            when (consumeResult.result) {
+                is Failure -> consumeResult
+                is Success -> myPattern.encompasses(
+                    consumeResult.remainder,
+                    thisResolver,
+                    otherResolver,
+                    "Choice branch length $size does not encompass ${otherSequence.size}",
+                    typeStack
+                )
+            }
+        }
+    }
+}
+
+data class XMLSequencePattern(
+    val members: List<Pattern>,
+    override val typeAlias: String? = null
+) : Pattern, SequenceType, XMLChildGenerationPattern {
+    override val pattern: Any
+        get() = members
+
+    override val typeName: String = "xml-sequence"
+
+    override val memberList: MemberList
+        get() = MemberList(members, null)
+
+    override fun matches(sampleData: Value?, resolver: Resolver): Result {
+        return when (sampleData) {
+            is XMLNode -> matches(sampleData.childNodes, resolver).result
+            null -> matches(emptyList(), resolver).result
+            else -> Failure("Expected XML but got ${sampleData.displayableType()}")
+        }
+    }
+
+    override fun matches(sampleData: List<Value>, resolver: Resolver): ConsumeResult<Value, Value> {
+        return members.fold(ConsumeResult<Value, Value>(Success(), sampleData)) { consumeResult, pattern ->
+            when (consumeResult.result) {
+                is Failure -> consumeResult
+                is Success -> pattern.matches(consumeResult.remainder, resolver)
+            }
+        }
+    }
+
+    override fun generate(resolver: Resolver): Value =
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
+
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val generatedSequenceMembers = members.fold(GeneratedNodes.none(state)) { generatedMembersSoFar, memberPattern ->
+            generatedMembersSoFar.followedBy(generateSequenceMemberXMLNodes(memberPattern, resolver, generatedMembersSoFar.nextState))
+        }
+
+        return generatedSequenceMembers
+    }
+
+    private fun generateSequenceMemberXMLNodes(pattern: Pattern, resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        return generateXMLNodesFrom(pattern, resolver, state)
+    }
+
+    override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> =
+        sequenceOf(HasValue(this))
+
+    override fun negativeBasedOn(
+        row: Row,
+        resolver: Resolver,
+        config: NegativePatternConfiguration
+    ): Sequence<ReturnValue<Pattern>> = emptySequence()
+
+    override fun newBasedOn(resolver: Resolver): Sequence<Pattern> = sequenceOf(this)
+
+    override fun parse(value: String, resolver: Resolver): Value {
+        return XMLPattern("<sequence>$value</sequence>").parse(value, resolver)
+    }
+
+    override fun listOf(valueList: List<Value>, resolver: Resolver): Value {
+        return XMLNode.container(valueList.map { it as XMLValue })
+    }
+
+    override fun encompasses(
+        otherPattern: Pattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        val otherSequence = when (val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)) {
+            is XMLSequencePattern -> otherResolvedPattern.members
+            is SequenceType -> otherResolvedPattern.memberList.patternList()
+            else -> listOf(otherResolvedPattern)
+        }
+
+        val consumedSequence = members.fold(ConsumeResult<Pattern, Pattern>(Success(), otherSequence)) { consumeResult, member ->
+            when (consumeResult.result) {
+                is Failure -> consumeResult
+                is Success -> member.encompasses(
+                    consumeResult.remainder,
+                    thisResolver,
+                    otherResolver,
+                    "XML sequence length ${members.size} does not encompass ${otherSequence.size}",
+                    typeStack
+                )
+            }
+        }
+
+        return when {
+            consumedSequence.result is Failure -> consumedSequence.result
+            consumedSequence.remainder.isNotEmpty() ->
+                Failure("XML sequence length ${members.size} does not encompass ${otherSequence.size}")
+
+            else -> Success()
+        }
     }
 }

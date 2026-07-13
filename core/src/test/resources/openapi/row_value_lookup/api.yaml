@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: Row Value Lookup API
+  version: 1.0.0
+paths:
+  /orders/{orderId}:
+    post:
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: order-123
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: page-7
+        - name: X-Tenant
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: north
+        - name: Random-String
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: A+
+            minLength: 1
+            maxLength: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  pattern: Sherlock
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - result
+                properties:
+                  result:
+                    type: string
+        '400':
+          description: bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string

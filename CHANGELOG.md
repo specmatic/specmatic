@@ -30,11 +30,31 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased (2.48.1)
+## 2.50.0 (2026-07-06)
+
+### Added
+
+- Added support the following WSDL features
+  - substitution groups
+  - polymorphic type extension matching
+  - abstract types and elements
+- WSDL parser performance was improved. Loading of complicated WSDLs should now be much snappier
+- Fixes to handle SOAPAction header case insensitively in mock, and fixes to other edge cases
+
+## 2.49.1 (2026-06-30)
+
+### Changed
+
+- Response assertions in contract tests should not run for negative tests
+
+## 2.49.0 (2026-06-29)
 
 ### Added
 
 - Added example preprocessor hooks so loaded examples can be transformed before validation and can attach derived data to the active stub scenario when needed.
+- Added support for interpolated substitution expressions, allowing values to be filled in and extracted from substrings.
+- WSDL parser optimisations
+- Improvements to xsi:type handling (WSDL/SOAP)
 
 ### Changed
 
@@ -43,6 +63,8 @@ Each release section should stand on its own and describe the behavior shipped i
 - Improved config-driven target resolution so Specmatic preserves scheme, host, port, path-prefix, and certificate details separately instead of flattening them into a base URL, which keeps more run and mock configurations intact.
 - Improved bundled CTRF reporting so coverage execution details now include spec-level coverage metrics and match operations back to the correct spec more reliably across absolute, relative, and normalized paths.
 - Improved bundled backward-compatibility HTML reporting so breakages in shared specs are attributed to the shared spec that actually changed, instead of being misreported against a referring spec when only one consumer is affected.
+- Substitutions to be lenient by default, i.e. missing variables now use auto-generated values, while enabling `strictMode` restores the previous behavior of failing instead of generating.
+- Substitutions stored values and data lookups can reuse composite JSON objects and arrays, and unresolved substitutions now fall back to dictionary-backed generation when available.
 
 ## 2.48.0 (2026-06-18)
 
@@ -53,7 +75,6 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Changed
 
-- Improved validation and diagnostics for `405` and `415` rejection examples so Specmatic now fails more clearly when examples are missing, unreachable, or tied to the wrong request method or media type.
 - Improved OpenAPI handling for undeclared request variants by using valid XML placeholders for unsupported media types and by correctly handling schemas wrapped in a single `allOf`.
 
 ## 2.47.0 (2026-06-16)

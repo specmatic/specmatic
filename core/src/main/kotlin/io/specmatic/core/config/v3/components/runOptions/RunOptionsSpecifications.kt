@@ -127,7 +127,14 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
 
     @JsonIgnore
     override fun isNoOpOverride(): Boolean {
-        return spec.baseUrl == null && spec.host == null && spec.port == null && spec.overlayFilePath == null && spec.securitySchemes == null
+        return spec.baseUrl == null &&
+            spec.host == null &&
+            spec.port == null &&
+            spec.overlayFilePath == null &&
+            spec.securitySchemes == null &&
+            spec.swaggerUrl == null &&
+            spec.swaggerUiBaseUrl == null &&
+            spec.actuatorUrl == null
     }
 
     @JsonIgnore
@@ -149,5 +156,8 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
         val port: Int? = null,
         val overlayFilePath: String? = null,
         val securitySchemes: Map<String, SecuritySchemeConfigurationV3>? = null,
+        val swaggerUrl: String? = null,
+        val swaggerUiBaseUrl: String? = null,
+        val actuatorUrl: String? = null,
     )
 }

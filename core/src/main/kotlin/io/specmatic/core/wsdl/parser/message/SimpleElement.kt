@@ -3,6 +3,7 @@ package io.specmatic.core.wsdl.parser.message
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
+import io.specmatic.core.pattern.WSDLTypeDerivationMethod
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.StringValue
@@ -23,12 +24,20 @@ data class SimpleElement(
     val simpleTypeNode: XMLNode? = null
 ) : WSDLElement {
     override fun deriveSpecmaticTypes(specmaticTypeName: String, existingTypes: Map<String, Pattern>, typeStack: Set<String>): WSDLTypeInfo {
-        return createSimpleTypeInfo(
+        val typeInfo = createSimpleTypeInfo(
             typeSourceNode = simpleTypeNode ?: element,
             wsdl = wsdl,
             existingTypes = existingTypes,
             actualElement = element
         )
+
+        return when {
+            (simpleTypeNode ?: element).name == "simpleType" -> {
+                val resolvedPattern = typeInfo.effectiveMembers.singleOrNull() ?: return typeInfo
+                typeInfo.copy(types = typeInfo.types.plus(specmaticTypeName to resolvedPattern))
+            }
+            else -> typeInfo
+        }
     }
 
     override fun getSOAPPayload(
@@ -38,7 +47,13 @@ data class SimpleElement(
         namespaces: Map<String, String>,
         typeInfo: WSDLTypeInfo
     ): SOAPPayload {
-        return SimpleTypedSOAPPayload(soapMessageType, typeInfo.nodes.first() as XMLNode, namespaces)
+        val bodyNode = typeInfo.nodes.first() as XMLNode
+        return SimpleTypedSOAPPayload(
+            soapMessageType,
+            bodyNode,
+            namespaces,
+            typeInfo.members.firstOrNull() as? XMLPattern ?: XMLPattern(bodyNode),
+        )
     }
 
 }
@@ -107,9 +122,16 @@ fun createSimpleTypeInfo(
     val resolvedElement = actualElement ?: typeSourceNode
 
     val namespaceUri = resolvedElement.fullyQualifiedName(wsdl).namespace
-    return createSimpleType(typeSourceNode, wsdl, resolvedElement).let { (nodes, prefix) ->
-        toTypeInfo(nodes = nodes, existingTypes = existingTypes, prefix = prefix, namespaceUri = namespaceUri)
+    val typeInfo = createSimpleType(typeSourceNode, wsdl, resolvedElement).let { (nodes, prefix) ->
+        toTypeInfo(
+            nodes = nodes,
+            existingTypes = existingTypes,
+            prefix = prefix,
+            namespaceUri = namespaceUri,
+        )
     }
+
+    return typeInfo.withWSDLTypeMetadata(typeSourceNode, wsdl)
 }
 
 fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = null): Pair<List<XMLValue>, String?> {
@@ -124,17 +146,82 @@ fun createSimpleType(element: XMLNode, wsdl: WSDL, actualElement: XMLNode? = nul
     return Pair(listOf(XMLNode(fqname.qName, specmaticAttributes, listOf(value))), prefix)
 }
 
-private fun toTypeInfo(nodes: List<XMLValue>, existingTypes: Map<String, Pattern>, prefix: String?, namespaceUri: String? = null): WSDLTypeInfo {
+private fun toTypeInfo(
+    nodes: List<XMLValue>,
+    existingTypes: Map<String, Pattern>,
+    prefix: String?,
+    namespaceUri: String? = null,
+): WSDLTypeInfo {
     val members = nodes.map {
-        XMLPattern(it as XMLNode).plusNamespaceUri(namespaceUri)
+        XMLPattern(it as XMLNode)
+            .plusNamespaceUri(namespaceUri)
     }
 
     return if (prefix != null) {
-        WSDLTypeInfo(nodes = nodes, members = members, types = existingTypes, namespacePrefixes = setOf(prefix))
+        WSDLTypeInfo(
+            nodes = nodes,
+            members = members,
+            types = existingTypes,
+            namespacePrefixes = setOf(prefix),
+        )
     } else {
-        WSDLTypeInfo(nodes = nodes, members = members, types = existingTypes)
+        WSDLTypeInfo(
+            nodes = nodes,
+            members = members,
+            types = existingTypes,
+        )
     }
 }
+
+private fun WSDLTypeInfo.withWSDLTypeMetadata(typeSourceNode: XMLNode, wsdl: WSDL): WSDLTypeInfo {
+    val wsdlType = typeSourceNode.typeMetadataName(wsdl)
+        ?.takeUnless { it.namespace == primitiveNamespace || (it.namespace.isBlank() && it.localName.isKnownPrimitiveType()) }
+    val baseType = typeSourceNode.baseTypeMetadataName()
+
+    return copy(
+        members = members.withWSDLTypeMetadata(wsdlType, baseType),
+        wsdlTypeNamespace = wsdlType?.namespace,
+        wsdlTypeName = wsdlType?.localName,
+        wsdlBaseTypeNamespace = baseType?.namespace,
+        wsdlBaseTypeName = baseType?.localName,
+        wsdlBaseTypeDerivationMethod = typeSourceNode.baseTypeDerivationMethod(),
+    )
+}
+
+private fun List<Pattern>.withWSDLTypeMetadata(
+    wsdlType: FullyQualifiedName?,
+    baseType: FullyQualifiedName?
+): List<Pattern> =
+    map { pattern ->
+        when (pattern) {
+            is XMLPattern -> pattern.copy(
+                pattern = pattern.pattern.copy(
+                    wsdlTypeNamespace = wsdlType?.namespace,
+                    wsdlTypeName = wsdlType?.localName,
+                    wsdlBaseTypeNamespace = baseType?.namespace,
+                    wsdlBaseTypeName = baseType?.localName,
+                    wsdlBaseTypeDerivationMethod = WSDLTypeDerivationMethod.Restriction.takeIf { baseType != null },
+                )
+            )
+            else -> pattern
+        }
+    }
+
+private fun XMLNode.typeMetadataName(wsdl: WSDL): FullyQualifiedName? {
+    return when (name) {
+        "simpleType" -> namedTypeFullyQualifiedName(wsdl)
+        else -> attributes["type"]?.let { simpleTypeQualifiedNameFromAttribute("type") }
+    }
+}
+
+private fun XMLNode.baseTypeMetadataName(): FullyQualifiedName? {
+    return restrictionNode(this)?.let { restriction ->
+        restriction.attributes["base"]?.let { restriction.simpleTypeQualifiedNameFromAttribute("base") }
+    }
+}
+
+private fun XMLNode.baseTypeDerivationMethod(): WSDLTypeDerivationMethod? =
+    WSDLTypeDerivationMethod.Restriction.takeIf { restrictionNode(this)?.attributes?.containsKey("base") == true }
 
 private fun restrictionFacets(element: XMLNode): StringRestrictions {
     val restrictionNode = restrictionNode(element) ?: return StringRestrictions()

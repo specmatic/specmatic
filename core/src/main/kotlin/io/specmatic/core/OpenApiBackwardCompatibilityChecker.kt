@@ -3,7 +3,7 @@ package io.specmatic.core
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
-import io.specmatic.test.asserts.toFailure
+import io.specmatic.core.pattern.toFailure
 import java.io.File
 import java.util.Collections
 import java.util.IdentityHashMap

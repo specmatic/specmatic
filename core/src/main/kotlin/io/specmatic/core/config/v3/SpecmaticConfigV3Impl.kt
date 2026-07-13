@@ -3,12 +3,14 @@ package io.specmatic.core.config.v3
 import io.specmatic.conversions.SPECMATIC_BASIC_AUTH_TOKEN
 import io.specmatic.conversions.SPECMATIC_OAUTH2_TOKEN
 import io.specmatic.core.APIKeySecuritySchemeConfiguration
+import io.specmatic.core.ApplicationApiSource
 import io.specmatic.core.AttributeSelectionPattern
 import io.specmatic.core.AttributeSelectionPatternDetails
 import io.specmatic.core.Auth
 import io.specmatic.core.BasicAuthSecuritySchemeConfiguration
 import io.specmatic.core.CUSTOM_IMPLICIT_STUB_BASE_ENV_VAR
 import io.specmatic.core.CUSTOM_IMPLICIT_STUB_BASE_PROPERTY
+import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.CertRegistry
 import io.specmatic.core.Configuration
 import io.specmatic.core.OpenAPISecurityConfiguration
@@ -26,6 +28,7 @@ import io.specmatic.core.SourceProvider
 import io.specmatic.core.SpecificationSource
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getEffectiveBranchForSource
 import io.specmatic.core.TESTS_DIRECTORY_ENV_VAR
 import io.specmatic.core.TESTS_DIRECTORY_PROPERTY
@@ -463,6 +466,29 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)?.actuatorUrl ?: getStringValue(TEST_ENDPOINTS_API)
     }
 
+    override fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource? {
+        if (specType != SpecType.OPENAPI) return null
+
+        val openApiTestConfig = specmaticConfig.systemUnderTest?.getOpenApiTestConfig(resolver)
+
+        val specSpecificOpenApiTestConfig = openApiTestConfig?.let { openApiConfig ->
+            specmaticConfig.systemUnderTest
+                .getSpecDefinitionFor(specFile, resolver)
+                ?.getSpecificationId()
+                ?.let(openApiConfig::getMatchingSpecification)
+                ?.let { it as? OpenApiRunOptionsSpecifications }
+        }
+
+        return specSpecificOpenApiTestConfig?.let(::applicationApiSourceFor)
+            ?: getActuatorUrl()?.let(ApplicationApiSource::Actuator)
+            ?: openApiTestConfig?.swaggerUrl?.let(ApplicationApiSource::Swagger)
+            ?: (openApiTestConfig?.swaggerUiBaseUrl ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+    }
+
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig {
         val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
         val resiliencyTestSuite = if (onlyPositive) ResiliencyTestSuite.positiveOnly else ResiliencyTestSuite.all
@@ -807,6 +833,26 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return this.copy(specmaticConfig = updatedConfig)
     }
 
+    override fun withCanonicalizedDefinitionFilesystemSources(workingDirectory: File): SpecmaticConfig {
+        val systemUnderTest = specmaticConfig.systemUnderTest ?: emptyTestServiceConfig()
+        val updatedSut = systemUnderTest.withCanonicalizedDefinitionFilesystemSources(resolver, workingDirectory)
+
+        val dependencies = specmaticConfig.dependencies ?: emptyMockServiceConfig()
+        val updatedDependencies = dependencies.withCanonicalizedDefinitionFilesystemSources(resolver, workingDirectory)
+
+        val updatedComponents = specmaticConfig.components?.let { components ->
+            val updatedSources = components.sources?.mapValues { (_, source) -> source.withCanonicalizedSources(workingDirectory) }
+            components.copy(sources = updatedSources)
+        }
+
+        val updatedConfig = specmaticConfig.copy(systemUnderTest = updatedSut, dependencies = updatedDependencies, components = updatedComponents)
+        return this.copy(specmaticConfig = updatedConfig)
+    }
+
+    override fun toYaml(): String {
+        return yamlMapper.writeValueAsString(this.specmaticConfig)
+    }
+
     override fun testSpecPathFromConfigFor(specFile: File): String? {
         val specDefinition = specmaticConfig.systemUnderTest?.getSpecDefinitionFor(specFile, resolver)
         return specDefinition?.getSpecificationPath()
@@ -846,4 +892,15 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         val schemes = specData.getSecuritySchemes()?.mapValues { it.value.toSecuritySchemeConfiguration() } ?: return null
         return SecurityConfiguration(OpenAPI = OpenAPISecurityConfiguration(schemes))
     }
+}
+
+private fun defaultSwaggerUrlFor(baseUrl: String): String {
+    return baseUrl.trimEnd('/') + DEFAULT_SWAGGER_SPEC_YAML_PATH
+}
+
+private fun applicationApiSourceFor(runOptions: OpenApiRunOptionsSpecifications): ApplicationApiSource? {
+    return runOptions.spec.actuatorUrl?.let(ApplicationApiSource::Actuator)
+        ?: runOptions.spec.swaggerUrl?.let(ApplicationApiSource::Swagger)
+        ?: runOptions.getServerOrigin("localhost")?.toBaseUrl()?.let(::defaultSwaggerUrlFor)?.let(ApplicationApiSource::Swagger)
+        ?: runOptions.spec.swaggerUiBaseUrl?.let(ApplicationApiSource::SwaggerUi)
 }

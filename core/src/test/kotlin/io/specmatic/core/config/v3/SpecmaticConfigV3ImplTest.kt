@@ -1,16 +1,18 @@
 package io.specmatic.core.config.v3
 
+import io.specmatic.core.ApplicationApiSource
 import io.specmatic.core.Configuration
-import io.specmatic.core.SourceProvider
-import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.KeyData
 import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.SourceProvider
+import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.toSpecmaticConfig
+import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
 import io.specmatic.core.config.v3.components.services.Definition
 import io.specmatic.core.config.v3.components.services.SpecificationDefinition
 import io.specmatic.core.config.v3.components.services.TestServiceConfig
-import io.specmatic.core.config.v3.components.runOptions.TestRunOptions
 import io.specmatic.core.config.v3.components.settings.TestSettings
 import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.utilities.FileAssociation
@@ -56,6 +58,455 @@ class SpecmaticConfigV3ImplTest {
     @ParameterizedTest
     @MethodSource("testData")
     fun `should return similar values between v2 and v3 test data`(testCase: TestCase) = testCase.run(tempDir)
+
+    @Test
+    fun `should not resolve swagger url from an arbitrary openapi run options spec`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: api-spec
+                            path: api.yaml
+                runOptions:
+                  openapi:
+                    specs:
+                      - spec:
+                          id: api-spec
+                          swaggerUrl: http://localhost:8080/v3/api-docs
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestSwaggerUrl()).isNull()
+    }
+
+    @Test
+    fun `should prefer openapi run options swagger url over spec swagger url`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: api-spec
+                            path: api.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/top-level-api-docs
+                    specs:
+                      - spec:
+                          id: api-spec
+                          swaggerUrl: http://localhost:8080/spec-api-docs
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestSwaggerUrl()).isEqualTo("http://localhost:8080/top-level-api-docs")
+    }
+
+    @Test
+    fun `should use matching spec application api sources before top level sources`() {
+        val specDir = tempDir.resolve("spec-application-api-sources").apply { mkdirs() }
+        val swaggerSpec = specDir.resolve("swagger.yaml").apply { writeText("openapi: 3.0.0") }
+        val swaggerUiSpec = specDir.resolve("swagger-ui.yaml").apply { writeText("openapi: 3.0.0") }
+        val baseUrlSpec = specDir.resolve("base-url.yaml").apply { writeText("openapi: 3.0.0") }
+        val hostAndPortSpec = specDir.resolve("host-and-port.yaml").apply { writeText("openapi: 3.0.0") }
+        val portOnlySpec = specDir.resolve("port-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val actuatorSpec = specDir.resolve("actuator.yaml").apply { writeText("openapi: 3.0.0") }
+        val hostOnlySpec = specDir.resolve("host-only.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: swagger
+                            path: swagger.yaml
+                        - spec:
+                            id: swagger-ui
+                            path: swagger-ui.yaml
+                        - spec:
+                            id: base-url
+                            path: base-url.yaml
+                        - spec:
+                            id: host-and-port
+                            path: host-and-port.yaml
+                        - spec:
+                            id: port-only
+                            path: port-only.yaml
+                        - spec:
+                            id: actuator
+                            path: actuator.yaml
+                        - spec:
+                            id: host-only
+                            path: host-only.yaml
+                runOptions:
+                  openapi:
+                    actuatorUrl: http://top.example/actuator
+                    swaggerUrl: http://top.example/openapi.yaml
+                    swaggerUiBaseUrl: http://top.example/swagger-ui
+                    specs:
+                      - spec:
+                          id: swagger
+                          swaggerUrl: http://swagger.example/openapi.yaml
+                      - spec:
+                          id: swagger-ui
+                          swaggerUiBaseUrl: http://swagger-ui.example
+                      - spec:
+                          id: base-url
+                          baseUrl: http://base-url.example
+                      - spec:
+                          id: host-and-port
+                          host: host-and-port.example
+                          port: 8083
+                      - spec:
+                          id: port-only
+                          port: 8084
+                      - spec:
+                          id: actuator
+                          actuatorUrl: http://actuator.example/mappings
+                      - spec:
+                          id: host-only
+                          host: host-only.example
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(swaggerSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://swagger.example/openapi.yaml"))
+        assertThat(config.getTestApplicationApiSource(swaggerUiSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://swagger-ui.example"))
+        assertThat(config.getTestApplicationApiSource(baseUrlSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://base-url.example$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(hostAndPortSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://host-and-port.example:8083$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(portOnlySpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8084$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(actuatorSpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Actuator("http://actuator.example/mappings"))
+        assertThat(config.getTestApplicationApiSource(hostOnlySpec, SpecType.OPENAPI, "http://runtime.example"))
+            .isEqualTo(ApplicationApiSource.Actuator("http://top.example/actuator"))
+    }
+
+    @Test
+    fun `should not return spec application api sources from top level getters`() {
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - spec:
+                            id: api
+                            path: api.yaml
+                runOptions:
+                  openapi:
+                    specs:
+                      - spec:
+                          id: api
+                          actuatorUrl: http://spec.example/actuator
+                          swaggerUiBaseUrl: http://spec.example/swagger-ui
+            """.trimIndent()
+        )
+
+        assertThat(config.getActuatorUrl()).isNull()
+        assertThat(config.getTestSwaggerUIBaseUrl()).isNull()
+    }
+
+    @Test
+    fun `should resolve matching spec swagger url before top level actuator`() {
+        val specDir = tempDir.resolve("specs").apply { mkdirs() }
+        val orderSpec = specDir.resolve("order.yaml").apply { writeText("openapi: 3.0.0") }
+        val cartSpec = specDir.resolve("cart.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: order
+                            path: order.yaml
+                        - spec:
+                            id: cart
+                            path: cart.yaml
+                runOptions:
+                  openapi:
+                    actuatorUrl: http://localhost:8080/actuator
+                    swaggerUrl: http://localhost:8080/default-api-docs
+                    swaggerUiBaseUrl: http://localhost:8080/swagger-ui
+                    specs:
+                      - spec:
+                          id: order
+                          swaggerUrl: http://localhost:9090/order-and-cart-api-docs
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090/order-and-cart-api-docs"))
+        assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Actuator("http://localhost:8080/actuator"))
+    }
+
+    @Test
+    fun `should resolve application api source using spec swagger url before openapi defaults`() {
+        val specDir = tempDir.resolve("spec-swagger-url").apply { mkdirs() }
+        val orderSpec = specDir.resolve("order.yaml").apply { writeText("openapi: 3.0.0") }
+        val cartSpec = specDir.resolve("cart.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: order
+                            path: order.yaml
+                        - spec:
+                            id: cart
+                            path: cart.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/default-api-docs
+                    swaggerUiBaseUrl: http://localhost:8080/swagger-ui
+                    specs:
+                      - spec:
+                          id: order
+                          swaggerUrl: http://localhost:9090/order-and-cart-api-docs
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090/order-and-cart-api-docs"))
+        assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8080/default-api-docs"))
+    }
+
+    @Test
+    fun `should derive application api source from spec base url before openapi swagger url`() {
+        val specDir = tempDir.resolve("spec-base-url").apply { mkdirs() }
+        val orderSpec = specDir.resolve("order.yaml").apply { writeText("openapi: 3.0.0") }
+        val cartSpec = specDir.resolve("cart.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: order
+                            path: order.yaml
+                        - spec:
+                            id: cart
+                            path: cart.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/default-api-docs
+                    specs:
+                      - spec:
+                          id: order
+                          baseUrl: http://localhost:9090/
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090$DEFAULT_SWAGGER_SPEC_YAML_PATH"))
+        assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:8080/default-api-docs"))
+    }
+
+    @Test
+    fun `should resolve application api sources using spec swagger url overrides and openapi default`() {
+        val specDir = tempDir.resolve("spec-swagger-url-overrides").apply { mkdirs() }
+        val orderSpec = specDir.resolve("order.yaml").apply { writeText("openapi: 3.0.0") }
+        val cartSpec = specDir.resolve("cart.yaml").apply { writeText("openapi: 3.0.0") }
+        val customerSpec = specDir.resolve("customer.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - spec:
+                            id: order
+                            path: order.yaml
+                        - spec:
+                            id: cart
+                            path: cart.yaml
+                        - spec:
+                            id: customer
+                            path: customer.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:9000/v3/api-docs/customer
+                    specs:
+                      - spec:
+                          id: order
+                          swaggerUrl: http://localhost:9090/v3/api-docs/order
+                      - spec:
+                          id: cart
+                          swaggerUrl: http://localhost:9010/v3/api-docs/cart
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(orderSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9090/v3/api-docs/order"))
+        assertThat(config.getTestApplicationApiSource(cartSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9010/v3/api-docs/cart"))
+        assertThat(config.getTestApplicationApiSource(customerSpec, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Swagger("http://localhost:9000/v3/api-docs/customer"))
+    }
+
+    @Test
+    fun `should resolve application api source by source type priority when urls match`() {
+        val specDir = tempDir.resolve("same-url-specs").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+                    actuatorUrl: http://localhost:8080/apis
+                    swaggerUrl: http://localhost:8080/apis
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.Actuator("http://localhost:8080/apis"))
+    }
+
+    @Test
+    fun `should resolve application api source using swagger UI base url before fallback`() {
+        val specDir = tempDir.resolve("swagger-ui-fallback").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+                    swaggerUiBaseUrl: http://localhost:8080/swagger-ui
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://localhost:8080/swagger-ui"))
+    }
+
+    @Test
+    fun `should resolve application api source using fallback swagger UI base url`() {
+        val specDir = tempDir.resolve("fallback-swagger-ui").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+            """.trimIndent()
+        )
+
+        assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+            .isEqualTo(ApplicationApiSource.SwaggerUi("http://localhost:9000"))
+    }
+
+    @Test
+    fun `should resolve application api source using endpointsAPI property before swagger sources`() {
+        val specDir = tempDir.resolve("endpoints-api-property").apply { mkdirs() }
+        val specFile = specDir.resolve("api.yaml").apply { writeText("openapi: 3.0.0") }
+        val config = v3Config(
+            """
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ${specDir.canonicalPath}
+                      specs:
+                        - api.yaml
+                runOptions:
+                  openapi:
+                    swaggerUrl: http://localhost:8080/apis
+            """.trimIndent()
+        )
+
+        System.setProperty("endpointsAPI", "http://localhost:8080/actuator")
+        try {
+            assertThat(config.getTestApplicationApiSource(specFile, SpecType.OPENAPI, "http://localhost:9000"))
+                .isEqualTo(ApplicationApiSource.Actuator("http://localhost:8080/actuator"))
+        } finally {
+            System.clearProperty("endpointsAPI")
+        }
+    }
 
     @Test
     fun `should resolve test certificate from v3 run options`() {
@@ -718,6 +1169,84 @@ class SpecmaticConfigV3ImplTest {
             val entries = updated.getSpecificationSources().flatMap { it.test + it.mock }
             assertThat(entries).isNotEmpty()
             assertThat(entries.map { it.matchBranch }).containsOnly(true)
+        }
+
+        @Test
+        fun `withResolvedFilesystemDirectories should resolve relative directories against working directory`() {
+            writeSpec("specs/test.yaml")
+            val workingDir = File("/tmp/specmatic-test-workdir").canonicalFile
+            val config = v3Config("""
+            version: 3
+            systemUnderTest:
+              service:
+                definitions:
+                  - definition:
+                      source:
+                        filesystem:
+                          directory: ./specs
+                      specs:
+                        - test.yaml
+            """.trimIndent())
+
+            val resolved = config.withCanonicalizedDefinitionFilesystemSources(workingDir)
+            val entries = resolved.getSpecificationSources().flatMap { it.test }
+            assertThat(entries).isNotEmpty()
+            assertThat(entries.map { it.directory }).containsOnly(workingDir.resolve("specs").canonicalPath)
+
+            val yaml = resolved.toYaml()
+            assertThat(yaml).contains(workingDir.resolve("specs").canonicalPath)
+        }
+
+        @Test
+        fun `toYaml should serialize and deserialize protobuf runOptions correctly`(@TempDir tempDir: File) {
+            val file = tempDir.resolve("test_proto.yaml").apply {
+                writeText("""
+                version: 3
+                components:
+                  runOptions:
+                    orderAndProductGrpcServiceMock:
+                      protobuf:
+                        type: mock
+                        host: localhost
+                        port: 10000
+                """.trimIndent())
+            }
+            val config = file.toSpecmaticConfig()
+            val serialized = config.toYaml()
+            println("SERIALIZED YAML:\n${serialized}")
+            val serializedFile = tempDir.resolve("serialized_proto.yaml").apply { writeText(serialized) }
+            val deserialized = serializedFile.toSpecmaticConfig()
+            assertThat(deserialized).isNotNull
+        }
+
+        @Test
+        fun `toYaml should serialize and deserialize wsdl, asyncapi, and graphql runOptions correctly`(@TempDir tempDir: File) {
+            val file = tempDir.resolve("test_all.yaml").apply {
+                writeText("""
+                version: 3
+                components:
+                  runOptions:
+                    myServiceMock:
+                      wsdl:
+                        type: mock
+                        host: localhost
+                        port: 8080
+                      asyncapi:
+                        type: mock
+                        inMemoryBroker:
+                          host: localhost
+                          port: 9092
+                      graphqlsdl:
+                        type: mock
+                        host: localhost
+                        port: 4000
+                """.trimIndent())
+            }
+            val config = file.toSpecmaticConfig()
+            val serialized = config.toYaml()
+            val serializedFile = tempDir.resolve("serialized_all.yaml").apply { writeText(serialized) }
+            val deserialized = serializedFile.toSpecmaticConfig()
+            assertThat(deserialized).isNotNull
         }
 
         @Test

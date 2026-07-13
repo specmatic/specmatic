@@ -12,7 +12,7 @@ data class ListPattern(
     override val example: List<String?>? = null,
     override val extensions: Map<String, Any>  = emptyMap(),
     val itemsPointer: String? = null
-) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer {
+) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
     override val memberList: MemberList
         get() = MemberList(emptyList(), pattern)
 
@@ -77,12 +77,13 @@ data class ListPattern(
         resolver: Resolver,
         key: String?
     ): ReturnValue<Value> {
-        val resolved = runCatching { substitution.resolveIfLookup(value, this) }.getOrElse { e -> return HasException(e) }
+        val resolved = substitution.substitute(value, this, resolver).unwrapOrReturn { return it.cast() }
         val resolvedValue = resolved as? JSONArrayValue ?: return HasValue(resolved)
+        val updatedResolver = resolver.updateLookupPath(this, this.pattern)
 
         val updatedList = resolvedValue.list.withIndex().mapNotNull { item ->
             if (substitution.isDropDirective(item.value)) return@mapNotNull null
-            pattern.resolveSubstitutions(substitution, item.value, resolver).breadCrumb("[${item.index}]")
+            pattern.resolveSubstitutions(substitution, item.value, updatedResolver).breadCrumb("[${item.index}]")
         }.listFoldException()
 
         return updatedList.ifValue(resolvedValue::copy)
@@ -135,8 +136,36 @@ data class ListPattern(
         return resolver.resolveExample(example, pattern) ?: dictionaryLookup(resolverWithEmptyType)
     }
 
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val resolverWithEmptyType = withEmptyType(pattern, resolver)
+        resolver.resolveExample(example, pattern)?.let {
+            return GeneratedNodes.fromGeneratedContainer(it, state)
+        }
+
+        val patternFocused = resolverWithEmptyType.updateLookupPath(typeAlias)
+        val valueFromDict = patternFocused.dictionary.getValueFor(patternFocused.dictionaryLookupPath, this, resolverWithEmptyType)
+        if (valueFromDict != null) {
+            return GeneratedNodes.fromGeneratedContainer(valueFromDict, state)
+        }
+
+        return generateListXMLNodesByGeneratingItems(resolverWithEmptyType, state)
+    }
+
     private fun dictionaryLookup(resolver: Resolver): Value {
         return resolver.generateList(this)
+    }
+
+    private fun generateListXMLNodesByGeneratingItems(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val listResolver = resolver.updateLookupPath(this, pattern)
+        val numberOfItemsToGenerate = listResolver.randomArraySize ?: randomNumber(DEFAULT_RANDOM_ARRAY_SIZE + 1)
+        val generatedListItems = 0.until(numberOfItemsToGenerate).fold(GeneratedNodes.none(state)) { generatedItemsSoFar, index ->
+            val generated = attempt(breadCrumb = "[$index (random)]") {
+                generateXMLNodesFrom(pattern, listResolver, generatedItemsSoFar.nextState)
+            }
+            generatedItemsSoFar.followedBy(generated)
+        }
+
+        return generatedListItems
     }
 
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<ReturnValue<Pattern>> {

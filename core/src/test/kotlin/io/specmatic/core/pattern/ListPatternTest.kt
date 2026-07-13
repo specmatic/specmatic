@@ -3,6 +3,7 @@ package io.specmatic.core.pattern
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
@@ -856,6 +857,27 @@ Feature: Recursive test
                 assertThat(result).isInstanceOf(HasValue::class.java); result as HasValue
                 println(result.value)
             }
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should use dictionary values for unresolved array items`() {
+            val addressPattern = JSONObjectPattern(
+                pattern = mapOf("street" to StringPattern()),
+                typeAlias = "(Address)"
+            )
+
+            val listPattern = ListPattern(addressPattern)
+            val resolver = Resolver(
+                newPatterns = mapOf("(Address)" to addressPattern),
+                dictionary = Dictionary.fromYaml("Address: { street: Baker Street }")
+            )
+
+            val valueToBeResolved = parsedJSONArray("""["$(missing-street)"]""")
+            val resolvedValue = listPattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(parsedJSONArray("""[{"street": "Baker Street"}]"""))
         }
     }
 

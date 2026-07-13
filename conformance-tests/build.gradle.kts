@@ -2,16 +2,16 @@ plugins {
     kotlin("jvm")
 }
 dependencies {
-    implementation("ch.qos.logback:logback-core:1.5.34")
+    implementation("ch.qos.logback:logback-core:1.5.37")
     implementation("org.slf4j:slf4j-api:2.0.18")
     implementation("org.junit.platform:junit-platform-launcher:1.14.4")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.0")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.1")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.1")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("info.picocli:picocli:4.7.7")
     implementation("com.networknt:json-schema-validator:2.0.1")
 
-    runtimeOnly("ch.qos.logback:logback-classic:1.5.34")
+    runtimeOnly("ch.qos.logback:logback-classic:1.5.37")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
 

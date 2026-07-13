@@ -6,10 +6,12 @@ import io.specmatic.GENERATION
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.*
@@ -383,6 +385,19 @@ class HttpQueryParamPatternTest {
         assertThat(queryPairs).containsExactlyInAnyOrder(
             "filter.data" to "",
             "filter.items" to ""
+        )
+    }
+
+    @Test
+    fun `should serialize array values for ordinary query params as repeated pairs`() {
+        val queryPairs = serializeNestedObjectQueryValues(
+            nestedObjectQueryParams = emptyList(),
+            valuesMap = mapOf("tags" to JSONArrayValue(listOf(StringValue("red"), StringValue("blue")))),
+        )
+
+        assertThat(queryPairs).containsExactly(
+            "tags" to "red",
+            "tags" to "blue"
         )
     }
 
@@ -2914,6 +2929,29 @@ class HttpQueryParamPatternTest {
 
                 assertThat(result).isInstanceOf(HasValue::class.java); result as HasValue
                 println(result.value)
+            }
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve values in query params and extra keys`() {
+            val substitution = substitutionOf("id" to NumberValue(123), "extra" to StringValue("456"))
+            val queryPattern = HttpQueryParamPattern(mapOf("id" to QueryParameterScalarPattern(StringPattern())))
+            val resolved = queryPattern.resolveSubstitutions(
+                queryParams = QueryParameters(mapOf("id" to "$(id)", "extra" to "$(extra)")),
+                substitution = substitution,
+                resolver = Resolver()
+            ).value
+
+            assertThat(resolved.asMap()).containsEntry("id", "123")
+            assertThat(resolved.asMap()).containsEntry("extra", "456")
+        }
+
+        private fun substitutionOf(vararg mappings: Pair<String, Value>): Substitution {
+            return mappings.fold(SubstitutionImpl.empty()) { acc, (key, value) ->
+                acc.upsertStoreUsing(StringValue("($key:${value.type().typeName})"), value)
             }
         }
     }

@@ -1,0 +1,50 @@
+{
+  "before": [
+    {
+      "type": "http",
+      "http-request": {
+        "baseUrl": "http://localhost:8000",
+        "path": "/seed",
+        "method": "POST",
+        "body": {}
+      },
+      "http-response": {
+        "status": 200,
+        "body": {
+          "orderId": "(ORDER_ID:string)",
+          "page": "(PAGE:string)",
+          "tenant": "(TENANT:string)",
+          "name": "(NAME:string)"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ],
+  "partial": {
+    "http-request": {
+      "path": "/orders/$(ORDER_ID)",
+      "method": "POST",
+      "query": {
+        "page": "$(PAGE)"
+      },
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant": "$(TENANT)"
+      },
+      "body": {
+        "name": "$(NAME)"
+      }
+    },
+    "http-response": {
+      "status": 200,
+      "body": {
+        "result": "accepted"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}

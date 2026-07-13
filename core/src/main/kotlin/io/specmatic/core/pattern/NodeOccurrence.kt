@@ -2,6 +2,9 @@ package io.specmatic.core.pattern
 
 import io.specmatic.core.Result
 
+// Specmatic's XML element occurrence model is intentionally collapsed to these
+// three cases. Code paths that preserve explicit minOccurs/maxOccurs, such as
+// choice groups and wildcards, should use those fields directly.
 enum class NodeOccurrence {
     Multiple {
         override fun encompasses(otherTypeOccurrence: NodeOccurrence): Result {

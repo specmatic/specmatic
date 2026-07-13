@@ -18,6 +18,7 @@ import io.specmatic.conversions.convertPathParameterStyle
 import io.swagger.v3.core.util.Yaml
 import io.specmatic.core.APPLICATION_NAME
 import io.specmatic.core.APPLICATION_NAME_LOWER_CASE
+import io.specmatic.core.DEFAULT_SWAGGER_SPEC_YAML_PATH
 import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -25,7 +26,6 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.MismatchMessages
-import io.specmatic.core.MissingDataException
 import io.specmatic.core.MultiPartContent
 import io.specmatic.core.MultiPartContentValue
 import io.specmatic.core.MultiPartFileValue
@@ -59,6 +59,7 @@ import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
+import io.specmatic.core.substitution.MissingDataException
 import io.specmatic.core.utilities.URIValidationResult
 import io.specmatic.core.utilities.capitalizeFirstChar
 import io.specmatic.core.utilities.exceptionCauseMessage
@@ -173,6 +174,7 @@ class HttpStub(
             feature.path to endPointFromHostAndPort(host, port, null)
         ),
         listeners: List<MockEventListener> = emptyList(),
+        strictMode: Boolean = false,
     ) : this(
         listOf(feature),
         contractInfoToHttpExpectations(listOf(Pair(feature, scenarioStubs))),
@@ -181,6 +183,7 @@ class HttpStub(
         log,
         specToStubBaseUrlMap = specToStubBaseUrlMap,
         listeners = listeners,
+        strictMode = strictMode
     )
 
     constructor(
@@ -231,10 +234,13 @@ class HttpStub(
     )
 
     private val httpExpectations: HttpExpectations = HttpExpectations(
+        strictMode = strictMode,
+        specmaticConfig = specmaticConfigInstance,
         static = staticHttpStubData(rawHttpStubs),
         transient = rawHttpStubs.filter { it.stubToken != null }.reversed().toMutableList(),
         specToBaseUrlMap = specToBaseUrlMap
     )
+
     private val firstMockedOpenApiSpec: MockedOpenApiSpec? by lazy {
         features.asSequence()
             .filter { it.path.isNotBlank() }
@@ -996,7 +1002,7 @@ class HttpStub(
 
     private fun swaggerSpecResponseFormat(httpRequest: HttpRequest): SwaggerSpecResponseFormat? =
         when (httpRequest.path) {
-            SWAGGER_SPEC_YAML_PATH -> SwaggerSpecResponseFormat.YAML
+            DEFAULT_SWAGGER_SPEC_YAML_PATH -> SwaggerSpecResponseFormat.YAML
             SWAGGER_SPEC_JSON_PATH -> SwaggerSpecResponseFormat.JSON
             else -> null
         }
@@ -1921,11 +1927,10 @@ internal fun isFetchContractsRequest(httpRequest: HttpRequest): Boolean =
 internal fun isFetchLoadLogRequest(httpRequest: HttpRequest): Boolean =
     isPath(httpRequest.path, "load_log") && httpRequest.method == "GET"
 
-private const val SWAGGER_SPEC_YAML_PATH = "/swagger/v1/swagger.yaml"
 private const val SWAGGER_SPEC_JSON_PATH = "/swagger/v1/swagger.json"
 
 internal fun isSwaggerSpecRequest(httpRequest: HttpRequest): Boolean =
-    httpRequest.method == "GET" && (httpRequest.path == SWAGGER_SPEC_YAML_PATH || httpRequest.path == SWAGGER_SPEC_JSON_PATH)
+    httpRequest.method == "GET" && (httpRequest.path == DEFAULT_SWAGGER_SPEC_YAML_PATH || httpRequest.path == SWAGGER_SPEC_JSON_PATH)
 
 internal fun isExpectationCreation(httpRequest: HttpRequest) =
     isPath(httpRequest.path, "expectations") && httpRequest.method == "POST"

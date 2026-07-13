@@ -2,7 +2,7 @@ package io.specmatic.test.reports
 
 import io.ktor.http.HttpHeaders
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.SpecmaticConfig
+import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.utils.ContractTestScope
 import org.assertj.core.api.Assertions.assertThat
@@ -34,7 +34,7 @@ class TestHooksTest {
                   description: Bad request
         """.trimIndent()
 
-        ContractTestScope.from(specYaml, tempDir).execute(SpecmaticConfig().enableResiliencyTests()) { server ->
+        ContractTestScope.from(specYaml, tempDir).execute(v3Config(tempDir).enableResiliencyTests()) { server ->
             server.on("/products", "GET") {
                 header("X-Header", "(number)")
                 respond(200); otherwise(400)
@@ -85,7 +85,7 @@ class TestHooksTest {
                           value: 0
         """.trimIndent()
 
-        ContractTestScope.from(specYaml, tempDir).execute { server ->
+        ContractTestScope.from(specYaml, tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/products", "GET") {
                 header("X-Header", "0")
                 respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
@@ -106,3 +106,8 @@ class TestHooksTest {
         }
     }
 }
+
+private fun v3Config(tempDir: File) =
+    tempDir.resolve("specmatic.yaml").apply {
+        writeText("version: 3")
+    }.toSpecmaticConfig()

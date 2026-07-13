@@ -23,9 +23,10 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.ValueDetails
 import io.specmatic.core.pattern.attempt
 import io.specmatic.core.pattern.breadCrumb
-import io.specmatic.core.pattern.isMatcherToken
+import io.specmatic.core.pattern.isDollarMethodOrLookup
 import io.specmatic.core.pattern.isOptional
 import io.specmatic.core.pattern.isPatternToken
+import io.specmatic.core.pattern.isSubstitution
 import io.specmatic.core.pattern.newBasedOn
 import io.specmatic.core.pattern.newMapBasedOn
 import io.specmatic.core.pattern.parsedPattern
@@ -33,6 +34,7 @@ import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.utilities.toStringMap
 import io.specmatic.core.value.EmptyString
 import io.specmatic.core.value.JSONArrayValue
@@ -324,7 +326,7 @@ data class HttpRequestPattern(
             val bodyValue =
                 if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
                     httpRequest.body
-                } else if (isPatternToken(httpRequest.bodyString)) {
+                } else if (isPatternToken(httpRequest.bodyString) || isSubstitution(httpRequest.bodyString)) {
                     StringValue(httpRequest.bodyString)
                 } else {
                     body.parse(httpRequest.bodyString, resolver)
@@ -690,7 +692,7 @@ data class HttpRequestPattern(
     private fun exactEncompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {
             isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
-            isMatcherToken(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
+            isDollarMethodOrLookup(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
             else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
         }
     }
@@ -858,16 +860,17 @@ data class HttpRequestPattern(
 
             val newBodies: Sequence<ReturnValue<Pattern>> = returnValue(breadCrumb = "BODY") BODY@ {
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@BODY resolver.generateHttpRequestBodies(this.body, row)
-                val parsedValue = runCatching { body.parse(rawRequestBody, resolver) }.getOrElse { e ->
+                val parsedValue = runCatching {
+                    if (isSubstitution(rawRequestBody)) return@runCatching StringValue(rawRequestBody)
+                    val parsedValue = body.parse(rawRequestBody, resolver)
+                    if (!isInvalidRequestResponse(status)) resolver.matchesPattern(null, body, parsedValue).throwOnFailure()
+                    parsedValue
+                }.getOrElse { e ->
                     if (isInvalidRequestResponse(status)) StringValue(rawRequestBody)
                     else throw e
                 }
+
                 val requestBodyAsIs = ExactValuePattern(parsedValue)
-
-                if (!isInvalidRequestResponse(status)) {
-                    resolver.matchesPattern(null, body, parsedValue).throwOnFailure()
-                }
-
                 if (status in 200..299)
                     resolver.generateHttpRequestBodies(this.body, row, requestBodyAsIs)
                 else
@@ -1024,6 +1027,7 @@ data class HttpRequestPattern(
 
             val newBodies: Sequence<ReturnValue<out Pattern>> = (returnValue(breadCrumb = "BODY") returnNewBodies@ {
                 val rawRequestBody = row.getFieldOrNull(REQUEST_BODY_FIELD) ?: return@returnNewBodies body.negativeBasedOn(row, resolver)
+                if (isSubstitution(rawRequestBody)) return@returnNewBodies body.negativeBasedOn(row, resolver)
                 val parsedValue = body.parse(rawRequestBody, resolver)
                 body.matches(parsedValue, resolver).throwOnFailure()
                 this.body.negativeBasedOn(row.noteRequestBody(), resolver)
@@ -1039,17 +1043,12 @@ data class HttpRequestPattern(
             val newFormFieldsPatterns = newMapBasedOn(formFieldsPattern, row, resolver).map { it.value }
             val newFormDataPartLists = newMultiPartBasedOn(multiPartFormDataPattern, row, resolver)
 
+            val securitySchemeInRow = securitySchemes.find { scheme -> scheme.isInRow(row) }
             sequence {
                 try {
                     // If security schemes are present, for now we'll just take the first scheme and assign it to each negative request pattern.
                     // Ideally we should generate negative patterns from the security schemes and use them.
-                    val positivePattern: HttpRequestPattern =
-                        newBasedOn(
-                            row,
-                            resolver,
-                            400
-                        ).first().value.copy(securitySchemes = listOf(securitySchemes.first()))
-
+                    val positivePattern: HttpRequestPattern = newBasedOn(row, resolver, 400).first().value
                     newHttpPathPatterns.forEach { pathParamPatternR ->
                         if (pathParamPatternR != null) {
                             yield(pathParamPatternR.ifValue { pathParamPattern ->
@@ -1089,6 +1088,14 @@ data class HttpRequestPattern(
                 } catch (t: Throwable) {
                     yield(HasException(t))
                 }
+            }.withSecuritySchemeElseFirst(row, securitySchemeInRow)
+        }
+    }
+
+    private fun Sequence<ReturnValue<HttpRequestPattern>>.withSecuritySchemeElseFirst(row: Row, scheme: OpenAPISecurityScheme?): Sequence<ReturnValue<HttpRequestPattern>> {
+        return this.map {
+            it.ifValue { requestPattern ->
+                scheme?.addTo(requestPattern, row) ?: requestPattern.copy(securitySchemes = listOf(securitySchemes.first()))
             }
         }
     }
@@ -1103,17 +1110,16 @@ data class HttpRequestPattern(
     fun getSubstitution(
         runningRequest: HttpRequest,
         originalRequest: HttpRequest,
-        resolver: Resolver,
         data: JSONObjectValue,
+        resolver: Resolver,
+        strictMode: Boolean,
     ): Substitution {
-        return Substitution(
-            runningRequest,
-            originalRequest,
-            httpPathPattern ?: HttpPathPattern(emptyList(), ""),
-            headersPattern,
-            body,
-            resolver,
-            data
+        return SubstitutionImpl.from(
+            data = data,
+            resolver = resolver,
+            strictMode = strictMode,
+            runningRequest = runningRequest,
+            originalRequest = originalRequest,
         )
     }
 
@@ -1169,6 +1175,29 @@ data class HttpRequestPattern(
         return securitySchemes.fold(request) { req, securityScheme ->
             securityScheme.removeParam(req)
         }
+    }
+
+    fun resolveSubstitutions(substitution: Substitution, request: HttpRequest, resolver: Resolver): ReturnValue<HttpRequest> {
+        val path = httpPathPattern?.resolveSubstitutions(
+            path = request.path, resolver = resolver, substitution = substitution
+        )?.breadCrumb(BreadCrumb.PARAM_PATH.value) ?: HasValue(null)
+
+        val queryParams = httpQueryParamPattern.resolveSubstitutions(
+            queryParams = request.queryParams, resolver = resolver, substitution = substitution
+        ).breadCrumb(BreadCrumb.PARAM_QUERY.value)
+
+        val headersResolver = resolver.updateLookupPath(BreadCrumb.PARAMETERS.value)
+        val headers = headersPattern.resolveSubstitutions(
+            headers = request.headers, resolver = headersResolver, substitution = substitution
+        ).breadCrumb(BreadCrumb.PARAM_HEADER.value)
+
+        val body = body.resolveSubstitutions(substitution, request.body, resolver).breadCrumb("BODY")
+        return HasValue(request)
+            .combine(path) { req, it -> req.copy(path = it) }
+            .combine(queryParams) { req, it -> req.copy(queryParams = it) }
+            .combine(headers) { req, it -> req.copy(headers = it) }
+            .combine(body) { req, it -> req.copy(body = it) }
+            .breadCrumb("REQUEST")
     }
 
     fun getSOAPAction(): String? {

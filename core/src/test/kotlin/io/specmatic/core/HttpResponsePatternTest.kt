@@ -3,9 +3,11 @@ package io.specmatic.core
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.XMLNode
 import org.junit.jupiter.api.Nested
 
 internal class HttpResponsePatternTest {
@@ -61,6 +63,60 @@ internal class HttpResponsePatternTest {
         val resultText = result.reportString()
         assertThat(resultText).contains(">> RESPONSE.HEADER.X-Data")
         assertThat(resultText).contains(">> RESPONSE.BODY")
+    }
+
+    @Test
+    fun `matches XML response with schema instance type declared using an inherited non xsi prefix`() {
+        val namespace = "http://example.com/animals"
+        val animalType = XMLPattern(
+            XMLTypeData(
+                name = "Animal",
+                realName = "tns:Animal",
+                nodes = listOf(XMLPattern("<tns:name xmlns:tns=\"$namespace\">(string)</tns:name>")),
+                namespaceUri = namespace,
+                wsdlTypeNamespace = namespace,
+                wsdlTypeName = "Animal",
+            )
+        )
+        val bodyPattern = XMLPattern(
+            XMLTypeData(
+                name = "root",
+                realName = "root",
+                nodes = listOf(
+                    XMLPattern(
+                        XMLTypeData(
+                            name = "Animal",
+                            realName = "tns:Animal",
+                            attributes = mapOf(TYPE_ATTRIBUTE_NAME to ExactValuePattern(StringValue("tns_Animal"))),
+                            namespaceUri = namespace,
+                        )
+                    )
+                )
+            )
+        )
+        val responsePattern = HttpResponsePattern(
+            status = 200,
+            headersPattern = HttpHeadersPattern(mapOf(CONTENT_TYPE to ExactValuePattern(StringValue("text/xml")))),
+            body = bodyPattern,
+        )
+        val response = HttpResponse(
+            status = 200,
+            body = """
+                <root xmlns:typeNs="http://www.w3.org/2001/XMLSchema-instance" xmlns:tns="$namespace">
+                    <tns:Animal typeNs:type="tns:Animal">
+                        <tns:name>Leo</tns:name>
+                    </tns:Animal>
+                </root>
+            """.trimIndent(),
+            headers = mapOf(CONTENT_TYPE to "text/xml")
+        )
+
+        assertThat(responsePattern.matchesResponse(response, Resolver(newPatterns = mapOf("(tns_Animal)" to animalType))))
+            .isInstanceOf(Result.Success::class.java)
+        assertThat((response.body as XMLNode).getXMLNodeByPath("Animal").attributeNamespaceUri("typeNs:type"))
+            .isEqualTo("http://www.w3.org/2001/XMLSchema-instance")
+        assertThat(responsePattern.fillInTheBlanks(response, Resolver(newPatterns = mapOf("(tns_Animal)" to animalType))).body)
+            .isEqualTo(response.body)
     }
 
     @Test
@@ -265,6 +321,138 @@ internal class HttpResponsePatternTest {
             val currentAccountRequestBody = (responses.first { it.discriminatorValue ==  "current"}.value.body as JSONObjectValue)
             assertThat(savingsAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("savings")
             assertThat(currentAccountRequestBody.jsonObject["@type"]?.toStringLiteral()).isEqualTo("current")
+        }
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should resolve stored composite object and array values in response body`() {
+            val profilePattern = JSONObjectPattern(
+                typeAlias = "(Profile)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petPattern = JSONObjectPattern(
+                typeAlias = "(Pet)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petsPattern = ListPattern(petPattern, typeAlias = "(Pets)")
+            val bodyPattern = JSONObjectPattern(pattern = mapOf("profile" to profilePattern, "pets" to petsPattern))
+            val resolver = Resolver(newPatterns = mapOf("(Profile)" to profilePattern, "(Pet)" to petPattern, "(Pets)" to petsPattern))
+
+            val profile = parsedJSONObject("""{"name": "Sherlock"}""")
+            val pets = parsedJSONArray("""[{"name": "Dog"},{"name": "Cat"}]""")
+            val substitution = SubstitutionImpl.empty()
+                .upsertStoreUsing(StringValue("(profile:Profile)"), StringValue(profile.toUnformattedString()), resolver)
+                .upsertStoreUsing(StringValue("(pets:Pets)"), StringValue(pets.toUnformattedString()), resolver)
+
+            val responsePattern = HttpResponsePattern(status = 200, body = bodyPattern)
+            val response = HttpResponse(
+                status = 200,
+                body = parsedJSONObject("""{"profile": "$(profile)", "pets": "$(pets)"}""")
+            )
+
+            val resolved = responsePattern.resolveSubstitutions(substitution, response, resolver).value
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"profile": {"name": "Sherlock"}, "pets": [{"name": "Dog"}, {"name": "Cat"}]}""")
+            )
+        }
+
+        @Test
+        fun `should resolve composite object and array values from data lookup in response body`() {
+            val profilePattern = JSONObjectPattern(
+                typeAlias = "(Profile)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petPattern = JSONObjectPattern(
+                typeAlias = "(Pet)",
+                pattern = mapOf("name" to StringPattern()),
+            )
+
+            val petsPattern = ListPattern(petPattern, typeAlias = "(Pets)")
+            val bodyPattern = JSONObjectPattern(pattern = mapOf("profile" to profilePattern, "pets" to petsPattern))
+            val resolver = Resolver(newPatterns = mapOf("(Profile)" to profilePattern, "(Pet)" to petPattern, "(Pets)" to petsPattern))
+
+            val substitution = SubstitutionImpl.from(
+                resolver = resolver,
+                runningRequest = HttpRequest(method = "GET", path = "/profiles/10"),
+                originalRequest = HttpRequest(method = "GET", path = "/profiles/(ID:number)"),
+                data = parsedJSONObject("""
+                {
+                  "lookupData": {
+                    "dictionary": {
+                      "10": {
+                        "profile": {"name": "Sherlock"},
+                        "pets": [{"name": "Dog"}, {"name": "Cat"}]
+                      }
+                    }
+                  }
+                }
+                """.trimIndent())
+            )
+
+            val responsePattern = HttpResponsePattern(status = 200, body = bodyPattern)
+            val response = HttpResponse(
+                status = 200,
+                body = parsedJSONObject(
+                    """{"profile": "$(lookupData.dictionary[ID].profile)", "pets": "$(lookupData.dictionary[ID].pets)"}"""
+                )
+            )
+
+            val resolved = responsePattern.resolveSubstitutions(substitution, response, resolver).value
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"profile": {"name": "Sherlock"}, "pets": [{"name": "Dog"}, {"name": "Cat"}]}""")
+            )
+        }
+
+        @Test
+        fun `should use dictionary backed generation when substitutions are unresolved across response`() {
+            val addressPattern = JSONObjectPattern(
+                typeAlias = "(Address)",
+                pattern = mapOf("street" to StringPattern()),
+            )
+
+            val bodyPattern = JSONObjectPattern(
+                typeAlias = "(PetResponse)",
+                pattern = mapOf(
+                    "message" to StringPattern(),
+                    "addresses" to ListPattern(addressPattern)
+                ),
+            )
+
+            val responsePattern = HttpResponsePattern(
+                status = 200,
+                body = bodyPattern,
+                headersPattern = HttpHeadersPattern(mapOf("X-Trace" to StringPattern())),
+            )
+
+            val response = HttpResponse(
+                status = 200,
+                headers = mapOf("X-Trace" to "$(missing-trace)"),
+                body = parsedJSONObject("""{"message": "$(missing-message)", "addresses": [{"street": "$(missing-street)"}]}""")
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(PetResponse)" to bodyPattern, "(Address)" to addressPattern),
+                dictionary = Dictionary.fromYaml("""
+                RESPONSE:
+                  HEADER:
+                    X-Trace: trace-from-dictionary
+                PetResponse:
+                  message: done
+                Address:
+                  street: Baker Street
+                """.trimIndent())
+            )
+
+            val resolved = responsePattern.resolveSubstitutions(SubstitutionImpl.empty(), response, resolver).value
+            assertThat(resolved.headers["X-Trace"]).isEqualTo("trace-from-dictionary")
+            assertThat(resolved.body).isEqualTo(
+                parsedJSONObject("""{"message": "done", "addresses": [{"street": "Baker Street"}]}""")
+            )
         }
     }
 }

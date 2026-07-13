@@ -1,6 +1,5 @@
 package io.specmatic.test
 
-import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Result
 import io.specmatic.core.ResiliencyTestSuite
@@ -56,6 +55,7 @@ import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.test.utils.MockHttpServer
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
 import java.net.ServerSocket
@@ -96,6 +96,14 @@ class SpecmaticJunitSupportTest {
                 Arguments.of("missing.yaml", false, true),
                 Arguments.of("existing.yaml", true, false)
             )
+
+        @JvmStatic
+        fun swaggerUiFallbackBaseUrlCases(): List<Arguments> =
+            listOf(
+                Arguments.of("http://override.example", "http://config.example", "http://spec.example", "http://override.example"),
+                Arguments.of(null, "http://config.example", "http://spec.example", "http://config.example"),
+                Arguments.of(null, null, "http://spec.example", "http://spec.example")
+            )
     }
 
     @Test
@@ -123,6 +131,44 @@ class SpecmaticJunitSupportTest {
             url = SpecmaticJUnitSupport().constructTestBaseURL()
         }.doesNotThrowAnyException()
         assertThat(url).isEqualTo(validURL)
+    }
+
+    @ParameterizedTest
+    @MethodSource("swaggerUiFallbackBaseUrlCases")
+    fun `swagger UI fallback base URL keeps main precedence`(
+        testBaseUrlOverride: String?,
+        configuredTestBaseUrl: String?,
+        resolvedSpecBaseUrl: String,
+        expected: String,
+    ) {
+        assertThat(
+            selectSwaggerUiFallbackBaseUrl(
+                testBaseUrlOverride = testBaseUrlOverride,
+                configuredTestBaseUrl = configuredTestBaseUrl,
+                resolvedSpecBaseUrl = resolvedSpecBaseUrl
+            )
+        ).isEqualTo(expected)
+    }
+
+    @Test
+    fun `should query swagger UI fallback source before executing dynamic tests`(@TempDir tempDir: File) {
+        MockHttpServer().use { testBaseUrlServer ->
+            testBaseUrlServer.serveSwagger("/from-swagger-ui-fallback")
+
+            val specFile = writeOpenApiSpec(tempDir, "orders.yaml")
+            SpecmaticJUnitSupport.settingsStaging.set(
+                ContractTestSettings(contractPaths = specFile.canonicalPath, testBaseURL = testBaseUrlServer.baseUrl)
+            )
+
+            try {
+                val support = SpecmaticJUnitSupport()
+                support.contractTest().toList()
+
+                assertThat(support.openApiCoverage.getApplicationAPIs()).contains(API("GET", "/from-swagger-ui-fallback"))
+            } finally {
+                SpecmaticJUnitSupport.settingsStaging.remove()
+            }
+        }
     }
 
     @Test
@@ -319,59 +365,123 @@ class SpecmaticJunitSupportTest {
     }
 
     @Test
-    fun `should be able to get actuator endpoints from swaggerUI`() {
-        val contractTestHarness = SpecmaticJUnitSupport()
+    fun `should fetch application apis from swagger urls configured per spec`(@TempDir tempDir: File) {
+        val specDir = tempDir.resolve("specs").apply { mkdirs() }
+        specDir.resolve("orders.yaml").writeText(openApiSpec("orders", "/orders", "/cart"))
+        specDir.resolve("customers.yaml").writeText(openApiSpec("customers", "/customers"))
 
-        contractTestHarness.actuatorFromSwagger("", object: TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                return HttpResponse(
-                    200,
-                    body = """
-                    openapi: 3.0.1
-                    info:
-                      title: Order BFF
-                      version: '1.0'
-                    paths:
-                      /orders:
-                        post:
-                          responses:
-                            '200':
-                              description: OK
-                      /products:
-                        post:
-                          responses:
-                            '200':
-                              description: OK
-                      /findAvailableProducts/{date_time}:
-                        get:
-                          parameters:
-                            - ${"$"}ref: '#/components/parameters/DateTimeParameter'
-                          responses:
-                            '200':
-                              description: OK
-                    components:
-                        schemas:
-                            DateTime:
-                                type: string
-                                format: date-time
-                        parameters:
-                            DateTimeParameter:
-                                name: date_time
-                                in: path
-                                required: true
-                                schema:
-                                    ${"$"}ref: '#/components/schemas/DateTime'
-                    """.trimIndent()
-                )
+        MockHttpServer().use { orderSwagger ->
+            MockHttpServer().use { customerSwagger ->
+                orderSwagger.on("/", "GET") {
+                    respond(HttpResponse(status = 200, body = parsedJsonValue(openApiJson("orders-app", "/orders", "/findAvailableProducts/{date_time}"))))
+                }
+                customerSwagger.on("/", "GET") {
+                    respond(HttpResponse(status = 200, body = parsedJsonValue(openApiJson("customers-app", "/customers", "/customers/internal"))))
+                }
+
+                val configFile = tempDir.resolve("specmatic.yaml").apply {
+                    writeText(
+                        """
+                        version: 3
+                        systemUnderTest:
+                          service:
+                            definitions:
+                              - definition:
+                                  source:
+                                    filesystem:
+                                      directory: ${specDir.canonicalPath}
+                                  specs:
+                                    - spec:
+                                        id: orders
+                                        path: orders.yaml
+                                    - spec:
+                                        id: customers
+                                        path: customers.yaml
+                            runOptions:
+                              openapi:
+                                specs:
+                                  - spec:
+                                      id: orders
+                                      swaggerUrl: ${orderSwagger.baseUrl}
+                                  - spec:
+                                      id: customers
+                                      swaggerUrl: ${customerSwagger.baseUrl}
+                        """.trimIndent()
+                    )
+                }
+
+                SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.canonicalPath))
+                try {
+                    val support = SpecmaticJUnitSupport()
+                    support.contractTest().toList()
+
+                    assertThat(support.openApiCoverage.getApplicationAPIs()).contains(
+                        API("GET", "/findAvailableProducts/{date_time}"),
+                        API("GET", "/customers/internal"),
+                    )
+                } finally {
+                    SpecmaticJUnitSupport.settingsStaging.remove()
+                }
             }
-        })
+        }
+    }
 
-        assertThat(contractTestHarness.openApiCoverage.isEndpointsApiSet()).isTrue()
-        assertThat(contractTestHarness.openApiCoverage.getApplicationAPIs()).isEqualTo(listOf(
-            API("POST", "/orders"),
-            API("POST", "/products"),
-            API("GET", "/findAvailableProducts/{date_time}")
-        ))
+    @Test
+    fun `should fetch application apis from swagger UI base urls configured per spec`(@TempDir tempDir: File) {
+        val specDir = tempDir.resolve("specs").apply { mkdirs() }
+        specDir.resolve("orders.yaml").writeText(openApiSpec("orders", "/orders", "/cart"))
+        specDir.resolve("customers.yaml").writeText(openApiSpec("customers", "/customers"))
+
+        MockHttpServer().use { orderSwaggerUi ->
+            MockHttpServer().use { customerSwaggerUi ->
+                orderSwaggerUi.serveSwagger("/findAvailableProducts/{date_time}")
+                customerSwaggerUi.serveSwagger("/customers/internal")
+
+                val configFile = tempDir.resolve("specmatic.yaml").apply {
+                    writeText(
+                        """
+                        version: 3
+                        systemUnderTest:
+                          service:
+                            definitions:
+                              - definition:
+                                  source:
+                                    filesystem:
+                                      directory: ${specDir.canonicalPath}
+                                  specs:
+                                    - spec:
+                                        id: orders
+                                        path: orders.yaml
+                                    - spec:
+                                        id: customers
+                                        path: customers.yaml
+                            runOptions:
+                              openapi:
+                                specs:
+                                  - spec:
+                                      id: orders
+                                      swaggerUiBaseUrl: ${orderSwaggerUi.baseUrl}
+                                  - spec:
+                                      id: customers
+                                      swaggerUiBaseUrl: ${customerSwaggerUi.baseUrl}
+                        """.trimIndent()
+                    )
+                }
+
+                SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(configFile = configFile.canonicalPath))
+                try {
+                    val support = SpecmaticJUnitSupport()
+                    support.contractTest().toList()
+
+                    assertThat(support.openApiCoverage.getApplicationAPIs()).contains(
+                        API("GET", "/findAvailableProducts/{date_time}"),
+                        API("GET", "/customers/internal"),
+                    )
+                } finally {
+                    SpecmaticJUnitSupport.settingsStaging.remove()
+                }
+            }
+        }
     }
 
     @Test
@@ -1187,7 +1297,7 @@ paths:
         )
         return try {
             val originalOut = System.out
-            val outputStream = java.io.ByteArrayOutputStream()
+            val outputStream = ByteArrayOutputStream()
             System.setOut(PrintStream(outputStream))
             try {
                 SpecmaticJUnitSupport().contractTest()
@@ -1230,6 +1340,22 @@ paths:
             .isEqualTo(0)
     }
 
+    private fun MockHttpServer.serveSwagger(path: String) {
+        val swagger = parsedJsonValue(openApiJson("swagger-fallback", path))
+        on("/", "GET") {
+            respond(HttpResponse(status = 200, body = swagger))
+        }
+        on("/swagger/v1/swagger.yaml", "GET") {
+            respond(HttpResponse(status = 200, body = swagger))
+        }
+    }
+
+    private fun writeOpenApiSpec(tempDir: File, name: String): File {
+        return tempDir.resolve(name).apply {
+            writeText(openApiSpec("orders", "/orders"))
+        }
+    }
+
     private fun writeSpecmaticConfig(tempDir: File, baseUrl: String? = null, maxTestCount: Int? = null): File {
         val configFile = tempDir.resolve("specmatic.yaml")
         val config = SpecmaticConfigV3(
@@ -1263,7 +1389,7 @@ paths:
 
     private fun captureStdout(block: () -> Unit): String {
         val originalOut = System.out
-        val outputStream = java.io.ByteArrayOutputStream()
+        val outputStream = ByteArrayOutputStream()
         System.setOut(PrintStream(outputStream))
         return try {
             block()
@@ -1272,6 +1398,35 @@ paths:
             System.out.flush()
             System.setOut(originalOut)
         }
+    }
+
+    private fun openApiSpec(title: String, vararg paths: String): String {
+        return buildString {
+            appendLine("openapi: 3.0.0")
+            appendLine("info:")
+            appendLine("  title: $title")
+            appendLine("  version: 1.0.0")
+            appendLine("paths:")
+            paths.forEach { path ->
+                appendLine("  $path:")
+                appendLine("    get:")
+                appendLine("      responses:")
+                appendLine("        '200':")
+                appendLine("          description: OK")
+            }
+        }
+    }
+
+    private fun openApiJson(title: String, vararg paths: String): String {
+        val pathsJson = paths.joinToString(",") { path ->
+            val parameters = if (path.contains("{date_time}")) {
+                """"parameters":[{"name":"date_time","in":"path","required":true,"schema":{"type":"string","format":"date-time"}}],"""
+            } else {
+                ""
+            }
+            """"$path":{"get":{$parameters"responses":{"200":{"description":"OK"}}}}"""
+        }
+        return """{"openapi":"3.0.0","info":{"title":"$title","version":"1.0.0"},"paths":{$pathsJson}}"""
     }
 
     private class RecordingExampleErrorsListener : TestReportListener {

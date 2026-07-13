@@ -231,6 +231,13 @@ interface SpecmaticConfig {
     fun getActuatorUrl(): String?
 
     @JsonIgnore
+    fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource?
+
+    @JsonIgnore
     fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfig
 
     @JsonIgnore
@@ -418,6 +425,8 @@ interface SpecmaticConfig {
     fun withStubFilter(filter: String? = null): SpecmaticConfig
     fun withGlobalMockDelay(delayInMilliseconds: Long): SpecmaticConfig
     fun withMatchBranch(matchBranch: Boolean): SpecmaticConfig
+    fun withCanonicalizedDefinitionFilesystemSources(workingDirectory: File): SpecmaticConfig
+    fun toYaml(): String
 
     @JsonIgnore
     fun testSpecPathFromConfigFor(specFile: File): String?

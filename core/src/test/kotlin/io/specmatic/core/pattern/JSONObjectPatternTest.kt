@@ -6,6 +6,7 @@ import io.mockk.verify
 import io.specmatic.GENERATION
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.pattern.config.NegativePatternConfiguration
 import io.specmatic.core.utilities.Flags.Companion.ALL_PATTERNS_MANDATORY
 import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_QUERY_PARAMS
@@ -2043,11 +2044,23 @@ components:
             assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to JSONObjectValue(mapOf("alias" to StringValue("extraValue"))))))
         }
 
+        @Test
+        fun `should resolve extra keys even when they are not declared in pattern`() {
+            val pattern = JSONObjectPattern(mapOf("name" to StringPattern()))
+            val substitutionData = parsedJSONObject("""{ "data": { "User": { "*": { "name": "JohnDoe", "extraKey": "extraValue" } } } }""")
+            val substitution = substitutionWithData(substitutionData.jsonObject)
+            val valueToBeResolved = JSONObjectValue(mapOf("name" to StringValue("$(data.User[NON_EXISTENT].name)"), "extraKey" to StringValue("$(data.User[NON_EXISTENT].extraKey)")))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, valueToBeResolved, Resolver()).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("name" to StringValue("JohnDoe"), "extraKey" to StringValue("extraValue"))))
+        }
+
         private fun substitutionWithData(valueMap: Map<String, Value>): Substitution {
-            return Substitution(
-                HttpRequest(path = "/"), HttpRequest(path = "/"),
-                HttpPathPattern.from("/"), HttpHeadersPattern(),
-                AnyValuePattern, Resolver(), JSONObjectValue(valueMap)
+            return SubstitutionImpl.from(
+                HttpRequest(path = "/"),
+                HttpRequest(path = "/"),
+                JSONObjectValue(valueMap),
+                Resolver()
             )
         }
     }
@@ -2614,13 +2627,102 @@ components:
     fun `should be able to resolve substitutions for an object with no properties`() {
         val pattern = JSONObjectPattern(emptyMap())
         val request = HttpRequest("GET", "/")
-        val substitution = Substitution(request, request, buildHttpPathPattern("/"), HttpHeadersPattern(), pattern, Resolver(), JSONObjectValue(emptyMap()))
+        val substitution = SubstitutionImpl.from(request, request, JSONObjectValue(emptyMap()), Resolver())
 
         val originalJson = parsedJSONObject("""{"Hello": "world"}""")
         val jsonAfterSubstitutions = pattern.resolveSubstitutions(substitution, originalJson, Resolver()).value
 
         assertThat(jsonAfterSubstitutions).isEqualTo(originalJson)
 
+    }
+
+    @Nested
+    inner class ResolveSubstitutionsTests {
+        @Test
+        fun `should use dictionary value for unresolved top level field`() {
+            val pattern = JSONObjectPattern(pattern = mapOf("id" to NumberPattern()), typeAlias = "(Person)")
+            val resolver = Resolver(
+                newPatterns = mapOf("(Person)" to pattern),
+                dictionary = Dictionary.fromYaml("Person: { id: 123 }")
+            )
+
+            val valueToBeResolved = JSONObjectValue(mapOf("id" to StringValue("$(missing-id)")))
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(123))))
+        }
+
+        @Test
+        fun `should use dictionary value from star entry for unresolved top level field when pattern has no typeAlias`() {
+            val pattern = JSONObjectPattern(pattern = mapOf("id" to NumberPattern()))
+            val resolver = Resolver(dictionary = Dictionary.fromYaml("'*': { id: 321 }"))
+
+            val valueToBeResolved = JSONObjectValue(mapOf("id" to StringValue("$(missing-id)")))
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(321))))
+        }
+
+        @Test
+        fun `should use dictionary values for unresolved nested fields and sibling keys`() {
+            val pattern = JSONObjectPattern(
+                typeAlias = "(Person)",
+                pattern = mapOf(
+                    "status" to StringPattern(),
+                    "name" to JSONObjectPattern(mapOf("first_name" to StringPattern(), "last_name" to StringPattern()))
+                ),
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(Person)" to pattern),
+                dictionary = Dictionary.fromYaml("""
+                Person:
+                  name:
+                    first_name: Jane
+                    last_name: Doe
+                  status: active
+                """.trimIndent())
+            )
+
+            val valueToBeResolved = parsedJSONObject("""
+            {
+              "name": {
+                "first_name": "$(missing-first-name)",
+                "last_name": "$(missing-last-name)"
+              },
+              "status": "$(missing-status)"
+            }
+            """.trimIndent())
+
+            val resolvedValue = pattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+
+            assertThat(resolvedValue).isEqualTo(
+                parsedJSONObject("""
+                {
+                  "name": {
+                    "first_name": "Jane",
+                    "last_name": "Doe"
+                  },
+                  "status": "active"
+                }
+                """.trimIndent())
+            )
+        }
+
+        @Test
+        fun `should use dictionary values for unresolved lookup`() {
+            val addressPattern = JSONObjectPattern(
+                pattern = mapOf("street" to StringPattern()),
+                typeAlias = "(Address)"
+            )
+
+            val resolver = Resolver(
+                newPatterns = mapOf("(Address)" to addressPattern),
+                dictionary = Dictionary.fromYaml("Address: { street: Baker Street }")
+            )
+
+            val valueToBeResolved = StringValue(""""$(missing-street)"""")
+            val resolvedValue = addressPattern.resolveSubstitutions(SubstitutionImpl.empty(), valueToBeResolved, resolver).value
+            assertThat(resolvedValue).isEqualTo(parsedJSONObject("""{"street": "Baker Street"}"""))
+        }
     }
 
     @Nested

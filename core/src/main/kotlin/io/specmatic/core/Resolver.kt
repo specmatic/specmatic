@@ -5,8 +5,6 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
-import io.specmatic.test.ExampleProcessor
-import io.specmatic.test.asserts.WILDCARD_INDEX
 
 val actualMatch: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = { resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value ->
     resolver.actualPatternMatch(factKey, pattern, sampleValue)
@@ -117,8 +115,9 @@ data class Resolver(
             sampleData.hasMatcherTemplate() -> pattern.patternFrom(sampleData, this)
             else -> null
         }
+
         if (patternFromValue == null || (patternFromValue as? ExactValuePattern)?.pattern == sampleData) {
-            return Result.Success().takeIf { ExampleProcessor.isSubstitutionToken(sampleData) }
+            return Result.Success().takeIf { isDollarMethodOrLookup(sampleData) }
         }
 
         if (patternFromValue is AnyValuePattern) return Result.Success()

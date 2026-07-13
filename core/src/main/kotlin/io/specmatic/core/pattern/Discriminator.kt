@@ -9,7 +9,6 @@ import io.specmatic.core.pattern.AnyPattern.AnyPatternMatch
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.core.valueMismatchResult
-import io.specmatic.test.ExampleProcessor
 
 class Discriminator(
     val property: String,
@@ -111,7 +110,7 @@ class Discriminator(
             discriminatorCsvClause
         )
 
-        if (isPatternToken(actualDiscriminatorValue) || ExampleProcessor.isSubstitutionToken(actualDiscriminatorValue)) return Result.Success()
+        if (isPatternToken(actualDiscriminatorValue) || isDollarMethodOrLookup(actualDiscriminatorValue)) return Result.Success()
         if (actualDiscriminatorValue.toStringLiteral() !in values) {
             val message = "Expected the value of discriminator property to be $discriminatorCsvClause but it was ${
                 actualDiscriminatorValue.toStringLiteral()

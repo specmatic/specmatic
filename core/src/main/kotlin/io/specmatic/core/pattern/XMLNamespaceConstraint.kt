@@ -146,7 +146,7 @@ data class XMLWildcardPattern(
     val maxOccurs: Int? = 1,
     val targetNamespace: String? = null,
     override val typeAlias: String? = null
-) : Pattern {
+) : Pattern, XMLChildGenerationPattern {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when {
             sampleData !is XMLNode -> dataTypeMismatchResult("xml wildcard", sampleData, resolver.mismatchMessages)
@@ -199,9 +199,17 @@ data class XMLWildcardPattern(
         }
     }
 
-    override fun generate(resolver: Resolver): Value {
-        val generatedNodes = 0.until(minOccurs).map { generatedNode() }
-        return XMLNode("", "", emptyMap(), generatedNodes, "", emptyMap())
+    override fun generate(resolver: Resolver): Value =
+        generateXMLNodes(resolver, XMLGenerationState()).asContainer()
+
+    override fun generateXMLNodes(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
+        val generatedNodes = 0.until(state.decisions.numberOfXMLNodesFor(minOccurs, maxOccurs))
+            .map { generatedNode() }
+        return GeneratedNodes(generatedNodes, state)
+    }
+
+    override fun generateXMLChildValues(resolver: Resolver): List<XMLValue> {
+        return generatedContainerChildValues(resolver)
     }
 
     private fun generatedNode(): XMLNode {
@@ -285,7 +293,7 @@ data class XMLWildcardPattern(
             ?: ConsumeResult(Failure(lengthError), others)
 
     override fun listOf(valueList: List<Value>, resolver: Resolver): Value =
-        XMLNode("", "", emptyMap(), valueList.map { it as XMLValue }, "", emptyMap())
+        XMLNode.container(valueList.map { it as XMLValue })
 
     override val typeName: String = "xml-wildcard"
     override val pattern: Any

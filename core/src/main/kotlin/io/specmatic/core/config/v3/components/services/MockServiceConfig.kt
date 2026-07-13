@@ -193,6 +193,17 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
         )
     }
 
+    fun withCanonicalizedDefinitionFilesystemSources(resolver: RefOrValueResolver, workingDirectory: File): MockServiceConfig {
+        return copy(
+            services = services.map { value ->
+                val updatedService = value.service
+                    .resolveElseThrow(resolver)
+                    .withCanonicalizedDefinitionFilesystemSources(resolver,workingDirectory)
+                value.copy(service = RefOrValue.Value(updatedService))
+            }
+        )
+    }
+
     fun withExamples(resolver: SpecmaticConfigV3Resolver, exampleDirectories: List<String>): MockServiceConfig {
         return copy(
             services = services.map { value ->

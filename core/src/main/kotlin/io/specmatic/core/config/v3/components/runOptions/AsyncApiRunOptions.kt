@@ -3,7 +3,7 @@ package io.specmatic.core.config.v3.components.runOptions
 import com.fasterxml.jackson.annotation.*
 import io.specmatic.core.config.v3.ServerOrigin
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"))
 sealed interface AsyncApiRunOptions : IRunOptions {
     val type: RunOptionType?
@@ -17,18 +17,15 @@ sealed interface AsyncApiRunOptions : IRunOptions {
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class AsyncApiTestConfig(
+    override val type: RunOptionType? = null,
     override val specs: List<RunOptionsSpecifications>? = null,
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
-    @JsonIgnore
-    override val type: RunOptionType? = null
-
     fun withConfig(newConfig: Map<String, Any>): AsyncApiTestConfig = copy(_config = LinkedHashMap(newConfig))
 
-    @JsonProperty("type")
-    private fun setType(input: RunOptionType?) {
-        require(input == null || input == RunOptionType.TEST) {
-            "Invalid type '$input' for AsyncApiTestConfig, expected '${RunOptionType.TEST.value}'"
+    init {
+        require(type == null || type == RunOptionType.TEST) {
+            "Invalid type '$type' for AsyncApiTestConfig, expected '${RunOptionType.TEST.value}'"
         }
     }
 
@@ -43,18 +40,15 @@ data class AsyncApiTestConfig(
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class AsyncApiMockConfig(
+    override val type: RunOptionType? = null,
     override val specs: List<RunOptionsSpecifications>? = null,
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
-    @JsonIgnore
-    override val type: RunOptionType? = null
-
     fun withConfig(newConfig: Map<String, Any>): AsyncApiMockConfig = copy(_config = LinkedHashMap(newConfig))
 
-    @JsonProperty("type")
-    private fun setType(input: RunOptionType?) {
-        require(input == null || input == RunOptionType.MOCK) {
-            "Invalid type '$input' for AsyncApiMockConfig, expected '${RunOptionType.MOCK.value}'"
+    init {
+        require(type == null || type == RunOptionType.MOCK) {
+            "Invalid type '$type' for AsyncApiMockConfig, expected '${RunOptionType.MOCK.value}'"
         }
     }
 

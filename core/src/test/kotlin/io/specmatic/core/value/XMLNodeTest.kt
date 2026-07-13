@@ -7,6 +7,8 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import io.specmatic.core.CONTENT_TYPE
+import io.specmatic.core.HttpResponse
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.trimmedLinesList
 
@@ -61,6 +63,51 @@ internal class XMLNodeTest {
         val node = toXMLNode("<data xmlns=\"http://default\" code=\"ABC\"/>")
 
         assertThat(node.attributeNamespaceUri("code")).isNull()
+    }
+
+    @Test
+    fun `finds attribute value by namespace uri and local name`() {
+        val node = toXMLNode(
+            """
+            <data xmlns:typeNs="http://www.w3.org/2001/XMLSchema-instance"
+                  typeNs:type="pet:Dog"
+                  type="not-namespaced"/>
+            """.trimIndent()
+        )
+
+        assertThat(node.attributeValueByNamespace("http://www.w3.org/2001/XMLSchema-instance", "type"))
+            .isEqualTo(StringValue("pet:Dog"))
+    }
+
+    @Test
+    fun `does not use default namespace for attribute value lookup by namespace`() {
+        val node = toXMLNode(
+            """
+            <data xmlns="http://www.w3.org/2001/XMLSchema-instance"
+                  type="pet:Dog"/>
+            """.trimIndent()
+        )
+
+        assertThat(node.attributeValueByNamespace("http://www.w3.org/2001/XMLSchema-instance", "type")).isNull()
+    }
+
+    @Test
+    fun `keeps inherited attribute namespace lookup after XML content-type adjustment`() {
+        val response = HttpResponse(
+            status = 200,
+            body = """
+                <root xmlns:typeNs="http://www.w3.org/2001/XMLSchema-instance">
+                    <child typeNs:type="pet:Dog"/>
+                </root>
+            """.trimIndent(),
+            headers = mapOf(CONTENT_TYPE to "text/xml")
+        )
+
+        val root = response.body as XMLNode
+        val child = root.findFirstChildByName("child")!!
+
+        assertThat(child.attributeValueByNamespace("http://www.w3.org/2001/XMLSchema-instance", "type"))
+            .isEqualTo(StringValue("pet:Dog"))
     }
 
     @Test

@@ -109,50 +109,38 @@ open class SpecmaticJUnitSupport {
         return reportConfiguration
     }
 
-    enum class ActuatorSetupResult(val failed: Boolean) {
-        Success(false), Failure(true)
-    }
-
-    fun actuatorFromSwagger(testBaseURL: String, client: TestExecutor? = null): ActuatorSetupResult {
-        // TODO: Deprecate and remove SWAGGER_UI_BASEURL
-        val defaultBaseURL = specmaticConfig.getTestSwaggerUIBaseUrl() ?: testBaseURL
-        val swaggerDocUrl = when {
-            specmaticConfig.getTestSwaggerUrl() != null -> specmaticConfig.getTestSwaggerUrl().orEmpty()
-            else -> "$defaultBaseURL/swagger/v1/swagger.yaml"
-        }
-
+    private fun fetchApplicationApisFromOpenApiDocument(swaggerDocUrl: String): List<API>? {
         val request = HttpRequest(path = "/", method = "GET")
-        val response = if (client != null) {
-            client.execute(request)
-        } else {
-            HttpClient(
-                swaggerDocUrl,
-                log = ignoreLog,
-                prettyPrint = prettyPrint,
-                keyData = keyDataFor(swaggerDocUrl)
-            ).use { httpClient ->
-                httpClient.execute(request)
-            }
+        val response = HttpClient(
+            swaggerDocUrl,
+            log = ignoreLog,
+            prettyPrint = prettyPrint,
+            keyData = keyDataFor(swaggerDocUrl)
+        ).use { httpClient ->
+            httpClient.execute(request)
         }
 
         if (response.status != 200) {
-            logger.debug("Failed to query swaggerUI, status code: ${response.status}")
-            return ActuatorSetupResult.Failure
+            logger.debug("Failed to query OpenAPI document source, status code: ${response.status}")
+            return null
         }
 
         val featureFromJson = OpenApiSpecification.fromYAML(response.body.toStringLiteral(), "").toFeature()
-        val apis = featureFromJson.scenarios.map { scenario ->
+        return featureFromJson.scenarios.map { scenario ->
             API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
-        }
-
-        openApiCoverage.addAPIs(apis.distinct())
-        openApiCoverage.setEndpointsAPIFlag(true)
-
-        return ActuatorSetupResult.Success
+        }.distinct()
     }
 
-    fun queryActuator(): ActuatorSetupResult {
-        val endpointsAPI = specmaticConfig.getActuatorUrl() ?: return ActuatorSetupResult.Failure
+    private fun fetchApplicationApisFrom(source: ApplicationApiSource): List<API>? {
+        return when (source) {
+            is ApplicationApiSource.Actuator -> fetchApplicationApisFromActuator(source)
+            is ApplicationApiSource.Swagger -> fetchApplicationApisFromOpenApiDocument(source.url)
+            is ApplicationApiSource.SwaggerUi -> fetchApplicationApisFromOpenApiDocument(source.url.trimEnd('/') + DEFAULT_SWAGGER_SPEC_YAML_PATH)
+        }
+    }
+
+    private fun fetchApplicationApisFromActuator(source: ApplicationApiSource.Actuator): List<API>? {
+        val endpointsAPI = source.url
         val request = HttpRequest("GET")
         val response = HttpClient(
             endpointsAPI,
@@ -165,13 +153,12 @@ open class SpecmaticJUnitSupport {
 
         if (response.status != 200) {
             logger.debug("Failed to query actuator, status code: ${response.status}")
-            return ActuatorSetupResult.Failure
+            return null
         }
 
         logger.debug(response.toLogString())
-        openApiCoverage.setEndpointsAPIFlag(true)
         val endpointData = response.body as JSONObjectValue
-        val apis: List<API> = endpointData.getJSONObject("contexts").entries.flatMap { entry ->
+        return endpointData.getJSONObject("contexts").entries.flatMap { entry ->
             val mappings: JSONArrayValue =
                 (entry.value as JSONObjectValue).findFirstChildByPath("mappings.dispatcherServlets.dispatcherServlet") as JSONArrayValue
             mappings.list.map { it as JSONObjectValue }.filter {
@@ -194,9 +181,39 @@ open class SpecmaticJUnitSupport {
                 }
             }
         }
+    }
 
-        openApiCoverage.addAPIs(apis)
-        return ActuatorSetupResult.Success
+    private fun addApplicationApisFromConfiguredSources(applicationApiSources: List<ApplicationApiSource>) {
+        val applicationApisByAvailableSource = applicationApiSources.mapNotNull(::fetchApplicationApisFrom)
+
+        applicationApisByAvailableSource.forEach { apis ->
+            openApiCoverage.addAPIs(apis)
+        }
+
+        val anySourceAvailable = applicationApisByAvailableSource.isNotEmpty()
+        openApiCoverage.setEndpointsAPIFlag(anySourceAvailable)
+
+        if (!anySourceAvailable) {
+            logger.boundary()
+            logger.log("No application API source was exposed by the application, so cannot calculate actual coverage")
+        }
+    }
+
+    private fun applicationApiSourceFor(contractPath: String, resolvedBaseURL: String): ApplicationApiSource? {
+        if (!hasOpenApiFileExtension(contractPath)) return null
+        return specmaticConfig.getTestApplicationApiSource(
+            File(contractPath),
+            SpecType.OPENAPI,
+            swaggerUiFallbackBaseUrlFor(resolvedBaseURL)
+        )
+    }
+
+    private fun swaggerUiFallbackBaseUrlFor(resolvedBaseURL: String): String {
+        return selectSwaggerUiFallbackBaseUrl(
+            testBaseUrlOverride = settings.baseUrlFromArgOrSysProp(),
+            configuredTestBaseUrl = settings.baseUrlFromConfig(),
+            resolvedSpecBaseUrl = resolvedBaseURL,
+        )
     }
 
     private fun getConfigFileWithAbsolutePath() = File(settings.configFile.orEmpty()).canonicalPath
@@ -305,10 +322,10 @@ open class SpecmaticJUnitSupport {
                     // Default base URL is mandatory for this mode
                     val defaultBaseURL = constructTestBaseURL()
                     val contractPaths = settings.contractPaths.orEmpty().split(",").filter { File(it).extension in CONTRACT_EXTENSIONS }
-                    val loadedScenariosByContractPath = contractPaths.map { contractPath ->
+                    val loadedContracts = contractPaths.map { contractPath ->
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPath), SpecType.OPENAPI)
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
-                        contractPath to loadTestScenarios(
+                        val loadedTestScenarios = loadTestScenarios(
                             contractPath,
                             suggestionsPath,
                             suggestionsData,
@@ -320,16 +337,16 @@ open class SpecmaticJUnitSupport {
                             overlayContent = overlayContent,
                             filter = testFilter
                         )
+
+                        LoadedContractScenarios(
+                            contractPath = contractPath,
+                            loadedTestScenarios = loadedTestScenarios,
+                            resolvedBaseURL = defaultBaseURL,
+                            applicationApiSource = applicationApiSourceFor(contractPath, defaultBaseURL)
+                        )
                     }
 
-                    val endpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.allEndpoints }
-                    val filteredEndpoints: List<Endpoint> = loadedScenariosByContractPath.flatMap { (_, loaded) -> loaded.filteredEndpoints }
-                    val exampleValidationResults = loadedScenariosByContractPath.associate { (contractPath, loaded) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls = loadedScenariosByContractPath.asSequence().flatMap { (_, loaded) ->
-                        loaded.scenarios.mapSequence { Pair(it, defaultBaseURL) }
-                    }
-
-                    TestData(testsWithUrls, endpoints, filteredEndpoints, setOf(defaultBaseURL), exampleValidationResults)
+                    TestData.from(loadedContracts)
                 }
 
                 else -> {
@@ -347,7 +364,7 @@ open class SpecmaticJUnitSupport {
 
                     // Compute default base URL only if any spec lacks a provides baseUrl
                     val defaultBaseURL = constructTestBaseURL()
-                    val loadedScenariosWithBaseUrlsByContractPath = contractFilePaths.filter {
+                    val loadedContracts = contractFilePaths.filter {
                         File(it.path).extension in CONTRACT_EXTENSIONS
                     }.map { contractPathData ->
                         val overlayFilePath: String? = settings.overlayFilePath?.canonicalPath ?: specmaticConfig.getTestOverlayFilePath(File(contractPathData.path), SpecType.OPENAPI)
@@ -372,18 +389,15 @@ open class SpecmaticJUnitSupport {
                         )
 
                         val resolvedBaseURL = contractPathData.baseUrl ?: defaultBaseURL
-                        Triple(contractPathData.path, loadedTestScenarios, resolvedBaseURL)
+                        LoadedContractScenarios(
+                            contractPath = contractPathData.path,
+                            loadedTestScenarios = loadedTestScenarios,
+                            resolvedBaseURL = resolvedBaseURL,
+                            applicationApiSource = applicationApiSourceFor(contractPathData.path, resolvedBaseURL)
+                        )
                     }
 
-                    val baseUrls = loadedScenariosWithBaseUrlsByContractPath.map { (_, _, resolvedBaseURL) -> resolvedBaseURL }.toSet()
-                    val endpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.allEndpoints }
-                    val filteredEndpoints: List<Endpoint> = loadedScenariosWithBaseUrlsByContractPath.flatMap { (_, loaded, _) -> loaded.filteredEndpoints }
-                    val exampleValidationResults = loadedScenariosWithBaseUrlsByContractPath.associate { (contractPath, loaded, _) -> contractPath to loaded.exampleValidationResult }
-                    val testsWithUrls = loadedScenariosWithBaseUrlsByContractPath.asSequence().flatMap { (_, loaded, resolvedBaseURL) ->
-                        loaded.scenarios.mapSequence { Pair(it, resolvedBaseURL) }
-                    }
-
-                    TestData(testsWithUrls, endpoints, filteredEndpoints, baseUrls, exampleValidationResults)
+                    TestData.from(loadedContracts)
                 }
             }
         } catch (e: ContractException) {
@@ -414,15 +428,10 @@ open class SpecmaticJUnitSupport {
             return loadExceptionAsTestError(e)
         }
 
-        val actuatorBaseURL = settings.baseUrlFromArgOrSysProp()
-            ?: settings.baseUrlFromConfig()
-            ?: testBuildResult.baseUrls.firstOrNull()
-            ?: constructTestBaseURL()
-
         return try {
             dynamicTestStream(
                 firstNScenarios(testScenariosWithUrls),
-                actuatorBaseURL,
+                testBuildResult.applicationApiSources,
                 timeoutInMilliseconds
             )
         } catch (e: Throwable) {
@@ -443,21 +452,17 @@ open class SpecmaticJUnitSupport {
 
     private fun dynamicTestStream(
         testScenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>,
-        actuatorBaseURL: String,
+        applicationApiSources: List<ApplicationApiSource>,
         timeoutInMilliseconds: Long,
     ): Stream<DynamicTest>
     {
         val suiteAbortMessage = AtomicReference<String?>(null)
 
         try {
-            if (queryActuator().failed && actuatorFromSwagger(actuatorBaseURL).failed) {
-                openApiCoverage.setEndpointsAPIFlag(false)
-                logger.boundary()
-                logger.log("Endpoints API and SwaggerUI URL were not exposed by the application, so cannot calculate actual coverage")
-            }
+            addApplicationApisFromConfiguredSources(applicationApiSources)
         } catch (exception: Throwable) {
             openApiCoverage.setEndpointsAPIFlag(false)
-            logger.debug(exception, "Failed to query actuator with error")
+            logger.debug(exception, "Failed to query application API source with error")
         }
 
         logger.newLine()
@@ -825,13 +830,42 @@ data class LoadedTestScenarios(
     val exampleValidationResult: Result = Result.Success()
 )
 
+private data class LoadedContractScenarios(
+    val contractPath: String,
+    val loadedTestScenarios: LoadedTestScenarios,
+    val resolvedBaseURL: String,
+    val applicationApiSource: ApplicationApiSource?,
+)
+
 private data class TestData(
     val scenarios: Sequence<Decision<Pair<ContractTest, String>, Scenario>>,
     val allEndpoints: List<Endpoint>,
     val filteredEndpoints: List<Endpoint>,
-    val baseUrls: Set<String>,
     val exampleValidationResults: Map<String, Result>,
-)
+    val applicationApiSources: List<ApplicationApiSource>,
+) {
+    companion object {
+        fun from(contracts: List<LoadedContractScenarios>): TestData {
+            return TestData(
+                scenarios = contracts.asSequence().flatMap { contract ->
+                    contract.loadedTestScenarios.scenarios.mapSequence { Pair(it, contract.resolvedBaseURL) }
+                },
+                allEndpoints = contracts.flatMap { it.loadedTestScenarios.allEndpoints },
+                filteredEndpoints = contracts.flatMap { it.loadedTestScenarios.filteredEndpoints },
+                exampleValidationResults = contracts.associate { it.contractPath to it.loadedTestScenarios.exampleValidationResult },
+                applicationApiSources = contracts.mapNotNull { it.applicationApiSource }.distinct(),
+            )
+        }
+    }
+}
+
+internal fun selectSwaggerUiFallbackBaseUrl(
+    testBaseUrlOverride: String?,
+    configuredTestBaseUrl: String?,
+    resolvedSpecBaseUrl: String,
+): String {
+    return testBaseUrlOverride ?: configuredTestBaseUrl ?: resolvedSpecBaseUrl
+}
 
 private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {
     val firstRow = exampleData.list[0]

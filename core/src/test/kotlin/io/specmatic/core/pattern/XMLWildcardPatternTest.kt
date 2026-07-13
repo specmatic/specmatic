@@ -108,12 +108,30 @@ internal class XMLWildcardPatternTest {
     }
 
     @Test
-    fun `optional wildcard generates no nodes`() {
+    fun `optional wildcard generates no nodes when optional generation says no`() {
         val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 0, maxOccurs = null)
+
+        val generated = wildcard.generateXML(Resolver(), FixedXMLWildcardGenerationDecisions(false)) as XMLNode
+
+        assertThat(generated.childNodes).isEmpty()
+    }
+
+    @Test
+    fun `optional wildcard generates one node when optional generation says yes`() {
+        val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 0, maxOccurs = null)
+
+        val generated = wildcard.generateXML(Resolver(), FixedXMLWildcardGenerationDecisions(true)) as XMLNode
+
+        assertThat(generated.childNodes).hasSize(1)
+    }
+
+    @Test
+    fun `required repeated wildcard generation uses minimum occurrences`() {
+        val wildcard = XMLWildcardPattern(AnyXMLNamespace, minOccurs = 2, maxOccurs = 4)
 
         val generated = wildcard.generate(Resolver()) as XMLNode
 
-        assertThat(generated.childNodes).isEmpty()
+        assertThat(generated.childNodes).hasSize(2)
     }
 
     @Test
@@ -329,4 +347,8 @@ internal class XMLWildcardPatternTest {
         private const val FOREIGN_NAMESPACE = "urn:foreign"
         private const val XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace"
     }
+}
+
+private class FixedXMLWildcardGenerationDecisions(private val includeOptional: Boolean) : XMLGenerationDecisions {
+    override fun includeOptionalXMLNode(): Boolean = includeOptional
 }

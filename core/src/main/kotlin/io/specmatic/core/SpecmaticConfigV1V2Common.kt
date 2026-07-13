@@ -922,6 +922,19 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
+    override fun getTestApplicationApiSource(
+        specFile: File,
+        specType: SpecType,
+        fallbackSwaggerUiBaseUrl: String?,
+    ): ApplicationApiSource? {
+        if (specType != SpecType.OPENAPI) return null
+
+        return getActuatorUrl()?.let(ApplicationApiSource::Actuator)
+            ?: getTestSwaggerUrl()?.let(ApplicationApiSource::Swagger)
+            ?: (getTestSwaggerUIBaseUrl() ?: fallbackSwaggerUiBaseUrl)?.let(ApplicationApiSource::SwaggerUi)
+    }
+
+    @JsonIgnore
     override fun enableResiliencyTests(onlyPositive: Boolean): SpecmaticConfigV1V2Common {
         val testConfig = test ?: TestConfiguration()
         return this.copy(
@@ -1368,6 +1381,18 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(sources = transformedSources)
     }
 
+    override fun withCanonicalizedDefinitionFilesystemSources(workingDirectory: File): SpecmaticConfig {
+        val transformedSources = this.sources.map { source ->
+            source.withResolvedFilesystemDirectory(workingDirectory)
+        }
+        return this.copy(sources = transformedSources)
+    }
+
+    override fun toYaml(): String {
+        val versionedConfig = SpecmaticConfigVersion.convertToVersionedConfig(this, getVersion())
+        return yamlMapper.writeValueAsString(versionedConfig)
+    }
+
     @JsonIgnore
     override fun testSpecPathFromConfigFor(specFile: File): String? {
         val source = testSourceFromConfig(specFile) ?: return null
@@ -1664,6 +1689,15 @@ data class Source(
                 sourceBaseDir.resolve("web").resolve(url.hostOrAuthority()).resolve(url.rawPath.removePrefix("/")).canonicalFile
             } ?: sourceBaseDir.resolve(specPath).canonicalFile
         }
+    }
+
+    fun withResolvedFilesystemDirectory(workingDirectory: File): Source {
+        if (this.provider == SourceProvider.filesystem) {
+            val dir = this.directory ?: "."
+            val resolvedDir = if (File(dir).isAbsolute) File(dir) else workingDirectory.resolve(dir).normalize()
+            return this.copy(directory = resolvedDir.canonicalPath)
+        }
+        return this
     }
 }
 

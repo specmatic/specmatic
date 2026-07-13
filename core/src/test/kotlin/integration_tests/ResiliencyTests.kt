@@ -15,7 +15,11 @@ import io.specmatic.core.Results
 import io.specmatic.core.Scenario
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.utilities.Flags
+import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.ONLY_POSITIVE
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NullValue
@@ -28,6 +32,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 internal val Results.testCount: Int
     get() {
@@ -2467,6 +2473,130 @@ class GenerativeTests {
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is set to a value greater than maximum value '5000'",
             "-ve  Scenario: POST /items -> 4xx with the request from the example 'sampleItems' where REQUEST.BODY.[] contains all the keys AND the key quantity is set to a value lesser than minimum value '1'"
         )
+    }
+
+    @Test
+    fun `negative tests generated from an external 200 example should not run the 200 example response matcher`(@TempDir tempDir: File) {
+        val matcherEngine = mockk<MatcherEngine>()
+        var negativeMatcherCallCount = 0
+        var currentScenarioIsNegative = false
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any()) } answers {
+            if (currentScenarioIsNegative) negativeMatcherCallCount++
+            Result.Success()
+        }
+
+        val specFile = tempDir.resolve("orders.yaml").apply {
+            writeText(
+                """
+                openapi: "3.0.1"
+                info:
+                  title: Orders API
+                  version: "1"
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          application/json:
+                            schema:
+                              type: object
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  type: string
+                      responses:
+                        200:
+                          description: Created
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - id
+                                properties:
+                                  id:
+                                    type: integer
+                        400:
+                          description: Bad request
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                required:
+                                  - error
+                                properties:
+                                  error:
+                                    type: string
+                """.trimIndent()
+            )
+        }
+        tempDir.resolve("order-created.json").writeText(
+            """
+            {
+              "http-request": {
+                "path": "/orders",
+                "method": "POST",
+                "headers": {
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "name": "widget"
+                }
+              },
+              "http-response": {
+                "status": 200,
+                "headers": {
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "id": 10
+                }
+              }
+            }
+            """.trimIndent()
+        )
+
+        val feature = Flags.using(EXAMPLE_DIRECTORIES to tempDir.canonicalPath) {
+            OpenApiSpecification.fromFile(specFile.canonicalPath).toFeature().loadExternalisedExamples().enableGenerativeTesting()
+        }
+
+        val testDescriptions = mutableListOf<String>()
+
+        val results = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                return when (request.expectedResponseCode()) {
+                    200 -> HttpResponse(
+                        status = 200,
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = parsedJSONObject("""{"id":10}""")
+                    )
+
+                    400 -> HttpResponse(
+                        status = 400,
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = parsedJSONObject("""{"error":"bad request"}""")
+                    )
+
+                    else -> throw ContractException("Unexpected response code hint ${request.expectedResponseCode()}")
+                }
+            }
+
+            override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
+                currentScenarioIsNegative = scenario.isNegative
+                testDescriptions.add(scenario.testDescription())
+            }
+        })
+
+        assertThat(testDescriptions).anySatisfy {
+            assertThat(it).startsWith("-ve")
+            assertThat(it).contains("order-created")
+        }
+        assertThat(negativeMatcherCallCount).isEqualTo(0)
+        assertThat(results.success()).withFailMessage(results.report()).isTrue()
     }
 
     @Test

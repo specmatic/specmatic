@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.specmatic.core.config.v3.ServerOrigin
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(GraphQLSdlTestConfig::class, name = "test"), JsonSubTypes.Type(GraphQLSdlMockConfig::class, name = "mock"))
 sealed interface GraphQLSdlRunOptions : IRunOptions {
     val type: RunOptionType?
@@ -21,16 +21,15 @@ sealed interface GraphQLSdlRunOptions : IRunOptions {
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class GraphQLSdlTestConfig(override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {
+data class GraphQLSdlTestConfig(
+    override val type: RunOptionType? = null,
+    override val specs: List<RunOptionsSpecifications>? = null
+) : GraphQLSdlRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
-    @JsonIgnore
-    override val type: RunOptionType? = null
-
-    @JsonProperty("type")
-    private fun setType(input: RunOptionType?) {
-        require(input == null || input == RunOptionType.TEST) {
-            "Invalid type '$input' for GraphQLSdlTestConfig, expected '${RunOptionType.TEST.value}'"
+    init {
+        require(type == null || type == RunOptionType.TEST) {
+            "Invalid type '$type' for GraphQLSdlTestConfig, expected '${RunOptionType.TEST.value}'"
         }
     }
 
@@ -44,16 +43,15 @@ data class GraphQLSdlTestConfig(override val specs: List<RunOptionsSpecification
 }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
-data class GraphQLSdlMockConfig(override val specs: List<RunOptionsSpecifications>? = null) : GraphQLSdlRunOptions {
+data class GraphQLSdlMockConfig(
+    override val type: RunOptionType? = null,
+    override val specs: List<RunOptionsSpecifications>? = null
+) : GraphQLSdlRunOptions {
     private val _config: MutableMap<String, Any> = linkedMapOf()
 
-    @JsonIgnore
-    override val type: RunOptionType? = null
-
-    @JsonProperty("type")
-    private fun setType(input: RunOptionType?) {
-        require(input == null || input == RunOptionType.MOCK) {
-            "Invalid type '$input' for GraphQLSdlMockConfig, expected '${RunOptionType.MOCK.value}'"
+    init {
+        require(type == null || type == RunOptionType.MOCK) {
+            "Invalid type '$type' for GraphQLSdlMockConfig, expected '${RunOptionType.MOCK.value}'"
         }
     }
 

@@ -7,10 +7,9 @@ import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.utilities.yamlStringToValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
-import io.specmatic.test.ExampleProcessor
-import io.specmatic.test.ExampleProcessor.toFactStore
-import io.specmatic.test.asserts.WILDCARD_INDEX
+import io.specmatic.test.traverse
 import java.io.File
 
 object DictionaryMismatchMessages : MismatchMessages {
@@ -193,6 +192,7 @@ data class Dictionary(
     companion object {
         private const val SPECMATIC_CONSTANTS = "SPECMATIC_CONSTANTS"
         private val noPatternKeyCheckDictionary = DefaultKeyCheckImpl(noPatternKeyCheck, IgnoreUnexpectedKeys)
+        private val constantLookupPattern = Regex("^\\$\\((.*)\\)$")
 
         fun from(file: File, strictMode: Boolean = false): Dictionary {
             if (!file.exists()) throw ContractException(
@@ -241,12 +241,36 @@ data class Dictionary(
 
         private fun JSONObjectValue.resolveConstants(): JSONObjectValue {
             if (this.jsonObject.containsKey(SPECMATIC_CONSTANTS).not()) return this
-
-            val constants = this.getJSONObjectValue(SPECMATIC_CONSTANTS).toFactStore()
-            return ExampleProcessor.resolve(this) { lookupKey, _ ->
+            val constants = this.getJSONObjectValue(SPECMATIC_CONSTANTS).toFlatMap()
+            return resolve(this) { lookupKey ->
                 constants[lookupKey]
                     ?: throw ContractException("Could not find the replacement for the lookup key '$lookupKey' while resolving $SPECMATIC_CONSTANTS in the dictionary")
             }
+        }
+
+        private fun Value.toFlatMap(): Map<String, Value> {
+            return this.traverse(
+                onScalar = { scalar, key -> mapOf(key to scalar) },
+                onComposite = { composite, key -> mapOf(key to composite) }
+            )
+        }
+
+        private fun resolve(value: JSONObjectValue, block: (lookupKey: String) -> Value): JSONObjectValue {
+            return JSONObjectValue(value.jsonObject.mapValues { (_, value) -> resolve(value, block) })
+        }
+
+        private fun resolve(value: Value, block: (lookupKey: String) -> Value): Value {
+            return when (value) {
+                is StringValue -> resolve(value, block)
+                is JSONObjectValue -> resolve(value, block)
+                is JSONArrayValue -> JSONArrayValue(value.list.map { resolve(it, block) })
+                else -> value
+            }
+        }
+
+        private fun resolve(value: StringValue, block: (lookupKey: String) -> Value): Value {
+            val match = constantLookupPattern.matchEntire(value.nativeValue) ?: return value
+            return block(match.groupValues[1])
         }
     }
 }
