@@ -53,7 +53,7 @@ class DefaultSpecmaticMcpToolProvider(
             inputSchema = toolSchema(
                 properties = mapOf(
                     "command" to stringProperty("The action to perform: start, stop, or list"),
-                    "openApiSpec" to stringProperty("The OpenAPI specification content (required for 'start')"),
+                    "specFilePath" to stringProperty("Path to the OpenAPI specification file (required for 'start')"),
                     "port" to typedProperty("integer", "Port number for the mock server"),
                     "specFormat" to stringProperty("Format of the OpenAPI spec (yaml or json)")
                 ),

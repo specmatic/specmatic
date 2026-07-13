@@ -88,7 +88,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         
         val args = mapOf(
             "command" to "start",
-            "openApiSpec" to "openapi: 3.0.0",
+            "specFilePath" to "spec.yaml",
             "port" to 9000
         )
         val request = McpSchema.CallToolRequest("manage_mock_server", args)
@@ -102,7 +102,7 @@ class DefaultSpecmaticMcpToolProviderTest {
         
         verify { 
             mockServerTool.manageMockServer(
-                ManageMockServerArgs(command = "start", openApiSpec = "openapi: 3.0.0", port = 9000)
+                ManageMockServerArgs(command = "start", specFilePath = "spec.yaml", port = 9000)
             ) 
         }
     }
