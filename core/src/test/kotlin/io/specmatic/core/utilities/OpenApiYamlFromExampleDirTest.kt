@@ -3,9 +3,11 @@ package io.specmatic.core.utilities
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.NamedStub
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.proxy.ProxyOperation
@@ -18,6 +20,110 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 class OpenApiYamlFromExampleDirTest {
+    @Test
+    fun `omits a request body for the default empty body`() {
+        val openApi = openApiFromTraffic(
+            "Empty body",
+            listOf(namedStub("empty", HttpRequest("GET", "/empty"), HttpResponse.ok("done"))),
+        )!!
+
+        assertThat(openApi.paths["/empty"]!!.get.requestBody).isNull()
+    }
+
+    @Test
+    fun `omits response content for the default empty body`() {
+        val openApi = openApiFromTraffic(
+            "Empty body",
+            listOf(namedStub("empty", HttpRequest("GET", "/empty"), HttpResponse(204))),
+        )!!
+
+        assertThat(openApi.paths["/empty"]!!.get.responses["204"]!!.content).isNull()
+    }
+
+    @Test
+    fun `converges fields across objects in a top level array`() {
+        val openApi = openApiFromTraffic(
+            "Items",
+            listOf(namedStub(
+                "create items",
+                HttpRequest("POST", "/items", body = parsedJSON("""[{"id":1},{"id":2,"enabled":true}]""")),
+                HttpResponse.ok("created"),
+            )),
+        )!!
+
+        val requestSchema = openApi.paths["/items"]!!.post.requestBody.content["application/json"]!!.schema
+        val itemSchemaName = requestSchema.items.`$ref`.substringAfterLast('/')
+        val itemSchema = openApi.components.schemas[itemSchemaName]!!
+        assertThat(requestSchema.type).isEqualTo("array")
+        assertThat(itemSchema.properties.keys).containsExactly("id", "enabled")
+        assertThat(itemSchema.required).contains("id").doesNotContain("enabled")
+    }
+
+    @Test
+    fun `converges an empty nested array with a later object array`() {
+        val openApi = openApiFromTraffic(
+            "Groups",
+            listOf(namedStub(
+                "create groups",
+                HttpRequest("POST", "/groups", body = parsedJSON("""[{"members":[]},{"members":[{"id":1}]}]""")),
+                HttpResponse.ok("created"),
+            )),
+        )!!
+
+        val requestSchema = openApi.paths["/groups"]!!.post.requestBody.content["application/json"]!!.schema
+        val groupSchema = openApi.components.schemas[requestSchema.items.`$ref`.substringAfterLast('/')]!!
+        val membersSchema = groupSchema.properties["members"]!!
+        val memberSchema = openApi.components.schemas[membersSchema.items.`$ref`.substringAfterLast('/')]!!
+        assertThat(membersSchema.type).isEqualTo("array")
+        assertThat(memberSchema.properties.keys).containsExactly("id")
+    }
+
+    @Test
+    fun `infers empty arrays without creating a dangling component reference`() {
+        val openApi = openApiFromTraffic(
+            "Items",
+            listOf(namedStub(
+                "create items",
+                HttpRequest("POST", "/items", body = parsedJSON("[]")),
+                HttpResponse.ok("created"),
+            )),
+        )!!
+
+        val schema = openApi.paths["/items"]!!.post.requestBody.content["application/json"]!!.schema
+        assertThat(schema.type).isEqualTo("array")
+        assertThat(schema.items.type).isEqualTo("string")
+        assertThat(schema.`$ref`).isNull()
+    }
+
+    @Test
+    fun `omits a request body for NoBodyValue`() {
+        val openApi = openApiFromTraffic(
+            "No body",
+            listOf(namedStub(
+                "without body",
+                HttpRequest("POST", "/actions", body = NoBodyValue),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        assertThat(openApi.paths["/actions"]!!.post.requestBody).isNull()
+    }
+
+    @Test
+    fun `preserves the recorded response behavior for NoBodyValue`() {
+        val openApi = openApiFromTraffic(
+            "No body",
+            listOf(namedStub(
+                "without response body",
+                HttpRequest("GET", "/actions"),
+                HttpResponse(204, headers = emptyMap(), body = NoBodyValue, externalisedResponseCommand = ""),
+            )),
+        )!!
+
+        val schema = openApi.paths["/actions"]!!.get.responses["204"]!!.content["text/plain"]!!.schema
+        assertThat(schema.enum).containsExactly("No body")
+    }
+
     @Test
     fun `infers scalar request bodies without creating a dangling component reference`() {
         val openApi = openApiFromTraffic(
@@ -32,6 +138,51 @@ class OpenApiYamlFromExampleDirTest {
         val schema = openApi.paths["/echo"]!!.post.requestBody.content["text/plain"]!!.schema
         assertThat(schema.type).isEqualTo("string")
         assertThat(schema.`$ref`).isNull()
+    }
+
+    @Test
+    fun `infers decimal request bodies as number schemas`() {
+        val openApi = openApiFromTraffic(
+            "Decimal",
+            listOf(namedStub(
+                "decimal",
+                HttpRequest("POST", "/decimal", body = NumberValue(1.5)),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val schema = openApi.paths["/decimal"]!!.post.requestBody.content["text/plain"]!!.schema
+        assertThat(schema.type).isEqualTo("number")
+    }
+
+    @Test
+    fun `infers null object fields as nullable schemas`() {
+        val openApi = openApiFromTraffic(
+            "Nullable",
+            listOf(namedStub(
+                "nullable object",
+                HttpRequest("POST", "/nullable", body = parsedJSON("""{"id":1,"note":null}""")),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val requestSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("RequestBody") }.value
+        assertThat(requestSchema.properties["note"]!!.nullable).isTrue()
+    }
+
+    @Test
+    fun `infers arrays containing null and a value as nullable item schemas`() {
+        val openApi = openApiFromTraffic(
+            "Nullable",
+            listOf(namedStub(
+                "nullable array",
+                HttpRequest("POST", "/nullable", body = parsedJSON("""[null,"value"]""")),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val schema = openApi.paths["/nullable"]!!.post.requestBody.content["application/json"]!!.schema
+        assertThat(schema.items.nullable).isTrue()
     }
 
     @Test

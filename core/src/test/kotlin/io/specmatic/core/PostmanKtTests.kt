@@ -10,9 +10,53 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.value.*
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 
 class PostmanKtTests {
+    @Test
+    fun `Postman conversion preserves parsed example row columns values and order`() {
+        val baseUrl = BaseURLInfo("localhost", 9000, "http", "http://localhost:9000")
+        val stubs = listOf(
+            NamedStub(
+                "create item",
+                ScenarioStub(
+                    HttpRequest(
+                        "POST",
+                        "/items",
+                        headers = mapOf("X-Trace" to "first"),
+                        body = parsedJSON("""{"name":"tea","note":"hot"}"""),
+                        queryParams = QueryParameters(mapOf("page" to "1")),
+                    ),
+                    HttpResponse(201, headers = mapOf("Date" to "Monday"), body = StringValue("created")),
+                ),
+            ),
+            NamedStub(
+                "create item",
+                ScenarioStub(
+                    HttpRequest(
+                        "POST",
+                        "/items",
+                        headers = mapOf("X-Trace" to "second"),
+                        body = parsedJSON("""{"name":"coffee","note":"iced"}"""),
+                        queryParams = QueryParameters(mapOf("page" to "2")),
+                    ),
+                    HttpResponse(201, headers = mapOf("Date" to "Tuesday"), body = StringValue("accepted")),
+                ),
+            ),
+        )
+        val postmanCollection = PostmanCollection("Rows", stubs.map { baseUrl to it })
+
+        val feature = parseGherkinStringToFeature(toGherkinFeature(postmanCollection))
+        val examples = feature.scenarios.single().examples.single()
+
+        assertThat(examples.columnNames).containsExactly("page", "X-Trace", "name", "note", "__comment__")
+        assertThat(examples.rows.map { it.values }).containsExactly(
+            listOf("1", "first", "tea", "hot", "Monday"),
+            listOf("2", "second", "coffee", "iced", "Tuesday"),
+        )
+    }
+
     @Test
     fun `should be able to guess a boolean value`() {
         assertThat(guessType(StringValue("true"))).isEqualTo(BooleanValue(true))
