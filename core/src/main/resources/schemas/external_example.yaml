@@ -5,6 +5,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/Metadata"
         - $ref: "#/components/schemas/RequestResponseSchema"
+        - $ref: "#/components/schemas/FixtureHooks"
 
     PartialExample:
       allOf:
@@ -17,6 +18,7 @@ components:
                 - $ref: "#/components/schemas/Metadata"
           required:
             - partial
+        - $ref: "#/components/schemas/FixtureHooks"
 
     AnyValue: {}
 
@@ -111,6 +113,22 @@ components:
             - positive
             - negative
 
+    FixtureHooks:
+      type: object
+      properties:
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fixture"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fixture"
+
+    Fixture:
+      oneOf:
+        - $ref: "#/components/schemas/HttpFixture"
+
     MultiPartFormData:
       oneOf:
         - $ref: "#/components/schemas/MultiPartContent"
@@ -153,19 +171,57 @@ components:
       properties:
         type:
           type: string
+          enum:
+            - http
         wait:
-          nullable: true
           type: string
         timeout:
-          nullable: true
           type: string
         retry:
-          nullable: true
           $ref: "#/components/schemas/Retry"
         executeFor:
-          nullable: true
           $ref: "#/components/schemas/FixtureExecuteFor"
         http-request:
-          $ref: "#/components/schemas/RequestSchema"
+          $ref: "#/components/schemas/HTTPFixtureRequest"
         http-response:
-          $ref: "#/components/schemas/ResponseSchema"
+          $ref: "#/components/schemas/HTTPFixtureResponse"
+      required:
+        - type
+        - http-request
+        - http-response
+
+    Retry:
+      type: object
+      properties:
+        max-attempts:
+          type: integer
+        delay:
+          type: string
+
+    HTTPFixtureRequest:
+      type: object
+      properties:
+        baseUrl:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        headers:
+          type: object
+        body:
+          $ref: "#/components/schemas/AnyValue"
+      required:
+        - baseUrl
+        - method
+
+    HTTPFixtureResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          minimum: 0
+        body:
+          $ref: "#/components/schemas/AnyValue"
+      required:
+        - status
