@@ -83,12 +83,14 @@
       "type": "object",
       "properties": {
         "before": {
+          "description": "Fixtures to execute before the example runs.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Fixture"
           }
         },
         "after": {
+          "description": "Fixtures to execute after the example runs.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/Fixture"
@@ -107,7 +109,9 @@
       "type": "object",
       "properties": {
         "type": {
-          "const": "http"
+          "const": "http",
+          "default": "http",
+          "description": "Fixture type discriminator. Currently only http is supported."
         },
         "wait": {
           "type": "string"
@@ -116,15 +120,19 @@
           "type": "string"
         },
         "retry": {
+          "description": "Retry policy to apply when the fixture call does not succeed immediately.",
           "$ref": "#/$defs/Retry"
         },
         "executeFor": {
+          "description": "Controls which scenario types should execute this fixture.",
           "$ref": "#/$defs/FixtureExecuteFor"
         },
         "http-request": {
+          "description": "HTTP request to send when executing the fixture.",
           "$ref": "#/$defs/HTTPFixtureRequest"
         },
         "http-response": {
+          "description": "Expected HTTP response returned by the fixture call.",
           "$ref": "#/$defs/HTTPFixtureResponse"
         }
       },
@@ -135,9 +143,11 @@
       "type": "object",
       "properties": {
         "max-attempts": {
+          "description": "Maximum number of retry attempts for the fixture call.",
           "type": "integer"
         },
         "delay": {
+          "description": "Delay between retry attempts.",
           "type": "string"
         }
       },
@@ -147,6 +157,8 @@
       "type": "object",
       "properties": {
         "scenarios": {
+          "description": "Run this fixture for all, positive, or negative scenarios.",
+          "default": "all",
           "type": "string",
           "enum": ["all", "positive", "negative"]
         }
@@ -157,12 +169,14 @@
       "type": "object",
       "properties": {
         "baseUrl": {
+          "description": "Base URL of the fixture endpoint.",
           "type": "string"
         },
         "method": {
           "type": "string"
         },
         "path": {
+          "description": "Path to invoke on the fixture endpoint.",
           "type": "string"
         },
         "headers": {
@@ -179,6 +193,7 @@
       "type": "object",
       "properties": {
         "status": {
+          "description": "Expected HTTP status returned by the fixture call.",
           "type": "integer"
         },
         "body": {
