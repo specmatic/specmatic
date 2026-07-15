@@ -49,8 +49,9 @@ class ApplicationApiDiscoveryTest {
             }
         }
 
+        val warning = "WARNING: Could not use ${sourceCase.displayName} at $sourceUrl"
         assertThat(output)
-            .contains("WARNING: Could not use ${sourceCase.displayName} at $sourceUrl")
+            .contains(System.lineSeparator() + warning)
             .doesNotContain("ERROR", "explicitly configured", NO_APPLICATION_API_SOURCE_MESSAGE)
             .containsIgnoringCase("connect")
         assertThat(coverage.isEndpointsApiSet()).isFalse()
@@ -66,8 +67,9 @@ class ApplicationApiDiscoveryTest {
             discovery.discover(listOf(sourceCase.source(sourceUrl)), coverage())
         }
 
+        val warning = "WARNING: Could not use ${sourceCase.displayName} at $sourceUrl: Received HTTP status 503"
         assertThat(output)
-            .contains("WARNING: Could not use ${sourceCase.displayName} at $sourceUrl: Received HTTP status 503")
+            .contains(System.lineSeparator() + warning)
             .doesNotContain("ERROR", "explicitly configured", NO_APPLICATION_API_SOURCE_MESSAGE)
     }
 
@@ -143,6 +145,7 @@ class ApplicationApiDiscoveryTest {
 
         assertThat(requestedUrls).containsExactly(source.url)
         assertThat(output)
+            .contains(System.lineSeparator() + "WARNING: Could not use actuator URL at ${source.url}")
             .containsOnlyOnce("WARNING: Could not use actuator URL at ${source.url}")
             .doesNotContain(NO_APPLICATION_API_SOURCE_MESSAGE)
     }
@@ -163,8 +166,13 @@ class ApplicationApiDiscoveryTest {
 
         assertThat(requestedUrls).containsExactly(actuatorSource.url, swaggerSource.url)
         assertThat(output)
+            .contains(System.lineSeparator() + "WARNING: Could not use actuator URL at ${actuatorSource.url}")
             .containsOnlyOnce("WARNING: Could not use actuator URL at ${actuatorSource.url}")
             .containsOnlyOnce("WARNING: Could not use Swagger URL at ${swaggerSource.url}")
+            .contains(
+                System.lineSeparator() + System.lineSeparator() +
+                    "WARNING: Could not use Swagger URL at ${swaggerSource.url}"
+            )
             .doesNotContain(NO_APPLICATION_API_SOURCE_MESSAGE)
     }
 

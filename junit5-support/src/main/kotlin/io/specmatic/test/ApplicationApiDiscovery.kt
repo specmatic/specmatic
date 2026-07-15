@@ -130,6 +130,7 @@ internal class ApplicationApiDiscovery(
         failure: ApplicationApiFetchResult.Failure,
     ) {
         if (source.isExplicitlyConfigured) {
+            logger.newLine()
             logger.log("WARNING: Could not use ${source.displayName()} at ${source.url}: ${failure.reason}")
         } else {
             logger.debug("Could not use inferred ${source.displayName()} at ${source.url}: ${failure.reason}")
