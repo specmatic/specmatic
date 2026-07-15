@@ -42,7 +42,8 @@ internal class ApplicationApiDiscovery(
     private val sourceClient: ApplicationApiSourceClient,
 ) {
     fun discover(sources: List<ApplicationApiSource>, coverage: OpenApiCoverage) {
-        val sourceFetches = sources.map { source ->
+        val uniqueSources = sources.distinct()
+        val sourceFetches = uniqueSources.map { source ->
             ApplicationApiSourceFetch(source, fetchApplicationApisFrom(source))
         }
 
@@ -56,7 +57,8 @@ internal class ApplicationApiDiscovery(
         val anySourceAvailable = sourceFetches.any { it.result is ApplicationApiFetchResult.Success }
         coverage.setEndpointsAPIFlag(anySourceAvailable)
 
-        if (!anySourceAvailable) {
+        val anyExplicitSourceConfigured = uniqueSources.any { it.isExplicitlyConfigured }
+        if (!anySourceAvailable && !anyExplicitSourceConfigured) {
             logger.boundary()
             logger.log("No application API source was exposed by the application, so cannot calculate actual coverage")
         }
@@ -128,6 +130,7 @@ internal class ApplicationApiDiscovery(
         failure: ApplicationApiFetchResult.Failure,
     ) {
         if (source.isExplicitlyConfigured) {
+            logger.newLine()
             logger.log("WARNING: Could not use ${source.displayName()} at ${source.url}: ${failure.reason}")
         } else {
             logger.debug("Could not use inferred ${source.displayName()} at ${source.url}: ${failure.reason}")
