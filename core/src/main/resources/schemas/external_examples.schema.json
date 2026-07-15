@@ -161,7 +161,7 @@
         }
       },
       "required": ["type", "http-request", "http-response"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "Retry": {
       "type": "object",
@@ -181,7 +181,7 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "FixtureExecuteFor": {
       "type": "object",
@@ -198,7 +198,7 @@
           "enum": ["all", "positive", "negative"]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "HTTPFixtureRequest": {
       "type": "object",
@@ -235,7 +235,7 @@
         }
       },
       "required": ["baseUrl", "method"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "HTTPFixtureResponse": {
       "type": "object",
@@ -257,7 +257,7 @@
         }
       },
       "required": ["status"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "PartialRequestResponseSchema": {
       "allOf": [
