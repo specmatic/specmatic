@@ -25,7 +25,7 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
         val updatedResolver = resolver.updateLookupForParam(BreadCrumb.QUERY.value)
         val apiKeyValue = apiKey ?: updatedResolver.generate(null, name, StringPattern()).toStringLiteral()
-        return httpRequest.copy(queryParams = httpRequest.queryParams.plus(name to apiKeyValue))
+        return httpRequest.addSecurityQueryParam(name, apiKeyValue)
     }
 
     override fun addTo(requestPattern: HttpRequestPattern, row: Row): HttpRequestPattern {

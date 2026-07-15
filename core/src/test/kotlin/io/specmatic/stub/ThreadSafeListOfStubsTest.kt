@@ -159,6 +159,25 @@ class ThreadSafeListOfStubsTest {
     }
 
     @Test
+    fun `a generated security query parameter should not count as an authored security requirement`() {
+        val securityScheme = APIKeyInQueryParamSecurityScheme(
+            SECURITY_QUERY_PARAMETER,
+            "generated-token"
+        )
+        val generatedSecurityRequest = securityScheme.addTo(
+            HttpRequest("GET", "/products"),
+            Resolver()
+        )
+        val stub = stubWithAuthoredRequest(
+            "generated",
+            generatedSecurityRequest,
+            securitySchemes = listOf(securityScheme)
+        )
+
+        assertThat(stub.hasCompleteAuthoredSecurityRequirement()).isFalse()
+    }
+
+    @Test
     fun `a complete security example with a mismatched credential should not be preferred`() {
         val unsecured = stubWithAuthoredRequest("unsecured", HttpRequest("GET", "/products"))
         val secured = stubWithAuthoredRequest(

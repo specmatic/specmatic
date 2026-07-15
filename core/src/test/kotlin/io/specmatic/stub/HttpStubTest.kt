@@ -1056,7 +1056,46 @@ components:
     }
 
     @Test
-    fun `startup example should match the exact security header value`() {
+    fun `runtime expectations should match exact API key header and query parameter values`() {
+        val feature = OpenApiSpecification.fromFile(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub.yaml")).toFeature()
+
+        HttpStub(feature).use { stub ->
+            val headerRequestA = HttpRequest(
+                "GET",
+                "/hello/10",
+                mapOf("X-API-KEY" to "header-runtime-key-a")
+            )
+            val headerRequestB = headerRequestA.copy(
+                headers = headerRequestA.headers.plus("X-API-KEY" to "header-runtime-key-b")
+            )
+            val queryRequestA = HttpRequest(
+                "GET",
+                "/hello/10",
+                queryParametersMap = mapOf("apiKey" to "query-runtime-key-a")
+            )
+            val queryRequestB = queryRequestA.copy(
+                queryParams = QueryParameters(mapOf("apiKey" to "query-runtime-key-b"))
+            )
+            fun jsonStringResponse(body: String) = HttpResponse(
+                status = 200,
+                headers = mapOf(CONTENT_TYPE to "application/json"),
+                body = StringValue(body)
+            )
+
+            stub.setExpectation(ScenarioStub(headerRequestA, jsonStringResponse("header response a")))
+            stub.setExpectation(ScenarioStub(headerRequestB, jsonStringResponse("header response b")))
+            stub.setExpectation(ScenarioStub(queryRequestA, jsonStringResponse("query response a")))
+            stub.setExpectation(ScenarioStub(queryRequestB, jsonStringResponse("query response b")))
+
+            assertThat(stub.client.execute(headerRequestA).body).isEqualTo(StringValue("header response a"))
+            assertThat(stub.client.execute(headerRequestB).body).isEqualTo(StringValue("header response b"))
+            assertThat(stub.client.execute(queryRequestA).body).isEqualTo(StringValue("query response a"))
+            assertThat(stub.client.execute(queryRequestB).body).isEqualTo(StringValue("query response b"))
+        }
+    }
+
+    @Test
+    fun `startup examples should match exact API key header and query parameter values`() {
         val feature = OpenApiSpecification.fromFile(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub.yaml")).toFeature()
 
         val examples = File(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub_examples")).listFiles().orEmpty().map { file ->
@@ -1069,14 +1108,25 @@ components:
                 "/hello/10",
                 mapOf("X-API-KEY" to "abc123")
             )
-
-            val matchingResponse = stub.client.execute(request)
-            val mismatchingResponse = stub.client.execute(
-                request.copy(headers = request.headers.plus("X-API-KEY" to "different-key"))
+            val queryRequest = HttpRequest(
+                "GET",
+                "/hello/10",
+                queryParametersMap = mapOf("apiKey" to "query123")
             )
 
-            assertThat(matchingResponse.body.toStringLiteral()).isEqualTo("Hello, World!")
-            assertThat(mismatchingResponse.body.toStringLiteral()).isNotEqualTo("Hello, World!")
+            val matchingHeaderResponse = stub.client.execute(request)
+            val mismatchingHeaderResponse = stub.client.execute(
+                request.copy(headers = request.headers.plus("X-API-KEY" to "different-key"))
+            )
+            val matchingQueryResponse = stub.client.execute(queryRequest)
+            val mismatchingQueryResponse = stub.client.execute(
+                queryRequest.copy(queryParams = QueryParameters(mapOf("apiKey" to "different-key")))
+            )
+
+            assertThat(matchingHeaderResponse.body.toStringLiteral()).isEqualTo("Hello from header key!")
+            assertThat(mismatchingHeaderResponse.body.toStringLiteral()).isNotEqualTo("Hello from header key!")
+            assertThat(matchingQueryResponse.body.toStringLiteral()).isEqualTo("Hello from query key!")
+            assertThat(mismatchingQueryResponse.body.toStringLiteral()).isNotEqualTo("Hello from query key!")
         }
     }
 

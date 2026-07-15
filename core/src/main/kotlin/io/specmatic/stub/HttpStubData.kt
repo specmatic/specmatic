@@ -59,7 +59,7 @@ data class HttpStubData(
     internal fun hasCompleteAuthoredSecurityRequirement(): Boolean {
         val request = resolveOriginalRequest() ?: return false
         val requestPattern = scenario?.httpRequestPattern ?: return false
-        val authoredRequest = request.withoutSpecmaticGeneratedSecurityHeaders()
+        val authoredRequest = request.withoutSpecmaticGeneratedSecurityParameters()
         return requestPattern.securitySchemes.any { securityScheme ->
             securityScheme.isInRequest(authoredRequest, complete = true)
         }

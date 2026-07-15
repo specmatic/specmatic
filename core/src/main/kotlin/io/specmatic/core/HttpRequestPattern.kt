@@ -513,6 +513,7 @@ data class HttpRequestPattern(
     ): HttpRequestPattern {
         var requestPattern = HttpRequestPattern(undeclaredRequestVariantMetadata = undeclaredRequestVariantMetadata)
         val parseValueToType: (Value) -> Pattern = { it.exactMatchElseType() }
+        val authoredRequest = request.withoutSpecmaticGeneratedSecurityParameters()
 
         return attempt(breadCrumb = "REQUEST") {
             if (method == null) {
@@ -527,7 +528,7 @@ data class HttpRequestPattern(
             requestPattern = attempt(breadCrumb = "URL") {
                 val path = request.path ?: ""
                 val pathTypes = this.httpPathPattern.patternFrom(path, resolver, parseValueToType).allParameters()
-                val queryParamTypes = toExactTypeMapForQueryParameters(request.queryParams, httpQueryParamPattern, resolver)
+                val queryParamTypes = toExactTypeMapForQueryParameters(authoredRequest.queryParams, httpQueryParamPattern, resolver)
                 requestPattern.copy(
                     httpPathPattern = HttpPathPattern(pathTypes, path),
                     httpQueryParamPattern = HttpQueryParamPattern(
@@ -542,8 +543,7 @@ data class HttpRequestPattern(
             }
 
             requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
-                val authoredHeaders = request.withoutSpecmaticGeneratedSecurityHeaders().headers
-                val headersWithRelevantFields = headersPattern.removeContentType(authoredHeaders)
+                val headersWithRelevantFields = headersPattern.removeContentType(authoredRequest.headers)
 
                 val headersFromRequest = toExactTypeMap(
                     toLowerCaseKeys(headersWithRelevantFields),

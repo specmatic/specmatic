@@ -1036,6 +1036,24 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
+    fun `generated security query parameters should not become exact stub patterns`() {
+        val securityScheme = APIKeyInQueryParamSecurityScheme("access_key", "generated-token")
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"),
+            method = "GET",
+            securitySchemes = listOf(securityScheme)
+        )
+        val generatedRequest = securityScheme.addTo(HttpRequest("GET", "/"), Resolver())
+
+        val exactRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(
+            generatedRequest,
+            Resolver()
+        )
+
+        assertThat(exactRequestPattern.httpQueryParamPattern.queryPatterns).doesNotContainKey("access_key")
+    }
+
+    @Test
     fun `security scheme query parameters should remain exact when converting an http request to an exact stub pattern`() {
         val originalRequestPattern = HttpRequestPattern(
             httpPathPattern = buildHttpPathPattern("/"),
