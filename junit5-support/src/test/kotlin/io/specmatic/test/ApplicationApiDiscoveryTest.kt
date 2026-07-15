@@ -18,6 +18,9 @@ import java.net.ConnectException
 
 class ApplicationApiDiscoveryTest {
     companion object {
+        private const val NO_APPLICATION_API_SOURCE_MESSAGE =
+            "No application API source was exposed by the application, so cannot calculate actual coverage"
+
         @JvmStatic
         fun explicitApplicationApiSourceCases(): List<Arguments> =
             ApplicationApiSourceCase.entries.map { Arguments.of(it) }
@@ -48,7 +51,7 @@ class ApplicationApiDiscoveryTest {
 
         assertThat(output)
             .contains("WARNING: Could not use ${sourceCase.displayName} at $sourceUrl")
-            .doesNotContain("ERROR", "explicitly configured")
+            .doesNotContain("ERROR", "explicitly configured", NO_APPLICATION_API_SOURCE_MESSAGE)
             .containsIgnoringCase("connect")
         assertThat(coverage.isEndpointsApiSet()).isFalse()
     }
@@ -65,7 +68,7 @@ class ApplicationApiDiscoveryTest {
 
         assertThat(output)
             .contains("WARNING: Could not use ${sourceCase.displayName} at $sourceUrl: Received HTTP status 503")
-            .doesNotContain("ERROR", "explicitly configured")
+            .doesNotContain("ERROR", "explicitly configured", NO_APPLICATION_API_SOURCE_MESSAGE)
     }
 
     @Test
@@ -108,7 +111,61 @@ class ApplicationApiDiscoveryTest {
             )
         }
 
-        assertThat(output).doesNotContain("ERROR", "WARNING", "explicitly configured")
+        assertThat(output)
+            .containsOnlyOnce(NO_APPLICATION_API_SOURCE_MESSAGE)
+            .doesNotContain("ERROR", "WARNING", "explicitly configured")
+    }
+
+    @Test
+    fun `should report no application api source once when no sources are available`() {
+        val coverage = coverage()
+
+        val output = captureStdout {
+            discovery { error("No source should be fetched") }.discover(emptyList(), coverage)
+        }
+
+        assertThat(output).containsOnlyOnce(NO_APPLICATION_API_SOURCE_MESSAGE)
+        assertThat(coverage.isEndpointsApiSet()).isFalse()
+    }
+
+    @Test
+    fun `should fetch and report a duplicate explicit application api source once`() {
+        val source = ApplicationApiSource.Actuator("http://unavailable.example")
+        val requestedUrls = mutableListOf<String>()
+        val discovery = discovery { sourceUrl ->
+            requestedUrls.add(sourceUrl)
+            throw ConnectException("Connection refused")
+        }
+
+        val output = captureStdout {
+            discovery.discover(listOf(source, source), coverage())
+        }
+
+        assertThat(requestedUrls).containsExactly(source.url)
+        assertThat(output)
+            .containsOnlyOnce("WARNING: Could not use actuator URL at ${source.url}")
+            .doesNotContain(NO_APPLICATION_API_SOURCE_MESSAGE)
+    }
+
+    @Test
+    fun `should report each distinct explicit application api source once`() {
+        val actuatorSource = ApplicationApiSource.Actuator("http://actuator.example")
+        val swaggerSource = ApplicationApiSource.Swagger("http://swagger.example")
+        val requestedUrls = mutableListOf<String>()
+        val discovery = discovery { sourceUrl ->
+            requestedUrls.add(sourceUrl)
+            throw ConnectException("Connection refused")
+        }
+
+        val output = captureStdout {
+            discovery.discover(listOf(actuatorSource, swaggerSource), coverage())
+        }
+
+        assertThat(requestedUrls).containsExactly(actuatorSource.url, swaggerSource.url)
+        assertThat(output)
+            .containsOnlyOnce("WARNING: Could not use actuator URL at ${actuatorSource.url}")
+            .containsOnlyOnce("WARNING: Could not use Swagger URL at ${swaggerSource.url}")
+            .doesNotContain(NO_APPLICATION_API_SOURCE_MESSAGE)
     }
 
     @Test
@@ -140,7 +197,9 @@ class ApplicationApiDiscoveryTest {
         }
 
         assertThat(requestedUrls).containsExactly(unavailableUrl, successfulUrl)
-        assertThat(output).contains("WARNING", unavailableUrl).doesNotContain("ERROR")
+        assertThat(output)
+            .contains("WARNING", unavailableUrl)
+            .doesNotContain("ERROR", NO_APPLICATION_API_SOURCE_MESSAGE)
         assertThat(coverage.getApplicationAPIs()).contains(API("GET", "/customers/internal"))
         assertThat(coverage.isEndpointsApiSet()).isTrue()
     }
