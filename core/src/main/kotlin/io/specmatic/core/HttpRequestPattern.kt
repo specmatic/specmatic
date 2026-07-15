@@ -542,12 +542,8 @@ data class HttpRequestPattern(
             }
 
             requestPattern = attempt(breadCrumb = BreadCrumb.PARAM_HEADER.value) {
-                val headersWithRelevantFields = securitySchemes.fold(request) { request, securityScheme ->
-                    securityScheme.removeParam(request)
-                }.headers
-                    .let {
-                        headersPattern.removeContentType(it)
-                    }
+                val authoredHeaders = request.withoutSpecmaticGeneratedSecurityHeaders().headers
+                val headersWithRelevantFields = headersPattern.removeContentType(authoredHeaders)
 
                 val headersFromRequest = toExactTypeMap(
                     toLowerCaseKeys(headersWithRelevantFields),

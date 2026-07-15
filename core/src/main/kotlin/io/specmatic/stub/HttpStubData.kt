@@ -56,6 +56,15 @@ data class HttpStubData(
         return partial?.request ?: originalRequest
     }
 
+    internal fun hasCompleteAuthoredSecurityRequirement(): Boolean {
+        val request = resolveOriginalRequest() ?: return false
+        val requestPattern = scenario?.httpRequestPattern ?: return false
+        val authoredRequest = request.withoutSpecmaticGeneratedSecurityHeaders()
+        return requestPattern.securitySchemes.any { securityScheme ->
+            securityScheme.isInRequest(authoredRequest, complete = true)
+        }
+    }
+
     val stubType: StubType get () {
         if(partial != null) {
             return StubType.Partial

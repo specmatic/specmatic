@@ -413,6 +413,15 @@ data class HttpRequest(
         )
     }
 
+    internal fun withoutSpecmaticGeneratedSecurityHeaders(): HttpRequest {
+        val generatedSecurityHeaderNames = metadata.securityHeaderNames
+        return copy(
+            headers = headers.filterKeys { headerName ->
+                generatedSecurityHeaderNames.none { it.equals(headerName, ignoreCase = true) }
+            }
+        )
+    }
+
     fun expectedResponseCode(): Int? {
         return headers[SPECMATIC_RESPONSE_CODE_HEADER]?.toIntOrNull()
     }

@@ -999,7 +999,7 @@ internal class HttpRequestPatternTest {
 
     @ParameterizedTest
     @MethodSource("headersBasedSecuritySchemesProvider")
-    fun `security schema headers should be ignored when converting headers from http request to pattern`(securityScheme: OpenAPISecurityScheme) {
+    fun `security scheme headers should be preserved when converting headers from http request to exact stub pattern`(securityScheme: OpenAPISecurityScheme) {
         val originalRequestPattern = HttpRequestPattern(
             httpPathPattern = buildHttpPathPattern("/"), method = "GET",
             headersPattern = HttpHeadersPattern(pattern = mapOf("X-Test-Header" to StringPattern()), contentType = "application/json"),
@@ -1012,8 +1012,52 @@ internal class HttpRequestPatternTest {
 
         assertThat(newRequestPattern.headersPattern.pattern).isEqualTo(mapOf(
             "x-test-header" to ExactValuePattern(StringValue("abc123")),
-            "x-extra-header" to ExactValuePattern(StringValue("def456"))
+            "x-extra-header" to ExactValuePattern(StringValue("def456")),
+            "authorization" to ExactValuePattern(StringValue("1234"))
         ))
+    }
+
+    @Test
+    fun `generated security headers should not become exact stub patterns`() {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"),
+            method = "GET",
+            securitySchemes = listOf(APIKeyInHeaderSecurityScheme("X-Access-Key", null))
+        )
+        val generatedRequest = HttpRequest("GET", "/")
+            .addSecurityHeader("X-Access-Key", "generated-token")
+
+        val exactRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(
+            generatedRequest,
+            Resolver()
+        )
+
+        assertThat(exactRequestPattern.headersPattern.pattern).doesNotContainKey("x-access-key")
+    }
+
+    @Test
+    fun `security scheme query parameters should remain exact when converting an http request to an exact stub pattern`() {
+        val originalRequestPattern = HttpRequestPattern(
+            httpPathPattern = buildHttpPathPattern("/"),
+            method = "GET",
+            securitySchemes = listOf(APIKeyInQueryParamSecurityScheme("access_key", null))
+        )
+        val exactRequestPattern = originalRequestPattern.generateExactHttpRequestPatternFrom(
+            HttpRequest("GET", "/", queryParametersMap = mapOf("access_key" to "expected-query-token")),
+            Resolver()
+        )
+
+        val matchingResult = exactRequestPattern.matches(
+            HttpRequest("GET", "/", queryParametersMap = mapOf("access_key" to "expected-query-token")),
+            Resolver()
+        )
+        val mismatchingResult = exactRequestPattern.matches(
+            HttpRequest("GET", "/", queryParametersMap = mapOf("access_key" to "different-query-token")),
+            Resolver()
+        )
+
+        assertThat(matchingResult).isInstanceOf(Success::class.java)
+        assertThat(mismatchingResult).isInstanceOf(Failure::class.java)
     }
 
     @Test
@@ -1076,6 +1120,27 @@ internal class HttpRequestPatternTest {
             assertThat(negativePattern.httpQueryParamPattern.queryPatterns).doesNotContainKey("api_key")
             assertThat(negativePattern.securitySchemes).contains(APIKeyInHeaderSecurityScheme("X-Api-Key", null))
         }
+    }
+
+    @Test
+    fun `generation without examples should retain every top-level security alternative including composites`() {
+        val headerScheme = APIKeyInHeaderSecurityScheme("X-Access-Key", null)
+        val compositeScheme = CompositeSecurityScheme(
+            listOf(
+                APIKeyInHeaderSecurityScheme("X-Session-Key", null),
+                APIKeyInQueryParamSecurityScheme("session_key", null)
+            )
+        )
+        val requestPattern = HttpRequestPattern(
+            method = "GET",
+            httpPathPattern = buildHttpPathPattern("/products"),
+            securitySchemes = listOf(headerScheme, compositeScheme)
+        )
+
+        val generatedPatterns = requestPattern.newBasedOn(Resolver()).toList()
+
+        assertThat(generatedPatterns.map { it.securitySchemes.single() })
+            .containsExactly(headerScheme, compositeScheme)
     }
 
     @Nested
