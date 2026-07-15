@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.io.File
 
-class ExternalExampleSchemaParityTest {
+class ExternalExampleJSONSchemaCorpusTest {
     private val jsonSchemaValidator: JsonSchema by lazy {
         val schemaNode = yamlMapper.readTree(File(JSON_SCHEMA_PATH))
         JsonSchemaFactory
