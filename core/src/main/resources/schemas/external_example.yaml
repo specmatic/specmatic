@@ -70,7 +70,8 @@ components:
           type: object
         body:
           nullable: true
-          $ref: "#/components/schemas/AnyValue"
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
         form-fields:
           nullable: true
           type: object
@@ -96,7 +97,8 @@ components:
           type: object
         body:
           nullable: true
-          $ref: "#/components/schemas/AnyValue"
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
         externalisedResponseCommand:
           nullable: true
           type: string
