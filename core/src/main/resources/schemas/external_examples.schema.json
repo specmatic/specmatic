@@ -107,10 +107,34 @@
     },
     "HttpFixture": {
       "type": "object",
+      "examples": [
+        {
+          "type": "http",
+          "executeFor": {
+            "scenarios": "all"
+          },
+          "http-request": {
+            "baseUrl": "http://localhost:9000",
+            "method": "POST",
+            "path": "/setup",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "state": "ready"
+            }
+          },
+          "http-response": {
+            "status": 200,
+            "body": {
+              "ok": true
+            }
+          }
+        }
+      ],
       "properties": {
         "type": {
           "const": "http",
-          "default": "http",
           "description": "Fixture type discriminator. Currently only http is supported."
         },
         "wait": {
@@ -141,6 +165,12 @@
     },
     "Retry": {
       "type": "object",
+      "examples": [
+        {
+          "max-attempts": 2,
+          "delay": "PT1S"
+        }
+      ],
       "properties": {
         "max-attempts": {
           "description": "Maximum number of retry attempts for the fixture call.",
@@ -155,6 +185,11 @@
     },
     "FixtureExecuteFor": {
       "type": "object",
+      "examples": [
+        {
+          "scenarios": "all"
+        }
+      ],
       "properties": {
         "scenarios": {
           "description": "Run this fixture for all, positive, or negative scenarios.",
@@ -167,6 +202,19 @@
     },
     "HTTPFixtureRequest": {
       "type": "object",
+      "examples": [
+        {
+          "baseUrl": "http://localhost:9000",
+          "method": "POST",
+          "path": "/setup",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "state": "ready"
+          }
+        }
+      ],
       "properties": {
         "baseUrl": {
           "description": "Base URL of the fixture endpoint.",
@@ -191,6 +239,14 @@
     },
     "HTTPFixtureResponse": {
       "type": "object",
+      "examples": [
+        {
+          "status": 200,
+          "body": {
+            "ok": true
+          }
+        }
+      ],
       "properties": {
         "status": {
           "description": "Expected HTTP status returned by the fixture call.",
