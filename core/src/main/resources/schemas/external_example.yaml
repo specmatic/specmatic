@@ -177,8 +177,10 @@ components:
             - http
         wait:
           type: string
+          format: duration
         timeout:
           type: string
+          format: duration
         retry:
           $ref: "#/components/schemas/Retry"
         executeFor:
@@ -199,6 +201,7 @@ components:
           type: integer
         delay:
           type: string
+          format: duration
 
     HTTPFixtureRequest:
       type: object

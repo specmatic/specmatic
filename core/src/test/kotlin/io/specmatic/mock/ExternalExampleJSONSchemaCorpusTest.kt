@@ -2,6 +2,7 @@ package io.specmatic.mock
 
 import com.networknt.schema.JsonSchema
 import com.networknt.schema.JsonSchemaFactory
+import com.networknt.schema.SchemaValidatorsConfig
 import com.networknt.schema.SpecVersion
 import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
@@ -14,9 +15,12 @@ import java.io.File
 class ExternalExampleJSONSchemaCorpusTest {
     private val jsonSchemaValidator: JsonSchema by lazy {
         val schemaNode = yamlMapper.readTree(File(JSON_SCHEMA_PATH))
+        val config = SchemaValidatorsConfig().apply {
+            formatAssertionsEnabled = true
+        }
         JsonSchemaFactory
             .getInstance(SpecVersion.VersionFlag.V202012)
-            .getSchema(schemaNode)
+            .getSchema(schemaNode, config)
     }
 
     @TestFactory

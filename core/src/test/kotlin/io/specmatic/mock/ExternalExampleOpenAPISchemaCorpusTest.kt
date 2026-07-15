@@ -2,11 +2,14 @@ package io.specmatic.mock
 
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.io.File
+import java.time.Duration
 
 class ExternalExampleOpenAPISchemaCorpusTest {
     @TestFactory
@@ -51,8 +54,40 @@ class ExternalExampleOpenAPISchemaCorpusTest {
         val jsonObject = value as? JSONObjectValue
             ?: return Result.Failure("Expected ${file.relativePath()} to parse into a JSON object")
 
-        return FuzzyExampleJsonValidator.matches(jsonObject)
+        val schemaValidation = FuzzyExampleJsonValidator.matches(jsonObject)
+        if (schemaValidation !is Result.Success) {
+            return schemaValidation
+        }
+
+        return validateFixtureDurations(jsonObject)
     }
+
+    private fun validateFixtureDurations(example: JSONObjectValue): Result {
+        for (hook in listOf("before", "after")) {
+            val fixtures = example.jsonObject[hook] as? JSONArrayValue ?: continue
+
+            fixtures.list.forEachIndexed { index, fixtureValue ->
+                val fixture = fixtureValue as? JSONObjectValue ?: return@forEachIndexed
+
+                listOf(
+                    fixture.jsonObject["wait"] to "$hook[$index].wait",
+                    fixture.jsonObject["timeout"] to "$hook[$index].timeout",
+                    (fixture.jsonObject["retry"] as? JSONObjectValue)?.jsonObject?.get("delay") to "$hook[$index].retry.delay"
+                ).forEach { (value, path) ->
+                    validateDurationField(value, path)?.let { return it }
+                }
+            }
+        }
+
+        return Result.Success()
+    }
+
+    private fun validateDurationField(rawValue: io.specmatic.core.value.Value?, path: String): Result.Failure? =
+        (rawValue as? StringValue)?.let { stringValue ->
+            runCatching { Duration.parse(stringValue.string) }
+                .exceptionOrNull()
+                ?.let { Result.Failure("Expected $path to be a valid ISO 8601 duration, but got ${stringValue.toStringLiteral()}") }
+        }
 
     private fun filesUnder(directory: String): List<File> {
         return File(directory)

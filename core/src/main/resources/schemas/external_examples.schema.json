@@ -138,10 +138,12 @@
           "description": "Fixture type discriminator. Currently only http is supported."
         },
         "wait": {
-          "type": "string"
+          "type": "string",
+          "format": "duration"
         },
         "timeout": {
-          "type": "string"
+          "type": "string",
+          "format": "duration"
         },
         "retry": {
           "description": "Retry policy to apply when the fixture call does not succeed immediately.",
@@ -178,7 +180,8 @@
         },
         "delay": {
           "description": "Delay between retry attempts.",
-          "type": "string"
+          "type": "string",
+          "format": "duration"
         }
       },
       "additionalProperties": true
