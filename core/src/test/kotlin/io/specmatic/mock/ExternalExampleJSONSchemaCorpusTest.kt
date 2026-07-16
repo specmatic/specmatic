@@ -1,9 +1,9 @@
 package io.specmatic.mock
 
-import com.networknt.schema.JsonSchema
-import com.networknt.schema.JsonSchemaFactory
-import com.networknt.schema.SchemaValidatorsConfig
-import com.networknt.schema.SpecVersion
+import com.networknt.schema.InputFormat
+import com.networknt.schema.Schema
+import com.networknt.schema.SchemaRegistry
+import com.networknt.schema.SpecificationVersion
 import io.specmatic.core.utilities.yamlMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatNoException
@@ -13,14 +13,10 @@ import org.junit.jupiter.api.TestFactory
 import java.io.File
 
 class ExternalExampleJSONSchemaCorpusTest {
-    private val jsonSchemaValidator: JsonSchema by lazy {
-        val schemaNode = yamlMapper.readTree(File(JSON_SCHEMA_PATH))
-        val config = SchemaValidatorsConfig().apply {
-            formatAssertionsEnabled = true
-        }
-        JsonSchemaFactory
-            .getInstance(SpecVersion.VersionFlag.V202012)
-            .getSchema(schemaNode, config)
+    private val jsonSchemaValidator: Schema by lazy {
+        val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
+        val schemaContent = File(JSON_SCHEMA_PATH).readText()
+        schemaRegistry.getSchema(schemaContent, InputFormat.JSON)
     }
 
     @TestFactory
@@ -56,8 +52,9 @@ class ExternalExampleJSONSchemaCorpusTest {
     }
 
     private fun validateAgainstPublishedJsonSchema(file: File) {
-        val instanceNode = yamlMapper.readTree(file)
-        val messages = jsonSchemaValidator.validate(instanceNode)
+        val messages = jsonSchemaValidator.validate(file.readText(), InputFormat.JSON) { executionContext ->
+            executionContext.executionConfig { executionConfig -> executionConfig.formatAssertionsEnabled(true) }
+        }
         assertThat(messages)
             .withFailMessage(
                 "Expected ${file.relativePath()} to satisfy $JSON_SCHEMA_PATH but got:%n%s",
