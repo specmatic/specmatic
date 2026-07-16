@@ -2,6 +2,10 @@ package io.specmatic.stub
 
 import io.mockk.every
 import io.mockk.mockk
+import io.specmatic.conversions.APIKeyInHeaderSecurityScheme
+import io.specmatic.conversions.APIKeyInQueryParamSecurityScheme
+import io.specmatic.conversions.CompositeSecurityScheme
+import io.specmatic.conversions.OpenAPISecurityScheme
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.HttpHeadersPattern
@@ -10,17 +14,186 @@ import io.specmatic.core.HttpResponsePattern
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.ACCEPT
+import io.specmatic.core.Scenario
 import io.specmatic.core.buildHttpPathPattern
+import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.StringValue
+import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.SpecType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class ThreadSafeListOfStubsTest {
+    @Test
+    fun `matching transient stubs should prefer a successful example with a complete security requirement`() {
+        val unsecured = stubWithAuthoredRequest("unsecured", HttpRequest("GET", "/products"))
+        val secured = stubWithAuthoredRequest(
+            "secured",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token"))
+        )
+        val expectations = ThreadSafeListOfStubs(mutableListOf(secured, unsecured), emptyMap())
+
+        val result = expectations.matchingTransientStub(requestWithSecurityHeader())
+
+        assertThat(result?.first).isEqualTo(secured)
+    }
+
+    @Test
+    fun `matching dynamic stubs should prefer a successful example with a complete security requirement`() {
+        val unsecured = stubWithAuthoredRequest("unsecured", HttpRequest("GET", "/products"))
+        val secured = stubWithAuthoredRequest(
+            "secured",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token"))
+        )
+        val expectations = ThreadSafeListOfStubs(mutableListOf(unsecured, secured), emptyMap())
+
+        val result = expectations.matchingDynamicStub(requestWithSecurityHeader())
+
+        assertThat(result.first).isEqualTo(secured)
+    }
+
+    @Test
+    fun `matching static stubs should prefer a successful example with a complete security requirement`() {
+        val unsecured = stubWithAuthoredRequest("unsecured", HttpRequest("GET", "/products"))
+        val secured = stubWithAuthoredRequest(
+            "secured",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token"))
+        )
+        val expectations = ThreadSafeListOfStubs(mutableListOf(unsecured, secured), emptyMap())
+
+        val result = expectations.matchingStaticStub(requestWithSecurityHeader())
+
+        assertThat(result.first).isEqualTo(secured)
+    }
+
+    @Test
+    fun `multiple complete security examples should retain each matcher selection order`() {
+        val first = stubWithAuthoredRequest(
+            "first",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token"))
+        )
+        val second = stubWithAuthoredRequest(
+            "second",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token"))
+        )
+        val expectations = ThreadSafeListOfStubs(mutableListOf(first, second), emptyMap())
+
+        val transient = expectations.matchingTransientStub(requestWithSecurityHeader())
+        val dynamic = expectations.matchingDynamicStub(requestWithSecurityHeader())
+        val static = expectations.matchingStaticStub(requestWithSecurityHeader())
+
+        assertThat(transient?.first).isEqualTo(second)
+        assertThat(dynamic.first).isEqualTo(first)
+        assertThat(static.first).isEqualTo(first)
+    }
+
+    @Test
+    fun `partial and absent security requirements should have the same fallback priority`() {
+        val partial = stubWithAuthoredRequest(
+            "partial",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token")),
+            securitySchemes = listOf(
+                CompositeSecurityScheme(
+                    listOf(
+                        APIKeyInHeaderSecurityScheme(SECURITY_HEADER, null),
+                        APIKeyInQueryParamSecurityScheme(SECURITY_QUERY_PARAMETER, null)
+                    )
+                )
+            )
+        )
+        val unsecured = stubWithAuthoredRequest("unsecured", HttpRequest("GET", "/products"))
+        val partialFirst = ThreadSafeListOfStubs(mutableListOf(partial, unsecured), emptyMap())
+        val unsecuredFirst = ThreadSafeListOfStubs(mutableListOf(unsecured, partial), emptyMap())
+
+        val partialFirstResult = partialFirst.matchingDynamicStub(requestWithSecurityHeader())
+        val unsecuredFirstResult = unsecuredFirst.matchingDynamicStub(requestWithSecurityHeader())
+
+        assertThat(partialFirstResult.first).isEqualTo(partial)
+        assertThat(unsecuredFirstResult.first).isEqualTo(unsecured)
+    }
+
+    @Test
+    fun `a composite security requirement should be complete only when every member is authored`() {
+        val securitySchemes = listOf(
+            CompositeSecurityScheme(
+                listOf(
+                    APIKeyInHeaderSecurityScheme(SECURITY_HEADER, null),
+                    APIKeyInQueryParamSecurityScheme(SECURITY_QUERY_PARAMETER, null)
+                )
+            )
+        )
+        val partial = stubWithAuthoredRequest(
+            "partial",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "matching-token")),
+            securitySchemes = securitySchemes
+        )
+        val complete = stubWithAuthoredRequest(
+            "complete",
+            HttpRequest(
+                "GET",
+                "/products",
+                headers = mapOf(SECURITY_HEADER to "matching-token"),
+                queryParametersMap = mapOf(SECURITY_QUERY_PARAMETER to "matching-query-token")
+            ),
+            securitySchemes = securitySchemes
+        )
+
+        assertThat(partial.hasCompleteAuthoredSecurityRequirement()).isFalse()
+        assertThat(complete.hasCompleteAuthoredSecurityRequirement()).isTrue()
+    }
+
+    @Test
+    fun `a generated security header should not count as an authored security requirement`() {
+        val generatedSecurityRequest = HttpRequest("GET", "/products")
+            .addSecurityHeader(SECURITY_HEADER, "generated-token")
+        val stub = stubWithAuthoredRequest("generated", generatedSecurityRequest)
+
+        assertThat(stub.hasCompleteAuthoredSecurityRequirement()).isFalse()
+    }
+
+    @Test
+    fun `a generated security query parameter should not count as an authored security requirement`() {
+        val securityScheme = APIKeyInQueryParamSecurityScheme(
+            SECURITY_QUERY_PARAMETER,
+            "generated-token"
+        )
+        val generatedSecurityRequest = securityScheme.addTo(
+            HttpRequest("GET", "/products"),
+            Resolver()
+        )
+        val stub = stubWithAuthoredRequest(
+            "generated",
+            generatedSecurityRequest,
+            securitySchemes = listOf(securityScheme)
+        )
+
+        assertThat(stub.hasCompleteAuthoredSecurityRequirement()).isFalse()
+    }
+
+    @Test
+    fun `a complete security example with a mismatched credential should not be preferred`() {
+        val unsecured = stubWithAuthoredRequest("unsecured", HttpRequest("GET", "/products"))
+        val secured = stubWithAuthoredRequest(
+            "secured",
+            HttpRequest("GET", "/products", headers = mapOf(SECURITY_HEADER to "expected-token")),
+            requestType = matchingRequestPattern(
+                mapOf(SECURITY_HEADER to ExactValuePattern(StringValue("expected-token")))
+            )
+        )
+        val expectations = ThreadSafeListOfStubs(mutableListOf(secured, unsecured), emptyMap())
+
+        val result = expectations.matchingDynamicStub(requestWithSecurityHeader())
+
+        assertThat(result.first).isEqualTo(unsecured)
+    }
+
     @Test
     fun `matching transient stubs should honour setup order and ignore Accept q priority`() {
         val requestPattern = HttpRequestPattern(
@@ -451,5 +624,55 @@ class ThreadSafeListOfStubsTest {
 
             assertEquals(unresolvedStub1, result)
         }
+    }
+
+    private fun stubWithAuthoredRequest(
+        responseBody: String,
+        authoredRequest: HttpRequest,
+        securitySchemes: List<OpenAPISecurityScheme> = listOf(
+            APIKeyInHeaderSecurityScheme(SECURITY_HEADER, null)
+        ),
+        requestType: HttpRequestPattern = matchingRequestPattern()
+    ): HttpStubData {
+        val response = HttpResponse(status = 200, body = responseBody)
+        val scenario = Scenario(
+            name = responseBody,
+            httpRequestPattern = HttpRequestPattern(
+                method = "GET",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                securitySchemes = securitySchemes
+            ),
+            httpResponsePattern = HttpResponsePattern(response),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+
+        return HttpStubData(
+            requestType = requestType,
+            response = response,
+            responsePattern = HttpResponsePattern(response),
+            resolver = Resolver(),
+            scenario = scenario,
+            originalRequest = authoredRequest
+        )
+    }
+
+    private fun matchingRequestPattern(
+        headers: Map<String, Pattern> = mapOf("$SECURITY_HEADER?" to StringPattern())
+    ): HttpRequestPattern = HttpRequestPattern(
+        method = "GET",
+        httpPathPattern = buildHttpPathPattern("/products"),
+        headersPattern = HttpHeadersPattern(headers)
+    )
+
+    private fun requestWithSecurityHeader(): HttpRequest = HttpRequest(
+        method = "GET",
+        path = "/products",
+        headers = mapOf(SECURITY_HEADER to "matching-token")
+    )
+
+    companion object {
+        private const val SECURITY_HEADER = "X-Access-Key"
+        private const val SECURITY_QUERY_PARAMETER = "access_key"
     }
 }

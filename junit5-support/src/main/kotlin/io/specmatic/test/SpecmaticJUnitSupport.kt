@@ -1,13 +1,11 @@
 package io.specmatic.test
 
-import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsingDecisions
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.consoleLog
-import io.specmatic.core.log.ignoreLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.pattern.ContractException
@@ -97,6 +95,13 @@ open class SpecmaticJUnitSupport {
         httpInteractionsLog = httpInteractionsLog
     )
 
+    private val applicationApiDiscovery = ApplicationApiDiscovery(
+        HttpApplicationApiSourceClient(
+            prettyPrint = prettyPrint,
+            keyDataProvider = ApplicationApiSourceKeyDataProvider(::keyDataFor),
+        )
+    )
+
     private val threads: Vector<String> = Vector<String>()
 
     private fun getReportConfiguration(): ReportConfiguration {
@@ -107,96 +112,6 @@ open class SpecmaticJUnitSupport {
             return ReportConfiguration.default
         }
         return reportConfiguration
-    }
-
-    private fun fetchApplicationApisFromOpenApiDocument(swaggerDocUrl: String): List<API>? {
-        val request = HttpRequest(path = "/", method = "GET")
-        val response = HttpClient(
-            swaggerDocUrl,
-            log = ignoreLog,
-            prettyPrint = prettyPrint,
-            keyData = keyDataFor(swaggerDocUrl)
-        ).use { httpClient ->
-            httpClient.execute(request)
-        }
-
-        if (response.status != 200) {
-            logger.debug("Failed to query OpenAPI document source, status code: ${response.status}")
-            return null
-        }
-
-        val featureFromJson = OpenApiSpecification.fromYAML(response.body.toStringLiteral(), "").toFeature()
-        return featureFromJson.scenarios.map { scenario ->
-            API(method = scenario.method, path = convertPathParameterStyle(scenario.path))
-        }.distinct()
-    }
-
-    private fun fetchApplicationApisFrom(source: ApplicationApiSource): List<API>? {
-        return when (source) {
-            is ApplicationApiSource.Actuator -> fetchApplicationApisFromActuator(source)
-            is ApplicationApiSource.Swagger -> fetchApplicationApisFromOpenApiDocument(source.url)
-            is ApplicationApiSource.SwaggerUi -> fetchApplicationApisFromOpenApiDocument(source.url.trimEnd('/') + DEFAULT_SWAGGER_SPEC_YAML_PATH)
-        }
-    }
-
-    private fun fetchApplicationApisFromActuator(source: ApplicationApiSource.Actuator): List<API>? {
-        val endpointsAPI = source.url
-        val request = HttpRequest("GET")
-        val response = HttpClient(
-            endpointsAPI,
-            log = ignoreLog,
-            prettyPrint = prettyPrint,
-            keyData = keyDataFor(endpointsAPI)
-        ).use { httpClient ->
-            httpClient.execute(request)
-        }
-
-        if (response.status != 200) {
-            logger.debug("Failed to query actuator, status code: ${response.status}")
-            return null
-        }
-
-        logger.debug(response.toLogString())
-        val endpointData = response.body as JSONObjectValue
-        return endpointData.getJSONObject("contexts").entries.flatMap { entry ->
-            val mappings: JSONArrayValue =
-                (entry.value as JSONObjectValue).findFirstChildByPath("mappings.dispatcherServlets.dispatcherServlet") as JSONArrayValue
-            mappings.list.map { it as JSONObjectValue }.filter {
-                it.findFirstChildByPath("details.handlerMethod.className")?.toStringLiteral()
-                    ?.contains("springframework") != true
-            }.flatMap {
-                val methods: JSONArrayValue? =
-                    it.findFirstChildByPath("details.requestMappingConditions.methods") as JSONArrayValue?
-                val paths: JSONArrayValue? =
-                    it.findFirstChildByPath("details.requestMappingConditions.patterns") as JSONArrayValue?
-
-                if (methods != null && paths != null) {
-                    methods.list.flatMap { method ->
-                        paths.list.map { path ->
-                            API(method.toStringLiteral(), path.toStringLiteral())
-                        }
-                    }
-                } else {
-                    emptyList()
-                }
-            }
-        }
-    }
-
-    private fun addApplicationApisFromConfiguredSources(applicationApiSources: List<ApplicationApiSource>) {
-        val applicationApisByAvailableSource = applicationApiSources.mapNotNull(::fetchApplicationApisFrom)
-
-        applicationApisByAvailableSource.forEach { apis ->
-            openApiCoverage.addAPIs(apis)
-        }
-
-        val anySourceAvailable = applicationApisByAvailableSource.isNotEmpty()
-        openApiCoverage.setEndpointsAPIFlag(anySourceAvailable)
-
-        if (!anySourceAvailable) {
-            logger.boundary()
-            logger.log("No application API source was exposed by the application, so cannot calculate actual coverage")
-        }
     }
 
     private fun applicationApiSourceFor(contractPath: String, resolvedBaseURL: String): ApplicationApiSource? {
@@ -459,7 +374,7 @@ open class SpecmaticJUnitSupport {
         val suiteAbortMessage = AtomicReference<String?>(null)
 
         try {
-            addApplicationApisFromConfiguredSources(applicationApiSources)
+            applicationApiDiscovery.discover(applicationApiSources, openApiCoverage)
         } catch (exception: Throwable) {
             openApiCoverage.setEndpointsAPIFlag(false)
             logger.debug(exception, "Failed to query application API source with error")

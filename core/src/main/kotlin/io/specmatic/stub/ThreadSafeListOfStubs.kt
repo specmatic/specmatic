@@ -75,7 +75,10 @@ class ThreadSafeListOfStubs(
             }
         }
 
-        val (_, queueMock) = queueMatchResults.findLast { (result, _) ->
+        val preferredMatch = queueMatchResults.findLast { (result, stubData) ->
+            result is Result.Success && stubData.hasCompleteAuthoredSecurityRequirement()
+        }
+        val (_, queueMock) = preferredMatch ?: queueMatchResults.findLast { (result, _) ->
             result is Result.Success
         } ?: return null
 
@@ -108,15 +111,19 @@ class ThreadSafeListOfStubs(
             stubData.stubType
         }
 
-        val exactMatch = grouped[StubType.Exact]
+        val exactMatches = grouped[StubType.Exact]
             .orEmpty()
             .sortedWith(comparator = compareBy(nullsLast()) { it.second.resolveOriginalRequest()?.generality })
-            .find { (result, _) -> result is Result.Success }
+        val exactMatch = exactMatches.find { (_, stubData) ->
+            stubData.hasCompleteAuthoredSecurityRequirement()
+        } ?: exactMatches.firstOrNull()
 
         if(exactMatch != null)
             return Pair(exactMatch.second, listMatchResults)
 
-        val partialMatch = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(grouped[StubType.Partial].orEmpty().map { it.second })
+        val partials = grouped[StubType.Partial].orEmpty().map { it.second }
+        val preferredPartials = partials.filter { it.hasCompleteAuthoredSecurityRequirement() }
+        val partialMatch = ThreadSafeListOfStubs.getPartialBySpecificityAndGenerality(preferredPartials.ifEmpty { partials })
 
         if(partialMatch != null)
             return Pair(partialMatch, listMatchResults)
@@ -140,7 +147,9 @@ class ThreadSafeListOfStubs(
             substituteThenFillIn(httpRequest, stubData)
         }
 
-        val mock = mocks.find { (result, _) -> result is Result.Success }
+        val mock = mocks.find { (result, stubData) ->
+            result is Result.Success && stubData.hasCompleteAuthoredSecurityRequirement()
+        } ?: mocks.find { (result, _) -> result is Result.Success }
 
         return Pair(mock?.second, listMatchResults)
     }

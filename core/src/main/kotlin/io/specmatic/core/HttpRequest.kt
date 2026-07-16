@@ -39,7 +39,10 @@ fun urlToQueryParams(uri: URI): Map<String, String> {
     }
 }
 
-data class HttpRequestMetadata(val securityHeaderNames: Set<String> = emptySet())
+data class HttpRequestMetadata(
+    val securityHeaderNames: Set<String> = emptySet(),
+    val securityQueryParamNames: Set<String> = emptySet()
+)
 
 data class HttpRequest(
     val method: String? = null,
@@ -410,6 +413,32 @@ data class HttpRequest(
         return this.copy(
             headers = updatedHeaders,
             metadata = updatedMetadata
+        )
+    }
+
+    fun addSecurityQueryParam(queryParamName: String, queryParamValue: String): HttpRequest {
+        val updatedMetadata = metadata.copy(
+            securityQueryParamNames = metadata.securityQueryParamNames.plus(queryParamName)
+        )
+
+        return copy(
+            queryParams = queryParams.plus(queryParamName to queryParamValue),
+            metadata = updatedMetadata
+        )
+    }
+
+    internal fun withoutSpecmaticGeneratedSecurityParameters(): HttpRequest {
+        val generatedSecurityHeaderNames = metadata.securityHeaderNames
+        val generatedSecurityQueryParamNames = metadata.securityQueryParamNames
+        return copy(
+            headers = headers.filterKeys { headerName ->
+                generatedSecurityHeaderNames.none { it.equals(headerName, ignoreCase = true) }
+            },
+            queryParams = QueryParameters(
+                queryParams.paramPairs.filterNot { (queryParamName, _) ->
+                    queryParamName in generatedSecurityQueryParamNames
+                }
+            )
         )
     }
 

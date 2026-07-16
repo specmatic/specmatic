@@ -980,7 +980,7 @@ paths:
     }
 
     @Test
-    fun `should be able to set expectations for an API with a security scheme`() {
+    fun `runtime expectations should match the exact security header value`() {
         val feature = OpenApiSpecification.fromYAML(
             """
 openapi: 3.0.0
@@ -1033,28 +1033,69 @@ components:
          """.trimIndent(), ""
         ).toFeature()
 
-        val credentials = "Basic " + Base64.getEncoder().encodeToString("user:password".toByteArray())
-
         HttpStub(feature).use { stub ->
-            val request = HttpRequest(
+            val firstRequest = HttpRequest(
                 "POST",
                 "/hello",
-                mapOf("Authorization" to "Bearer $credentials", "Content-Type" to "application/json"),
+                mapOf("Authorization" to "Bearer runtime-token-a", "Content-Type" to "application/json"),
                 parsedJSONObject("""{"message": "Hello there!"}""")
             )
+            val secondRequest = firstRequest.copy(
+                headers = firstRequest.headers.plus("Authorization" to "Bearer runtime-token-b")
+            )
 
-            val expectedResponse = HttpResponse.ok("success")
+            stub.setExpectation(ScenarioStub(firstRequest, HttpResponse.ok("first response")))
+            stub.setExpectation(ScenarioStub(secondRequest, HttpResponse.ok("second response")))
 
-            stub.setExpectation(ScenarioStub(request, expectedResponse))
+            val firstResponse = stub.client.execute(firstRequest)
+            val secondResponse = stub.client.execute(secondRequest)
 
-            val response = stub.client.execute(request)
-
-            assertThat(response.body).isEqualTo(StringValue("success"))
+            assertThat(firstResponse.body).isEqualTo(StringValue("first response"))
+            assertThat(secondResponse.body).isEqualTo(StringValue("second response"))
         }
     }
 
     @Test
-    fun `should be able to load an externalized stub with an auth key`() {
+    fun `runtime expectations should match exact API key header and query parameter values`() {
+        val feature = OpenApiSpecification.fromFile(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub.yaml")).toFeature()
+
+        HttpStub(feature).use { stub ->
+            val headerRequestA = HttpRequest(
+                "GET",
+                "/hello/10",
+                mapOf("X-API-KEY" to "header-runtime-key-a")
+            )
+            val headerRequestB = headerRequestA.copy(
+                headers = headerRequestA.headers.plus("X-API-KEY" to "header-runtime-key-b")
+            )
+            val queryRequestA = HttpRequest(
+                "GET",
+                "/hello/10",
+                queryParametersMap = mapOf("apiKey" to "query-runtime-key-a")
+            )
+            val queryRequestB = queryRequestA.copy(
+                queryParams = QueryParameters(mapOf("apiKey" to "query-runtime-key-b"))
+            )
+            fun jsonStringResponse(body: String) = HttpResponse(
+                status = 200,
+                headers = mapOf(CONTENT_TYPE to "application/json"),
+                body = StringValue(body)
+            )
+
+            stub.setExpectation(ScenarioStub(headerRequestA, jsonStringResponse("header response a")))
+            stub.setExpectation(ScenarioStub(headerRequestB, jsonStringResponse("header response b")))
+            stub.setExpectation(ScenarioStub(queryRequestA, jsonStringResponse("query response a")))
+            stub.setExpectation(ScenarioStub(queryRequestB, jsonStringResponse("query response b")))
+
+            assertThat(stub.client.execute(headerRequestA).body).isEqualTo(StringValue("header response a"))
+            assertThat(stub.client.execute(headerRequestB).body).isEqualTo(StringValue("header response b"))
+            assertThat(stub.client.execute(queryRequestA).body).isEqualTo(StringValue("query response a"))
+            assertThat(stub.client.execute(queryRequestB).body).isEqualTo(StringValue("query response b"))
+        }
+    }
+
+    @Test
+    fun `startup examples should match exact API key header and query parameter values`() {
         val feature = OpenApiSpecification.fromFile(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub.yaml")).toFeature()
 
         val examples = File(osAgnosticPath("src/test/resources/openapi/apiKeyAuthStub_examples")).listFiles().orEmpty().map { file ->
@@ -1067,10 +1108,25 @@ components:
                 "/hello/10",
                 mapOf("X-API-KEY" to "abc123")
             )
+            val queryRequest = HttpRequest(
+                "GET",
+                "/hello/10",
+                queryParametersMap = mapOf("apiKey" to "query123")
+            )
 
-            val response = stub.client.execute(request)
+            val matchingHeaderResponse = stub.client.execute(request)
+            val mismatchingHeaderResponse = stub.client.execute(
+                request.copy(headers = request.headers.plus("X-API-KEY" to "different-key"))
+            )
+            val matchingQueryResponse = stub.client.execute(queryRequest)
+            val mismatchingQueryResponse = stub.client.execute(
+                queryRequest.copy(queryParams = QueryParameters(mapOf("apiKey" to "different-key")))
+            )
 
-            assertThat(response.body.toStringLiteral()).isEqualTo("Hello, World!")
+            assertThat(matchingHeaderResponse.body.toStringLiteral()).isEqualTo("Hello from header key!")
+            assertThat(mismatchingHeaderResponse.body.toStringLiteral()).isNotEqualTo("Hello from header key!")
+            assertThat(matchingQueryResponse.body.toStringLiteral()).isEqualTo("Hello from query key!")
+            assertThat(mismatchingQueryResponse.body.toStringLiteral()).isNotEqualTo("Hello from query key!")
         }
     }
 
