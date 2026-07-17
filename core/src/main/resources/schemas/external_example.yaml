@@ -22,6 +22,10 @@ components:
 
     AnyValue: {}
 
+    DurationString:
+      type: string
+      pattern: '^P(?:\d+W|\d+Y(?:\d+M(?:\d+D)?)?(?:T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))?|\d+M(?:\d+D)?(?:T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))?|\d+D(?:T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))?|T(?:\d+H(?:\d+M(?:\d+S)?)?|\d+M(?:\d+S)?|\d+S))$'
+
     Metadata:
       type: object
       properties:
@@ -176,11 +180,9 @@ components:
           enum:
             - http
         wait:
-          type: string
-          format: duration
+          $ref: "#/components/schemas/DurationString"
         timeout:
-          type: string
-          format: duration
+          $ref: "#/components/schemas/DurationString"
         retry:
           $ref: "#/components/schemas/Retry"
         executeFor:
@@ -200,8 +202,7 @@ components:
         max-attempts:
           type: integer
         delay:
-          type: string
-          format: duration
+          $ref: "#/components/schemas/DurationString"
 
     HTTPFixtureRequest:
       type: object
