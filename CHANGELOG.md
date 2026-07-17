@@ -30,6 +30,17 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## 2.50.1 (2026-07-17)
+
+### Added
+
+- Added per-spec run options for Swagger/OpenAPI, actuator, and Swagger UI.
+
+### Changed
+
+- Ability to mock exact values of security parameters using the example requests
+- Added MCP mock fixes for spec-file path resolution and gRPC/GraphQL `specmatic.yaml` serialization.
+
 ## 2.50.0 (2026-07-06)
 
 ### Added
