@@ -2,6 +2,8 @@ package io.specmatic.core
 
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
+import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -15,6 +17,10 @@ internal class ResultKtTest {
         override val name: String = "scenario"
         override val method: String = "GET"
         override val path: String = "/route"
+        override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
+            return OpenApiEndpointOperationRequest(path, method, status)
+        }
+
         override fun testDescription(): String = "scenario description"
         override fun operationDescription(): String = "operation 1"
 
@@ -27,6 +33,9 @@ internal class ResultKtTest {
         override val name: String = name
         override val method: String = "GET"
         override val path: String = "/route"
+        override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
+            return OpenApiEndpointOperationRequest(path, method, status)
+        }
 
         override fun testDescription(): String = "$name description"
         override fun operationDescription(): String = operationDescription

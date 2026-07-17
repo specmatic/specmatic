@@ -20,6 +20,8 @@ import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
+import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
@@ -35,6 +37,8 @@ interface ScenarioDetailsForResult {
 
     val operation: Operation
         get() = Operation(method = method, path = path, responseCode = status)
+
+    fun toBccEndpointOperationRequest(): EndpointOperationRequest
 
     fun testDescription(): String
 
@@ -64,10 +68,10 @@ data class Scenario(
     val badRequestOrDefault: BadRequestOrDefault? = null,
     val exampleName: String? = null,
     val generatedFromExamples: Boolean = examples.isNotEmpty(),
-    val sourceProvider:String? = null,
-    val sourceRepository:String? = null,
-    val sourceRepositoryBranch:String? = null,
-    val specification:String? = null,
+    val sourceProvider: String? = null,
+    val sourceRepository: String? = null,
+    val sourceRepositoryBranch: String? = null,
+    val specification: String? = null,
     val protocol: SpecmaticProtocol,
     val specType: SpecType,
     val generativePrefix: String = "",
@@ -83,18 +87,18 @@ data class Scenario(
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val operationSourcePointer: String? = null,
     private val requestContentTypeForReport: String? = null
-): ScenarioDetailsForResult, HasScenarioMetadata {
+) : ScenarioDetailsForResult, HasScenarioMetadata {
     data class RequestDetails(
         private val method: String,
         private val requestContentType: String,
         private val path: String,
     ) {
         constructor(scenario: Scenario) :
-            this(
-                scenario.httpRequestPattern.method.orEmpty(),
-                scenario.requestContentType.orEmpty(),
-                scenario.path,
-            )
+                this(
+                    scenario.httpRequestPattern.method.orEmpty(),
+                    scenario.requestContentType.orEmpty(),
+                    scenario.path,
+                )
     }
 
     constructor(scenarioInfo: ScenarioInfo) : this(
@@ -139,6 +143,10 @@ data class Scenario(
         get() {
             return httpRequestPattern.httpPathPattern?.toInternalPath() ?: ""
         }
+
+    override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
+        return OpenApiEndpointOperationRequest(path, method, status)
+    }
 
     override val status: Int
         get() {
@@ -206,6 +214,7 @@ data class Scenario(
                                 false
                             }
                         }
+
                         else -> expectedStateValue.toStringLiteral() == actualStateValue.toStringLiteral()
                     }
                 }
@@ -246,11 +255,10 @@ data class Scenario(
         unexpectedKeyCheck: UnexpectedKeyCheck? = null
     ): Result {
         val resolver = resolver.copy(mismatchMessages = mismatchMessages).let {
-            if(unexpectedKeyCheck != null) {
+            if (unexpectedKeyCheck != null) {
                 val keyCheck = it.findKeyErrorCheck
                 it.copy(findKeyErrorCheck = keyCheck.withUnexpectedKeyCheck(unexpectedKeyCheck))
-            }
-            else
+            } else
                 it
         }
         return matches(httpRequest, serverState, resolver, resolver)
@@ -264,7 +272,7 @@ data class Scenario(
     ): Result {
         val headersResolver = Resolver(serverState, false, patterns).copy(mismatchMessages = mismatchMessages)
 
-        val nonHeadersResolver = if(unexpectedKeyCheck != null) {
+        val nonHeadersResolver = if (unexpectedKeyCheck != null) {
             headersResolver.withUnexpectedKeyCheck(unexpectedKeyCheck)
         } else {
             headersResolver
@@ -300,7 +308,7 @@ data class Scenario(
     ): List<DiscriminatorBasedItem<HttpResponse>> =
         scenarioBreadCrumb(this) {
             val facts = combineFacts(expectedFacts, actualFacts, resolver)
-            val updatedResolver = if(allowOnlyMandatoryKeysInJSONObject) {
+            val updatedResolver = if (allowOnlyMandatoryKeysInJSONObject) {
                 resolver.copy(
                     factStore = CheckFacts(facts),
                     context = requestContext
@@ -340,6 +348,7 @@ data class Scenario(
                         }
                     }
                 }
+
                 key in expected -> combinedServerState[key] = expectedValue
                 key in actual -> combinedServerState[key] = actualValue
             }
@@ -363,8 +372,10 @@ data class Scenario(
             )
                 code()
         } catch (e: Throwable) {
-            throw ContractException("Couldn't match state values. Expected $expectedValue in key $key" +
-                ", actual value is $actualValue", exceptionCause = e)
+            throw ContractException(
+                "Couldn't match state values. Expected $expectedValue in key $key" +
+                        ", actual value is $actualValue", exceptionCause = e
+            )
         }
     }
 
@@ -429,16 +440,23 @@ data class Scenario(
             }
         }
 
-    fun matchesResponse(httpRequest: HttpRequest, httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null): Result {
+    fun matchesResponse(
+        httpRequest: HttpRequest,
+        httpResponse: HttpResponse,
+        mismatchMessages: MismatchMessages = DefaultMismatchMessages,
+        unexpectedKeyCheck: UnexpectedKeyCheck? = null
+    ): Result {
         val attributeSelectedFields = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
 
         if (attributeSelectedFields.isNotEmpty()) {
             val updatedResolver = resolver.copy(mismatchMessages = AttributeSelectionWithResponseMismatchMessages)
-            val attributeSelectionResult = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(attributeSelectedFields, updatedResolver)
+            val attributeSelectionResult =
+                httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(attributeSelectedFields, updatedResolver)
             if (attributeSelectionResult.isSuccess().not()) return attributeSelectionResult.updateScenario(this)
         }
 
-        val updatedResolver = updatedResolver(mismatchMessages, unexpectedKeyCheck).copy(context = RequestContext(httpRequest))
+        val updatedResolver =
+            updatedResolver(mismatchMessages, unexpectedKeyCheck).copy(context = RequestContext(httpRequest))
         return matches(httpResponse = httpResponse, resolver = updatedResolver)
     }
 
@@ -470,13 +488,17 @@ data class Scenario(
         }
 
         val updatedScenario = newBasedOnAttributeSelectionFields(httpRequest.queryParams)
-        val requestMatch = updatedScenario.matchesRequestForResponseStatus(httpRequest, httpResponse.status, updatedResolver)
+        val requestMatch =
+            updatedScenario.matchesRequestForResponseStatus(httpRequest, httpResponse.status, updatedResolver)
 
         val fieldsSelected = fieldsToBeMadeMandatoryBasedOnAttributeSelection(httpRequest.queryParams)
         if (fieldsSelected.isNotEmpty()) {
-            val attributeSelectedResolver = resolver.copy(mismatchMessages = AttributeSelectionWithExampleMismatchMessages)
-            val result = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(fieldsSelected, attributeSelectedResolver)
-            if (result is Result.Failure) return Result.fromResults(listOf(requestMatch, result)).updateScenario(updatedScenario)
+            val attributeSelectedResolver =
+                resolver.copy(mismatchMessages = AttributeSelectionWithExampleMismatchMessages)
+            val result =
+                httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(fieldsSelected, attributeSelectedResolver)
+            if (result is Result.Failure) return Result.fromResults(listOf(requestMatch, result))
+                .updateScenario(updatedScenario)
         }
 
         val responseMatch = updatedScenario.matches(httpResponse, updatedResolver)
@@ -487,7 +509,11 @@ data class Scenario(
         return httpRequest.queryParams.containsKey(attributeSelectionPattern.getQueryParamKey())
     }
 
-    fun matches(httpResponse: HttpResponse, mismatchMessages: MismatchMessages = DefaultMismatchMessages, unexpectedKeyCheck: UnexpectedKeyCheck? = null): Result {
+    fun matches(
+        httpResponse: HttpResponse,
+        mismatchMessages: MismatchMessages = DefaultMismatchMessages,
+        unexpectedKeyCheck: UnexpectedKeyCheck? = null
+    ): Result {
         val resolver = updatedResolver(mismatchMessages, unexpectedKeyCheck)
         return matches(httpResponse, resolver)
     }
@@ -508,9 +534,15 @@ data class Scenario(
         if (this.isNegative) {
             return if (is4xxResponse(httpResponse)) {
                 badRequestOrDefault?.matches(httpResponse, resolver)?.updateScenario(this)
-                    ?: Result.Failure("Received ${httpResponse.status}, but the specification does not contain a 4xx or default response, hence unable to verify this response", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
+                    ?: Result.Failure(
+                        "Received ${httpResponse.status}, but the specification does not contain a 4xx or default response, hence unable to verify this response",
+                        breadCrumb = "RESPONSE.STATUS"
+                    ).updateScenario(this)
             } else {
-                Result.Failure("Expected 4xx status, but received ${httpResponse.status}", breadCrumb = "RESPONSE.STATUS").updateScenario(this)
+                Result.Failure(
+                    "Expected 4xx status, but received ${httpResponse.status}",
+                    breadCrumb = "RESPONSE.STATUS"
+                ).updateScenario(this)
             }
         }
 
@@ -553,24 +585,32 @@ data class Scenario(
                     return@attempt sequenceOf(HasValue(undeclaredVariantScenario))
                 }
 
-                val rowValue =  when(val resolvedRow = fillInTheBlanks(row, resolver)) {
+                val rowValue = when (val resolvedRow = fillInTheBlanks(row, resolver)) {
                     is HasValue -> resolvedRow.value
                     is HasException -> return@attempt sequenceOf(resolvedRow.cast())
                     is HasFailure -> return@attempt sequenceOf(resolvedRow.cast())
                 }
 
-                val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
+                val newResponsePattern: HttpResponsePattern =
+                    this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
 
                 val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when {
                     !isNegative ->
-                        Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
+                        Pair(
+                            httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status),
+                            flagsBased.positivePrefix
+                        )
 
                     else ->
-                        Pair(httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)), flagsBased.negativePrefix)
+                        Pair(
+                            httpRequestPattern.negativeBasedOn(rowValue, resolver.copy(isNegative = isNegative)),
+                            flagsBased.negativePrefix
+                        )
                 }
 
                 newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
-                    val generatedFrom = if (index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
+                    val generatedFrom =
+                        if (index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -628,7 +668,7 @@ data class Scenario(
         }.mapCatching { filledInResolvedRequest ->
             row.updateRequest(filledInResolvedRequest, httpRequestPattern, resolver)
         }.map(::HasValue).getOrElse { e ->
-            when(e) {
+            when (e) {
                 is ContractException -> HasFailure(e.failure(), message = row.name)
                 else -> HasException(e, message = row.name, breadCrumb = "")
             }
@@ -708,7 +748,7 @@ data class Scenario(
             val errors = listOfNotNull(requestError, responseError).map {
                 it.prependIndent("  ")
             }
-            if(errors.isEmpty()) return@mapNotNull null
+            if (errors.isEmpty()) return@mapNotNull null
 
             val title = when {
                 row.fileSource != null -> "Error loading example for ${this.defaultAPIDescription.trim()} from ${row.fileSource}"
@@ -718,7 +758,7 @@ data class Scenario(
             listOf(title).plus(errors).joinToString("${System.lineSeparator()}${System.lineSeparator()}")
         }
 
-        if(errors.isNotEmpty())
+        if (errors.isNotEmpty())
             throw ContractException(errors.joinToString("${System.lineSeparator()}${System.lineSeparator()}"))
     }
 
@@ -739,7 +779,7 @@ data class Scenario(
 
         val fieldsToBeMadeMandatory =
             fieldsToBeMadeMandatoryBasedOnAttributeSelection(row.requestExample?.queryParams)
-        val updatedResolver = if(fieldsToBeMadeMandatory.isNotEmpty()) {
+        val updatedResolver = if (fieldsToBeMadeMandatory.isNotEmpty()) {
             resolverForExample.copy(mismatchMessages = NamedExampleMismatchMessages(row.name))
         } else resolverForExample
 
@@ -754,11 +794,11 @@ data class Scenario(
     }
 
     private fun validateRequestExample(row: Row, resolverForExample: Resolver): Result {
-        if(row.requestExample != null) {
+        if (row.requestExample != null) {
             val result = matchesRequestExample(row.requestExample, resolverForExample)
-            if(result is Result.Failure && !status.toString().startsWith("4"))
+            if (result is Result.Failure && !status.toString().startsWith("4"))
                 return result
-            if(result is Result.Failure && httpRequestPattern.hasUndeclaredRequestVariant())
+            if (result is Result.Failure && httpRequestPattern.hasUndeclaredRequestVariant())
                 return result
         } else {
             httpRequestPattern.newBasedOn(row, resolverForExample, status).first().value
@@ -822,7 +862,8 @@ data class Scenario(
         }
     }
 
-    val resolver: Resolver = Resolver(newPatterns = patterns, dictionary = dictionary, sourceLocations = sourceLocations)
+    val resolver: Resolver =
+        Resolver(newPatterns = patterns, dictionary = dictionary, sourceLocations = sourceLocations)
 
     val serverState: Map<String, Value>
         get() = expectedFacts
@@ -855,7 +896,7 @@ data class Scenario(
                     failureReason = FailureReason.RequestMismatchButStatusAlsoWrong
                 )
 
-            if(requestMatchResult is Result.Failure && requestMatchResult.isAnyFluffy(0))
+            if (requestMatchResult is Result.Failure && requestMatchResult.isAnyFluffy(0))
                 return requestMatchResult
 
             val responseMatchResult =
@@ -876,7 +917,10 @@ data class Scenario(
     fun resolverAndResponseForExpectation(response: HttpResponse): Pair<Resolver, HttpResponse> =
         scenarioBreadCrumb(this) {
             attempt(breadCrumb = "RESPONSE") {
-                Pair(this.resolver, httpResponsePattern.fromResponseExpectation(response, resolver).fillInTheBlanks(this.resolver))
+                Pair(
+                    this.resolver,
+                    httpResponsePattern.fromResponseExpectation(response, resolver).fillInTheBlanks(this.resolver)
+                )
             }
         }
 
@@ -890,24 +934,28 @@ data class Scenario(
     }
 
     private fun contentTypeDescription(): String? {
-        val contentTypes = listOfNotNull(requestContentType?.let { "requestContentType $it" }, responseContentType?.let { "responseContentType $it" })
+        val contentTypes = listOfNotNull(
+            requestContentType?.let { "requestContentType $it" },
+            responseContentType?.let { "responseContentType $it" })
         if (contentTypes.isEmpty()) return null
         return contentTypes.joinToString(prefix = "(", separator = ", ", postfix = ")")
     }
 
-    val defaultAPIDescription: String get() {
-        if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
-        return baseApiDescription()
-    }
+    val defaultAPIDescription: String
+        get() {
+            if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
+            return baseApiDescription()
+        }
 
-    val fullApiDescription: String get() {
-        val baseDescription = customAPIDescription ?: baseApiDescription()
-        return buildList {
-            add(baseDescription)
-            contentTypeDescription()?.takeIf(String::isNotBlank)?.let(::add)
-            disambiguate().takeIf(String::isNotBlank)?.let(::add)
-        }.joinToString(separator = " ")
-    }
+    val fullApiDescription: String
+        get() {
+            val baseDescription = customAPIDescription ?: baseApiDescription()
+            return buildList {
+                add(baseDescription)
+                contentTypeDescription()?.takeIf(String::isNotBlank)?.let(::add)
+                disambiguate().takeIf(String::isNotBlank)?.let(::add)
+            }.joinToString(separator = " ")
+        }
 
     fun fullApiTestDescription(): String {
         val apiDescription = this.fullApiDescription
@@ -933,7 +981,11 @@ data class Scenario(
     fun newBasedOn(suggestions: List<Scenario>) =
         this.newBasedOn(suggestions.find { it.name == this.name } ?: this)
 
-    fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
+    fun newBasedOnWithDecision(
+        suggestions: List<Scenario> = emptyList(),
+        strictMode: Boolean,
+        resiliencyTestSuite: ResiliencyTestSuite
+    ): Decision<Scenario, Scenario>? {
         val hasExamples = hasExamples()
         val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
         val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
@@ -971,7 +1023,10 @@ data class Scenario(
         return Decision.Execute(value = newBasedOn(suggestions), context = this, reasoning = reason)
     }
 
-    fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {
+    fun negativeBasedOnWithDecision(
+        badRequestOrDefault: BadRequestOrDefault?,
+        strictMode: Boolean
+    ): Decision<Scenario, Scenario>? {
         if (!this.isA2xxScenario()) return null
         if (strictMode && !hasExamples()) return null
         val reason = Reasoning(TestExecutionReason.executedNegativeGen())
@@ -983,7 +1038,7 @@ data class Scenario(
         if (fieldsToBeMadeMandatory.isEmpty()) return this
 
         val responseBodyPattern = this.httpResponsePattern.body
-        val updatedResponseBodyPattern = if(responseBodyPattern is PossibleJsonObjectPatternContainer) {
+        val updatedResponseBodyPattern = if (responseBodyPattern is PossibleJsonObjectPatternContainer) {
             responseBodyPattern.removeKeysNotPresentIn(fieldsToBeMadeMandatory, resolver)
         } else {
             responseBodyPattern
@@ -1039,13 +1094,15 @@ data class Scenario(
     }
 
     fun useExamples(rawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Scenario {
-        val matchingRawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>> = matchingRows(rawExternalisedExamples)
+        val matchingRawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
+            matchingRows(rawExternalisedExamples)
 
         val externalisedExamples: List<Examples> = matchingRawExternalisedExamples.map { (operationId, rows) ->
-            if(rows.isEmpty())
+            if (rows.isEmpty())
                 return@map emptyList()
 
-            val rowsWithPathData: List<Row> = rows.map { row -> httpRequestPattern.addPathParamsToRows(operationId.requestPath, row, resolver) }
+            val rowsWithPathData: List<Row> =
+                rows.map { row -> httpRequestPattern.addPathParamsToRows(operationId.requestPath, row, resolver) }
 
             val columns = rowsWithPathData.first().columnNames
 
@@ -1069,7 +1126,11 @@ data class Scenario(
         }.filterValues { it.isNotEmpty() }
     }
 
-    private fun requestBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+    private fun requestBelongsToScenario(
+        row: Row,
+        operationId: OpenApiSpecification.OperationIdentifier,
+        patternMatchingResolver: Resolver
+    ): Boolean {
         if (!matchesOperationIfWsdl(row)) return false
         if (httpRequestPattern.isUndeclaredMethodVariant() && operationId.requestMethod.isBlank()) return false
 
@@ -1081,7 +1142,11 @@ data class Scenario(
     private fun matchesRequestForResponseStatus(request: HttpRequest, responseStatus: Int, resolver: Resolver): Result {
         return httpRequestPattern.matchesUndeclaredRequestFor(responseStatus, request, resolver)?.updateScenario(this)
             ?: when (responseStatus) {
-                in invalidRequestStatuses -> httpRequestPattern.matchesPathStructureMethodAndContentType(request, resolver)
+                in invalidRequestStatuses -> httpRequestPattern.matchesPathStructureMethodAndContentType(
+                    request,
+                    resolver
+                )
+
                 else -> matches(request, resolver)
             }
     }
@@ -1100,17 +1165,24 @@ data class Scenario(
     private fun requestContentTypeForReporting(): String? =
         requestContentTypeForReport ?: httpRequestPattern.headersPattern.contentType
 
-    private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+    private fun responseBelongsToScenario(
+        row: Row,
+        operationId: OpenApiSpecification.OperationIdentifier,
+        patternMatchingResolver: Resolver
+    ): Boolean {
         return row.responseExample?.let { response ->
             httpResponsePattern.matchesStatusAndContentType(response, patternMatchingResolver).isSuccess()
         } ?: matchesResponseOperationIdentifier(operationId)
     }
 
-    private fun matchesRequestOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+    private fun matchesRequestOperationIdentifier(
+        operationId: OpenApiSpecification.OperationIdentifier,
+        patternMatchingResolver: Resolver
+    ): Boolean {
         return operationId.requestMethod.equals(method, ignoreCase = true)
                 && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let {
-                    it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure
-                }
+            it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure
+        }
                 && matchesRequestContentType(operationId)
     }
 
@@ -1152,7 +1224,8 @@ data class Scenario(
         strictMode: Boolean
     ): HttpResponse {
         val substitutionResolver = resolver.copy(mockMode = true)
-        val substitution = httpRequestPattern.getSubstitution(request, originalRequest, data, substitutionResolver, strictMode)
+        val substitution =
+            httpRequestPattern.getSubstitution(request, originalRequest, data, substitutionResolver, strictMode)
         return httpResponsePattern.resolveSubstitutions(substitution, response, substitutionResolver).value
     }
 
@@ -1181,8 +1254,8 @@ data class Scenario(
         val externalisedExampleNames = externalisedExamples.flatMap { it.rows.map { row -> row.name } }.toSet()
 
         return this.examples.mapNotNull {
-            val rowsThatAreNotOverridden  = it.rows.filter { row -> row.name !in externalisedExampleNames }
-            if(rowsThatAreNotOverridden.isEmpty()) return@mapNotNull null
+            val rowsThatAreNotOverridden = it.rows.filter { row -> row.name !in externalisedExampleNames }
+            if (rowsThatAreNotOverridden.isEmpty()) return@mapNotNull null
             it.copy(rows = rowsThatAreNotOverridden)
         }
     }
@@ -1193,11 +1266,11 @@ data class Scenario(
 
     fun fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams: QueryParameters?): Set<String> {
         val defaultAttributeSelectionFields = attributeSelectionPattern.getDefaultFields().toSet()
-        val attributeSelectionQueryParamKey =  attributeSelectionPattern.getQueryParamKey()
+        val attributeSelectionQueryParamKey = attributeSelectionPattern.getQueryParamKey()
 
-        if(queryParams?.containsKey(attributeSelectionQueryParamKey) != true) return emptySet()
+        if (queryParams?.containsKey(attributeSelectionQueryParamKey) != true) return emptySet()
 
-        val attributeSelectionFieldsFromRequest = if(attributeSelectionQueryParamKey.isNotEmpty()){
+        val attributeSelectionFieldsFromRequest = if (attributeSelectionQueryParamKey.isNotEmpty()) {
             queryParams.getValues(attributeSelectionQueryParamKey).flatMap {
                 it.split(",").filter { value -> value.isNotBlank() }
             }.toSet()
@@ -1205,7 +1278,12 @@ data class Scenario(
         return defaultAttributeSelectionFields.plus(attributeSelectionFieldsFromRequest)
     }
 
-    fun fixRequestResponse(httpRequest: HttpRequest, httpResponse: HttpResponse, flagsBased: FlagsBased, isPartial: Boolean): Pair<HttpRequest, HttpResponse> {
+    fun fixRequestResponse(
+        httpRequest: HttpRequest,
+        httpResponse: HttpResponse,
+        flagsBased: FlagsBased,
+        isPartial: Boolean
+    ): Pair<HttpRequest, HttpResponse> {
         val updatedResolver = flagsBased.copy(
             unexpectedKeyCheck = when {
                 isRequestAttributeSelected(httpRequest) -> ValidateUnexpectedKeys
@@ -1276,9 +1354,11 @@ fun newExpectedServerStateBasedOn(
                             val fieldPattern = resolver.getPattern(fieldValue)
                             resolver.withCyclePrevention(fieldPattern, fieldPattern::generate)
                         }
+
                         else -> StringValue(fieldValue)
                     }
                 }
+
                 value is StringValue && isPatternToken(value) -> resolver.getPattern(value.string).generate(resolver)
                 else -> value
             }
@@ -1312,7 +1392,10 @@ val noPatternKeyCheck = object : KeyErrorCheck {
         return emptyList()
     }
 
-    override fun validateListCaseInsensitive(pattern: Map<String, Any>, actual: Map<String, Any>): List<MissingKeyError> {
+    override fun validateListCaseInsensitive(
+        pattern: Map<String, Any>,
+        actual: Map<String, Any>
+    ): List<MissingKeyError> {
         return emptyList()
     }
 }

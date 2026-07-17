@@ -1,5 +1,7 @@
 package io.specmatic.core
 
+import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
+import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -12,6 +14,9 @@ internal class FailureReportTest {
         override val name: String = "fake scenario"
         override val method: String = "GET"
         override val path: String = "/fake"
+        override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
+            return OpenApiEndpointOperationRequest(path, method, status)
+        }
 
         override fun testDescription(): String = name
 
@@ -96,11 +101,13 @@ internal class FailureReportTest {
         val personIdDetails = MatchFailureDetails(listOf("person", "id"), listOf("error"))
         val report = FailureReport(null, null, null, listOf(personIdDetails))
 
-        assertThat(report.toText().trimmedLinesString()).isEqualTo("""
+        assertThat(report.toText().trimmedLinesString()).isEqualTo(
+            """
             >> person.id
 
                error
-        """.trimIndent().trimmedLinesString())
+        """.trimIndent().trimmedLinesString()
+        )
     }
 
     @Test
@@ -110,7 +117,8 @@ internal class FailureReportTest {
 
         val report = FailureReport(null, null, null, listOf(personIdDetails, personNameDetails))
 
-        assertThat(report.toText().trimmedLinesString()).isEqualTo("""
+        assertThat(report.toText().trimmedLinesString()).isEqualTo(
+            """
             >> person.id
 
                error
@@ -118,7 +126,8 @@ internal class FailureReportTest {
             >> person.name
 
                error
-        """.trimIndent().trimmedLinesString())
+        """.trimIndent().trimmedLinesString()
+        )
     }
 
     @Test
@@ -147,14 +156,14 @@ internal class FailureReportTest {
     @Test
     fun `should return error message containing all the errors if there are multiple error causes`() {
         val matchFailureDetailList = listOf(
-            MatchFailureDetails(errorMessages =  listOf("first error message")),
+            MatchFailureDetails(errorMessages = listOf("first error message")),
             MatchFailureDetails(errorMessages = listOf("second error message"))
         )
         val failureReport = FailureReport(
             contractPath = null,
             scenarioMessage = null,
             scenario = null,
-            matchFailureDetailList =  matchFailureDetailList
+            matchFailureDetailList = matchFailureDetailList
         )
 
         val expectedErrorMessage = """
@@ -168,13 +177,13 @@ internal class FailureReportTest {
     @Test
     fun `should return error message containing single error if there is single error cause`() {
         val matchFailureDetailList = listOf(
-            MatchFailureDetails(errorMessages =  listOf("error message")),
+            MatchFailureDetails(errorMessages = listOf("error message")),
         )
         val failureReport = FailureReport(
             contractPath = null,
             scenarioMessage = null,
             scenario = null,
-            matchFailureDetailList =  matchFailureDetailList
+            matchFailureDetailList = matchFailureDetailList
         )
 
         val expectedErrorMessage = """
@@ -191,14 +200,16 @@ internal class FailureReportTest {
         val report = FailureReport(null, null, null, listOf(personAddressDetails, personNameDetails, personIdDetails))
 
         println(report.toText())
-        assertThat(report.toText()).isEqualToNormalizingWhitespace("""
+        assertThat(report.toText()).isEqualToNormalizingWhitespace(
+            """
         >> person.id
         error
         >> person.address
         error
         >> person.name
         error
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     @Test
@@ -207,7 +218,8 @@ internal class FailureReportTest {
         val uniqueDetail = MatchFailureDetails(listOf("person", "name"), listOf("another error"))
         val report = FailureReport(null, null, null, listOf(duplicateDetail, duplicateDetail, uniqueDetail))
 
-        assertThat(report.distinctByMatchFailureDetails().toText().trimmedLinesString()).isEqualTo("""
+        assertThat(report.distinctByMatchFailureDetails().toText().trimmedLinesString()).isEqualTo(
+            """
             >> person.id
 
                error
@@ -215,13 +227,15 @@ internal class FailureReportTest {
             >> person.name
 
                another error
-        """.trimIndent().trimmedLinesString())
+        """.trimIndent().trimmedLinesString()
+        )
     }
 
     @Nested
     inner class SourceLocationChainRendering {
         private fun reportFor(sourceLocation: SourceLocation?, addSourceLocation: Boolean): String {
-            val details = MatchFailureDetails(listOf("REQUEST", "BODY", "name"), listOf("error"), sourceLocation = sourceLocation)
+            val details =
+                MatchFailureDetails(listOf("REQUEST", "BODY", "name"), listOf("error"), sourceLocation = sourceLocation)
             return FailureReport(null, null, null, listOf(details), addSourceLocation = addSourceLocation).toText()
         }
 
@@ -264,7 +278,8 @@ internal class FailureReportTest {
         val report = FailureReport(null, null, null, listOf(firstDetail))
         val otherReport = FailureReport(null, null, null, listOf(secondDetail))
 
-        assertThat(report.mergeMatchFailureDetailsFrom(otherReport).toText().trimmedLinesString()).isEqualTo("""
+        assertThat(report.mergeMatchFailureDetailsFrom(otherReport).toText().trimmedLinesString()).isEqualTo(
+            """
             >> person.id
 
                first error
@@ -272,6 +287,7 @@ internal class FailureReportTest {
             >> person.name
 
                second error
-        """.trimIndent().trimmedLinesString())
+        """.trimIndent().trimmedLinesString()
+        )
     }
 }
