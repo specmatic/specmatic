@@ -12,30 +12,42 @@
     }
   ],
   "$defs": {
-    "AnyValue": {},
+    "AnyValue": {
+      "title": "Any Value",
+      "description": "Arbitrary JSON value accepted without additional structural constraints."
+    },
     "Metadata": {
+      "title": "Example Metadata",
+      "description": "Common metadata fields that can be attached to a full or partial external example.",
       "type": "object",
       "properties": {
         "name": {
+          "description": "Logical name of the example.",
           "type": "string"
         },
         "transient": {
+          "description": "Whether this example should be treated as transient during execution.",
           "type": "boolean"
         },
         "delay-in-seconds": {
+          "description": "Delay to apply before serving this example, in whole seconds.",
           "type": "integer",
           "minimum": 0
         },
         "delay-in-milliseconds": {
+          "description": "Delay to apply before serving this example, in milliseconds.",
           "type": "integer",
           "minimum": 0
         },
         "http-stub-id": {
+          "description": "Identifier of the stub this example belongs to.",
           "type": "string"
         }
       }
     },
     "Example": {
+      "title": "Complete Example",
+      "description": "A complete external example containing a request, a response, and optional fixture hooks.",
       "allOf": [
         {
           "$ref": "#/$defs/Metadata"
@@ -49,18 +61,24 @@
       ]
     },
     "RequestResponseSchema": {
+      "title": "Request And Response Pair",
+      "description": "Core request and response payload pair for a full external example.",
       "type": "object",
       "properties": {
         "http-request": {
+          "description": "HTTP request that should match this example.",
           "$ref": "#/$defs/RequestSchema"
         },
         "http-response": {
+          "description": "HTTP response that should be returned for this example.",
           "$ref": "#/$defs/ResponseSchema"
         }
       },
       "required": ["http-request", "http-response"]
     },
     "PartialExample": {
+      "title": "Partial Example",
+      "description": "A partial external example used for partial matching, with optional shared metadata and fixtures.",
       "allOf": [
         {
           "$ref": "#/$defs/Metadata"
@@ -69,6 +87,7 @@
           "type": "object",
           "properties": {
             "partial": {
+              "description": "Partial request/response example used for partial matching.",
               "$ref": "#/$defs/PartialRequestResponseSchema"
             }
           },
@@ -80,6 +99,8 @@
       ]
     },
     "FixtureHooks": {
+      "title": "Fixture Hooks",
+      "description": "Collections of fixtures to run before or after an example executes.",
       "type": "object",
       "properties": {
         "before": {
@@ -99,6 +120,8 @@
       }
     },
     "Fixture": {
+      "title": "Fixture",
+      "description": "A fixture definition that can be attached to before or after hooks.",
       "oneOf": [
         {
           "$ref": "#/$defs/HttpFixture"
@@ -106,6 +129,8 @@
       ]
     },
     "HttpFixture": {
+      "title": "HTTP Fixture",
+      "description": "An HTTP fixture that invokes an endpoint before or after an example runs.",
       "type": "object",
       "examples": [
         {
@@ -138,10 +163,12 @@
           "description": "Fixture type discriminator. Currently only http is supported."
         },
         "wait": {
+          "description": "Delay to wait before executing the fixture.",
           "type": "string",
           "format": "duration"
         },
         "timeout": {
+          "description": "Maximum time to wait for the fixture call to complete.",
           "type": "string",
           "format": "duration"
         },
@@ -166,6 +193,8 @@
       "additionalProperties": true
     },
     "Retry": {
+      "title": "Retry Policy",
+      "description": "Retry policy applied when a fixture call does not succeed immediately.",
       "type": "object",
       "examples": [
         {
@@ -187,6 +216,8 @@
       "additionalProperties": true
     },
     "FixtureExecuteFor": {
+      "title": "Fixture Scenario Selector",
+      "description": "Selector that limits which scenario types should trigger a fixture.",
       "type": "object",
       "examples": [
         {
@@ -204,6 +235,8 @@
       "additionalProperties": true
     },
     "HTTPFixtureRequest": {
+      "title": "HTTP Fixture Request",
+      "description": "Request shape used when invoking an HTTP fixture.",
       "type": "object",
       "examples": [
         {
@@ -224,16 +257,20 @@
           "type": "string"
         },
         "method": {
-          "type": "string"
+          "description": "HTTP method to use for the fixture call.",
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD", "TRACE", "CONNECT"]
         },
         "path": {
           "description": "Path to invoke on the fixture endpoint.",
           "type": "string"
         },
         "headers": {
+          "description": "Headers to send with the fixture request.",
           "type": "object"
         },
         "body": {
+          "description": "Request body to send with the fixture call.",
           "$ref": "#/$defs/AnyValue"
         }
       },
@@ -241,6 +278,8 @@
       "additionalProperties": true
     },
     "HTTPFixtureResponse": {
+      "title": "HTTP Fixture Response",
+      "description": "Expected response shape returned from an HTTP fixture call.",
       "type": "object",
       "examples": [
         {
@@ -256,6 +295,7 @@
           "type": "integer"
         },
         "body": {
+          "description": "Expected response body returned by the fixture call.",
           "$ref": "#/$defs/AnyValue"
         }
       },
@@ -263,6 +303,8 @@
       "additionalProperties": true
     },
     "PartialRequestResponseSchema": {
+      "title": "Partial Request And Response Pair",
+      "description": "Partial request and response payload pair used inside a partial external example.",
       "allOf": [
         {
           "$ref": "#/$defs/Metadata"
@@ -273,58 +315,77 @@
       ]
     },
     "RequestSchema": {
+      "title": "Example Request",
+      "description": "HTTP request fields that Specmatic should match for an example.",
       "type": "object",
       "properties": {
         "path": {
+          "description": "HTTP path that should match the incoming request.",
           "type": "string"
         },
         "method": {
-          "type": "string"
+          "description": "HTTP method that should match the incoming request.",
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD", "TRACE", "CONNECT"]
         },
         "query": {
+          "description": "Query parameters expected on the incoming request.",
           "type": "object"
         },
         "headers": {
+          "description": "Headers expected on the incoming request.",
           "type": "object"
         },
         "body": {
+          "description": "Body expected on the incoming request.",
           "$ref": "#/$defs/AnyValue"
         },
         "form-fields": {
+          "description": "Form fields expected for form-encoded requests.",
           "type": "object"
         },
         "multipart-formdata": {
+          "description": "Multipart form-data parts expected on the incoming request.",
           "type": "array",
           "items": {
             "$ref": "#/$defs/MultiPartFormData"
           }
         },
         "bodyRegex": {
+          "description": "Regular expression the request body should satisfy.",
           "type": "string"
         }
       },
       "required": ["method", "path"]
     },
     "ResponseSchema": {
+      "title": "Example Response",
+      "description": "HTTP response fields that Specmatic should return for an example.",
       "type": "object",
       "properties": {
         "status": {
+          "description": "HTTP status to return for this example.",
           "type": "integer",
           "minimum": 0
         },
         "headers": {
+          "description": "Headers to return in the example response.",
           "type": "object"
         },
         "body": {
+          "description": "Body to return in the example response.",
           "$ref": "#/$defs/AnyValue"
         },
         "externalisedResponseCommand": {
+          "description": "External command used to compute the example response body.",
           "type": "string"
         }
       },
       "required": ["status"]
     },
     "MultiPartFormData": {
+      "title": "Multipart Form Data Part",
+      "description": "A multipart form-data part, represented either as inline content or as a file upload.",
       "oneOf": [
         {
           "$ref": "#/$defs/MultiPartContent"
@@ -335,33 +396,44 @@
       ]
     },
     "MultiPartContent": {
+      "title": "Multipart Inline Content",
+      "description": "A multipart form-data field whose value is supplied inline as literal content.",
       "type": "object",
       "properties": {
         "name": {
+          "description": "Name of the multipart form-data field.",
           "type": "string"
         },
         "content": {
+          "description": "Literal content of the multipart form-data field.",
           "type": "string"
         },
         "contentType": {
+          "description": "Content type of the multipart form-data field.",
           "type": "string"
         }
       },
       "required": ["name", "content"]
     },
     "MultiPartFile": {
+      "title": "Multipart File",
+      "description": "A multipart form-data field whose value is supplied as a file reference.",
       "type": "object",
       "properties": {
         "contentEncoding": {
+          "description": "Content encoding of the multipart file part.",
           "type": "string"
         },
         "contentType": {
+          "description": "Content type of the multipart file part.",
           "type": "string"
         },
         "filename": {
+          "description": "Filename of the multipart file part.",
           "type": "string"
         },
         "name": {
+          "description": "Name of the multipart file field.",
           "type": "string"
         }
       },
