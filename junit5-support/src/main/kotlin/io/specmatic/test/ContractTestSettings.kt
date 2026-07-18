@@ -23,8 +23,6 @@ data class DeprecatedArguments(
     val filterName: String? = null,
     val filterNotName: String? = null,
     val overlayFilePath: File? = null,
-    val suggestionsPath: String? = null,
-    val inlineSuggestions: String? = null,
     val variablesFileName: String? = null,
     val exampleDirectories: List<String>? = null,
     val useCurrentBranchForCentralRepo: Boolean? = null,
@@ -52,8 +50,6 @@ data class ContractTestSettings(
     val filterName: String? = otherArguments?.filterName
     val filterNotName: String? = otherArguments?.filterNotName
     val overlayFilePath: File? = otherArguments?.overlayFilePath
-    val suggestionsPath: String? = otherArguments?.suggestionsPath
-    val inlineSuggestions: String? = otherArguments?.inlineSuggestions
     val variablesFileName: String? = otherArguments?.variablesFileName
     val isHostOrPortExplicitlySpecified: Boolean = otherArguments?.isHostOrPortExplicitlySpecified == true
     private val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
@@ -153,8 +149,6 @@ data class ContractTestSettings(
             protocol = contractTestSettings?.otherArguments?.protocol,
             isHostOrPortExplicitlySpecified = contractTestSettings?.otherArguments?.isHostOrPortExplicitlySpecified,
             useCurrentBranchForCentralRepo = contractTestSettings?.otherArguments?.useCurrentBranchForCentralRepo,
-            suggestionsPath = contractTestSettings?.otherArguments?.suggestionsPath,
-            inlineSuggestions = contractTestSettings?.otherArguments?.inlineSuggestions,
             variablesFileName = contractTestSettings?.otherArguments?.variablesFileName,
             exampleDirectories = contractTestSettings?.otherArguments?.exampleDirectories,
             filterName = contractTestSettings?.otherArguments?.filterName ?: specmaticConfig.getTestFilterName(),

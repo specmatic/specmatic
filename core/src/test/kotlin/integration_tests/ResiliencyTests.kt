@@ -2734,7 +2734,7 @@ class GenerativeTests {
             """.trimIndent(), ""
         ).toFeature().enableGenerativeTesting()
 
-        val testDescriptions = feature.generateContractTests(emptyList()).map {
+        val testDescriptions = feature.generateContractTests().map {
             it.testDescription()
         }.toList()
 

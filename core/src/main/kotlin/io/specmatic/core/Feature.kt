@@ -611,10 +611,9 @@ data class Feature(
 
     fun executeTests(
         testExecutor: TestExecutor,
-        suggestions: List<Scenario> = emptyList(),
         testDescriptionFilter: List<String> = emptyList()
     ): Results {
-        return generateContractTests(suggestions)
+        return generateContractTests()
             .filter { contractTest ->
                 testDescriptionFilter.isEmpty() ||
                         testDescriptionFilter.any { scenarioName ->
@@ -905,26 +904,24 @@ data class Feature(
     }
 
     fun generateContractTests(
-        suggestions: List<Scenario>,
         originalScenarios: List<Scenario> = scenarios,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ContractTest> {
         val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
-        return generateContractTestsWithDecision(suggestions, originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
+        return generateContractTestsWithDecision(originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull decision.value
         }
     }
 
     fun generateContractTestsWithDecision(
-        suggestions: List<Scenario> = emptyList(),
         originalScenarios: List<Scenario> = this.scenarios,
         scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
 
-        return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).mapNotNull { decision ->
+        return generateContractTestScenariosWithDecision(originalScenarios, scenarios, fn).mapNotNull { decision ->
             decision.normalizeAcceptHeader().checkAcceptCompatibility()
         }.map { decision ->
             decision.flatMap { returnValue, originalScenario, reasoning ->
@@ -1086,24 +1083,22 @@ data class Feature(
     }
 
     fun generateContractTestScenarios(
-        suggestions: List<Scenario>,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
         originalScenarios: List<Scenario> = scenarios
     ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
         val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
-        return generateContractTestScenariosWithDecision(suggestions, originalScenarios,scenarioDecisions, fn).mapNotNull { decision ->
+        return generateContractTestScenariosWithDecision(originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull Pair(decision.context, decision.value)
         }
     }
 
     fun generateContractTestScenariosWithDecision(
-        suggestions: List<Scenario> = emptyList(),
         originalScenarios: List<Scenario> = emptyList(),
         scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
-        val positiveTestScenarios = positiveTestScenariosWithDecision(suggestions, scenarios, fn)
+        val positiveTestScenarios = positiveTestScenariosWithDecision(scenarios, fn)
         return if (!specmaticConfig.isResiliencyTestingEnabled() || specmaticConfig.isOnlyPositiveTestingEnabled())
             positiveTestScenarios
         else
@@ -1111,14 +1106,13 @@ data class Feature(
     }
 
     private fun positiveTestScenariosWithDecision(
-        suggestions: List<Scenario>,
         scenarios: Sequence<Decision<Scenario, Scenario>>,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
         val resiliencyTestSuite = specmaticConfig.getResiliencyTestsEnabled()
         return scenarios.mapNotNull { scenarioDecision ->
             if (scenarioDecision !is Decision.Execute) return@mapNotNull scenarioDecision
-            scenarioDecision.value.newBasedOnWithDecision(suggestions, strictMode, resiliencyTestSuite)
+            scenarioDecision.value.newBasedOnWithDecision(strictMode, resiliencyTestSuite)
         }.flatMapSequence { scenario, _, reasoning ->
             val resolverStrategies = if (scenario.isA2xxScenario()) {
                 flagsBased

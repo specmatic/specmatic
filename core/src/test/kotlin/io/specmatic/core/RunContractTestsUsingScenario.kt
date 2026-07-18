@@ -531,7 +531,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val contractTestScenarios = contract.generateContractTests(emptyList())
+        val contractTestScenarios = contract.generateContractTests()
 
         val result: Result =
             contractTestScenarios.first().runTest(object : TestExecutor {

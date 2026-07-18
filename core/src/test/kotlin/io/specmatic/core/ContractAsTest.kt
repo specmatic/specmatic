@@ -215,48 +215,6 @@ class ContractAsTest {
     }
 
     @Test
-    fun `should substitute request parameters with suggestions`() {
-        val contractGherkin = """
-            Feature: Contract for /balance API
-                  Scenario: scenario name
-                    When GET /balance/(accountId:number)
-                    And request-header x-loginId (string)
-                    Then status 200
-        """
-        val parameters = """
-            Feature: Contract for /balance API
-                  Scenario: scenario name
-                    Examples:
-                    | x-loginId | accountId |
-                    | a@b.com   | 123123    |
-        """
-
-        val flags = mutableMapOf<String, Boolean>()
-
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val suggestions = lex(parseGherkinString(parameters, "")).second
-
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                flags["executed"] = true
-
-                assertThat(request.path).isEqualTo("/balance/123123")
-                assertThat(request.headers.keys).contains("x-loginId")
-                assertThat(request.headers["x-loginId"]).isEqualTo("a@b.com")
-                val headers: HashMap<String, String> = HashMap()
-                return HttpResponse(200, "", headers)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
-        }, suggestions)
-
-        assertThat(flags["executed"]).isTrue()
-
-        println(results.report())
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
     @Throws(Throwable::class)
     fun testShouldGenerateQueryParams() {
         val contractGherkin = "Feature: Contract for /balance API\n\n" +

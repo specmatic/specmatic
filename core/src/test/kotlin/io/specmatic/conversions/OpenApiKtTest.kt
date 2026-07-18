@@ -744,7 +744,7 @@ Feature: multipart file upload
         """.trimIndent(), sourceSpecPath
         )
 
-        val contractTests = contract.generateContractTests(emptyList())
+        val contractTests = contract.generateContractTests()
         val result = contractTests.first().runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 val multipartFileValues = request.multiPartFormData.filterIsInstance<MultiPartFileValue>()
@@ -2010,7 +2010,7 @@ components:
 """.trimIndent(), ""
         ).toFeature()
 
-        assertThat(contract.generateContractTestScenarios(emptyList()).map { it.second.value }.single().ignoreFailure).isTrue
+        assertThat(contract.generateContractTestScenarios().map { it.second.value }.single().ignoreFailure).isTrue
     }
 
     @Test

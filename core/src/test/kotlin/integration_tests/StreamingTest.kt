@@ -36,7 +36,7 @@ $parameters
 
         val feature = OpenApiSpecification.fromYAML(specWith30QueryParams, "").toFeature().enableGenerativeTesting()
 
-        val streamOfTestsWithOverABillionTests = feature.generateContractTests(emptyList())
+        val streamOfTestsWithOverABillionTests = feature.generateContractTests()
         val first100TestsFromTheStreamingTest = streamOfTestsWithOverABillionTests.take(100)
 
         assertThat(first100TestsFromTheStreamingTest.toList()).hasSize(100)

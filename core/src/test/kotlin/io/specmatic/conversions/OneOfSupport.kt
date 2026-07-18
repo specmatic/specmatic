@@ -66,7 +66,7 @@ class OneOfSupport {
             """.trimIndent(), ""
         ).toFeature()
 
-        val tests = specification.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+        val tests = specification.generateContractTestScenarios().toList().map { it.second.value }
 
         val requestBodies = listOf(
             parsedJSONObject("""{"name": "John", "address": "1st Street"}"""),

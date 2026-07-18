@@ -269,8 +269,6 @@ class OpenApiCoverageIntegrationTest {
         ).single().let { contractPathData ->
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = contractPathData.path,
-                suggestionsPath = "",
-                suggestionsData = "",
                 config = TestConfig(emptyMap(), emptyMap()),
                 sourceProvider = contractPathData.provider,
                 sourceRepository = contractPathData.repository,
