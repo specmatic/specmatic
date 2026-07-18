@@ -1,7 +1,7 @@
 package application
 
 import picocli.CommandLine.*
-import io.specmatic.conversions.postmanCollectionToGherkin
+import io.specmatic.conversions.postmanCollectionToContracts
 import io.specmatic.conversions.runTests
 import io.specmatic.conversions.toFragment
 import io.specmatic.core.*
@@ -10,6 +10,7 @@ import io.specmatic.core.log.configureLogging
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.utilities.jsonStringToValueMap
+import io.specmatic.core.utilities.openApiFromTraffic
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
@@ -52,8 +53,8 @@ class ImportCommand : Callable<Int> {
 fun convertStub(path: String, userSpecifiedOutFile: String?) {
     val inputFile = File(path)
     val stub = mockFromJSON(jsonStringToValueMap(inputFile.readText()))
-    val gherkin = toGherkinFeature(NamedStub("New scenario", stub))
-    val openApiYAML = gherkinToOpenApiYAML(gherkin)
+    val openApi = openApiFromTraffic("New Feature", listOf(NamedStub("New scenario", stub)))
+    val openApiYAML = Yaml.pretty(openApi)
 
     val outFile = userSpecifiedOutFile ?: "${inputFile.nameWithoutExtension}.yaml"
 
@@ -66,38 +67,33 @@ fun convertStub(path: String, userSpecifiedOutFile: String?) {
     writeOut(openApiYAML, outFile)
 }
 
-private fun gherkinToOpenApiYAML(gherkin: String): String {
-    val openApi = parseGherkinStringToFeature(gherkin).toOpenApi()
-    return Yaml.pretty(openApi)
-}
-
 fun convertPostman(path: String, userSpecifiedOutPath: String?) {
     val inputFile = File(path)
-    val contracts = postmanCollectionToGherkin(inputFile.readText())
+    val contracts = postmanCollectionToContracts(inputFile.readText())
 
     for (contract in contracts) runTests(contract)
 
     when (contracts.size) {
         1 -> {
             val outPath = userSpecifiedOutPath ?: "${inputFile.nameWithoutExtension}.yaml"
-            writeOut(gherkinToOpenApiYAML(contracts.first().gherkin), outPath, toFragment(contracts.first().baseURLInfo))
+            writeOut(Yaml.pretty(contracts.first().feature.toOpenApi()), outPath, toFragment(contracts.first().baseURLInfo))
         }
         else -> {
             for (contract in contracts) {
-                val (_, gherkin, baseURLInfo, _) = contract
+                val (_, feature, baseURLInfo, _) = contract
                 val outFilePath = userSpecifiedOutPath ?: "${inputFile.nameWithoutExtension}.yaml"
-                writeOut(gherkinToOpenApiYAML(gherkin), outFilePath, toFragment(baseURLInfo))
+                writeOut(Yaml.pretty(feature.toOpenApi()), outFilePath, toFragment(baseURLInfo))
             }
         }
     }
 }
 
-private fun writeOut(gherkin: String, outputFilePath: String, hostAndPort: String? = null) {
+private fun writeOut(content: String, outputFilePath: String, hostAndPort: String? = null) {
     val outputFile = File(outputFilePath)
 
     val tag = if(hostAndPort != null) "-${hostAndPort.replace(":", "-")}" else ""
 
-    fileWithTag(outputFile, tag).writeText(gherkin)
+    fileWithTag(outputFile, tag).writeText(content)
     logger.log("Written to file ${fileWithTag(outputFile, tag).path}")
 }
 

@@ -7,8 +7,10 @@ import io.specmatic.core.NoBodyValue
 import io.specmatic.core.QueryParameters
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
+import io.specmatic.core.value.BooleanValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.proxy.ProxyOperation
 import io.swagger.v3.oas.models.OpenAPI
@@ -17,7 +19,11 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
+import java.util.stream.Stream
 
 class OpenApiYamlFromExampleDirTest {
     @Test
@@ -140,6 +146,23 @@ class OpenApiYamlFromExampleDirTest {
         assertThat(schema.`$ref`).isNull()
     }
 
+    @ParameterizedTest
+    @MethodSource("scalarBodyCases")
+    fun `infers each scalar request body type`(body: Value, expectedType: String) {
+        val openApi = openApiFromTraffic(
+            "Scalar",
+            listOf(namedStub(
+                "echo",
+                HttpRequest("POST", "/echo", body = body),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val schema = openApi.paths["/echo"]!!.post.requestBody.content["text/plain"]!!.schema
+        assertThat(schema.type).isEqualTo(expectedType)
+        assertThat(schema.`$ref`).isNull()
+    }
+
     @Test
     fun `infers decimal request bodies as number schemas`() {
         val openApi = openApiFromTraffic(
@@ -223,6 +246,69 @@ class OpenApiYamlFromExampleDirTest {
     }
 
     @Test
+    fun `infers non-string scalar types for header and query parameters`() {
+        val request = HttpRequest(
+            method = "GET",
+            path = "/search",
+            headers = mapOf(
+                "X-Count" to "10",
+                "X-Ratio" to "1.5",
+                "X-Enabled" to "true",
+            ),
+            queryParams = QueryParameters(
+                mapOf(
+                    "count" to "10",
+                    "ratio" to "1.5",
+                    "enabled" to "true",
+                ),
+            ),
+        )
+
+        val openApi = openApiFromTraffic(
+            "Search",
+            listOf(namedStub("search", request, HttpResponse.ok("done"))),
+        )!!
+        val parameters = openApi.paths["/search"]!!.get.parameters
+
+        assertThat(parameters.single { it.`in` == "header" && it.name == "X-Count" }.schema.type).isEqualTo("integer")
+        assertThat(parameters.single { it.`in` == "header" && it.name == "X-Ratio" }.schema.type).isEqualTo("number")
+        assertThat(parameters.single { it.`in` == "header" && it.name == "X-Enabled" }.schema.type).isEqualTo("boolean")
+        assertThat(parameters.single { it.`in` == "query" && it.name == "count" }.schema.type).isEqualTo("integer")
+        assertThat(parameters.single { it.`in` == "query" && it.name == "ratio" }.schema.type).isEqualTo("number")
+        assertThat(parameters.single { it.`in` == "query" && it.name == "enabled" }.schema.type).isEqualTo("boolean")
+    }
+
+    @Test
+    fun `infers header optionality and preserves optional query parameters across recordings`() {
+        val firstRequest = HttpRequest(
+            method = "GET",
+            path = "/search",
+            headers = mapOf("X-Mandatory" to "one", "X-Optional" to "present"),
+            queryParams = QueryParameters(mapOf("mandatory" to "one", "optional" to "present")),
+        )
+        val secondRequest = HttpRequest(
+            method = "GET",
+            path = "/search",
+            headers = mapOf("X-Mandatory" to "two"),
+            queryParams = QueryParameters(mapOf("mandatory" to "two")),
+        )
+
+        val openApi = openApiFromTraffic(
+            "Search",
+            listOf(
+                namedStub("search", firstRequest, HttpResponse.ok("done")),
+                namedStub("search", secondRequest, HttpResponse.ok("done")),
+            ),
+        )!!
+        val parameters = openApi.paths["/search"]!!.get.parameters
+
+        assertThat(parameters.single { it.name == "X-Mandatory" }.required).isTrue()
+        assertThat(parameters.single { it.name == "X-Optional" }.required).isFalse()
+        assertThat(parameters.single { it.name == "mandatory" }.required != true).isTrue()
+        assertThat(parameters.single { it.name == "optional" }.required != true).isTrue()
+    }
+
+    @Test
     fun `infers form field schemas`() {
         val request = HttpRequest(
             method = "POST",
@@ -281,6 +367,76 @@ class OpenApiYamlFromExampleDirTest {
         val responseSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("ResponseBody") }.value
         assertThat(requestSchema.required).contains("name").doesNotContain("note")
         assertThat(responseSchema.required).contains("id").doesNotContain("state")
+    }
+
+    @Test
+    fun `preserves the root path in the generated operation`() {
+        val openApi = openApiFromTraffic(
+            "Root",
+            listOf(namedStub("root", HttpRequest("GET", "/"), HttpResponse.ok("done"))),
+        )!!
+
+        assertThat(openApi.paths.keys).containsExactly("/")
+        assertThat(openApi.paths["/"]!!.get).isNotNull()
+    }
+
+    @ParameterizedTest
+    @MethodSource("scalarBodyCases")
+    fun `infers each scalar response body type`(body: Value, expectedType: String) {
+        val openApi = openApiFromTraffic(
+            "Scalar",
+            listOf(namedStub(
+                "result",
+                HttpRequest("GET", "/result"),
+                HttpResponse(200, body = body),
+            )),
+        )!!
+
+        val schema = openApi.paths["/result"]!!.get.responses["200"]!!.content["text/plain"]!!.schema
+        assertThat(schema.type).isEqualTo(expectedType)
+        assertThat(schema.`$ref`).isNull()
+    }
+
+    @Test
+    fun `infers a top level array response body`() {
+        val openApi = openApiFromTraffic(
+            "Items",
+            listOf(namedStub(
+                "items",
+                HttpRequest("GET", "/items"),
+                HttpResponse(200, body = parsedJSON("""[{"id":1},{"id":2}]""")),
+            )),
+        )!!
+
+        val responseSchema = openApi.paths["/items"]!!.get.responses["200"]!!.content["application/json"]!!.schema
+        val itemSchema = openApi.components.schemas[responseSchema.items.`$ref`.substringAfterLast('/')]!!
+        assertThat(responseSchema.type).isEqualTo("array")
+        assertThat(itemSchema.type).isEqualTo("object")
+        assertThat(itemSchema.properties["id"]!!.type).isEqualTo("integer")
+    }
+
+    @Test
+    fun `infers mandatory and optional response headers across recordings`() {
+        val firstResponse = HttpResponse(
+            200,
+            headers = mapOf("X-Mandatory" to "one", "X-Optional" to "present"),
+        )
+        val secondResponse = HttpResponse(
+            200,
+            headers = mapOf("X-Mandatory" to "two"),
+        )
+
+        val openApi = openApiFromTraffic(
+            "Results",
+            listOf(
+                namedStub("result", HttpRequest("GET", "/result"), firstResponse),
+                namedStub("result", HttpRequest("GET", "/result"), secondResponse),
+            ),
+        )!!
+        val headers = openApi.paths["/result"]!!.get.responses["200"]!!.headers
+
+        assertThat(headers["X-Mandatory"]!!.required).isTrue()
+        assertThat(headers["X-Optional"]!!.required).isFalse()
     }
 
     @Test
@@ -416,5 +572,14 @@ class OpenApiYamlFromExampleDirTest {
         }
 
         return result
+    }
+
+    companion object {
+        @JvmStatic
+        private fun scalarBodyCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(StringValue("hello"), "string"),
+            Arguments.of(NumberValue(10), "integer"),
+            Arguments.of(BooleanValue(true), "boolean"),
+        )
     }
 }
