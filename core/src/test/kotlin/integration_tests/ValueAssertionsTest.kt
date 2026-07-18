@@ -87,10 +87,6 @@ paths:
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(200, headers = mapOf("Header1" to "Header 1 value", "Content-Type" to "text/plain"), body = "Product added successfully")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         }).let { results ->
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
         }
@@ -98,10 +94,6 @@ paths:
         feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(200, "Done")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         }).let { results ->
             assertThat(results.success()).withFailMessage(results.report()).isFalse()
@@ -297,10 +289,6 @@ paths:
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(200, body = "Product added successfully")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         }).let { results ->
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
         }
@@ -308,10 +296,6 @@ paths:
         feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(200, "Done")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         }).let { results ->
             assertThat(results.success()).withFailMessage(results.report()).isFalse()

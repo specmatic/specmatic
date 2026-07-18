@@ -80,7 +80,7 @@ internal class HttpLogMessageTest {
     fun `toName should mention inline example for internal example matches`() {
         val message = HttpLogMessage(
             request = scenario.generateHttpRequest(),
-            response = scenario.generateHttpResponse(emptyMap()),
+            response = scenario.generateHttpResponse(),
             contractPath = "/path/to/file",
             scenario = scenario,
             exampleName = "FIND_SUCCESS"
@@ -92,7 +92,7 @@ internal class HttpLogMessageTest {
     fun `toName should mention external example for external examples matches`() {
         val message = HttpLogMessage(
             request = scenario.generateHttpRequest(),
-            response = scenario.generateHttpResponse(emptyMap()),
+            response = scenario.generateHttpResponse(),
             contractPath = "/path/to/file",
             scenario = scenario,
             examplePath = "examples/example.json"
@@ -104,7 +104,7 @@ internal class HttpLogMessageTest {
     fun `toDetails should mention inline example name for inline example matches`() {
         val message = HttpLogMessage(
             request = scenario.generateHttpRequest(),
-            response = scenario.generateHttpResponse(emptyMap()),
+            response = scenario.generateHttpResponse(),
             contractPath = "/path/to/file",
             scenario = scenario,
             exampleName = "FIND_SUCCESS"
@@ -117,7 +117,7 @@ internal class HttpLogMessageTest {
     fun `toDetails should mention external example path for external example matches`() {
         val message = HttpLogMessage(
             request = scenario.generateHttpRequest(),
-            response = scenario.generateHttpResponse(emptyMap()),
+            response = scenario.generateHttpResponse(),
             contractPath = "/path/to/file",
             scenario = scenario,
             examplePath = "examples/example.json"

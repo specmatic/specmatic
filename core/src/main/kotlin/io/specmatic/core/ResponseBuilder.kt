@@ -1,10 +1,9 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.resolvedHop
-import io.specmatic.core.value.Value
 import io.specmatic.stub.RequestContext
 
-class ResponseBuilder(val scenario: Scenario?, val serverState: Map<String, Value>) {
+class ResponseBuilder(val scenario: Scenario?) {
     val responseBodyPattern = scenario?.resolver?.withCyclePrevention(
         scenario.httpResponsePattern.body
     ) {
@@ -13,6 +12,6 @@ class ResponseBuilder(val scenario: Scenario?, val serverState: Map<String, Valu
     val resolver = scenario?.resolver
 
     fun build(requestContext: RequestContext): HttpResponse? {
-        return scenario?.generateHttpResponse(serverState, requestContext)
+        return scenario?.generateHttpResponse(requestContext)
     }
 }

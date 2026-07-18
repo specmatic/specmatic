@@ -72,7 +72,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             listOf(
                 Examples(
                     listOf("(REQUEST-BODY)"),
@@ -119,7 +118,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             listOf(
                 Examples(
                     listOf("(REQUEST-BODY)"),
@@ -164,7 +162,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             listOf(
                 Examples(
                     listOf("(REQUEST-BODY)"),
@@ -205,7 +202,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             listOf(
                 Examples(
                     listOf("(REQUEST-BODY)"),
@@ -247,7 +243,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             listOf(
                 Examples(
                     listOf("(REQUEST-BODY)"),
@@ -294,7 +289,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             listOf(
                 Examples(
                     listOf("(REQUEST-BODY)"),

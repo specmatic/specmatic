@@ -720,7 +720,7 @@ internal class XMLPatternTest {
             val answerPattern = XMLPattern("<answer>(NumberInfo*)</answer>")
             val value = toXMLNode("<answer><number>10</number><number>20</number></answer>")
 
-            assertThat(resolver.matchesPattern(null, answerPattern, value)).isInstanceOf(Result.Success::class.java)
+            assertThat(resolver.matchesPattern(answerPattern, value)).isInstanceOf(Result.Success::class.java)
         }
 
         @Test
@@ -1753,7 +1753,7 @@ internal class XMLPatternTest {
             val resolver = Resolver(newPatterns = mapOf("(Name)" to nameType))
 
             val xmlNode = parsedValue("<person><name>Jill</name></person>")
-            assertThat(resolver.matchesPattern(null, personType, xmlNode).isSuccess()).isTrue
+            assertThat(resolver.matchesPattern(personType, xmlNode).isSuccess()).isTrue
         }
 
         @Test
@@ -1764,7 +1764,7 @@ internal class XMLPatternTest {
             val resolver = Resolver(newPatterns = mapOf("(Name)" to nameType))
 
             val xmlNode = parsedValue("<person><name>Jill</name></person>")
-            assertThat(resolver.matchesPattern(null, personType, xmlNode).isSuccess()).isTrue
+            assertThat(resolver.matchesPattern(personType, xmlNode).isSuccess()).isTrue
         }
     }
 

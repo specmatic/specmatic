@@ -171,7 +171,6 @@ fun getSpecType(isWSDL: Boolean): SpecType {
 
 data class Feature(
     val scenarios: List<Scenario> = emptyList(),
-    private var serverState: Map<String, Value> = emptyMap(),
     val name: String,
     val testVariables: Map<String, String> = emptyMap(),
     val testBaseURLs: Map<String, String> = emptyMap(),
@@ -246,23 +245,13 @@ data class Feature(
     }
 
     fun lookupResponse(httpRequest: HttpRequest): HttpResponse {
-        try {
-            val resultList = lookupScenario(httpRequest, scenarios)
-            return matchingScenario(resultList)?.generateHttpResponse(serverState)
-                ?: Results(resultList.map { it.second }.toMutableList()).withoutFluff()
-                    .generateErrorHttpResponse(httpRequest)
-        } finally {
-            serverState = emptyMap()
-        }
+        val resultList = lookupScenario(httpRequest, scenarios)
+        return matchingScenario(resultList)?.generateHttpResponse()
+            ?: Results(resultList.map { it.second }.toMutableList()).withoutFluff()
+                .generateErrorHttpResponse(httpRequest)
     }
 
-    fun lookupResponse(scenario: Scenario): HttpResponse {
-        try {
-            return scenario.generateHttpResponse(serverState)
-        } finally {
-            serverState = emptyMap()
-        }
-    }
+    fun lookupResponse(scenario: Scenario): HttpResponse = scenario.generateHttpResponse()
 
     fun loadInlineExamplesAsStub(): List<ReturnValue<HttpStubData>> {
         return this.inlineNamedStubs.mapNotNull { namedStub ->
@@ -307,53 +296,46 @@ data class Feature(
         allowOnlyMandatoryKeysInJSONObject: Boolean = false
     ): List<DiscriminatorBasedRequestResponse> {
         val scenario = scenarioValue.value
-        try {
-            val requests = scenario.generateHttpRequestV2(
-                allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
-            )
-            val responses = scenario.generateHttpResponseV2(
-                serverState,
-                allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
-            )
+        val requests = scenario.generateHttpRequestV2(
+            allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
+        )
+        val responses = scenario.generateHttpResponseV2(
+            allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
+        )
 
-            val discriminatorBasedRequestResponseList = if (requests.size > responses.size) {
-                requests.map { (requestDiscriminator, request) ->
-                    val (responseDiscriminator, response) = if (responses.containsDiscriminatorValueAs(
-                            requestDiscriminator.discriminatorValue
-                        )
+        return if (requests.size > responses.size) {
+            requests.map { (requestDiscriminator, request) ->
+                val (responseDiscriminator, response) = if (responses.containsDiscriminatorValueAs(
+                        requestDiscriminator.discriminatorValue
                     )
-                        responses.getDiscriminatorItemWith(requestDiscriminator.discriminatorValue)
-                    else
-                        responses.first()
-                    DiscriminatorBasedRequestResponse(
-                        request = request,
-                        response = response,
-                        requestDiscriminator = requestDiscriminator,
-                        responseDiscriminator = responseDiscriminator,
-                        scenarioValue = scenarioValue
-                    )
-                }
-            } else {
-                responses.map { (responseDiscriminator, response) ->
-                    val (requestDiscriminator, request) = if (requests.containsDiscriminatorValueAs(
-                            responseDiscriminator.discriminatorValue
-                        )
-                    )
-                        requests.getDiscriminatorItemWith(responseDiscriminator.discriminatorValue)
-                    else requests.first()
-                    DiscriminatorBasedRequestResponse(
-                        request = request,
-                        response = response,
-                        requestDiscriminator = requestDiscriminator,
-                        responseDiscriminator = responseDiscriminator,
-                        scenarioValue = scenarioValue
-                    )
-                }
+                )
+                    responses.getDiscriminatorItemWith(requestDiscriminator.discriminatorValue)
+                else
+                    responses.first()
+                DiscriminatorBasedRequestResponse(
+                    request = request,
+                    response = response,
+                    requestDiscriminator = requestDiscriminator,
+                    responseDiscriminator = responseDiscriminator,
+                    scenarioValue = scenarioValue
+                )
             }
-
-            return discriminatorBasedRequestResponseList
-        } finally {
-            serverState = emptyMap()
+        } else {
+            responses.map { (responseDiscriminator, response) ->
+                val (requestDiscriminator, request) = if (requests.containsDiscriminatorValueAs(
+                        responseDiscriminator.discriminatorValue
+                    )
+                )
+                    requests.getDiscriminatorItemWith(responseDiscriminator.discriminatorValue)
+                else requests.first()
+                DiscriminatorBasedRequestResponse(
+                    request = request,
+                    response = response,
+                    requestDiscriminator = requestDiscriminator,
+                    responseDiscriminator = responseDiscriminator,
+                    scenarioValue = scenarioValue
+                )
+            }
         }
     }
 
@@ -361,27 +343,22 @@ data class Feature(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): Pair<ResponseBuilder?, Results> {
-        try {
-            val result = matchRequestScenariosWithEarlySuccess(
-                request = httpRequest,
-                onSuccess = { scenario -> ResponseBuilder(scenario, serverState) },
-                match = { scenario ->
-                    scenario.matchesStub(
-                        httpRequest = httpRequest,
-                        serverState = serverState,
-                        mismatchMessages = mismatchMessages,
-                        unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
-                    )
-                },
-            )
+        val result = matchRequestScenariosWithEarlySuccess(
+            request = httpRequest,
+            onSuccess = ::ResponseBuilder,
+            match = { scenario ->
+                scenario.matchesStub(
+                    httpRequest = httpRequest,
+                    mismatchMessages = mismatchMessages,
+                    unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
+                )
+            },
+        )
 
-            return result.fold(
-                onSuccess = { responseBuilder -> Pair(responseBuilder, Results()) },
-                onFailure = { failures -> Pair(null, Results(failures)) }
-            )
-        } finally {
-            serverState = emptyMap()
-        }
+        return result.fold(
+            onSuccess = { responseBuilder -> Pair(responseBuilder, Results()) },
+            onFailure = { failures -> Pair(null, Results(failures)) }
+        )
     }
 
     private fun getMatchingAndSortedScenarios(
@@ -422,28 +399,24 @@ data class Feature(
         mismatchMessages: MismatchMessages = DefaultMismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
-        try {
-            val acceptHeaderSortedScenarios = getMatchingAndSortedScenarios(httpRequest, scenarios)
-            val resultList = matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck, acceptHeaderSortedScenarios)
-            val matchingScenarios = matchingScenarios(resultList)
+        val acceptHeaderSortedScenarios = getMatchingAndSortedScenarios(httpRequest, scenarios)
+        val resultList = matchingScenarioToResultList(httpRequest, mismatchMessages, unexpectedKeyCheck, acceptHeaderSortedScenarios)
+        val matchingScenarios = matchingScenarios(resultList)
 
-            if (matchingScenarios.toList().isEmpty()) {
-                val results = Results(
-                    resultList.map { it.second }.toList()
-                ).withoutFluff()
-                return mapOf(
-                    400 to Pair(
-                        ResponseBuilder(null, serverState),
-                        results
-                    )
+        if (matchingScenarios.toList().isEmpty()) {
+            val results = Results(
+                resultList.map { it.second }.toList()
+            ).withoutFluff()
+            return mapOf(
+                400 to Pair(
+                    ResponseBuilder(null),
+                    results
                 )
-            }
+            )
+        }
 
-            return matchingScenarios.associate { (status, scenario) ->
-                status to Pair(ResponseBuilder(scenario, serverState), Results())
-            }
-        } finally {
-            serverState = emptyMap()
+        return matchingScenarios.associate { (status, scenario) ->
+            status to Pair(ResponseBuilder(scenario), Results())
         }
     }
 
@@ -462,14 +435,13 @@ data class Feature(
 
     private fun matchingScenarioToResultList(
         httpRequest: HttpRequest,
-        serverState: Map<String, Value>,
         mismatchMessages: MismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys,
         scenarios: List<Scenario>,
     ): Sequence<Pair<Scenario, Result>> {
         val scenarioSequence = scenarios.asSequence()
         return scenarioSequence.zip(scenarioSequence.map {
-            it.matchesStub(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
+            it.matchesStub(httpRequest, mismatchMessages, unexpectedKeyCheck)
         })
     }
 
@@ -539,22 +511,18 @@ data class Feature(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches
     ): List<Pair<Scenario, Result>> {
-        try {
-            val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
+        val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
 
-            val successes = lookupAllSuccessfulScenarios(resultList)
-            if (successes.isNotEmpty())
-                return successes
+        val successes = lookupAllSuccessfulScenarios(resultList)
+        if (successes.isNotEmpty())
+            return successes
 
-            val deepMatchingErrors = allDeeplyMatchingScenarios(resultList)
+        val deepMatchingErrors = allDeeplyMatchingScenarios(resultList)
 
-            return when {
-                deepMatchingErrors.isNotEmpty() -> deepMatchingErrors
-                scenarios.isEmpty() -> throw EmptyContract()
-                else -> emptyList()
-            }
-        } finally {
-            serverState = emptyMap()
+        return when {
+            deepMatchingErrors.isNotEmpty() -> deepMatchingErrors
+            scenarios.isEmpty() -> throw EmptyContract()
+            else -> emptyList()
         }
     }
 
@@ -591,9 +559,8 @@ data class Feature(
     ): Sequence<Pair<Scenario, Result>> {
         val scenarioSequence = getMatchingAndSortedScenarios(httpRequest, scenarios).asSequence()
 
-        val localCopyOfServerState = serverState
         return scenarioSequence.zip(scenarioSequence.map {
-            it.matches(httpRequest, localCopyOfServerState, DefaultMismatchMessages)
+            it.matches(httpRequest, DefaultMismatchMessages)
         })
     }
 
@@ -603,9 +570,8 @@ data class Feature(
         mismatchMessages: MismatchMessages = DefaultMismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck? = null
     ): List<Pair<Scenario, Result>> {
-        val localCopyOfServerState = serverState
         return scenarios.zip(scenarios.map {
-            it.matches(httpRequest, localCopyOfServerState, mismatchMessages, unexpectedKeyCheck)
+            it.matches(httpRequest, mismatchMessages, unexpectedKeyCheck)
         })
     }
 
@@ -626,16 +592,9 @@ data class Feature(
             }
     }
 
-    fun setServerState(serverState: Map<String, Value>) {
-        this.serverState = this.serverState.plus(serverState)
-    }
-
     fun matches(request: HttpRequest, response: HttpResponse): Boolean {
         return scenarios.firstOrNull {
-            it.matches(
-                request,
-                serverState
-            ) is Success && it.matches(response) is Success
+            it.matches(request) is Success && it.matches(response) is Success
         } != null
     }
 
@@ -774,10 +733,7 @@ data class Feature(
             return Result.Failure("No operations found")
 
         val matchResults = scenarios.map {
-            it.matches(
-                request,
-                serverState
-            ) to it.matches(response)
+            it.matches(request) to it.matches(response)
         }
 
         if (matchResults.any {
@@ -793,13 +749,9 @@ data class Feature(
         response: HttpResponse,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): HttpStubData {
-        return try {
-            stubMatchResultWithEarlySuccess(request, response, mismatchMessages).getOrElse { failures ->
-                val results = Results(failures).withoutFluff()
-                throw NoMatchingScenario(msg = null, results = results, cachedMessage = results.report(request))
-            }
-        } finally {
-            serverState = emptyMap()
+        return stubMatchResultWithEarlySuccess(request, response, mismatchMessages).getOrElse { failures ->
+            val results = Results(failures).withoutFluff()
+            throw NoMatchingScenario(msg = null, results = results, cachedMessage = results.report(request))
         }
     }
 
@@ -821,32 +773,28 @@ data class Feature(
             DefaultKeyCheck
         }
 
-        try {
-            val attributeSelectedScenarios = scenarios.map { scenario -> scenario.newBasedOnAttributeSelectionFields(request.queryParams) }
-            return matchRequestScenariosWithEarlySuccess(
-                request = request,
-                scenarios = attributeSelectedScenarios,
-                responseStatus = response.status,
-                match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
-                onSuccess = { scenario ->
-                    scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        val newRequestType = scenario.generateHttpRequestPatternForStub(request, resolver)
-                        HttpStubData(
-                            requestType = newRequestType,
-                            response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),
-                            resolver = resolver,
-                            responsePattern = scenario.httpResponsePattern,
-                            contractPath = this.path,
-                            feature = this,
-                            scenario = scenario,
-                            originalRequest = request
-                        )
-                    }
+        val attributeSelectedScenarios = scenarios.map { scenario -> scenario.newBasedOnAttributeSelectionFields(request.queryParams) }
+        return matchRequestScenariosWithEarlySuccess(
+            request = request,
+            scenarios = attributeSelectedScenarios,
+            responseStatus = response.status,
+            match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
+            onSuccess = { scenario ->
+                scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
+                    val newRequestType = scenario.generateHttpRequestPatternForStub(request, resolver)
+                    HttpStubData(
+                        requestType = newRequestType,
+                        response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                        resolver = resolver,
+                        responsePattern = scenario.httpResponsePattern,
+                        contractPath = this.path,
+                        feature = this,
+                        scenario = scenario,
+                        originalRequest = request
+                    )
                 }
-            )
-        } finally {
-            serverState = emptyMap()
-        }
+            }
+        )
     }
 
     private fun <T> matchRequestScenariosWithEarlySuccess(
@@ -1230,10 +1178,6 @@ data class Feature(
                 results = results,
             )
         }
-    }
-
-    fun clearServerState() {
-        serverState = emptyMap()
     }
 
     fun overrideInlineExamples(externalExampleNames: Set<String>): Feature {
@@ -2575,12 +2519,11 @@ data class Feature(
         @Deprecated(
             message = "Use list-based inlineExamples overload",
             replaceWith = ReplaceWith(
-                "from(scenarios, serverState, name, testVariables, testBaseURLs, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
+                "from(scenarios, name, testVariables, testBaseURLs, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
             )
         )
         fun from(
             scenarios: List<Scenario> = emptyList(),
-            serverState: Map<String, Value> = emptyMap(),
             name: String,
             testVariables: Map<String, String> = emptyMap(),
             testBaseURLs: Map<String, String> = emptyMap(),
@@ -2604,7 +2547,6 @@ data class Feature(
             }
             return from(
                 scenarios = scenarios,
-                serverState = serverState,
                 name = name,
                 testVariables = testVariables,
                 testBaseURLs = testBaseURLs,
@@ -2625,7 +2567,6 @@ data class Feature(
 
         fun from(
             scenarios: List<Scenario> = emptyList(),
-            serverState: Map<String, Value> = emptyMap(),
             name: String,
             testVariables: Map<String, String> = emptyMap(),
             testBaseURLs: Map<String, String> = emptyMap(),
@@ -2644,7 +2585,6 @@ data class Feature(
         ): Feature {
             return Feature(
                 scenarios = scenarios,
-                serverState = serverState,
                 name = name,
                 testVariables = testVariables,
                 testBaseURLs = testBaseURLs,
@@ -2696,18 +2636,6 @@ private fun toPatternInfo(step: StepInfo, rowsList: List<TableRow>, isWSDL: Bool
     }
 
     return Pair(patternName, pattern)
-}
-
-private fun toFacts(rest: String, fixtures: Map<String, Value>): Map<String, Value> {
-    return try {
-        jsonStringToValueMap(rest)
-    } catch (notValidJSON: Throwable) {
-        val factTokens = breakIntoPartsMaxLength(rest, 2)
-        val name = factTokens[0]
-        val data = factTokens.getOrNull(1)?.let { StringValue(it) } ?: fixtures.getOrDefault(name, True)
-
-        mapOf(name to data)
-    }
 }
 
 private fun lexScenario(
@@ -2802,15 +2730,6 @@ private fun lexScenario(
                 scenarioInfo.copy(httpRequestPattern = scenarioInfo.httpRequestPattern.copy(body = toPattern(step, isWSDL)))
             "RESPONSE-BODY" ->
                 scenarioInfo.copy(httpResponsePattern = scenarioInfo.httpResponsePattern.bodyPattern(toPattern(step, isWSDL)))
-            "FACT" ->
-                scenarioInfo.copy(
-                    expectedServerState = scenarioInfo.expectedServerState.plus(
-                        toFacts(
-                            step.rest,
-                            scenarioInfo.fixtures
-                        )
-                    )
-                )
             "TYPE", "PATTERN", "JSON" ->
                 scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(toPatternInfo(step, step.rowsList, isWSDL)))
             "ENUM" ->

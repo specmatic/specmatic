@@ -12,11 +12,8 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
 import io.specmatic.core.utilities.capitalizeFirstChar
-import io.specmatic.core.utilities.mapZip
 import io.specmatic.core.utilities.nullOrExceptionString
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.StringValue
-import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
@@ -52,7 +49,6 @@ data class Scenario(
     override val name: String,
     val httpRequestPattern: HttpRequestPattern,
     val httpResponsePattern: HttpResponsePattern,
-    val expectedFacts: Map<String, Value> = emptyMap(),
     val examples: List<Examples> = emptyList(),
     val patterns: Map<String, Pattern> = emptyMap(),
     val fixtures: Map<String, Value> = emptyMap(),
@@ -104,7 +100,6 @@ data class Scenario(
             metadata = scenarioInfo.undeclaredRequestVariantMetadata
         ),
         httpResponsePattern = scenarioInfo.httpResponsePattern,
-        expectedFacts = scenarioInfo.expectedServerState,
         patterns = scenarioInfo.patterns,
         fixtures = scenarioInfo.fixtures,
         examples = scenarioInfo.examples,
@@ -189,27 +184,6 @@ data class Scenario(
 
     fun responseBodyFromExample() = exampleRow?.responseBody()
 
-    private fun serverStateMatches(actualState: Map<String, Value>, resolver: Resolver) =
-        expectedFacts.keys == actualState.keys &&
-                mapZip(expectedFacts, actualState).all { (key, expectedStateValue, actualStateValue) ->
-                    when {
-                        actualStateValue == True || expectedStateValue == True -> true
-                        expectedStateValue is StringValue && expectedStateValue.isPatternToken() -> {
-                            val pattern = resolver.getPattern(expectedStateValue.string)
-                            try {
-                                resolver.matchesPattern(
-                                    key,
-                                    pattern,
-                                    pattern.parse(actualStateValue.toString(), resolver)
-                                ).isSuccess()
-                            } catch (e: Exception) {
-                                false
-                            }
-                        }
-                        else -> expectedStateValue.toStringLiteral() == actualStateValue.toStringLiteral()
-                    }
-                }
-
     fun matchesPathStructureAndMethod(httpRequest: HttpRequest): Boolean {
         val result = this.httpRequestPattern.matchesPathStructureAndMethod(httpRequest, resolver)
         return result.isSuccess()
@@ -241,7 +215,6 @@ data class Scenario(
 
     fun matches(
         httpRequest: HttpRequest,
-        serverState: Map<String, Value>,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck? = null
     ): Result {
@@ -253,16 +226,15 @@ data class Scenario(
             else
                 it
         }
-        return matches(httpRequest, serverState, resolver, resolver)
+        return httpRequestPattern.matches(httpRequest, resolver, resolver).updateScenario(this)
     }
 
     fun matchesStub(
         httpRequest: HttpRequest,
-        serverState: Map<String, Value>,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck? = null
     ): Result {
-        val headersResolver = Resolver(serverState, false, patterns).copy(mismatchMessages = mismatchMessages)
+        val headersResolver = Resolver(newPatterns = patterns).copy(mismatchMessages = mismatchMessages)
 
         val nonHeadersResolver = if(unexpectedKeyCheck != null) {
             headersResolver.withUnexpectedKeyCheck(unexpectedKeyCheck)
@@ -270,43 +242,23 @@ data class Scenario(
             headersResolver
         }.disableOverrideUnexpectedKeyCheck()
 
-        return matches(httpRequest, serverState, nonHeadersResolver, headersResolver)
+        return httpRequestPattern.matches(httpRequest, nonHeadersResolver, headersResolver).updateScenario(this)
     }
 
-    private fun matches(
-        httpRequest: HttpRequest,
-        serverState: Map<String, Value>,
-        resolver: Resolver,
-        headersResolver: Resolver
-    ): Result {
-        if (!serverStateMatches(serverState, resolver)) {
-            return Result.Failure("Facts mismatch", breadCrumb = "FACTS").updateScenario(this)
-        }
-
-        return httpRequestPattern.matches(httpRequest, resolver, headersResolver).updateScenario(this)
-    }
-
-    fun generateHttpResponse(actualFacts: Map<String, Value>, requestContext: Context = NoContext): HttpResponse =
+    fun generateHttpResponse(requestContext: Context = NoContext): HttpResponse =
         scenarioBreadCrumb(this) {
-            val facts = combineFacts(expectedFacts, actualFacts, resolver)
-
-            httpResponsePattern.fillInTheBlanks(resolver.copy(factStore = CheckFacts(facts), context = requestContext))
+            httpResponsePattern.fillInTheBlanks(resolver.copy(context = requestContext))
         }
 
     fun generateHttpResponseV2(
-        actualFacts: Map<String, Value>,
         requestContext: Context = NoContext,
         allowOnlyMandatoryKeysInJSONObject: Boolean = false
     ): List<DiscriminatorBasedItem<HttpResponse>> =
         scenarioBreadCrumb(this) {
-            val facts = combineFacts(expectedFacts, actualFacts, resolver)
             val updatedResolver = if(allowOnlyMandatoryKeysInJSONObject) {
-                resolver.copy(
-                    factStore = CheckFacts(facts),
-                    context = requestContext
-                ).withOnlyMandatoryKeysInJSONObject()
+                resolver.copy(context = requestContext).withOnlyMandatoryKeysInJSONObject()
             } else {
-                resolver.copy(factStore = CheckFacts(facts), context = requestContext)
+                resolver.copy(context = requestContext)
             }
 
             httpResponsePattern.generateResponseV2(updatedResolver)
@@ -318,60 +270,10 @@ data class Scenario(
         }
     }
 
-    private fun combineFacts(
-        expected: Map<String, Value>,
-        actual: Map<String, Value>,
-        resolver: Resolver
-    ): Map<String, Value> {
-        val combinedServerState = HashMap<String, Value>()
-
-        for (key in expected.keys + actual.keys) {
-            val expectedValue = expected.getValue(key)
-            val actualValue = actual.getValue(key)
-
-            when {
-                key in expected && key in actual -> {
-                    when {
-                        expectedValue == actualValue -> combinedServerState[key] = actualValue
-                        expectedValue is StringValue && expectedValue.isPatternToken() -> {
-                            ifMatches(key, expectedValue, actualValue, resolver) {
-                                combinedServerState[key] = actualValue
-                            }
-                        }
-                    }
-                }
-                key in expected -> combinedServerState[key] = expectedValue
-                key in actual -> combinedServerState[key] = actualValue
-            }
-        }
-
-        return combinedServerState
-    }
-
-    private fun ifMatches(
-        key: String,
-        expectedValue: StringValue,
-        actualValue: Value,
-        resolver: Resolver,
-        code: () -> Unit
-    ) {
-        val expectedPattern = resolver.getPattern(expectedValue.string)
-
-        try {
-            if (resolver.matchesPattern(key, expectedPattern, expectedPattern.parse(actualValue.toString(), resolver))
-                    .isSuccess()
-            )
-                code()
-        } catch (e: Throwable) {
-            throw ContractException("Couldn't match state values. Expected $expectedValue in key $key" +
-                ", actual value is $actualValue", exceptionCause = e)
-        }
-    }
-
     fun generateHeaders(flagsBased: FlagsBased = DefaultStrategies): Map<String, String> {
         return scenarioBreadCrumb(this) {
             httpRequestPattern.headersPattern.generate(
-                flagsBased.update(resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative))
+                flagsBased.update(resolver.copy(isNegative = this.isNegative))
             )
         }
     }
@@ -384,7 +286,7 @@ data class Scenario(
 
             val generatedRequest = httpRequestPattern.generate(
                 flagsBased.update(
-                    resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
+                    resolver.copy(isNegative = this.isNegative)
                 )
             )
             httpRequestPattern.applyUndeclaredVariantToGeneratedRequest(generatedRequest, exampleRow?.requestExample)
@@ -412,11 +314,11 @@ data class Scenario(
         scenarioBreadCrumb(this) {
             val updatedResolver = if (allowOnlyMandatoryKeysInJSONObject) {
                 flagsBased.update(
-                    resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
+                    resolver.copy(isNegative = this.isNegative)
                 ).withOnlyMandatoryKeysInJSONObject()
             } else {
                 flagsBased.update(
-                    resolver.copy(factStore = CheckFacts(expectedFacts), isNegative = this.isNegative)
+                    resolver.copy(isNegative = this.isNegative)
                 )
             }
             httpRequestPattern.generateV2(updatedResolver).map { discriminatorBasedRequest ->
@@ -496,7 +398,7 @@ data class Scenario(
         mismatchMessages: MismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck?
     ): Resolver {
-        return Resolver(expectedFacts, false, patterns).copy(mismatchMessages = mismatchMessages).let {
+        return Resolver(newPatterns = patterns).copy(mismatchMessages = mismatchMessages).let {
             if (unexpectedKeyCheck != null)
                 it.copy(findKeyErrorCheck = it.findKeyErrorCheck.withUnexpectedKeyCheck(unexpectedKeyCheck))
             else
@@ -534,18 +436,14 @@ data class Scenario(
     fun newBasedOn(row: Row, flagsBased: FlagsBased): Sequence<ReturnValue<Scenario>> {
         val ignoreFailure = this.ignoreFailure || row.name.startsWith("[WIP]")
 
-        val resolver = resolver.copy(
-            factStore = CheckFacts(expectedFacts), mockMode = false, mismatchMessages = ExampleMismatchMessages
-        ).let { flagsBased.update(it) }
-
-        val newExpectedServerState = newExpectedServerStateBasedOn(row, expectedFacts, fixtures, resolver)
+        val resolver = resolver.copy(mockMode = false, mismatchMessages = ExampleMismatchMessages)
+            .let { flagsBased.update(it) }
 
         return scenarioBreadCrumb(this) {
             attempt {
                 val undeclaredVariantScenario = scenarioFromUndeclaredRequestExample(
                     row = row,
                     resolver = resolver,
-                    newExpectedFacts = newExpectedServerState,
                     ignoreFailure = ignoreFailure,
                     generativePrefix = flagsBased.positivePrefix
                 )
@@ -577,7 +475,6 @@ data class Scenario(
                                 this.copy(
                                     httpRequestPattern = it,
                                     httpResponsePattern = newResponsePattern,
-                                    expectedFacts = newExpectedServerState,
                                     ignoreFailure = ignoreFailure,
                                     exampleName = row.name,
                                     exampleRow = row,
@@ -597,7 +494,6 @@ data class Scenario(
     private fun scenarioFromUndeclaredRequestExample(
         row: Row,
         resolver: Resolver,
-        newExpectedFacts: Map<String, Value>,
         ignoreFailure: Boolean,
         generativePrefix: String
     ): Scenario? {
@@ -609,7 +505,6 @@ data class Scenario(
         return copy(
             httpRequestPattern = requestPatternResult.requestPattern,
             httpResponsePattern = newResponsePattern,
-            expectedFacts = newExpectedFacts,
             ignoreFailure = ignoreFailure,
             exampleName = row.name,
             exampleRow = row,
@@ -641,15 +536,10 @@ data class Scenario(
     }
 
     private fun newBasedOnBackwardCompatibility(row: Row): Sequence<Scenario> {
-        val resolver = Resolver(expectedFacts, false, patterns)
-
-        val newExpectedServerState = newExpectedServerStateBasedOn(row, expectedFacts, fixtures, resolver)
+        val resolver = Resolver(newPatterns = patterns)
 
         return httpRequestPattern.newBasedOn(resolver).map { newHttpRequestPattern ->
-            this.copy(
-                httpRequestPattern = newHttpRequestPattern,
-                expectedFacts = newExpectedServerState
-            )
+            this.copy(httpRequestPattern = newHttpRequestPattern)
         }
     }
 
@@ -824,9 +714,6 @@ data class Scenario(
 
     val resolver: Resolver = Resolver(newPatterns = patterns, dictionary = dictionary, sourceLocations = sourceLocations)
 
-    val serverState: Map<String, Value>
-        get() = expectedFacts
-
     fun matchesMock(
         request: HttpRequest,
         response: HttpResponse,
@@ -835,9 +722,8 @@ data class Scenario(
     ): Result {
         scenarioBreadCrumb(this) {
             val resolver = Resolver(
-                IgnoreFacts(),
-                true,
-                patterns,
+                mockMode = true,
+                newPatterns = patterns,
                 findKeyErrorCheck = keyCheck.disableOverrideUnexpectedKeyCheck(),
                 mismatchMessages = mismatchMessages
             )
@@ -1247,33 +1133,6 @@ fun testDescription(
         else -> "$generativePrefix Scenario: $apiDescription"
     }.trim()
 }
-
-fun newExpectedServerStateBasedOn(
-    row: Row,
-    expectedServerState: Map<String, Value>,
-    fixtures: Map<String, Value>,
-    resolver: Resolver
-): Map<String, Value> =
-    attempt(errorMessage = "Scenario fact generation failed") {
-        expectedServerState.mapValues { (key, value) ->
-            when {
-                row.containsField(key) -> {
-                    val fieldValue = row.getField(key)
-
-                    when {
-                        fixtures.containsKey(fieldValue) -> fixtures.getValue(fieldValue)
-                        isPatternToken(fieldValue) -> {
-                            val fieldPattern = resolver.getPattern(fieldValue)
-                            resolver.withCyclePrevention(fieldPattern, fieldPattern::generate)
-                        }
-                        else -> StringValue(fieldValue)
-                    }
-                }
-                value is StringValue && isPatternToken(value) -> resolver.getPattern(value.string).generate(resolver)
-                else -> value
-            }
-        }
-    }
 
 object SpecificationAndResponseMismatch : MismatchMessages {
     override fun mismatchMessage(expected: String, actual: String): String {

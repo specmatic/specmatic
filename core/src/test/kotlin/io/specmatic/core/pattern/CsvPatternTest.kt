@@ -103,7 +103,7 @@ paths:
     @Test
     fun `should read array in query params as CsvString type`() {
         val queryParameters = QueryParameters(paramPairs = listOf("data" to "1", "data" to "2", "data" to "3"))
-        val result: Result = contract.scenarios.first().matches(HttpRequest("GET", "/hello", queryParams = queryParameters), emptyMap())
+        val result: Result = contract.scenarios.first().matches(HttpRequest("GET", "/hello", queryParams = queryParameters))
         assertThat(result).isInstanceOf(Success::class.java)
     }
 
@@ -133,9 +133,6 @@ paths:
                 println(request.toLogString())
                 params.addAll(request.queryParams.keys)
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
 
         })

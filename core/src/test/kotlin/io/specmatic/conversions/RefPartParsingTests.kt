@@ -57,9 +57,6 @@ components:
                 assertThat(request.path).isEqualTo("/hello/10")
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).isTrue()
@@ -113,9 +110,6 @@ components:
                 assertThat(request.path).isEqualTo("/hello/10")
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).isTrue()
@@ -166,9 +160,6 @@ components:
                 assertThat(request.headers["X-HelloRequestHeader"]).isEqualTo("helloworld")
 
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -226,9 +217,6 @@ components:
 
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         println(results.report())
@@ -280,9 +268,6 @@ components:
                 assertThat(request.headers["X-HelloRequestHeader"]).isEqualTo("helloworld")
 
                 return HttpResponse(status = 201, headers = mapOf("X-HelloResponseHeader" to "helloworld"))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -370,9 +355,6 @@ components:
 
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.successCount).isEqualTo(1)
@@ -428,9 +410,6 @@ components:
 
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.failureCount).isEqualTo(0)
@@ -485,9 +464,6 @@ components:
                 val expectedRequest = parsedJSONObject("""{"id":"abc123"}""")
                 assertThat(request.body).isEqualTo(expectedRequest)
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -571,9 +547,6 @@ components:
                 assertThat(request.body).isEqualTo(expectedRequest)
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         println(results.distinctReport())
@@ -635,9 +608,6 @@ components:
                 val expectedRequest = parsedJSONObject("""{"name":"Jack"}""")
                 assertThat(request.body).isEqualTo(expectedRequest)
                 return HttpResponse.ok(parsedJSONObject("""{"id":123}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -704,9 +674,6 @@ components:
                 assertThat(request.body).isEqualTo(expectedRequest)
                 return HttpResponse.ok(parsedJSONObject("""{"id":123}"""))
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         println(results.distinctReport())
@@ -769,9 +736,6 @@ components:
                 val expectedRequest = parsedJSONObject("""{"name":"Jack"}""")
                 assertThat(request.body).isEqualTo(expectedRequest)
                 return HttpResponse.ok(parsedJSONObject("""{"id":123}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 

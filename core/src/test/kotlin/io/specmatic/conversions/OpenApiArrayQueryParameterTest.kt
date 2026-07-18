@@ -20,10 +20,6 @@ class OpenApiArrayQueryParameterTest {
                 }
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
         assertThat(queryParameterCount).isGreaterThan(1)
     }
@@ -38,10 +34,6 @@ class OpenApiArrayQueryParameterTest {
                     brandIds = request.queryParams.paramPairs.filter { it.first == "brand_ids" }.map { it.second }
                 }
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         })
         assertThat(brandIds).isEqualTo(listOf("1", "2", "3"))
@@ -58,10 +50,6 @@ class OpenApiArrayQueryParameterTest {
                 }
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
         assertThat(brandIds).isEqualTo(listOf("1", "2", "3"))
     }
@@ -77,10 +65,6 @@ class OpenApiArrayQueryParameterTest {
                 }
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
         assertThat(brandIds).isEqualTo(listOf("Laptop", "Mobile", "TV"))
     }
@@ -95,10 +79,6 @@ class OpenApiArrayQueryParameterTest {
                     brandIds = request.queryParams.paramPairs.filter { it.first == "category" }.map { it.second }
                 }
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         })
         assertThat(brandIds).isEqualTo(listOf("Book", "Headphone", "Camera"))

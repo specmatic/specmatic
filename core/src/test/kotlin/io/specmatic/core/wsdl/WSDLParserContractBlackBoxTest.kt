@@ -456,7 +456,7 @@ class WSDLParserContractBlackBoxTest {
     fun `contract test for soap version_1_2 wsdl generated request uses content-type`() {
         val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
         val feature = parseContractFileToFeature(File(wsdlSpecPath))
-        val generatedResponse = feature.scenarios.single().generateHttpResponse(emptyMap())
+        val generatedResponse = feature.scenarios.single().generateHttpResponse()
 
         val result = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {

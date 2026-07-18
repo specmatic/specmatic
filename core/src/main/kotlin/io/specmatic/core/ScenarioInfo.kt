@@ -12,7 +12,6 @@ data class ScenarioInfo(
     val scenarioName: String = "",
     val httpRequestPattern: HttpRequestPattern = HttpRequestPattern(),
     val httpResponsePattern: HttpResponsePattern = HttpResponsePattern(),
-    val expectedServerState: Map<String, Value> = emptyMap(),
     val patterns: Map<String, Pattern> = emptyMap(),
     val fixtures: Map<String, Value> = emptyMap(),
     val examples: List<Examples> = emptyList(),

@@ -9,13 +9,13 @@ import io.specmatic.core.value.Value
 
 data class URLPathSegmentPattern(override val pattern: Pattern, override val key: String? = null, override val typeAlias: String? = null) : Pattern, Keyed {
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
-        return resolver.matchesPattern(key, pattern, sampleData ?: NullValue)
+        return resolver.matchesPattern(pattern, sampleData ?: NullValue)
     }
 
     override fun generate(resolver: Resolver): Value {
         return resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
             if (key != null)
-                cyclePreventedResolver.generate(key, pattern)
+                cyclePreventedResolver.generate(pattern)
             else pattern.generate(cyclePreventedResolver)
         }
     }

@@ -227,7 +227,6 @@ data class ScenarioAsTest(
                 )
             }
 
-            testExecutor.setServerState(testScenario.serverState)
             testExecutor.preExecuteScenario(testScenario, request)
             val response = testExecutor.execute(request)
 

@@ -52,6 +52,22 @@ import kotlin.to
 
 class FeatureTest {
     @Test
+    fun `fact is not a recognised Gherkin keyword`() {
+        val contract = """
+            Feature: Facts are unsupported
+
+            Scenario: Fact declaration
+              Given fact user exists
+              When GET /users/10
+              Then status 200
+        """.trimIndent()
+
+        assertThatThrownBy { parseGherkinStringToFeature(contract) }
+            .isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("""keyword "fact" not recognised""")
+    }
+
+    @Test
     fun `test descriptions with no tags should contain no tag separators`() {
         val contract = OpenApiSpecification.fromYAML(
             """
@@ -581,41 +597,6 @@ Feature: Contract for /balance API
 
     @Test
     @Throws(Throwable::class)
-    fun scenarioMatchesWhenFactIsSetupWithoutFixtureData() {
-        val contractGherkin = """Feature: Contract for /locations API
-  Scenario Outline: api call
-    * fixture city_list {"cities": [{"city": "Mumbai"}, {"city": "Bangalore"}]}
-    * pattern City {"city": "(string)"}
-    * pattern Cities {"cities": ["(City...)"]}
-    Given fact cities_exist 
-    When GET /locations
-    Then status 200
-    And response-body (Cities)
-  Examples:
-  | cities_exist | 
-  | city_list | 
-    """
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpResponse: HttpResponse
-        val httpRequest: HttpRequest = HttpRequest().updateMethod("GET").updatePath("/locations")
-        contractBehaviour.setServerState(object : HashMap<String, Value>() {
-            init {
-                put("cities_exist", True)
-            }
-        })
-        httpResponse = contractBehaviour.lookupResponse(httpRequest)
-        assertNotNull(httpResponse)
-        assertEquals(200, httpResponse.status)
-        val responseBody = JSONObject(httpResponse.body.displayableValue())
-        val cities = responseBody.getJSONArray("cities")
-        for (i in 0 until cities.length()) {
-            val city = cities.getJSONObject(i)
-            assertTrue(city.getString("city").isNotEmpty())
-        }
-    }
-
-    @Test
-    @Throws(Throwable::class)
     fun scenarioOutlineRunsLikeAnEmptyScenario() {
         val contractGherkin = "Feature: Contract for /balance API\n\n" +
                 "  Scenario Outline: api call\n\n" +
@@ -673,59 +654,6 @@ Feature: Contract for /balance API
         for (path in listOf("/accounts1", "/accounts2")) {
             test(baseRequest.updatePath(path))
         }
-    }
-
-    @Test
-    fun `Contract Fake state can be setup using true without specifying a concrete value`() {
-        val contractGherkin = """
-            Feature: Contract for /balance API
-            
-              Scenario Outline: api call
-            
-                Given fact id 10
-                When GET /accounts/(id:number)
-                Then status 200
-                And response-body {"name": "(string)"}"""
-
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-
-        contractBehaviour.setServerState(mutableMapOf<String, Value>().apply {
-            this["id"] = True
-        })
-
-        val httpRequest = HttpRequest().updateMethod("GET").updatePath("/accounts/10")
-        val httpResponse = contractBehaviour.lookupResponse(httpRequest)
-        assertNotNull(httpResponse)
-        assertEquals(200, httpResponse.status)
-        val actual = JSONObject(httpResponse.body.displayableValue())
-        assertTrue(actual.has("name"))
-        assertNotNull(actual.get("name"))
-    }
-
-    @Test
-    fun `Contract Fake state can be setup using a concrete value`() {
-        val contractGherkin = """
-            Feature: Contract for /balance API
-            
-              Scenario: api call
-                Given fact id 10
-                When GET /accounts/(id:number)
-                Then status 200
-                And response-body {"name": "(string)"}"""
-
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-
-        contractBehaviour.setServerState(mutableMapOf<String, Value>().apply {
-            this["id"] = NumberValue(10)
-        })
-
-        val httpRequest = HttpRequest().updateMethod("GET").updatePath("/accounts/10")
-        val httpResponse = contractBehaviour.lookupResponse(httpRequest)
-        assertNotNull(httpResponse)
-        assertEquals(200, httpResponse.status)
-        val actual = JSONObject(httpResponse.body.displayableValue())
-        assertTrue(actual.has("name"))
-        assertNotNull(actual.get("name"))
     }
 
     @Test
@@ -1705,9 +1633,6 @@ paths:
 
                     else -> HttpResponse(422, "Bad request was received and could not be handled")
                 }
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -3771,7 +3696,7 @@ paths:
             )
             every { scenario.generateHttpRequestV2() } returns requestList
 
-            every { scenario.generateHttpResponseV2(any()) } returns responseList
+            every { scenario.generateHttpResponseV2(any(), any()) } returns responseList
 
             val pairs = feature.generateDiscriminatorBasedRequestResponseList(
                 HasValue(scenario)
@@ -3808,7 +3733,7 @@ paths:
 
             every { scenario.generateHttpRequestV2() } returns requestList
 
-            every { scenario.generateHttpResponseV2(any()) } returns responseList
+            every { scenario.generateHttpResponseV2(any(), any()) } returns responseList
 
             val pairs = feature.generateDiscriminatorBasedRequestResponseList(HasValue(scenario))
 
@@ -3820,7 +3745,7 @@ paths:
         @Test
         fun `should return empty list when both requests and responses are empty`() {
             every { scenario.generateHttpRequestV2() } returns emptyList()
-            every { scenario.generateHttpResponseV2(any()) } returns emptyList()
+            every { scenario.generateHttpResponseV2(any(), any()) } returns emptyList()
 
             val pairs = feature.generateDiscriminatorBasedRequestResponseList(HasValue(scenario))
 

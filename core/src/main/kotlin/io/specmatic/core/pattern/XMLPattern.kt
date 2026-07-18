@@ -482,8 +482,7 @@ data class XMLPattern(
                                 else -> childNode
                             }
 
-                            val factKey = if (childValue is XMLNode) childValue.name else null
-                            ConsumeResult(resolver.matchesPattern(factKey, resolvedType, childValue), emptyList())
+                            ConsumeResult(resolver.matchesPattern(resolvedType, childValue), emptyList())
                         } else if (expectingEmpty(sampleData, resolvedType, resolver)) {
                             ConsumeResult(Success())
                         } else {
@@ -671,7 +670,7 @@ data class XMLPattern(
                     sampleValue.isPatternToken() -> sampleValue.trimmed()
                     else -> patternValue.parse(sampleValue.string, resolver)
                 }
-                resolver.matchesPattern(key, patternValue, resolvedValue)
+                resolver.matchesPattern(patternValue, resolvedValue)
             } catch (e: ContractException) {
                 e.failure()
             }.breadCrumb(key)
@@ -749,7 +748,7 @@ data class XMLPattern(
         }.mapValues { (key, attributePattern) ->
             attempt(breadCrumb = "$attributeBreadCrumbName.$key") {
                 resolver.withCyclePrevention(attributePattern) { cyclePreventedResolver ->
-                    cyclePreventedResolver.generate(key, attributePattern)
+                    cyclePreventedResolver.generate(attributePattern)
                 }
             }
         }.mapValues {
