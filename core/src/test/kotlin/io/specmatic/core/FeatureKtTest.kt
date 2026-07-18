@@ -2,6 +2,7 @@ package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -22,6 +23,31 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import java.io.File
 
 class FeatureKtTest {
+    @Test
+    fun `value statements are not supported`() {
+        assertLegacyStatementIsNotSupported("Given value data from data.spec", "value")
+    }
+
+    @Test
+    fun `export statements are not supported`() {
+        assertLegacyStatementIsNotSupported("And export data = response-body", "export")
+    }
+
+    private fun assertLegacyStatementIsNotSupported(statement: String, keyword: String) {
+        val contractGherkin = """
+            Feature: Legacy variables
+
+            Scenario: Legacy statement
+              When GET /
+              Then status 200
+              $statement
+        """.trimIndent()
+
+        assertThatThrownBy { parseGherkinStringToFeature(contractGherkin) }
+            .isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("""keyword "$keyword" not recognised""")
+    }
+
     @Test
     fun `should lex type identically to pattern`() {
         val contractGherkin = """
@@ -571,51 +597,6 @@ class FeatureKtTest {
     }
 
     @Test
-    fun `bindings should get generated when a feature contains the export statement`() {
-        val contractGherkin = """
-            Feature: Pet API
-            
-            Scenario: Get details
-              When GET /pets/(id:number)
-              Then status 200
-              And response-header X-Data (string)
-              And export data = response-header.X-Data
-        """.trimIndent()
-
-        val feature = parseGherkinStringToFeature(contractGherkin)
-
-        feature.scenarios.first().let {
-            assertThat(it.bindings).containsKey("data")
-            assertThat(it.bindings["data"]).isEqualTo("response-header.X-Data")
-        }
-    }
-
-    @Test
-    fun `references should get generated when a feature contains the value statement`() {
-        val contractGherkin = """
-            Feature: Pet API
-            
-            Background:
-              Given value data from data.$CONTRACT_EXTENSION
-            
-            Scenario: Get details
-              When GET /pets/(id:number)
-              Then status 200
-              And response-header X-Data (string)
-        """.trimIndent()
-
-        val feature = parseGherkinStringToFeature(contractGherkin, "original.$CONTRACT_EXTENSION")
-
-        feature.scenarios.first().let {
-            assertThat(it.references).containsKey("data")
-            assertThat(it.references["data"]).isInstanceOf(References::class.java)
-            assertThat(it.references["data"]?.valueName).isEqualTo("data")
-            assertThat(it.references["data"]?.contractFile?.path).isEqualTo("data.$CONTRACT_EXTENSION")
-            assertThat(it.references["data"]?.contractFile?.relativeTo).isEqualTo(AnchorFile("original.$CONTRACT_EXTENSION"))
-        }
-    }
-
-    @Test
     fun `invokes hook when it is passed`() {
         val hookMock = mockk<Hook>()
 
@@ -706,31 +687,6 @@ paths:
         @JvmStatic
         fun teardown() {
             File(OPENAPI_RELATIVE_FILEPATH).delete()
-        }
-    }
-
-    @Nested
-    inner class LoadOpenAPIFromGherkin {
-        val feature = parseGherkinStringToFeature("""
-                Feature: OpenAPI test
-                    Background:
-                        Given openapi $OPENAPI_FILENAME
-                        And value auth from auth.spec
-                        
-                    Scenario: OpenAPI test
-                        When GET /hello/10
-                        Then status 200
-                        And export data = response-body
-            """.trimIndent(), File("${RESOURCES_ROOT}dummy.spec").canonicalPath)
-
-        @Test
-        fun `parsing OpenAPI spec should preserve the references declared in the gherkin spec`() {
-            assertThat(feature.scenarios.first().references.contains("auth"))
-        }
-
-        @Test
-        fun `parsing OpenAPI spec should preserve the bindings declared in the gherkin spec`() {
-            assertThat(feature.scenarios.first().bindings.contains("data"))
         }
     }
 

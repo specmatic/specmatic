@@ -106,54 +106,6 @@ internal class HttpResponseTest {
     }
 
     @Test
-    fun `response-body selector with no path should return response body`() {
-        val response = HttpResponse.ok("hello")
-        testSelection(response, "response-body", "hello")
-    }
-
-    private fun testSelection(response: HttpResponse, selector: String, expectedValue: String) {
-        val selectedValue = response.selectValue(selector)
-        assertThat(selectedValue).isEqualTo(expectedValue)
-    }
-
-    @Test
-    fun `response-body selector with a path should return the JSON value at that path`() {
-        val response = HttpResponse.ok(JSONObjectValue(mapOf("token" to NumberValue(10))))
-        testSelection(response, "response-body.token", "10")
-    }
-
-    @Test
-    fun `response-body selector with a path that points to a JSON object should return it`() {
-        val nameData = mapOf("name" to StringValue("Jack"))
-        val responseBody = JSONObjectValue(mapOf("person" to JSONObjectValue(nameData)))
-
-        val response = HttpResponse.ok(responseBody)
-        val selectedValue = response.selectValue("response-body.person")
-        val parsedValue = parsedValue(selectedValue)
-
-        assertThat(parsedValue).isEqualTo(JSONObjectValue(nameData))
-    }
-
-    @Test
-    fun `response-header selector with a path should return the JSON value at that path`() {
-        val response = HttpResponse.OK.copy(headers = mapOf("Token" to "abc123"))
-        testSelection(response, "response-header.Token", "abc123")
-    }
-
-    @Test
-    fun `exports bindings`() {
-        val response = HttpResponse.ok(JSONObjectValue(mapOf("token" to NumberValue(10))))
-        val bindings = response.export(mapOf("token" to "response-body.token"))
-        assertThat(bindings).isEqualTo(mapOf("token" to "10"))
-    }
-
-    @Test
-    fun `throws error if export is not found`() {
-        val response = HttpResponse.ok(JSONObjectValue(mapOf("token" to NumberValue(10))))
-        assertThatThrownBy { response.export(mapOf("token" to "response-body.notfound")) }.isInstanceOf(ContractException::class.java)
-    }
-
-    @Test
     fun `should exclude dynamic headers`() {
         HttpResponse.OK.copy(
             headers = mapOf(

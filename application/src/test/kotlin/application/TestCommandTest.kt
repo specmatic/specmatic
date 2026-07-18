@@ -137,8 +137,8 @@ internal class TestCommandTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["--suggestions", "--suggestionsPath"])
-    fun `does not accept removed suggestion options`(option: String) {
+    @ValueSource(strings = ["--suggestions", "--suggestionsPath", "--env", "--variables"])
+    fun `does not accept removed legacy options`(option: String) {
         assertThatThrownBy {
             CommandLine(testCommand, factory).parseArgs(option, "value")
         }.isInstanceOf(CommandLine.UnmatchedArgumentException::class.java)
@@ -213,9 +213,7 @@ internal class TestCommandTest {
             TestCommandCase("--examples", "test/data", { it.getSpecmaticConfig().getExamples() }, listOf("test/data")),
 
             // -------- environment / config --------
-            TestCommandCase("--env", "staging", { it.envName }, "staging"),
             TestCommandCase("--config", "specmatic-test.json", { it.configFile }, "specmatic-test.json"),
-            TestCommandCase("--variables", "vars.json", { it.variablesFileName }, "vars.json"),
             TestCommandCase("--overlay-file", "overlay.yaml", { it.overlayFilePath?.path }, "overlay.yaml"),
 
             // -------- reporting --------

@@ -241,7 +241,7 @@ data class ScenarioAsTest(
                     )
                     if(matchesResult is Result.Failure) {
                         return ContractTestExecutionResult(
-                            result = matchesResult.withBindings(testScenario.bindings, response),
+                            result = matchesResult,
                             request = request,
                             response = response,
                             beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
@@ -256,7 +256,7 @@ data class ScenarioAsTest(
 
             if (validatorResult is Result.Failure) {
                 return ContractTestExecutionResult(
-                    result = validatorResult.withBindings(testScenario.bindings, response),
+                    result = validatorResult,
                     request = request,
                     response = response,
                     beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
@@ -267,7 +267,7 @@ data class ScenarioAsTest(
             val responseHandler = response.getResponseHandlerIfExists()
             if (testResult is Result.Failure && responseHandler == null) {
                 return ContractTestExecutionResult(
-                    result = testResult.withBindings(testScenario.bindings, response),
+                    result = testResult,
                     request = request,
                     response = response,
                     beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
@@ -283,7 +283,7 @@ data class ScenarioAsTest(
                         is ResponseHandlingResult.Stop -> {
                             val bindingResponse = handlerResult.response ?: response
                             return ContractTestExecutionResult(
-                                result = handlerResult.result.withBindings(testScenario.bindings, bindingResponse),
+                                result = handlerResult.result,
                                 request = request,
                                 response = bindingResponse,
                                 beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
@@ -310,7 +310,7 @@ data class ScenarioAsTest(
                         request = request,
                         response = response,
                         beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
-                        result = updatedSubstitution.toFailure().withBindings(testScenario.bindings, response),
+                        result = updatedSubstitution.toFailure(),
                     )
                 }
 
@@ -325,7 +325,7 @@ data class ScenarioAsTest(
                 }
 
                 return ContractTestExecutionResult(
-                    result = contractTestResult.withBindings(testScenario.bindings, response),
+                    result = contractTestResult,
                     request = request,
                     response = response,
                     beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
@@ -334,7 +334,7 @@ data class ScenarioAsTest(
             }
 
             return ContractTestExecutionResult(
-                result = result.withBindings(testScenario.bindings, response),
+                result = result,
                 request = request,
                 response = response,
                 beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults

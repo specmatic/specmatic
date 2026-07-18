@@ -190,16 +190,6 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.getPipelineProject()).isEqualTo("XNSIO")
         assertThat(config.getPipelineDefinitionId()).isEqualTo(1)
 
-        assertThat(
-            SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.baseurls?.get("auth.spec")
-        ).isEqualTo("http://localhost:8080")
-        assertThat(
-            SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("username")
-        ).isEqualTo("jackie")
-        assertThat(
-            SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("password")
-        ).isEqualTo("PaSsWoRd")
-
         assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(
             70
         )
@@ -289,10 +279,6 @@ internal class SpecmaticConfigKtTest {
         assertThat(config.getPipelineOrganization()).isEqualTo("xnsio")
         assertThat(config.getPipelineProject()).isEqualTo("XNSIO")
         assertThat(config.getPipelineDefinitionId()).isEqualTo(1)
-
-        assertThat(SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.baseurls?.get("auth.spec")).isEqualTo("http://localhost:8080")
-        assertThat(SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("username")).isEqualTo("jackie")
-        assertThat(SpecmaticConfigV1V2Common.getEnvironments(config)?.get("staging")?.variables?.get("password")).isEqualTo("PaSsWoRd")
 
         assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.minThresholdPercentage).isEqualTo(70)
         assertThat(SpecmaticConfigV1V2Common.getReport(config)?.types?.apiCoverage?.openAPI?.successCriteria?.maxMissedEndpointsInSpec).isEqualTo(3)

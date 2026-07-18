@@ -172,8 +172,6 @@ fun getSpecType(isWSDL: Boolean): SpecType {
 data class Feature(
     val scenarios: List<Scenario> = emptyList(),
     val name: String,
-    val testVariables: Map<String, String> = emptyMap(),
-    val testBaseURLs: Map<String, String> = emptyMap(),
     val path: String = "",
     val sourceProvider:String? = null,
     val sourceRepository:String? = null,
@@ -1070,8 +1068,6 @@ data class Feature(
 
             scenario.generateTestScenarios(
                 fn = fn,
-                variables = testVariables,
-                testBaseURLs = testBaseURLs,
                 flagsBased = resolverStrategies,
             ).map { generatedScenario ->
                 val scenarioWithPrefix = scenario.copy(generativePrefix = flagsBased.positivePrefix)
@@ -1100,7 +1096,7 @@ data class Feature(
 
             scenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
         }.flatMapSequence { scenario, _, reasoning ->
-            scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
+            scenario.generateTestScenarios(flagsBased).filterNot { negativeTestScenarioR ->
                 negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
                     val sampleRequest = negativeTestScenario.generateHttpRequest()
                     scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()
@@ -2519,14 +2515,12 @@ data class Feature(
         @Deprecated(
             message = "Use list-based inlineExamples overload",
             replaceWith = ReplaceWith(
-                "from(scenarios, name, testVariables, testBaseURLs, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
+                "from(scenarios, name, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
             )
         )
         fun from(
             scenarios: List<Scenario> = emptyList(),
             name: String,
-            testVariables: Map<String, String> = emptyMap(),
-            testBaseURLs: Map<String, String> = emptyMap(),
             path: String = "",
             sourceProvider: String? = null,
             sourceRepository: String? = null,
@@ -2548,8 +2542,6 @@ data class Feature(
             return from(
                 scenarios = scenarios,
                 name = name,
-                testVariables = testVariables,
-                testBaseURLs = testBaseURLs,
                 path = path,
                 sourceProvider = sourceProvider,
                 sourceRepository = sourceRepository,
@@ -2568,8 +2560,6 @@ data class Feature(
         fun from(
             scenarios: List<Scenario> = emptyList(),
             name: String,
-            testVariables: Map<String, String> = emptyMap(),
-            testBaseURLs: Map<String, String> = emptyMap(),
             path: String = "",
             sourceProvider: String? = null,
             sourceRepository: String? = null,
@@ -2586,8 +2576,6 @@ data class Feature(
             return Feature(
                 scenarios = scenarios,
                 name = name,
-                testVariables = testVariables,
-                testBaseURLs = testBaseURLs,
                 path = path,
                 sourceProvider = sourceProvider,
                 sourceRepository = sourceRepository,
@@ -2754,23 +2742,6 @@ private fun lexScenario(
                         )
                     )
                 )
-            "VALUE" ->
-                scenarioInfo.copy(
-                    references = values(
-                        step.rest,
-                        scenarioInfo.references,
-                        backgroundScenarioInfo?.references ?: emptyMap(),
-                        filePath
-                    )
-                )
-            "EXPORT" ->
-                scenarioInfo.copy(
-                    bindings = setters(
-                        step.rest,
-                        backgroundScenarioInfo?.bindings ?: emptyMap(),
-                        scenarioInfo.bindings
-                    )
-                )
             else -> {
                 val location = when (step.raw.location) {
                     null -> ""
@@ -2802,7 +2773,7 @@ private fun lexScenario(
 
         if (matchingScenarios.size > 1) throw ContractException("Scenario: ${parsedScenarioInfo.scenarioName} is not specific, it matches ${matchingScenarios.size} in the included Wsdl / OpenApi")
 
-        val matchingScenario = matchingScenarios.first().copy(bindings = parsedScenarioInfo.bindings)
+        val matchingScenario = matchingScenarios.first()
 
         scenarioInfoWithExamples(matchingScenario, backgroundScenarioInfo, examplesList, ignoreFailure)
     }
@@ -2849,53 +2820,8 @@ private fun scenarioInfoWithExamples(
     ignoreFailure: Boolean
 ) = parsedScenarioInfo.copy(
     examples = backgroundScenarioInfo.examples.plus(examplesFrom(examplesList)),
-    bindings = backgroundScenarioInfo.bindings.plus(parsedScenarioInfo.bindings),
-    references = backgroundScenarioInfo.references.plus(parsedScenarioInfo.references),
     ignoreFailure = ignoreFailure
 )
-
-fun setters(
-    rest: String,
-    backgroundSetters: Map<String, String>,
-    scenarioSetters: Map<String, String>
-): Map<String, String> {
-    val parts = breakIntoPartsMaxLength(rest, 3)
-
-    if (parts.size != 3 || parts[1] != "=")
-        throw ContractException("Setter syntax is incorrect in \"$rest\". Syntax should be \"Then set <variable> = <selector>\"")
-
-    val variableName = parts[0]
-    val selector = parts[2]
-
-    return backgroundSetters.plus(scenarioSetters).plus(variableName to selector)
-}
-
-fun values(
-    rest: String,
-    scenarioReferences: Map<String, References>,
-    backgroundReferences: Map<String, References>,
-    filePath: String
-): Map<String, References> {
-    val parts = breakIntoPartsMaxLength(rest, 3)
-
-    if (parts.size != 3 || parts[1] != "from")
-        throw ContractException("Incorrect syntax for value statement: $rest - it should be \"Given value <value name> from <$APPLICATION_NAME file name>\"")
-
-    val valueStoreName = parts[0]
-    val specFileName = parts[2]
-
-    val specFilePath = ContractFileWithExports(specFileName, AnchorFile(filePath))
-
-    return backgroundReferences.plus(scenarioReferences).plus(
-        valueStoreName to References(
-            valueStoreName,
-            specFilePath,
-            contractCache = contractCache
-        )
-    )
-}
-
-private val contractCache = ContractCache()
 
 fun toFormDataPart(step: StepInfo, contractFilePath: String): MultiPartFormDataPattern {
     val parts = breakIntoPartsMaxLength(step.rest, 4)

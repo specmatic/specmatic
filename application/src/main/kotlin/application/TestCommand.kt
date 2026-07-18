@@ -78,9 +78,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     )
     var filter: String? = null
 
-    @Option(names = ["--env"], description = ["Environment name"], hidden = true)
-    var envName: String? = null
-
     @Option(names = ["--https"], description = ["Use https instead of the default http"], required = false)
     var useHttps: Boolean = false
 
@@ -95,9 +92,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     @Option(names = ["--config"], description = ["Configuration file name ($APPLICATION_NAME_LOWER_CASE.json by default)"])
     var configFileName: String? = null
-
-    @Option(names = ["--variables"], description = ["Variables file name ($APPLICATION_NAME_LOWER_CASE.json by default)"], hidden = true)
-    var variablesFileName: String? = null
 
     @Option(names = ["--debug"], description = ["Debug logs"])
     var verboseMode: Boolean? = null
@@ -213,7 +207,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         val otherArguments = DeprecatedArguments(
             host = host,
-            envName = envName,
             protocol = protocol,
             port = port.toString(),
             overlayFilePath = overlayFilePath?.let(::File),
@@ -221,7 +214,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             filterName = filterName.takeIf(::isNotNullOrBlank),
             useCurrentBranchForCentralRepo = useCurrentBranchForCentralRepo,
             filterNotName = filterNotName.takeIf(::isNotNullOrBlank),
-            variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
             isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port")
         )
 

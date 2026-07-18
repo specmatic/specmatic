@@ -415,7 +415,6 @@ interface SpecmaticConfig {
     @JsonIgnore
     fun stubContracts(relativeTo: File = File(".")): List<String>
     fun updateReportConfiguration(reportConfiguration: ReportConfiguration): SpecmaticConfig
-    fun getEnvironment(envName: String): JSONObjectValue
     fun enableResiliencyTests(): SpecmaticConfig
     fun withTestBaseURL(testBaseURL: String): SpecmaticConfig
     fun withTestModes(strictMode: Boolean?, lenientMode: Boolean?): SpecmaticConfig

@@ -768,10 +768,6 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
         return this.copy(specmaticConfig = specmaticConfig.copy(specmatic = specmaticSettings.copy(governance = updatedGovernance)))
     }
 
-    override fun getEnvironment(envName: String): JSONObjectValue {
-        return JSONObjectValue(emptyMap())
-    }
-
     override fun enableResiliencyTests(): SpecmaticConfig {
         return enableResiliencyTests(onlyPositive = false)
     }

@@ -53,8 +53,6 @@ data class Scenario(
     val patterns: Map<String, Pattern> = emptyMap(),
     val fixtures: Map<String, Value> = emptyMap(),
     override val ignoreFailure: Boolean = false,
-    val references: Map<String, References> = emptyMap(),
-    val bindings: Map<String, String> = emptyMap(),
     val isGherkinScenario: Boolean = false,
     val isNegative: Boolean = false,
     val badRequestOrDefault: BadRequestOrDefault? = null,
@@ -104,8 +102,6 @@ data class Scenario(
         fixtures = scenarioInfo.fixtures,
         examples = scenarioInfo.examples,
         ignoreFailure = scenarioInfo.ignoreFailure,
-        references = scenarioInfo.references,
-        bindings = scenarioInfo.bindings,
         isGherkinScenario = scenarioInfo.isGherkinScenario,
         sourceProvider = scenarioInfo.sourceProvider,
         sourceRepository = scenarioInfo.sourceRepository,
@@ -162,7 +158,6 @@ data class Scenario(
     fun withDetailsFrom(scenario: Scenario): Scenario {
         return this.copy(
             name = scenario.name,
-            bindings = scenario.bindings,
             examples = scenario.examples,
             patterns = scenario.patterns,
             fixtures = scenario.fixtures,
@@ -659,22 +654,12 @@ data class Scenario(
 
     fun generateTestScenarios(
         flagsBased: FlagsBased,
-        variables: Map<String, String> = emptyMap(),
-        testBaseURLs: Map<String, String> = emptyMap(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ReturnValue<Scenario>> {
-        val referencesWithBaseURLs = references.mapValues { (_, reference) ->
-            reference.copy(variables = variables, baseURLs = testBaseURLs)
-        }
-
         return scenarioBreadCrumb(this) {
             when (examples.size) {
                 0 -> sequenceOf(Row())
-                else -> examples.asSequence().flatMap {
-                    it.rows.map { row ->
-                        row.copy(variables = variables, references = referencesWithBaseURLs)
-                    }
-                }
+                else -> examples.asSequence().flatMap { it.rows }
             }.flatMap { row ->
                 val updatedScenario = newBasedOnAttributeSelectionFields(row.requestExample?.queryParams)
                 updatedScenario.newBasedOn(row, flagsBased).map { scenarioR ->
@@ -690,22 +675,11 @@ data class Scenario(
         return this.copy(examples = emptyList())
     }
 
-    fun generateBackwardCompatibilityScenarios(
-        variables: Map<String, String> = emptyMap(),
-        testBaseURLs: Map<String, String> = emptyMap()
-    ): List<Scenario> {
-        val referencesWithBaseURLs = references.mapValues { (_, reference) ->
-            reference.copy(variables = variables, baseURLs = testBaseURLs)
-        }
-
+    fun generateBackwardCompatibilityScenarios(): List<Scenario> {
         return scenarioBreadCrumb(this) {
             when (examples.size) {
                 0 -> listOf(Row())
-                else -> examples.flatMap {
-                    it.rows.map { row ->
-                        row.copy(variables = variables, references = referencesWithBaseURLs)
-                    }
-                }
+                else -> examples.flatMap { it.rows }
             }.flatMap { row ->
                 newBasedOnBackwardCompatibility(row)
             }

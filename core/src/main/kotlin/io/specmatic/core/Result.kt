@@ -48,7 +48,6 @@ sealed class Result {
     abstract fun isSuccess(): Boolean
 
     abstract fun ifSuccess(function: () -> Result): Result
-    abstract fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result
     abstract fun breadCrumb(breadCrumb: String): Result
     open fun breadCrumb(breadCrumb: String, sourceLocation: SourceLocation?): Result = breadCrumb(breadCrumb)
     abstract fun failureReason(failureReason: FailureReason?): Result
@@ -187,10 +186,6 @@ sealed class Result {
         }
 
         override fun ifSuccess(function: () -> Result) = this
-        override fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result {
-            return this
-        }
-
         override fun shouldBeIgnored(): Boolean {
             return this.scenario?.ignoreFailure == true
         }
@@ -369,7 +364,6 @@ sealed class Result {
     }
 
     data class Success(
-        val variables: Map<String, String> = emptyMap(),
         val partialSuccessMessage: String? = null,
         override val scenario: ScenarioDetailsForResult? = null,
         override val contractPath: String? = null
@@ -387,10 +381,6 @@ sealed class Result {
 
         override fun updateScenario(scenario: ScenarioDetailsForResult?): Success {
             return this.copy(scenario = scenario)
-        }
-
-        override fun withBindings(bindings: Map<String, String>, response: HttpResponse): Result {
-            return this.copy(variables = response.export(bindings))
         }
 
         override fun breadCrumb(breadCrumb: String): Result {
