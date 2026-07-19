@@ -4,6 +4,8 @@ import com.networknt.schema.InputFormat
 import com.networknt.schema.Schema
 import com.networknt.schema.SchemaRegistry
 import com.networknt.schema.SpecificationVersion
+import com.networknt.schema.path.NodePath
+import com.networknt.schema.path.PathType
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.value.JSONObjectValue
@@ -11,6 +13,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatNoException
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import java.io.File
 
@@ -34,6 +37,110 @@ class ExternalExampleSchemaCorpusTest {
             validFiles = filesUnder(JSON_PASS_DIR),
             invalidFiles = filesUnder(JSON_FAIL_DIR)
         )
+    }
+
+    @Test
+    fun `published schema annotations contain valid examples and snippets`() {
+        val schemaNode = publishedJsonSchema.getSchemaNode()
+        val definitions = listOf(
+            "Retry",
+            "Example",
+            "Fixture",
+            "HttpFixture",
+            "FixtureHooks",
+            "RequestSchema",
+            "MultiPartFile",
+            "PartialExample",
+            "ResponseSchema",
+            "MultiPartContent",
+            "FixtureExecuteFor",
+            "MultiPartFormData",
+            "HTTPFixtureRequest",
+            "HTTPFixtureResponse",
+            "RequestResponseSchema",
+            "PartialRequestResponseSchema",
+        )
+
+        definitions.forEach { definition ->
+            val definitionSchema = schemaAt($$"$defs.$$definition")
+            val definitionNode = schemaNode.at($$"/$defs/$$definition")
+
+            definitionNode.path("examples").forEach { example ->
+                assertThat(definitionSchema.validate(example))
+                    .withFailMessage("Example in $definition should satisfy its definition")
+                    .isEmpty()
+            }
+
+            definitionNode.path("defaultSnippets").forEach { snippet ->
+                assertThat(definitionSchema.validate(snippet.path("body")))
+                    .withFailMessage("Snippet ${snippet.path("label").asText()} in $definition should satisfy its definition")
+                    .isEmpty()
+            }
+        }
+
+        val propertyPaths = listOf(
+            $$"$defs.Metadata.properties.name",
+            $$"$defs.Metadata.properties.transient",
+            $$"$defs.Metadata.properties.delay-in-seconds",
+            $$"$defs.Metadata.properties.delay-in-milliseconds",
+            $$"$defs.Metadata.properties.http-stub-id",
+            $$"$defs.HttpFixture.properties.wait",
+            $$"$defs.HttpFixture.properties.timeout",
+            $$"$defs.Retry.properties.max-attempts",
+            $$"$defs.Retry.properties.delay",
+            $$"$defs.FixtureExecuteFor.properties.scenarios",
+            $$"$defs.HTTPFixtureRequest.properties.baseUrl",
+            $$"$defs.HTTPFixtureRequest.properties.method",
+            $$"$defs.HTTPFixtureRequest.properties.path",
+            $$"$defs.HTTPFixtureRequest.properties.headers",
+            $$"$defs.HTTPFixtureRequest.properties.body",
+            $$"$defs.HTTPFixtureResponse.properties.status",
+            $$"$defs.HTTPFixtureResponse.properties.body",
+            $$"$defs.RequestSchema.properties.path",
+            $$"$defs.RequestSchema.properties.method",
+            $$"$defs.RequestSchema.properties.query",
+            $$"$defs.RequestSchema.properties.headers",
+            $$"$defs.RequestSchema.properties.body",
+            $$"$defs.RequestSchema.properties.form-fields",
+            $$"$defs.RequestSchema.properties.multipart-formdata",
+            $$"$defs.RequestSchema.properties.bodyRegex",
+            $$"$defs.ResponseSchema.properties.status",
+            $$"$defs.ResponseSchema.properties.headers",
+            $$"$defs.ResponseSchema.properties.body",
+            $$"$defs.ResponseSchema.properties.externalisedResponseCommand",
+            $$"$defs.MultiPartContent.properties.name",
+            $$"$defs.MultiPartContent.properties.content",
+            $$"$defs.MultiPartContent.properties.contentType",
+            $$"$defs.MultiPartFile.properties.contentEncoding",
+            $$"$defs.MultiPartFile.properties.contentType",
+            $$"$defs.MultiPartFile.properties.filename",
+            $$"$defs.MultiPartFile.properties.name",
+        )
+
+        propertyPaths.forEach { propertyPath ->
+            val propertyNode = schemaNode.at("/${propertyPath.replace('.', '/')}")
+            val propertySchema = schemaAt(propertyPath)
+
+            propertyNode.path("examples").forEach { example ->
+                assertThat(propertySchema.validate(example))
+                    .withFailMessage("Example at $propertyPath should satisfy its property schema")
+                    .isEmpty()
+            }
+
+            if (propertyNode.has("default")) {
+                assertThat(propertySchema.validate(propertyNode.get("default")))
+                    .withFailMessage("Default at $propertyPath should satisfy its property schema")
+                    .isEmpty()
+            }
+        }
+    }
+
+    private fun schemaAt(jsonPointer: String): Schema {
+        val path = jsonPointer.split('.').fold(NodePath(PathType.JSON_POINTER)) { current, segment ->
+            current.append(segment)
+        }
+
+        return publishedJsonSchema.getSubSchema(path)
     }
 
     private fun internalSchemaValidationTests(validFiles: List<File>, invalidFiles: List<File>): List<DynamicTest> {

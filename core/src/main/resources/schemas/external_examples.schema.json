@@ -2,52 +2,81 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/external-example-metadata-and-http.schema.json",
   "title": "External Examples Schema",
-  "description": "A schema for external examples in Specmatic",
+  "description": "Defines complete and partial external examples used by Specmatic tests and mocks. Tests use request values and expected response assertions, mocks match requests and return configured responses.",
   "oneOf": [
     {
+      "description": "Complete example in which all required fields are explicitly defined according to the API specification.",
       "$ref": "#/$defs/Example"
     },
     {
+      "description": "Partial example in which only selected fields are defined, omitted fields remain governed by the API specification.",
       "$ref": "#/$defs/PartialExample"
     }
   ],
   "$defs": {
     "AnyValue": {
       "title": "Any Value",
-      "description": "Arbitrary JSON value accepted without additional structural constraints."
+      "description": "Any JSON value without additional structural constraints."
     },
     "Metadata": {
       "title": "Example Metadata",
-      "description": "Common metadata fields that can be attached to a full or partial external example.",
+      "description": "Metadata shared by complete and partial external examples.",
       "type": "object",
       "properties": {
         "name": {
-          "description": "Logical name of the example.",
+          "description": "Logical name of the example. If omitted, the external file name is used when a name is required.",
+          "examples": ["get-order-success"],
           "type": "string"
         },
         "transient": {
-          "description": "Whether this example should be treated as transient during execution.",
+          "description": "Mock-only flag that makes the expectation unavailable after its first successful match.",
+          "default": false,
           "type": "boolean"
         },
         "delay-in-seconds": {
-          "description": "Delay to apply before serving this example, in whole seconds.",
+          "description": "Mock-only delay before returning the response, in whole seconds. If both delay fields are set, delay-in-milliseconds takes precedence.",
+          "examples": [2],
           "type": "integer",
           "minimum": 0
         },
         "delay-in-milliseconds": {
-          "description": "Delay to apply before serving this example, in milliseconds.",
+          "description": "Mock-only delay before returning the response, in milliseconds. Takes precedence over delay-in-seconds.",
+          "examples": [250],
           "type": "integer",
           "minimum": 0
         },
         "http-stub-id": {
-          "description": "Identifier of the stub this example belongs to.",
+          "description": "Mock-only identifier used to manage a transient expectation. When supplied, it replaces the automatically generated token.",
+          "examples": ["order-123-success"],
           "type": "string"
         }
       }
     },
     "Example": {
       "title": "Complete Example",
-      "description": "A complete external example containing a request, a response, and optional fixture hooks.",
+      "description": "Defines a complete interaction. Tests send the configured request and validate the response, mocks match the request and return the configured response. Fixtures run only during tests.",
+      "examples": [
+        {
+          "name": "get-order-success",
+          "http-request": {
+            "method": "GET",
+            "path": "/orders/123",
+            "headers": {
+              "Accept": "application/json"
+            }
+          },
+          "http-response": {
+            "status": 200,
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "id": 123,
+              "status": "ready"
+            }
+          }
+        }
+      ],
       "allOf": [
         {
           "$ref": "#/$defs/Metadata"
@@ -62,15 +91,29 @@
     },
     "RequestResponseSchema": {
       "title": "Request And Response Pair",
-      "description": "Core request and response payload pair for a full external example.",
+      "description": "Request and response represented by a complete or partial example.",
+      "examples": [
+        {
+          "http-request": {
+            "method": "GET",
+            "path": "/orders/123"
+          },
+          "http-response": {
+            "status": 200,
+            "body": {
+              "id": 123
+            }
+          }
+        }
+      ],
       "type": "object",
       "properties": {
         "http-request": {
-          "description": "HTTP request that should match this example.",
+          "description": "Request represented by the example.",
           "$ref": "#/$defs/RequestSchema"
         },
         "http-response": {
-          "description": "HTTP response that should be returned for this example.",
+          "description": "Response represented by the example.",
           "$ref": "#/$defs/ResponseSchema"
         }
       },
@@ -78,7 +121,23 @@
     },
     "PartialExample": {
       "title": "Partial Example",
-      "description": "A partial external example used for partial matching, with optional shared metadata and fixtures.",
+      "description": "Defines a partial interaction. Fields provided by the example are fixed, omitted fields remain governed by the API specification. Fixtures run only during tests.",
+      "examples": [
+        {
+          "partial": {
+            "http-request": {
+              "method": "POST",
+              "path": "/orders",
+              "body": {
+                "customerId": 42
+              }
+            },
+            "http-response": {
+              "status": 201
+            }
+          }
+        }
+      ],
       "allOf": [
         {
           "$ref": "#/$defs/Metadata"
@@ -87,7 +146,7 @@
           "type": "object",
           "properties": {
             "partial": {
-              "description": "Partial request/response example used for partial matching.",
+              "description": "Request and response fields fixed by the partial example.",
               "$ref": "#/$defs/PartialRequestResponseSchema"
             }
           },
@@ -100,18 +159,38 @@
     },
     "FixtureHooks": {
       "title": "Fixture Hooks",
-      "description": "Collections of fixtures to run before or after an example executes.",
+      "description": "Test-only fixtures that run before or after the contract test.",
       "type": "object",
+      "examples": [
+        {
+          "before": [
+            {
+              "type": "http",
+              "http-request": {
+                "baseUrl": "http://localhost:9000",
+                "method": "POST",
+                "path": "/setup"
+              },
+              "http-response": {
+                "status": 200
+              }
+            }
+          ],
+          "after": []
+        }
+      ],
       "properties": {
         "before": {
-          "description": "Fixtures to execute before the example runs.",
+          "description": "Fixtures run before the contract test. Defaults to an empty list.",
+          "default": [],
           "type": "array",
           "items": {
             "$ref": "#/$defs/Fixture"
           }
         },
         "after": {
-          "description": "Fixtures to execute after the example runs.",
+          "description": "Fixtures run after the contract test. Defaults to an empty list.",
+          "default": [],
           "type": "array",
           "items": {
             "$ref": "#/$defs/Fixture"
@@ -121,7 +200,23 @@
     },
     "Fixture": {
       "title": "Fixture",
-      "description": "A fixture definition that can be attached to before or after hooks.",
+      "description": "A test-only fixture attached to a before or after hook. Currently, only HTTP fixtures are supported.",
+      "examples": [
+        {
+          "type": "http",
+          "http-request": {
+            "baseUrl": "http://localhost:9000",
+            "method": "POST",
+            "path": "/setup"
+          },
+          "http-response": {
+            "status": 200,
+            "body": {
+              "ok": true
+            }
+          }
+        }
+      ],
       "oneOf": [
         {
           "$ref": "#/$defs/HttpFixture"
@@ -130,14 +225,11 @@
     },
     "HttpFixture": {
       "title": "HTTP Fixture",
-      "description": "An HTTP fixture that invokes an endpoint before or after an example runs.",
+      "description": "A test-only fixture that calls an HTTP endpoint before or after a contract test and validates the response.",
       "type": "object",
       "examples": [
         {
           "type": "http",
-          "executeFor": {
-            "scenarios": "all"
-          },
           "http-request": {
             "baseUrl": "http://localhost:9000",
             "method": "POST",
@@ -160,36 +252,47 @@
       "properties": {
         "type": {
           "const": "http",
-          "description": "Fixture type discriminator. Currently only http is supported."
+          "description": "Identifies this as an HTTP fixture."
         },
         "wait": {
           "type": "string",
           "format": "duration",
-          "description": "Delay to wait before executing the fixture. Must be a valid ISO 8601 duration string.",
-          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D').",
+          "description": "Delay before the fixture call. Defaults to PT0S and must be an ISO 8601 duration.",
+          "default": "PT0S",
+          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
           "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
         },
         "timeout": {
           "type": "string",
           "format": "duration",
-          "description": "Maximum time to wait for the fixture call to complete. Must be a valid ISO 8601 duration string.",
-          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D').",
+          "description": "Maximum duration allowed for the fixture call. Defaults to PT10S and must be an ISO 8601 duration.",
+          "default": "PT10S",
+          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
           "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
         },
         "retry": {
-          "description": "Retry policy to apply when the fixture call does not succeed immediately.",
+          "description": "Retry policy used when the fixture call fails. If omitted, the call is attempted once.",
+          "examples": [
+            {
+              "max-attempts": 2,
+              "delay": "PT1S"
+            }
+          ],
           "$ref": "#/$defs/Retry"
         },
         "executeFor": {
-          "description": "Controls which scenario types should execute this fixture.",
+          "description": "Selects which test scenarios run the fixture. If omitted, only positive scenarios run it.",
+          "default": {
+            "scenarios": "positive"
+          },
           "$ref": "#/$defs/FixtureExecuteFor"
         },
         "http-request": {
-          "description": "HTTP request to send when executing the fixture.",
+          "description": "Request sent to the fixture endpoint.",
           "$ref": "#/$defs/HTTPFixtureRequest"
         },
         "http-response": {
-          "description": "Expected HTTP response returned by the fixture call.",
+          "description": "Expected response from the fixture endpoint.",
           "$ref": "#/$defs/HTTPFixtureResponse"
         }
       },
@@ -198,7 +301,11 @@
     },
     "Retry": {
       "title": "Retry Policy",
-      "description": "Retry policy applied when a fixture call does not succeed immediately.",
+      "description": "Retry policy for failed fixture calls. max-attempts counts retries after the initial call, so a value of 1 allows at most two total calls.",
+      "default": {
+        "max-attempts": 1,
+        "delay": "PT0S"
+      },
       "type": "object",
       "examples": [
         {
@@ -208,13 +315,16 @@
       ],
       "properties": {
         "max-attempts": {
-          "description": "Maximum number of retry attempts for the fixture call.",
+          "description": "Maximum number of retries after the initial fixture call. Defaults to 1 when retry is present, total calls can therefore be up to max-attempts + 1.",
+          "default": 1,
+          "examples": [2],
           "type": "integer"
         },
         "delay": {
           "type": "string",
           "format": "duration",
-          "description": "Delay between retry attempts. Must be a valid ISO 8601 duration string.",
+          "description": "Delay before each retry. Defaults to PT0S and must be an ISO 8601 duration.",
+          "default": "PT0S",
           "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
           "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
         }
@@ -223,17 +333,20 @@
     },
     "FixtureExecuteFor": {
       "title": "Fixture Scenario Selector",
-      "description": "Selector that limits which scenario types should trigger a fixture.",
+      "description": "Selects which test scenarios run the fixture. Defaults to positive scenarios.",
+      "default": {
+        "scenarios": "positive"
+      },
       "type": "object",
       "examples": [
         {
-          "scenarios": "all"
+          "scenarios": "positive"
         }
       ],
       "properties": {
         "scenarios": {
-          "description": "Run this fixture for all, positive, or negative scenarios.",
-          "default": "all",
+          "description": "Test scenarios that run the fixture. \"positive\" selects positive scenarios, \"negative\" selects negative scenarios, and \"all\" selects both.",
+          "default": "positive",
           "type": "string",
           "enum": ["all", "positive", "negative"]
         }
@@ -242,7 +355,7 @@
     },
     "HTTPFixtureRequest": {
       "title": "HTTP Fixture Request",
-      "description": "Request shape used when invoking an HTTP fixture.",
+      "description": "HTTP request sent to the fixture endpoint.",
       "type": "object",
       "examples": [
         {
@@ -260,22 +373,35 @@
       "properties": {
         "baseUrl": {
           "description": "Base URL of the fixture endpoint.",
+          "examples": ["http://localhost:9000"],
           "type": "string"
         },
         "method": {
-          "description": "HTTP method to use for the fixture call.",
+          "description": "HTTP method used for the fixture call.",
+          "examples": ["POST"],
           "type": "string"
         },
         "path": {
-          "description": "Path to invoke on the fixture endpoint.",
+          "description": "Path invoked relative to the fixture endpoint base URL.",
+          "examples": ["/setup"],
           "type": "string"
         },
         "headers": {
-          "description": "Headers to send with the fixture request.",
+          "description": "Headers sent with the fixture request.",
+          "examples": [
+            {
+              "Content-Type": "application/json"
+            }
+          ],
           "type": "object"
         },
         "body": {
-          "description": "Request body to send with the fixture call.",
+          "description": "Request body sent by the fixture. Any JSON value is allowed.",
+          "examples": [
+            {
+              "state": "ready"
+            }
+          ],
           "$ref": "#/$defs/AnyValue"
         }
       },
@@ -284,7 +410,7 @@
     },
     "HTTPFixtureResponse": {
       "title": "HTTP Fixture Response",
-      "description": "Expected response shape returned from an HTTP fixture call.",
+      "description": "Expected HTTP response from the fixture endpoint.",
       "type": "object",
       "examples": [
         {
@@ -296,12 +422,18 @@
       ],
       "properties": {
         "status": {
-          "description": "Expected HTTP status returned by the fixture call.",
+          "description": "Expected HTTP status of the fixture response.",
+          "examples": [200],
           "minimum": 0,
           "type": "integer"
         },
         "body": {
-          "description": "Expected response body returned by the fixture call.",
+          "description": "Expected fixture response body. When provided, it is matched against the returned body.",
+          "examples": [
+            {
+              "ok": true
+            }
+          ],
           "$ref": "#/$defs/AnyValue"
         }
       },
@@ -310,7 +442,18 @@
     },
     "PartialRequestResponseSchema": {
       "title": "Partial Request And Response Pair",
-      "description": "Partial request and response payload pair used inside a partial external example.",
+      "description": "Request and response fields fixed by a partial example. Omitted fields remain governed by the API specification.",
+      "examples": [
+        {
+          "http-request": {
+            "method": "GET",
+            "path": "/orders/123"
+          },
+          "http-response": {
+            "status": 200
+          }
+        }
+      ],
       "allOf": [
         {
           "$ref": "#/$defs/Metadata"
@@ -322,42 +465,89 @@
     },
     "RequestSchema": {
       "title": "Example Request",
-      "description": "HTTP request fields that Specmatic should match for an example.",
+      "description": "HTTP request represented by the example. Tests use it to construct the request; mocks use it as the matching criteria.",
+      "examples": [
+        {
+          "method": "GET",
+          "path": "/orders/123",
+          "query": {
+            "include": "items"
+          },
+          "headers": {
+            "Accept": "application/json"
+          },
+          "body": {
+            "requestId": "abc-123"
+          }
+        }
+      ],
       "type": "object",
       "properties": {
         "path": {
-          "description": "HTTP path that should match the incoming request.",
+          "description": "Request path represented by the example. May use supported template or matcher syntax.",
+          "examples": ["/orders/123"],
           "type": "string"
         },
         "method": {
-          "description": "HTTP method that should match the incoming request.",
+          "description": "HTTP method represented by the example, such as GET or POST.",
+          "examples": ["GET"],
           "type": "string"
         },
         "query": {
-          "description": "Query parameters expected on the incoming request.",
+          "description": "Query parameters represented by the example. Values may use supported literal, template, or matcher syntax.",
+          "examples": [
+            {
+              "include": "items"
+            }
+          ],
           "type": "object"
         },
         "headers": {
-          "description": "Headers expected on the incoming request.",
+          "description": "Request headers represented by the example. Values may use supported literal, template, or matcher syntax.",
+          "examples": [
+            {
+              "Accept": "application/json"
+            }
+          ],
           "type": "object"
         },
         "body": {
-          "description": "Body expected on the incoming request.",
+          "description": "Request body represented by the example. Any JSON value is allowed, including supported template or matcher values.",
+          "examples": [
+            {
+              "requestId": "abc-123"
+            }
+          ],
           "$ref": "#/$defs/AnyValue"
         },
         "form-fields": {
-          "description": "Form fields expected for form-encoded requests.",
+          "description": "Form fields represented by a form-encoded request. Values may use supported literal, template, or matcher syntax.",
+          "examples": [
+            {
+              "email": "user@example.com"
+            }
+          ],
           "type": "object"
         },
         "multipart-formdata": {
-          "description": "Multipart form-data parts expected on the incoming request.",
+          "description": "Multipart form-data parts represented by the request.",
+          "examples": [
+            [
+              {
+                "name": "avatar",
+                "filename": "@avatar.png",
+                "contentType": "image/png"
+              }
+            ]
+          ],
           "type": "array",
           "items": {
             "$ref": "#/$defs/MultiPartFormData"
           }
         },
         "bodyRegex": {
-          "description": "Regular expression the request body should satisfy.",
+          "description": "Mock-only regular expression used to match the request body. It is interpreted as a regular expression, not a literal body.",
+          "examples": ["^hello [a-z]+$"],
           "type": "string"
         }
       },
@@ -365,24 +555,49 @@
     },
     "ResponseSchema": {
       "title": "Example Response",
-      "description": "HTTP response fields that Specmatic should return for an example.",
+      "description": "Response represented by the example. Tests use its status and any matcher values as response assertions, mocks return the configured response after the request matches.",
+      "examples": [
+        {
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "id": 123,
+            "status": "ready"
+          }
+        }
+      ],
       "type": "object",
       "properties": {
         "status": {
-          "description": "HTTP status to return for this example.",
+          "description": "Response status expected by tests and returned by mocks.",
+          "examples": [200],
           "type": "integer",
           "minimum": 0
         },
         "headers": {
-          "description": "Headers to return in the example response.",
+          "description": "Response headers returned by mocks. Tests validate header values expressed as matchers.",
+          "examples": [
+            {
+              "Content-Type": "application/json"
+            }
+          ],
           "type": "object"
         },
         "body": {
-          "description": "Body to return in the example response.",
+          "description": "Response body returned by mocks. Tests validate body values expressed as matchers. Any JSON value is allowed.",
+          "examples": [
+            {
+              "id": 123,
+              "status": "ready"
+            }
+          ],
           "$ref": "#/$defs/AnyValue"
         },
         "externalisedResponseCommand": {
-          "description": "External command used to compute the example response body.",
+          "description": "Mock-only executable that generates the response. The matched request is supplied through SPECMATIC_REQUEST, and the configured response body is ignored.",
+          "examples": ["./scripts/generate-response.sh"],
           "type": "string"
         }
       },
@@ -390,7 +605,14 @@
     },
     "MultiPartFormData": {
       "title": "Multipart Form Data Part",
-      "description": "A multipart form-data part, represented either as inline content or as a file upload.",
+      "description": "Multipart form-data part represented by either inline content or a file reference.",
+      "examples": [
+        {
+          "name": "description",
+          "content": "Order details",
+          "contentType": "text/plain"
+        }
+      ],
       "oneOf": [
         {
           "$ref": "#/$defs/MultiPartContent"
@@ -402,19 +624,29 @@
     },
     "MultiPartContent": {
       "title": "Multipart Inline Content",
-      "description": "A multipart form-data field whose value is supplied inline as literal content.",
+      "description": "Multipart form-data field represented by inline string content or null.",
+      "examples": [
+        {
+          "name": "description",
+          "content": "Order details",
+          "contentType": "text/plain"
+        }
+      ],
       "type": "object",
       "properties": {
         "name": {
           "description": "Name of the multipart form-data field.",
+          "examples": ["description"],
           "type": "string"
         },
         "content": {
-          "description": "Literal content of the multipart form-data field.",
-          "type": [ "string", "null" ]
+          "description": "Inline content of the multipart field.",
+          "examples": ["Order details"],
+          "type": ["string", "null"]
         },
         "contentType": {
-          "description": "Content type of the multipart form-data field.",
+          "description": "Content-Type value for the inline multipart part.",
+          "examples": ["text/plain"],
           "type": "string"
         }
       },
@@ -422,23 +654,34 @@
     },
     "MultiPartFile": {
       "title": "Multipart File",
-      "description": "A multipart form-data field whose value is supplied as a file reference.",
+      "description": "Multipart form-data field represented by a file reference. The filename value must begin with @.",
+      "examples": [
+        {
+          "name": "document",
+          "filename": "@order.pdf",
+          "contentType": "application/pdf"
+        }
+      ],
       "type": "object",
       "properties": {
         "contentEncoding": {
-          "description": "Content encoding of the multipart file part.",
+          "description": "Content-Encoding value for the multipart file part.",
+          "examples": ["base64"],
           "type": "string"
         },
         "contentType": {
-          "description": "Content type of the multipart file part.",
+          "description": "Content-Type value for the multipart file part.",
+          "examples": ["application/pdf"],
           "type": "string"
         },
         "filename": {
-          "description": "Filename of the multipart file part.",
+          "description": "File reference for the multipart part. The value must begin with @, for example @order.pdf.",
+          "examples": ["@order.pdf"],
           "type": "string"
         },
         "name": {
-          "description": "Name of the multipart file field.",
+          "description": "Name of the multipart form-data field.",
+          "examples": ["document"],
           "type": "string"
         }
       },
