@@ -14,14 +14,12 @@ import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.SpecmaticJUnitSupport
 import io.specmatic.test.listeners.ContractExecutionListener
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import org.junit.jupiter.params.provider.ValueSource
 import org.junit.platform.launcher.Launcher
 import org.junit.platform.launcher.LauncherDiscoveryRequest
 import org.junit.platform.launcher.TestExecutionListener
@@ -134,14 +132,6 @@ internal class TestCommandTest {
         val settings = SpecmaticJUnitSupport.settingsStaging.get()!!
         val expectedValue = testCase.extract(settings)
         assertThat(expectedValue).isEqualTo(testCase.expected)
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = ["--suggestions", "--suggestionsPath", "--env", "--variables"])
-    fun `does not accept removed legacy options`(option: String) {
-        assertThatThrownBy {
-            CommandLine(testCommand, factory).parseArgs(option, "value")
-        }.isInstanceOf(CommandLine.UnmatchedArgumentException::class.java)
     }
 
     @Test

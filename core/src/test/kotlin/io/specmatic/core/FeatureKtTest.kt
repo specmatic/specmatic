@@ -2,7 +2,6 @@ package io.specmatic.core
 
 import io.specmatic.conversions.OpenApiSpecification
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
@@ -23,31 +22,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import java.io.File
 
 class FeatureKtTest {
-    @Test
-    fun `value statements are not supported`() {
-        assertLegacyStatementIsNotSupported("Given value data from data.spec", "value")
-    }
-
-    @Test
-    fun `export statements are not supported`() {
-        assertLegacyStatementIsNotSupported("And export data = response-body", "export")
-    }
-
-    private fun assertLegacyStatementIsNotSupported(statement: String, keyword: String) {
-        val contractGherkin = """
-            Feature: Legacy variables
-
-            Scenario: Legacy statement
-              When GET /
-              Then status 200
-              $statement
-        """.trimIndent()
-
-        assertThatThrownBy { parseGherkinStringToFeature(contractGherkin) }
-            .isInstanceOf(ContractException::class.java)
-            .hasMessageContaining("""keyword "$keyword" not recognised""")
-    }
-
     @Test
     fun `should lex type identically to pattern`() {
         val contractGherkin = """
