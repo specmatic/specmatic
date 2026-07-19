@@ -163,14 +163,18 @@
           "description": "Fixture type discriminator. Currently only http is supported."
         },
         "wait": {
-          "description": "Delay to wait before executing the fixture.",
           "type": "string",
-          "format": "duration"
+          "format": "duration",
+          "description": "Delay to wait before executing the fixture. Must be a valid ISO 8601 duration string.",
+          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D').",
+          "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
         },
         "timeout": {
-          "description": "Maximum time to wait for the fixture call to complete.",
           "type": "string",
-          "format": "duration"
+          "format": "duration",
+          "description": "Maximum time to wait for the fixture call to complete. Must be a valid ISO 8601 duration string.",
+          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D').",
+          "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
         },
         "retry": {
           "description": "Retry policy to apply when the fixture call does not succeed immediately.",
@@ -208,9 +212,11 @@
           "type": "integer"
         },
         "delay": {
-          "description": "Delay between retry attempts.",
           "type": "string",
-          "format": "duration"
+          "format": "duration",
+          "description": "Delay between retry attempts. Must be a valid ISO 8601 duration string.",
+          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
+          "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
         }
       },
       "additionalProperties": true
@@ -258,8 +264,7 @@
         },
         "method": {
           "description": "HTTP method to use for the fixture call.",
-          "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD", "TRACE", "CONNECT"]
+          "type": "string"
         },
         "path": {
           "description": "Path to invoke on the fixture endpoint.",
@@ -292,6 +297,7 @@
       "properties": {
         "status": {
           "description": "Expected HTTP status returned by the fixture call.",
+          "minimum": 0,
           "type": "integer"
         },
         "body": {
@@ -325,8 +331,7 @@
         },
         "method": {
           "description": "HTTP method that should match the incoming request.",
-          "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD", "TRACE", "CONNECT"]
+          "type": "string"
         },
         "query": {
           "description": "Query parameters expected on the incoming request.",
@@ -406,7 +411,7 @@
         },
         "content": {
           "description": "Literal content of the multipart form-data field.",
-          "type": "string"
+          "type": [ "string", "null" ]
         },
         "contentType": {
           "description": "Content type of the multipart form-data field.",
