@@ -212,19 +212,6 @@ internal class HttpPathPatternTest {
     }
 
     @Test
-    @Tag(GENERATION)
-    fun `should pick up facts`() {
-        val urlPattern = buildHttpPathPattern(URI("/pets/(id:number)"))
-        val resolver = Resolver(mapOf("id" to StringValue("10")))
-
-        val newURLPatterns = urlPattern.newBasedOn(Row(), resolver)
-        val urlPathSegmentPatterns = newURLPatterns.first()
-        assertEquals(2, urlPathSegmentPatterns.size)
-        val path = urlPathSegmentPatterns.joinToString("") { it.generate(resolver).toStringLiteral() }
-        assertEquals("/pets/10", path)
-    }
-
-    @Test
     fun `request url with no query params should match a url pattern with query params`() {
         val matcher = buildHttpPathPattern(URI("/pets?id=(string)"))
         assertThat(matcher.matches(URI("/pets"))).isInstanceOf(Result.Success::class.java)
@@ -700,15 +687,6 @@ internal class HttpPathPatternTest {
             val resolver = Resolver(dictionary = dictionary)
             val fixedPath = pathPattern.fixValue("/test/abc,xyz/status", resolver)
             assertThat(fixedPath).isEqualTo("/test/101,202/status")
-        }
-
-        @Test
-        fun `should support newBasedOn for interpolated paths`() {
-            val pathPattern = buildHttpPathPattern("/product/product-(id:number)/order/order-(orderId:number)/latest")
-            val resolver = Resolver(mapOf("id" to NumberValue(11), "orderId" to NumberValue(22)))
-            val generatedPathSegments = pathPattern.newBasedOn(Row(), resolver).first()
-            val path = generatedPathSegments.joinToString("") { it.generate(resolver).toStringLiteral() }
-            assertThat(path).isEqualTo("/product/product-11/order/order-22/latest")
         }
 
         @Test

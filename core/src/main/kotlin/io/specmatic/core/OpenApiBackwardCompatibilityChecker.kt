@@ -118,7 +118,6 @@ class OpenApiBackwardCompatibilityChecker(
         val matchResult = identifierMatches.first().matches(
             httpRequest = request,
             unexpectedKeyCheck = IgnoreUnexpectedKeys,
-            serverState = variationFromOldScenario.expectedFacts,
             mismatchMessages = NewAndOldSpecificationRequestMismatches,
         )
 

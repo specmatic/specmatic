@@ -55,9 +55,6 @@ class CyclePrevention {
                 return HttpResponse.OK
             }
 
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
-
         })
 
         assertThat(testCount).isEqualTo(4)
@@ -108,9 +105,6 @@ class CyclePrevention {
                 testCount += 1
                 println(request.toLogString())
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
 
         })

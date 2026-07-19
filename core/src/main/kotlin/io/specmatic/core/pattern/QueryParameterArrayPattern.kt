@@ -34,7 +34,7 @@ data class QueryParameterArrayPattern(override val pattern: List<Pattern>, val p
                             }
 
                             val matchResult =
-                                resolver.matchesPattern(parameterName, currentPattern, parsedValue)
+                                resolver.matchesPattern(currentPattern, parsedValue)
 
                             matchResult to Pair(value, previousParameterMatchFailures)
                         }

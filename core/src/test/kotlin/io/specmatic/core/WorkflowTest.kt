@@ -23,7 +23,6 @@ class WorkflowTest {
                 )
             )
         ),
-        emptyMap(),
         emptyList(),
         emptyMap(),
         emptyMap(),
@@ -45,7 +44,6 @@ class WorkflowTest {
                 )
             )
         ),
-        emptyMap(),
         emptyList(),
         emptyMap(),
         emptyMap(),

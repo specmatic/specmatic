@@ -56,10 +56,6 @@ Examples:
                         return HttpResponse.ok("success")
                     }
 
-                    override fun setServerState(serverState: Map<String, Value>) {
-
-                    }
-
                 }).result
 
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -75,10 +71,6 @@ Examples:
                         assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                         assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer (\\S+)")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -99,10 +91,6 @@ Examples:
                         assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer $token")
                         return HttpResponse.ok("success")
                     }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
-                    }
                 }).result
 
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -122,10 +110,6 @@ Examples:
                             assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                             assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer ENV1234")
                             return HttpResponse.ok("success")
-                        }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
-
                         }
                     }).result
 
@@ -237,10 +221,6 @@ Feature: Authenticated
                         return HttpResponse.ok("success")
                     }
 
-                    override fun setServerState(serverState: Map<String, Value>) {
-
-                    }
-
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
@@ -289,10 +269,6 @@ Feature: Authenticated
                         return HttpResponse.ok("success")
                     }
 
-                    override fun setServerState(serverState: Map<String, Value>) {
-
-                    }
-
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
             }
@@ -339,10 +315,6 @@ Feature: Authenticated
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsEntry(HttpHeaders.AUTHORIZATION, "Bearer abc123")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -394,10 +366,6 @@ Feature: Authenticated
                     return HttpResponse.ok("success")
                 }
 
-                override fun setServerState(serverState: Map<String, Value>) {
-
-                }
-
             }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -417,10 +385,6 @@ Feature: Authenticated
                             requestMadeWithRandomlyGeneratedBearerToken = true
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -446,10 +410,6 @@ Feature: Authenticated
                             requestMadeWithTokenFromSpecmaticJson = true
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -483,10 +443,6 @@ Feature: Authenticated
                                 requestMadeWithTokenFromSpecmaticJson = true
                             }
                             return HttpResponse.ok("success")
-                        }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
-
                         }
                     }).result
                     assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -665,9 +621,6 @@ Background:
                     assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer (\\S+)")
                     return HttpResponse.OK
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -731,9 +684,6 @@ Background:
                     assertThat(request.headers).containsKey("Authorization")
                     return HttpResponse.OK
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -748,9 +698,6 @@ Background:
                     assertThat(request.headers).containsEntry("Authorization", "Basic $base64EncodedCredentials")
                     return HttpResponse.OK
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -764,9 +711,6 @@ Background:
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.headers).containsEntry("Authorization", "Basic $base64EncodedCredentials")
                     return HttpResponse.OK
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             })
 
@@ -869,10 +813,6 @@ Feature: Authenticated
                     return HttpResponse.ok("success")
                 }
 
-                override fun setServerState(serverState: Map<String, Value>) {
-
-                }
-
             }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -932,10 +872,6 @@ Feature: Authenticated
                     return HttpResponse.ok("success")
                 }
 
-                override fun setServerState(serverState: Map<String, Value>) {
-
-                }
-
             }).result
 
             assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -959,10 +895,6 @@ Feature: Authenticated
                             requestMadeWithApiKeyInHeaderFromSpecmaticJson = true
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -995,10 +927,6 @@ Feature: Authenticated
                             }
                             return HttpResponse.ok("success")
                         }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
-
-                        }
                     }).result
                     assertThat(result).isInstanceOf(Result.Success::class.java)
                 }
@@ -1028,10 +956,6 @@ Feature: Authenticated
                             }
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)

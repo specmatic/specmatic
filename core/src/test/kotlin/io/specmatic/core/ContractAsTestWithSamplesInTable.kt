@@ -49,8 +49,6 @@ class ContractAsTestWithSamplesInTable {
                 }
                 return HttpResponse(200, jsonResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertThat(results.successCount).isOne()
@@ -151,9 +149,6 @@ Feature: Contract for /balance API
 
                 return HttpResponse(200, jsonResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).isTrue()
@@ -192,9 +187,6 @@ Feature: Contract for /balance API
                 } else {
                     return HttpResponse.ERROR_400
                 }
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -253,8 +245,6 @@ Feature: Contract for /balance API
 
                 return HttpResponse(200, xmlResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())

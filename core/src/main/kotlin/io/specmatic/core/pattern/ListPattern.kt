@@ -17,7 +17,7 @@ data class ListPattern(
         get() = MemberList(emptyList(), pattern)
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
-        if (resolver.matchesPattern(null, this, value).isSuccess()) return value
+        if (resolver.matchesPattern(this, value).isSuccess()) return value
         val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPath(this, this.pattern)
         if (value !is JSONArrayValue || (value.list.isEmpty() && resolver.allPatternsAreMandatory && !resolver.hasPartialKeyCheck())) {
             return pattern.listOf(0.until(randomNumber(3)).mapIndexed { index, _ ->
@@ -116,7 +116,7 @@ data class ListPattern(
 
         val updatedResolver = resolverWithEmptyType.addPatternAsSeen(this)
         val failures: List<Result.Failure> = sampleData.list.map {
-            updatedResolver.matchesPattern(null, pattern, it)
+            updatedResolver.matchesPattern(pattern, it)
         }.mapIndexed { index, result ->
             ResultWithIndex(index, result)
         }.filter {

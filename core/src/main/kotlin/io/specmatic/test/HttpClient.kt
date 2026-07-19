@@ -17,22 +17,16 @@ import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.utilities.valueMapToPlainJsonString
 import io.specmatic.core.value.EmptyString
-import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.StringValue
-import io.specmatic.core.value.Value
 import io.specmatic.stub.toParams
 import kotlinx.coroutines.runBlocking
 import java.net.URI
-import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPInputStream
 
 // API for non-Kotlin invokers
 fun createHttpClient(baseURL: String, timeoutInMilliseconds: Long) = LegacyHttpClient(baseURL, timeoutInMilliseconds)
 
-private const val SERVER_STATE_URL = "/_$APPLICATION_NAME_LOWER_CASE/state"
 internal const val SET_COOKIE_SEPARATOR = "~~"
 
 data class HttpClient(
@@ -89,61 +83,6 @@ data class HttpClient(
         }
     }
 
-    override fun setServerState(serverState: Map<String, Value>) {
-        if (serverState.isEmpty()) return
-
-        val url = URI(baseURL + SERVER_STATE_URL).toURL()
-
-        val startTime = Date()
-
-        runBlocking {
-            var endTime: Date? = null
-            var response: HttpResponse? = null
-
-            try {
-                val ktorResponse: io.ktor.client.statement.HttpResponse = httpClient.value.request(url) {
-                    this.method = HttpMethod.Post
-                    this.contentType(ContentType.Application.Json)
-                    this.setBody(valueMapToPlainJsonString(serverState))
-                }
-
-                endTime = Date()
-
-                response = ktorResponseToHttpResponse(ktorResponse)
-
-                if (ktorResponse.status != HttpStatusCode.OK)
-                    throw Exception("API responded with ${ktorResponse.status}")
-            } finally {
-                val serverStateLog = object : LogMessage {
-                    override fun toJSONObject(): JSONObjectValue {
-                        val data: MutableMap<String, String> = mutableMapOf(
-                            "requestTime" to startTime.toString(),
-                            "serverState" to valueMapToPlainJsonString(serverState)
-                        )
-
-                        if (endTime != null && response != null) {
-                            data["endTime"] = endTime.toString()
-                            data["response"] = response.toLogString()
-                        }
-
-                        return JSONObjectValue(data.mapValues { StringValue(it.value) }.toMap())
-                    }
-
-                    override fun toLogString(): String {
-
-                        return """
-                        # >> Request Sent At $startTime
-                        ${startLinesWith(valueMapToPlainJsonString(serverState), "# ")}
-                        "# << Complete At $endTime"
-                        """.trimIndent()
-                    }
-                }
-
-                log(serverStateLog)
-            }
-        }
-    }
-
     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
         httpLogMessage = httpLogMessage.copy(scenario = scenario, request = request)
         httpInteractionsLog.addHttpLog(httpLogMessage)
@@ -179,10 +118,6 @@ data class LegacyHttpClient(
 
     override fun execute(request: HttpRequest): HttpResponse {
         return HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).use { it.execute(request) }
-    }
-
-    override fun setServerState(serverState: Map<String, Value>) {
-        HttpClient(baseURL, timeoutInMilliseconds, log, prettyPrint, keyData = keyData).use { it.setServerState(serverState) }
     }
 
     override fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {

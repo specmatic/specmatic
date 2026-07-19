@@ -5691,9 +5691,6 @@ paths:
                         assertThat(body.jsonObject).containsEntry("id", StringValue("abc123"))
                         return HttpResponse.OK
                     }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-                    }
                 }).result
             }
 
@@ -5765,9 +5762,6 @@ paths:
                         assertThat(request.formFields).hasSize(1)
                         return HttpResponse.OK
                     }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-                    }
                 }).result
             }
 
@@ -5827,9 +5821,6 @@ paths:
 
                         return HttpResponse.OK
                     }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-                    }
                 }).result
             }
 
@@ -5888,9 +5879,6 @@ paths:
 
                         assertThat(request.multiPartFormData).hasSize(1)
                         return HttpResponse.OK
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
                     }
                 }).result
             }
@@ -7112,9 +7100,6 @@ paths:
                 assertThat(request.body.toStringLiteral()).isBase64()
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -7165,9 +7150,6 @@ paths:
                 assertThat(actualRequestBody).asBase64Decoded().isEqualTo(expectedRequestBody)
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -7369,9 +7351,6 @@ components:
             override fun execute(request: HttpRequest): HttpResponse {
                 assertThat(request.path).isEqualTo("/resource/10")
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -8203,9 +8182,6 @@ paths:
 
                     else -> HttpResponse(400, EmptyString)
                 }
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -12355,9 +12331,6 @@ paths:
                     else -> HttpResponse(500)
                 }
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -12411,9 +12384,6 @@ paths:
                 val body = request.body as JSONObjectValue
                 seenInventories.add(body.getInt("inventory"))
                 return HttpResponse(200, parsedJSONObject("""{"result":"ok"}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 

@@ -49,7 +49,7 @@ data class TabularPattern(
 
         val results: List<Result.Failure> =
             mapZip(pattern, sampleData.jsonObject).map { (key, patternValue, sampleValue) ->
-                resolverWithNullType.matchesPattern(key, patternValue, sampleValue).breadCrumb(key)
+                resolverWithNullType.matchesPattern(patternValue, sampleValue).breadCrumb(key)
             }.filterIsInstance<Result.Failure>()
 
         val failures = keyErrors.plus(results)
@@ -65,7 +65,7 @@ data class TabularPattern(
     override fun generate(resolver: Resolver): JSONObjectValue {
         val resolverWithNullType = withNullPattern(resolver)
         return JSONObjectValue(pattern.mapKeys { entry -> withoutOptionality(entry.key) }.mapValues { (key, pattern) ->
-            attempt(breadCrumb = key) { resolverWithNullType.withCyclePrevention(pattern) {it.generate(key, pattern)} }
+            attempt(breadCrumb = key) { resolverWithNullType.withCyclePrevention(pattern) { it.generate(pattern) } }
         })
     }
 
@@ -219,7 +219,7 @@ fun newPatternsBasedOn(row: Row, key: String, pattern: Pattern, resolver: Resolv
                 }
 
                 val exactValuePattern =
-                    when (val matchResult = resolver.matchesPattern(null, pattern, parsedRowValue)) {
+                    when (val matchResult = resolver.matchesPattern(pattern, parsedRowValue)) {
                         is Result.Failure -> throw ContractException(matchResult.toFailureReport())
                         else -> ExactValuePattern(parsedRowValue)
                     }

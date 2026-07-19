@@ -124,21 +124,19 @@ internal class HttpHeadersPatternTest {
         val httpHeaders = HttpHeadersPattern(mapOf("key" to stringToPattern("(number)", "key")))
         val resolver = Resolver()
         httpHeaders.matches(HashMap(), resolver)
-        assertThat(resolver.matchesPattern(null, resolver.getPattern("(number)"), StringValue("123")) is Result.Failure).isTrue()
+        assertThat(resolver.matchesPattern(resolver.getPattern("(number)"), StringValue("123")) is Result.Failure).isTrue()
     }
 
     @Test
     fun `should generate values`() {
         val httpHeaders = HttpHeadersPattern(
-                mapOf("exactKey" to stringToPattern("value", "exactKey"), "numericKey" to stringToPattern("(number)", "numericKey"), "stringKey" to stringToPattern("(string)", "stringKey"), "serverStateKey" to stringToPattern("(string)", "serverStateKey")))
-        val facts: HashMap<String, Value> = hashMapOf("serverStateKey" to StringValue("serverStateValue"))
-        val resolver = Resolver(facts)
+                mapOf("exactKey" to stringToPattern("value", "exactKey"), "numericKey" to stringToPattern("(number)", "numericKey"), "stringKey" to stringToPattern("(string)", "stringKey")))
+        val resolver = Resolver()
         val generatedResult = httpHeaders.generate(resolver)
         generatedResult.let {
             assertThat(it["exactKey"]).isEqualTo("value")
             assertThat(it["numericKey"]).matches("[0-9]+")
             assertThat(it["stringKey"]).matches("[0-9a-zA-Z]+")
-            assertThat(it["serverStateKey"]).isEqualTo("serverStateValue")
         }
     }
 

@@ -82,7 +82,7 @@ data class AnyPattern(
     }
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
-        if (resolver.matchesPattern(null, this, value).isSuccess()) return value
+        if (resolver.matchesPattern(this, value).isSuccess()) return value
 
         val updatedResolver = resolver.updateLookupPath(this.typeAlias)
 
@@ -200,7 +200,7 @@ data class AnyPattern(
 
         val earlyResult  = pattern.firstSuccessOrFailures(
             evaluate = { pattern ->
-                val result = resolver.matchesPattern(key, pattern, sampleData ?: EmptyString)
+                val result = resolver.matchesPattern(pattern, sampleData ?: EmptyString)
                 AnyPatternMatch(pattern, result)
             },
             isSuccess = { it.result.isSuccess() },
@@ -477,7 +477,7 @@ data class AnyPattern(
         return resolver.withCyclePrevention(chosenPattern, isNullable) { cyclePreventedResolver ->
             when (key) {
                 null -> chosenPattern.generate(cyclePreventedResolver)
-                else -> cyclePreventedResolver.generate(key, chosenPattern)
+                else -> cyclePreventedResolver.generate(chosenPattern)
             }
         } ?: NullValue // Terminates cycle gracefully. Only happens if isNullable=true so that it is contract-valid.
     }

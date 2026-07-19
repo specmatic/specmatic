@@ -128,10 +128,10 @@ Given pattern Id
         val idsPattern = rowsToTabularPattern(getRows(scenario, stepIdx = 0))
         val idPattern = rowsToTabularPattern(getRows(scenario, stepIdx = 1))
 
-        val resolver = Resolver(emptyMap(), false, mapOf("(Ids)" to idsPattern, "(Id)" to idPattern))
+        val resolver = Resolver(newPatterns = mapOf("(Ids)" to idsPattern, "(Id)" to idPattern))
 
         assertTrue(idsPattern.matches(value, resolver).isSuccess())
-        assertTrue(resolver.matchesPattern(null, resolver.getPattern("(Ids)"), value).isSuccess())
+        assertTrue(resolver.matchesPattern(resolver.getPattern("(Ids)"), value).isSuccess())
     }
 
     @Test
@@ -149,10 +149,10 @@ Given pattern Ids
 
         val idsPattern = rowsToTabularPattern(getRows(scenario, stepIdx = 0))
 
-        val resolver = Resolver(emptyMap(), false, mapOf("(Ids)" to idsPattern))
+        val resolver = Resolver(newPatterns = mapOf("(Ids)" to idsPattern))
 
         assertTrue(idsPattern.matches(value, resolver).isSuccess())
-        assertTrue(resolver.matchesPattern(null, resolver.getPattern("(Ids)"), value).isSuccess())
+        assertTrue(resolver.matchesPattern(resolver.getPattern("(Ids)"), value).isSuccess())
     }
 
     @Test

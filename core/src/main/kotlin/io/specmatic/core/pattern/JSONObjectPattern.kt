@@ -101,7 +101,7 @@ data class JSONObjectPattern(
 ) : Pattern, PossibleJsonObjectPatternContainer {
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
-        if (resolver.matchesPattern(null, this, value).isSuccess()) return value
+        if (resolver.matchesPattern(this, value).isSuccess()) return value
         val valueMap = (value as? JSONObjectValue)?.jsonObject.orEmpty()
         val adjustedPattern = additionalProperties.updatePatternMap(pattern, valueMap)
 
@@ -381,7 +381,7 @@ data class JSONObjectPattern(
         val resultsWithDiscriminator: List<ResultWithDiscriminatorStatus> =
             mapZip(adjustedPattern, sampleData.jsonObject).map { (key, patternValue, sampleValue) ->
                 val pointer = propertyPointers[key] ?: propertyPointers[withoutOptionality(key)] ?: schemaPointer
-                val result = updatedResolver.matchesPattern(key, patternValue, sampleValue).breadCrumb(key, updatedResolver.locate(pointer))
+                val result = updatedResolver.matchesPattern(patternValue, sampleValue).breadCrumb(key, updatedResolver.locate(pointer))
 
                 val isDiscrimintor = patternValue.isDiscriminator()
 

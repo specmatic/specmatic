@@ -289,7 +289,7 @@ data class HttpRequestPattern(
                 )
             }
             .map { (key, value, pattern) ->
-                when (val result = resolver.matchesPattern(key, pattern, value)) {
+                when (val result = resolver.matchesPattern(pattern, value)) {
                     is Failure -> result.breadCrumb(key, resolver.locate(formFieldPointers[withoutOptionality(key)])).breadCrumb(FORM_FIELDS_BREADCRUMB)
                     else -> result
                 }
@@ -332,7 +332,7 @@ data class HttpRequestPattern(
                     body.parse(httpRequest.bodyString, resolver)
                 }
 
-            resolver.matchesPattern(null, body, bodyValue).breadCrumb("BODY")
+            resolver.matchesPattern(body, bodyValue).breadCrumb("BODY")
         } catch (e: ContractException) {
             e.failure().breadCrumb("BODY")
         }
@@ -773,7 +773,7 @@ data class HttpRequestPattern(
             formFieldsPattern.mapValues { (key, pattern) ->
                 attempt(breadCrumb = key) {
                     resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
-                        cyclePreventedResolver.generate(key, pattern)
+                        cyclePreventedResolver.generate(pattern)
                     }.toString()
                 }
             }
@@ -859,7 +859,7 @@ data class HttpRequestPattern(
                 val parsedValue = runCatching {
                     if (isSubstitution(rawRequestBody)) return@runCatching StringValue(rawRequestBody)
                     val parsedValue = body.parse(rawRequestBody, resolver)
-                    if (!isInvalidRequestResponse(status)) resolver.matchesPattern(null, body, parsedValue).throwOnFailure()
+                    if (!isInvalidRequestResponse(status)) resolver.matchesPattern(body, parsedValue).throwOnFailure()
                     parsedValue
                 }.getOrElse { e ->
                     if (isInvalidRequestResponse(status)) StringValue(rawRequestBody)

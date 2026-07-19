@@ -140,7 +140,6 @@ data class HttpHeadersPattern(
                 sampleValue != null -> {
                     try {
                         val result = resolver.matchesPattern(
-                            keyWithoutOptionality,
                             pattern,
                             attempt(breadCrumb = keyWithoutOptionality) {
                                 parseOrString(

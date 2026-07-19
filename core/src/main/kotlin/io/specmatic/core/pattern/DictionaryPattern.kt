@@ -58,7 +58,7 @@ data class DictionaryPattern(val keyPattern: Pattern, val valuePattern: Pattern,
         sampleData.jsonObject.forEach { (key, value) ->
             try {
                 val parsedKey = keyPattern.parse(key, resolver)
-                val result = resolver.matchesPattern(null, keyPattern, parsedKey)
+                val result = resolver.matchesPattern(keyPattern, parsedKey)
                 if (result is Result.Failure) {
                     return result.breadCrumb(key)
                 }
@@ -72,7 +72,7 @@ data class DictionaryPattern(val keyPattern: Pattern, val valuePattern: Pattern,
                     else -> value
                 }
 
-                val result = resolver.matchesPattern(null, valuePattern, parsedValue)
+                val result = resolver.matchesPattern(valuePattern, parsedValue)
                 if (result is Result.Failure) {
                     return result.breadCrumb(key)
                 }

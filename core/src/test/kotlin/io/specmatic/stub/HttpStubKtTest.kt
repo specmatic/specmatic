@@ -1803,7 +1803,6 @@ Feature: POST API
         assertThat(isFetchLoadLogRequest(HttpRequest("GET", "/_$APPLICATION_NAME_LOWER_CASE/load_log"))).isTrue()
         assertThat(isFetchContractsRequest(HttpRequest("GET", "/_$APPLICATION_NAME_LOWER_CASE/contracts"))).isTrue()
         assertThat(isExpectationCreation(HttpRequest("POST", "/_$APPLICATION_NAME_LOWER_CASE/expectations"))).isTrue()
-        assertThat(isStateSetupRequest(HttpRequest("POST", "/_$APPLICATION_NAME_LOWER_CASE/state"))).isTrue()
     }
 
     @Test
