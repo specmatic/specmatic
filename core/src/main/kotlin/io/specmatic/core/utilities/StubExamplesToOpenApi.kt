@@ -1,10 +1,9 @@
 package io.specmatic.core.utilities
 
 import io.specmatic.core.NamedStub
-import io.specmatic.core.parseGherkinStringToFeature
-import io.specmatic.core.toGherkinFeature
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.proxy.ProxyOperation
+import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.core.util.Yaml
 import java.io.File
 import kotlin.collections.flatten
@@ -16,16 +15,18 @@ fun openApiYamlFromExampleDir(examplesDir: File, featureName: String = "New feat
         val stub = ScenarioStub.readFromFile(file)
         val name = stub.name ?: file.nameWithoutExtension
         NamedStub(name, file.nameWithoutExtension, stub)
-    }.let {
-        orderStubsByProxyOperations(it, sortOrder)
     }
 
     if (namedStubs.isEmpty()) return null
 
-    val gherkin = toGherkinFeature(featureName, namedStubs)
-    val feature = parseGherkinStringToFeature(gherkin)
-    val openApi = feature.toOpenApi()
-    return Yaml.pretty(openApi)
+    return Yaml.pretty(openApiFromTraffic(featureName, namedStubs, sortOrder))
+}
+
+fun openApiFromTraffic(featureName: String, namedStubs: List<NamedStub>, sortOrder: List<ProxyOperation> = emptyList()): OpenAPI? {
+    if (namedStubs.isEmpty()) return null
+
+    val orderedStubs = orderStubsByProxyOperations(namedStubs, sortOrder)
+    return featureFromTraffic(featureName, orderedStubs).toOpenApi()
 }
 
 private fun indexOperationsByMethod(sortOrder: List<ProxyOperation>): Map<String, List<IndexedValue<ProxyOperation>>> {

@@ -5,6 +5,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.jsonStringToValueMap
 import io.specmatic.core.utilities.parseXML
+import io.specmatic.core.utilities.featureFromTraffic
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.core.log.dontPrintToConsole
@@ -19,16 +20,18 @@ fun hostAndPort(uriString: String): BaseURLInfo {
     return BaseURLInfo(uri.host, uri.port, uri.scheme, uriString.removeSuffix("/"))
 }
 
-data class ImportedPostmanContracts(val name: String, val gherkin: String, val baseURLInfo: BaseURLInfo, val stubs: List<NamedStub>)
+data class ImportedPostmanContracts(val name: String, val feature: Feature, val baseURLInfo: BaseURLInfo, val stubs: List<NamedStub>)
 
-fun postmanCollectionToGherkin(postmanContent: String): List<ImportedPostmanContracts> {
-    val postmanCollection = stubsFromPostmanCollection(postmanContent)
+fun postmanCollectionToContracts(postmanContent: String): List<ImportedPostmanContracts> {
+    return contractsFromPostmanCollection(stubsFromPostmanCollection(postmanContent))
+}
 
+internal fun contractsFromPostmanCollection(postmanCollection: PostmanCollection): List<ImportedPostmanContracts> {
     val groups = postmanCollection.stubs.groupBy { it.first }
 
     return groups.entries.map { (baseURLInfo, stubInfo) ->
-        val collection = PostmanCollection(postmanCollection.name, stubInfo)
-        val gherkinString = toGherkinFeature(collection)
+        val namedStubs = stubInfo.map { (_, namedStub) -> namedStub }
+        val feature = featureFromTraffic(postmanCollection.name, namedStubs)
 
         val protocolsInUse = stubInfo.map { (_, namedStub) -> namedStub.protocol }
 
@@ -37,15 +40,14 @@ fun postmanCollectionToGherkin(postmanContent: String): List<ImportedPostmanCont
             feature = SpecmaticFeature.EXAMPLES_IMPORTED_FROM_POSTMAN,
             protocol = protocolsInUse,
         )
-        ImportedPostmanContracts(collection.name, gherkinString, baseURLInfo, postmanCollection.stubs.map { it.second })
+        ImportedPostmanContracts(postmanCollection.name, feature, baseURLInfo, namedStubs)
     }
 }
 
 fun runTests(contract: ImportedPostmanContracts) {
-    val (name, gherkin, baseURLInfo, _) = contract
+    val (name, feature, baseURLInfo, _) = contract
     logger.log("Testing contract \"$name\" with base URL ${baseURLInfo.originalBaseURL}")
     try {
-        val feature = parseGherkinStringToFeature(gherkin)
         val results = feature.executeTests(LegacyHttpClient(baseURL = baseURLInfo.originalBaseURL))
 
         logger.log("Test result for contract \"$name\" ###")
@@ -58,9 +60,6 @@ fun runTests(contract: ImportedPostmanContracts) {
         logger.log(e, "Test reported an exception")
     }
 }
-
-fun toGherkinFeature(postmanCollection: PostmanCollection): String =
-        toGherkinFeature(postmanCollection.name, postmanCollection.stubs.map { it.second })
 
 data class PostmanCollection(val name: String, val stubs: List<Pair<BaseURLInfo, NamedStub>>)
 
