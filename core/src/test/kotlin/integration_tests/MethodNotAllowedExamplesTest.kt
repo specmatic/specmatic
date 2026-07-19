@@ -456,7 +456,7 @@ class MethodNotAllowedExamplesTest {
 
         resiliencyModes().forEach { resiliencyMode ->
             val featureWithResiliency = feature.copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-            val generatedScenarios = featureWithResiliency.generateContractTestScenarios(emptyList()).toList()
+            val generatedScenarios = featureWithResiliency.generateContractTestScenarios().toList()
 
             assertThat(generatedScenarios).isEmpty()
         }

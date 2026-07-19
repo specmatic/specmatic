@@ -1183,7 +1183,7 @@ Examples:
 
         val scenarioNames = mutableListOf<String>()
 
-        feature.generateContractTests(emptyList()) { scenario, _ ->
+        feature.generateContractTests() { scenario, _ ->
             scenario.copy(
                 name = "Name added in hook"
             )

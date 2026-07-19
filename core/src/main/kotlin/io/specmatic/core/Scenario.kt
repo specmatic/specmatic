@@ -923,17 +923,7 @@ data class Scenario(
 
     override fun failureReportSubHeading(): String = "API: ${operationDescription()}"
 
-    fun newBasedOn(scenario: Scenario): Scenario {
-        return this.copy(
-            examples = scenario.examples,
-            references = scenario.references
-        )
-    }
-
-    fun newBasedOn(suggestions: List<Scenario>) =
-        this.newBasedOn(suggestions.find { it.name == this.name } ?: this)
-
-    fun newBasedOnWithDecision(suggestions: List<Scenario> = emptyList(), strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
+    fun newBasedOnWithDecision(strictMode: Boolean, resiliencyTestSuite: ResiliencyTestSuite): Decision<Scenario, Scenario>? {
         val hasExamples = hasExamples()
         val negativeGenerationEnabled = resiliencyTestSuite == ResiliencyTestSuite.all
         val badRequestHasNoExample = !isGherkinScenario && status == HttpStatusCode.BadRequest.value && !hasExamples
@@ -968,7 +958,7 @@ data class Scenario(
         }
 
         val reason = Reasoning(TestExecutionReason.executed(hasExamples))
-        return Decision.Execute(value = newBasedOn(suggestions), context = this, reasoning = reason)
+        return Decision.Execute(value = this, context = this, reasoning = reason)
     }
 
     fun negativeBasedOnWithDecision(badRequestOrDefault: BadRequestOrDefault?, strictMode: Boolean): Decision<Scenario, Scenario>? {

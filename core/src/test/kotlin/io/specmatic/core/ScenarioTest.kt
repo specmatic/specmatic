@@ -1102,38 +1102,15 @@ class ScenarioTest {
     @Nested
     inner class NewBasedOnWithDecisionTests {
         @Test
-        fun `newBasedOnWithDecision should execute using matching suggestion and keep original context`() {
+        fun `newBasedOnWithDecision should execute scenario with examples`() {
             val original = exampleScenarioForNewBasedOnWithDecision(name = "original")
-            val suggested = exampleScenarioForNewBasedOnWithDecision(name = "original").copy(
-                examples = listOf(Examples(listOf("id"), listOf(Row(mapOf("id" to "456"))))),
-                references = emptyMap()
-            )
 
-            val decision = original.newBasedOnWithDecision(suggestions = listOf(suggested), strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
+            val decision = original.newBasedOnWithDecision(strictMode = false, resiliencyTestSuite = ResiliencyTestSuite.all)
             assertThat(decision).isEqualTo(
                 Decision.Execute(
                     context = original,
                     reasoning = Reasoning(mainReason = TestExecutionReason.HAS_EXAMPLE),
-                    value = original.copy(examples = suggested.examples, references = suggested.references),
-                )
-            )
-        }
-
-        @Test
-        fun `newBasedOnWithDecision should execute using self when no matching suggestion exists`() {
-            val original = exampleScenarioForNewBasedOnWithDecision(name = "original")
-            val unrelatedSuggestion = exampleScenarioForNewBasedOnWithDecision(name = "other")
-            val decision = original.newBasedOnWithDecision(
-                strictMode = false,
-                suggestions = listOf(unrelatedSuggestion),
-                resiliencyTestSuite = ResiliencyTestSuite.all
-            )
-
-            assertThat(decision).isEqualTo(
-                Decision.Execute(
-                    context = original,
-                    reasoning = Reasoning(mainReason = TestExecutionReason.HAS_EXAMPLE),
-                    value = original.copy(examples = original.examples, references = original.references),
+                    value = original,
                 )
             )
         }

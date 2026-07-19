@@ -55,12 +55,6 @@ class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()
     @Option(names = ["--testBaseURL"], description = ["The base URL, use this instead of host and port"])
     var testBaseURL: String? = null
 
-    @Option(names = ["--suggestionsPath"], description = ["Location of the suggestions file"], defaultValue = "", hidden = true)
-    var suggestionsPath: String? = null
-
-    @Option(names = ["--suggestions"], description = ["A json value with scenario name and multiple suggestions"], defaultValue = "", hidden = true)
-    var suggestions: String? = null
-
     @Option(names = ["--filter-name"], description = ["Run only tests with this value in their name"], defaultValue = "\${env:SPECMATIC_FILTER_NAME}", hidden = true)
     var filterName: String? = null
 
@@ -227,8 +221,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             filterName = filterName.takeIf(::isNotNullOrBlank),
             useCurrentBranchForCentralRepo = useCurrentBranchForCentralRepo,
             filterNotName = filterNotName.takeIf(::isNotNullOrBlank),
-            inlineSuggestions = suggestions.takeIf(::isNotNullOrBlank),
-            suggestionsPath = suggestionsPath.takeIf(::isNotNullOrBlank),
             variablesFileName = variablesFileName.takeIf(::isNotNullOrBlank),
             isHostOrPortExplicitlySpecified = commandSpecHasParsedOption("--host") || commandSpecHasParsedOption("--port")
         )

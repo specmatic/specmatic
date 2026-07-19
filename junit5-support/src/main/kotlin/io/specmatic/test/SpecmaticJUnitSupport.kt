@@ -9,14 +9,9 @@ import io.specmatic.core.log.consoleLog
 import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.Examples
-import io.specmatic.core.pattern.Row
-import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.utilities.*
-import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.Value
 import io.specmatic.license.core.*
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -223,8 +218,6 @@ open class SpecmaticJUnitSupport {
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
 
         val workingDirectory = WorkingDirectory(DEFAULT_WORKING_DIRECTORY)
-        val suggestionsData = settings.inlineSuggestions.orEmpty()
-        val suggestionsPath = settings.suggestionsPath.orEmpty()
         val envConfig = getEnvConfig(settings.envName)
         val testConfig = try {
             loadTestConfig(envConfig).withVariablesFromFilePath(settings.variablesFileName)
@@ -242,8 +235,6 @@ open class SpecmaticJUnitSupport {
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
                         val loadedTestScenarios = loadTestScenarios(
                             contractPath,
-                            suggestionsPath,
-                            suggestionsData,
                             testConfig,
                             specificationPath = contractPath,
                             filterName = filterName,
@@ -286,8 +277,6 @@ open class SpecmaticJUnitSupport {
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
                         val loadedTestScenarios = loadTestScenarios(
                             contractPathData.path,
-                            "",
-                            "",
                             testConfig,
                             contractPathData.provider,
                             contractPathData.repository,
@@ -554,8 +543,6 @@ open class SpecmaticJUnitSupport {
 
     fun loadTestScenarios(
         path: String,
-        suggestionsPath: String,
-        suggestionsData: String,
         config: TestConfig,
         sourceProvider: String? = null,
         sourceRepository: String? = null,
@@ -599,12 +586,6 @@ open class SpecmaticJUnitSupport {
                 lenientMode = specmaticConfig.getTestLenientMode() ?: false,
                 exampleDirPaths = exampleDirPaths
             ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).useDictionary(testDictionary)
-
-        val suggestions = when {
-            suggestionsPath.isNotEmpty() -> suggestionsFromFile(suggestionsPath)
-            suggestionsData.isNotEmpty() -> suggestionsFromCommandLine(suggestionsData)
-            else -> emptyList()
-        }
 
         val allEndpoints = feature.scenarios.map { scenario ->
             Endpoint(
@@ -670,49 +651,9 @@ open class SpecmaticJUnitSupport {
                 logger.debug("Selected scenarios:")
                 it.scenarios.forEach { scenario -> logger.debug(scenario.testDescription().prependIndent("  ")) }
             }
-        }.generateContractTestsWithDecision(suggestions, feature.scenarios, validatedScenarioDecisions)
+        }.generateContractTestsWithDecision(feature.scenarios, validatedScenarioDecisions)
 
         return LoadedTestScenarios(tests, allEndpoints, filteredEndpoints, result)
-    }
-
-    private fun suggestionsFromFile(suggestionsPath: String): List<Scenario> {
-        return Suggestions.fromFile(suggestionsPath).scenarios
-    }
-
-    private fun suggestionsFromCommandLine(suggestions: String): List<Scenario> {
-        val suggestionsValue = parsedValue(suggestions)
-        if (suggestionsValue !is JSONObjectValue)
-            throw ContractException("Suggestions must be a json value with scenario name as the key, and json array with 1 or more json objects containing suggestions")
-
-        return suggestionsValue.jsonObject.mapValues { (_, exampleData) ->
-            when {
-                exampleData !is JSONArrayValue -> throw ContractException("The value of a scenario must be a list of examples")
-                exampleData.list.isEmpty() -> Examples()
-                else -> {
-                    val columns = columnsFromExamples(exampleData)
-
-                    val rows = exampleData.list.map { row ->
-                        asJSONObjectValue(row)
-                    }.map { row ->
-                        Row(columns, columns.map { row.getValue(it).toStringLiteral() })
-                    }.toMutableList()
-
-                    Examples(columns, rows)
-                }
-            }
-        }.entries.map { (name, examples) ->
-            Scenario(
-                name,
-                HttpRequestPattern(),
-                HttpResponsePattern(),
-                emptyMap(),
-                listOf(examples),
-                emptyMap(),
-                emptyMap(),
-                protocol = SpecmaticProtocol.HTTP,
-                specType = SpecType.OPENAPI
-            )
-        }
     }
 
     private fun readFrom(path: String, fileTag: String = ""): String {
@@ -780,23 +721,6 @@ internal fun selectSwaggerUiFallbackBaseUrl(
     resolvedSpecBaseUrl: String,
 ): String {
     return testBaseUrlOverride ?: configuredTestBaseUrl ?: resolvedSpecBaseUrl
-}
-
-private fun columnsFromExamples(exampleData: JSONArrayValue): List<String> {
-    val firstRow = exampleData.list[0]
-    if (firstRow !is JSONObjectValue)
-        throw ContractException("Each value in the list of suggestions must be a json object containing column name as key and sample value as the value")
-
-    return firstRow.jsonObject.keys.toList()
-}
-
-private fun asJSONObjectValue(value: Value): Map<String, Value> {
-    val errorMessage =
-        "Each value in the list of suggestions must be a json object containing column name as key and sample value as the value"
-    if (value !is JSONObjectValue)
-        throw ContractException(errorMessage)
-
-    return value.jsonObject
 }
 
 fun <T> selectTestsToRun(
