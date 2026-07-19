@@ -27,7 +27,7 @@ class TrafficToFeatureTest {
 
         val feature = featureFromTraffic("Traffic", listOf(NamedStub("empty body", stub)))
         val row = feature.scenarios.single().examples.single().rows.single()
-        val generatedRequest = feature.generateContractTestScenarios(emptyList())
+        val generatedRequest = feature.generateContractTestScenarios()
             .single().second.value.generateHttpRequest()
 
         assertThat(row.requestExample).isEqualTo(

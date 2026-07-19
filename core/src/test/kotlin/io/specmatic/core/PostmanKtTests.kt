@@ -52,7 +52,7 @@ class PostmanKtTests {
         assertThat(rows.map { it.requestExample }).containsExactlyElementsOf(stubs.map { it.stub.request })
         assertThat(rows.map { it.responseExample }).containsExactlyElementsOf(stubs.map { it.stub.response })
         assertThat(rows.map { it.scenarioStub }).containsExactlyElementsOf(stubs.map { it.stub })
-        assertThat(feature.generateContractTestScenarios(emptyList()).map { it.second.value.generateHttpRequest() }.toList())
+        assertThat(feature.generateContractTestScenarios().map { it.second.value.generateHttpRequest() }.toList())
             .containsExactlyElementsOf(stubs.map { it.stub.request })
     }
 
