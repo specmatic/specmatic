@@ -10,8 +10,6 @@ import picocli.CommandLine
 
 class BackwardCompatibilityToolTest {
 
-    private val tool = BackwardCompatibilityTool()
-
     @AfterEach
     fun tearDown() {
         unmockkAll()
@@ -19,6 +17,7 @@ class BackwardCompatibilityToolTest {
 
     @Test
     fun `runBackwardCompatibilityCheck should format results correctly for a successful check`() {
+        val tool = BackwardCompatibilityTool()
         var capturedArgs: List<String> = emptyList()
 
         mockkConstructor(CommandLine::class)
@@ -45,7 +44,7 @@ class BackwardCompatibilityToolTest {
         assertThat(capturedArgs).containsExactly(
             "--target-path", "spec.yaml",
             "--base-branch", "main",
-            "--repo-dir", "repo"
+            "--repo-dir", "/usr/src/app"
         )
         assertThat(result).contains("## Specmatic Backward Compatibility Check")
         assertThat(result).contains("File: `spec.yaml`")
@@ -56,6 +55,7 @@ class BackwardCompatibilityToolTest {
 
     @Test
     fun `runBackwardCompatibilityCheck should format results correctly for a failed check`() {
+        val tool = BackwardCompatibilityTool()
         mockkConstructor(CommandLine::class)
         every { anyConstructed<CommandLine>().execute(*anyVararg()) } returns 1
 
@@ -67,5 +67,36 @@ class BackwardCompatibilityToolTest {
 
         assertThat(result).contains("## Specmatic Backward Compatibility Check")
         assertThat(result).contains("Status: BREAKING CHANGES DETECTED OR CHECK FAILED")
+    }
+
+    @Test
+    fun `runBackwardCompatibilityCheck should translate host paths when mapper is configured`() {
+        val tool = BackwardCompatibilityTool(
+            McpPathMapper()
+        )
+
+        var capturedArgs: List<String> = emptyList()
+        mockkConstructor(CommandLine::class)
+        every { anyConstructed<CommandLine>().execute(*anyVararg()) } answers {
+            capturedArgs = invocation.args.flatMap {
+                when (it) {
+                    is Array<*> -> it.map { arg -> arg.toString() }
+                    else -> listOf(it.toString())
+                }
+            }
+            1
+        }
+
+        val args = BackwardCompatArgs(
+            targetPath = "C:\\specmaticProjects\\sampleProjects\\specmatic-order-contracts\\specs\\openapi.yaml",
+            repoDir = "C:\\specmaticProjects\\sampleProjects\\specmatic-order-contracts"
+        )
+
+        tool.runBackwardCompatibilityCheck(args)
+
+        assertThat(capturedArgs).containsExactly(
+            "--target-path", "/usr/src/app/specmatic-order-contracts/specs/openapi.yaml",
+            "--repo-dir", "/usr/src/app"
+        )
     }
 }

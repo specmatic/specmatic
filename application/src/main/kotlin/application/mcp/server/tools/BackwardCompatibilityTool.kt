@@ -11,14 +11,16 @@ data class BackwardCompatArgs(
     val repoDir: String? = null
 )
 
-class BackwardCompatibilityTool {
+class BackwardCompatibilityTool(
+    private val pathMapper: McpPathMapper = McpPathMapper()
+) {
 
     internal fun runBackwardCompatibilityCheck(args: BackwardCompatArgs): String {
         val command = BackwardCompatibilityCheckCommandV2()
         val argsList = mutableListOf<String>()
-        args.targetPath?.let { argsList.add("--target-path"); argsList.add(it) }
+        args.targetPath?.let { argsList.add("--target-path"); argsList.add(pathMapper.translate(it) ?: it) }
         args.baseBranch?.let { argsList.add("--base-branch"); argsList.add(it) }
-        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(it) }
+        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(pathMapper.translate(it) ?: it) }
 
         val (exitCode, stdout, stderr) = captureStandardStreams {
             CommandLine(command).execute(*argsList.toTypedArray())

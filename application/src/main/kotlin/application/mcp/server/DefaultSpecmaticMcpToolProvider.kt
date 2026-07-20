@@ -75,7 +75,7 @@ class DefaultSpecmaticMcpToolProvider(
                 properties = mapOf(
                     "targetPath" to stringProperty("File or folder path to analyze"),
                     "baseBranch" to stringProperty("Git branch to compare against"),
-                    "repoDir" to stringProperty("Repository directory")
+                    "repoDir" to stringProperty("Repository directory on the host. Translated automatically if running in Docker.")
                 ),
                 required = emptyList()
             )
