@@ -1,0 +1,17 @@
+{
+  "name": "partial example",
+  "partial": {
+    "name": "inner partial",
+    "delay-in-milliseconds": 250,
+    "http-request": {
+      "method": "GET",
+      "path": "/orders/10"
+    },
+    "http-response": {
+      "status": 200,
+      "body": {
+        "id": 10
+      }
+    }
+  }
+}

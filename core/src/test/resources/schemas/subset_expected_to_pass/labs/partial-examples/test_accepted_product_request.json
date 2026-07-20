@@ -1,0 +1,22 @@
+{
+  "http-request": {
+    "path": "/products",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "name": "Harry Potter",
+      "type": "book"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+    },
+    "status-text": "Created",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

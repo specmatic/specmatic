@@ -5,6 +5,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/Metadata"
         - $ref: "#/components/schemas/RequestResponseSchema"
+        - $ref: "#/components/schemas/FixtureHooks"
 
     PartialExample:
       allOf:
@@ -17,8 +18,13 @@ components:
                 - $ref: "#/components/schemas/Metadata"
           required:
             - partial
+        - $ref: "#/components/schemas/FixtureHooks"
 
     AnyValue: {}
+
+    DurationString:
+      type: string
+      pattern: '^P(\d+W|(\d+Y(\d+M(\d+D)?)?|\d+M(\d+D)?|\d+D)(T(\d+H(\d+M(\d+S)?)?|\d+M(\d+S)?|\d+S))?|T(\d+H(\d+M(\d+S)?)?|\d+M(\d+S)?|\d+S))$'
 
     Metadata:
       type: object
@@ -68,7 +74,8 @@ components:
           type: object
         body:
           nullable: true
-          $ref: "#/components/schemas/AnyValue"
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
         form-fields:
           nullable: true
           type: object
@@ -94,12 +101,39 @@ components:
           type: object
         body:
           nullable: true
-          $ref: "#/components/schemas/AnyValue"
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
         externalisedResponseCommand:
           nullable: true
           type: string
       required:
         - status
+
+    FixtureExecuteFor:
+      type: object
+      properties:
+        scenarios:
+          type: string
+          enum:
+            - all
+            - positive
+            - negative
+
+    FixtureHooks:
+      type: object
+      properties:
+        before:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fixture"
+        after:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fixture"
+
+    Fixture:
+      oneOf:
+        - $ref: "#/components/schemas/HttpFixture"
 
     MultiPartFormData:
       oneOf:
@@ -137,3 +171,63 @@ components:
       required:
         - name
         - filename
+
+    HttpFixture:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - http
+        wait:
+          $ref: "#/components/schemas/DurationString"
+        timeout:
+          $ref: "#/components/schemas/DurationString"
+        retry:
+          $ref: "#/components/schemas/Retry"
+        executeFor:
+          $ref: "#/components/schemas/FixtureExecuteFor"
+        http-request:
+          $ref: "#/components/schemas/HTTPFixtureRequest"
+        http-response:
+          $ref: "#/components/schemas/HTTPFixtureResponse"
+      required:
+        - type
+        - http-request
+        - http-response
+
+    Retry:
+      type: object
+      properties:
+        max-attempts:
+          type: integer
+        delay:
+          $ref: "#/components/schemas/DurationString"
+
+    HTTPFixtureRequest:
+      type: object
+      properties:
+        baseUrl:
+          type: string
+        method:
+          type: string
+        path:
+          type: string
+        headers:
+          type: object
+        body:
+          $ref: "#/components/schemas/AnyValue"
+      required:
+        - baseUrl
+        - method
+
+    HTTPFixtureResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          minimum: 0
+        body:
+          $ref: "#/components/schemas/AnyValue"
+      required:
+        - status

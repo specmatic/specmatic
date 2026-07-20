@@ -1,0 +1,24 @@
+{
+  "name": "get task by id",
+  "http-request": {
+    "method": "GET",
+    "path": "/tasks/(string)",
+    "headers": {
+      "x-request-id": "99999999-9999-4999-8999-999999999999",
+      "Authorization": "Bearer test-oauth-token",
+      "x-user-id-type": "application"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": "$match(exact:wf-created-json-101)",
+      "type": "MANUAL_REVIEW",
+      "category": "VERIFICATION",
+      "subCategory": "IDENTITY",
+      "state": "$match(exact:OPEN)",
+      "createdDate": "2026-02-20T00:00:00Z",
+      "updatedDate": "2026-02-20T00:10:00Z"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "$(NAME)",
+  "transient": "(FLAG:boolean)",
+  "delay-in-seconds": "(DELAY:integer)",
+  "http-stub-id": "(ID:string)",
+  "http-request": {"method": "$(METHOD)", "path": "/ok"},
+  "http-response": {"status": "(STATUS:integer)"},
+  "before": [{
+    "type": "http",
+    "http-request": {"baseUrl": "http://localhost:9000", "method": "$match(pattern: GET)"},
+    "http-response": {"status": 200}
+  }]
+}

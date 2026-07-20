@@ -1,0 +1,10 @@
+{
+  "partial": {
+    "http-response": {
+      "status": 204,
+      "body": {
+        "accepted": true
+      }
+    }
+  }
+}

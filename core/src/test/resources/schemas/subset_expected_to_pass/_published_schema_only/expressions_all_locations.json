@@ -1,0 +1,35 @@
+{
+  "name": "${EXAMPLE_NAME:orders}",
+  "transient": "${TRANSIENT:false}",
+  "delay-in-seconds": 2,
+  "delay-in-milliseconds": 250,
+  "http-stub-id": "stub-${STUB_ID:123}",
+  "http-request": {
+    "method": "${METHOD:POST}",
+    "path": "/orders/(ORDER_ID:number)",
+    "body": {
+      "object": {},
+      "array": [],
+      "deep": [{"string": "${VALUE:ok}", "number": 1.5, "boolean": true, "null": null}]
+    },
+    "bodyRegex": "${BODY_REGEX:^hello$}",
+    "multipart-formdata": [
+      {"name": "${PART_NAME:description}", "content": "${PART_CONTENT:details}", "contentType": "${PART_TYPE:text/plain}"},
+      {"name": "${FILE_NAME:document}", "filename": "${FILE_REF:@order.pdf}", "contentType": "${FILE_TYPE:application/pdf}", "contentEncoding": "${ENCODING:base64}"}
+    ]
+  },
+  "http-response": {
+    "status": 201,
+    "body": ["literal", "${RESPONSE_VALUE:ok}", {"nested": false}],
+    "externalisedResponseCommand": "./generate-${COMMAND_NAME:response}.sh"
+  },
+  "before": [{
+    "type": "http",
+    "wait": "${WAIT:PT1S}",
+    "timeout": "${TIMEOUT:PT5S}",
+    "retry": {"max-attempts": "${RETRIES:2}", "delay": "${RETRY_DELAY:PT1S}"},
+    "executeFor": {"scenarios": "${SCENARIOS:positive}"},
+    "http-request": {"baseUrl": "$(BASE_URL)", "method": "$(FIXTURE_METHOD)", "path": "/setup/$(SETUP_ID)", "body": {"request": {"id": "$(REQUEST_ID)"}}},
+    "http-response": {"status": 200, "body": ["fixture", {"ok": true}]}
+  }]
+}

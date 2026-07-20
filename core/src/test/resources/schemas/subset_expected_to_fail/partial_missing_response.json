@@ -1,0 +1,8 @@
+{
+  "partial": {
+    "http-request": {
+      "method": "GET",
+      "path": "/orders/10"
+    }
+  }
+}

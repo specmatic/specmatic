@@ -1,0 +1,6 @@
+{
+  "method": "GET",
+  "path": "/orders",
+  "body": {"badCapture": "(ID)", "badLookup": "$(ID", "badTemplate": "${ID", "badMatcher": "$match(foo)", "badToken": "(1integer)"},
+  "status": 200
+}
