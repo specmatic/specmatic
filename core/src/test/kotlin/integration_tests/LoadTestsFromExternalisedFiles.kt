@@ -1140,7 +1140,9 @@ class LoadTestsFromExternalisedFiles {
                 }
             })
 
-            val result = results.results.first {it.scenario!!.path == "/employeesObjectResponse"}
+            val result = results.results.first {
+                (it.scenario as Scenario).path == "/employeesObjectResponse"
+            }
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -1174,7 +1176,9 @@ class LoadTestsFromExternalisedFiles {
                 }
             })
 
-            val result = results.results.first {it.scenario!!.path == "/employeesArrayResponse"}
+            val result = results.results.first {
+                (it.scenario as Scenario).path == "/employeesArrayResponse"
+            }
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -1203,7 +1207,9 @@ class LoadTestsFromExternalisedFiles {
                 }
             })
 
-            val result = results.results.first {it.scenario!!.path == "/employeesAllOfResponse"}
+            val result = results.results.first {
+                (it.scenario as Scenario).path == "/employeesAllOfResponse"
+            }
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }

@@ -17,6 +17,7 @@ import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
@@ -34,6 +35,30 @@ import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 
 class ScenarioTest {
+
+    @Test
+    fun `operation is derived through the scenario operation provider`() {
+        val scenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/orders")
+                ),
+                httpResponsePattern = HttpResponsePattern(status = 200)
+            )
+        )
+
+        assertThat(scenario.toApiOperation()).isEqualTo(
+            OpenAPIOperation(
+                path = "/orders",
+                method = "GET",
+                responseCode = 200,
+                protocol = SpecmaticProtocol.HTTP
+            )
+        )
+    }
 
     companion object {
         @JvmStatic

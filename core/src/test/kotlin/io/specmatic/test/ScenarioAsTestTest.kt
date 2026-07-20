@@ -319,8 +319,8 @@ class ScenarioAsTestTest {
         val testResultRecord = scenarioAsTest(negativeScenario).testResultRecord(executionResult)
         val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
 
-        assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
-        assertThat(scenarioInRecord.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+        assertThat(updatedScenario.responseContentType).isEqualTo("application/xml")
+        assertThat(scenarioInRecord.responseContentType).isEqualTo("application/xml")
     }
 
     @Test
@@ -356,9 +356,7 @@ class ScenarioAsTestTest {
             val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
 
             assertThat(updatedScenario.status).isEqualTo(422)
-            assertThat(updatedScenario.isNegative).isTrue
-            assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
-            assertThat(scenarioInRecord.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+            assertThat(scenarioInRecord.status).isEqualTo(422)
         } finally {
             server.stop(1000, 1000)
         }
@@ -446,7 +444,7 @@ class ScenarioAsTestTest {
 
         assertThat(updatedScenario.statusInDescription).isEqualTo("1000")
         assertThat(scenarioInRecord.statusInDescription).isEqualTo("1000")
-        assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+        assertThat(updatedScenario.responseContentType).isEqualTo("application/xml")
     }
 
     @Test

@@ -4,8 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import io.specmatic.core.Result
 import io.specmatic.core.ScenarioDetailsForResult
-import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
-import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
 import io.specmatic.test.SpecmaticJUnitSupport
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -157,15 +155,11 @@ private fun testIdentifier(type: TestDescriptor.Type): TestIdentifier {
 }
 
 private class FakeScenario : ScenarioDetailsForResult {
-    override val status: Int = 200
+    val status: Int = 200
     override val ignoreFailure: Boolean = false
     override val name: String = "Partial success scenario"
-    override val method: String = "GET"
-    override val path: String = "/partial-success"
-    override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
-        return OpenApiEndpointOperationRequest(path, method, status)
-    }
-
+    val method: String = "GET"
+    val path: String = "/partial-success"
     override fun testDescription(): String = name
 
     override fun operationDescription() = "operation 1"

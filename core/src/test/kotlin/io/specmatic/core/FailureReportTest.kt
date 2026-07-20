@@ -1,7 +1,5 @@
 package io.specmatic.core
 
-import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
-import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -9,15 +7,11 @@ import org.junit.jupiter.api.Test
 
 internal class FailureReportTest {
 
-    private class FakeScenario(override val status: Int) : ScenarioDetailsForResult {
+    private class FakeScenario(val status: Int) : ScenarioDetailsForResult {
         override val ignoreFailure: Boolean = false
         override val name: String = "fake scenario"
-        override val method: String = "GET"
-        override val path: String = "/fake"
-        override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
-            return OpenApiEndpointOperationRequest(path, method, status)
-        }
-
+        val method: String = "GET"
+        val path: String = "/fake"
         override fun testDescription(): String = name
 
         override fun operationDescription() = "operation 1"

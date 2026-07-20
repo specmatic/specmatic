@@ -2,8 +2,6 @@ package io.specmatic.core
 
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
-import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
-import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
@@ -12,15 +10,11 @@ import java.util.function.Consumer
 
 internal class ResultKtTest {
     private val scenario = object : ScenarioDetailsForResult {
-        override val status: Int = 200
+        val status: Int = 200
         override val ignoreFailure: Boolean = false
         override val name: String = "scenario"
-        override val method: String = "GET"
-        override val path: String = "/route"
-        override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
-            return OpenApiEndpointOperationRequest(path, method, status)
-        }
-
+        val method: String = "GET"
+        val path: String = "/route"
         override fun testDescription(): String = "scenario description"
         override fun operationDescription(): String = "operation 1"
 
@@ -28,15 +22,11 @@ internal class ResultKtTest {
     }
 
     private fun scenario(name: String, operationDescription: String) = object : ScenarioDetailsForResult {
-        override val status: Int = 200
+        val status: Int = 200
         override val ignoreFailure: Boolean = false
         override val name: String = name
-        override val method: String = "GET"
-        override val path: String = "/route"
-        override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
-            return OpenApiEndpointOperationRequest(path, method, status)
-        }
-
+        val method: String = "GET"
+        val path: String = "/route"
         override fun testDescription(): String = "$name description"
         override fun operationDescription(): String = operationDescription
         override fun failureReportSubHeading(): String = "API: ${operationDescription()}"

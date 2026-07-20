@@ -20,8 +20,8 @@ import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
-import io.specmatic.reporter.backwardcompat.dto.EndpointOperationRequest
-import io.specmatic.reporter.backwardcompat.dto.OpenApiEndpointOperationRequest
+import io.specmatic.reporter.internal.dto.operation.APIOperation
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
@@ -29,16 +29,8 @@ import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
 
 interface ScenarioDetailsForResult {
-    val status: Int
     val ignoreFailure: Boolean
     val name: String
-    val method: String
-    val path: String
-
-    val operation: Operation
-        get() = Operation(method = method, path = path, responseCode = status)
-
-    fun toBccEndpointOperationRequest(): EndpointOperationRequest
 
     fun testDescription(): String
 
@@ -86,8 +78,11 @@ data class Scenario(
     val generatedFrom: GeneratedScenarioOrigin? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val operationSourcePointer: String? = null,
-    private val requestContentTypeForReport: String? = null
+    private val requestContentTypeForReport: String? = null,
+    private val operationProvider: ScenarioOperationProvider = OpenApiScenarioOperationProvider
 ) : ScenarioDetailsForResult, HasScenarioMetadata {
+    fun toApiOperation(): APIOperation = operationProvider.operationFor(this)
+
     data class RequestDetails(
         private val method: String,
         private val requestContentType: String,
@@ -134,21 +129,17 @@ data class Scenario(
         return RequestDetails(this)
     }
 
-    override val method: String
+    val method: String
         get() {
             return httpRequestPattern.method ?: ""
         }
 
-    override val path: String
+    val path: String
         get() {
             return httpRequestPattern.httpPathPattern?.toInternalPath() ?: ""
         }
 
-    override fun toBccEndpointOperationRequest(): EndpointOperationRequest {
-        return OpenApiEndpointOperationRequest(path, method, status)
-    }
-
-    override val status: Int
+    val status: Int
         get() {
             return if (isNegative && !isA4xxScenario()) 400 else httpResponsePattern.status
         }
