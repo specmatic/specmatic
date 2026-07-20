@@ -1,5 +1,9 @@
 package io.specmatic.core.wsdl.parser.message
 
+import io.specmatic.core.Resolver
+import io.specmatic.core.Result
+import io.specmatic.core.pattern.XMLPattern
+import io.specmatic.core.pattern.withPatternDelimiters
 import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import org.assertj.core.api.Assertions.assertThat
@@ -26,14 +30,29 @@ internal class TypeReferenceTest {
         val (typeName, wsdlElement) = typeReference.getWSDLElement()
 
         val typeInfo = wsdlElement.deriveSpecmaticTypes(typeName, emptyMap(), emptySet())
+        val addressPattern = typeInfo.types.getValue("tns_AddressType") as XMLPattern
+        val concreteAddressPattern = addressPattern.copy(
+            pattern = addressPattern.pattern.copy(name = "address", realName = "address")
+        )
+        val resolver = Resolver(
+            newPatterns = typeInfo.types.mapKeys { (name, _) -> withPatternDelimiters(name) }
+        )
+        val validAddress = toXMLNode(
+            """
+            <address xmlns:tns="http://example.com/wiring">
+                <tns:name>Jane</tns:name>
+                <tns:Code>ABC</tns:Code>
+                <tns:inlineStatus><tns:level>10</tns:level></tns:inlineStatus>
+                <tns:tag>first</tns:tag>
+                <tns:tag>second</tns:tag>
+                <tns:score/>
+            </address>
+            """.trimIndent()
+        )
 
         assertThat(typeName).isEqualTo("tns_AddressType")
-        assertThat((typeInfo.types.getValue("tns_AddressType") as io.specmatic.core.pattern.XMLPattern).toPrettyString())
-            .contains("name")
-            .contains("(string)")
-            .contains("Code")
-            .contains("specmatic_occurs=\"multiple\"")
-            .contains("specmatic_nillable=\"true\"")
+        assertThat(concreteAddressPattern.matches(validAddress, resolver))
+            .isInstanceOf(Result.Success::class.java)
     }
 
     private fun loadWsdl(path: String): WSDL {

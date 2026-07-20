@@ -56,9 +56,6 @@ fun toClause(key: String, type: Pattern): GherkinClause {
 
     val typeDefinitionStatement = when (type) {
         is TabularPattern -> patternMapToString(type.pattern)
-        is XMLPattern -> {
-            "\"\"\"\n${type.toGherkinString("      ")}\n\"\"\"".trimIndent()
-        }
         else -> throw ContractException("Type not recognised: $type")
     }
 
