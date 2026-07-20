@@ -1,0 +1,10 @@
+{
+  "http-request": {"method": "GET", "path": "/health"},
+  "http-response": {"status": 200},
+  "before": [{
+    "type": "http",
+    "executeFor": {"scenarios": "${SCENARIOS:positive}"},
+    "http-request": {"baseUrl": "http://localhost:9000", "method": "GET"},
+    "http-response": {"status": 200}
+  }]
+}

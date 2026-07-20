@@ -26,8 +26,8 @@ class ExternalExampleSchemaCorpusTest {
     @TestFactory
     fun `internal OpenAPI schema should accept valid JSON fixtures and reject invalid ones`(): List<DynamicTest> {
         return internalSchemaValidationTests(
-            validFiles = filesUnder(JSON_PASS_DIR),
-            invalidFiles = filesUnder(JSON_FAIL_DIR)
+            validFiles = filesUnder(JSON_PASS_DIR).filterNot(::isPublishedSchemaOnly),
+            invalidFiles = filesUnder(JSON_FAIL_DIR).filterNot(::isPublishedSchemaOnly)
         )
     }
 
@@ -39,6 +39,31 @@ class ExternalExampleSchemaCorpusTest {
         )
     }
 
+    @TestFactory
+    fun `published JSON sub-schemas should accept valid values and reject invalid ones`(): List<DynamicTest> {
+        val root = File(JSON_SUBSCHEMA_DIR)
+        return root.listFiles()?.filter { it.isDirectory }?.sortedBy { it.name }?.flatMap { definitionDir ->
+            val schema = schemaAt($$"$defs.$${definitionDir.name}")
+            val pass = filesUnder(definitionDir.resolve("pass").path).map { file ->
+                DynamicTest.dynamicTest("Published ${definitionDir.name} accepts ${file.relativePath()}") {
+                    assertThatNoException().isThrownBy {
+                        validateAgainstPublishedSubSchema(schema, file)
+                    }
+                }
+            }
+
+            val fail = filesUnder(definitionDir.resolve("fail").path).map { file ->
+                DynamicTest.dynamicTest("Published ${definitionDir.name} rejects ${file.relativePath()}") {
+                    assertThatThrownBy {
+                        validateAgainstPublishedSubSchema(schema, file)
+                    }.isInstanceOf(AssertionError::class.java)
+                }
+            }
+
+            pass + fail
+        }.orEmpty()
+    }
+
     @Test
     fun `published schema annotations contain valid examples and snippets`() {
         val schemaNode = publishedJsonSchema.getSchemaNode()
@@ -46,19 +71,40 @@ class ExternalExampleSchemaCorpusTest {
             "Retry",
             "Example",
             "Fixture",
+            "AnyValue",
             "HttpFixture",
             "FixtureHooks",
             "RequestSchema",
             "MultiPartFile",
+            "AnyArrayValue",
             "PartialExample",
             "ResponseSchema",
+            "AnyObjectValue",
+            "AnyScalarValue",
             "MultiPartContent",
             "FixtureExecuteFor",
             "MultiPartFormData",
+            "MatcherExpression",
             "HTTPFixtureRequest",
             "HTTPFixtureResponse",
+            "SpecmaticExpression",
             "RequestResponseSchema",
+            "PatternTokenExpression",
+            "TemplateValueExpression",
+            "SpecmaticStringExpression",
+            "StringOrSpecmaticExpression",
             "PartialRequestResponseSchema",
+            "SubstitutionLookupExpression",
+            "SubstitutionCaptureExpression",
+            "TemplateValueStringExpression",
+            "StringOrTemplateValueExpression",
+            "BooleanOrTemplateValueExpression",
+            "IntegerOrTemplateValueExpression",
+            "SubstitutionOrTemplateOrMatcherExpression",
+            "SubstitutionOrTemplateOrMatcherStringExpression",
+            "AnyValueWithSubstitutionOrTemplateOrMatcher",
+            "StringOrSubstitutionOrTemplateOrMatcherExpression",
+            "IntegerOrSubstitutionOrTemplateOrMatcherExpression",
         )
 
         definitions.forEach { definition ->
@@ -204,6 +250,19 @@ class ExternalExampleSchemaCorpusTest {
             .isEmpty()
     }
 
+    private fun validateAgainstPublishedSubSchema(schema: Schema, file: File) {
+        val messages = schema.validate(file.readText(), InputFormat.JSON) { executionContext ->
+            executionContext.executionConfig { executionConfig -> executionConfig.formatAssertionsEnabled(true) }
+        }
+
+        assertThat(messages)
+            .withFailMessage(
+                "Expected ${file.relativePath()} to satisfy its sub-schema but got:%n%s",
+                messages.joinToString(System.lineSeparator()) { it.message }
+            )
+            .isEmpty()
+    }
+
     private fun filesUnder(directory: String): List<File> {
         return File(directory)
             .walkTopDown()
@@ -212,11 +271,19 @@ class ExternalExampleSchemaCorpusTest {
             .toList()
     }
 
+    private fun isPublishedSchemaOnly(file: File): Boolean {
+        return file.relativeTo(File(JSON_PASS_DIR).parentFile).invariantSeparatorsPath
+            .split('/')
+            .contains(PUBLISHED_SCHEMA_ONLY_DIR)
+    }
+
     private fun File.relativePath(): String = relativeTo(File(".")).invariantSeparatorsPath
 
     companion object {
         private const val PUBLISHED_JSON_SCHEMA_PATH = "src/main/resources/schemas/external_examples.schema.json"
         private const val JSON_PASS_DIR = "src/test/resources/schemas/subset_expected_to_pass"
         private const val JSON_FAIL_DIR = "src/test/resources/schemas/subset_expected_to_fail"
+        private const val JSON_SUBSCHEMA_DIR = "src/test/resources/schemas/subschemas"
+        private const val PUBLISHED_SCHEMA_ONLY_DIR = "_published_schema_only"
     }
 }

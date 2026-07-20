@@ -16,7 +16,358 @@
   "$defs": {
     "AnyValue": {
       "title": "Any Value",
-      "description": "Any JSON value without additional structural constraints."
+      "description": "Any JSON object, array, literal scalar, or supported Specmatic expression. Object properties and array items are validated recursively.",
+      "oneOf": [
+        {
+          "errorMessage": "Expected an object, array, literal scalar, or supported Specmatic expression.",
+          "$ref": "#/$defs/AnyObjectValue"
+        },
+        {
+          "$ref": "#/$defs/AnyArrayValue"
+        },
+        {
+          "$ref": "#/$defs/AnyScalarValue"
+        },
+        {
+          "$ref": "#/$defs/SpecmaticStringExpression"
+        }
+      ]
+    },
+    "AnyObjectValue": {
+      "title": "Any Object Value",
+      "description": "A JSON object whose property values may recursively contain any supported value.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/AnyValue"
+      }
+    },
+    "AnyArrayValue": {
+      "title": "Any Array Value",
+      "description": "A JSON array whose items may recursively contain any supported value.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AnyValue"
+      }
+    },
+    "AnyScalarValue": {
+      "title": "Any Literal Scalar Value",
+      "description": "Any literal JSON scalar. Strings recognized as Specmatic expressions are represented by the separate expression branch.",
+      "oneOf": [
+        {
+          "type": "string",
+          "errorMessage": "Expected a literal JSON scalar, not a Specmatic expression.",
+          "not": {
+            "$ref": "#/$defs/SpecmaticStringExpression"
+          }
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "SpecmaticExpression": {
+      "title": "Specmatic Expression",
+      "description": "A complete Specmatic expression used in place of a scalar JSON value. Expression-specific validation is performed at load time.",
+      "type": "string",
+      "oneOf": [
+        {
+          "errorMessage": "Expected a complete Specmatic expression: substitution, template value, matcher, or pattern token.",
+          "$ref": "#/$defs/SubstitutionCaptureExpression"
+        },
+        {
+          "$ref": "#/$defs/SubstitutionLookupExpression"
+        },
+        {
+          "$ref": "#/$defs/TemplateValueExpression"
+        },
+        {
+          "$ref": "#/$defs/MatcherExpression"
+        },
+        {
+          "$ref": "#/$defs/PatternTokenExpression"
+        }
+      ]
+    },
+    "SpecmaticStringExpression": {
+      "title": "Specmatic String Expression",
+      "description": "A complete Specmatic expression or a string containing supported substitution, template-value, or pattern-token syntax.",
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SpecmaticExpression"
+        },
+        {
+          "description": "A string containing a substitution lookup.",
+          "examples": ["Bearer $(ACCESS_TOKEN)"],
+          "pattern": "\\$\\([^()]+\\)"
+        },
+        {
+          "description": "A string containing a substitution capture.",
+          "examples": ["department-(DEPARTMENT_ID:number)"],
+          "pattern": "\\([^():]+:[^()]+\\)"
+        },
+        {
+          "$ref": "#/$defs/TemplateValueStringExpression"
+        },
+        {
+          "description": "A string containing a pattern token.",
+          "examples": ["/orders/(integer)"],
+          "pattern": "\\([A-Za-z_][A-Za-z0-9_.-]*\\)"
+        }
+      ]
+    },
+    "SubstitutionCaptureExpression": {
+      "type": "string",
+      "title": "Substitution Capture Expression",
+      "description": "Captures a matched value under a name for later substitution.",
+      "examples": ["(DEPARTMENT_ID:number)", "(ACCESS_TOKEN:string)"],
+      "pattern": "^\\([^():]+:[^()]+\\)$"
+    },
+    "SubstitutionLookupExpression": {
+      "type": "string",
+      "title": "Substitution Lookup Expression",
+      "description": "Uses a previously captured value directly or through a data lookup.",
+      "examples": ["$(DEPARTMENT_ID)", "$(dataLookup.roles[ROLE].scope)"],
+      "pattern": "^\\$\\([\\s\\S]+\\)$"
+    },
+    "TemplateValueExpression": {
+      "type": "string",
+      "title": "Template Value Expression",
+      "description": "Looks up one or more runtime values and falls back to a required default. The default may be any JSON value.",
+      "examples": ["${EMPLOYEE_ACTIVE:true}", "${EMPLOYEE_CODE|FALLBACK_EMPLOYEE_CODE:EMP123}"],
+      "pattern": "^\\$\\{[\\s\\S]+\\}$"
+    },
+    "TemplateValueStringExpression": {
+      "title": "Template Value String Expression",
+      "description": "A complete template value expression or a string containing template-value interpolation.",
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TemplateValueExpression"
+        },
+        {
+          "description": "A string containing a template value.",
+          "examples": ["Bearer ${API_TOKEN:test-token}"],
+          "pattern": "\\$\\{[\\s\\S]+\\}"
+        }
+      ]
+    },
+    "MatcherExpression": {
+      "title": "Matcher Expression",
+      "description": "Matches a value using Specmatic matcher parameters such as exact, pattern, dataType, times, and value.",
+      "type": "string",
+      "examples": ["$match(pattern: approved|verified)", "$match(dataType: integer, value: each, times: 2)"],
+      "pattern": "^\\$match\\([\\s\\S]+\\)$"
+    },
+    "PatternTokenExpression": {
+      "title": "Pattern Token Expression",
+      "description": "Uses a built-in Specmatic datatype or a contract-defined named pattern. Built-ins are number, integer, boolean, null, string, email, date, datetime, time, uuid, url, url-http, url-https, url-path, anything, and anyvalue.",
+      "type": "string",
+      "examples": ["(integer)", "(uuid)", "(PredefinedJsonType)"],
+      "pattern": "^\\([A-Za-z_][A-Za-z0-9_.-]*\\)$"
+    },
+    "SubstitutionOrTemplateOrMatcherExpression": {
+      "title": "Substitution, Template, Or Matcher Expression",
+      "description": "A complete substitution, template-value, or matcher expression.",
+      "type": "string",
+      "oneOf": [
+        {
+          "errorMessage": "Expected a complete substitution, template-value, or matcher expression.",
+          "$ref": "#/$defs/SubstitutionCaptureExpression"
+        },
+        {
+          "$ref": "#/$defs/SubstitutionLookupExpression"
+        },
+        {
+          "$ref": "#/$defs/TemplateValueExpression"
+        },
+        {
+          "$ref": "#/$defs/MatcherExpression"
+        }
+      ]
+    },
+    "SubstitutionOrTemplateOrMatcherStringExpression": {
+      "title": "Substitution, Template, Or Matcher String Expression",
+      "description": "A complete substitution, template-value, or matcher expression, or a string containing substitution or template-value interpolation.",
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SubstitutionOrTemplateOrMatcherExpression"
+        },
+        {
+          "description": "A string containing a substitution lookup.",
+          "examples": ["Bearer $(ACCESS_TOKEN)"],
+          "pattern": "\\$\\([^()]+\\)"
+        },
+        {
+          "description": "A string containing a substitution capture.",
+          "examples": ["department-(DEPARTMENT_ID:number)"],
+          "pattern": "\\([^():]+:[^()]+\\)"
+        },
+        {
+          "$ref": "#/$defs/TemplateValueStringExpression"
+        }
+      ]
+    },
+    "AnyValueWithSubstitutionOrTemplateOrMatcher": {
+      "title": "Any Value With Substitution, Template, Or Matcher",
+      "description": "Any JSON object, array, literal scalar, substitution, template value, or matcher. Object properties and array items are validated recursively.",
+      "oneOf": [
+        {
+          "type": "object",
+          "errorMessage": "Expected an object, array, literal scalar, or substitution, template-value, or matcher expression.",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValueWithSubstitutionOrTemplateOrMatcher"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AnyValueWithSubstitutionOrTemplateOrMatcher"
+          }
+        },
+        {
+          "$ref": "#/$defs/AnyScalarValue"
+        },
+        {
+          "$ref": "#/$defs/SubstitutionOrTemplateOrMatcherStringExpression"
+        }
+      ]
+    },
+    "StringOrSubstitutionOrTemplateOrMatcherExpression": {
+      "title": "String Or Substitution, Template, Or Matcher Expression",
+      "description": "A literal string or a substitution, template-value, or matcher expression, including supported interpolation within a string.",
+      "oneOf": [
+        {
+          "errorMessage": "Expected a literal string or a substitution, template-value, or matcher expression.",
+          "$ref": "#/$defs/SubstitutionOrTemplateOrMatcherStringExpression"
+        },
+        {
+          "type": "string",
+          "not": {
+            "$ref": "#/$defs/SpecmaticStringExpression"
+          }
+        }
+      ]
+    },
+    "IntegerOrSubstitutionOrTemplateOrMatcherExpression": {
+      "title": "Integer Or Substitution, Template, Or Matcher Expression",
+      "description": "A literal integer or a complete substitution, template-value, or matcher expression.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "errorMessage": "Expected an integer or a complete substitution, template-value, or matcher expression."
+        },
+        {
+          "$ref": "#/$defs/SubstitutionOrTemplateOrMatcherExpression"
+        }
+      ]
+    },
+    "TemplateValueOrSubstitutionLookupExpression": {
+      "title": "Template Value Or Substitution Lookup Expression",
+      "description": "A complete template value or substitution lookup expression. Substitution captures, matchers, and pattern tokens are not supported.",
+      "type": "string",
+      "oneOf": [
+        {
+          "errorMessage": "Expected a complete template-value or substitution-lookup expression.",
+          "$ref": "#/$defs/TemplateValueExpression"
+        },
+        {
+          "$ref": "#/$defs/SubstitutionLookupExpression"
+        }
+      ]
+    },
+    "TemplateValueOrSubstitutionLookupStringExpression": {
+      "title": "Template Value Or Substitution Lookup String Expression",
+      "description": "A complete template value or substitution lookup expression, or a string containing template-value or substitution-lookup interpolation.",
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TemplateValueOrSubstitutionLookupExpression"
+        },
+        {
+          "description": "A string containing a substitution lookup.",
+          "examples": ["Bearer $(ACCESS_TOKEN)"],
+          "pattern": "\\$\\([^()]+\\)"
+        },
+        {
+          "$ref": "#/$defs/TemplateValueStringExpression"
+        }
+      ]
+    },
+    "IntegerOrTemplateValueOrSubstitutionLookupExpression": {
+      "title": "Integer Or Template Value Or Substitution Lookup Expression",
+      "description": "A literal integer or a complete template value or substitution lookup expression. Other Specmatic expression types are not supported.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "errorMessage": "Expected an integer or a complete template-value or substitution-lookup expression."
+        },
+        {
+          "$ref": "#/$defs/TemplateValueOrSubstitutionLookupExpression"
+        }
+      ]
+    },
+    "StringOrSpecmaticExpression": {
+      "title": "String Or Specmatic Expression",
+      "description": "A literal string or a supported Specmatic expression, including supported interpolation within a string.",
+      "anyOf": [
+        {
+          "errorMessage": "Expected a literal string or a supported Specmatic expression.",
+          "$ref": "#/$defs/SpecmaticStringExpression"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "StringOrTemplateValueExpression": {
+      "title": "String Or Template Value Expression",
+      "description": "A literal string or a template value expression, including template-value interpolation within a string. Other Specmatic expression types are not supported.",
+      "oneOf": [
+        {
+          "errorMessage": "Expected a literal string or a template-value expression.",
+          "$ref": "#/$defs/TemplateValueStringExpression"
+        },
+        {
+          "type": "string",
+          "not": {
+            "$ref": "#/$defs/SpecmaticStringExpression"
+          }
+        }
+      ]
+    },
+    "IntegerOrTemplateValueExpression": {
+      "title": "Integer Or Template Value Expression",
+      "description": "A literal integer or a complete template value expression that resolves as the field value. Other Specmatic expression types are not supported.",
+      "oneOf": [
+        {
+          "type": "integer",
+          "errorMessage": "Expected an integer or a complete template-value expression."
+        },
+        {
+          "$ref": "#/$defs/TemplateValueExpression"
+        }
+      ]
+    },
+    "BooleanOrTemplateValueExpression": {
+      "title": "Boolean Or Template Value Expression",
+      "description": "A literal boolean or a complete template value expression that resolves as the field value. Other Specmatic expression types are not supported.",
+      "oneOf": [
+        {
+          "type": "boolean",
+          "errorMessage": "Expected a boolean or a complete template-value expression."
+        },
+        {
+          "$ref": "#/$defs/TemplateValueExpression"
+        }
+      ]
     },
     "Metadata": {
       "title": "Example Metadata",
@@ -26,29 +377,29 @@
         "name": {
           "description": "Logical name of the example. If omitted, the external file name is used when a name is required.",
           "examples": ["get-order-success"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "transient": {
           "description": "Mock-only flag that makes the expectation unavailable after its first successful match.",
           "default": false,
-          "type": "boolean"
+          "$ref": "#/$defs/BooleanOrTemplateValueExpression"
         },
         "delay-in-seconds": {
           "description": "Mock-only delay before returning the response, in whole seconds. If both delay fields are set, delay-in-milliseconds takes precedence.",
           "examples": [2],
-          "type": "integer",
+          "$ref": "#/$defs/IntegerOrTemplateValueExpression",
           "minimum": 0
         },
         "delay-in-milliseconds": {
           "description": "Mock-only delay before returning the response, in milliseconds. Takes precedence over delay-in-seconds.",
           "examples": [250],
-          "type": "integer",
+          "$ref": "#/$defs/IntegerOrTemplateValueExpression",
           "minimum": 0
         },
         "http-stub-id": {
           "description": "Mock-only identifier used to manage a transient expectation. When supplied, it replaces the automatically generated token.",
           "examples": ["order-123-success"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         }
       }
     },
@@ -255,20 +606,34 @@
           "description": "Identifies this as an HTTP fixture."
         },
         "wait": {
-          "type": "string",
-          "format": "duration",
           "description": "Delay before the fixture call. Defaults to PT0S and must be an ISO 8601 duration.",
           "default": "PT0S",
-          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
-          "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "duration",
+              "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D') or a template-value/substitution-lookup expression.",
+              "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
+            },
+            {
+              "$ref": "#/$defs/TemplateValueOrSubstitutionLookupStringExpression"
+            }
+          ]
         },
         "timeout": {
-          "type": "string",
-          "format": "duration",
           "description": "Maximum duration allowed for the fixture call. Defaults to PT10S and must be an ISO 8601 duration.",
           "default": "PT10S",
-          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
-          "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "duration",
+              "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D') or a template-value/substitution-lookup expression.",
+              "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
+            },
+            {
+              "$ref": "#/$defs/TemplateValueOrSubstitutionLookupStringExpression"
+            }
+          ]
         },
         "retry": {
           "description": "Retry policy used when the fixture call fails. If omitted, the call is attempted once.",
@@ -318,15 +683,22 @@
           "description": "Maximum number of retries after the initial fixture call. Defaults to 1 when retry is present, total calls can therefore be up to max-attempts + 1.",
           "default": 1,
           "examples": [2],
-          "type": "integer"
+          "$ref": "#/$defs/IntegerOrTemplateValueOrSubstitutionLookupExpression"
         },
         "delay": {
-          "type": "string",
-          "format": "duration",
           "description": "Delay before each retry. Defaults to PT0S and must be an ISO 8601 duration.",
           "default": "PT0S",
-          "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D')",
-          "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "duration",
+              "patternErrorMessage": "Invalid duration format. Must be a valid ISO 8601 duration string (e.g., 'PT15M' or 'P2D') or a template-value/substitution-lookup expression.",
+              "pattern": "^P(?:\\d+W|(?:\\d+Y(?:\\d+M(?:\\d+D)?)?|\\d+M(?:\\d+D)?|\\d+D)(?:T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))?|T(?:\\d+H(?:\\d+M(?:\\d+S)?)?|\\d+M(?:\\d+S)?|\\d+S))$"
+            },
+            {
+              "$ref": "#/$defs/TemplateValueOrSubstitutionLookupStringExpression"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -347,8 +719,16 @@
         "scenarios": {
           "description": "Test scenarios that run the fixture. \"positive\" selects positive scenarios, \"negative\" selects negative scenarios, and \"all\" selects both.",
           "default": "positive",
-          "type": "string",
-          "enum": ["all", "positive", "negative"]
+          "oneOf": [
+            {
+              "type": "string",
+              "errorMessage": "Expected one of 'all', 'positive', or 'negative', or a template-value/substitution-lookup expression.",
+              "enum": ["all", "positive", "negative"]
+            },
+            {
+              "$ref": "#/$defs/TemplateValueOrSubstitutionLookupStringExpression"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -374,17 +754,17 @@
         "baseUrl": {
           "description": "Base URL of the fixture endpoint.",
           "examples": ["http://localhost:9000"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrSubstitutionOrTemplateOrMatcherExpression"
         },
         "method": {
           "description": "HTTP method used for the fixture call.",
           "examples": ["POST"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrSubstitutionOrTemplateOrMatcherExpression"
         },
         "path": {
           "description": "Path invoked relative to the fixture endpoint base URL.",
           "examples": ["/setup"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrSubstitutionOrTemplateOrMatcherExpression"
         },
         "headers": {
           "description": "Headers sent with the fixture request.",
@@ -393,7 +773,10 @@
               "Content-Type": "application/json"
             }
           ],
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValueWithSubstitutionOrTemplateOrMatcher"
+          }
         },
         "body": {
           "description": "Request body sent by the fixture. Any JSON value is allowed.",
@@ -402,7 +785,7 @@
               "state": "ready"
             }
           ],
-          "$ref": "#/$defs/AnyValue"
+          "$ref": "#/$defs/AnyValueWithSubstitutionOrTemplateOrMatcher"
         }
       },
       "required": ["baseUrl", "method"],
@@ -425,7 +808,7 @@
           "description": "Expected HTTP status of the fixture response.",
           "examples": [200],
           "minimum": 0,
-          "type": "integer"
+          "$ref": "#/$defs/IntegerOrSubstitutionOrTemplateOrMatcherExpression"
         },
         "body": {
           "description": "Expected fixture response body. When provided, it is matched against the returned body.",
@@ -434,7 +817,7 @@
               "ok": true
             }
           ],
-          "$ref": "#/$defs/AnyValue"
+          "$ref": "#/$defs/AnyValueWithSubstitutionOrTemplateOrMatcher"
         }
       },
       "required": ["status"],
@@ -486,12 +869,12 @@
         "path": {
           "description": "Request path represented by the example. May use supported template or matcher syntax.",
           "examples": ["/orders/123"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrSpecmaticExpression"
         },
         "method": {
           "description": "HTTP method represented by the example, such as GET or POST.",
           "examples": ["GET"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "query": {
           "description": "Query parameters represented by the example. Values may use supported literal, template, or matcher syntax.",
@@ -500,7 +883,10 @@
               "include": "items"
             }
           ],
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValue"
+          }
         },
         "headers": {
           "description": "Request headers represented by the example. Values may use supported literal, template, or matcher syntax.",
@@ -509,7 +895,10 @@
               "Accept": "application/json"
             }
           ],
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValue"
+          }
         },
         "body": {
           "description": "Request body represented by the example. Any JSON value is allowed, including supported template or matcher values.",
@@ -527,7 +916,10 @@
               "email": "user@example.com"
             }
           ],
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValue"
+          }
         },
         "multipart-formdata": {
           "description": "Multipart form-data parts represented by the request.",
@@ -548,7 +940,7 @@
         "bodyRegex": {
           "description": "Mock-only regular expression used to match the request body. It is interpreted as a regular expression, not a literal body.",
           "examples": ["^hello [a-z]+$"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         }
       },
       "required": ["method", "path"]
@@ -573,7 +965,7 @@
         "status": {
           "description": "Response status expected by tests and returned by mocks.",
           "examples": [200],
-          "type": "integer",
+          "$ref": "#/$defs/IntegerOrTemplateValueExpression",
           "minimum": 0
         },
         "headers": {
@@ -583,7 +975,10 @@
               "Content-Type": "application/json"
             }
           ],
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValue"
+          }
         },
         "body": {
           "description": "Response body returned by mocks. Tests validate body values expressed as matchers. Any JSON value is allowed.",
@@ -598,7 +993,7 @@
         "externalisedResponseCommand": {
           "description": "Mock-only executable that generates the response. The matched request is supplied through SPECMATIC_REQUEST, and the configured response body is ignored.",
           "examples": ["./scripts/generate-response.sh"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         }
       },
       "required": ["status"]
@@ -637,17 +1032,24 @@
         "name": {
           "description": "Name of the multipart form-data field.",
           "examples": ["description"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "content": {
           "description": "Inline content of the multipart field.",
           "examples": ["Order details"],
-          "type": ["string", "null"]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StringOrTemplateValueExpression"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "contentType": {
           "description": "Content-Type value for the inline multipart part.",
           "examples": ["text/plain"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         }
       },
       "required": ["name", "content"]
@@ -667,22 +1069,22 @@
         "contentEncoding": {
           "description": "Content-Encoding value for the multipart file part.",
           "examples": ["base64"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "contentType": {
           "description": "Content-Type value for the multipart file part.",
           "examples": ["application/pdf"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "filename": {
           "description": "File reference for the multipart part. The value must begin with @, for example @order.pdf.",
           "examples": ["@order.pdf"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "name": {
           "description": "Name of the multipart form-data field.",
           "examples": ["document"],
-          "type": "string"
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
         }
       },
       "required": ["name", "filename"]

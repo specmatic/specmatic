@@ -1,0 +1,33 @@
+{
+  "http-request": {"method": "GET", "path": "/health"},
+  "http-response": {"status": 200},
+  "before": [{
+    "type": "http",
+    "wait": "${WAIT:PT1S}",
+    "timeout": "PT${TIMEOUT_SECONDS:5}S",
+    "retry": {"max-attempts": "${RETRIES:2}", "delay": "retry-${DELAY:PT1S}"},
+    "executeFor": {"scenarios": "${SCENARIOS:all}"},
+    "http-request": {
+      "baseUrl": "$(BASE_URL)",
+      "method": "$(METHOD)",
+      "path": "/setup/(SETUP_ID:string)",
+      "headers": {
+        "Authorization": "Bearer $(TOKEN)",
+        "X-Request-Id": "request-${REQUEST_ID:string}",
+        "X-Matcher": "$match(pattern: ready|accepted)",
+        "X-Template": "${HEADER_VALUE:ok}"
+      },
+      "body": {
+        "capture": "(BODY_ID:string)",
+        "lookup": "$(BODY_VALUE)",
+        "template": "${BODY_TEMPLATE:ready}",
+        "matcher": "$match(dataType: string, value: each)",
+        "nested": [{"number": 1.5, "boolean": true, "null": null}]
+      }
+    },
+    "http-response": {
+      "status": "(STATUS:integer)",
+      "body": {"result": "${RESULT:accepted}", "ok": true}
+    }
+  }]
+}

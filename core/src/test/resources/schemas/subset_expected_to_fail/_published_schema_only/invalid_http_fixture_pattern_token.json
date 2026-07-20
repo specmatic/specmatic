@@ -1,0 +1,9 @@
+{
+  "http-request": {"method": "GET", "path": "/health"},
+  "http-response": {"status": 200},
+  "before": [{
+    "type": "http",
+    "http-request": {"baseUrl": "http://localhost:9000", "method": "(integer)"},
+    "http-response": {"status": 200}
+  }]
+}
