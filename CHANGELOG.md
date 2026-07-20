@@ -30,6 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+## Added
+
+- Added load-time validation for `before` and `after` fixtures in external examples, with fuzzy matching for clearer errors.
+  
 ## 2.50.1 (2026-07-17)
 
 ### Added
