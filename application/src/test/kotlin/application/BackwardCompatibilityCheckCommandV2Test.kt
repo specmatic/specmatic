@@ -447,15 +447,18 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
-            - Specs that have changed: 
+            - Externalised examples that have changed:
             1. ${exampleFile.toPath().toRealPath()}
+            """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
 
             - Specs whose externalised examples were changed:
             1. ${tempDir.resolve("api.yaml").toPath().toRealPath()}
             """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
-            Files checked: 2 (Passed: 2, Failed: 0)
+            Files checked: 1 (Passed: 1, Failed: 0)
             """.trimIndent()
             )
         }
@@ -463,9 +466,9 @@ class BackwardCompatibilityCheckCommandV2Test {
         @Test
         fun `should fail when externalised example changes but corresponding spec file is missing`() {
             val exampleDir = tempDir.resolve("orders_examples").apply { mkdirs() }
-            val exampleFile = exampleDir.resolve("example.json").apply { writeText("""{"id":1}""") }
+            val exampleFile = exampleDir.resolve("example.json").apply { writeText("""{"http-request":{"method":"GET"}}""") }
             commitAndPush(tempDir, "Initial commit")
-            exampleFile.writeText("""{"id":2}""")
+            exampleFile.writeText("""{"http-request":{"method":"POST"}}""")
 
             val (stdOut, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
                 BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()

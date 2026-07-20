@@ -30,6 +30,13 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased version
+
+### Changed
+
+- Fixed the backward compatibility check file count to exclude externalised examples that are not checked directly.
+- Improved backward compatibility check logs for changed externalised examples.
+
 ## 2.50.1 (2026-07-17)
 
 ### Added
