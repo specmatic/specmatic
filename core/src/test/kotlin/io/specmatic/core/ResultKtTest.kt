@@ -34,12 +34,6 @@ internal class ResultKtTest {
     }
 
     @Test
-    fun `add response body to result variables`() {
-        val result = Success().withBindings(mapOf("data" to "response-body"), HttpResponse.ok("10")) as Success
-        assertThat(result.variables).isEqualTo(mapOf("data" to "10"))
-    }
-
-    @Test
     fun `result report for failure with multiple causes`() {
         val result = Failure(
             causes = listOf(
@@ -75,7 +69,7 @@ internal class ResultKtTest {
     @Test
     fun `success copy operation should preserve metadata`() {
         val baseSuccess = Success().updateScenario(scenario).updatePath("contract-path-success") as Success
-        val transformedSuccess = baseSuccess.copy(variables = mapOf("x" to "1"))
+        val transformedSuccess = baseSuccess.copy(partialSuccessMessage = "partial")
         assertMetadata(transformedSuccess, scenario, "contract-path-success")
     }
 

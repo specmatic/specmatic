@@ -94,38 +94,6 @@ data class HttpResponse(
         return startLinesWith(responseString, prefix)
     }
 
-    fun selectValue(selector: String): String {
-        return when {
-            selector.startsWith("response-header.") -> {
-                val headerName = selector.removePrefix("response-header.").trim()
-                this.headers[headerName]
-                    ?: throw ContractException("Couldn't find header name $headerName specified in $selector")
-            }
-
-            selector.startsWith("response-body") -> {
-                val bodySelector = selector.removePrefix("response-body").trim()
-                if (bodySelector.isBlank())
-                    this.body.toStringLiteral()
-                else {
-                    if (this.body !is JSONObjectValue)
-                        throw ContractException("JSON selector can only be used for JSON body")
-
-                    val jsonBodySelector = bodySelector.removePrefix(".")
-                    this.body.findFirstChildByPath(jsonBodySelector)?.toStringLiteral()
-                        ?: throw ContractException("JSON selector $selector was not found")
-                }
-            }
-
-            else -> throw ContractException("Selector $selector is unexpected. It must either start with response-header or response-body.")
-        }
-    }
-
-    fun export(bindings: Map<String, String>): Map<String, String> {
-        return bindings.entries.fold(emptyMap()) { acc, setter ->
-            acc.plus(setter.key to selectValue(setter.value))
-        }
-    }
-
     fun withRandomResultHeader(): HttpResponse {
         return this.copy(headers = this.headers.plus(SPECMATIC_TYPE_HEADER to "random"))
     }

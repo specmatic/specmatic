@@ -15,14 +15,6 @@ pipeline:
   project: XNSIO
   definitionId: 1
 
-environments:
-  staging:
-    baseurls:
-      auth.spec: http://localhost:8080
-    variables:
-      username: jackie
-      password: PaSsWoRd
-
 report:
   formatters:
     - type: text
@@ -73,4 +65,3 @@ stub:
 examples:
   - folder1/examples
   - folder2/examples
-

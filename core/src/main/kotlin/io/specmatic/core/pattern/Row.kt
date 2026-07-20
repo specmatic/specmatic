@@ -8,15 +8,12 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
 
-const val DEREFERENCE_PREFIX = "$"
 const val FILENAME_PREFIX = "@"
 const val REQUEST_BODY_FIELD = "(REQUEST-BODY)"
 
 data class Row(
     val columnNames: List<String> = emptyList(),
     val values: List<String> = emptyList(),
-    val variables: Map<String, String> = emptyMap(),
-    val references: Map<String, References> = emptyMap(),
     val name: String = "",
     val fileSource: String? = null,
     val requestBodyJSONExample: JSONExample? = null,
@@ -67,8 +64,6 @@ data class Row(
         val value = requestBodyJSONExample?.getValueFromTopLevelKeys(columnName) ?: cells.getValue(columnName)
 
         return when {
-            isContextValue(value) && isReferenceValue(value) -> ReferenceValue(ValueReference(value), references)
-            isContextValue(value) -> VariableValue(ValueReference(value), variables)
             isFileValue(value) -> FileValue(withoutPatternDelimiters(value).removePrefix("@"))
             else -> SimpleValue(value)
         }
@@ -76,12 +71,6 @@ data class Row(
 
     private fun isFileValue(value: String): Boolean {
         return isPatternToken(value) && withoutPatternDelimiters(value).startsWith(FILENAME_PREFIX)
-    }
-
-    private fun isReferenceValue(value: String): Boolean = value.contains(".")
-
-    private fun isContextValue(value: String): Boolean {
-        return isPatternToken(value) && withoutPatternDelimiters(value).trim().startsWith(DEREFERENCE_PREFIX)
     }
 
     fun containsField(key: String): Boolean = requestBodyJSONExample?.hasScalarValueForKey(key) ?: cells.containsKey(key)

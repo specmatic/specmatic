@@ -16,8 +16,6 @@ data class ScenarioInfo(
     val fixtures: Map<String, Value> = emptyMap(),
     val examples: List<Examples> = emptyList(),
     val ignoreFailure: Boolean = false,
-    val references: Map<String, References> = emptyMap(),
-    val bindings: Map<String, String> = emptyMap(),
     val isGherkinScenario: Boolean = false,
     val sourceProvider: String? = null,
     val sourceRepository: String? = null,

@@ -6,7 +6,6 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Scenario
 import io.specmatic.core.SPECMATIC_STUB_DICTIONARY
 import io.specmatic.core.SpecmaticConfigV1V2Common
-import io.specmatic.core.TestConfig
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.SpecmaticConfigV3
@@ -111,7 +110,6 @@ class SpecmaticJunitSupportTest {
     fun `should retain open api path parameter convention for parameterized endpoints`() {
         val result = SpecmaticJUnitSupport().loadTestScenarios(
             "./src/test/resources/spec_with_parameterized_paths.yaml",
-            TestConfig(emptyMap(), emptyMap()),
             filterName = null,
             filterNotName = null,
             filter = ScenarioMetadataFilter.from("")
@@ -583,7 +581,6 @@ paths:
             val specmaticJunitSupportWithStrictMode = SpecmaticJUnitSupport()
             val (testsWithStrictMode, _) = specmaticJunitSupportWithStrictMode.loadTestScenarios(
                 specFile.absolutePath,
-                TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 filter = ScenarioMetadataFilter.from("")
@@ -617,7 +614,6 @@ paths:
             val specmaticJunitSupportWithoutStrictMode = SpecmaticJUnitSupport()
             val (testsWithoutStrictMode, _) = specmaticJunitSupportWithoutStrictMode.loadTestScenarios(
                 specFile.absolutePath,
-                TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 filter = ScenarioMetadataFilter.from("")
@@ -643,7 +639,6 @@ paths:
         val specFile = File("src/test/resources/filter_test/product_search_bff_v4.yaml")
         val testData = SpecmaticJUnitSupport().loadTestScenarios(
             path = specFile.canonicalPath,
-            config = TestConfig(emptyMap(), emptyMap()),
             filterName = "", filterNotName = "",
             filter = ScenarioMetadataFilter.from("!(PATH='/products' && METHOD='POST' && STATUS='201')")
         )
@@ -764,7 +759,7 @@ paths:
         assertDoesNotThrow {
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = specFile.canonicalPath,
-                config = TestConfig(emptyMap(), emptyMap()), filterName = null, filterNotName = null,
+                filterName = null, filterNotName = null,
                 filter = ScenarioMetadataFilter.from("PATH='/test' && METHOD='post'")
             )
         }
@@ -777,7 +772,6 @@ paths:
         val loaded = assertDoesNotThrow {
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = specFile.canonicalPath,
-                config = TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 specmaticConfig = strictModeConfig,
@@ -795,7 +789,6 @@ paths:
         val loaded = assertDoesNotThrow {
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = specFile.canonicalPath,
-                config = TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 specmaticConfig = strictModeConfig,
@@ -814,7 +807,6 @@ paths:
         val loaded = assertDoesNotThrow {
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = specFile.canonicalPath,
-                config = TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 specmaticConfig = strictModeConfig,
@@ -843,7 +835,6 @@ paths:
         val specmaticConfig = SpecmaticConfigV1V2Common().withTestModes(strictMode = null, lenientMode = true)
         val loaded = SpecmaticJUnitSupport().loadTestScenarios(
             path = specFile.canonicalPath,
-            config = TestConfig(emptyMap(), emptyMap()),
             filterName = null,
             filterNotName = null,
             specmaticConfig = specmaticConfig,
@@ -865,7 +856,6 @@ paths:
         val exception = assertThrows<ContractException> {
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = specFile.canonicalPath,
-                config = TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 specmaticConfig = specmaticConfig,
@@ -1004,7 +994,7 @@ paths:
         val specmaticJUnitSupport = SpecmaticJUnitSupport()
         val loadedScenarios = specmaticJUnitSupport.loadTestScenarios(
             path = specFile.canonicalPath,
-            config = TestConfig(emptyMap(), emptyMap()), filterName = null, filterNotName = null,
+            filterName = null, filterNotName = null,
             filter = ScenarioMetadataFilter.from("")
         )
 
@@ -1300,7 +1290,6 @@ paths:
         try {
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = specFilePath,
-                config = TestConfig(emptyMap(), emptyMap()),
                 filterName = null,
                 filterNotName = null,
                 filter = ScenarioMetadataFilter.from("")

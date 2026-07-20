@@ -305,7 +305,6 @@ data class SpecmaticConfigV1V2Common(
     private val sources: List<Source> = emptyList(),
     private val auth: Auth? = null,
     private val pipeline: Pipeline? = null,
-    private val environments: Map<String, Environment>? = null,
     private val hooks: Map<String, String> = emptyMap(),
     private val proxy: ProxyConfig? = null,
     private val repository: RepositoryInfo? = null,
@@ -463,10 +462,6 @@ data class SpecmaticConfigV1V2Common(
         @JsonIgnore
         fun getAttributeSelectionConfigOrNull(specmaticConfig: SpecmaticConfigV1V2Common): AttributeSelectionPattern? {
             return specmaticConfig.attributeSelectionPattern
-        }
-
-        fun getEnvironments(specmaticConfig: SpecmaticConfigV1V2Common): Map<String, Environment>? {
-            return specmaticConfig.environments
         }
 
         @JsonIgnore
@@ -1312,16 +1307,6 @@ data class SpecmaticConfigV1V2Common(
         return this.copy(report = reportConfigurationDetails)
     }
 
-    override fun getEnvironment(envName: String): JSONObjectValue {
-        val envConfigFromFile = environments?.get(envName) ?: return JSONObjectValue()
-
-        try {
-            return parsedJSONObject(content = ObjectMapper().writeValueAsString(envConfigFromFile))
-        } catch(e: Throwable) {
-            throw ContractException("Error loading Specmatic configuration: ${e.message}")
-        }
-    }
-
     override fun enableResiliencyTests(): SpecmaticConfigV1V2Common {
         val testConfig = test ?: TestConfiguration()
         return this.copy(
@@ -1550,11 +1535,6 @@ data class Pipeline(
         return definitionId
     }
 }
-
-data class Environment(
-    val baseurls: Map<String, String>? = null,
-    val variables: Map<String, String>? = null
-)
 
 enum class SourceProvider { git, filesystem, web }
 

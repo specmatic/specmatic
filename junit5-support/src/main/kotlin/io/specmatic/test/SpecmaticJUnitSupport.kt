@@ -174,19 +174,6 @@ open class SpecmaticJUnitSupport {
         excludedEndpoints.split(",").map { it.trim() }
     } ?: emptyList()
 
-    private fun getEnvConfig(envName: String?): JSONObjectValue {
-        if (envName.isNullOrBlank())
-            return JSONObjectValue()
-
-        val configFileName = getConfigFilePath()
-        if (!File(configFileName).exists())
-            throw ContractException("Environment name $envName was specified but config file does not exist in the project root. Either avoid setting envName, or provide the configuration file with the environment settings.")
-
-        val config = loadSpecmaticConfig(configFileName)
-
-        return config.getEnvironment(envName)
-    }
-
     private fun loadExceptionAsTestError(e: Throwable): Stream<DynamicTest> {
         return sequenceOf(DynamicTest.dynamicTest("Specmatic Test Suite") {
             ResultAssert.assertThat(Result.Failure(exceptionCauseMessage(e))).isSuccess()
@@ -218,12 +205,6 @@ open class SpecmaticJUnitSupport {
         } ?: DEFAULT_TIMEOUT_IN_MILLISECONDS
 
         val workingDirectory = WorkingDirectory(DEFAULT_WORKING_DIRECTORY)
-        val envConfig = getEnvConfig(settings.envName)
-        val testConfig = try {
-            loadTestConfig(envConfig).withVariablesFromFilePath(settings.variablesFileName)
-        } catch (e: Throwable) {
-            return loadExceptionAsTestError(e)
-        }
         val testBuildResult = try {
             when {
                 settings.contractPaths != null -> {
@@ -235,7 +216,6 @@ open class SpecmaticJUnitSupport {
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
                         val loadedTestScenarios = loadTestScenarios(
                             contractPath,
-                            testConfig,
                             specificationPath = contractPath,
                             filterName = filterName,
                             filterNotName = filterNotName,
@@ -277,7 +257,6 @@ open class SpecmaticJUnitSupport {
                         val overlayContent = if (overlayFilePath.isNullOrBlank()) "" else readFrom(overlayFilePath, "overlay")
                         val loadedTestScenarios = loadTestScenarios(
                             contractPathData.path,
-                            testConfig,
                             contractPathData.provider,
                             contractPathData.repository,
                             contractPathData.branch,
@@ -543,7 +522,6 @@ open class SpecmaticJUnitSupport {
 
     fun loadTestScenarios(
         path: String,
-        config: TestConfig,
         sourceProvider: String? = null,
         sourceRepository: String? = null,
         sourceRepositoryBranch: String? = null,
@@ -585,7 +563,7 @@ open class SpecmaticJUnitSupport {
                 strictMode = strictMode,
                 lenientMode = specmaticConfig.getTestLenientMode() ?: false,
                 exampleDirPaths = exampleDirPaths
-            ).copy(testVariables = config.variables, testBaseURLs = config.baseURLs).useDictionary(testDictionary)
+            ).useDictionary(testDictionary)
 
         val allEndpoints = feature.scenarios.map { scenario ->
             Endpoint(
