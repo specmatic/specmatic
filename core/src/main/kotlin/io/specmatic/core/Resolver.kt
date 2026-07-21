@@ -107,7 +107,7 @@ data class Resolver(
 
         val patternFromValue = when {
             isPatternToken(sampleData) -> patternFromTokenBased(sampleData)
-            sampleData.hasMatcherTemplate() -> pattern.patternFrom(sampleData, this)
+            sampleData.hasMatcherTemplate() -> patternFromValueUsing(pattern, sampleData, this) { it.deepPattern() }
             else -> null
         }
 
