@@ -40,6 +40,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.specmatic.core.substitution.SubstitutionImpl
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.reporter.model.SpecType
@@ -52,6 +53,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.net.ServerSocket
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -89,6 +92,30 @@ class ScenarioAsTestTest {
                 FixtureExecutionMetadata(FixtureScenarioType.POSITIVE),
                 FixtureExecutionMetadata(FixtureScenarioType.POSITIVE)
             )
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["before", "after"])
+        fun `passes external example data to fixture execution`(fixtureDiscriminatorKey: String) {
+            ServiceLoaderTestFixtureExecutor.reset()
+            val data = parsedJSONObject("""{"people":{"alice":{"name":"Alice"}}}""")
+            val scenario = scenario(
+                Row(
+                    scenarioStub = ScenarioStub(
+                        beforeFixtures = listOf(StringValue("before")),
+                        afterFixtures = listOf(StringValue("after")),
+                        data = data
+                    )
+                )
+            )
+
+            withServiceLoaderEntries(
+                mapOf(OpenAPIFixtureExecutor::class.java to ServiceLoaderTestFixtureExecutor::class.java.name)
+            ) {
+                scenarioAsTest(scenario).runTest(fixedResponseExecutor(body = "anything"))
+            }
+
+            assertThat(ServiceLoaderTestFixtureExecutor.receivedData[fixtureDiscriminatorKey]).isEqualTo(data)
         }
 
         @Test
@@ -450,13 +477,14 @@ class ScenarioAsTestTest {
     }
 
     @Test
-    fun `runTest should call matcher when positive scenario has response body example`() {
+    fun `runTest should pass external example data to matcher when positive scenario has response body example`() {
         val matcherEngine = mockk<MatcherEngine>()
         mockkObject(MatcherEngine.Companion)
         every { MatcherEngine.load() } returns matcherEngine
-        every { matcherEngine.matchResponseValue(any(), any(), any()) } returns Result.Success()
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
 
         val responseBody = parsedJSONObject("""{"id": 10}""")
+        val data = parsedJSONObject("""{"people":{"alice":{"name":"Alice"}}}""")
         val scenario = Scenario(
             ScenarioInfo(
                 specType = SpecType.OPENAPI,
@@ -475,7 +503,8 @@ class ScenarioAsTestTest {
                         status = 200,
                         headers = mapOf("Content-Type" to "application/json"),
                         body = responseBody
-                    )
+                    ),
+                    data = data
                 )
             )
         )
@@ -488,7 +517,7 @@ class ScenarioAsTestTest {
             )
         )
 
-        verify(exactly = 1) { matcherEngine.matchResponseValue(responseBody, responseBody, any()) }
+        verify(exactly = 1) { matcherEngine.matchResponseValue(responseBody, responseBody, any(), data) }
     }
 
     @Test
@@ -496,7 +525,7 @@ class ScenarioAsTestTest {
         val matcherEngine = mockk<MatcherEngine>()
         mockkObject(MatcherEngine.Companion)
         every { MatcherEngine.load() } returns matcherEngine
-        every { matcherEngine.matchResponseValue(any(), any(), any()) } returns Result.Success()
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
 
         val scenario = Scenario(
             ScenarioInfo(
@@ -530,7 +559,7 @@ class ScenarioAsTestTest {
             )
         )
 
-        verify(exactly = 0) { matcherEngine.matchResponseValue(any(), any(), any()) }
+        verify(exactly = 0) { matcherEngine.matchResponseValue(any(), any(), any(), any()) }
     }
 
     @Test
@@ -675,6 +704,18 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
         executionMetadata: FixtureExecutionMetadata,
+        substitution: Substitution,
+        data: JSONObjectValue
+    ): FixtureExecutionDetails {
+        receivedData[fixtureDiscriminatorKey] = data
+        return execute(id, fixtures, fixtureDiscriminatorKey, executionMetadata, substitution)
+    }
+
+    override fun execute(
+        id: String,
+        fixtures: List<Value>,
+        fixtureDiscriminatorKey: String,
+        executionMetadata: FixtureExecutionMetadata,
         substitution: Substitution
     ): FixtureExecutionDetails {
         val filteredFixtures = fixtures.filterFor(executionMetadata)
@@ -700,12 +741,14 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
         val calls: MutableList<String> = mutableListOf()
         val fixturesSeen: MutableList<List<Value>> = mutableListOf()
         val receivedContexts: MutableList<FixtureExecutionMetadata> = mutableListOf()
+        val receivedData: MutableMap<String, JSONObjectValue> = mutableMapOf()
         var receivedSubstitution: Substitution? = null
 
         fun reset() {
             calls.clear()
             fixturesSeen.clear()
             receivedContexts.clear()
+            receivedData.clear()
             receivedSubstitution = null
         }
     }
