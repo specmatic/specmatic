@@ -242,7 +242,7 @@ data class ScenarioAsTest(
                     )
                     if(matchesResult is Result.Failure) {
                         return ContractTestExecutionResult(
-                            result = matchesResult,
+                            result = matchesResult.breadCrumb("RESPONSE.BODY"),
                             request = request,
                             response = response,
                             beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults

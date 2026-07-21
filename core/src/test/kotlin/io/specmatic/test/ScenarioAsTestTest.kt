@@ -3,6 +3,7 @@ package io.specmatic.test
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 import io.specmatic.core.Feature
 import io.specmatic.core.utilities.Decision
@@ -518,6 +519,53 @@ class ScenarioAsTestTest {
         )
 
         verify(exactly = 1) { matcherEngine.matchResponseValue(responseBody, responseBody, any(), data) }
+    }
+
+    @Test
+    fun `runTest should report positive response example matcher failures under response body`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns
+            Result.Failure("matcher failed").breadCrumb("items[0]")
+
+        val responseBody = parsedJSONObject("""{"items": [{"id": 10}]}""")
+        val scenario = Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    body = JSONObjectPattern(mapOf("items" to parsedValue("""[{"id": 10}]""").deepPattern())),
+                    headersPattern = HttpHeadersPattern(contentType = "application/json")
+                ),
+            )
+        ).copy(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    response = HttpResponse(
+                        status = 200,
+                        headers = mapOf("Content-Type" to "application/json"),
+                        body = responseBody
+                    )
+                )
+            )
+        )
+
+        val executionResult = try {
+            scenarioAsTest(scenario).runTest(
+                fixedResponseExecutor(
+                    status = 200,
+                    body = """{"items": [{"id": 10}]}""",
+                    headers = mapOf("Content-Type" to "application/json")
+                )
+            )
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+
+        assertThat(executionResult.result.reportString()).contains(">> RESPONSE.BODY.items[0]")
     }
 
     @Test
