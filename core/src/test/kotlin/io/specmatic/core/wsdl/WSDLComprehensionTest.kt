@@ -10,9 +10,11 @@ import io.specmatic.core.value.toXMLNode
 import io.specmatic.core.wsdl.parser.WSDL
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments.arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
 import java.util.stream.Stream
 
 class WSDLComprehensionTest {
@@ -51,6 +53,66 @@ class WSDLComprehensionTest {
     }
 
     @Test
+    fun `toFeature enforces constraints inherited through named simple type chains`() {
+        val feature = wsdlFeature(
+            requestDeclaration = """<xsd:element name="Request" type="tns:CodeType"/>""",
+            additionalSchema = """
+                <xsd:simpleType name="CodeText">
+                    <xsd:restriction base="xsd:string">
+                        <xsd:minLength value="2"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+                <xsd:simpleType name="CodeAlias">
+                    <xsd:restriction base="tns:CodeText">
+                        <xsd:maxLength value="8"/>
+                        <xsd:pattern value="[A-Z]+"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+                <xsd:complexType name="CodeType">
+                    <xsd:simpleContent>
+                        <xsd:extension base="tns:CodeAlias"/>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            """.trimIndent(),
+        )
+
+        assertRequestMatches(feature, primitiveRequestBody("AB"))
+        assertRequestMatches(feature, primitiveRequestBody("ABCDEFGH"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("A"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("ABCDEFGHI"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("Ab"))
+    }
+
+    @Test
+    fun `toFeature enforces local constraints on a simple content restriction over a complex base`() {
+        val feature = wsdlFeature(
+            requestDeclaration = """<xsd:element name="Request" type="tns:Code"/>""",
+            additionalSchema = """
+                <xsd:complexType name="Text">
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:string"/>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+                <xsd:complexType name="Code">
+                    <xsd:simpleContent>
+                        <xsd:restriction base="tns:Text">
+                            <xsd:minLength value="2"/>
+                            <xsd:maxLength value="8"/>
+                            <xsd:pattern value="[A-Z]+"/>
+                        </xsd:restriction>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            """.trimIndent(),
+        )
+
+        assertRequestMatches(feature, primitiveRequestBody("AB"))
+        assertRequestMatches(feature, primitiveRequestBody("ABCDEFGH"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("A"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("ABCDEFGHI"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("Ab"))
+    }
+
+    @Test
     fun `toFeature enforces an inline complex type in the SOAP request body`() {
         val feature = wsdlFeature(
             requestDeclaration = complexRequestDeclaration(
@@ -64,6 +126,27 @@ class WSDLComprehensionTest {
         assertRequestMatches(feature, requestBody("<Id>10</Id><Name>Jane</Name>"))
         assertRequestDoesNotMatch(feature, requestBody("<Id>10</Id>"))
         assertRequestDoesNotMatch(feature, requestBody("<Id>not-a-number</Id><Name>Jane</Name>"))
+    }
+
+    @Test
+    fun `toFeature enforces a nested inline complex type in the SOAP request body`() {
+        val feature = wsdlFeature(
+            requestDeclaration = complexRequestDeclaration(
+                """
+                <xsd:element name="Status">
+                    <xsd:complexType>
+                        <xsd:sequence>
+                            <xsd:element name="Level" type="xsd:integer"/>
+                        </xsd:sequence>
+                    </xsd:complexType>
+                </xsd:element>
+                """.trimIndent()
+            )
+        )
+
+        assertRequestMatches(feature, requestBody("<Status><Level>10</Level></Status>"))
+        assertRequestDoesNotMatch(feature, requestBody("<Status/>"))
+        assertRequestDoesNotMatch(feature, requestBody("<Status><Level>high</Level></Status>"))
     }
 
     @Test
@@ -86,6 +169,56 @@ class WSDLComprehensionTest {
     }
 
     @Test
+    fun `toFeature enforces inherited and extension children from complex content`() {
+        val feature = wsdlFeature(
+            requestDeclaration = """<xsd:element name="Request" type="tns:ExtendedType"/>""",
+            additionalSchema = """
+                <xsd:complexType name="BaseType">
+                    <xsd:sequence>
+                        <xsd:element name="BaseField" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+                <xsd:complexType name="ExtendedType">
+                    <xsd:complexContent>
+                        <xsd:extension base="tns:BaseType">
+                            <xsd:sequence>
+                                <xsd:element name="ExtraField" type="xsd:integer"/>
+                            </xsd:sequence>
+                        </xsd:extension>
+                    </xsd:complexContent>
+                </xsd:complexType>
+            """.trimIndent(),
+        )
+
+        assertRequestMatches(feature, requestBody("<BaseField>base</BaseField><ExtraField>10</ExtraField>"))
+        assertRequestDoesNotMatch(feature, requestBody("<ExtraField>10</ExtraField>"))
+        assertRequestDoesNotMatch(feature, requestBody("<BaseField>base</BaseField><ExtraField>many</ExtraField>"))
+    }
+
+    @Test
+    fun `toFeature preserves boolean text through simple content inheritance`() {
+        val feature = wsdlFeature(
+            requestDeclaration = """<xsd:element name="Request" type="tns:DerivedBoolean"/>""",
+            additionalSchema = """
+                <xsd:complexType name="BooleanText">
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:boolean"/>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+                <xsd:complexType name="DerivedBoolean">
+                    <xsd:simpleContent>
+                        <xsd:extension base="tns:BooleanText"/>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            """.trimIndent(),
+        )
+
+        assertRequestMatches(feature, primitiveRequestBody("true"))
+        assertRequestMatches(feature, primitiveRequestBody("false"))
+        assertRequestDoesNotMatch(feature, primitiveRequestBody("not-a-boolean"))
+    }
+
+    @Test
     fun `toFeature requires an attribute declared with use required`() {
         val feature = wsdlFeature(
             requestDeclaration = attributedRequestDeclaration("""<xsd:attribute name="age" type="xsd:integer" use="required"/>""")
@@ -94,6 +227,23 @@ class WSDLComprehensionTest {
         assertRequestMatches(feature, requestBody("<Name>Jane</Name>", "age=\"30\""))
         assertRequestDoesNotMatch(feature, requestBody("<Name>Jane</Name>"))
         assertRequestDoesNotMatch(feature, requestBody("<Name>Jane</Name>", "age=\"unknown\""))
+    }
+
+    @Test
+    fun `toFeature permits an empty complex child only when it is nillable`() {
+        val nillableFeature = wsdlFeature(
+            requestDeclaration = complexRequestDeclaration("""<xsd:element name="Person" type="tns:Person" nillable="true"/>"""),
+            additionalSchema = personTypeDeclaration(),
+        )
+        val nonNillableFeature = wsdlFeature(
+            requestDeclaration = complexRequestDeclaration("""<xsd:element name="Person" type="tns:Person" nillable="false"/>"""),
+            additionalSchema = personTypeDeclaration(),
+        )
+        val emptyPerson = requestBody("<Person/>")
+
+        assertRequestMatches(nillableFeature, emptyPerson)
+        assertRequestMatches(nillableFeature, requestBody("<Person><Id>10</Id><Name>Jane</Name></Person>"))
+        assertRequestDoesNotMatch(nonNillableFeature, emptyPerson)
     }
 
     @Test
@@ -168,6 +318,7 @@ class WSDLComprehensionTest {
         assertThat(generatedBody)
             .contains("$NAMESPACE\"")
             .containsPattern("<[A-Za-z0-9_-]+:Request>")
+        assertRequestMatches(feature, soapEnvelope("<t:Request>value</t:Request>"))
     }
 
     @ParameterizedTest
@@ -182,6 +333,33 @@ class WSDLComprehensionTest {
         assertThat(generatedBody)
             .contains("<Request>")
             .doesNotContainPattern("<[A-Za-z0-9_-]+:Request>")
+        assertRequestMatches(feature, primitiveRequestBody("value"))
+    }
+
+    @Test
+    fun `toFeature resolves required children from an imported schema`(@TempDir tempDir: File) {
+        val importedNamespace = "$NAMESPACE/imported"
+        tempDir.resolve("imported-types.xsd").writeText(
+            """
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                        targetNamespace="$importedNamespace">
+                <xsd:complexType name="ImportedPerson">
+                    <xsd:sequence>
+                        <xsd:element name="Name" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:schema>
+            """.trimIndent()
+        )
+        val feature = wsdlFeature(
+            requestDeclaration = """<xsd:element name="Request" type="imp:ImportedPerson"/>""",
+            additionalSchema = """<xsd:import schemaLocation="imported-types.xsd" namespace="$importedNamespace"/>""",
+            additionalNamespaces = """xmlns:imp="$importedNamespace"""",
+            wsdlPath = tempDir.resolve("comprehension.wsdl").canonicalPath,
+        )
+
+        assertRequestMatches(feature, requestBody("<Name>Jane</Name>"))
+        assertRequestDoesNotMatch(feature, requestBody(""))
     }
 
     private fun assertRequestMatches(feature: Feature, body: String) {
@@ -217,12 +395,15 @@ class WSDLComprehensionTest {
         responseDeclaration: String = """<xsd:element name="Response" type="xsd:string"/>""",
         additionalSchema: String = "",
         schemaAttributes: String = "",
+        additionalNamespaces: String = "",
+        wsdlPath: String = "comprehension.wsdl",
     ): Feature {
         val wsdl = """
             <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
                               xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
                               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                               xmlns:tns="$NAMESPACE"
+                              $additionalNamespaces
                               targetNamespace="$NAMESPACE">
                 <wsdl:types>
                     <xsd:schema targetNamespace="$NAMESPACE" $schemaAttributes>
@@ -259,7 +440,7 @@ class WSDLComprehensionTest {
             </wsdl:definitions>
         """.trimIndent()
 
-        return WSDL(toXMLNode(wsdl), "comprehension.wsdl").toFeature("comprehension.wsdl")
+        return WSDL(toXMLNode(wsdl), wsdlPath).toFeature(wsdlPath)
     }
 
     private fun soapRequest(body: String): HttpRequest = HttpRequest(
@@ -281,6 +462,15 @@ class WSDLComprehensionTest {
     """.trimIndent()
 
     private fun person(id: String, name: String): String = "<Person><Id>$id</Id><Name>$name</Name></Person>"
+
+    private fun personTypeDeclaration(): String = """
+        <xsd:complexType name="Person">
+            <xsd:sequence>
+                <xsd:element name="Id" type="xsd:integer"/>
+                <xsd:element name="Name" type="xsd:string"/>
+            </xsd:sequence>
+        </xsd:complexType>
+    """.trimIndent()
 
     private fun complexRequestDeclaration(children: String): String = """
         <xsd:element name="Request">
