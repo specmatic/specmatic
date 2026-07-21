@@ -708,16 +708,6 @@ class ServiceLoaderTestFixtureExecutor : OpenAPIFixtureExecutor {
         data: JSONObjectValue
     ): FixtureExecutionDetails {
         receivedData[fixtureDiscriminatorKey] = data
-        return execute(id, fixtures, fixtureDiscriminatorKey, executionMetadata, substitution)
-    }
-
-    override fun execute(
-        id: String,
-        fixtures: List<Value>,
-        fixtureDiscriminatorKey: String,
-        executionMetadata: FixtureExecutionMetadata,
-        substitution: Substitution
-    ): FixtureExecutionDetails {
         val filteredFixtures = fixtures.filterFor(executionMetadata)
         calls.add(fixtureDiscriminatorKey)
         fixturesSeen.add(filteredFixtures)

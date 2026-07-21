@@ -11,15 +11,7 @@ interface OpenAPIFixtureExecutor {
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
         executionMetadata: FixtureExecutionMetadata,
-        substitution: Substitution
-    ): FixtureExecutionDetails
-
-    fun execute(
-        id: String,
-        fixtures: List<Value>,
-        fixtureDiscriminatorKey: String,
-        executionMetadata: FixtureExecutionMetadata,
         substitution: Substitution,
         data: JSONObjectValue
-    ): FixtureExecutionDetails = execute(id, fixtures, fixtureDiscriminatorKey, executionMetadata, substitution)
+    ): FixtureExecutionDetails
 }
