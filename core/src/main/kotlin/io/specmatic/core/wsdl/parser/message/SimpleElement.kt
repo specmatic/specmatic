@@ -11,7 +11,6 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.XMLValue
 import io.specmatic.core.value.localName
 import io.specmatic.core.value.namespacePrefix
-import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
 import io.specmatic.core.wsdl.payload.SOAPPayload
@@ -41,7 +40,6 @@ data class SimpleElement(
     }
 
     override fun getSOAPPayload(
-        soapMessageType: SOAPMessageType,
         nodeNameForSOAPBody: String,
         specmaticTypeName: String,
         namespaces: Map<String, String>,
@@ -49,7 +47,6 @@ data class SimpleElement(
     ): SOAPPayload {
         val bodyNode = typeInfo.nodes.first() as XMLNode
         return SimpleTypedSOAPPayload(
-            soapMessageType,
             bodyNode,
             namespaces,
             typeInfo.members.firstOrNull() as? XMLPattern ?: XMLPattern(bodyNode),

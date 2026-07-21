@@ -10,7 +10,6 @@ import io.specmatic.core.value.XMLNode
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.namespacePrefix
 import io.specmatic.core.value.toXMLNode
-import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
 import io.specmatic.core.wsdl.parser.isAbstractNamedComplexType
@@ -121,7 +120,6 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
     }
 
     override fun getSOAPPayload(
-        soapMessageType: SOAPMessageType,
         nodeNameForSOAPBody: String,
         specmaticTypeName: String,
         namespaces: Map<String, String>,
@@ -129,7 +127,7 @@ data class ComplexElement(val wsdlTypeReference: String, val element: XMLNode, v
     ): SOAPPayload {
         val complexType = wsdl.getComplexTypeNode(element)
 
-        return ComplexTypedSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, complexType.getAttributes())
+        return ComplexTypedSOAPPayload(nodeNameForSOAPBody, specmaticTypeName, namespaces, complexType.getAttributes())
     }
 }
 

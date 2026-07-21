@@ -36,25 +36,6 @@ data class SOAPOperationTypeInfo(val operationName: String, val soapVersion: SOA
         types = SOAPTypes(types)
     )
 
-    fun expandedVariants(): List<SOAPOperationTypeInfo> {
-        return types.expandedVariants().map { expandedTypes ->
-            copy(types = expandedTypes)
-        }
-    }
-
-    fun toGherkinScenario(scenarioIndent: String = "", incrementalIndent: String = "  "): String {
-        val titleStatement = listOf("Scenario: $operationName".prependIndent(scenarioIndent))
-
-        val statementIndent = "$scenarioIndent$incrementalIndent"
-        val bodyStatements =
-            types.statements()
-            .plus(request.statements())
-            .plus(response.statements())
-            .map { it.prependIndent(statementIndent) }
-
-        return titleStatement.plus(bodyStatements).joinToString("\n")
-    }
-
     fun toScenarioInfo(
         protocol: SpecmaticProtocol = SpecmaticProtocol.SOAP,
         specType: SpecType = SpecType.WSDL,

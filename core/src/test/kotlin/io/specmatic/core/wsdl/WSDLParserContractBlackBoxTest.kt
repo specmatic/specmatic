@@ -591,21 +591,6 @@ class WSDLParserContractBlackBoxTest {
         assertThat(result.failureCount).isEqualTo(1)
     }
 
-    @Test
-    fun `wsdl gherkin generation includes response soap header part`() {
-        val wsdlPath = "src/test/resources/wsdl/state_machine/response_header_part.wsdl"
-        val wsdl = WSDL(toXMLNode(File(wsdlPath).readText()), wsdlPath)
-
-        val gherkin = wsdl.convertToGherkin()
-
-        assertThat(gherkin)
-            .contains("And response-body")
-            .contains("soapenv:Header")
-            .contains("ResponseHeader")
-            .contains("Headers")
-            .contains("HeaderPartResponse")
-    }
-
     private fun scalarRequestBranch(body: String): String {
         return when {
             "CustomerNumber" in body -> "customerNumber"

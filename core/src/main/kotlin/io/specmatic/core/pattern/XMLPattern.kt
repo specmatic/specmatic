@@ -100,10 +100,6 @@ data class XMLPattern(
         isSOAPHeader: Boolean = false
     ) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP, isSOAPHeader)
 
-    fun toPrettyString(): String {
-        return pattern.toGherkinishNode().toPrettyStringValue()
-    }
-
     fun plusNamespaceUri(namespaceUri: String?): XMLPattern {
         return copy(pattern = pattern.copy(namespaceUri = namespaceUri?.takeIf { it.isNotBlank() }))
     }
@@ -1600,19 +1596,6 @@ data class XMLPattern(
 
     override val typeName: String = "xml"
 
-    // TODO not sure if this is still needed
-    fun toGherkinString(additionalIndent: String = "", indent: String = ""): String {
-        return pattern.toGherkinString(additionalIndent, indent)
-    }
-
-    fun toGherkinXMLNode(): XMLNode {
-        return pattern.toGherkinishNode()
-    }
-
-    fun toGherkinStatement(specmaticTypeName: String): String {
-        val typeString = this.toGherkinXMLNode().toPrettyStringValue().trim()
-        return "And type $specmaticTypeName\n\"\"\"\n$typeString\n\"\"\""
-    }
 }
 
 private fun XMLNode.xsiTypeName(): WSDLTypeName? {

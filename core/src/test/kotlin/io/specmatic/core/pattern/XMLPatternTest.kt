@@ -1305,6 +1305,17 @@ internal class XMLPatternTest {
         }
     }
 
+    private fun XMLPattern.addressChildNames(): List<String> =
+        requireNotNull(addressChildNamesOrNull())
+
+    private fun XMLPattern.addressChildNamesOrNull(): List<String>? =
+        pattern.nodes.filterIsInstance<XMLPattern>()
+            .firstOrNull { it.pattern.realName.substringAfter(":") == "address" }
+            ?.pattern
+            ?.nodes
+            ?.filterIsInstance<XMLPattern>()
+            ?.map { it.pattern.realName.substringAfter(":") }
+
     @Nested
     inner class BackwardCompatibility {
         @Test
@@ -1332,30 +1343,13 @@ internal class XMLPatternTest {
 
             val resolver = Resolver(newPatterns = mapOf("(Address)" to addressType))
 
-            val testTypes = personType.newBasedOn(resolver).map { it.toPrettyString() }.toList()
-
-            for (type in testTypes) {
-                println(type)
-            }
+            val testTypes = personType.newBasedOn(resolver).toList()
 
             assertThat(testTypes.size).isEqualTo(2)
-
-            assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
-                <person>
-                  <name>(string)</name>
-                  <address specmatic_type="Address">
-                    <flat_no>(string)</flat_no>
-                    <street>(string)</street>
-                  </address>
-                </person>
-                """.trimIndent().trimmedLinesString())
-
-            assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
-                <person>
-                  <name>(string)</name>
-                  <address specmatic_type="Address"/>
-                </person>
-                """.trimIndent().trimmedLinesString())
+            assertThat(testTypes.map { it.addressChildNames() }).containsExactlyInAnyOrder(
+                listOf("flat_no", "street"),
+                emptyList(),
+            )
         }
 
         @Test
@@ -1376,36 +1370,14 @@ internal class XMLPatternTest {
 
             val resolver = Resolver(newPatterns = mapOf("(Address)" to addressType))
 
-            val testTypes = personType.newBasedOn(resolver).map { it.toPrettyString() }.toList()
-
-            for (type in testTypes) {
-                println(type)
-            }
+            val testTypes = personType.newBasedOn(resolver).toList()
 
             assertThat(testTypes.size).isEqualTo(3)
-
-            assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
-                <person>
-                  <name>(string)</name>
-                  <address specmatic_type="Address">
-                    <flat_no>(string)</flat_no>
-                    <street>(string)</street>
-                  </address>
-                </person>
-                """.trimIndent().trimmedLinesString())
-
-            assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
-                <person>
-                  <name>(string)</name>
-                  <address specmatic_type="Address"/>
-                </person>
-                """.trimIndent().trimmedLinesString())
-
-            assertThat(testTypes.map { it.trimmedLinesString() }).contains("""
-                <person>
-                  <name>(string)</name>
-                </person>
-                """.trimIndent().trimmedLinesString())
+            assertThat(testTypes.map { it.addressChildNamesOrNull() }).containsExactlyInAnyOrder(
+                listOf("flat_no", "street"),
+                emptyList(),
+                null,
+            )
         }
 
         @Test
@@ -2112,21 +2084,6 @@ internal class XMLPatternTest {
         val type = parsedPattern(xml)
 
         assertThat(type.matches(parsedValue(xml), Resolver())).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `generate Gherkin statements`() {
-        val xml = XMLPattern("<account><id>(number)</id></account>")
-        val gherkinStatement = xml.toGherkinStatement("TypeName")
-
-        assertThat(gherkinStatement.trimmedLinesString()).isEqualTo(
-                """And type TypeName
-""${'"'}
-<account>
-  <id>(number)</id>
-</account>
-""${'"'}""".trimmedLinesString()
-        )
     }
 
     @Test

@@ -3,7 +3,6 @@ package io.specmatic.core.wsdl.parser.message
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.XMLNode
-import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
 import io.specmatic.core.wsdl.payload.SOAPPayload
@@ -33,12 +32,11 @@ data class ReferredType(val wsdlTypeReference: String, val element: XMLNode, val
     }
 
     override fun getSOAPPayload(
-        soapMessageType: SOAPMessageType,
         nodeNameForSOAPBody: String,
         specmaticTypeName: String,
         namespaces: Map<String, String>,
         typeInfo: WSDLTypeInfo
     ): SOAPPayload {
-        return elementType.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
+        return elementType.getSOAPPayload(nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
     }
 }
