@@ -7,6 +7,7 @@ import io.specmatic.core.*
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
+import io.specmatic.loader.OpenApiSpecCompatibilityChecker
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -23,6 +24,7 @@ import kotlin.io.path.pathString
 )
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
+    private val exampleCompatibilityChecker = OpenApiSpecCompatibilityChecker()
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
         val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature, effectiveRepoDir)
@@ -84,6 +86,10 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
         return isValidSpec(this)
     }
 
+    override fun File.isExternalisedExample(): Boolean {
+        return getParentExamplesDirectory(toPath()) != null && exampleCompatibilityChecker.isCompatibleExample(this)
+    }
+
     private fun isGherkin(content: String): Boolean {
         return try {
             parseGherkinStringToFeature(content)
@@ -111,50 +117,20 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     override fun regexForMatchingReferred(schemaFileName: String) = schemaFileName
 
     override fun getSpecsOfChangedExternalisedExamples(filesChangedInCurrentBranch: Set<String>): Set<String> {
-        data class CollectedFiles(
-            val specifications: MutableSet<String> = mutableSetOf(),
-            val examplesMissingSpecifications: MutableList<String> = mutableListOf(),
-            val ignoredFiles: MutableList<String> = mutableListOf()
-        )
+        return filesChangedInCurrentBranch.flatMap { filePath ->
+            val examplesDir = getParentExamplesDirectory(
+                path = Paths.get(filePath)
+            ) ?: return@flatMap emptyList()
 
-        val collectedFiles = filesChangedInCurrentBranch.fold(CollectedFiles()) { acc, filePath ->
-            val path = Paths.get(filePath)
-            val examplesDir = getParentExamplesDirectory(path)
+            val parentPath = examplesDir.parent
+            val strippedPath = parentPath.resolve(examplesDir.fileName.toString().removeSuffix("_examples"))
+            val specFiles = findSpecFiles(strippedPath)
 
-            if (examplesDir == null) {
-                acc.ignoredFiles.add(filePath)
-            } else {
-                val parentPath = examplesDir.parent
-                val strippedPath = parentPath.resolve(examplesDir.fileName.toString().removeSuffix("_examples"))
-                val specFiles = findSpecFiles(strippedPath)
-
-                if (specFiles.isNotEmpty()) {
-                    acc.specifications.addAll(specFiles.map { it.toString() })
-                } else {
-                    acc.examplesMissingSpecifications.add(filePath)
-                }
+            when {
+                specFiles.isNotEmpty() -> specFiles.map { it.toString() }
+                else -> listOf("${strippedPath}.yaml")
             }
-            acc
-        }
-
-        val result = collectedFiles.specifications.toMutableSet()
-
-        collectedFiles.examplesMissingSpecifications.forEach { filePath ->
-            val path = Paths.get(filePath)
-            val examplesDir = getParentExamplesDirectory(path)
-            if (examplesDir != null) {
-                val parentPath = examplesDir.parent
-                val strippedPath = parentPath.resolve(examplesDir.fileName.toString().removeSuffix("_examples"))
-                val specFiles = findSpecFiles(strippedPath)
-                if (specFiles.isNotEmpty()) {
-                    result.addAll(specFiles.map { it.toString() })
-                } else {
-                    result.add("${strippedPath}.yaml")
-                }
-            }
-        }
-
-        return result
+        }.toSet()
     }
 
     fun getParentExamplesDirectory(path: Path): Path? {
