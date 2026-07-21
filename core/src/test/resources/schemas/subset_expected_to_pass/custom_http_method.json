@@ -1,0 +1,9 @@
+{
+  "http-request": {
+    "method": "BREW",
+    "path": "/coffee"
+  },
+  "http-response": {
+    "status": 200
+  }
+}

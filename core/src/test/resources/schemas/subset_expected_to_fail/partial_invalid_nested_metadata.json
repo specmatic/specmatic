@@ -1,0 +1,13 @@
+{
+  "partial": {
+    "name": 123,
+    "delay-in-milliseconds": -5,
+    "http-request": {
+      "method": "GET",
+      "path": "/orders/10"
+    },
+    "http-response": {
+      "status": 200
+    }
+  }
+}

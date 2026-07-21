@@ -1,0 +1,24 @@
+{
+  "http-request": {
+    "path": "/orders/105",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Basic RVlXRlg6RU1GQ0Q="
+    },
+    "body": ""
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Not Found",
+      "timestamp": "2026-07-01T12:26:23+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/orders/105"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

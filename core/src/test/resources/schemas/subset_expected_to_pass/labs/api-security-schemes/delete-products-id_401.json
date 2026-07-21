@@ -1,0 +1,24 @@
+{
+  "http-request": {
+    "path": "/products/567.0",
+    "method": "DELETE",
+    "headers": {
+      "X-API-Key": "kv-e701d678df1604bf"
+    },
+    "body": ""
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Loop Detected",
+      "timestamp": "2026-07-01T12:26:22+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/products/567.0"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

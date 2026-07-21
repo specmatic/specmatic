@@ -1,0 +1,18 @@
+{
+  "partial": {
+    "http-request": {
+      "path": "/orders",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "productid": 1234
+      }
+    },
+    "http-response": {
+      "status": 202,
+      "status-text": "Accepted"
+    }
+  }
+}

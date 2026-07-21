@@ -1,0 +1,64 @@
+{
+  "name": "fixture response missing status with body",
+  "delay-in-seconds": 1,
+  "http-stub-id": "fixture-case-1",
+  "http-request": {
+    "method": "POST",
+    "path": "/orders",
+    "body": {
+      "id": 10
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "accepted": true
+    }
+  },
+  "before": [
+    {
+      "type": "http",
+      "wait": "PT1S",
+      "timeout": "PT5S",
+      "retry": {
+        "max-attempts": 2,
+        "delay": "PT1S"
+      },
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "POST",
+        "path": "/setup",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "seed": true
+        }
+      },
+      "http-response": {
+        "body": {
+          "ok": true
+        }
+      }
+    }
+  ],
+  "after": [
+    {
+      "type": "http",
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "DELETE",
+        "path": "/setup",
+        "body": {
+          "cleanup": true
+        }
+      },
+      "http-response": {
+        "status": 204,
+        "body": {
+          "done": true
+        }
+      }
+    }
+  ]
+}

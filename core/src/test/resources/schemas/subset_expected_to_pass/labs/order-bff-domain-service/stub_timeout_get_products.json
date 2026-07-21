@@ -1,0 +1,21 @@
+{
+    "transient": true,
+    "delay-in-seconds": 2,
+    "http-request": {
+        "path": "/products",
+        "method": "GET",
+        "headers": {
+          "pageSize": "20"
+        },
+        "query": {
+          "type": "$match(exact:other, times:2)",
+          "from-date": "2025-11-01",
+          "to-date": "2025-11-15"
+        }
+    },
+    "http-response": {
+        "status": 200,
+        "body": [],
+        "status-text": "OK"
+    }
+}

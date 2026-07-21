@@ -1,0 +1,10 @@
+{
+  "http-request": {
+    "method": 123,
+    "path": false,
+    "multipart-formdata": "bad"
+  },
+  "http-response": {
+    "status": 200
+  }
+}

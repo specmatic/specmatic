@@ -1,0 +1,9 @@
+{
+  "partial": {
+    "http-request": {
+      "method": "PATCH",
+      "path": "/creators/(number)/pets/(number)"
+    },
+    "http-response": {}
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "transient": true,
+  "delay-in-seconds": 2,
+  "http-request": {
+    "path": "/products",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authenticate": "(string)",
+      "Idempotency-Key": "(uuid)"
+    },
+    "body": {
+      "name": "UniqueName",
+      "type": "$match(dataType:ProductType, value:each, times:1)",
+      "inventory": "$match(dataType:ProductInventory, value:each, times:1)"
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "id": 1234
+    },
+    "status-text": "Created",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

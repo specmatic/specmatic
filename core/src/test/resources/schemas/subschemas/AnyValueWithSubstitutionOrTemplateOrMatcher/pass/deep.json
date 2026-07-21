@@ -1,0 +1,1 @@
+{"capture": "(ID:string)", "lookup": "$(VALUE)", "template": "${VALUE:ok}", "matcher": "$match(pattern: ok)", "array": [1, false, null, {"nested": "prefix $(ID)"}]}

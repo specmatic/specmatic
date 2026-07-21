@@ -1,0 +1,22 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/upload",
+    "multipart-formdata": [
+      {
+        "name": "notes",
+        "content": "hello",
+        "contentType": "text/plain"
+      },
+      {
+        "name": "attachment",
+        "filename": "report.csv",
+        "contentType": "text/csv",
+        "contentEncoding": "identity"
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200
+  }
+}

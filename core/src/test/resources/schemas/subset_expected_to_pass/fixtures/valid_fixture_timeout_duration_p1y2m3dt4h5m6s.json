@@ -1,0 +1,23 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  },
+  "after": [
+    {
+      "type": "http",
+      "timeout": "P1Y2M3DT4H5M6S",
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "DELETE",
+        "path": "/setup"
+      },
+      "http-response": {
+        "status": 204
+      }
+    }
+  ]
+}
