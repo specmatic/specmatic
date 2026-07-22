@@ -27,6 +27,26 @@ import java.io.File
 
 internal class HttpRequestTest {
     @Test
+    fun `loading multipart files preserves content that was already generated`() {
+        val generatedBytes = byteArrayOf(1, 2, 3)
+        val generatedPart = MultiPartFileValue(
+            name = "document",
+            filename = "example.pdf",
+            contentType = "application/octet-stream",
+            content = MultiPartContent(generatedBytes)
+        )
+
+        val loadedPart = HttpRequest(
+            method = "POST",
+            path = "/documents",
+            multiPartFormData = listOf(generatedPart)
+        ).loadFileContentIntoParts().multiPartFormData.single() as MultiPartFileValue
+
+        assertThat(loadedPart.filename).isEqualTo("example.pdf")
+        assertThat(loadedPart.content.bytes).containsExactly(*generatedBytes)
+    }
+
+    @Test
     fun `it should serialise the request correctly`() {
         val request = HttpRequest("GET", "/", HashMap(), EmptyString, HashMap(mapOf("one" to "two")))
         val expectedString = """GET /?one=two

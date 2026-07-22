@@ -3,7 +3,9 @@ package io.specmatic.core
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.*
+import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.Value
 import java.io.File
 
 sealed class MultiPartFormDataPattern(open val name: String, open val contentType: String?) {
@@ -83,20 +85,42 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
     }
 }
 
-data class MultiPartFilePattern(override val name: String, val filename: Pattern, override val contentType: String? = null, val contentEncoding: String? = null) : MultiPartFormDataPattern(name, contentType) {
+data class MultiPartFilePattern(
+    override val name: String,
+    val filename: Pattern?,
+    override val contentType: String? = null,
+    val contentEncoding: String? = null,
+    val content: Pattern? = null
+) : MultiPartFormDataPattern(name, contentType) {
     override fun newBasedOn(row: Row, resolver: Resolver): Sequence<MultiPartFormDataPattern?> {
         val rowKey = "${name}_filename"
         return sequenceOf(this.copy(filename = if(row.containsField(rowKey)) ExactValuePattern(StringValue(row.getField(rowKey))) else filename))
     }
 
-    override fun generate(resolver: Resolver): MultiPartFormDataValue =
-            MultiPartFileValue(name, resolver.withCyclePrevention(filename, filename::generate).toStringLiteral(), contentType ?: "", contentEncoding)
+    override fun generate(resolver: Resolver): MultiPartFormDataValue {
+        val generatedFilename = filename?.let {
+            resolver.withCyclePrevention(it, it::generate).toStringLiteral()
+        }.orEmpty()
+        val generatedContent = content?.let {
+            resolver.withCyclePrevention(it, it::generate).toMultiPartContent()
+        } ?: MultiPartContent()
+
+        return MultiPartFileValue(
+            name = name,
+            filename = generatedFilename,
+            contentType = contentType ?: "",
+            contentEncoding = contentEncoding,
+            content = generatedContent
+        )
+    }
 
     override fun matches(value: MultiPartFormDataValue, resolver: Resolver): Result {
         return when {
             value !is MultiPartFileValue -> Failure("The contract expected a file, but got content instead.", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
             name != value.name -> Failure("The contract expected a part name to be $name, but got ${value.name}.", failureReason = FailureReason.PartNameMisMatch, ruleViolation = StandardRuleViolation.VALUE_MISMATCH)
-            fileContentMismatch(value, resolver) -> fileContentMismatchError(value, resolver)
+            content == null && fileContentMismatch(value, resolver) -> fileContentMismatchError(value, resolver)
+            content != null && filenameMismatch(value, resolver) -> filenameMismatchError(value, resolver)
+            content != null && contentMismatch(value, resolver) -> contentMismatchError(value, resolver)
             //TODO: Fix below comment
 //            contentType != null && value.contentType != null && value.contentType != contentType -> Failure("The contract expected ${contentType.let { "content type $contentType" }}, but got ${value.contentType?.let { "content type $value.contentType" } ?: "no content type."}.")
             contentEncoding != null && value.contentEncoding != contentEncoding -> {
@@ -111,6 +135,28 @@ data class MultiPartFilePattern(override val name: String, val filename: Pattern
             else -> Success()
         }
     }
+
+    private fun filenameMismatch(value: MultiPartFileValue, resolver: Resolver): Boolean =
+        filename?.matches(StringValue(value.filename), resolver)?.isSuccess()?.not() ?: false
+
+    private fun filenameMismatchError(value: MultiPartFileValue, resolver: Resolver): Failure =
+        Failure(
+            message = "In the part named $name, the contract expected the filename to be ${filename?.typeName}, but got ${value.filename}.",
+            failureReason = FailureReason.PartNameMisMatch,
+            cause = filename?.matches(StringValue(value.filename), resolver) as? Failure,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+        )
+
+    private fun contentMismatch(value: MultiPartFileValue, resolver: Resolver): Boolean =
+        content?.matches(BinaryValue(value.content.bytes), resolver)?.isSuccess()?.not() ?: false
+
+    private fun contentMismatchError(value: MultiPartFileValue, resolver: Resolver): Failure =
+        Failure(
+            message = "In the part named $name, the file content did not match the contract.",
+            breadCrumb = "content",
+            cause = content?.matches(BinaryValue(value.content.bytes), resolver) as? Failure,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+        )
 
     private fun fileContentMismatchError(
         value: MultiPartFileValue,
@@ -147,8 +193,8 @@ data class MultiPartFilePattern(override val name: String, val filename: Pattern
                 val contentBytes = value.content.bytes
                 !bytes.contentEquals(contentBytes)
             }
-            else ->
-                !filename.matches(StringValue(value.filename), resolver).isSuccess()
+            null -> false
+            else -> !filename.matches(StringValue(value.filename), resolver).isSuccess()
         }
     }
 
@@ -156,3 +202,9 @@ data class MultiPartFilePattern(override val name: String, val filename: Pattern
         return copy(name = withoutOptionality(name))
     }
 }
+
+private fun Value.toMultiPartContent(): MultiPartContent =
+    when (this) {
+        is BinaryValue -> MultiPartContent(byteArray)
+        else -> MultiPartContent(toStringLiteral())
+    }

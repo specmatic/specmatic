@@ -111,7 +111,6 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.Writer
 import java.net.InetAddress
@@ -1330,16 +1329,16 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
 
                     is PartData.BinaryItem -> {
                         val content = it.provider().asStream().use { input ->
-                            val output = ByteArrayOutputStream()
-                            input.copyTo(output)
-                            output.toString()
+                            MultiPartContent(input.readBytes())
                         }
 
-                        MultiPartContentValue(
+                        MultiPartFileValue(
                             it.name ?: "",
-                            StringValue(content),
-                            boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" }
+                            "",
+                            it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                            null,
+                            content,
+                            boundary
                         )
                     }
 

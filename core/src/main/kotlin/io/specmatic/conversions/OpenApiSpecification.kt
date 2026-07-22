@@ -1705,9 +1705,10 @@ class OpenApiSpecification(
 
                             if (partSchema.isBinarySchema()) {
                                 MultiPartFilePattern(
-                                    partNameWithPresence,
-                                    toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext),
-                                    partContentType
+                                    name = partNameWithPresence,
+                                    filename = null,
+                                    contentType = partContentType ?: "application/octet-stream",
+                                    content = toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext)
                                 )
                             } else {
                                 MultiPartContentPattern(

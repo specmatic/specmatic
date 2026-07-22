@@ -19,7 +19,7 @@ data class BinaryPattern(
             return Result.Success()
 
         return when (sampleData) {
-            is StringValue -> return Result.Success()
+            is StringValue, is BinaryValue -> return Result.Success()
             else -> dataTypeMismatchResult(this, sampleData, resolver.mismatchMessages)
         }
     }

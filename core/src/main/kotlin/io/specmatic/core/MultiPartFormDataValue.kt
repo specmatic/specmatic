@@ -1,10 +1,12 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.ktor.client.request.forms.*
@@ -108,14 +110,24 @@ data class MultiPartContent(val bytes: ByteArray) {
 
 data class MultiPartFileValue(override val name: String, val filename: String, override val contentType: String? = null, val contentEncoding: String? = null, val content: MultiPartContent = MultiPartContent(), val boundary: String = "#####") : MultiPartFormDataValue(name, contentType) {
     override fun inferType(): MultiPartFormDataPattern {
-        return MultiPartFilePattern(name, filenameToType(), contentType, contentEncoding)
+        return MultiPartFilePattern(
+            name = name,
+            filename = filenameToType(),
+            contentType = contentType,
+            contentEncoding = contentEncoding,
+            content = ExactValuePattern(BinaryValue(content.bytes))
+        )
     }
 
-    private fun filenameToType() = parsedPattern(filename.removePrefix("@"))
+    private fun filenameToType(): Pattern? =
+        filename.takeIf { it.isNotBlank() }?.let { parsedPattern(it.removePrefix("@")) }
 
     override fun toDisplayableValue(): String {
         val headers = mapOf (
-                CONTENT_DISPOSITION to """form-data; name="$name"; filename="$filename"""",
+                CONTENT_DISPOSITION to listOfNotNull(
+                    """form-data; name="$name"""",
+                    filename.takeIf { it.isNotBlank() }?.let { """filename="$it""" }
+                ).joinToString("; "),
                 "Content-Type" to (contentType ?: ""),
                 "Content-Encoding" to (contentEncoding ?: "")
         ).filter { it.value.isNotBlank() }
@@ -128,7 +140,7 @@ data class MultiPartFileValue(override val name: String, val filename: String, o
 --$boundary
 $headerString
 
-(File content not shown here.  Please examine the file ${filename.removePrefix("@")})
+${filename.takeIf(String::isNotBlank)?.let { "(File content not shown here.  Please examine the file ${it.removePrefix("@")})" } ?: "(File content not shown here.)"}
 """.trim()
     }
 
@@ -155,9 +167,11 @@ $headerString
 
             append("Content-Transfer-Encoding", "binary")
 
-            val partFilePath = filename.removePrefix("@")
-            val partFileName = File(partFilePath).name
-            append(CONTENT_DISPOSITION, "filename=$partFileName")
+            filename.takeIf(String::isNotBlank)?.let {
+                val partFilePath = it.removePrefix("@")
+                val partFileName = File(partFilePath).name
+                append(CONTENT_DISPOSITION, "filename=$partFileName")
+            }
         }, content.length) {
             content.input
         }
