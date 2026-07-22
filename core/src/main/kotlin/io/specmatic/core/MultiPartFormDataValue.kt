@@ -115,7 +115,7 @@ data class MultiPartFileValue(override val name: String, val filename: String, o
             filename = filenameToType(),
             contentType = contentType,
             contentEncoding = contentEncoding,
-            content = ExactValuePattern(BinaryValue(content.bytes))
+            content = content.takeIf { it.length > 0 }?.let { ExactValuePattern(BinaryValue(it.bytes)) }
         )
     }
 

@@ -7153,7 +7153,7 @@ paths:
     }
 
     @Test
-    fun `binary multipart parts generate raw content without inventing a filename`() {
+    fun `binary multipart parts generate raw content without inventing a filename`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val openAPI = """
             openapi: 3.0.0
             info:
@@ -7187,6 +7187,11 @@ paths:
         assertThat(filePart.content.bytes).isNotEmpty()
         assertThat(filePart.contentType).isEqualTo("application/octet-stream")
         assertThat(feature.scenarios.single().matches(request)).isInstanceOf(Result.Success::class.java)
+
+        val openAPIFile = tempDir.resolve("specification.yaml").apply { writeText(openAPI) }
+        createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use { stub ->
+            assertThat(stub.client.execute(request).status).isEqualTo(200)
+        }
     }
 
     @Test

@@ -23,9 +23,31 @@ import io.specmatic.mock.MOCK_HTTP_REQUEST
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.io.CleanupMode
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 internal class HttpRequestTest {
+    @Test
+    fun `loading a filename-only multipart example reads the referenced file`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val expectedBytes = byteArrayOf(1, 2, 3)
+        val exampleFile = tempDir.resolve("example.bin").apply { writeBytes(expectedBytes) }
+
+        val loadedPart = HttpRequest(
+            method = "POST",
+            path = "/documents",
+            multiPartFormData = listOf(
+                MultiPartFileValue(
+                    name = "document",
+                    filename = exampleFile.canonicalPath,
+                    contentType = "application/octet-stream"
+                )
+            )
+        ).loadFileContentIntoParts().multiPartFormData.single() as MultiPartFileValue
+
+        assertThat(loadedPart.content.bytes).containsExactly(*expectedBytes)
+    }
+
     @Test
     fun `loading multipart files preserves content that was already generated`() {
         val generatedBytes = byteArrayOf(1, 2, 3)

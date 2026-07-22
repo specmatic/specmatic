@@ -169,6 +169,11 @@ data class MultiPartFilePattern(
                 ruleViolation = StandardRuleViolation.VALUE_MISMATCH
             )
         }
+        null -> Failure(
+            message = "In the part named $name, the contract did not define a filename pattern.",
+            failureReason = FailureReason.PartNameMisMatch,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+        )
         else -> Failure(
             message = "In the part named $name, the contract expected the filename to be ${filename.typeName}, but got ${value.filename}.",
             failureReason = FailureReason.PartNameMisMatch,

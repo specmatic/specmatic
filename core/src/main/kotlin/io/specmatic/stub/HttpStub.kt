@@ -1319,12 +1319,26 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
                     }
 
                     is PartData.FormItem -> {
-                        MultiPartContentValue(
-                            it.name ?: "",
-                            StringValue(it.value),
-                            boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" }
-                        )
+                        val contentType = it.contentType?.let { contentType ->
+                            "${contentType.contentType}/${contentType.contentSubtype}"
+                        }
+
+                        if (it.headers["Content-Transfer-Encoding"]?.equals("binary", ignoreCase = true) == true) {
+                            MultiPartFileValue(
+                                name = it.name ?: "",
+                                filename = "",
+                                contentType = contentType,
+                                content = MultiPartContent(it.value),
+                                boundary = boundary
+                            )
+                        } else {
+                            MultiPartContentValue(
+                                it.name ?: "",
+                                StringValue(it.value),
+                                boundary,
+                                specifiedContentType = contentType
+                            )
+                        }
                     }
 
                     is PartData.BinaryItem -> {

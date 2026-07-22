@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
+import org.junit.jupiter.api.io.CleanupMode
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 internal class MultiPartFileValueTest {
     @Test
@@ -17,6 +20,7 @@ internal class MultiPartFileValueTest {
         Assertions.assertThat(pattern.filename).isEqualTo(ExactValuePattern(StringValue("customers.csv")))
         Assertions.assertThat(pattern.contentType).isEqualTo("text/csv")
         Assertions.assertThat(pattern.contentEncoding).isEqualTo("gzip")
+        Assertions.assertThat(pattern.content).isNull()
     }
 
     @Test
@@ -32,6 +36,30 @@ internal class MultiPartFileValueTest {
 
         assertThat(pattern.filename).isEqualTo(ExactValuePattern(StringValue("example.pdf")))
         assertThat(pattern.content).isEqualTo(ExactValuePattern(BinaryValue(bytes)))
+    }
+
+    @Test
+    fun `filename-only values infer a file-backed pattern`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val expectedBytes = byteArrayOf(1, 2, 3)
+        val exampleFile = tempDir.resolve("example.bin").apply { writeBytes(expectedBytes) }
+        val pattern = MultiPartFileValue(
+            name = "document",
+            filename = exampleFile.canonicalPath,
+            contentType = "application/octet-stream"
+        ).inferType() as MultiPartFilePattern
+
+        val result = pattern.matches(
+            MultiPartFileValue(
+                name = "document",
+                filename = "uploaded.bin",
+                contentType = "application/octet-stream",
+                content = MultiPartContent(expectedBytes)
+            ),
+            Resolver()
+        )
+
+        assertThat(pattern.content).isNull()
+        assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
