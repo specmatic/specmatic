@@ -2,6 +2,7 @@ package application.backwardCompatibility
 
 import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand.ProcessedSpec
 import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand.ChangedFiles
+import application.backwardCompatibility.BackwardCompatibilityCheckBaseCommand.ExampleValidationResult
 import io.specmatic.core.Results
 import io.specmatic.core.log.logger
 
@@ -55,11 +56,33 @@ internal class BackwardCompatibilityCheckLogger {
         verdictMessage: String
     ) {
         logExampleValidationSummary(processedSpec, exampleValidationStatus)
+        logChangedExternalisedExampleValidation(processedSpec)
         logVerdictFor(
             processedSpec.specFilePath,
             verdictMessage.prependIndent(ONE_INDENT),
-            startWithNewLine = exampleValidationStatus.hasErrors
+            startWithNewLine = exampleValidationStatus.hasErrors || processedSpec.exampleValidationResults.isNotEmpty()
         )
+    }
+
+    fun logChangedExternalisedExampleValidation(processedSpec: ProcessedSpec) {
+        val results = processedSpec.exampleValidationResults
+        if (results.isEmpty()) return
+
+        logger.log("_".repeat(40).prependIndent(ONE_INDENT))
+        logger.log("Changed Externalised Examples Validation:$newLine".prependIndent(ONE_INDENT))
+        results.filter { !it.result.isSuccess() }
+            .sortedBy { it.examplePath }
+            .forEachIndexed(::logExampleValidationFailure)
+        logger.newLine()
+        logger.log("Example validation verdict:".prependIndent(ONE_INDENT))
+        logger.log(Results(results.map { it.result }).summary().prependIndent(TWO_INDENTS))
+    }
+
+    private fun logExampleValidationFailure(index: Int, validationResult: ExampleValidationResult) {
+        val prefix = if (validationResult.result.isPartialFailure()) "Warning" else "Error"
+        logger.log("${index.inc()}. $prefix(s) found in ${validationResult.examplePath}:".prependIndent(TWO_INDENTS))
+        logger.newLine()
+        logger.log(validationResult.result.reportString().prependIndent(TWO_INDENTS))
     }
 
     private fun logIncompatibilityReport(backwardCompatibilityResult: Results) {
@@ -104,6 +127,9 @@ internal class BackwardCompatibilityCheckLogger {
         }
         if (exampleValidationStatus.hasUnloadableExamples) {
             logger.log("Some examples for ${processedSpec.specFilePath} could not be loaded.$newLine".prependIndent(TWO_INDENTS))
+        }
+        if (exampleValidationStatus.hasInvalidChangedExternalisedExamples) {
+            logger.log("Some changed externalised examples for ${processedSpec.specFilePath} are not valid.$newLine".prependIndent(TWO_INDENTS))
         }
     }
 

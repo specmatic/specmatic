@@ -20,6 +20,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     override val duration: Long = 0,
     override val id: UUID = UUID.randomUUID(),
     val changeStatus: ChangeStatus = ChangeStatus.CHANGED,
+    private val recordName: String? = null,
 ) : CtrfBackwardCompatibilityRecord {
     override val specType: SpecType = scenario.specType
     override val repository: String? = scenario.sourceRepository
@@ -29,7 +30,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
     override val isWip: Boolean = scenario.ignoreFailure
 
     // TODO: Need actual positive variation from generatedScenario
-    override val name: String = scenario.fullApiDescription
+    override val name: String = recordName ?: scenario.fullApiDescription
     override val message: String = compatResult.reportString(addSourceLocation = true)
     override val breakingChanges: List<CtrfBreakingChange> = compatResult.toIssues().flatMap { issue ->
         val sourceLocations = issue.sourceLocations.map { CtrfSourceLocation(it.filePath, it.line, it.column) }
