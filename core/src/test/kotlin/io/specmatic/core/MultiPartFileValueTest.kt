@@ -6,7 +6,6 @@ import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.pattern.ExactValuePattern
-import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
 import org.junit.jupiter.api.io.CleanupMode
 import org.junit.jupiter.api.io.TempDir
@@ -21,21 +20,6 @@ internal class MultiPartFileValueTest {
         Assertions.assertThat(pattern.contentType).isEqualTo("text/csv")
         Assertions.assertThat(pattern.contentEncoding).isEqualTo("gzip")
         Assertions.assertThat(pattern.content).isNull()
-    }
-
-    @Test
-    fun `inferred file pattern preserves filename and exact content independently`() {
-        val bytes = byteArrayOf(1, 2, 3)
-
-        val pattern = MultiPartFileValue(
-            name = "document",
-            filename = "example.pdf",
-            contentType = "application/pdf",
-            content = MultiPartContent(bytes)
-        ).inferType() as MultiPartFilePattern
-
-        assertThat(pattern.filename).isEqualTo(ExactValuePattern(StringValue("example.pdf")))
-        assertThat(pattern.content).isEqualTo(ExactValuePattern(BinaryValue(bytes)))
     }
 
     @Test

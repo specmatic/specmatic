@@ -135,6 +135,51 @@ internal class MultiPartFilePatternTest {
     }
 
     @Test
+    fun `file pattern without filename constraint matches multipart content`() {
+        val pattern = MultiPartFilePattern(
+            name = "document",
+            filename = null,
+            content = ExactValuePattern(BinaryValue("file content".encodeToByteArray()))
+        )
+        val value = MultiPartContentValue(
+            name = "document",
+            content = StringValue("file content")
+        )
+
+        assertThat(pattern.matches(value, Resolver())).isInstanceOf(Success::class.java)
+    }
+
+    @Test
+    fun `file pattern with filename constraint rejects multipart content`() {
+        val pattern = MultiPartFilePattern(
+            name = "document",
+            filename = StringPattern(),
+            content = BinaryPattern()
+        )
+        val value = MultiPartContentValue(
+            name = "document",
+            content = StringValue("file content")
+        )
+
+        assertThat(pattern.matches(value, Resolver())).isInstanceOf(Failure::class.java)
+    }
+
+    @Test
+    fun `file pattern without filename constraint rejects mismatching multipart content`() {
+        val pattern = MultiPartFilePattern(
+            name = "document",
+            filename = null,
+            content = ExactValuePattern(BinaryValue("expected".encodeToByteArray()))
+        )
+        val value = MultiPartContentValue(
+            name = "document",
+            content = StringValue("actual")
+        )
+
+        assertThat(pattern.matches(value, Resolver())).isInstanceOf(Failure::class.java)
+    }
+
+    @Test
     fun `binary file pattern matches exact binary content from an example`() {
         val expectedBytes = byteArrayOf(1, 2, 3)
         val pattern = MultiPartFilePattern(

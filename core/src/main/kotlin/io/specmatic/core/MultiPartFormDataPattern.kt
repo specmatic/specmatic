@@ -115,8 +115,14 @@ data class MultiPartFilePattern(
     }
 
     override fun matches(value: MultiPartFormDataValue, resolver: Resolver): Result {
+        return when (value) {
+            is MultiPartFileValue -> matchesFile(value, resolver)
+            is MultiPartContentValue -> matchesContent(value, resolver)
+        }
+    }
+
+    private fun matchesFile(value: MultiPartFileValue, resolver: Resolver): Result {
         return when {
-            value !is MultiPartFileValue -> Failure("The contract expected a file, but got content instead.", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
             name != value.name -> Failure("The contract expected a part name to be $name, but got ${value.name}.", failureReason = FailureReason.PartNameMisMatch, ruleViolation = StandardRuleViolation.VALUE_MISMATCH)
             content == null && fileContentMismatch(value, resolver) -> fileContentMismatchError(value, resolver)
             content != null && filenameMismatch(value, resolver) -> filenameMismatchError(value, resolver)
@@ -136,6 +142,20 @@ data class MultiPartFilePattern(
         }
     }
 
+    private fun matchesContent(value: MultiPartContentValue, resolver: Resolver): Result {
+        return when {
+            filename != null -> Failure("The contract expected a file, but got content instead.", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
+            name != value.name -> Failure("The contract expected a part name to be $name, but got ${value.name}.", failureReason = FailureReason.PartNameMisMatch, ruleViolation = StandardRuleViolation.VALUE_MISMATCH)
+            content != null && contentMismatch(value, resolver) -> contentMismatchError(value, resolver)
+            contentEncoding != null -> Failure(
+                message = "The contract expected content encoding $contentEncoding, but got no content encoding.",
+                breadCrumb = "contentEncoding",
+                ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+            )
+            else -> Success()
+        }
+    }
+
     private fun filenameMismatch(value: MultiPartFileValue, resolver: Resolver): Boolean =
         filename?.matches(StringValue(value.filename), resolver)?.isSuccess()?.not() ?: false
 
@@ -150,6 +170,9 @@ data class MultiPartFilePattern(
     private fun contentMismatch(value: MultiPartFileValue, resolver: Resolver): Boolean =
         content?.matches(BinaryValue(value.content.bytes), resolver)?.isSuccess()?.not() ?: false
 
+    private fun contentMismatch(value: MultiPartContentValue, resolver: Resolver): Boolean =
+        content?.matches(value.binaryContent(), resolver)?.isSuccess()?.not() ?: false
+
     private fun contentMismatchError(value: MultiPartFileValue, resolver: Resolver): Failure =
         Failure(
             message = "In the part named $name, the file content did not match the contract.",
@@ -157,6 +180,20 @@ data class MultiPartFilePattern(
             cause = content?.matches(BinaryValue(value.content.bytes), resolver) as? Failure,
             ruleViolation = StandardRuleViolation.VALUE_MISMATCH
         )
+
+    private fun contentMismatchError(value: MultiPartContentValue, resolver: Resolver): Failure =
+        Failure(
+            message = "In the part named $name, the file content did not match the contract.",
+            breadCrumb = "content",
+            cause = content?.matches(value.binaryContent(), resolver) as? Failure,
+            ruleViolation = StandardRuleViolation.VALUE_MISMATCH
+        )
+
+    private fun MultiPartContentValue.binaryContent(): BinaryValue =
+        when (content) {
+            is BinaryValue -> content
+            else -> BinaryValue(content.toStringLiteral().encodeToByteArray())
+        }
 
     private fun fileContentMismatchError(
         value: MultiPartFileValue,

@@ -111,6 +111,7 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.Writer
 import java.net.InetAddress
@@ -1319,40 +1320,26 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
                     }
 
                     is PartData.FormItem -> {
-                        val contentType = it.contentType?.let { contentType ->
-                            "${contentType.contentType}/${contentType.contentSubtype}"
-                        }
-
-                        if (it.headers["Content-Transfer-Encoding"]?.equals("binary", ignoreCase = true) == true) {
-                            MultiPartFileValue(
-                                name = it.name ?: "",
-                                filename = "",
-                                contentType = contentType,
-                                content = MultiPartContent(it.value),
-                                boundary = boundary
-                            )
-                        } else {
-                            MultiPartContentValue(
-                                it.name ?: "",
-                                StringValue(it.value),
-                                boundary,
-                                specifiedContentType = contentType
-                            )
-                        }
+                        MultiPartContentValue(
+                            it.name ?: "",
+                            StringValue(it.value),
+                            boundary,
+                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" }
+                        )
                     }
 
                     is PartData.BinaryItem -> {
                         val content = it.provider().asStream().use { input ->
-                            MultiPartContent(input.readBytes())
+                            val output = ByteArrayOutputStream()
+                            input.copyTo(output)
+                            output.toString()
                         }
 
-                        MultiPartFileValue(
+                        MultiPartContentValue(
                             it.name ?: "",
-                            "",
-                            it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
-                            null,
-                            content,
-                            boundary
+                            StringValue(content),
+                            boundary,
+                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" }
                         )
                     }
 

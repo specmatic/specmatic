@@ -308,7 +308,7 @@ data class HttpRequest(
             when (part) {
                 is MultiPartContentValue -> part
                 is MultiPartFileValue -> {
-                    if (part.content.length > 0 || part.filename.isBlank()) return@map part
+                    if (part.filename.isBlank()) return@map part
 
                     val partFile = File(part.filename.removePrefix("@"))
                     val binaryContent = if (partFile.exists()) {

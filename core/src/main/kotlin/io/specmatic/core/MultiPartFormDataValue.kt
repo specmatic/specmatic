@@ -1,12 +1,10 @@
 package io.specmatic.core
 
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.ktor.client.request.forms.*
@@ -114,8 +112,7 @@ data class MultiPartFileValue(override val name: String, val filename: String, o
             name = name,
             filename = filenameToType(),
             contentType = contentType,
-            contentEncoding = contentEncoding,
-            content = content.takeIf { it.length > 0 }?.let { ExactValuePattern(BinaryValue(it.bytes)) }
+            contentEncoding = contentEncoding
         )
     }
 
