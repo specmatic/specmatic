@@ -47,9 +47,7 @@ interface Value {
     }
 
     fun hasMatcherTemplate(): Boolean {
-        return this is StringValue
-                && this.string.startsWith("\$match(")
-                && this.string.endsWith(")")
+        return this is StringValue && this.string.isMatcherTemplate()
     }
 
     fun hasPatternTemplate(): Boolean {
@@ -93,4 +91,8 @@ fun Value.mergeWith(other: Value): Value {
 
 fun String.hasDataTemplate(): Boolean {
     return this.startsWith("$(") && this.endsWith(")")
+}
+
+internal fun String.isMatcherTemplate(): Boolean {
+    return this.startsWith("\$match(") && this.endsWith(")")
 }
