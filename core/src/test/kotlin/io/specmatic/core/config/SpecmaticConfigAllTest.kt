@@ -807,7 +807,6 @@ internal class SpecmaticConfigAllTest {
             test:
                 resiliencyTests:
                     enable: all
-                validateResponseValues: true
                 allowExtensibleSchema: true
                 timeoutInMilliseconds: 10
         """.trimIndent()
@@ -817,7 +816,6 @@ internal class SpecmaticConfigAllTest {
 
         specmaticConfig.apply {
             assertThat(isResiliencyTestingEnabled()).isTrue()
-            assertThat(isResponseValueValidationEnabled()).isTrue()
             assertThat(isExtensibleSchemaEnabled()).isTrue()
             assertThat(getTestTimeoutInMilliseconds()).isEqualTo(10)
         }
@@ -843,7 +841,6 @@ internal class SpecmaticConfigAllTest {
             test:
                 resiliencyTests:
                     enable: all
-                validateResponseValues: true
                 allowExtensibleSchema: true
                 timeoutInMilliseconds: 10
         """.trimIndent()
@@ -853,7 +850,6 @@ internal class SpecmaticConfigAllTest {
 
         configV2.test!!.apply {
             assertThat(resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.all)
-            assertThat(validateResponseValues).isTrue()
             assertThat(allowExtensibleSchema).isTrue()
             assertThat(timeoutInMilliseconds).isEqualTo(10)
         }
@@ -866,7 +862,6 @@ internal class SpecmaticConfigAllTest {
             test:
                 resiliencyTests:
                     enable: all
-                validateResponseValues: true
                 allowExtensibleSchema: true
                 timeoutInMilliseconds: 10
         """.trimIndent()
@@ -876,7 +871,6 @@ internal class SpecmaticConfigAllTest {
 
         configV3.test!!.apply {
             assertThat(resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.all)
-            assertThat(validateResponseValues).isTrue()
             assertThat(allowExtensibleSchema).isTrue()
             assertThat(timeoutInMilliseconds).isEqualTo(10)
         }

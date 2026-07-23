@@ -5,7 +5,6 @@ import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.pattern.parsedJSONArray
 import io.specmatic.core.pattern.parsedJSONObject
-import io.specmatic.core.utilities.Flags
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
@@ -281,93 +280,4 @@ paths:
             .contains("header X-Rate-Limit-Remaining was missing")
     }
 
-    @Test
-    fun `response header value validation should be done when value validation is enabled`() {
-        val personSpec = """
-openapi: 3.0.3
-info:
-  title: Person API
-  version: 1.0.0
-  description: API for creating new people
-
-servers:
-  - url: http://localhost:5000  # Replace with your server URL
-
-paths:
-  /person/{id}:
-    get:
-      summary: Create a new person
-      parameters:
-        - in: path
-          required: true
-          name: id
-          schema:
-            type: number
-          examples:
-            GET_DETAILS:
-              value: 10
-      responses:
-        '200':
-          description: Person created successfully
-          headers:
-            X-Rate-Limit-Limit:
-              schema:
-                type: integer
-              description: The number of allowed requests in the current period
-              examples:
-                GET_DETAILS:
-                  value: 10
-            X-Rate-Limit-Remaining:
-              schema:
-                type: integer
-              description: The number of remaining requests in the current period
-              examples:
-                GET_DETAILS:
-                  value: 100
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - name
-                properties:
-                  name:
-                    type: string
-                  address:
-                    type: string        
-              examples:
-                GET_DETAILS:
-                  value:
-                    name: "Sherlock Holmes"
-                    address: "221B Baker Street"
-        """.trimIndent()
-
-        val results = try {
-            System.setProperty(Flags.VALIDATE_RESPONSE_VALUE, "true")
-
-            val feature = OpenApiSpecification.fromYAML(personSpec, "").toFeature()
-
-            feature.executeTests(object : TestExecutor {
-                override fun execute(request: HttpRequest): HttpResponse {
-                    val headers = mapOf(
-                        "X-Rate-Limit-Limit" to "10",
-                        "X-Rate-Limit-Remaining" to "200",
-                        "Content-Type" to "application/json"
-                    )
-
-                    return HttpResponse(200, headers, parsedJSONObject("""{"name": "Sherlock Holmes", "address": "221B Baker Street"}"""))
-                }
-            })
-        } finally {
-            System.clearProperty(Flags.VALIDATE_RESPONSE_VALUE)
-        }
-
-        assertThat(results.failureCount).isEqualTo(1)
-
-        println(results.report())
-
-        assertThat(results.report())
-            .contains("RESPONSE.HEADER.X-Rate-Limit-Remaining")
-            .contains("Expected \"100\", got value \"200\"")
-    }
 }
