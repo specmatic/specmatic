@@ -59,6 +59,20 @@ internal class HttpRequestTest {
     }
 
     @Test
+    fun `multipart parts should be separated by a blank line in request logs`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/documents",
+            multiPartFormData = listOf(
+                MultiPartContentValue("metadata", StringValue("first")),
+                MultiPartContentValue("content", StringValue("second"))
+            )
+        )
+
+        assertThat(request.toLogString()).contains("first\n\n--#####")
+    }
+
+    @Test
     fun `when serialised to json, the request should contain form fields`() {
         val json = HttpRequest("POST", "/").copy(formFields = mapOf("Data" to "10")).toJSON()
         val value = json.jsonObject.getValue("form-fields") as JSONObjectValue
