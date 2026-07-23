@@ -7,9 +7,9 @@ plugins {
 dependencies {
     // Being explicitly added due a HIGH vulnerability GHSA-rwm7-x88c-3g2p, being pulled transitively
     // Remove and upgrade io.ktor:ktor-server-netty-jvm:2.3.13 once it has been updated
-    implementation("io.netty:netty-transport-native-epoll:4.2.15.Final")
-    implementation("io.netty:netty-codec-http:4.2.15.Final")
-    implementation("io.netty:netty-codec-http2:4.2.15.Final")
+    implementation("io.netty:netty-transport-native-epoll:4.2.16.Final")
+    implementation("io.netty:netty-codec-http:4.2.16.Final")
+    implementation("io.netty:netty-codec-http2:4.2.16.Final")
     implementation("io.specmatic.build-reporter:specmatic-reporter-min:${project.property("specmaticReporterVersion")}") {
         exclude(group = "commons-logging", module = "commons-logging")
         exclude(group = "io.swagger.parser.v3", module = "swagger-parser")
