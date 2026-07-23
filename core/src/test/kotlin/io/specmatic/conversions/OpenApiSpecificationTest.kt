@@ -7153,6 +7153,48 @@ paths:
     }
 
     @Test
+    fun `binary multipart parts generate raw content without inventing a filename`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val openAPI = """
+            openapi: 3.0.0
+            info:
+              title: Multipart Binary Upload API
+              version: 0.1.0
+            paths:
+              /documents:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      multipart/form-data:
+                        schema:
+                          type: object
+                          required:
+                            - content
+                          properties:
+                            content:
+                              type: string
+                              format: binary
+                  responses:
+                    '200':
+                      description: Document stored successfully
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
+        val request = feature.scenarios.single().generateHttpRequest()
+        val filePart = request.multiPartFormData.single() as MultiPartFileValue
+
+        assertThat(filePart.filename).isEmpty()
+        assertThat(filePart.content.bytes).isNotEmpty()
+        assertThat(filePart.contentType).isEqualTo("application/octet-stream")
+        assertThat(feature.scenarios.single().matches(request)).isInstanceOf(Result.Success::class.java)
+
+        val openAPIFile = tempDir.resolve("specification.yaml").apply { writeText(openAPI) }
+        createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use { stub ->
+            assertThat(stub.client.execute(request).status).isEqualTo(200)
+        }
+    }
+
+    @Test
     fun `show clear error for non-numerical response codes`() {
         try {
             OpenApiSpecification.fromYAML(

@@ -202,7 +202,7 @@ data class HttpRequest(
         val bodyString = when {
             formFields.isNotEmpty() -> formFields.map { "${it.key}=${it.value}" }.joinToString("&")
             multiPartFormData.isNotEmpty() -> {
-                multiPartFormData.joinToString("\n") { part -> part.toDisplayableValue() }
+                multiPartFormData.joinToString("\n\n") { part -> part.toDisplayableValue() }
             }
 
             else -> body.toString()
@@ -308,6 +308,8 @@ data class HttpRequest(
             when (part) {
                 is MultiPartContentValue -> part
                 is MultiPartFileValue -> {
+                    if (part.filename.isBlank()) return@map part
+
                     val partFile = File(part.filename.removePrefix("@"))
                     val binaryContent = if (partFile.exists()) {
                         MultiPartContent(partFile)
