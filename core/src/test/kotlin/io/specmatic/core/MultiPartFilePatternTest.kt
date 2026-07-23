@@ -139,14 +139,36 @@ internal class MultiPartFilePatternTest {
         val pattern = MultiPartFilePattern(
             name = "document",
             filename = null,
+            contentType = "application/octet-stream",
             content = ExactValuePattern(BinaryValue("file content".encodeToByteArray()))
         )
         val value = MultiPartContentValue(
             name = "document",
-            content = StringValue("file content")
+            content = StringValue("file content"),
+            specifiedContentType = "application/octet-stream"
         )
 
         assertThat(pattern.matches(value, Resolver())).isInstanceOf(Success::class.java)
+    }
+
+    @Test
+    fun `file pattern without filename constraint rejects multipart text content`() {
+        val pattern = MultiPartFilePattern(
+            name = "document",
+            filename = null,
+            contentType = "application/octet-stream",
+            content = BinaryPattern()
+        )
+        val value = MultiPartContentValue(
+            name = "document",
+            content = StringValue("not a file"),
+            specifiedContentType = "text/plain"
+        )
+
+        val result = pattern.matches(value, Resolver())
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+        assertThat(result.reportString()).contains("The contract expected a file, but got content instead.")
     }
 
     @Test

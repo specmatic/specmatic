@@ -146,6 +146,8 @@ data class MultiPartFilePattern(
         return when {
             filename != null -> Failure("The contract expected a file, but got content instead.", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
             name != value.name -> Failure("The contract expected a part name to be $name, but got ${value.name}.", failureReason = FailureReason.PartNameMisMatch, ruleViolation = StandardRuleViolation.VALUE_MISMATCH)
+            contentType != null && !contentType.equals(value.contentType, ignoreCase = true) ->
+                Failure("The contract expected a file, but got content instead.", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
             content != null && contentMismatch(value, resolver) -> contentMismatchError(value, resolver)
             contentEncoding != null -> Failure(
                 message = "The contract expected content encoding $contentEncoding, but got no content encoding.",
