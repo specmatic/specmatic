@@ -367,7 +367,7 @@ data class Scenario(
         if (fieldsSelected.isNotEmpty()) {
             val attributeSelectedResolver = resolver.copy(mismatchMessages = AttributeSelectionWithExampleMismatchMessages)
             val result = httpResponse.checkIfAllRootLevelKeysAreAttributeSelected(fieldsSelected, attributeSelectedResolver)
-            if(result is Result.Failure) return Result.fromResults(listOf(requestMatch, result)).updateScenario(updatedScenario)
+            if (result is Result.Failure) return Result.fromResults(listOf(requestMatch, result)).updateScenario(updatedScenario)
         }
 
         val responseMatch = updatedScenario.matches(httpResponse, updatedResolver)
@@ -440,7 +440,7 @@ data class Scenario(
                     return@attempt sequenceOf(HasValue(undeclaredVariantScenario))
                 }
 
-                val rowValue = when(val resolvedRow = fillInTheBlanks(row, resolver)) {
+                val rowValue =  when(val resolvedRow = fillInTheBlanks(row, resolver)) {
                     is HasValue -> resolvedRow.value
                     is HasException -> return@attempt sequenceOf(resolvedRow.cast())
                     is HasFailure -> return@attempt sequenceOf(resolvedRow.cast())
@@ -457,7 +457,7 @@ data class Scenario(
                 }
 
                 newRequestPatterns.mapIndexed { index, newHttpRequestPattern ->
-                    val generatedFrom = if(index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
+                    val generatedFrom = if (index == 0 && !row.isEmpty()) GeneratedScenarioOrigin.EXAMPLE_ROW else GeneratedScenarioOrigin.MUTATION
                     newHttpRequestPattern.realise(
                         hasValue = { it, _ ->
                             HasValue(
@@ -750,12 +750,14 @@ data class Scenario(
     }
 
     val defaultAPIDescription: String get() {
-            if(customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
-            return baseApiDescription() }
+            if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
+            return baseApiDescription()
+    }
 
     val fullApiDescription: String get() {
-            val baseDescription = customAPIDescription ?:baseApiDescription()
-            return buildList { add(baseDescription)
+            val baseDescription = customAPIDescription ?: baseApiDescription()
+            return buildList {
+                add(baseDescription)
                 contentTypeDescription()?.takeIf(String::isNotBlank)?.let(::add)
                 disambiguate().takeIf(String::isNotBlank)?.let(::add)
             }.joinToString(separator = " ")
@@ -825,7 +827,8 @@ data class Scenario(
         if (fieldsToBeMadeMandatory.isEmpty()) return this
 
         val responseBodyPattern = this.httpResponsePattern.body
-        val updatedResponseBodyPattern = if (responseBodyPattern is PossibleJsonObjectPatternContainer) { responseBodyPattern.removeKeysNotPresentIn(fieldsToBeMadeMandatory, resolver)
+        val updatedResponseBodyPattern = if (responseBodyPattern is PossibleJsonObjectPatternContainer) {
+            responseBodyPattern.removeKeysNotPresentIn(fieldsToBeMadeMandatory, resolver)
         } else {
             responseBodyPattern
         }
@@ -948,7 +951,8 @@ data class Scenario(
     }
 
     private fun matchesRequestOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
-        return operationId.requestMethod.equals(method, ignoreCase = true) && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let { it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure }
+        return operationId.requestMethod.equals(method, ignoreCase = true)
+                && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let { it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure }
                 && matchesRequestContentType(operationId)
     }
 
@@ -1019,7 +1023,7 @@ data class Scenario(
         val externalisedExampleNames = externalisedExamples.flatMap { it.rows.map { row -> row.name } }.toSet()
 
         return this.examples.mapNotNull {
-            val rowsThatAreNotOverridden = it.rows.filter { row -> row.name !in externalisedExampleNames }
+            val rowsThatAreNotOverridden  = it.rows.filter { row -> row.name !in externalisedExampleNames }
             if(rowsThatAreNotOverridden.isEmpty()) return@mapNotNull null
             it.copy(rows = rowsThatAreNotOverridden)
         }
@@ -1031,11 +1035,11 @@ data class Scenario(
 
     fun fieldsToBeMadeMandatoryBasedOnAttributeSelection(queryParams: QueryParameters?): Set<String> {
         val defaultAttributeSelectionFields = attributeSelectionPattern.getDefaultFields().toSet()
-        val attributeSelectionQueryParamKey = attributeSelectionPattern.getQueryParamKey()
+        val attributeSelectionQueryParamKey =  attributeSelectionPattern.getQueryParamKey()
 
         if(queryParams?.containsKey(attributeSelectionQueryParamKey) != true) return emptySet()
 
-        val attributeSelectionFieldsFromRequest = if(attributeSelectionQueryParamKey.isNotEmpty()) {
+        val attributeSelectionFieldsFromRequest = if(attributeSelectionQueryParamKey.isNotEmpty()){
             queryParams.getValues(attributeSelectionQueryParamKey).flatMap {
                 it.split(",").filter { value -> value.isNotBlank() }
             }.toSet()

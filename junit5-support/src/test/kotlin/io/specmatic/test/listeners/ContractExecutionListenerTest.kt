@@ -90,16 +90,10 @@ class ContractExecutionListenerTest {
         val failedRunListener = ContractExecutionListener()
         val successfulRunListener = ContractExecutionListener()
 
-        failedRunListener.executionFinished(
-            testIdentifier(TestDescriptor.Type.TEST),
-            TestExecutionResult.failed(AssertionError("Kaboom ? Yes Rico Kaboom!"))
-        )
+        failedRunListener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.failed(AssertionError("Kaboom ? Yes Rico Kaboom!")))
         failedRunListener.testPlanExecutionFinished(null)
 
-        successfulRunListener.executionFinished(
-            testIdentifier(TestDescriptor.Type.TEST),
-            TestExecutionResult.successful()
-        )
+        successfulRunListener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.successful())
         successfulRunListener.testPlanExecutionFinished(null)
 
         assertEquals(1, failedRunListener.exitCode())
@@ -109,18 +103,12 @@ class ContractExecutionListenerTest {
     @Test
     fun `static exitCode tracks the latest listener instance`() {
         val failedRunListener = ContractExecutionListener()
-        failedRunListener.executionFinished(
-            testIdentifier(TestDescriptor.Type.TEST),
-            TestExecutionResult.failed(AssertionError("boom"))
-        )
+        failedRunListener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.failed(AssertionError("boom")))
         failedRunListener.testPlanExecutionFinished(null)
         assertEquals(1, ContractExecutionListener.exitCode())
 
         val successfulRunListener = ContractExecutionListener()
-        successfulRunListener.executionFinished(
-            testIdentifier(TestDescriptor.Type.TEST),
-            TestExecutionResult.successful()
-        )
+        successfulRunListener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.successful())
         successfulRunListener.testPlanExecutionFinished(null)
 
         assertEquals(0, ContractExecutionListener.exitCode())
@@ -130,10 +118,7 @@ class ContractExecutionListenerTest {
     fun `testPlanExecutionStarted resets listener state and prevents accumulation across runs`() {
         val listener = ContractExecutionListener()
 
-        listener.executionFinished(
-            testIdentifier(TestDescriptor.Type.TEST),
-            TestExecutionResult.failed(AssertionError("first run failure"))
-        )
+        listener.executionFinished(testIdentifier(TestDescriptor.Type.TEST), TestExecutionResult.failed(AssertionError("first run failure")))
         listener.testPlanExecutionFinished(null)
         assertEquals(1, listener.exitCode())
 
