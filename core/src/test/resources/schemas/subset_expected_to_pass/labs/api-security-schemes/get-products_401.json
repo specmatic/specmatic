@@ -1,0 +1,27 @@
+{
+  "http-request": {
+    "path": "/products",
+    "method": "GET",
+    "query": {
+      "type": "gadget"
+    },
+    "headers": {
+      "Authorization": "Basic UUJIUVM6RFFFWEs="
+    },
+    "body": ""
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Interval Too Brief",
+      "timestamp": "2026-07-01T12:26:22+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/products"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

@@ -43,7 +43,7 @@ data class AnyOfPattern(
 
         val matchResults =
             updatedPatterns.map { innerPattern ->
-                resolver.matchesPattern(key, innerPattern, sampleData ?: EmptyString)
+                resolver.matchesPattern(innerPattern, sampleData ?: EmptyString)
             }
 
         val jsonMatchAnalysis =

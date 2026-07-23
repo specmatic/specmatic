@@ -456,7 +456,7 @@ class WSDLParserContractBlackBoxTest {
     fun `contract test for soap version_1_2 wsdl generated request uses content-type`() {
         val wsdlSpecPath = "src/test/resources/wsdl/cdata_test_soap12/data_api.wsdl"
         val feature = parseContractFileToFeature(File(wsdlSpecPath))
-        val generatedResponse = feature.scenarios.single().generateHttpResponse(emptyMap())
+        val generatedResponse = feature.scenarios.single().generateHttpResponse()
 
         val result = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -589,21 +589,6 @@ class WSDLParserContractBlackBoxTest {
 
         assertThat(result.success()).isFalse()
         assertThat(result.failureCount).isEqualTo(1)
-    }
-
-    @Test
-    fun `wsdl gherkin generation includes response soap header part`() {
-        val wsdlPath = "src/test/resources/wsdl/state_machine/response_header_part.wsdl"
-        val wsdl = WSDL(toXMLNode(File(wsdlPath).readText()), wsdlPath)
-
-        val gherkin = wsdl.convertToGherkin()
-
-        assertThat(gherkin)
-            .contains("And response-body")
-            .contains("soapenv:Header")
-            .contains("ResponseHeader")
-            .contains("Headers")
-            .contains("HeaderPartResponse")
     }
 
     private fun scalarRequestBranch(body: String): String {

@@ -16,53 +16,14 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
-import picocli.CommandLine.Option
 import java.io.File
 import java.nio.file.Paths
 import java.util.ServiceLoader
 import java.util.concurrent.Callable
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import kotlin.collections.ArrayDeque
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
-
-class BackwardCompatibilityCheckOptions {
-    @Option(
-        names = ["--base-branch"],
-        description = ["Base branch to compare the changes against", "Default value is the local origin HEAD of the current branch"],
-        required = false
-    )
-    var baseBranch: String? = null
-
-    @Option(
-        names = ["--target-path"],
-        description = ["Specify the file or directory to limit the backward compatibility check scope. If omitted, all changed files will be checked."],
-        required = false
-    )
-    var targetPath: String? = null
-
-    @Option(
-        names = ["--repo-dir"],
-        description = ["The directory of the repository in which to run the backward compatibility check.", "If not provided, the check will run in the current working directory."],
-        required = false
-    )
-    var repoDir: String? = null
-
-    @Option(names = ["--debug"], description = ["Write verbose logs to console for debugging"])
-    var debugLog: Boolean? = null
-
-    @Option(
-        names = ["--strict"],
-        description = [
-            "In strict mode, irrespective of the API's usage, if a change to an API breaks backward compatibility then it would result in a failure.",
-            "When this flag is not specified, backward breaking changes to APIs that have no usages will only generate warnings and won't cause the check to fail.",
-            "This flag is only applicable when using Specmatic Insights.",
-        ]
-    )
-    var strictMode: Boolean? = null
-}
 
 abstract class BackwardCompatibilityCheckBaseCommand(
     @field:picocli.CommandLine.Mixin
@@ -70,18 +31,22 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 ): Callable<Int> {
     protected val specmaticConfig: SpecmaticConfig = loadSpecmaticConfigIfAvailableElseDefault()
     protected val backwardCompConfig = specmaticConfig.getBackwardCompatibilityConfig()
-    private val newLine = System.lineSeparator()
-    private var areLocalChangesStashed = false
-
     protected val effectiveRepoDir: String by lazy { options.repoDir ?: backwardCompConfig?.repoDirectory ?: "." }
     protected val gitCommand: GitCommand by lazy { SystemGit(workingDirectory = Paths.get(effectiveRepoDir).absolutePathString()) }
     protected val effectiveBaseBranch: String by lazy { options.baseBranch ?: backwardCompConfig?.baseBranch ?: gitCommand.currentRemoteBranch() }
     protected val effectiveTargetPath: String by lazy { options.targetPath ?: backwardCompConfig?.targetPath.orEmpty() }
     protected val effectiveStrictMode: Boolean by lazy { options.strictMode ?: backwardCompConfig?.strictMode ?: false }
 
+    val hook = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java).firstOrNull()
+
+    private val backwardCompatibilityLogger = BackwardCompatibilityCheckLogger()
+
+    private var areLocalChangesStashed = false
+
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult
     abstract fun File.isValidFileFormat(): Boolean
     abstract fun File.isValidSpec(): Boolean
+    abstract fun File.isExternalisedExample(): Boolean
     abstract fun getFeatureFromSpecPath(path: String): IFeature
 
     abstract fun getSpecsOfChangedExternalisedExamples(
@@ -96,14 +61,14 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
         addShutdownHook()
 
-        val filteredSpecs = getChangedSpecs()
-        if (filteredSpecs.isEmpty()) {
+        val specsToCheck = getSpecsToCheck()
+        if (specsToCheck.isEmpty()) {
             logger.log(CompatibilityReport.emptyReport())
             return 0
         }
 
         val result = try {
-            runBackwardCompatibilityCheckFor(files = filteredSpecs, baseBranch = effectiveBaseBranch)
+            runBackwardCompatibilityCheckFor(files = specsToCheck, baseBranch = effectiveBaseBranch)
         } catch (e: Throwable) {
             logger.newLine()
             logger.newLine()
@@ -115,44 +80,57 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         return result.exitCode
     }
 
-    private fun getChangedSpecs(): Set<String> {
-        val filesChangedInCurrentBranch = getChangedSpecsInCurrentBranch().filter {
-            it.contains(Path(effectiveTargetPath).toString())
-        }.toSet()
+    private fun getSpecsToCheck(): Set<String> {
+        val changedFiles = getChangedFilesInCurrentBranch()
 
         val untrackedFiles = gitCommand.getUntrackedFiles().filter {
             it.contains(Path(effectiveTargetPath).toString()) && File(it).isValidSpec() && getSpecsReferringTo(setOf(it)).isEmpty()
         }.toSet()
 
-        if (filesChangedInCurrentBranch.isEmpty() && untrackedFiles.isEmpty()) {
+        if (changedFiles.all.isEmpty() && untrackedFiles.isEmpty()) {
+            val newLine = System.lineSeparator()
             logger.log("$newLine No specs were changed, skipping the check.$newLine")
             return emptySet()
         }
 
-        val filesReferringToChangedSchemaFiles = getSpecsReferringTo(filesChangedInCurrentBranch)
+        val specsReferringToChangedFiles = getSpecsReferringTo(changedFiles.specs)
+            .filter { File(it).isValidSpec() }
+            .toSet()
 
-        val specificationsOfChangedExternalisedExamples =
-            getSpecsOfChangedExternalisedExamples(filesChangedInCurrentBranch)
+        val specsAssociatedWithChangedExternalisedExamples =
+            getSpecsOfChangedExternalisedExamples(changedFiles.externalisedExamples)
+                .filter { !File(it).exists() || File(it).isValidSpec() }
+                .toSet()
 
-        logFilesToBeCheckedForBackwardCompatibility(
-            filesChangedInCurrentBranch,
-            filesReferringToChangedSchemaFiles,
-            specificationsOfChangedExternalisedExamples,
+        backwardCompatibilityLogger.logFilesToBeCheckedForBackwardCompatibility(
+            changedFiles,
+            specsReferringToChangedFiles,
+            specsAssociatedWithChangedExternalisedExamples,
             untrackedFiles
         )
 
-        val collectedFiles =
-            filesChangedInCurrentBranch + filesReferringToChangedSchemaFiles + specificationsOfChangedExternalisedExamples
+        val specsToCheck =
+            changedFiles.specs + specsReferringToChangedFiles + specsAssociatedWithChangedExternalisedExamples
 
-        return collectedFiles.map { path -> File(path).canonicalPath }.toSet()
+        return specsToCheck.map { path -> File(path).canonicalPath }.toSet()
     }
 
-    private fun getChangedSpecsInCurrentBranch(): Set<String> {
-        return gitCommand.getFilesChangedInCurrentBranch(
+    private fun getChangedFilesInCurrentBranch(): ChangedFiles {
+        val changedFiles = gitCommand.getFilesChangedInCurrentBranch(
             effectiveBaseBranch
         ).filter {
             File(it).exists() && File(it).isValidFileFormat()
+        }.filter {
+            it.contains(Path(effectiveTargetPath).toString())
         }.toSet()
+
+        val externalisedExamples = changedFiles.filter { File(it).isExternalisedExample() }.toSet()
+        val specs = changedFiles.filter { it !in externalisedExamples && File(it).isValidSpec() }.toSet()
+
+        return ChangedFiles(
+            specs = specs,
+            externalisedExamples = externalisedExamples
+        )
     }
 
     open fun getSpecsReferringTo(specFilePaths: Set<String>): Set<String> {
@@ -195,38 +173,167 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         }.filter { it.isFile && it.isValidFileFormat() }
     }
 
-    private fun logFilesToBeCheckedForBackwardCompatibility(
-        changedFiles: Set<String>,
-        filesReferringToChangedFiles: Set<String>,
-        specificationsOfChangedExternalisedExamples: Set<String>,
-        untrackedFiles: Set<String>
-    ) {
-        logger.log("Checking backward compatibility of the following specs:$newLine")
-        changedFiles.printSummaryOfChangedSpecs("Specs that have changed")
-        filesReferringToChangedFiles.printSummaryOfChangedSpecs("Specs referring to the changed specs")
-        specificationsOfChangedExternalisedExamples.printSummaryOfChangedSpecs("Specs whose externalised examples were changed")
-        untrackedFiles.printSummaryOfChangedSpecs("Specs that will be skipped (untracked specs, or schema files that are not referred to in other specs)")
-        logger.log("-".repeat(20))
-        logger.log(newLine)
-    }
-
-    private fun Set<String>.printSummaryOfChangedSpecs(message: String) {
-        if (this.isNotEmpty()) {
-            logger.log("${ONE_INDENT}- $message: ")
-            this.forEachIndexed { index, it ->
-                logger.log(it.prependIndent("$TWO_INDENTS${index.inc()}. "))
-            }
-            logger.boundary()
-        }
-    }
-
     private fun getCurrentBranch(): String {
         val branchWithChanges = gitCommand.currentBranch()
         return if (branchWithChanges == HEAD) gitCommand.detachedHEAD() else branchWithChanges
     }
 
-    val unknownResult =
-        Pair<CompatibilityResult, List<OperationUsageResponse>>(CompatibilityResult.UNKNOWN, emptyList())
+    private fun runBackwardCompatibilityCheckFor(files: Set<String>, baseBranch: String): CompatibilityReport {
+        val treeishWithChanges = getCurrentBranch()
+        val reportStartTime = System.currentTimeMillis()
+
+        try {
+            // FIRST PASS: collect results without logging. This includes reading newer/older features and running the lightweight compatibility check.
+            val processedSpecs = files.mapNotNull { specFilePath ->
+                runBackwardCompatibilityCheckForSpec(specFilePath, baseBranch, treeishWithChanges)
+            }
+
+            // SECOND PASS: for all specs that failed the compatibility check, call the potentially long-running ServiceLoader hooks in batches of 5
+            val specsValidatedByHook =
+                BackwardCompatibilityCheckHookValidator(hook, gitCommand, effectiveRepoDir).validate(processedSpecs)
+
+            // THIRD PASS: do the actual logging and produce final CompatibilityResult list
+            val results = specsValidatedByHook.mapIndexed(::logCompatibilityResultAndReturn)
+
+            generateBackwardCompatibilityReport(
+                specsValidatedByHook.flatMap { it.reportRecords },
+                reportStartTime,
+                System.currentTimeMillis()
+            )
+
+            return CompatibilityReport(results)
+        } finally {
+            gitCommand.checkout(treeishWithChanges)
+        }
+    }
+
+    private fun logCompatibilityResultAndReturn(index: Int, processedSpec: ProcessedSpec): CompatibilityResult {
+        backwardCompatibilityLogger.logCheckStart(index, processedSpec)
+
+        if (processedSpec.isNewFile) {
+            backwardCompatibilityLogger.logNewFile(processedSpec)
+            return CompatibilityResult.PASSED
+        }
+
+        if (processedSpec.backwardCompatibilityResult.successExcludingIgnorableFailures().not()) {
+            val (result, verdictMessage) = failedVerdictMessage(processedSpec, hook, effectiveStrictMode, effectiveBaseBranch)
+            backwardCompatibilityLogger.logIncompatibleSpec(processedSpec, verdictMessage)
+            return result
+        }
+
+        backwardCompatibilityLogger.logWipScenarios(processedSpec.backwardCompatibilityResult)
+        val exampleValidationStatus = BCCExampleValidationStatus(
+            areExamplesInvalid = areExamplesValid(processedSpec.newer, "newer").not(),
+            hasUnloadableExamples = processedSpec.unusedExamples.isNotEmpty()
+        )
+        val (result, verdictMessage) = backwardCompatibleVerdict(exampleValidationStatus)
+        backwardCompatibilityLogger.logBackwardCompatibleSpec(
+            processedSpec = processedSpec,
+            exampleValidationStatus = exampleValidationStatus,
+            verdictMessage = verdictMessage
+        )
+
+        return result
+    }
+
+    private fun backwardCompatibleVerdict(exampleValidationStatus: BCCExampleValidationStatus): Pair<CompatibilityResult, String> {
+        return if (exampleValidationStatus.hasErrors) {
+            CompatibilityResult.FAILED to
+                "(INCOMPATIBLE) The spec is backward compatible but the examples are NOT backward compatible or are INVALID."
+        } else {
+            CompatibilityResult.PASSED to
+                "(COMPATIBLE) The spec is backward compatible with the corresponding spec from $effectiveBaseBranch"
+        }
+    }
+
+    private fun runBackwardCompatibilityCheckForSpec(
+        specFilePath: String,
+        baseBranch: String,
+        treeishWithChanges: String
+    ): ProcessedSpec? {
+        try {
+            if (with(File(specFilePath)) { exists() && isValidSpec().not() }) {
+                // skip non-spec files
+                return null
+            }
+
+            val newer = getFeatureFromSpecPath(specFilePath)
+            // The newer feature is parsed while the worktree has the current branch files, but below we
+            // checkout the base branch before running the comparison. OpenAPI change tracking resolves
+            // external refs when scenariosForChangeTracking() is first evaluated, so delaying this until
+            // after checkout races with the branch switch and can build the newer fingerprints from the
+            // base branch's external files. Materialize it here while the current branch is still checked out.
+            (newer as? Feature)?.scenariosForChangeTracking()
+            val unusedExamples = getUnusedExamples(newer)
+
+            val repoDirFile = File(effectiveRepoDir).absoluteFile
+            val olderFileExists =
+                gitCommand.exists(baseBranch, File(specFilePath).relativeTo(repoDirFile).invariantSeparatorsPath)
+
+            if (!olderFileExists) {
+                // new file: mark as passed immediately
+                return ProcessedSpec(
+                    specFilePath = specFilePath,
+                    backwardCompatibilityResult = Results(),
+                    newer = newer,
+                    unusedExamples = unusedExamples,
+                    precomputedCompatibilityResult = CompatibilityResult.PASSED,
+                    isNewFile = true
+                )
+            }
+
+            areLocalChangesStashed = gitCommand.stash()
+            gitCommand.checkout(baseBranch)
+
+            val older = getFeatureFromSpecPath(specFilePath)
+
+            val checkResult = checkBackwardCompatibility(older, newer)
+            val backwardCompatibilityResult = checkResult.results
+            val result =
+                if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
+
+            LicenseResolver.utilize(
+                product = LicensedProduct.OPEN_SOURCE,
+                feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
+                protocol = listOfNotNull((older as? Feature)?.protocol)
+            )
+
+            return ProcessedSpec(
+                specFilePath = specFilePath,
+                backwardCompatibilityResult = backwardCompatibilityResult,
+                newer = newer,
+                unusedExamples = unusedExamples,
+                precomputedCompatibilityResult = result,
+                isNewFile = false,
+                reportRecords = checkResult.reportRecords
+            )
+        } finally {
+            gitCommand.checkout(treeishWithChanges)
+            if (areLocalChangesStashed) {
+                gitCommand.stashPop()
+                areLocalChangesStashed = false
+            }
+        }
+    }
+
+    private fun addShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(object : Thread() {
+            override fun run() {
+                runCatching {
+                    gitCommand.checkout(getCurrentBranch())
+                    if (areLocalChangesStashed) gitCommand.stashPop()
+                }
+            }
+        })
+    }
+
+    internal data class ChangedFiles(
+        val specs: Set<String>,
+        val externalisedExamples: Set<String>
+    ) {
+        val all: Set<String>
+            get() = specs + externalisedExamples
+    }
 
     data class BackwardCompatibilityCheckResult(
         val results: Results,
@@ -246,265 +353,17 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val reportRecords: List<CtrfBackwardCompatibilityRecord> = emptyList()
     )
 
-    private fun runBackwardCompatibilityCheckFor(files: Set<String>, baseBranch: String): CompatibilityReport {
-        val treeishWithChanges = getCurrentBranch()
-        val reportStartTime = System.currentTimeMillis()
-
-        try {
-            // FIRST PASS: collect results without logging. This includes reading newer/older features and running the lightweight compatibility check.
-            val processedSpecs = files.mapNotNull { specFilePath ->
-                try {
-                    if (with(File(specFilePath)) { exists() && isValidSpec().not() }) {
-                        // skip non-spec files
-                        return@mapNotNull null
-                    }
-
-                    val newer = getFeatureFromSpecPath(specFilePath)
-                    // The newer feature is parsed while the worktree has the current branch files, but below we
-                    // checkout the base branch before running the comparison. OpenAPI change tracking resolves
-                    // external refs when scenariosForChangeTracking() is first evaluated, so delaying this until
-                    // after checkout races with the branch switch and can build the newer fingerprints from the
-                    // base branch's external files. Materialize it here while the current branch is still checked out.
-                    (newer as? Feature)?.scenariosForChangeTracking()
-                    val unusedExamples = getUnusedExamples(newer)
-
-                    val repoDirFile = File(effectiveRepoDir).absoluteFile
-                    val olderFileExists =
-                        gitCommand.exists(baseBranch, File(specFilePath).relativeTo(repoDirFile).invariantSeparatorsPath)
-
-                    if (!olderFileExists) {
-                        // new file: mark as passed immediately
-                        return@mapNotNull ProcessedSpec(
-                            specFilePath = specFilePath,
-                            backwardCompatibilityResult = Results(),
-                            newer = newer,
-                            unusedExamples = unusedExamples,
-                            precomputedCompatibilityResult = CompatibilityResult.PASSED,
-                            isNewFile = true
-                        )
-                    }
-
-                    areLocalChangesStashed = gitCommand.stash()
-                    gitCommand.checkout(baseBranch)
-
-                    val older = getFeatureFromSpecPath(specFilePath)
-
-                    val checkResult = checkBackwardCompatibility(older, newer)
-                    val backwardCompatibilityResult = checkResult.results
-                    val result =
-                        if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
-
-                    LicenseResolver.utilize(
-                        product = LicensedProduct.OPEN_SOURCE,
-                        feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
-                        protocol = listOfNotNull((older as? Feature)?.protocol)
-                    )
-
-                    return@mapNotNull ProcessedSpec(
-                        specFilePath = specFilePath,
-                        backwardCompatibilityResult = backwardCompatibilityResult,
-                        newer = newer,
-                        unusedExamples = unusedExamples,
-                        precomputedCompatibilityResult = result,
-                        isNewFile = false,
-                        reportRecords = checkResult.reportRecords
-                    )
-                } finally {
-                    gitCommand.checkout(treeishWithChanges)
-                    if (areLocalChangesStashed) {
-                        gitCommand.stashPop()
-                        areLocalChangesStashed = false
-                    }
-                }
-            }
-
-            // SECOND PASS: for all specs that failed the compatibility check, call the potentially long-running ServiceLoader hooks in batches of 5
-            val specsValidatedByHook = validateSpecsWithHook(processedSpecs)
-
-            // THIRD PASS: do the actual logging and produce final CompatibilityResult list
-            val results = specsValidatedByHook.mapIndexed { index, processed ->
-                logger.log("${index.inc()}. Running the check for ${processed.specFilePath}:")
-
-                if (processed.isNewFile) {
-                    logger.log("${ONE_INDENT}${processed.specFilePath} is a new file.$newLine")
-                    CompatibilityResult.PASSED
-                } else {
-                    getCompatibilityResultAndLogResults(processed)
-                }
-            }
-
-            generateBackwardCompatibilityReport(
-                specsValidatedByHook.flatMap { it.reportRecords },
-                reportStartTime,
-                System.currentTimeMillis()
-            )
-
-            return CompatibilityReport(results)
-        } finally {
-            gitCommand.checkout(treeishWithChanges)
-        }
-    }
-
-    val hook = ServiceLoader.load(BackwardCompatibilityCheckHook::class.java).firstOrNull()
-
-    private fun validateSpecsWithHook(processedSpecs: List<ProcessedSpec>): List<ProcessedSpec> {
-        val failedSpecs = processedSpecs.filter { it.backwardCompatibilityResult.successExcludingIgnorableFailures().not() }
-
-        if (failedSpecs.isEmpty() || hook == null)
-            return processedSpecs
-
-        val poolSize = 5
-        hook.logStartedMessage(failedSpecs)
-
-        val executor = Executors.newFixedThreadPool(poolSize)
-
-        try {
-            val repoDirFile = File(effectiveRepoDir).absoluteFile
-            val futures = failedSpecs.map { processed ->
-                processed to executor.submit(Callable {
-                    try {
-                        hook.check(
-                            processed.backwardCompatibilityResult,
-                            gitCommand.getRemoteUrl(),
-                            File(processed.specFilePath).relativeTo(repoDirFile).invariantSeparatorsPath
-                        )
-                    } catch (e: Throwable) {
-                        logger.log(e)
-                        unknownResult
-                    }
-                })
-            }
-
-            val hookResultsBySpec = futures.associate { (processed, future) ->
-                processed.specFilePath to try {
-                    future.get()
-                } catch (e: Throwable) {
-                    logger.log(e)
-                    unknownResult
-                }
-            }
-
-            return processedSpecs.map { processed ->
-                hookResultsBySpec[processed.specFilePath]
-                    ?.let { processed.copy(computedCompatibilityCheckHookResult = it) }
-                    ?: processed
-            }
-        } finally {
-            executor.shutdown()
-            executor.awaitTermination(10, TimeUnit.SECONDS)
-            hook.logCompletedMessage()
-        }
-    }
-
-    private fun getCompatibilityResultAndLogResults(processedSpec: ProcessedSpec): CompatibilityResult {
-        val backwardCompatibilityResult = processedSpec.backwardCompatibilityResult
-        val specFilePath = processedSpec.specFilePath
-        val newer = processedSpec.newer
-        val unusedExamples = processedSpec.unusedExamples
-
-        if (backwardCompatibilityResult.successExcludingIgnorableFailures().not()) {
-            logger.log("_".repeat(40).prependIndent(ONE_INDENT))
-            logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
-            logger.log(
-                backwardCompatibilityResult.withoutIgnorableFailures().withoutViolationReport().distinctReport()
-                    .prependIndent(TWO_INDENTS)
-            )
-
-            logWipScenarios(backwardCompatibilityResult)
-
-            val verdict = failedVerdictMessage(processedSpec, hook, effectiveStrictMode, effectiveBaseBranch)
-
-            logVerdictFor(specFilePath, verdict.second.prependIndent(ONE_INDENT))
-
-            return verdict.first
-        }
-
-        logWipScenarios(backwardCompatibilityResult)
-
-        val errorsFound = printExampleValiditySummaryAndReturnResult(newer, unusedExamples, specFilePath)
-
-        val message = if (errorsFound) {
-            "(INCOMPATIBLE) The spec is backward compatible but the examples are NOT backward compatible or are INVALID."
-        } else {
-            "(COMPATIBLE) The spec is backward compatible with the corresponding spec from $effectiveBaseBranch"
-        }
-        logVerdictFor(specFilePath, message.prependIndent(ONE_INDENT), startWithNewLine = errorsFound)
-
-        return if (errorsFound) CompatibilityResult.FAILED
-        else CompatibilityResult.PASSED
-    }
-
-    private fun logWipScenarios(backwardCompatibilityResult: Results) {
-        if (!backwardCompatibilityResult.hasIgnorableFailures()) return
-
-        logger.log("_".repeat(40).prependIndent(ONE_INDENT))
-        logger.log("WIP scenarios (incompatible, not breaking the check):$newLine".prependIndent(ONE_INDENT))
-        logger.log(
-            backwardCompatibilityResult.ignorableFailures().withoutViolationReport().distinctReport()
-                .prependIndent(TWO_INDENTS)
-        )
-    }
-
-    private fun logVerdictFor(specFilePath: String, message: String, startWithNewLine: Boolean = true) {
-        if (startWithNewLine) logger.log(newLine)
-        logger.log("-".repeat(20).prependIndent(ONE_INDENT))
-        logger.log("Verdict for spec $specFilePath:".prependIndent(ONE_INDENT))
-        logger.log("$ONE_INDENT$message")
-        logger.log("-".repeat(20).prependIndent(ONE_INDENT))
-        logger.log(newLine)
-    }
-
-    private fun printExampleValiditySummaryAndReturnResult(
-        newer: IFeature, unusedExamples: Set<String>, specFilePath: String
-    ): Boolean {
-        var errorsFound = false
-        val areExamplesInvalid = areExamplesValid(newer, "newer").not()
-
-        if (areExamplesInvalid || unusedExamples.isNotEmpty()) {
-            logger.log("_".repeat(40).prependIndent(ONE_INDENT))
-            logger.log("The Examples Validity Summary:$newLine".prependIndent(ONE_INDENT))
-        }
-        if (areExamplesInvalid) {
-            logger.log("Examples in $specFilePath are not valid.$newLine".prependIndent(TWO_INDENTS))
-            errorsFound = true
-        }
-
-        if (unusedExamples.isNotEmpty()) {
-            logger.log("Some examples for $specFilePath could not be loaded.$newLine".prependIndent(TWO_INDENTS))
-            errorsFound = true
-        }
-        return errorsFound
-    }
-
-    private fun addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(object : Thread() {
-            override fun run() {
-                runCatching {
-                    gitCommand.checkout(getCurrentBranch())
-                    if (areLocalChangesStashed) gitCommand.stashPop()
-                }
-            }
-        })
-    }
-
     companion object {
         private const val HEAD = "HEAD"
-        internal const val ONE_INDENT = "  "
-        private const val TWO_INDENTS = "${ONE_INDENT}${ONE_INDENT}"
 
         fun failedVerdictMessage(
             processedSpec: ProcessedSpec, hook: BackwardCompatibilityCheckHook?, strictMode: Boolean, baseBranch: String
         ): Pair<CompatibilityResult, String> {
-            val defaultMessages =
+            val defaultMessage =
                 "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from $baseBranch"
 
-            if (hook == null) {
-                return Pair(
-                    processedSpec.precomputedCompatibilityResult, defaultMessages
-                )
-            }
-
-            return hook.failedVerdictAndMessage(processedSpec, strictMode)
+            return hook?.failedVerdictAndMessage(processedSpec, strictMode)
+                ?: Pair(processedSpec.precomputedCompatibilityResult, defaultMessage)
         }
     }
 }

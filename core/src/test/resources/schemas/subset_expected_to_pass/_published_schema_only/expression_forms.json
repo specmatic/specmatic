@@ -1,0 +1,10 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/x/$(ID)",
+    "query": {"capture": "x-(ID:string)", "lookup": "prefix $(VALUE)", "template": "v=${VALUE:default}", "matcher": "$match(pattern: ok|ready)", "token": "/(uuid)"},
+    "headers": {"Authorization": "Bearer $(TOKEN)"},
+    "body": {"capture": "(ID:number)", "lookup": "$(ID)", "template": "${ACTIVE:true}", "matcher": "$match(dataType: integer, value: each)", "token": "(integer)"}
+  },
+  "http-response": {"status": 200}
+}

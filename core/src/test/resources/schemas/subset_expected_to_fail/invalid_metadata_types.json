@@ -1,0 +1,11 @@
+{
+  "name": 123,
+  "transient": "yes",
+  "delay-in-seconds": -1,
+  "http-request": {
+    "method": "GET"
+  },
+  "http-response": {
+    "status": 200
+  }
+}

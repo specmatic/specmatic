@@ -1,0 +1,51 @@
+{
+  "name": "example with fixtures",
+  "http-request": {
+    "method": "POST",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 201
+  },
+  "before": [
+    {
+      "type": "http",
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "POST",
+        "path": "/setup",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "state": "ready"
+        }
+      },
+      "http-response": {
+        "status": 200,
+        "body": {
+          "ok": true
+        }
+      }
+    }
+  ],
+  "after": [
+    {
+      "type": "http",
+      "wait": "PT1S",
+      "timeout": "PT5S",
+      "retry": {
+        "max-attempts": 2,
+        "delay": "PT1S"
+      },
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "DELETE",
+        "path": "/setup"
+      },
+      "http-response": {
+        "status": 204
+      }
+    }
+  ]
+}

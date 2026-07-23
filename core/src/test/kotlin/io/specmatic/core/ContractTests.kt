@@ -58,9 +58,6 @@ Then status 200
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertEquals(1, flags["with"])
@@ -98,9 +95,6 @@ Examples:
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(optionals).contains(10)
@@ -137,9 +131,6 @@ Then status 200
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertFalse(results.hasFailures(), results.report())
@@ -167,9 +158,6 @@ Then status 200
                 flags["parsed number"] = true
                 return HttpResponse(200, "100")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertFalse(results.hasFailures(), results.report())
@@ -196,9 +184,6 @@ Then status 200
                 assertTrue( NumberPattern().parse(request.formFields.getValue("number"), Resolver()) is NumberValue)
                 flags["parsed number"] = true
                 return HttpResponse(200, "100")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -228,9 +213,6 @@ Then status 200
                 flags["parsed number"] = true
                 return HttpResponse(200, "100")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertFalse(results.hasFailures(), results.report())
@@ -242,7 +224,6 @@ Then status 200
             Feature: Contract for the balance service
                 
                 Scenario: Should be able to get the balance for an individual
-                  Given fact userid
                   When GET /balance?userid=(number)
                   Then status 200
                   And response-header Content-Length (number)
@@ -253,7 +234,6 @@ Then status 200
                 | 12345 |
                   
                 Scenario: Should be able to get the balance for an individual
-                  Given fact no_user
                   When GET /balance?userid=(number)
                   Then status 404
                   And response-header Content-Length (number)
@@ -296,9 +276,6 @@ Then status 200
 
                 return HttpResponse(200, "100")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertEquals(mutableSetOf("null", "json"), flags)
@@ -332,9 +309,6 @@ Then status 200
 
                 return HttpResponse(200, "100")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertEquals(mutableSetOf("empty", "json"), flags)
@@ -358,9 +332,6 @@ Then status 200
         val results = contract.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(200, "")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -399,9 +370,6 @@ Examples:
 
                 return HttpResponse(200, "")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertEquals(1, invocationCount)
@@ -439,9 +407,6 @@ Examples:
 
                 return HttpResponse(200, "")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertEquals(1, invocationCount)
@@ -476,9 +441,6 @@ Then status 200
 
                 return HttpResponse(200, "")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertEquals(1, invocationCount)
@@ -509,9 +471,6 @@ Then status 200
 
                 return HttpResponse(200, "")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         flagsContain(flags, listOf("with", "without"))
@@ -539,9 +498,6 @@ Then status 200
                 }
 
                 return HttpResponse(200, "")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -572,9 +528,6 @@ Examples:
                 flags.add(request.headers["type"] ?: "")
                 return HttpResponse(200, "")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(flags).isEqualTo(mutableListOf("some kind"))
@@ -604,9 +557,6 @@ Then status 200
                 assertDoesNotThrow { part.content.toStringLiteral().toInt() }
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -639,9 +589,6 @@ Then status 200
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(flags).isEqualTo(mutableListOf("executed"))
@@ -671,9 +618,6 @@ Then status 200
                 assertThat(part.filename).endsWith(osAgnosticPath("/number.txt"))
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -705,9 +649,6 @@ Examples:
                 assertThat(request.bodyString).isEqualTo("10")
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -741,9 +682,6 @@ Examples:
                 assertThat(filePart.filename).isEqualTo("employees.csv")
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -1183,7 +1121,7 @@ Examples:
 
         val scenarioNames = mutableListOf<String>()
 
-        feature.generateContractTests(emptyList()) { scenario, _ ->
+        feature.generateContractTests() { scenario, _ ->
             scenario.copy(
                 name = "Name added in hook"
             )

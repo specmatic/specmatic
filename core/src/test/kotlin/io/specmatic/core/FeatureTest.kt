@@ -52,6 +52,22 @@ import kotlin.to
 
 class FeatureTest {
     @Test
+    fun `fact is not a recognised Gherkin keyword`() {
+        val contract = """
+            Feature: Facts are unsupported
+
+            Scenario: Fact declaration
+              Given fact user exists
+              When GET /users/10
+              Then status 200
+        """.trimIndent()
+
+        assertThatThrownBy { parseGherkinStringToFeature(contract) }
+            .isInstanceOf(ContractException::class.java)
+            .hasMessageContaining("""keyword "fact" not recognised""")
+    }
+
+    @Test
     fun `test descriptions with no tags should contain no tag separators`() {
         val contract = OpenApiSpecification.fromYAML(
             """
@@ -97,7 +113,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+            contract.generateContractTestScenarios().toList().map { it.second.value }
 
         assertThat(scenarios.map { it.testDescription() }).allSatisfy {
             assertThat(it).doesNotContain("|")
@@ -159,7 +175,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map { it.second.value }
 
         assertThat(scenarios.map { it.testDescription() }).allSatisfy {
@@ -222,7 +238,7 @@ paths:
         ).toFeature()
 
         val scenario: Scenario =
-            contract.generateContractTestScenarios(emptyList()).toList().map { it.second.value }.first()
+            contract.generateContractTestScenarios().toList().map { it.second.value }.first()
         assertThat(scenario.testDescription()).contains("SUCCESS")
     }
 
@@ -281,7 +297,7 @@ paths:
         ).toFeature()
 
         val scenario: Scenario =
-            contract.generateContractTestScenarios(emptyList()).toList().map { it.second.value }.first()
+            contract.generateContractTestScenarios().toList().map { it.second.value }.first()
         assertThat(scenario.testDescription()).contains("[WIP] SUCCESS")
     }
 
@@ -581,41 +597,6 @@ Feature: Contract for /balance API
 
     @Test
     @Throws(Throwable::class)
-    fun scenarioMatchesWhenFactIsSetupWithoutFixtureData() {
-        val contractGherkin = """Feature: Contract for /locations API
-  Scenario Outline: api call
-    * fixture city_list {"cities": [{"city": "Mumbai"}, {"city": "Bangalore"}]}
-    * pattern City {"city": "(string)"}
-    * pattern Cities {"cities": ["(City...)"]}
-    Given fact cities_exist 
-    When GET /locations
-    Then status 200
-    And response-body (Cities)
-  Examples:
-  | cities_exist | 
-  | city_list | 
-    """
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val httpResponse: HttpResponse
-        val httpRequest: HttpRequest = HttpRequest().updateMethod("GET").updatePath("/locations")
-        contractBehaviour.setServerState(object : HashMap<String, Value>() {
-            init {
-                put("cities_exist", True)
-            }
-        })
-        httpResponse = contractBehaviour.lookupResponse(httpRequest)
-        assertNotNull(httpResponse)
-        assertEquals(200, httpResponse.status)
-        val responseBody = JSONObject(httpResponse.body.displayableValue())
-        val cities = responseBody.getJSONArray("cities")
-        for (i in 0 until cities.length()) {
-            val city = cities.getJSONObject(i)
-            assertTrue(city.getString("city").isNotEmpty())
-        }
-    }
-
-    @Test
-    @Throws(Throwable::class)
     fun scenarioOutlineRunsLikeAnEmptyScenario() {
         val contractGherkin = "Feature: Contract for /balance API\n\n" +
                 "  Scenario Outline: api call\n\n" +
@@ -673,59 +654,6 @@ Feature: Contract for /balance API
         for (path in listOf("/accounts1", "/accounts2")) {
             test(baseRequest.updatePath(path))
         }
-    }
-
-    @Test
-    fun `Contract Fake state can be setup using true without specifying a concrete value`() {
-        val contractGherkin = """
-            Feature: Contract for /balance API
-            
-              Scenario Outline: api call
-            
-                Given fact id 10
-                When GET /accounts/(id:number)
-                Then status 200
-                And response-body {"name": "(string)"}"""
-
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-
-        contractBehaviour.setServerState(mutableMapOf<String, Value>().apply {
-            this["id"] = True
-        })
-
-        val httpRequest = HttpRequest().updateMethod("GET").updatePath("/accounts/10")
-        val httpResponse = contractBehaviour.lookupResponse(httpRequest)
-        assertNotNull(httpResponse)
-        assertEquals(200, httpResponse.status)
-        val actual = JSONObject(httpResponse.body.displayableValue())
-        assertTrue(actual.has("name"))
-        assertNotNull(actual.get("name"))
-    }
-
-    @Test
-    fun `Contract Fake state can be setup using a concrete value`() {
-        val contractGherkin = """
-            Feature: Contract for /balance API
-            
-              Scenario: api call
-                Given fact id 10
-                When GET /accounts/(id:number)
-                Then status 200
-                And response-body {"name": "(string)"}"""
-
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-
-        contractBehaviour.setServerState(mutableMapOf<String, Value>().apply {
-            this["id"] = NumberValue(10)
-        })
-
-        val httpRequest = HttpRequest().updateMethod("GET").updatePath("/accounts/10")
-        val httpResponse = contractBehaviour.lookupResponse(httpRequest)
-        assertNotNull(httpResponse)
-        assertEquals(200, httpResponse.status)
-        val actual = JSONObject(httpResponse.body.displayableValue())
-        assertTrue(actual.has("name"))
-        assertNotNull(actual.get("name"))
     }
 
     @Test
@@ -1247,7 +1175,7 @@ Then status 200
         )
 
         val testScenarios: List<Scenario> =
-            contract.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+            contract.generateContractTestScenarios().toList().map { it.second.value }
         assertThat(testScenarios).hasSize(1)
     }
 
@@ -1301,7 +1229,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map { it.second.value }
         assertThat(scenarios.count { it.testDescription().contains("-ve") }).isEqualTo(0)
     }
@@ -1356,7 +1284,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map { it.second.value }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.count()).isEqualTo(2)
@@ -1413,7 +1341,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map { it.second.value }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.count()).isEqualTo(2)
@@ -1497,7 +1425,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map { it.second.value }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.count()).isEqualTo(12)
@@ -1554,7 +1482,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map { it.second.value }
         val negativeTestScenarios = scenarios.filter { it.testDescription().contains("-ve") }
         assertThat(negativeTestScenarios.map { it.testDescription() }).allSatisfy {
@@ -1618,7 +1546,7 @@ paths:
         ).toFeature()
 
         val scenarios: List<Scenario> =
-            contract.enableGenerativeTesting().generateContractTestScenarios(emptyList()).toList()
+            contract.enableGenerativeTesting().generateContractTestScenarios().toList()
                 .map {
                     it.second.value
                 }.map {
@@ -1706,9 +1634,6 @@ paths:
                     else -> HttpResponse(422, "Bad request was received and could not be handled")
                 }
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).isTrue()
@@ -1762,7 +1687,7 @@ components:
 """.trimIndent(), ""
         ).toFeature()
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).hasSize(1)
 
         val contractTest = contractTests.single()
@@ -1794,7 +1719,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTest = feature.generateContractTests(emptyList()).single()
+        val contractTest = feature.generateContractTests().single()
 
         val result = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -1833,7 +1758,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTest = feature.generateContractTests(emptyList()).single()
+        val contractTest = feature.generateContractTests().single()
 
         val result = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -1875,7 +1800,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).isNotEmpty
 
         val results = contractTests.map { contractTest ->
@@ -1937,7 +1862,7 @@ paths:
         specFile.writeText(spec)
 
         val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature()
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).isNotEmpty
 
         val stubPort = ServerSocket(0).use { it.localPort }
@@ -2045,7 +1970,7 @@ components:
         specFile.writeText(spec)
 
         val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature()
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).isNotEmpty
 
         val stubPort = ServerSocket(0).use { it.localPort }
@@ -2094,7 +2019,7 @@ components:
             protocol = SpecmaticProtocol.HTTP
         )
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).hasSize(1)
 
         val result = contractTests.single().runTest(object : TestExecutor {
@@ -2141,7 +2066,7 @@ components:
             protocol = SpecmaticProtocol.HTTP
         )
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).hasSize(2)
     }
 
@@ -2170,7 +2095,7 @@ components:
             protocol = SpecmaticProtocol.HTTP
         )
 
-        val contractTest = feature.generateContractTests(emptyList()).single()
+        val contractTest = feature.generateContractTests().single()
         val result = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 assertThat(request.headers.getCaseInsensitive(ACCEPT)?.value).isEqualTo("application/json")
@@ -2205,7 +2130,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTest = feature.generateContractTests(emptyList()).single()
+        val contractTest = feature.generateContractTests().single()
         val result = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 return HttpResponse(200, headers = mapOf(CONTENT_TYPE to "application/xml"))
@@ -2238,7 +2163,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         val sentAcceptValues = mutableListOf<String?>()
 
         contractTests.forEach { contractTest ->
@@ -2279,7 +2204,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTest = feature.generateContractTests(emptyList()).single()
+        val contractTest = feature.generateContractTests().single()
 
         val result = contractTest.runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
@@ -2316,7 +2241,7 @@ paths:
         specFile.writeText(spec)
 
         val feature = OpenApiSpecification.fromFile(specFile.absolutePath).toFeature()
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).isNotEmpty
 
         val observedAcceptHeaders = mutableListOf<String?>()
@@ -2365,7 +2290,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).isNotEmpty
 
         val sentAcceptValues = mutableListOf<String?>()
@@ -2416,7 +2341,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP
         )
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).hasSize(1)
 
         var executionCount = 0
@@ -2478,7 +2403,7 @@ paths:
             protocol = SpecmaticProtocol.HTTP
         )
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).hasSize(1)
 
         val result = contractTests.single().runTest(object : TestExecutor {
@@ -2540,7 +2465,7 @@ components:
 """.trimIndent(), ""
         ).toFeature()
 
-        val contractTests = feature.generateContractTests(emptyList()).toList()
+        val contractTests = feature.generateContractTests().toList()
         assertThat(contractTests).hasSize(1)
 
         val contractTest = contractTests.single()
@@ -3771,7 +3696,7 @@ paths:
             )
             every { scenario.generateHttpRequestV2() } returns requestList
 
-            every { scenario.generateHttpResponseV2(any()) } returns responseList
+            every { scenario.generateHttpResponseV2(any(), any()) } returns responseList
 
             val pairs = feature.generateDiscriminatorBasedRequestResponseList(
                 HasValue(scenario)
@@ -3808,7 +3733,7 @@ paths:
 
             every { scenario.generateHttpRequestV2() } returns requestList
 
-            every { scenario.generateHttpResponseV2(any()) } returns responseList
+            every { scenario.generateHttpResponseV2(any(), any()) } returns responseList
 
             val pairs = feature.generateDiscriminatorBasedRequestResponseList(HasValue(scenario))
 
@@ -3820,7 +3745,7 @@ paths:
         @Test
         fun `should return empty list when both requests and responses are empty`() {
             every { scenario.generateHttpRequestV2() } returns emptyList()
-            every { scenario.generateHttpResponseV2(any()) } returns emptyList()
+            every { scenario.generateHttpResponseV2(any(), any()) } returns emptyList()
 
             val pairs = feature.generateDiscriminatorBasedRequestResponseList(HasValue(scenario))
 
@@ -4512,7 +4437,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
-            val tests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()
+            val tests = featureWithStrictMode.generateContractTestScenarios().toList()
 
             // Only scenarioWithRows should generate tests
             val generatedFromScenarioNames = tests.map { it.first.name }.distinct()
@@ -4555,7 +4480,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
-            val tests = featureWithoutStrictMode.generateContractTestScenarios(emptyList()).toList()
+            val tests = featureWithoutStrictMode.generateContractTestScenarios().toList()
 
             // Both scenarios should generate tests
             val generatedFromScenarioNames = tests.map { it.first.name }.distinct()
@@ -4601,7 +4526,7 @@ paths:
                 protocol = SpecmaticProtocol.HTTP
             ).enableGenerativeTesting()
 
-            val allTests = featureWithStrictMode.generateContractTestScenarios(emptyList()).toList()
+            val allTests = featureWithStrictMode.generateContractTestScenarios().toList()
 
             // Filter for tests that have the negative prefix
             val negativeTests = allTests.filter { (originalScenario, _) ->

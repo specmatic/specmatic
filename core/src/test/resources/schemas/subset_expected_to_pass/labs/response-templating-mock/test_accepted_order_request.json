@@ -1,0 +1,25 @@
+{
+  "http-request": {
+    "path": "/orders",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "productid": 1,
+      "count": 100
+    }
+  },
+  "http-response": {
+    "status": 201,
+    "body": {
+      "id": 101,
+      "productid": "$match(dataType:number)",
+      "count": 1
+    },
+    "status-text": "Created",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

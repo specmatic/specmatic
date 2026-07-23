@@ -1,0 +1,30 @@
+{
+  "http-request": {
+    "path": "/orders/460",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer nisi"
+    },
+    "body": {
+      "id": 689,
+      "productid": 121,
+      "count": 778,
+      "status": "fulfilled"
+    }
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Forbidden",
+      "timestamp": "2026-07-01T12:26:23+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/orders/460"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

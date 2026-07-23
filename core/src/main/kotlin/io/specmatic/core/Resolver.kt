@@ -3,14 +3,13 @@ package io.specmatic.core
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.value.True
 import io.specmatic.core.value.Value
 
-val actualMatch: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = { resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value ->
-    resolver.actualPatternMatch(factKey, pattern, sampleValue)
+val actualMatch: (resolver: Resolver, pattern: Pattern, sampleValue: Value) -> Result = { resolver, pattern, sampleValue ->
+    resolver.actualPatternMatch(pattern, sampleValue)
 }
 
-val matchAnything: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = { _: Resolver, _: String?, _: Pattern, _: Value ->
+val matchAnything: (resolver: Resolver, pattern: Pattern, sampleValue: Value) -> Result = { _, _, _ ->
     Result.Success()
 }
 
@@ -34,14 +33,13 @@ data class KeyWithPattern(
 )
 
 data class Resolver(
-    val factStore: FactStore = CheckFacts(),
     val mockMode: Boolean = false,
     val newPatterns: Map<String, Pattern> = emptyMap(),
     val findKeyErrorCheck: KeyCheck = DefaultKeyCheck,
     val context: Context = NoContext,
     val mismatchMessages: MismatchMessages = DefaultMismatchMessages,
     val isNegative: Boolean = false,
-    val patternMatchStrategy: (resolver: Resolver, factKey: String?, pattern: Pattern, sampleValue: Value) -> Result = actualMatch,
+    val patternMatchStrategy: (resolver: Resolver, pattern: Pattern, sampleValue: Value) -> Result = actualMatch,
     val parseStrategy: (resolver: Resolver, pattern: Pattern, rowValue: String) -> Value = actualParse,
     val cyclePreventionStack: List<Pattern> = listOf(),
     val defaultExampleResolver: DefaultExampleResolver = DoNotUseDefaultExample,
@@ -61,9 +59,6 @@ data class Resolver(
         if (pointer == null) return null
         return sourceLocations[pointer]
     }
-
-    constructor(facts: Map<String, Value> = emptyMap(), mockMode: Boolean = false, newPatterns: Map<String, Pattern> = emptyMap()) : this(CheckFacts(facts), mockMode, newPatterns)
-    constructor() : this(emptyMap(), false)
 
     val patterns: Map<String, Pattern>
         get() {
@@ -103,8 +98,8 @@ data class Resolver(
         return findKeyErrorCheck.validateAll(pattern, actual)
     }
 
-    fun matchesPattern(factKey: String?, pattern: Pattern, sampleValue: Value): Result {
-        return patternMatchStrategy(this, factKey, pattern, sampleValue)
+    fun matchesPattern(pattern: Pattern, sampleValue: Value): Result {
+        return patternMatchStrategy(this, pattern, sampleValue)
     }
 
     private fun patternTokenMatch(pattern: Pattern, sampleData: Value): Result? {
@@ -124,19 +119,11 @@ data class Resolver(
         return pattern.encompasses(patternFromValue, this, this).withRuleViolation(ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
     }
 
-    fun actualPatternMatch(factKey: String?, pattern: Pattern, sampleValue: Value): Result {
+    fun actualPatternMatch(pattern: Pattern, sampleValue: Value): Result {
         val tokenMatchResult = patternTokenMatch(pattern, sampleValue)
         if (tokenMatchResult != null) return tokenMatchResult
 
-        return pattern.matches(sampleValue, this).ifSuccess {
-            if (factKey != null && factStore.has(factKey)) {
-                val result = factStore.match(sampleValue, factKey)
-                if(result is Result.Failure) {
-                    result.reason("Resolver was not able to match fact $factKey with value $sampleValue.")
-                }
-            }
-            Result.Success()
-        }
+        return pattern.matches(sampleValue, this)
     }
 
     fun patternFromTokenBased(sampleValue: Value): Pattern? {
@@ -259,9 +246,6 @@ data class Resolver(
 
         val lookupKey = withoutOptionality(rawLookupKey)
 
-        if (factStore.has(lookupKey))
-            return generate(lookupKey, pattern)
-
         val updatedResolver = updateLookupPath(typeAlias, KeyWithPattern(lookupKey, pattern))
         return if (pattern is JSONArrayPattern) pattern.generate(updatedResolver) else updatedResolver.generate(pattern)
     }
@@ -360,27 +344,6 @@ data class Resolver(
         return pattern.listOf(0.until(maxLimit).mapIndexed { index, _ ->
             attempt(breadCrumb = "[$index (random)]") { generate(pattern) }
         }, this)
-    }
-
-    fun generate(factKey: String, pattern: Pattern): Value {
-        if (!factStore.has(factKey))
-            return pattern.generate(this)
-
-        return when(val fact = factStore.get(factKey)) {
-            is StringValue ->
-                try {
-                    pattern.parse(fact.string, this)
-                } catch (e: Throwable) {
-                    throw ContractException("""Value $fact in fact $factKey is not a $pattern""")
-                }
-            True -> pattern.generate(this)
-            else -> {
-                when(val matchResult = pattern.matches(fact, this)) {
-                    is Result.Failure -> throw ContractException(matchResult.toFailureReport())
-                    else -> fact
-                }
-            }
-        }
     }
 
     fun findKeyErrorListCaseInsensitive(pattern: Map<String, Pattern>, actual: Map<String, StringValue>): List<KeyError> {

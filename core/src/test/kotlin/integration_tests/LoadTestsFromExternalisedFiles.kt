@@ -66,9 +66,6 @@ class LoadTestsFromExternalisedFiles {
 
                 return HttpResponse.ok(parsedJSONObject("""{"id": 1}"""))
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         println(results.report())
@@ -90,9 +87,6 @@ class LoadTestsFromExternalisedFiles {
 
                 return HttpResponse.ok(parsedJSONObject("""{"id": 1}"""))
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         println(results.report())
@@ -113,9 +107,6 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(request.body).isEqualTo(parsedJSONObject("""{"name": "Master Yoda", "description": "Head of the Jedi Council"}"""))
 
                 return HttpResponse.ok(parsedJSONObject("""{"id": 1}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -339,9 +330,6 @@ class LoadTestsFromExternalisedFiles {
 
                 return HttpResponse.ok(parsedJSONObject("""{"id": 1}"""))
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         println(results.report())
@@ -363,9 +351,6 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(request.queryParams.containsEntry("description", "Jedi")).isTrue
 
                 return HttpResponse.ok(parsedJSONArray("""[{"name": "Master Yoda", "description": "Head of the Jedi Council"}]"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -465,9 +450,6 @@ class LoadTestsFromExternalisedFiles {
                 val requestBody = request.body as JSONObjectValue
                 assertThat(requestBody.findFirstChildByPath("name")?.toStringLiteral()).isEqualTo("Jack")
                 return HttpResponse(201, "success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -999,7 +981,7 @@ class LoadTestsFromExternalisedFiles {
                 assertThat(productId).hasSize(1).containsOnly(toXMLNode("<productId>50</productId>"))
                 assertThat(inventory).hasSize(1).containsOnly(toXMLNode("<inventory>100</inventory>"))
 
-                return createScenario.generateHttpResponse(actualFacts = emptyMap())
+                return createScenario.generateHttpResponse()
             }
         })
 

@@ -100,10 +100,6 @@ data class XMLPattern(
         isSOAPHeader: Boolean = false
     ) : this(toXMLNode(parseXML(xmlString)), typeAlias, isSOAP, isSOAPHeader)
 
-    fun toPrettyString(): String {
-        return pattern.toGherkinishNode().toPrettyStringValue()
-    }
-
     fun plusNamespaceUri(namespaceUri: String?): XMLPattern {
         return copy(pattern = pattern.copy(namespaceUri = namespaceUri?.takeIf { it.isNotBlank() }))
     }
@@ -482,8 +478,7 @@ data class XMLPattern(
                                 else -> childNode
                             }
 
-                            val factKey = if (childValue is XMLNode) childValue.name else null
-                            ConsumeResult(resolver.matchesPattern(factKey, resolvedType, childValue), emptyList())
+                            ConsumeResult(resolver.matchesPattern(resolvedType, childValue), emptyList())
                         } else if (expectingEmpty(sampleData, resolvedType, resolver)) {
                             ConsumeResult(Success())
                         } else {
@@ -671,7 +666,7 @@ data class XMLPattern(
                     sampleValue.isPatternToken() -> sampleValue.trimmed()
                     else -> patternValue.parse(sampleValue.string, resolver)
                 }
-                resolver.matchesPattern(key, patternValue, resolvedValue)
+                resolver.matchesPattern(patternValue, resolvedValue)
             } catch (e: ContractException) {
                 e.failure()
             }.breadCrumb(key)
@@ -749,7 +744,7 @@ data class XMLPattern(
         }.mapValues { (key, attributePattern) ->
             attempt(breadCrumb = "$attributeBreadCrumbName.$key") {
                 resolver.withCyclePrevention(attributePattern) { cyclePreventedResolver ->
-                    cyclePreventedResolver.generate(key, attributePattern)
+                    cyclePreventedResolver.generate(attributePattern)
                 }
             }
         }.mapValues {
@@ -1601,19 +1596,6 @@ data class XMLPattern(
 
     override val typeName: String = "xml"
 
-    // TODO not sure if this is still needed
-    fun toGherkinString(additionalIndent: String = "", indent: String = ""): String {
-        return pattern.toGherkinString(additionalIndent, indent)
-    }
-
-    fun toGherkinXMLNode(): XMLNode {
-        return pattern.toGherkinishNode()
-    }
-
-    fun toGherkinStatement(specmaticTypeName: String): String {
-        val typeString = this.toGherkinXMLNode().toPrettyStringValue().trim()
-        return "And type $specmaticTypeName\n\"\"\"\n$typeString\n\"\"\""
-    }
 }
 
 private fun XMLNode.xsiTypeName(): WSDLTypeName? {

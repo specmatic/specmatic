@@ -1,0 +1,26 @@
+{
+  "name": "request features with external command",
+  "http-request": {
+    "method": "POST",
+    "path": "/search",
+    "query": {
+      "page": 1,
+      "sort": "recent"
+    },
+    "headers": {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "form-fields": {
+      "customerId": "42",
+      "mode": "full"
+    },
+    "bodyRegex": "^status=.*$"
+  },
+  "http-response": {
+    "status": 202,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
+    "externalisedResponseCommand": "./responses/render-search.sh"
+  }
+}

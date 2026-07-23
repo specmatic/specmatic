@@ -85,9 +85,6 @@ class UnsupportedMediaTypeExamplesTest {
                     body = parsedJSONObject("""{"error":"occurred"}""")
                 )
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(sawUnsupportedMediaTypeRequest).isTrue()
@@ -124,9 +121,6 @@ class UnsupportedMediaTypeExamplesTest {
                     415 -> unsupportedMediaTypeResponse()
                     else -> throw ContractException("Unexpected response code hint ${request.expectedResponseCode()}")
                 }
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -251,9 +245,6 @@ class UnsupportedMediaTypeExamplesTest {
             val results = feature.executeTests(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse =
                     stub.client.execute(request)
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(results.failureCount).isEqualTo(0)
@@ -348,9 +339,6 @@ class UnsupportedMediaTypeExamplesTest {
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 throw ContractException("Inline 415 examples should not be generated as tests")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -544,7 +532,7 @@ class UnsupportedMediaTypeExamplesTest {
 
         resiliencyModes().forEach { resiliencyMode ->
             val featureWithResiliency = feature.copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-            val generatedScenarios = featureWithResiliency.generateContractTestScenarios(emptyList()).toList()
+            val generatedScenarios = featureWithResiliency.generateContractTestScenarios().toList()
 
             assertThat(generatedScenarios).isEmpty()
         }

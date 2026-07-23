@@ -65,14 +65,14 @@ data class DeferredPattern(
     override fun hashCode(): Int = pattern.hashCode()
 
     override fun matches(sampleData: Value?, resolver: Resolver) =
-            resolver.matchesPattern(key, resolver.getPattern(pattern), sampleData ?: EmptyString)
+            resolver.matchesPattern(resolver.getPattern(pattern), sampleData ?: EmptyString)
 
     override fun generate(resolver: Resolver): Value {
         val resolvedPattern = resolvePattern(resolver)
         return resolver.withCyclePrevention(resolvedPattern) { cyclePreventedResolver ->
             when (key) {
                 null -> resolvedPattern.generate(cyclePreventedResolver)
-                else -> cyclePreventedResolver.generate(key, resolvedPattern)
+                else -> cyclePreventedResolver.generate(resolvedPattern)
             }
         }
     }

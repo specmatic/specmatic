@@ -1,0 +1,9 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/status-check"
+  },
+  "http-response": {
+    "status": -1
+  }
+}

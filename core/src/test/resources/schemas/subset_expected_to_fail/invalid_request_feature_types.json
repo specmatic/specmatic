@@ -1,0 +1,21 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/search",
+    "query": "page=1",
+    "headers": "invalid",
+    "form-fields": [
+      "customerId"
+    ],
+    "bodyRegex": 123
+  },
+  "http-response": {
+    "status": "202",
+    "headers": [
+      "Content-Type"
+    ],
+    "externalisedResponseCommand": [
+      "./responses/render-search.sh"
+    ]
+  }
+}

@@ -192,7 +192,7 @@ data class HttpQueryParamPattern(
             val reconstructedNestedObjectValue = parsedNestedObjectQueryParams.reconstructedObjectValues[keyWithoutOptionality]
             if (reconstructedNestedObjectValue != null) {
                 val nestedObjectQueryParam = nestedObjectQueryParamsByName()[keyWithoutOptionality]
-                return@mapNotNull resolver.matchesPattern(keyWithoutOptionality, parameterPattern, reconstructedNestedObjectValue)
+                return@mapNotNull resolver.matchesPattern(parameterPattern, reconstructedNestedObjectValue)
                     .withNestedObjectQueryKeyBreadcrumb(nestedObjectQueryParam)
             }
 
@@ -204,7 +204,7 @@ data class HttpQueryParamPattern(
                 StringValue(it)
             })
 
-            resolver.matchesPattern(keyWithoutOptionality, parameterPattern, requestValuesList)
+            resolver.matchesPattern(parameterPattern, requestValuesList)
                 .breadCrumb(keyWithoutOptionality, resolver.locate(parameterPointers[keyWithoutOptionality]))
 
         }
@@ -676,7 +676,7 @@ fun matches(patterns: Map<String, Pattern>, row: Row, resolver: Resolver, paramT
             val value = row.getField(withoutOptionality)
             val patternValue = resolver.parse(pattern, value)
 
-            results.plus(resolver.matchesPattern(withoutOptionality, pattern, patternValue))
+            results.plus(resolver.matchesPattern(pattern, patternValue))
         } else if (isOptional(key)) {
             results.plus(Result.Success())
         } else {

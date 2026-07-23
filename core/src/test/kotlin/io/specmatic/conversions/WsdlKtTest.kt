@@ -326,9 +326,6 @@ Scenario: test request returns test response
                     }
                     return HttpResponse(200, responseBody, mapOf())
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -365,9 +362,6 @@ Scenario: test spec with mandatory attributes with examples
                     val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     return HttpResponse(200, responseBody, mapOf())
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
         assertTrue(results.success(), results.report())
@@ -400,9 +394,6 @@ Scenario: test spec with mandatory attributes without examples
                     val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     if (requestContainsPersonNodeWithRandomAge(request)) countOfTestsWithAgeAttributeSetToRandomValue++
                     return HttpResponse(200, responseBody, mapOf())
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             }
         )
@@ -441,9 +432,6 @@ Scenario: test spec with optional attributes without examples
                     if (requestContainsPersonNodeWithAge(request, age)) countOfTestsWithAgeAttributeSetFromExamples++
                     return HttpResponse(200, responseBody, mapOf())
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
         assertTrue(results.success(), results.report())
@@ -480,9 +468,6 @@ Scenario: test spec with optional attributes without examples
                     if (requestContainsPersonNodeWithoutAgeAttribute(request)) countOfTestsWithoutTheAgeAttribute++
                     return HttpResponse(200, responseBody, mapOf())
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
         assertTrue(results.success(), results.report())
@@ -515,9 +500,6 @@ Scenario: test request returns test response
                     val responseBody = """<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soapenv:Header/><soapenv:Body><SimpleResponse>WSDL</SimpleResponse></soapenv:Body></soapenv:Envelope>"""
                     if (requestContainsPersonNodeWithRandomAge(request)) countOfTestsWithAgeAttributeSetToRandomValue++
                     return HttpResponse(200, responseBody, mapOf())
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             }
         )
@@ -625,9 +607,6 @@ Scenario: test request returns test response
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     return HttpResponse(200, "", mapOf())
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             }
         )

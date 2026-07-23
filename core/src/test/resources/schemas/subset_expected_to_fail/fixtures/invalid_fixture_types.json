@@ -1,0 +1,39 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  },
+  "after": [
+    {
+      "type": "http",
+      "wait": 100,
+      "timeout": false,
+      "retry": {
+        "max-attempts": "3",
+        "delay": 1000,
+        "unexpected": true
+      },
+      "http-request": {
+        "baseUrl": 9000,
+        "method": 123,
+        "path": false,
+        "headers": "invalid",
+        "body": {
+          "setup": true
+        },
+        "extra": "bad"
+      },
+      "http-response": {
+        "status": "204",
+        "body": {
+          "ok": true
+        },
+        "extra": "nope"
+      },
+      "extra-top": true
+    }
+  ]
+}

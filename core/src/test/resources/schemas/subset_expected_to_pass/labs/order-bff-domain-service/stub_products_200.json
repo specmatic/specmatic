@@ -1,0 +1,44 @@
+{
+  "partial": {
+    "http-request": {
+      "method": "GET",
+      "path": "/products?type=(PRODUCT_TYPE:ProductType)",
+      "headers": {
+        "pageSize": "(number)"
+      }
+    },
+    "http-response": {
+      "status": 200,
+      "body": [
+        {
+          "id": "$(data.type[PRODUCT_TYPE].productId)",
+          "name": "$(data.type[PRODUCT_TYPE].name)",
+          "inventory": "(ProductInventory)",
+          "type": "$(PRODUCT_TYPE)",
+          "createdOn": "2025-11-24"
+        }
+      ],
+      "status-text": "OK"
+    }
+  },
+  "data": {
+    "type": {
+      "gadget": {
+        "name": "iPhone",
+        "productId": 10
+      },
+      "book": {
+        "name": "Harry Potter",
+        "productId": 20
+      },
+      "food": {
+        "name": "Chocolate Croissant",
+        "productId": 30
+      },
+      "other": {
+        "name": "Special Product",
+        "productId": 40
+      }
+    }
+  }
+}

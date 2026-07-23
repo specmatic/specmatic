@@ -133,9 +133,6 @@ Scenario: zero should return not found
                     }
                     return HttpResponse(status, "", headers)
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -178,9 +175,6 @@ Background:
                     contractTestsExecuted.add("${request.path} executed and returned $status")
                     return HttpResponse(status, "hello world", headers)
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -220,9 +214,6 @@ Background:
                     }
                     return HttpResponse(200, """{"intermediate-node": {}}""", headers)
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -259,9 +250,6 @@ Background:
                         """{"contents": {"intermediate-node": {"indirect-cycle": null}}}""",
                         headers
                     )
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             }
         )
@@ -300,9 +288,6 @@ Background:
                         headers
                     )
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -340,9 +325,6 @@ Background:
                     }
                     contractTestsExecuted.add("${request.path} executed and returned $status")
                     return HttpResponse(status, "hello world", headers)
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             }
         )
@@ -443,9 +425,6 @@ Background:
                     if (petParameters["name"] == null) return HttpResponse(422, "name cannot be null", headers)
                     return HttpResponse(201, "hello world", headers)
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -534,9 +513,6 @@ Background:
                     Pair("/v1/users", null) -> HttpResponse.ERROR_400
                     else -> HttpResponse.ok(parsedJSONObject("""{"id": 10, "firstname": "Jack", "lastname": "Doe"}"""))
                 }
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -648,7 +624,6 @@ Background:
         val results = feature.executeTests(
             object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse = HttpResponse(200)
-                override fun setServerState(serverState: Map<String, Value>) {}
             }
         )
         assertThat(results.hasResults()).isFalse
@@ -744,7 +719,7 @@ Feature: multipart file upload
         """.trimIndent(), sourceSpecPath
         )
 
-        val contractTests = contract.generateContractTests(emptyList())
+        val contractTests = contract.generateContractTests()
         val result = contractTests.first().runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 val multipartFileValues = request.multiPartFormData.filterIsInstance<MultiPartFileValue>()
@@ -752,10 +727,6 @@ Feature: multipart file upload
                 assertThat(multipartFileValues.first().name).isEqualTo("fileName")
                 assertThat(multipartFileValues.first().filename).matches(fileName)
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
 
         }).result
@@ -1222,9 +1193,6 @@ Background:
                         else -> HttpResponse(400, "", headers)
                     }
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             },
             testDescriptionFilter = listOf("POST /pets -> 201")
         )
@@ -1287,9 +1255,6 @@ Background:
                         else -> HttpResponse(400, "", headers)
                     }
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             },
             testDescriptionFilter = listOf("POST /pets -> 201")
         )
@@ -1351,9 +1316,6 @@ Background:
                         }
                         else -> HttpResponse(400, "", headers)
                     }
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             },
             testDescriptionFilter = listOf("POST /pets -> 201")
@@ -1481,9 +1443,6 @@ Background:
 
                 private fun readPayloadFormField(request: HttpRequest) =
                     ObjectMapper().readValue(request.formFields["payload"], Map::class.java)
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             }
         )
 
@@ -1516,10 +1475,6 @@ Scenario: zero should return not found
                         executed = true
                         return if (request.queryParams.keys.containsAll(listOf("name", "message"))) HttpResponse.OK
                         else HttpResponse.ERROR_400
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
 
@@ -1600,8 +1555,6 @@ Feature: Foo API
                         flags.add("test executed")
                         return HttpResponse.OK
                     }
-
-                    override fun setServerState(serverState: Map<String, Value>) {}
                 }
             )
 
@@ -1828,9 +1781,6 @@ components:
 
                 return HttpResponse(400, body = parsedJSONObject("""{"message": "invalid request"}"""))
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(contractInvalidValueReceived).isTrue
@@ -1929,9 +1879,6 @@ components:
 
                     return HttpResponse(400, body = parsedJSONObject("""{"message": "invalid request"}"""))
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(contractInvalidValueReceived).isTrue
@@ -2010,7 +1957,7 @@ components:
 """.trimIndent(), ""
         ).toFeature()
 
-        assertThat(contract.generateContractTestScenarios(emptyList()).map { it.second.value }.single().ignoreFailure).isTrue
+        assertThat(contract.generateContractTestScenarios().map { it.second.value }.single().ignoreFailure).isTrue
     }
 
     @Test
@@ -2034,9 +1981,6 @@ components:
                     return HttpResponse(200, body = StringValue("it worked"))
 
                 return HttpResponse(400, body = parsedJSONObject("""{"error_in_400": "message"}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -2076,9 +2020,6 @@ components:
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(testCount).isEqualTo(2)
@@ -2109,9 +2050,6 @@ components:
                 testCount += 1
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -2215,10 +2153,6 @@ components:
                 paths.add(request.path!!)
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
 
         assertThat(paths).allSatisfy {
@@ -2282,10 +2216,6 @@ components:
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
 
         assertThat(result.results).isNotEmpty
@@ -2333,10 +2263,6 @@ components:
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue
@@ -2355,9 +2281,6 @@ components:
                 emailValue = email?.toStringLiteral()
                 passwordDataType = request.jsonBody.findFirstChildByName("password")?.type()
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
         assertThat(emailDataType).isInstanceOf(StringPattern::class.java)

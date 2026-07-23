@@ -199,15 +199,11 @@ internal class TestCommandTest {
             TestCommandCase("--filter-name", "Foo", { it.filterName }, "Foo"),
             TestCommandCase("--filter-not-name", "Bar", { it.filterNotName }, "Bar"),
 
-            // -------- examples / suggestions --------
+            // -------- examples --------
             TestCommandCase("--examples", "test/data", { it.getSpecmaticConfig().getExamples() }, listOf("test/data")),
-            TestCommandCase("--suggestionsPath", "suggestions.json", { it.suggestionsPath }, "suggestions.json"),
-            TestCommandCase("--suggestions", """{"scenario":"s1","suggestions":["a","b"]}""", { it.inlineSuggestions }, """{"scenario":"s1","suggestions":["a","b"]}"""),
 
             // -------- environment / config --------
-            TestCommandCase("--env", "staging", { it.envName }, "staging"),
             TestCommandCase("--config", "specmatic-test.json", { it.configFile }, "specmatic-test.json"),
-            TestCommandCase("--variables", "vars.json", { it.variablesFileName }, "vars.json"),
             TestCommandCase("--overlay-file", "overlay.yaml", { it.overlayFilePath?.path }, "overlay.yaml"),
 
             // -------- reporting --------

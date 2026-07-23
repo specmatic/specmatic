@@ -46,7 +46,7 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
             is MultiPartFileValue -> {
                 try {
                     val parsedContent = try { content.parse(value.content.toStringLiteral(), resolver) } catch (e: Throwable) { StringValue(value.content.toStringLiteral()) }
-                    resolver.matchesPattern(name, content, parsedContent)
+                    resolver.matchesPattern(content, parsedContent)
                 } catch (e: ContractException) {
                     Failure(e.report(), breadCrumb = "content", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
                 } catch (e: Throwable) {
@@ -61,7 +61,7 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
                 if(value.content is StringValue) {
                     return try {
                         val parsedContent = try { content.parse(value.content.toStringLiteral(), resolver) } catch (e: Throwable) { StringValue(value.content.toStringLiteral()) }
-                        resolver.matchesPattern(name, content, parsedContent)
+                        resolver.matchesPattern(content, parsedContent)
                     } catch (e: ContractException) {
                         Failure(e.report(), breadCrumb = "content", ruleViolation = StandardRuleViolation.TYPE_MISMATCH)
                     } catch (e: Throwable) {

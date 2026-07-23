@@ -243,6 +243,6 @@ class OptionalBodyPatternTest {
     private fun generatedRequests(openApiSpec: String): List<HttpRequest> {
         val feature = OpenApiSpecification.fromYAML(openApiSpec, "").toFeature()
 
-        return feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value.generateHttpRequest() }
+        return feature.generateContractTestScenarios().toList().map { it.second.value.generateHttpRequest() }
     }
 }

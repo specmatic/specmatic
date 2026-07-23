@@ -900,7 +900,6 @@ Scenario: api call
 Given json Value
 | value     | (number) |
 | optional? | (number) |
-And fact id 10
 When POST /value/(id:number)
 And request-body (Value)
 Then status 200
@@ -913,7 +912,6 @@ Scenario: api call
 Given json Value
 | value    | (number) |
 | optional? | (number) |
-And fact id 10
 When POST /value/(id:number)
 And request-body (Value)
 Then status 200
@@ -927,95 +925,6 @@ Then status 200
         println(result.report())
 
         assertThat(result.success()).isTrue
-    }
-
-    @Test
-    fun `contract backward compatibility should break when a new fact is added`() {
-        val gherkin1 = """
-Feature: Older contract API
-
-Scenario: api call
-Given json Value
-| value     | (number) |
-| optional? | (number) |
-When POST /value/(id:number)
-And request-body (Value)
-Then status 200
-    """.trim()
-
-        val gherkin2 = """
-Feature: Older contract API
-
-Scenario: api call
-Given json Value
-| value    | (number) |
-| optional? | (number) |
-And fact id 10
-When POST /value/(id:number)
-And request-body (Value)
-Then status 200
-    """.trim()
-
-        val olderContract = parseGherkinStringToFeature(gherkin1)
-        val newerContract = parseGherkinStringToFeature(gherkin2)
-
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
-
-        println(results.report())
-
-        assertBackwardCompatibilityFailure(
-            results,
-            """
-            In scenario "api call"
-            API: POST /value/(id:number) -> 200
-            
-              >> FACTS
-              
-                  Facts mismatch
-            """
-        )
-    }
-
-    @Test
-    fun `contract should test successfully against itself when fact name is specified without a value in the URL path`() {
-        val gherkin = """
-Feature: Contract API
-
-Scenario: api call
-Given fact id
-When POST /value/(id:number)
-Then status 200
-    """.trim()
-
-        val contract = parseGherkinStringToFeature(gherkin)
-
-        val results: Results = testBackwardCompatibility(contract, contract)
-
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertThat(results.success()).withFailMessage(results.report()).isTrue
-    }
-
-    @Test
-    fun `contract should test successfully against itself when fact name is specified without a value in the query`() {
-        val gherkin = """
-Feature: Contract API
-
-Scenario: Test Contract
-Given fact id
-When GET /value?id=(number)
-Then status 200
-    """.trim()
-
-        val contract = parseGherkinStringToFeature(gherkin)
-
-        val results: Results = testBackwardCompatibility(contract, contract)
-
-        if (results.failureCount > 0)
-            println(results.report())
-
-        assertThat(results.success()).withFailMessage(results.report()).isTrue
     }
 
     @Test

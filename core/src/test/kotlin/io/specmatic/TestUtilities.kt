@@ -112,7 +112,7 @@ private fun stubsFrom(oldContract: String): TestHttpStubData {
 
     return TestHttpStubData(oldContract, testScenarios.map { scenario ->
         val request = scenario.generateHttpRequest()
-        val response = scenario.generateHttpResponse(emptyMap())
+        val response = scenario.generateHttpResponse()
 
         TestHttpStub(stubRequest = request, stubResponse = response.copy(headers = response.headers.minus(SPECMATIC_RESULT_HEADER)))
     })

@@ -55,21 +55,6 @@ private data class WSDLTypeLookupEntry(
 )
 
 class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
-    override fun convertToGherkin(url: String): String {
-        val operationsTypeInfo = operationsTypeInfo(url)
-
-        val featureName = wsdl.getServiceName()
-
-        val featureHeading = "Feature: $featureName"
-
-        val indent = "    "
-        val gherkinScenarios = operationsTypeInfo.flatMap { operationTypeInfo ->
-            operationTypeInfo.expandedVariants().map { it.toGherkinScenario(indent, indent) }
-        }
-
-        return listOf(featureHeading).plus(gherkinScenarios).joinToString("\n\n")
-    }
-
     override fun toScenarioInfos(url: String, specmaticConfig: SpecmaticConfig): List<ScenarioInfo> {
         return operationsTypeInfo(url).map {
             it.toScenarioInfo(preferEscapedSoapAction = specmaticConfig.getEscapeSoapAction())
@@ -297,7 +282,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
         val fullyQualifiedMessageName = messageTypeNode.fullyQualifiedNameFromAttribute("message")
         val messageNode = wsdl.findMessageNode(fullyQualifiedMessageName)
         val partNode = messageNode.firstNode()
-            ?: return SoapPayloadType(existingTypes, EmptySOAPPayload(soapMessageType))
+            ?: return SoapPayloadType(existingTypes, EmptySOAPPayload())
 
         return when {
             partNode.attributes.containsKey("element") -> {
@@ -339,7 +324,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             .withWSDLTypeLookupIndex(fullyQualifiedName.namespace)
         val namespaces = wsdl.getNamespaces(typeInfo)
         val nodeNameForSOAPBody = (typeInfo.nodes.first() as XMLNode).realName
-        val soapPayload = topLevelElement.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
+        val soapPayload = topLevelElement.getSOAPPayload(nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
 
         return SoapPayloadType(typeInfo.types, soapPayload)
     }
@@ -375,7 +360,7 @@ class SOAP11Parser(private val wsdl: WSDL): SOAPParser {
             .withWSDLTypeLookupIndex(fullyQualifiedTypeName.namespace)
         val namespaces = wsdl.getNamespaces(typeInfo)
         val nodeNameForSOAPBody = (typeInfo.nodes.first() as XMLNode).realName
-        val soapPayload = topLevelElement.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
+        val soapPayload = topLevelElement.getSOAPPayload(nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
 
         return SoapPayloadType(typeInfo.types, soapPayload)
     }

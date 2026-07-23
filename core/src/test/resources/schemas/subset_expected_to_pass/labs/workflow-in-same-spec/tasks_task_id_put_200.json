@@ -1,0 +1,30 @@
+{
+  "name": "update task",
+  "http-request": {
+    "method": "PUT",
+    "path": "/tasks/(string)",
+    "headers": {
+      "x-request-id": "33333333-3333-4333-8333-333333333333",
+      "Authorization": "Bearer test-oauth-token",
+      "x-user-id-type": "application",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "applicationNumber": "APP-1001",
+      "outcome": "APPROVED"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "id": "$match(exact:wf-created-json-101)",
+      "type": "MANUAL_REVIEW",
+      "category": "VERIFICATION",
+      "subCategory": "IDENTITY",
+      "state": "$match(exact:COMPLETED)",
+      "outcome": "$match(exact:APPROVED)",
+      "createdDate": "2026-02-20T00:00:00Z",
+      "updatedDate": "2026-02-20T00:10:00Z"
+    }
+  }
+}

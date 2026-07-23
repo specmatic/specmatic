@@ -1,0 +1,20 @@
+{
+  "http-request": {
+    "path": "/findAvailableProducts?type=book",
+    "method": "GET",
+    "headers": {
+      "pageSize": "10"
+    },
+    "query": {
+      "from-date": "2025-10-01",
+      "to-date": "2025-10-15"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": [],
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

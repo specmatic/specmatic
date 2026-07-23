@@ -1,0 +1,4 @@
+{
+  "http-request": {"method": "$(METHOD)", "path": "/orders"},
+  "http-response": {"status": 200}
+}

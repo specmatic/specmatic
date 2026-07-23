@@ -1,0 +1,23 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 201
+  },
+  "name": "example with unexpected top-level field",
+  "unexpected": true,
+  "before": [
+    {
+      "type": "http",
+      "http-request": {
+        "baseUrl": "http://localhost:8080",
+        "method": "GET"
+      },
+      "http-response": {
+        "status": 200
+      }
+    }
+  ]
+}

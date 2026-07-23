@@ -158,10 +158,6 @@ class DefaultValuesInOpenapiSpecification {
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
 
         assertThat(testTypes.distinct()).containsExactlyInAnyOrder(

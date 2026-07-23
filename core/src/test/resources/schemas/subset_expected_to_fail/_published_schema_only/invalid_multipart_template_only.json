@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/upload",
+  "multipart-formdata": [
+    {"name": "$(NAME)", "content": "(CONTENT:string)", "contentType": "$match(pattern: text/plain)"},
+    {"name": "$(FILE_NAME)", "filename": "(FILE_REF:string)", "contentType": "$(FILE_TYPE)", "contentEncoding": "(ENCODING:string)"}
+  ],
+  "status": 200
+}

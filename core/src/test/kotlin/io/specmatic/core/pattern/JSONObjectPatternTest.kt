@@ -144,23 +144,6 @@ internal class JSONObjectPatternTest {
     }
 
     @Test
-    fun `Given an optional key, the unsuffixed key should be looked up in state when generating a value`() {
-        val facts = HashMap<String, Value>().apply {
-            put("id", NumberValue(12345))
-        }
-
-        val resolver = Resolver(facts)
-
-        when (val value = parsedPattern("""{"id?": "(number)"}""", null).generate(resolver)) {
-            is JSONObjectValue -> {
-                val id = value.jsonObject["id"] as NumberValue
-                assertEquals(12345, id.number)
-            }
-            else -> Exception("Expected JSONObjectValue, got ${value.javaClass}")
-        }
-    }
-
-    @Test
     fun `should not ignore extra keys by default`() {
         val value = parsedValue("""{"expected": 10, "unexpected": 20}""")
         val pattern = parsedPattern("""{"expected": "(number)"}""")

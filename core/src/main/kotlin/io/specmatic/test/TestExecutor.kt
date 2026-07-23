@@ -8,8 +8,8 @@ import io.specmatic.core.value.Value
 interface TestExecutor {
     fun execute(request: HttpRequest): HttpResponse
 
-    fun setServerState(serverState: Map<String, Value>) {
-    }
+    @Deprecated("Server state is no longer supported")
+    fun setServerState(serverState: Map<String, Value>) {}
 
     fun preExecuteScenario(scenario: Scenario, request: HttpRequest) {
     }

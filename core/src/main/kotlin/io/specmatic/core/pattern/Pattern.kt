@@ -173,7 +173,7 @@ fun fixValue(value: Value, pattern: Pattern, resolver: Resolver): Value {
     }
 
     return parsedValueIfScalar.takeIf {
-        resolver.matchesPattern(null, pattern, parsedValueIfScalar).isSuccess()
+        resolver.matchesPattern(pattern, parsedValueIfScalar).isSuccess()
     } ?: resolver.generate(pattern)
 }
 

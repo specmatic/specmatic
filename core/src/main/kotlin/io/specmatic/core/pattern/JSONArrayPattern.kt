@@ -55,7 +55,7 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
 
         return resolvedPatterns.asSequence().mapIndexed { index, patternValue ->
             val sampleValue = sampleData.list[index]
-            resolverWithNumberType.matchesPattern(null, patternValue, sampleValue).breadCrumb("""[$index]""")
+            resolverWithNumberType.matchesPattern(patternValue, sampleValue).breadCrumb("""[$index]""")
         }.find {
             it is Result.Failure
         } ?: Result.Success()

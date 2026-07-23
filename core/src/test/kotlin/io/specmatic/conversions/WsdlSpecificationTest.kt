@@ -38,7 +38,7 @@ internal class WsdlSpecificationTest {
             val request = scenario.generateHttpRequest()
             assertThat(request.contentType()).isEqualTo("text/xml")
 
-            val response = scenario.generateHttpResponse(emptyMap())
+            val response = scenario.generateHttpResponse()
             assertThat(response.contentType()).isEqualTo("text/xml")
         }
     }
@@ -51,7 +51,7 @@ internal class WsdlSpecificationTest {
             val request = scenario.generateHttpRequest()
             assertThat(request.contentType()).isEqualTo("application/soap+xml")
 
-            val response = scenario.generateHttpResponse(emptyMap())
+            val response = scenario.generateHttpResponse()
             assertThat(response.contentType()).isEqualTo("application/soap+xml")
         }
     }
@@ -67,7 +67,7 @@ internal class WsdlSpecificationTest {
             val request = scenario.generateHttpRequest()
             assertThat(request.contentType()).isEqualTo("application/soap+xml")
 
-            val response = scenario.generateHttpResponse(emptyMap())
+            val response = scenario.generateHttpResponse()
             assertThat(response.contentType()).isEqualTo("application/soap+xml")
         }
     }

@@ -1,0 +1,4 @@
+{
+  "http-request": {"method": "POST", "path": "/orders", "bodyRegex": "(BODY_REGEX:string)"},
+  "http-response": {"status": 200}
+}

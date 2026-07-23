@@ -73,7 +73,7 @@ class Discriminator(
 
     private fun _matches_partial(sampleData: JSONObjectValue, patterns: List<Pattern>, key: String?, resolver: Resolver): Result {
         val matchResults: List<AnyPatternMatch> = patterns.map {
-            AnyPatternMatch(it, resolver.matchesPattern(key, it, sampleData))
+            AnyPatternMatch(it, resolver.matchesPattern(it, sampleData))
         }
 
         val matchResult = matchResults.find { it.result is Result.Success }
@@ -144,7 +144,7 @@ class Discriminator(
             if(discriminatorMatched)
                 resultsSoFar.plus((AnyPattern.AnyPatternMatch(
                     pattern,
-                    resolver.matchesPattern(key, pattern, sampleData)
+                    resolver.matchesPattern(pattern, sampleData)
                 ))) to true
             else
                 resultsSoFar.plus(discriminatorMatchFailure(pattern)) to false

@@ -63,8 +63,7 @@ Scenario: JSON API to create list of locations
   Then status 200
   And response-header Content-Type application/json
 
-Scenario: JSON API to get account details with fact check
-  Given fact userid
+Scenario: JSON API to get account details
   When GET /account_json?userid=(number)
   Then status 200
   And response-body {"name": "(string)"}
@@ -224,7 +223,7 @@ Scenario: JSON API to get account details with fact check
 
     @Test
     @Throws(Throwable::class)
-    fun `contract should mock server state`() {
+    fun `contract should return a matching JSON response`() {
         val expectedRequest =
             HttpRequest().updateMethod("GET").updatePath("/account_json").updateQueryParam("userid", "10")
         val expectedResponse = HttpResponse.jsonResponse("{\"name\": \"John Doe\"}")
@@ -267,30 +266,6 @@ Scenario: JSON API to get account details with fact check
             val expectedRequest = HttpRequest().updateMethod("POST").updatePath("/locations").updateBody(requestBody)
             val expectedResponse =
                 HttpResponse.OK.let { it.copy(headers = it.headers.plus("Content-Type" to "application/json")) }
-            mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
-        }
-    }
-
-    @Test
-    fun `contract mock should function without needing complex fixture setup`() {
-        val contractGherkin = """Feature: Contract for /locations API
-  Scenario Outline: api call
-    * fixture city_list {"cities": [{"city": "Mumbai"}, {"city": "Bangalore"}]}
-    * pattern City {"city": "(string)"}
-    * pattern Cities {"cities": ["(City...)"]}
-    Given fact cities_exist 
-    When GET /locations
-    Then status 200
-    And response-body (Cities)
-    And response-header Content-Type application/json
-    
-  Examples:
-  | cities_exist | 
-  | city_list | 
-    """
-        HttpStub(contractGherkin).use { mock ->
-            val expectedRequest = HttpRequest().updateMethod("GET").updatePath("/locations")
-            val expectedResponse = HttpResponse(200, "{\"cities\":[{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}] }")
             mock.setExpectation(ScenarioStub(expectedRequest, expectedResponse))
         }
     }

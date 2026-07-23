@@ -49,15 +49,11 @@ Examples:
     """.trimIndent(), sourceSpecPath
                 )
 
-                val contractTests = contract.generateContractTests(emptyList())
+                val contractTests = contract.generateContractTests()
                 val result = contractTests.single().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsEntry(HttpHeaders.AUTHORIZATION, "Bearer abc123")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -69,16 +65,12 @@ Examples:
             fun `should generate test with oauth2 authorization code security scheme with random token in authorization header when no example exists`() {
                 val feature =
                     parseContractFileToFeature("./src/test/resources/openapi/hello_with_oauth2_authorization_code_flow.yaml")
-                val contractTests = feature.generateContractTests(emptyList())
+                val contractTests = feature.generateContractTests()
                 val result = contractTests.first().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                         assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer (\\S+)")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -92,16 +84,12 @@ Examples:
                     "./src/test/resources/openapi/hello_with_oauth2_authorization_code_flow.yaml",
                     securityConfiguration = newSecurityConfiguration(token)
                 )
-                val contractTests = feature.generateContractTests(emptyList())
+                val contractTests = feature.generateContractTests()
                 val result = contractTests.first().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                         assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer $token")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
 
@@ -116,16 +104,12 @@ Examples:
                     val feature = parseContractFileToFeature(
                         "./src/test/resources/openapi/hello_with_oauth2_authorization_code_flow.yaml",
                     )
-                    val contractTests = feature.generateContractTests(emptyList())
+                    val contractTests = feature.generateContractTests()
                     val result = contractTests.first().runTest(object : TestExecutor {
                         override fun execute(request: HttpRequest): HttpResponse {
                             assertThat(request.headers).containsKey(HttpHeaders.AUTHORIZATION)
                             assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer ENV1234")
                             return HttpResponse.ok("success")
-                        }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
-
                         }
                     }).result
 
@@ -230,15 +214,11 @@ Feature: Authenticated
     | Bearer abc123 | 10 |
         """.trimIndent(), sourceSpecPath
                 )
-                val contractTests = contract.generateContractTests(emptyList())
+                val contractTests = contract.generateContractTests()
                 val result = contractTests.single().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsEntry(HttpHeaders.AUTHORIZATION, "Bearer abc123")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -282,15 +262,11 @@ Feature: Authenticated
     | Bearer abc123 | 10 |
         """.trimIndent(), sourceSpecPath
                 )
-                val contractTests = contract.generateContractTests(emptyList())
+                val contractTests = contract.generateContractTests()
                 val result = contractTests.single().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsEntry(HttpHeaders.AUTHORIZATION, "Bearer abc123")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -334,15 +310,11 @@ Feature: Authenticated
     | Bearer abc123 | 10 |
         """.trimIndent(), sourceSpecPath
                 )
-                val contractTests = contract.generateContractTests(emptyList())
+                val contractTests = contract.generateContractTests()
                 val result = contractTests.single().runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.headers).containsEntry(HttpHeaders.AUTHORIZATION, "Bearer abc123")
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
 
                 }).result
@@ -387,15 +359,11 @@ Feature: Authenticated
         """.trimIndent(), sourceSpecPath
             )
 
-            val contractTests = contract.generateContractTests(emptyList())
+            val contractTests = contract.generateContractTests()
             val result = contractTests.single().runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.headers).containsEntry("Authorization", "Bearer abc123")
                     return HttpResponse.ok("success")
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-
                 }
 
             }).result
@@ -406,7 +374,7 @@ Feature: Authenticated
         @Test
         fun `should generate test with bearer security scheme with random token in authorization header when no example exists`() {
             val feature = parseContractFileToFeature("./src/test/resources/openapi/authenticated.yaml")
-            val contractTests = feature.generateContractTests(emptyList())
+            val contractTests = feature.generateContractTests()
             var requestMadeWithRandomlyGeneratedBearerToken = false
             contractTests.forEach { scenario ->
                 val result = scenario.runTest(object : TestExecutor {
@@ -417,10 +385,6 @@ Feature: Authenticated
                             requestMadeWithRandomlyGeneratedBearerToken = true
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -435,7 +399,7 @@ Feature: Authenticated
                 "./src/test/resources/openapi/authenticated.yaml",
                 securityConfiguration = securityConfigurationForBearerScheme(token)
             )
-            val contractTests = feature.generateContractTests(emptyList())
+            val contractTests = feature.generateContractTests()
             var requestMadeWithTokenFromSpecmaticJson = false
             contractTests.forEach { scenario ->
                 val result = scenario.runTest(object : TestExecutor {
@@ -446,10 +410,6 @@ Feature: Authenticated
                             requestMadeWithTokenFromSpecmaticJson = true
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -472,7 +432,7 @@ Feature: Authenticated
                 val feature = parseContractFileToFeature(
                     "./src/test/resources/openapi/authenticated.yaml",
                 )
-                val contractTests = feature.generateContractTests(emptyList())
+                val contractTests = feature.generateContractTests()
                 var requestMadeWithTokenFromSpecmaticJson = false
                 contractTests.forEach { scenario ->
                     val result = scenario.runTest(object : TestExecutor {
@@ -483,10 +443,6 @@ Feature: Authenticated
                                 requestMadeWithTokenFromSpecmaticJson = true
                             }
                             return HttpResponse.ok("success")
-                        }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
-
                         }
                     }).result
                     assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -660,13 +616,10 @@ Background:
                 """.trimIndent(), ""
             ).toFeature()
 
-            val result = feature.generateContractTests(emptyList()).single().runTest(object : TestExecutor {
+            val result = feature.generateContractTests().single().runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.headers[HttpHeaders.AUTHORIZATION]).matches("Bearer (\\S+)")
                     return HttpResponse.OK
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             }).result
 
@@ -731,9 +684,6 @@ Background:
                     assertThat(request.headers).containsKey("Authorization")
                     return HttpResponse.OK
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -748,9 +698,6 @@ Background:
                     assertThat(request.headers).containsEntry("Authorization", "Basic $base64EncodedCredentials")
                     return HttpResponse.OK
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -764,9 +711,6 @@ Background:
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.headers).containsEntry("Authorization", "Basic $base64EncodedCredentials")
                     return HttpResponse.OK
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
                 }
             })
 
@@ -862,15 +806,11 @@ Feature: Authenticated
         """.trimIndent(), sourceSpecPath
             )
 
-            val contractTests = contract.generateContractTests(emptyList())
+            val contractTests = contract.generateContractTests()
             val result = contractTests.single().runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.queryParams.containsEntry("apiKey", "abc123")).isTrue
                     return HttpResponse.ok("success")
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-
                 }
 
             }).result
@@ -925,15 +865,11 @@ Feature: Authenticated
         """.trimIndent(), sourceSpecPath
             )
 
-            val contractTests = contract.generateContractTests(emptyList())
+            val contractTests = contract.generateContractTests()
             val result = contractTests.single().runTest(object : TestExecutor {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request.headers).containsEntry("X-API-KEY", "abc123")
                     return HttpResponse.ok("success")
-                }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-
                 }
 
             }).result
@@ -948,7 +884,7 @@ Feature: Authenticated
                 "./src/test/resources/openapi/authenticated.yaml",
                 securityConfiguration = securityConfigurationForApiKeyInHeaderScheme(token)
             )
-            val contractTests = feature.generateContractTests(emptyList())
+            val contractTests = feature.generateContractTests()
             var requestMadeWithApiKeyInHeaderFromSpecmaticJson = false
             contractTests.forEach { scenario ->
                 val result = scenario.runTest(object : TestExecutor {
@@ -959,10 +895,6 @@ Feature: Authenticated
                             requestMadeWithApiKeyInHeaderFromSpecmaticJson = true
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -983,7 +915,7 @@ Feature: Authenticated
                 val feature = parseContractFileToFeature(
                     "./src/test/resources/openapi/authenticated.yaml",
                 )
-                val contractTests = feature.generateContractTests(emptyList())
+                val contractTests = feature.generateContractTests()
                 var requestMadeWithApiKeyInHeaderFromSpecmaticJson = false
                 contractTests.forEach { scenario ->
                     val result = scenario.runTest(object : TestExecutor {
@@ -994,10 +926,6 @@ Feature: Authenticated
                                 requestMadeWithApiKeyInHeaderFromSpecmaticJson = true
                             }
                             return HttpResponse.ok("success")
-                        }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
-
                         }
                     }).result
                     assertThat(result).isInstanceOf(Result.Success::class.java)
@@ -1015,7 +943,7 @@ Feature: Authenticated
                 "./src/test/resources/openapi/authenticated.yaml",
                 securityConfiguration = securityConfigurationForApiKeyInQueryScheme(token)
             )
-            val contractTests = feature.generateContractTests(emptyList())
+            val contractTests = feature.generateContractTests()
             var requestMadeWithApiKeyInQueryFromSpecmaticJson = false
             contractTests.forEach { scenario ->
                 val result = scenario.runTest(object : TestExecutor {
@@ -1028,10 +956,6 @@ Feature: Authenticated
                             }
                         }
                         return HttpResponse.ok("success")
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
-
                     }
                 }).result
                 assertThat(result).isInstanceOf(Result.Success::class.java)

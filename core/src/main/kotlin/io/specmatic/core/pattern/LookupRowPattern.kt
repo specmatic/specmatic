@@ -15,13 +15,13 @@ data class LookupRowPattern(override val pattern: Pattern, override val key: Str
     }
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result =
-            resolver.matchesPattern(key, pattern, sampleData ?: EmptyString)
+            resolver.matchesPattern(pattern, sampleData ?: EmptyString)
 
     override fun generate(resolver: Resolver): Value {
         return resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
             when (key) {
                 null -> pattern.generate(cyclePreventedResolver)
-                else -> cyclePreventedResolver.generate(key, pattern)
+                else -> cyclePreventedResolver.generate(pattern)
             }
         }
     }

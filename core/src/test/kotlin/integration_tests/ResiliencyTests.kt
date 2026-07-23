@@ -105,9 +105,6 @@ class GenerativeTests {
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(statusesSeen).isEqualTo(setOf("active", "inactive", "active_", "null", "boolean", "number"))
@@ -505,9 +502,6 @@ class GenerativeTests {
                 statusValuesSeen.add(request.headers["status"]?.let { "$it in headers" } ?: "status not in headers")
 
                 return HttpResponse.ok("OK")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -1131,9 +1125,6 @@ class GenerativeTests {
 
                     return HttpResponse.ok("OK")
                 }
-
-                override fun setServerState(serverState: Map<String, Value>) {
-                }
             })
 
             assertThat(buildingValuesSeen).containsExactlyInAnyOrder(
@@ -1211,9 +1202,6 @@ class GenerativeTests {
                 requestBodiesSeen.add(request.body)
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
         println(results.report())
 
@@ -1278,9 +1266,6 @@ class GenerativeTests {
                 seenRequestBodies.add(request.body)
 
                 return HttpResponse.ok("success")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -1381,10 +1366,6 @@ class GenerativeTests {
                 testType.add("name not mutated")
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         })
 
@@ -1754,9 +1735,6 @@ class GenerativeTests {
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(pathsSeen).withFailMessage(results.report()).satisfiesExactlyInAnyOrder(
@@ -1822,9 +1800,6 @@ class GenerativeTests {
                 assertThat(request.body).isInstanceOf(JSONObjectValue::class.java)
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -2734,7 +2709,7 @@ class GenerativeTests {
             """.trimIndent(), ""
         ).toFeature().enableGenerativeTesting()
 
-        val testDescriptions = feature.generateContractTests(emptyList()).map {
+        val testDescriptions = feature.generateContractTests().map {
             it.testDescription()
         }.toList()
 

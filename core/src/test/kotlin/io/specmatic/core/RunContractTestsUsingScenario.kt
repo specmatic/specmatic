@@ -30,7 +30,6 @@ internal class RunContractTestsUsingScenario {
             "test",
             HttpRequestPattern(),
             HttpResponsePattern(),
-            HashMap(),
             LinkedList(),
             HashMap(),
             HashMap(),
@@ -48,7 +47,6 @@ internal class RunContractTestsUsingScenario {
             "test",
             HttpRequestPattern(),
             HttpResponsePattern(),
-            HashMap(),
             listOf(patterns),
             HashMap(),
             HashMap(),
@@ -67,7 +65,6 @@ internal class RunContractTestsUsingScenario {
             "test",
             HttpRequestPattern(),
             httpResponsePattern,
-            HashMap(),
             LinkedList(),
             HashMap(),
             HashMap(),
@@ -80,46 +77,11 @@ internal class RunContractTestsUsingScenario {
     }
 
     @Test
-    fun `given a pattern in an example, facts declare without a value should pick up the pattern`() {
-        val row = Row(listOf("id"), listOf("(string)"))
-
-        val newState = newExpectedServerStateBasedOn(row, mapOf("id" to True), HashMap(), Resolver())
-
-        assertThat(newState.getValue("id").toStringLiteral()).isNotEqualTo("(string)")
-        assertThat(newState.getValue("id").toStringLiteral().trim().length).isGreaterThan(0)
-    }
-
-    @Test
-    fun `given a pattern in an example in a scenario generated based on a row, facts declare without a value should pick up the pattern`() {
-        val row = Row(listOf("id"), listOf("(string)"))
-        val example = Examples(listOf("id"), listOf(row))
-
-        val state = HashMap(mapOf<String, Value>("id" to True))
-        val scenario = Scenario(
-            "Test",
-            HttpRequestPattern(httpPathPattern = HttpPathPattern(emptyList(), path = "/")),
-            HttpResponsePattern(status = 200),
-            state,
-            listOf(example),
-            HashMap(),
-            HashMap(),
-            protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
-        )
-
-        val testScenarios = scenario.generateTestScenarios(DefaultStrategies).map { it.value }
-        val newState = testScenarios.first().expectedFacts
-
-        assertThat(newState.getValue("id").toStringLiteral()).isNotEqualTo("(string)")
-        assertThat(newState.getValue("id").toStringLiteral().trim().length).isGreaterThan(0)
-    }
-
-    @Test
     fun `will not match a mock http request with unexpected request headers`() {
         val scenario = Scenario(
             "Test",
             HttpRequestPattern(method="GET", httpPathPattern = HttpPathPattern(emptyList(), "/"), headersPattern = HttpHeadersPattern(mapOf("X-Expected" to StringPattern()))),
             HttpResponsePattern(status = 200),
-            emptyMap(),
             emptyList(),
             emptyMap(),
             emptyMap(),
@@ -137,7 +99,6 @@ internal class RunContractTestsUsingScenario {
             "Test",
             HttpRequestPattern(method="GET", httpPathPattern = HttpPathPattern(emptyList(), "/"), headersPattern = HttpHeadersPattern(emptyMap())),
             HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(mapOf("X-Expected" to StringPattern()))),
-            emptyMap(),
             emptyList(),
             emptyMap(),
             emptyMap(),
@@ -155,7 +116,6 @@ internal class RunContractTestsUsingScenario {
             "Test",
             HttpRequestPattern(method="GET", httpPathPattern = HttpPathPattern(emptyList(), "/"), httpQueryParamPattern = HttpQueryParamPattern(mapOf("expected" to StringPattern())), headersPattern = HttpHeadersPattern(emptyMap(), null)),
             HttpResponsePattern(status = 200),
-            emptyMap(),
             emptyList(),
             emptyMap(),
             emptyMap(),
@@ -173,7 +133,6 @@ internal class RunContractTestsUsingScenario {
             "Test",
             HttpRequestPattern(method="POST", httpPathPattern = HttpPathPattern(emptyList(), "/"), httpQueryParamPattern = HttpQueryParamPattern(mapOf("expected" to StringPattern())), headersPattern = HttpHeadersPattern(emptyMap(), null), body = parsedPattern("""{"expected": "value"}""")),
             HttpResponsePattern(status = 200),
-            emptyMap(),
             emptyList(),
             emptyMap(),
             emptyMap(),
@@ -423,52 +382,6 @@ And response-body (number)
     }
 
     @Test
-    fun `should add bindings and variables if passed when generating test scenarios`() {
-        val gherkin = """Feature: Test API
-            Background:
-                Given value auth from auth.spec
-
-            Scenario: Test Scenario
-                When GET /
-                And request-header X-Header1 (string)
-                And request-header X-Header2 (string)
-                Then status 200
-                And response-header X-Data (string)
-                And export data = response-header.X-Data
-                
-                Examples:
-                | X-Header1                   | X-Header2                         |
-                | (${DEREFERENCE_PREFIX}data) | (${DEREFERENCE_PREFIX}auth.token) | 
-                """.trim()
-
-        val feature = parseGherkinStringToFeature(gherkin, "original.spec").copy(testVariables = mapOf("data" to "10"), testBaseURLs = mapOf("auth.spec" to "http://baseurl"))
-
-        val mockCache = mockk<ContractCache>()
-        every {
-            mockCache.lookup(any())
-        }.returns(mapOf("token" to "20"))
-
-        val testScenarios = feature.scenarios.map { scenario ->
-            val updatedReferences = scenario.references.mapValues {
-                it.value.copy(contractCache = mockCache)
-            }
-
-            scenario.copy(references = updatedReferences).generateTestScenarios(
-                DefaultStrategies,
-                variables = mapOf("data" to "10"),
-                testBaseURLs = mapOf("auth.spec" to "http://baseurl")
-            ).map { it.value }.toList()
-        }.flatten()
-
-        assertThat(testScenarios).allSatisfy(Consumer {
-            assertThat(it.bindings).isEqualTo(mapOf("data" to "response-header.X-Data"))
-
-            assertThat((it.httpRequestPattern.headersPattern.pattern["X-Header1"] as ExactValuePattern).pattern.toStringLiteral()).isEqualTo("10")
-            assertThat((it.httpRequestPattern.headersPattern.pattern["X-Header2"] as ExactValuePattern).pattern.toStringLiteral()).isEqualTo("20")
-        })
-    }
-
-    @Test
     fun `mock should return match errors across both request and response`() {
         val requestType = HttpRequestPattern(method = "POST", httpPathPattern = buildHttpPathPattern("http://localhost/data"), body = JSONObjectPattern(mapOf("id" to NumberPattern())))
         val responseType = HttpResponsePattern(status = 200, body = JSONObjectPattern(mapOf("id" to NumberPattern())))
@@ -531,15 +444,12 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val contractTestScenarios = contract.generateContractTests(emptyList())
+        val contractTestScenarios = contract.generateContractTests()
 
         val result: Result =
             contractTestScenarios.first().runTest(object : TestExecutor {
                         override fun execute(request: HttpRequest): HttpResponse {
                             return HttpResponse.ok("abc")
-                        }
-
-                        override fun setServerState(serverState: Map<String, Value>) {
                         }
                     }).result as Result.Failure
 

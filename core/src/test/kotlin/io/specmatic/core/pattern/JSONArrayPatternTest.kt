@@ -86,7 +86,7 @@ internal class JSONArrayPatternTest {
 
         val resolver = Resolver(mockMode = true)
 
-        assertThat(resolver.matchesPattern(null, pattern, value)).isInstanceOf(Result.Success::class.java)
+        assertThat(resolver.matchesPattern(pattern, value)).isInstanceOf(Result.Success::class.java)
     }
 
     @Test

@@ -1,0 +1,29 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  },
+  "before": [
+    {
+      "type": "http",
+      "wait": 100,
+      "http-request": {
+        "baseUrl": "http://localhost:9000",
+        "method": "POST",
+        "path": "/setup",
+        "body": {
+          "seed": true
+        }
+      },
+      "http-response": {
+        "status": 200,
+        "body": {
+          "done": true
+        }
+      }
+    }
+  ]
+}

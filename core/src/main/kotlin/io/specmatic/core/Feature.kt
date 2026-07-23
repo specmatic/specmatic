@@ -171,10 +171,7 @@ fun getSpecType(isWSDL: Boolean): SpecType {
 
 data class Feature(
     val scenarios: List<Scenario> = emptyList(),
-    private var serverState: Map<String, Value> = emptyMap(),
     val name: String,
-    val testVariables: Map<String, String> = emptyMap(),
-    val testBaseURLs: Map<String, String> = emptyMap(),
     val path: String = "",
     val sourceProvider:String? = null,
     val sourceRepository:String? = null,
@@ -246,23 +243,13 @@ data class Feature(
     }
 
     fun lookupResponse(httpRequest: HttpRequest): HttpResponse {
-        try {
-            val resultList = lookupScenario(httpRequest, scenarios)
-            return matchingScenario(resultList)?.generateHttpResponse(serverState)
-                ?: Results(resultList.map { it.second }.toMutableList()).withoutFluff()
-                    .generateErrorHttpResponse(httpRequest)
-        } finally {
-            serverState = emptyMap()
-        }
+        val resultList = lookupScenario(httpRequest, scenarios)
+        return matchingScenario(resultList)?.generateHttpResponse()
+            ?: Results(resultList.map { it.second }.toMutableList()).withoutFluff()
+                .generateErrorHttpResponse(httpRequest)
     }
 
-    fun lookupResponse(scenario: Scenario): HttpResponse {
-        try {
-            return scenario.generateHttpResponse(serverState)
-        } finally {
-            serverState = emptyMap()
-        }
-    }
+    fun lookupResponse(scenario: Scenario): HttpResponse = scenario.generateHttpResponse()
 
     fun loadInlineExamplesAsStub(): List<ReturnValue<HttpStubData>> {
         return this.inlineNamedStubs.mapNotNull { namedStub ->
@@ -307,53 +294,46 @@ data class Feature(
         allowOnlyMandatoryKeysInJSONObject: Boolean = false
     ): List<DiscriminatorBasedRequestResponse> {
         val scenario = scenarioValue.value
-        try {
-            val requests = scenario.generateHttpRequestV2(
-                allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
-            )
-            val responses = scenario.generateHttpResponseV2(
-                serverState,
-                allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
-            )
+        val requests = scenario.generateHttpRequestV2(
+            allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
+        )
+        val responses = scenario.generateHttpResponseV2(
+            allowOnlyMandatoryKeysInJSONObject = allowOnlyMandatoryKeysInJSONObject
+        )
 
-            val discriminatorBasedRequestResponseList = if (requests.size > responses.size) {
-                requests.map { (requestDiscriminator, request) ->
-                    val (responseDiscriminator, response) = if (responses.containsDiscriminatorValueAs(
-                            requestDiscriminator.discriminatorValue
-                        )
+        return if (requests.size > responses.size) {
+            requests.map { (requestDiscriminator, request) ->
+                val (responseDiscriminator, response) = if (responses.containsDiscriminatorValueAs(
+                        requestDiscriminator.discriminatorValue
                     )
-                        responses.getDiscriminatorItemWith(requestDiscriminator.discriminatorValue)
-                    else
-                        responses.first()
-                    DiscriminatorBasedRequestResponse(
-                        request = request,
-                        response = response,
-                        requestDiscriminator = requestDiscriminator,
-                        responseDiscriminator = responseDiscriminator,
-                        scenarioValue = scenarioValue
-                    )
-                }
-            } else {
-                responses.map { (responseDiscriminator, response) ->
-                    val (requestDiscriminator, request) = if (requests.containsDiscriminatorValueAs(
-                            responseDiscriminator.discriminatorValue
-                        )
-                    )
-                        requests.getDiscriminatorItemWith(responseDiscriminator.discriminatorValue)
-                    else requests.first()
-                    DiscriminatorBasedRequestResponse(
-                        request = request,
-                        response = response,
-                        requestDiscriminator = requestDiscriminator,
-                        responseDiscriminator = responseDiscriminator,
-                        scenarioValue = scenarioValue
-                    )
-                }
+                )
+                    responses.getDiscriminatorItemWith(requestDiscriminator.discriminatorValue)
+                else
+                    responses.first()
+                DiscriminatorBasedRequestResponse(
+                    request = request,
+                    response = response,
+                    requestDiscriminator = requestDiscriminator,
+                    responseDiscriminator = responseDiscriminator,
+                    scenarioValue = scenarioValue
+                )
             }
-
-            return discriminatorBasedRequestResponseList
-        } finally {
-            serverState = emptyMap()
+        } else {
+            responses.map { (responseDiscriminator, response) ->
+                val (requestDiscriminator, request) = if (requests.containsDiscriminatorValueAs(
+                        responseDiscriminator.discriminatorValue
+                    )
+                )
+                    requests.getDiscriminatorItemWith(responseDiscriminator.discriminatorValue)
+                else requests.first()
+                DiscriminatorBasedRequestResponse(
+                    request = request,
+                    response = response,
+                    requestDiscriminator = requestDiscriminator,
+                    responseDiscriminator = responseDiscriminator,
+                    scenarioValue = scenarioValue
+                )
+            }
         }
     }
 
@@ -361,27 +341,22 @@ data class Feature(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): Pair<ResponseBuilder?, Results> {
-        try {
-            val result = matchRequestScenariosWithEarlySuccess(
-                request = httpRequest,
-                onSuccess = { scenario -> ResponseBuilder(scenario, serverState) },
-                match = { scenario ->
-                    scenario.matchesStub(
-                        httpRequest = httpRequest,
-                        serverState = serverState,
-                        mismatchMessages = mismatchMessages,
-                        unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
-                    )
-                },
-            )
+        val result = matchRequestScenariosWithEarlySuccess(
+            request = httpRequest,
+            onSuccess = ::ResponseBuilder,
+            match = { scenario ->
+                scenario.matchesStub(
+                    httpRequest = httpRequest,
+                    mismatchMessages = mismatchMessages,
+                    unexpectedKeyCheck = flagsBased.unexpectedKeyCheck ?: ValidateUnexpectedKeys
+                )
+            },
+        )
 
-            return result.fold(
-                onSuccess = { responseBuilder -> Pair(responseBuilder, Results()) },
-                onFailure = { failures -> Pair(null, Results(failures)) }
-            )
-        } finally {
-            serverState = emptyMap()
-        }
+        return result.fold(
+            onSuccess = { responseBuilder -> Pair(responseBuilder, Results()) },
+            onFailure = { failures -> Pair(null, Results(failures)) }
+        )
     }
 
     private fun getMatchingAndSortedScenarios(
@@ -422,28 +397,24 @@ data class Feature(
         mismatchMessages: MismatchMessages = DefaultMismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck
     ): Map<Int, Pair<ResponseBuilder?, Results>> {
-        try {
-            val acceptHeaderSortedScenarios = getMatchingAndSortedScenarios(httpRequest, scenarios)
-            val resultList = matchingScenarioToResultList(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck, acceptHeaderSortedScenarios)
-            val matchingScenarios = matchingScenarios(resultList)
+        val acceptHeaderSortedScenarios = getMatchingAndSortedScenarios(httpRequest, scenarios)
+        val resultList = matchingScenarioToResultList(httpRequest, mismatchMessages, unexpectedKeyCheck, acceptHeaderSortedScenarios)
+        val matchingScenarios = matchingScenarios(resultList)
 
-            if (matchingScenarios.toList().isEmpty()) {
-                val results = Results(
-                    resultList.map { it.second }.toList()
-                ).withoutFluff()
-                return mapOf(
-                    400 to Pair(
-                        ResponseBuilder(null, serverState),
-                        results
-                    )
+        if (matchingScenarios.toList().isEmpty()) {
+            val results = Results(
+                resultList.map { it.second }.toList()
+            ).withoutFluff()
+            return mapOf(
+                400 to Pair(
+                    ResponseBuilder(null),
+                    results
                 )
-            }
+            )
+        }
 
-            return matchingScenarios.associate { (status, scenario) ->
-                status to Pair(ResponseBuilder(scenario, serverState), Results())
-            }
-        } finally {
-            serverState = emptyMap()
+        return matchingScenarios.associate { (status, scenario) ->
+            status to Pair(ResponseBuilder(scenario), Results())
         }
     }
 
@@ -462,14 +433,13 @@ data class Feature(
 
     private fun matchingScenarioToResultList(
         httpRequest: HttpRequest,
-        serverState: Map<String, Value>,
         mismatchMessages: MismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck = ValidateUnexpectedKeys,
         scenarios: List<Scenario>,
     ): Sequence<Pair<Scenario, Result>> {
         val scenarioSequence = scenarios.asSequence()
         return scenarioSequence.zip(scenarioSequence.map {
-            it.matchesStub(httpRequest, serverState, mismatchMessages, unexpectedKeyCheck)
+            it.matchesStub(httpRequest, mismatchMessages, unexpectedKeyCheck)
         })
     }
 
@@ -539,22 +509,18 @@ data class Feature(
         httpRequest: HttpRequest,
         mismatchMessages: MismatchMessages = NewAndOldSpecificationRequestMismatches
     ): List<Pair<Scenario, Result>> {
-        try {
-            val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
+        val resultList = lookupAllScenarios(httpRequest, scenarios, mismatchMessages, IgnoreUnexpectedKeys)
 
-            val successes = lookupAllSuccessfulScenarios(resultList)
-            if (successes.isNotEmpty())
-                return successes
+        val successes = lookupAllSuccessfulScenarios(resultList)
+        if (successes.isNotEmpty())
+            return successes
 
-            val deepMatchingErrors = allDeeplyMatchingScenarios(resultList)
+        val deepMatchingErrors = allDeeplyMatchingScenarios(resultList)
 
-            return when {
-                deepMatchingErrors.isNotEmpty() -> deepMatchingErrors
-                scenarios.isEmpty() -> throw EmptyContract()
-                else -> emptyList()
-            }
-        } finally {
-            serverState = emptyMap()
+        return when {
+            deepMatchingErrors.isNotEmpty() -> deepMatchingErrors
+            scenarios.isEmpty() -> throw EmptyContract()
+            else -> emptyList()
         }
     }
 
@@ -591,9 +557,8 @@ data class Feature(
     ): Sequence<Pair<Scenario, Result>> {
         val scenarioSequence = getMatchingAndSortedScenarios(httpRequest, scenarios).asSequence()
 
-        val localCopyOfServerState = serverState
         return scenarioSequence.zip(scenarioSequence.map {
-            it.matches(httpRequest, localCopyOfServerState, DefaultMismatchMessages)
+            it.matches(httpRequest, DefaultMismatchMessages)
         })
     }
 
@@ -603,18 +568,16 @@ data class Feature(
         mismatchMessages: MismatchMessages = DefaultMismatchMessages,
         unexpectedKeyCheck: UnexpectedKeyCheck? = null
     ): List<Pair<Scenario, Result>> {
-        val localCopyOfServerState = serverState
         return scenarios.zip(scenarios.map {
-            it.matches(httpRequest, localCopyOfServerState, mismatchMessages, unexpectedKeyCheck)
+            it.matches(httpRequest, mismatchMessages, unexpectedKeyCheck)
         })
     }
 
     fun executeTests(
         testExecutor: TestExecutor,
-        suggestions: List<Scenario> = emptyList(),
         testDescriptionFilter: List<String> = emptyList()
     ): Results {
-        return generateContractTests(suggestions)
+        return generateContractTests()
             .filter { contractTest ->
                 testDescriptionFilter.isEmpty() ||
                         testDescriptionFilter.any { scenarioName ->
@@ -627,16 +590,9 @@ data class Feature(
             }
     }
 
-    fun setServerState(serverState: Map<String, Value>) {
-        this.serverState = this.serverState.plus(serverState)
-    }
-
     fun matches(request: HttpRequest, response: HttpResponse): Boolean {
         return scenarios.firstOrNull {
-            it.matches(
-                request,
-                serverState
-            ) is Success && it.matches(response) is Success
+            it.matches(request) is Success && it.matches(response) is Success
         } != null
     }
 
@@ -775,10 +731,7 @@ data class Feature(
             return Result.Failure("No operations found")
 
         val matchResults = scenarios.map {
-            it.matches(
-                request,
-                serverState
-            ) to it.matches(response)
+            it.matches(request) to it.matches(response)
         }
 
         if (matchResults.any {
@@ -794,13 +747,9 @@ data class Feature(
         response: HttpResponse,
         mismatchMessages: MismatchMessages = DefaultMismatchMessages
     ): HttpStubData {
-        return try {
-            stubMatchResultWithEarlySuccess(request, response, mismatchMessages).getOrElse { failures ->
-                val results = Results(failures).withoutFluff()
-                throw NoMatchingScenario(msg = null, results = results, cachedMessage = results.report(request))
-            }
-        } finally {
-            serverState = emptyMap()
+        return stubMatchResultWithEarlySuccess(request, response, mismatchMessages).getOrElse { failures ->
+            val results = Results(failures).withoutFluff()
+            throw NoMatchingScenario(msg = null, results = results, cachedMessage = results.report(request))
         }
     }
 
@@ -822,32 +771,28 @@ data class Feature(
             DefaultKeyCheck
         }
 
-        try {
-            val attributeSelectedScenarios = scenarios.map { scenario -> scenario.newBasedOnAttributeSelectionFields(request.queryParams) }
-            return matchRequestScenariosWithEarlySuccess(
-                request = request,
-                scenarios = attributeSelectedScenarios,
-                responseStatus = response.status,
-                match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
-                onSuccess = { scenario ->
-                    scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
-                        val newRequestType = scenario.generateHttpRequestPatternForStub(request, resolver)
-                        HttpStubData(
-                            requestType = newRequestType,
-                            response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),
-                            resolver = resolver,
-                            responsePattern = scenario.httpResponsePattern,
-                            contractPath = this.path,
-                            feature = this,
-                            scenario = scenario,
-                            originalRequest = request
-                        )
-                    }
+        val attributeSelectedScenarios = scenarios.map { scenario -> scenario.newBasedOnAttributeSelectionFields(request.queryParams) }
+        return matchRequestScenariosWithEarlySuccess(
+            request = request,
+            scenarios = attributeSelectedScenarios,
+            responseStatus = response.status,
+            match = { scenario -> scenario.matchesMock(request = request, response = response, mismatchMessages = mismatchMessages, keyCheck = keyCheck) },
+            onSuccess = { scenario ->
+                scenario.resolverAndResponseForExpectation(response).let { (resolver, resolvedResponse) ->
+                    val newRequestType = scenario.generateHttpRequestPatternForStub(request, resolver)
+                    HttpStubData(
+                        requestType = newRequestType,
+                        response = resolvedResponse.adjustPayloadForContentType().copy(externalisedResponseCommand = response.externalisedResponseCommand),
+                        resolver = resolver,
+                        responsePattern = scenario.httpResponsePattern,
+                        contractPath = this.path,
+                        feature = this,
+                        scenario = scenario,
+                        originalRequest = request
+                    )
                 }
-            )
-        } finally {
-            serverState = emptyMap()
-        }
+            }
+        )
     }
 
     private fun <T> matchRequestScenariosWithEarlySuccess(
@@ -905,26 +850,24 @@ data class Feature(
     }
 
     fun generateContractTests(
-        suggestions: List<Scenario>,
         originalScenarios: List<Scenario> = scenarios,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s }
     ): Sequence<ContractTest> {
         val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
-        return generateContractTestsWithDecision(suggestions, originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
+        return generateContractTestsWithDecision(originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull decision.value
         }
     }
 
     fun generateContractTestsWithDecision(
-        suggestions: List<Scenario> = emptyList(),
         originalScenarios: List<Scenario> = this.scenarios,
         scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ContractTest, Scenario>> {
         val workflow = Workflow(specmaticConfig.getWorkflowDetails() ?: WorkflowDetails.default)
 
-        return generateContractTestScenariosWithDecision(suggestions, originalScenarios, scenarios, fn).mapNotNull { decision ->
+        return generateContractTestScenariosWithDecision(originalScenarios, scenarios, fn).mapNotNull { decision ->
             decision.normalizeAcceptHeader().checkAcceptCompatibility()
         }.map { decision ->
             decision.flatMap { returnValue, originalScenario, reasoning ->
@@ -1086,24 +1029,22 @@ data class Feature(
     }
 
     fun generateContractTestScenarios(
-        suggestions: List<Scenario>,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
         originalScenarios: List<Scenario> = scenarios
     ): Sequence<Pair<Scenario, ReturnValue<Scenario>>> {
         val scenarioDecisions = originalScenarios.asSequence().map { Decision.execute(it) }
-        return generateContractTestScenariosWithDecision(suggestions, originalScenarios,scenarioDecisions, fn).mapNotNull { decision ->
+        return generateContractTestScenariosWithDecision(originalScenarios, scenarioDecisions, fn).mapNotNull { decision ->
             if (decision !is Decision.Execute) return@mapNotNull null
             return@mapNotNull Pair(decision.context, decision.value)
         }
     }
 
     fun generateContractTestScenariosWithDecision(
-        suggestions: List<Scenario> = emptyList(),
         originalScenarios: List<Scenario> = emptyList(),
         scenarios: Sequence<Decision<Scenario, Scenario>> = emptySequence(),
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
-        val positiveTestScenarios = positiveTestScenariosWithDecision(suggestions, scenarios, fn)
+        val positiveTestScenarios = positiveTestScenariosWithDecision(scenarios, fn)
         return if (!specmaticConfig.isResiliencyTestingEnabled() || specmaticConfig.isOnlyPositiveTestingEnabled())
             positiveTestScenarios
         else
@@ -1111,14 +1052,13 @@ data class Feature(
     }
 
     private fun positiveTestScenariosWithDecision(
-        suggestions: List<Scenario>,
         scenarios: Sequence<Decision<Scenario, Scenario>>,
         fn: (Scenario, Row) -> Scenario = { s, _ -> s },
     ): Sequence<Decision<ReturnValue<Scenario>, Scenario>> {
         val resiliencyTestSuite = specmaticConfig.getResiliencyTestsEnabled()
         return scenarios.mapNotNull { scenarioDecision ->
             if (scenarioDecision !is Decision.Execute) return@mapNotNull scenarioDecision
-            scenarioDecision.value.newBasedOnWithDecision(suggestions, strictMode, resiliencyTestSuite)
+            scenarioDecision.value.newBasedOnWithDecision(strictMode, resiliencyTestSuite)
         }.flatMapSequence { scenario, _, reasoning ->
             val resolverStrategies = if (scenario.isA2xxScenario()) {
                 flagsBased
@@ -1128,8 +1068,6 @@ data class Feature(
 
             scenario.generateTestScenarios(
                 fn = fn,
-                variables = testVariables,
-                testBaseURLs = testBaseURLs,
                 flagsBased = resolverStrategies,
             ).map { generatedScenario ->
                 val scenarioWithPrefix = scenario.copy(generativePrefix = flagsBased.positivePrefix)
@@ -1158,7 +1096,7 @@ data class Feature(
 
             scenario.negativeBasedOnWithDecision(badRequestOrDefault, strictMode)
         }.flatMapSequence { scenario, _, reasoning ->
-            scenario.generateTestScenarios(flagsBased, testVariables, testBaseURLs).filterNot { negativeTestScenarioR ->
+            scenario.generateTestScenarios(flagsBased).filterNot { negativeTestScenarioR ->
                 negativeTestScenarioR.withDefault(false) { negativeTestScenario ->
                     val sampleRequest = negativeTestScenario.generateHttpRequest()
                     scenario.httpRequestPattern.matches(sampleRequest, scenario.resolver).isSuccess()
@@ -1236,10 +1174,6 @@ data class Feature(
                 results = results,
             )
         }
-    }
-
-    fun clearServerState() {
-        serverState = emptyMap()
     }
 
     fun overrideInlineExamples(externalExampleNames: Set<String>): Feature {
@@ -2581,15 +2515,12 @@ data class Feature(
         @Deprecated(
             message = "Use list-based inlineExamples overload",
             replaceWith = ReplaceWith(
-                "from(scenarios, serverState, name, testVariables, testBaseURLs, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
+                "from(scenarios, name, path, sourceProvider, sourceRepository, sourceRepositoryBranch, specification, stubsFromExamples.flatMap { (exampleName, stubs) -> stubs.map { (request, response) -> NamedStub(exampleName, ScenarioStub(request = request, response = response)) } }, specmaticConfig, flagsBased, strictMode, protocol, exampleDirPaths)"
             )
         )
         fun from(
             scenarios: List<Scenario> = emptyList(),
-            serverState: Map<String, Value> = emptyMap(),
             name: String,
-            testVariables: Map<String, String> = emptyMap(),
-            testBaseURLs: Map<String, String> = emptyMap(),
             path: String = "",
             sourceProvider: String? = null,
             sourceRepository: String? = null,
@@ -2610,10 +2541,7 @@ data class Feature(
             }
             return from(
                 scenarios = scenarios,
-                serverState = serverState,
                 name = name,
-                testVariables = testVariables,
-                testBaseURLs = testBaseURLs,
                 path = path,
                 sourceProvider = sourceProvider,
                 sourceRepository = sourceRepository,
@@ -2631,10 +2559,7 @@ data class Feature(
 
         fun from(
             scenarios: List<Scenario> = emptyList(),
-            serverState: Map<String, Value> = emptyMap(),
             name: String,
-            testVariables: Map<String, String> = emptyMap(),
-            testBaseURLs: Map<String, String> = emptyMap(),
             path: String = "",
             sourceProvider: String? = null,
             sourceRepository: String? = null,
@@ -2650,10 +2575,7 @@ data class Feature(
         ): Feature {
             return Feature(
                 scenarios = scenarios,
-                serverState = serverState,
                 name = name,
-                testVariables = testVariables,
-                testBaseURLs = testBaseURLs,
                 path = path,
                 sourceProvider = sourceProvider,
                 sourceRepository = sourceRepository,
@@ -2702,18 +2624,6 @@ private fun toPatternInfo(step: StepInfo, rowsList: List<TableRow>, isWSDL: Bool
     }
 
     return Pair(patternName, pattern)
-}
-
-private fun toFacts(rest: String, fixtures: Map<String, Value>): Map<String, Value> {
-    return try {
-        jsonStringToValueMap(rest)
-    } catch (notValidJSON: Throwable) {
-        val factTokens = breakIntoPartsMaxLength(rest, 2)
-        val name = factTokens[0]
-        val data = factTokens.getOrNull(1)?.let { StringValue(it) } ?: fixtures.getOrDefault(name, True)
-
-        mapOf(name to data)
-    }
 }
 
 private fun lexScenario(
@@ -2808,15 +2718,6 @@ private fun lexScenario(
                 scenarioInfo.copy(httpRequestPattern = scenarioInfo.httpRequestPattern.copy(body = toPattern(step, isWSDL)))
             "RESPONSE-BODY" ->
                 scenarioInfo.copy(httpResponsePattern = scenarioInfo.httpResponsePattern.bodyPattern(toPattern(step, isWSDL)))
-            "FACT" ->
-                scenarioInfo.copy(
-                    expectedServerState = scenarioInfo.expectedServerState.plus(
-                        toFacts(
-                            step.rest,
-                            scenarioInfo.fixtures
-                        )
-                    )
-                )
             "TYPE", "PATTERN", "JSON" ->
                 scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(toPatternInfo(step, step.rowsList, isWSDL)))
             "ENUM" ->
@@ -2839,23 +2740,6 @@ private fun lexScenario(
                         multiPartFormDataPattern = scenarioInfo.httpRequestPattern.multiPartFormDataPattern.plus(
                             toFormDataPart(step, filePath)
                         )
-                    )
-                )
-            "VALUE" ->
-                scenarioInfo.copy(
-                    references = values(
-                        step.rest,
-                        scenarioInfo.references,
-                        backgroundScenarioInfo?.references ?: emptyMap(),
-                        filePath
-                    )
-                )
-            "EXPORT" ->
-                scenarioInfo.copy(
-                    bindings = setters(
-                        step.rest,
-                        backgroundScenarioInfo?.bindings ?: emptyMap(),
-                        scenarioInfo.bindings
                     )
                 )
             else -> {
@@ -2889,7 +2773,7 @@ private fun lexScenario(
 
         if (matchingScenarios.size > 1) throw ContractException("Scenario: ${parsedScenarioInfo.scenarioName} is not specific, it matches ${matchingScenarios.size} in the included Wsdl / OpenApi")
 
-        val matchingScenario = matchingScenarios.first().copy(bindings = parsedScenarioInfo.bindings)
+        val matchingScenario = matchingScenarios.first()
 
         scenarioInfoWithExamples(matchingScenario, backgroundScenarioInfo, examplesList, ignoreFailure)
     }
@@ -2936,53 +2820,8 @@ private fun scenarioInfoWithExamples(
     ignoreFailure: Boolean
 ) = parsedScenarioInfo.copy(
     examples = backgroundScenarioInfo.examples.plus(examplesFrom(examplesList)),
-    bindings = backgroundScenarioInfo.bindings.plus(parsedScenarioInfo.bindings),
-    references = backgroundScenarioInfo.references.plus(parsedScenarioInfo.references),
     ignoreFailure = ignoreFailure
 )
-
-fun setters(
-    rest: String,
-    backgroundSetters: Map<String, String>,
-    scenarioSetters: Map<String, String>
-): Map<String, String> {
-    val parts = breakIntoPartsMaxLength(rest, 3)
-
-    if (parts.size != 3 || parts[1] != "=")
-        throw ContractException("Setter syntax is incorrect in \"$rest\". Syntax should be \"Then set <variable> = <selector>\"")
-
-    val variableName = parts[0]
-    val selector = parts[2]
-
-    return backgroundSetters.plus(scenarioSetters).plus(variableName to selector)
-}
-
-fun values(
-    rest: String,
-    scenarioReferences: Map<String, References>,
-    backgroundReferences: Map<String, References>,
-    filePath: String
-): Map<String, References> {
-    val parts = breakIntoPartsMaxLength(rest, 3)
-
-    if (parts.size != 3 || parts[1] != "from")
-        throw ContractException("Incorrect syntax for value statement: $rest - it should be \"Given value <value name> from <$APPLICATION_NAME file name>\"")
-
-    val valueStoreName = parts[0]
-    val specFileName = parts[2]
-
-    val specFilePath = ContractFileWithExports(specFileName, AnchorFile(filePath))
-
-    return backgroundReferences.plus(scenarioReferences).plus(
-        valueStoreName to References(
-            valueStoreName,
-            specFilePath,
-            contractCache = contractCache
-        )
-    )
-}
-
-private val contractCache = ContractCache()
 
 fun toFormDataPart(step: StepInfo, contractFilePath: String): MultiPartFormDataPattern {
     val parts = breakIntoPartsMaxLength(step.rest, 4)

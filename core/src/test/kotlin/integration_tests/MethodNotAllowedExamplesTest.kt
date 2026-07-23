@@ -73,9 +73,6 @@ class MethodNotAllowedExamplesTest {
                     body = parsedJSONObject("""{"error":"occurred"}""")
                 )
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.successCount).isEqualTo(3)
@@ -179,9 +176,6 @@ class MethodNotAllowedExamplesTest {
             override fun execute(request: HttpRequest): HttpResponse {
                 throw ContractException("Inline 405 examples should not be generated as tests")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.successCount).isEqualTo(0)
@@ -231,9 +225,6 @@ class MethodNotAllowedExamplesTest {
                     body = "I use a different method",
                     headers = mapOf("Content-Type" to "text/plain")
                 )
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -456,7 +447,7 @@ class MethodNotAllowedExamplesTest {
 
         resiliencyModes().forEach { resiliencyMode ->
             val featureWithResiliency = feature.copy(specmaticConfig = specmaticConfigWith(resiliencyMode))
-            val generatedScenarios = featureWithResiliency.generateContractTestScenarios(emptyList()).toList()
+            val generatedScenarios = featureWithResiliency.generateContractTestScenarios().toList()
 
             assertThat(generatedScenarios).isEmpty()
         }

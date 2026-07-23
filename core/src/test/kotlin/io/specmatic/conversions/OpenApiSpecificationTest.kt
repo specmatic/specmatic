@@ -5177,72 +5177,6 @@ paths:
     }
 
     @Test
-    fun `support for exporting values from a wrapper spec file`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
-        val openAPI = """
-            ---
-            openapi: "3.0.1"
-            info:
-              title: "Person API"
-              version: "1"
-            paths:
-              /person:
-                post:
-                  summary: "Get person by id"
-                  parameters: []
-                  requestBody:
-                    required: true
-                    content:
-                      application/json:
-                        schema:
-                          required:
-                          - "id"
-                          properties:
-                            id:
-                              type: "string"
-                  responses:
-                    200:
-                      description: "Get person by id"
-                      content:
-                        application/json:
-                          schema:
-                            type: object
-                            required:
-                              - id
-                            properties:
-                              id:
-                                type: integer
-            """.trimIndent()
-
-        val openAPIFile = tempDir.resolve("person.yaml")
-        openAPIFile.writeText(openAPI)
-
-        val spec = """
-            Feature: Person API
-            
-              Background:
-                Given openapi ./person.yaml
-                
-              Scenario Outline: Person API
-                When POST /person
-                Then status 200
-                And export id = response-body.id
-                
-                Examples:
-                | id |
-                | 10 |
-        """.trimIndent()
-
-        val specFile = tempDir.resolve("person.spec")
-        specFile.writeText(spec)
-
-        val feature = parseContractFileToFeature(specFile)
-
-        val testScenario = feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value }.single()
-
-        assertThat(testScenario.bindings).containsEntry("id", "response-body.id")
-    }
-
-    @Test
     fun `support for multipart form data tests`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
         val openAPI = """
             ---
@@ -5311,7 +5245,7 @@ paths:
 
         val feature = parseContractFileToFeature(specFile)
 
-        val testScenario = feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value }.single()
+        val testScenario = feature.generateContractTestScenarios().toList().map { it.second.value }.single()
 
         val requestPattern = testScenario.httpRequestPattern
         assertThat(requestPattern.multiPartFormDataPattern.single().name).isEqualTo("csv")
@@ -5681,7 +5615,7 @@ paths:
         val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
 
         val results: List<Result> =
-            feature.generateContractTests(emptyList()).toList().map {
+            feature.generateContractTests().toList().map {
                 it.runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.body).isInstanceOf(JSONObjectValue::class.java)
@@ -5690,9 +5624,6 @@ paths:
                         assertThat(body.jsonObject).hasSize(1)
                         assertThat(body.jsonObject).containsEntry("id", StringValue("abc123"))
                         return HttpResponse.OK
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
                     }
                 }).result
             }
@@ -5748,7 +5679,7 @@ paths:
         val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
 
         val results: List<Result> =
-            feature.generateContractTests(emptyList()).toList().map {
+            feature.generateContractTests().toList().map {
                 it.runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.formFields).containsKey("Data")
@@ -5764,9 +5695,6 @@ paths:
                         )
                         assertThat(request.formFields).hasSize(1)
                         return HttpResponse.OK
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
                     }
                 }).result
             }
@@ -5818,7 +5746,7 @@ paths:
         val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
 
         val results: List<Result> =
-            feature.generateContractTests(emptyList()).toList().map {
+            feature.generateContractTests().toList().map {
                 it.runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.formFields).containsKey("Data")
@@ -5826,9 +5754,6 @@ paths:
                         assertThat(request.formFields).hasSize(1)
 
                         return HttpResponse.OK
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
                     }
                 }).result
             }
@@ -5878,7 +5803,7 @@ paths:
         val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
 
         val results: List<Result> =
-            feature.generateContractTests(emptyList()).toList().map {
+            feature.generateContractTests().toList().map {
                 it.runTest(object : TestExecutor {
                     override fun execute(request: HttpRequest): HttpResponse {
                         assertThat(request.multiPartFormData.first().name).isEqualTo("Data")
@@ -5888,9 +5813,6 @@ paths:
 
                         assertThat(request.multiPartFormData).hasSize(1)
                         return HttpResponse.OK
-                    }
-
-                    override fun setServerState(serverState: Map<String, Value>) {
                     }
                 }).result
             }
@@ -7112,9 +7034,6 @@ paths:
                 assertThat(request.body.toStringLiteral()).isBase64()
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -7165,9 +7084,6 @@ paths:
                 assertThat(actualRequestBody).asBase64Decoded().isEqualTo(expectedRequestBody)
 
                 return HttpResponse.OK
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -7370,9 +7286,6 @@ components:
                 assertThat(request.path).isEqualTo("/resource/10")
                 return HttpResponse.ok("success")
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -7386,7 +7299,7 @@ components:
             .toFeature()
             .loadExternalisedExamples()
 
-        val tests = spec.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+        val tests = spec.generateContractTestScenarios().toList().map { it.second.value }
         assertThat(tests.single().testDescription()).contains("file_name_as_test_label")
     }
 
@@ -7396,7 +7309,7 @@ components:
         val spec = OpenApiSpecification.fromFile(specFilePath, "")
             .toFeature()
 
-        val tests = spec.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+        val tests = spec.generateContractTestScenarios().toList().map { it.second.value }
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
@@ -7413,7 +7326,7 @@ components:
         val spec = OpenApiSpecification.fromFile(specFilePath, "")
             .toFeature()
 
-        val tests = spec.generateContractTestScenarios(emptyList()).toList().map { it.second.value }
+        val tests = spec.generateContractTestScenarios().toList().map { it.second.value }
 
         val testDescriptionList = tests.map { it.testDescription() }
         assertThat(testDescriptionList).containsExactlyInAnyOrder(
@@ -8204,9 +8117,6 @@ paths:
                     else -> HttpResponse(400, EmptyString)
                 }
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         val minOutsideBounds = minAge
@@ -8803,7 +8713,7 @@ components:
                           value: "all persons"
         """.trimIndent()
         val testCount =
-            OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests(emptyList()).toList().size
+            OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests().toList().size
         assertThat(testCount).isEqualTo(1)
     }
 
@@ -12355,9 +12265,6 @@ paths:
                     else -> HttpResponse(500)
                 }
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
@@ -12411,9 +12318,6 @@ paths:
                 val body = request.body as JSONObjectValue
                 seenInventories.add(body.getInt("inventory"))
                 return HttpResponse(200, parsedJSONObject("""{"result":"ok"}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -12703,7 +12607,7 @@ paths:
                             type: string
         """.trimIndent()
 
-        val testCount = OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests(emptyList()).toList().size
+        val testCount = OpenApiSpecification.fromYAML(spec, "").toFeature().generateContractTests().toList().size
 
         assertThat(testCount).isEqualTo(2)
     }
@@ -14926,7 +14830,7 @@ $queryParamJson
     }
 
     private fun generatedPositiveRequests(feature: Feature): List<HttpRequest> {
-        return feature.generateContractTestScenarios(emptyList()).toList().map { it.second.value.generateHttpRequest() }
+        return feature.generateContractTestScenarios().toList().map { it.second.value.generateHttpRequest() }
     }
 
     private fun generatedNegativeRequests(feature: Feature): List<HttpRequest> {

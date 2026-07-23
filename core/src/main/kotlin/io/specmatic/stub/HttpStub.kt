@@ -412,7 +412,6 @@ class HttpStub(
                         responseFromRequestHandler != null -> responseFromRequestHandler
                         isExpectationCreation(httpRequest) -> handleExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
                         isSseExpectationCreation(httpRequest) -> handleSseExpectationCreationRequest(httpRequest).copy(isInternalStubPath = true)
-                        isStateSetupRequest(httpRequest) -> handleStateSetupRequest(httpRequest).copy(isInternalStubPath = true)
                         isFlushTransientStubsRequest(httpRequest) -> handleFlushTransientStubsRequest(httpRequest).copy(isInternalStubPath = true)
                         else -> {
                             val responseResult = serveStubResponse(httpRequest, baseUrl = requestBaseUrl, defaultBaseUrl = defaultBaseUrl, urlPath = requestUrlPath)
@@ -1185,17 +1184,6 @@ class HttpStub(
         }
     }
 
-    private fun handleStateSetupRequest(httpRequest: HttpRequest): HttpStubResponse {
-        val body = httpRequest.body
-        val serverState = toMap(body)
-
-        features.forEach { feature ->
-            feature.setServerState(serverState)
-        }
-
-        return HttpStubResponse(HttpResponse.OK)
-    }
-
     init {
         LicenseConfig.instance.utilization.shipDisabled = specmaticConfigInstance.isTelemetryDisabled()
         val initializers = ServiceLoader.load(StubInitializer::class.java)
@@ -1459,36 +1447,32 @@ fun getHttpResponse(
     httpClientFactory: HttpClientFactory? = null,
     specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
 ): StubbedResponseResult {
-    try {
-        val (matchResults, matchingStubResponse) = stubbedResponse(httpExpectations, httpRequest)
-        if (matchingStubResponse != null) {
-            val (httpStubResponse, httpStubData) = matchingStubResponse
-            return FoundStubbedResponse(
-                httpStubResponse.resolveSubstitutions(
-                    httpRequest,
-                    httpStubData.resolveOriginalRequest() ?: httpRequest,
-                    httpStubData.data,
-                ),
-            )
-        }
-        if (httpClientFactory != null && passThroughTargetBase.isNotBlank()) {
-            return NotStubbed(
-                passThroughResponse(httpRequest, passThroughTargetBase, httpClientFactory),
-                stubResult = Result.Success()
-            )
-        }
-
-        val matchingFeature = features.firstOrNull { it.identifierMatchingScenario(httpRequest) != null }
-        val effectiveStrictMode = specmaticConfig.getStubStrictMode(matchingFeature?.path?.let(::File)) ?: strictMode
-        if (effectiveStrictMode) {
-            val generativeMode = specmaticConfig.getStubGenerative(matchingFeature?.path?.let(::File))
-            return strictModeHttp400Response(features, httpRequest, matchResults, generativeMode)
-        }
-
-        return fakeHttpResponse(features, httpRequest, specmaticConfig)
-    } finally {
-        features.forEach { feature -> feature.clearServerState() }
+    val (matchResults, matchingStubResponse) = stubbedResponse(httpExpectations, httpRequest)
+    if (matchingStubResponse != null) {
+        val (httpStubResponse, httpStubData) = matchingStubResponse
+        return FoundStubbedResponse(
+            httpStubResponse.resolveSubstitutions(
+                httpRequest,
+                httpStubData.resolveOriginalRequest() ?: httpRequest,
+                httpStubData.data,
+            ),
+        )
     }
+    if (httpClientFactory != null && passThroughTargetBase.isNotBlank()) {
+        return NotStubbed(
+            passThroughResponse(httpRequest, passThroughTargetBase, httpClientFactory),
+            stubResult = Result.Success()
+        )
+    }
+
+    val matchingFeature = features.firstOrNull { it.identifierMatchingScenario(httpRequest) != null }
+    val effectiveStrictMode = specmaticConfig.getStubStrictMode(matchingFeature?.path?.let(::File)) ?: strictMode
+    if (effectiveStrictMode) {
+        val generativeMode = specmaticConfig.getStubGenerative(matchingFeature?.path?.let(::File))
+        return strictModeHttp400Response(features, httpRequest, matchResults, generativeMode)
+    }
+
+    return fakeHttpResponse(features, httpRequest, specmaticConfig)
 }
 
 const val SPECMATIC_SOURCE_HEADER = "X-$APPLICATION_NAME-Source"
@@ -1790,28 +1774,22 @@ fun stubResponse(
     contractInfo: List<Pair<Feature, List<ScenarioStub>>>,
     stubs: StubDataItems
 ): HttpResponse {
-    return try {
-        when (val mock = stubs.http.find { (requestPattern, _, resolver) ->
-            requestPattern.matches(httpRequest, resolver.disableOverrideUnexpectedKeyCheck()) is Result.Success
-        }) {
-            null -> {
-                val responses = contractInfo.asSequence().map { (feature, _) ->
-                    feature.lookupResponse(httpRequest)
-                }
-
-                responses.firstOrNull {
-                    it.headers.getOrDefault(SPECMATIC_RESULT_HEADER, "none") != "failure"
-                } ?: HttpResponse(400, responses.map {
-                    it.body
-                }.filter { it != EmptyString }.joinToString("\n\n"))
+    return when (val mock = stubs.http.find { (requestPattern, _, resolver) ->
+        requestPattern.matches(httpRequest, resolver.disableOverrideUnexpectedKeyCheck()) is Result.Success
+    }) {
+        null -> {
+            val responses = contractInfo.asSequence().map { (feature, _) ->
+                feature.lookupResponse(httpRequest)
             }
 
-            else -> mock.response
+            responses.firstOrNull {
+                it.headers.getOrDefault(SPECMATIC_RESULT_HEADER, "none") != "failure"
+            } ?: HttpResponse(400, responses.map {
+                it.body
+            }.filter { it != EmptyString }.joinToString("\n\n"))
         }
-    } finally {
-        contractInfo.forEach { (feature, _) ->
-            feature.clearServerState()
-        }
+
+        else -> mock.response
     }
 }
 
@@ -1937,9 +1915,6 @@ internal fun isExpectationCreation(httpRequest: HttpRequest) =
 
 internal fun isSseExpectationCreation(httpRequest: HttpRequest) =
     isPath(httpRequest.path, "sse-expectations") && httpRequest.method == "POST"
-
-internal fun isStateSetupRequest(httpRequest: HttpRequest): Boolean =
-    isPath(httpRequest.path, "state") && httpRequest.method == "POST"
 
 fun softCastResponseToXML(mockResponse: HttpStubData): HttpStubData =
     mockResponse.copy(response = mockResponse.response.copy(body = softCastValueToXML(mockResponse.response.body)))

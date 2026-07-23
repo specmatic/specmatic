@@ -1,0 +1,15 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/upload",
+    "multipart-formdata": [
+      {
+        "name": "optional-content",
+        "content": null
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "GET",
+    "path": "/orders"
+  },
+  "http-response": {
+    "status": 200
+  },
+  "before": [
+    {
+      "type": "http",
+      "retry": "bad",
+      "http-request": "bad",
+      "http-response": "bad"
+    }
+  ]
+}

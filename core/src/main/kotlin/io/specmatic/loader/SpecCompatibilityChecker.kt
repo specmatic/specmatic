@@ -21,7 +21,9 @@ class OpenApiSpecCompatibilityChecker : SpecCompatibilityChecker {
         return isSupportedAPISpecification(file.canonicalPath)
     }
 
-    override fun isCompatibleExample(file: File, specmaticConfig: SpecmaticConfig): Boolean {
+    override fun isCompatibleExample(file: File, specmaticConfig: SpecmaticConfig): Boolean = isCompatibleExample(file)
+
+    fun isCompatibleExample(file: File): Boolean {
         if (!file.isFile || !file.canRead() || file.extension != JSON) return false
         return try {
             file.reader().use { reader ->

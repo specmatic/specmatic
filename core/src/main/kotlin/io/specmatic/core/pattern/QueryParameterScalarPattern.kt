@@ -28,7 +28,7 @@ data class QueryParameterScalarPattern(override val pattern: Pattern): Pattern b
         }
 
         val parsedValue = runCatching { pattern.parse(sampleDataString, resolver) }.getOrDefault(StringValue(sampleDataString))
-        return resolver.matchesPattern(null, pattern, parsedValue)
+        return resolver.matchesPattern(pattern, parsedValue)
     }
 
     override fun generate(resolver: Resolver): Value {

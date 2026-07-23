@@ -273,12 +273,6 @@ data class WSDL(private val rootDefinition: XMLNode, val definitions: Map<String
         return getBinding().findChildrenByName("operation")
     }
 
-    fun convertToGherkin(): String {
-        val (url, soapParser) = endpoint()
-
-        return soapParser.convertToGherkin(url)
-    }
-
     fun toFeature(path: String, specmaticConfig: SpecmaticConfig = SpecmaticConfig()): Feature {
         return Feature(
             scenarios = toScenarioInfos(specmaticConfig).map { scenarioInfo ->

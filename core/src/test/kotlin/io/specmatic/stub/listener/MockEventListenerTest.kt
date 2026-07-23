@@ -62,7 +62,7 @@ class MockEventListenerTest {
     @Test
     fun `should mention matched example in name and details if match occurs`() {
         val (request, response) = feature.scenarios.first().let {
-            it.generateHttpRequest() to it.generateHttpResponse(emptyMap()).copy(headers = emptyMap())
+            it.generateHttpRequest() to it.generateHttpResponse().copy(headers = emptyMap())
         }
 
         val exampleStub = ScenarioStub(request = request, response = response, filePath = "examples/example.json")

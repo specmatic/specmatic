@@ -102,33 +102,6 @@ class HttpClientTest {
     }
 
     @Test
-    fun clientShouldPerformServerSetup() {
-        val request = HttpRequest().updateMethod("POST").updatePath("/balance").updateQueryParam("account-id", "10")
-            .updateBody("{name: \"Sherlock\", address: \"221 Baker Street\"}")
-        val contractGherkin = "" +
-                "Feature: Unit test\n\n" +
-                "  Scenario: Unit test\n" +
-                "    Given fact server state\n" +
-                "    When POST /balance?account-id=(number)\n" +
-                "    And request-body {name: \"(string)\", address: \"(string)\"}\n" +
-                "    Then status 200\n" +
-                "    And response-body {location-id: 10}"
-        val host = "localhost"
-        val port = 8080
-        val url = "http://localhost:$port"
-        val client = LegacyHttpClient(url)
-
-        HttpStub(contractGherkin, emptyList(), host, port).use {
-            client.setServerState(mapOf("server" to StringValue("state")))
-            val response = client.execute(request)
-            Assertions.assertNotNull(response)
-            Assertions.assertEquals(200, response.status)
-            val jsonResponseBody = JSONObject(response.body.toStringLiteral())
-            Assertions.assertEquals(10, jsonResponseBody.getInt("location-id"))
-        }
-    }
-
-    @Test
     fun `should handle Set-Cookie header case insensitively`() {
         val headers = mapOf("set-cookie" to listOf("a=1", "b=2"))
         val internal = ktorHeadersToInternalHeaders(headers)

@@ -1,0 +1,29 @@
+{
+  "http-request": {
+    "path": "/orders",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer quasi"
+    },
+    "body": {
+      "productid": 480,
+      "count": 688,
+      "status": "fulfilled"
+    }
+  },
+  "http-response": {
+    "status": 401,
+    "body": {
+      "error": "Unsupported URI Scheme",
+      "timestamp": "2026-07-01T12:26:22+05:30",
+      "status": 401,
+      "message": "Unauthorized",
+      "path": "/orders"
+    },
+    "status-text": "Unauthorized",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

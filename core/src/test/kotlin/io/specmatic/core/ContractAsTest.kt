@@ -49,9 +49,6 @@ class ContractAsTest {
                 }
                 return HttpResponse(200, jsonResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-            }
         })
 
         assertThat(flags["executed"]).isTrue()
@@ -79,8 +76,6 @@ class ContractAsTest {
                 )
                 return HttpResponse(200, "{calls_left: 10, messages_left: 30}", headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertThat(results.report()).isEqualToIgnoringWhitespace("""
@@ -113,8 +108,6 @@ class ContractAsTest {
                 assertThat(request.headers["test"]).matches("-?[0-9]+")
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         println(results.report())
@@ -138,8 +131,6 @@ class ContractAsTest {
                 assertThat(request.method).isEqualTo("PATCH")
                 return HttpResponse(202, "", HashMap())
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -165,8 +156,6 @@ class ContractAsTest {
                 assertThat(request.headers["x-loginId"]).isEqualTo("a@b.com")
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         println(results.report())
@@ -204,51 +193,7 @@ class ContractAsTest {
                 val headers: HashMap<String, String> = HashMap()
                 return HttpResponse(200, "", headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
-
-        assertThat(flags["executed"]).isTrue()
-
-        println(results.report())
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
-    fun `should substitute request parameters with suggestions`() {
-        val contractGherkin = """
-            Feature: Contract for /balance API
-                  Scenario: scenario name
-                    When GET /balance/(accountId:number)
-                    And request-header x-loginId (string)
-                    Then status 200
-        """
-        val parameters = """
-            Feature: Contract for /balance API
-                  Scenario: scenario name
-                    Examples:
-                    | x-loginId | accountId |
-                    | a@b.com   | 123123    |
-        """
-
-        val flags = mutableMapOf<String, Boolean>()
-
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val suggestions = lex(parseGherkinString(parameters, "")).second
-
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                flags["executed"] = true
-
-                assertThat(request.path).isEqualTo("/balance/123123")
-                assertThat(request.headers.keys).contains("x-loginId")
-                assertThat(request.headers["x-loginId"]).isEqualTo("a@b.com")
-                val headers: HashMap<String, String> = HashMap()
-                return HttpResponse(200, "", headers)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
-        }, suggestions)
 
         assertThat(flags["executed"]).isTrue()
 
@@ -289,8 +234,6 @@ class ContractAsTest {
                 }
                 return HttpResponse(200, jsonResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertThat(flags).containsExactlyInAnyOrder("with", "without")
@@ -324,8 +267,6 @@ class ContractAsTest {
 
                 return HttpResponse(200, jsonResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.hasFailures(), results.report())
@@ -357,8 +298,6 @@ class ContractAsTest {
                 }
                 return HttpResponse(200, jsonResponseString, headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -387,8 +326,6 @@ class ContractAsTest {
                 val headers = HashMap<String, String>()
                 return HttpResponse(200, "", headers)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -419,8 +356,6 @@ class ContractAsTest {
                 assertThat(innerObject.jsonObject.getValue("b")).isInstanceOf(StringValue::class.java)
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -454,39 +389,6 @@ class ContractAsTest {
                     }
                 }
                 return HttpResponse(200, xmlResponseString, headers)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
-        })
-
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
-    @Throws(Throwable::class)
-    fun dataInDatatablesPassedAsFactsDuringSetup() {
-        val contractGherkin = """Feature: Contract for /balance API
-
-  Scenario Outline: api call
-    Given fact userid
-    When GET /accounts?userid=(number)
-    Then status 200
-    And response-body {"name": "(string)"}
-
-  Examples:
-  | userid | name |
-  | 10       | jack    |
-"""
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertEquals("/accounts", request.path)
-                assertEquals("10", request.queryParams.getValues("userid").first())
-                return jsonResponse("{\"name\": \"jack\"}")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-                assertEquals("10", serverState["userid"].toString())
             }
         })
 
@@ -534,8 +436,6 @@ class ContractAsTest {
                 }
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -576,8 +476,6 @@ class ContractAsTest {
                 val jsonResponse = "{\"locations\": [{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}]}"
                 return jsonResponse(jsonResponse)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -633,8 +531,6 @@ class ContractAsTest {
                 }
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
         assertTrue(results.success(), results.report())
@@ -675,84 +571,8 @@ class ContractAsTest {
                 val xmlResponse = "<locations><city>Mumbai</city><city>Bangalore</city></locations>"
                 return xmlResponse(xmlResponse)
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {}
         })
 
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
-    @Throws(Throwable::class)
-    fun serverSetupDoneUsingFixtureDataWithoutTables() {
-        val contractGherkin = "Feature: Contract for /locations API\n" +
-                "  Scenario: api call\n" +
-                "    * fixture cities {\"cities\": [{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}]}\n" +
-                "    * pattern City {\"city\": \"(string)\"}\n" +
-                "    * pattern Cities {\"cities\": [\"(City...)\"]}\n" +
-                "    Given fact cities\n" +
-                "    When GET /locations\n" +
-                "    Then status 200\n" +
-                "    And response-body (Cities)"
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val setupStatus = arrayOf("Setup did not happen")
-        val setupSuccess = "Setup happened"
-
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertEquals("/locations", request.path)
-                assertEquals("GET", request.method)
-                val jsonResponse = "{\"cities\": [{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}]}"
-                return jsonResponse(jsonResponse)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-                setupStatus[0] = setupSuccess
-                assertTrue(serverState.containsKey("cities"))
-                assertTrue(serverState["cities"] != True)
-            }
-        })
-
-        assertEquals("Setup happened", setupStatus[0])
-        assertTrue(results.success(), results.report())
-    }
-
-    @Test
-    @Throws(Throwable::class)
-    fun serverSetupDoneUsingFixtureDataWithTables() {
-        val contractGherkin = """Feature: Contract for /locations API
-  Scenario Outline: api call
-    * fixture city_list {"cities": [{"city": "Mumbai"}, {"city": "Bangalore"}]}
-    * pattern City {"city": "(string)"}
-    * pattern Cities {"cities": ["(City...)"]}
-    Given fact cities_exist 
-    When GET /locations
-    Then status 200
-    And response-body (Cities)
-  Examples:
-  | cities_exist | 
-  | city_list | 
-    """
-        val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
-        val setupStatus = arrayOf("Setup did not happen")
-        val setupSuccess = "Setup happened"
-
-        val results = contractBehaviour.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                assertEquals("/locations", request.path)
-                assertEquals("GET", request.method)
-                val jsonResponse = "{\"cities\": [{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}]}"
-                return jsonResponse(jsonResponse)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-                setupStatus[0] = setupSuccess
-                assertTrue(serverState.containsKey("cities_exist"))
-                assertTrue(serverState["cities_exist"] != True)
-            }
-        })
-
-        assertEquals("Setup happened", setupStatus[0])
         assertTrue(results.success(), results.report())
     }
 
@@ -777,9 +597,6 @@ Scenario: GET and POST number
                 assertEquals("POST", request.method)
                 assertTrue(request.body is NumberValue)
                 return HttpResponse(200, "10")
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
             }
         })
 
@@ -811,10 +628,6 @@ Then status 200
                 return HttpResponse.OK
             }
 
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
-
         })
 
         assertTrue(results.success(), results.report())
@@ -833,10 +646,6 @@ And response-body (dictionary string number)
             override fun execute(request: HttpRequest): HttpResponse {
                 val response = """{"one": 1, "two": 2}"""
                 return HttpResponse(200, response)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
 
         })
@@ -858,10 +667,6 @@ And response-body (string: string)
             override fun execute(request: HttpRequest): HttpResponse {
                 val response = """{"one": 1, "two": 2}"""
                 return HttpResponse(200, response)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         })
 
@@ -894,10 +699,6 @@ And response-body
 
                 val response = """{"id": "10"}"""
                 return HttpResponse(200, response)
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         })
 
@@ -938,10 +739,6 @@ Feature: Contract
 
                 return HttpResponse.OK
             }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
-            }
         })
 
         println(results.report())
@@ -969,10 +766,6 @@ Feature: Contract
             override fun execute(request: HttpRequest): HttpResponse {
                 flags.add("ran")
                 return HttpResponse.ok(StringValue("""{"data": "value", "unexpected": "value"}"""))
-            }
-
-            override fun setServerState(serverState: Map<String, Value>) {
-
             }
         })
 

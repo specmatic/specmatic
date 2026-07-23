@@ -5,7 +5,6 @@ import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.XMLSubstitutionGroupPattern
 import io.specmatic.core.value.FullyQualifiedName
 import io.specmatic.core.value.XMLNode
-import io.specmatic.core.wsdl.parser.SOAPMessageType
 import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.parser.WSDLTypeInfo
 import io.specmatic.core.wsdl.payload.SOAPPayload
@@ -99,12 +98,11 @@ private data class SubstitutionGroupElement(
     }
 
     override fun getSOAPPayload(
-        soapMessageType: SOAPMessageType,
         nodeNameForSOAPBody: String,
         specmaticTypeName: String,
         namespaces: Map<String, String>,
         typeInfo: WSDLTypeInfo
-    ): SOAPPayload = head.element.getSOAPPayload(soapMessageType, nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
+    ): SOAPPayload = head.element.getSOAPPayload(nodeNameForSOAPBody, specmaticTypeName, namespaces, typeInfo)
 }
 
 private data class CandidateTypeInfo(

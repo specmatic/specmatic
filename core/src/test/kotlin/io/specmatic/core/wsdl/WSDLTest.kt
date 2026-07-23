@@ -21,26 +21,17 @@ import java.io.File
 
 class WSDLTest {
     @Test
-    fun `conversion with bare types`() {
-        val (wsdlContent, expectedGherkin) = readContracts("stockquote")
+    fun `missing soap address behaves like a host only soap address`() {
+        val wsdlContent = readTextResource("wsdl/stockquote.wsdl")
+        val address = """<soap:address location="http://example.com/stockquote"/>"""
+        val missingAddressFeature = WSDL(toXMLNode(wsdlContent.replace(address, "")), "").toFeature("")
+        val hostOnlyAddressFeature = WSDL(
+            toXMLNode(wsdlContent.replace(address, """<soap:address location="http://localhost:9010"/>""")),
+            ""
+        ).toFeature("")
 
-        val wsdl = WSDL(toXMLNode(wsdlContent), "")
-        val gherkinFromWSDL: String = wsdl.convertToGherkin().trim()
-        val featureFromWSDL = parseGherkinStringToFeature(gherkinFromWSDL)
-
-        val featureFromExpectedGherkin = parseGherkinStringToFeature(expectedGherkin)
-
-        assertThat(featureFromWSDL).isEqualTo(featureFromExpectedGherkin)
-    }
-
-    @Test
-    fun `conversion with simple type bodies`() {
-        val (wsdlContent, expectedGherkin) = readContracts("hello")
-
-        val wsdl = WSDL(toXMLNode(wsdlContent), "")
-        val generatedGherkin: String = wsdl.convertToGherkin().trim()
-
-        assertThat(parseGherkinStringToFeature(generatedGherkin)).isEqualTo(parseGherkinStringToFeature(expectedGherkin))
+        assertThat(missingAddressFeature.scenarios.single().generateHttpRequest().path)
+            .isEqualTo(hostOnlyAddressFeature.scenarios.single().generateHttpRequest().path)
     }
 
     @Test
@@ -398,11 +389,6 @@ class WSDLTest {
         assertDoesNotThrow { feature.validateExamplesOrException() }
     }
 
-    private fun readContracts(filename: String): Pair<String, String> {
-        val wsdlContent = readTextResource("wsdl/$filename.wsdl")
-        val expectedGherkin = readTextResource("wsdl/$filename.$CONTRACT_EXTENSION").trimIndent().trim()
-        return Pair(wsdlContent, expectedGherkin)
-    }
 }
 
 private fun executeWsdlLoopWithExamples(wsdlFile: File, examplesDir: File): Results {

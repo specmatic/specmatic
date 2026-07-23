@@ -3,7 +3,6 @@ package io.specmatic.test.reports.coverage
 import io.ktor.http.HttpStatusCode
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.SpecmaticConfig
-import io.specmatic.core.TestConfig
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.utilities.contractTestPathsFrom
@@ -269,9 +268,6 @@ class OpenApiCoverageIntegrationTest {
         ).single().let { contractPathData ->
             SpecmaticJUnitSupport().loadTestScenarios(
                 path = contractPathData.path,
-                suggestionsPath = "",
-                suggestionsData = "",
-                config = TestConfig(emptyMap(), emptyMap()),
                 sourceProvider = contractPathData.provider,
                 sourceRepository = contractPathData.repository,
                 sourceRepositoryBranch = contractPathData.branch,

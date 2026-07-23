@@ -18,14 +18,10 @@ import java.io.File
 data class DeprecatedArguments(
     val host: String? = null,
     val port: String? = null,
-    val envName: String? = null,
     val protocol: String? = null,
     val filterName: String? = null,
     val filterNotName: String? = null,
     val overlayFilePath: File? = null,
-    val suggestionsPath: String? = null,
-    val inlineSuggestions: String? = null,
-    val variablesFileName: String? = null,
     val exampleDirectories: List<String>? = null,
     val useCurrentBranchForCentralRepo: Boolean? = null,
     val isHostOrPortExplicitlySpecified: Boolean? = null,
@@ -47,14 +43,10 @@ data class ContractTestSettings(
 ) {
     val host: String? = otherArguments?.host
     val port: String? = otherArguments?.port
-    val envName: String? = otherArguments?.envName
     val protocol: String? = otherArguments?.protocol
     val filterName: String? = otherArguments?.filterName
     val filterNotName: String? = otherArguments?.filterNotName
     val overlayFilePath: File? = otherArguments?.overlayFilePath
-    val suggestionsPath: String? = otherArguments?.suggestionsPath
-    val inlineSuggestions: String? = otherArguments?.inlineSuggestions
-    val variablesFileName: String? = otherArguments?.variablesFileName
     val isHostOrPortExplicitlySpecified: Boolean = otherArguments?.isHostOrPortExplicitlySpecified == true
     private val specmaticConfig = loadSpecmaticConfigOrNull(configFile, explicitlySpecifiedByUser = configFile != null).orDefault()
 
@@ -149,13 +141,9 @@ data class ContractTestSettings(
         otherArguments = DeprecatedArguments(
             host = contractTestSettings?.otherArguments?.host,
             port = contractTestSettings?.otherArguments?.port,
-            envName = contractTestSettings?.otherArguments?.envName,
             protocol = contractTestSettings?.otherArguments?.protocol,
             isHostOrPortExplicitlySpecified = contractTestSettings?.otherArguments?.isHostOrPortExplicitlySpecified,
             useCurrentBranchForCentralRepo = contractTestSettings?.otherArguments?.useCurrentBranchForCentralRepo,
-            suggestionsPath = contractTestSettings?.otherArguments?.suggestionsPath,
-            inlineSuggestions = contractTestSettings?.otherArguments?.inlineSuggestions,
-            variablesFileName = contractTestSettings?.otherArguments?.variablesFileName,
             exampleDirectories = contractTestSettings?.otherArguments?.exampleDirectories,
             filterName = contractTestSettings?.otherArguments?.filterName ?: specmaticConfig.getTestFilterName(),
             filterNotName = contractTestSettings?.otherArguments?.filterNotName ?: specmaticConfig.getTestFilterNotName(),

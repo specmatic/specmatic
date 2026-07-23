@@ -1,10 +1,8 @@
 package io.specmatic.core.pattern
 
-import io.specmatic.core.Resolver
 import io.specmatic.core.value.localName
 import io.specmatic.core.value.namespacePrefix
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.value.XMLNode
 import io.specmatic.core.wsdl.parser.message.*
 
 internal const val XML_SCHEMA_INSTANCE_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
@@ -113,69 +111,6 @@ data class XMLTypeData(
 
     fun isEmpty(): Boolean {
         return name.isEmpty() && attributes.isEmpty() && nodes.isEmpty()
-    }
-
-    fun toGherkinString(additionalIndent: String = "", indent: String = ""): String {
-        val attributeText = attributes.entries.joinToString(" ") { (key, value) -> "$key=\"$value\"" }.let { if(it.isNotEmpty()) " $it" else ""}
-
-        return when {
-            nodes.isEmpty() -> {
-                return "$indent<$realName$attributeText/>"
-            }
-            nodes.size == 1 && nodes.first() !is XMLPattern && nodes.first() !is XMLWildcardPattern -> {
-                val bodyText = nodes.first().pattern.toString()
-                "$indent<$realName$attributeText>$bodyText</$realName>"
-            }
-            else -> {
-                val childNodeText = nodes.flatMap {
-                    when (it) {
-                        is XMLPattern -> listOf(it.toGherkinString(additionalIndent, indent + additionalIndent))
-                        is XMLSubstitutionGroupPattern -> listOf(
-                            XMLPattern(it.generate(Resolver()) as XMLNode).toGherkinString(additionalIndent, indent + additionalIndent)
-                        )
-                        is XMLWildcardPattern -> (it.generate(Resolver()) as XMLNode).childNodes.map { generated ->
-                            XMLPattern(generated as XMLNode).toGherkinString(additionalIndent, indent + additionalIndent)
-                        }
-                        else -> throw ContractException("Expected an xml node: $it")
-                    }
-                }.joinToString("\n")
-
-                if (childNodeText.isBlank())
-                    return "$indent<$realName$attributeText/>"
-
-                "$indent<$realName$attributeText>\n$childNodeText\n$indent</$realName>"
-            }
-        }
-    }
-
-    fun toGherkinishNode(): XMLNode {
-        val childXMLNodes = nodes.map {
-            when(it) {
-                is XMLPattern -> it.toGherkinXMLNode()
-                is XMLSubstitutionGroupPattern -> it.generate(Resolver()) as XMLNode
-                is XMLWildcardPattern -> null
-                else -> StringValue(it.pattern.toString())
-            }
-        }.filterNotNull()
-
-        return XMLNode(
-            realName,
-            attributesWithAttributeNamespaceDeclarations().mapValues { StringValue(it.value.pattern.toString()) },
-            childXMLNodes,
-            inheritNamespacesInChildren = true,
-        )
-    }
-
-    private fun attributesWithAttributeNamespaceDeclarations(): Map<String, Pattern> {
-        val namespaceAttributes = attributes.keys.mapNotNull { attributeName ->
-            val prefix = attributeName.namespacePrefix().takeIf(String::isNotBlank) ?: return@mapNotNull null
-            if (attributeName.startsWith("xmlns:") || attributes.containsKey("xmlns:$prefix")) return@mapNotNull null
-
-            val namespaceUri = attributeNamespaceUri(attributeName) ?: return@mapNotNull null
-            "xmlns:$prefix" to ExactValuePattern(StringValue(namespaceUri))
-        }.toMap()
-
-        return namespaceAttributes + attributes
     }
 
     fun isOptionalNode(): Boolean {

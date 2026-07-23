@@ -9,10 +9,73 @@ import io.specmatic.conversions.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
+import io.specmatic.core.utilities.featureFromTraffic
 import io.specmatic.core.value.*
+import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
 
 class PostmanKtTests {
+    @Test
+    fun `Postman structured examples retain traffic and generate original requests in order`() {
+        val stubs = listOf(
+            NamedStub(
+                "create item",
+                ScenarioStub(
+                    HttpRequest(
+                        "POST",
+                        "/items",
+                        headers = mapOf("X-Trace" to "first"),
+                        body = parsedJSON("""{"name":"tea","note":"hot"}"""),
+                        queryParams = QueryParameters(mapOf("page" to "1")),
+                    ),
+                    HttpResponse(201, headers = mapOf("Date" to "Monday"), body = StringValue("created")),
+                ),
+            ),
+            NamedStub(
+                "create item",
+                ScenarioStub(
+                    HttpRequest(
+                        "POST",
+                        "/items",
+                        headers = mapOf("X-Trace" to "second"),
+                        body = parsedJSON("""{"name":"coffee","note":"iced"}"""),
+                        queryParams = QueryParameters(mapOf("page" to "2")),
+                    ),
+                    HttpResponse(201, headers = mapOf("Date" to "Tuesday"), body = StringValue("accepted")),
+                ),
+            ),
+        )
+        val feature = featureFromTraffic("Rows", stubs)
+        val rows = feature.scenarios.map { it.examples.single().rows.single() }
+
+        assertThat(rows.map { it.name }).containsExactly("create item", "create item")
+        assertThat(rows.map { it.requestExample }).containsExactlyElementsOf(stubs.map { it.stub.request })
+        assertThat(rows.map { it.responseExample }).containsExactlyElementsOf(stubs.map { it.stub.response })
+        assertThat(rows.map { it.scenarioStub }).containsExactlyElementsOf(stubs.map { it.stub })
+        assertThat(feature.generateContractTestScenarios().map { it.second.value.generateHttpRequest() }.toList())
+            .containsExactlyElementsOf(stubs.map { it.stub.request })
+    }
+
+    @Test
+    fun `Postman contracts retain base URL group order and membership`() {
+        val firstBaseUrl = BaseURLInfo("first.example", 80, "http", "http://first.example")
+        val secondBaseUrl = BaseURLInfo("second.example", 443, "https", "https://second.example")
+        val firstStub = NamedStub("first", ScenarioStub(HttpRequest("GET", "/one"), HttpResponse(200)))
+        val secondStub = NamedStub("second", ScenarioStub(HttpRequest("GET", "/two"), HttpResponse(201)))
+        val thirdStub = NamedStub("third", ScenarioStub(HttpRequest("GET", "/three"), HttpResponse(202)))
+        val collection = PostmanCollection(
+            "Grouped",
+            listOf(firstBaseUrl to firstStub, secondBaseUrl to secondStub, firstBaseUrl to thirdStub),
+        )
+
+        val contracts = contractsFromPostmanCollection(collection)
+
+        assertThat(contracts.map { it.baseURLInfo }).containsExactly(firstBaseUrl, secondBaseUrl)
+        assertThat(contracts.map { it.stubs }).containsExactly(listOf(firstStub, thirdStub), listOf(secondStub))
+        assertThat(contracts.map { contract -> contract.feature.scenarios.map { it.name } })
+            .containsExactly(listOf("first", "third"), listOf("second"))
+    }
+
     @Test
     fun `should be able to guess a boolean value`() {
         assertThat(guessType(StringValue("true"))).isEqualTo(BooleanValue(true))
@@ -491,83 +554,19 @@ class PostmanKtTests {
 	"protocolProfileBehavior": {}
 }"""
 
-        val info = postmanCollectionToGherkin(postmanContent)
-        val (_, gherkinString, _, stubs) = info.first()
+        val contract = postmanCollectionToContracts(postmanContent).single()
 
-        println(gherkinString)
-
-        val expectedGherkinString = """Feature: Test API
-  Scenario: With no body or params
-    When GET /stuff
-    Then status 200
-    And response-header Connection (string)
-    And response-header Content-Type application/json
-    And response-body (integer)
-  
-  Scenario: With JSON body
-    Given type RequestBody
-      | data | (string) |
-    When POST /stuff
-    And request-body (RequestBody)
-    Then status 200
-    And response-header Connection (string)
-    And response-header Content-Type application/json
-    And response-body (integer)
-  
-    Examples:
-    | data |
-    | value |
-  
-  Scenario: With query
-    When GET /stuff?one=(integer)
-    Then status 200
-    And response-header Connection (string)
-    And response-header Content-Type application/json
-    And response-body (integer)
-  
-    Examples:
-    | one |
-    | 1 |
-  
-  Scenario: Square Of A Number 2
-    When POST /square
-    And request-body (RequestBody: integer)
-    Then status 200
-    And response-header Connection (integer)
-    And response-header Content-Type text/plain
-    And response-body (integer)
-  
-    Examples:
-    | RequestBody |
-    | 10 |
-  
-  Scenario: With form fields
-    When POST /stuff
-    And form-field field1 (integer)
-    Then status 200
-    And response-header Connection (string)
-    And response-header Content-Type application/json
-    And response-body (integer)
-  
-    Examples:
-    | field1 |
-    | 10 |
-  
-  Scenario: With form data
-    When POST /stuff
-    And request-part part1 (integer)
-    Then status 200
-    And response-header Connection (string)
-    And response-header Content-Type application/json
-    And response-body (integer)
-  
-    Examples:
-    | part1 |
-    | 10 |"""
-
-        assertThat(gherkinString.trim()).isEqualTo(expectedGherkinString.trim())
-
-        validate(gherkinString, stubs, mapOf("Content-Type" to "text/plain"))
+        assertThat(contract.feature.name).isEqualTo("Test API")
+        assertThat(contract.baseURLInfo.originalBaseURL).isEqualTo("http://localhost:9000")
+        assertThat(contract.stubs.map { it.name }).containsExactly(
+            "With no body or params",
+            "With JSON body",
+            "With query",
+            "Square Of A Number 2",
+            "With form fields",
+            "With form data",
+        )
+        validate(contract.feature, contract.stubs, mapOf("Content-Type" to "text/plain"))
     }
 
     @Test
@@ -654,8 +653,7 @@ class PostmanKtTests {
         assertThat(response.headers.getOrDefault("X-Header", "does not exist")).isEqualTo("right value")
     }
 
-    private fun validate(gherkinString: String, stubs: List<NamedStub>, additionalHeaders: Map<String, String> = emptyMap()) {
-        val behaviour = parseGherkinStringToFeature(gherkinString)
+    private fun validate(behaviour: Feature, stubs: List<NamedStub>, additionalHeaders: Map<String, String> = emptyMap()) {
         val cleanedUpStubs = stubs.map { it.stub }.map {
             it.copy(
                 response = it.response.copy(
