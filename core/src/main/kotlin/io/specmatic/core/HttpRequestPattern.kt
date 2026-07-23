@@ -326,7 +326,10 @@ data class HttpRequestPattern(
             val bodyValue =
                 if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
                     httpRequest.body
-                } else if (isPatternToken(httpRequest.bodyString) || isSubstitution(httpRequest.bodyString)) {
+                } else if (isPatternToken(httpRequest.bodyString) ||
+                    isDollarMethodOrLookup(httpRequest.bodyString) ||
+                    isSubstitution(httpRequest.bodyString)
+                ) {
                     StringValue(httpRequest.bodyString)
                 } else {
                     body.parse(httpRequest.bodyString, resolver)

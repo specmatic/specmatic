@@ -1,10 +1,16 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.*
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.*
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
@@ -93,6 +99,51 @@ internal class HttpRequestPatternTest {
             assertThat(it).isInstanceOf(Failure::class.java)
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "BODY", "name"), listOf(DefaultMismatchMessages.expectedKeyWasMissing("property", "name"))))
         }
+    }
+
+    @Test
+    fun `should preserve a top level matcher expression for the matcher engine`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+
+        val matcherExpression = "\$match(contains: 10)"
+        val bodyPattern = JSONObjectPattern(mapOf("id" to NumberPattern()))
+        every { matcherEngine.patternFrom(StringValue(matcherExpression), bodyPattern, any()) } returns bodyPattern
+
+        try {
+            val result = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/"),
+                body = bodyPattern
+            ).matches(
+                HttpRequest(method = "POST", path = "/", body = StringValue(matcherExpression)),
+                Resolver(mockMode = true)
+            )
+
+            assertThat(result).isInstanceOf(Success::class.java)
+            verify(exactly = 1) {
+                matcherEngine.patternFrom(StringValue(matcherExpression), bodyPattern, any())
+            }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+    }
+
+    @Test
+    fun `should reject an ordinary invalid request body`() {
+        val result = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = buildHttpPathPattern("/"),
+            body = JSONObjectPattern(mapOf("id" to NumberPattern()))
+        ).matches(
+            HttpRequest(method = "POST", path = "/", body = StringValue("not-json")),
+            Resolver(mockMode = true)
+        )
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+        assertThat((result as Failure).toMatchFailureDetails().breadCrumbs)
+            .containsExactly("REQUEST", "BODY")
     }
 
     @Test
