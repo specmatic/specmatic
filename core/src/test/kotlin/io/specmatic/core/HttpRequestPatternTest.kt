@@ -102,27 +102,36 @@ internal class HttpRequestPatternTest {
     }
 
     @Test
-    fun `should preserve a top level matcher expression for the matcher engine`() {
+    fun `should preserve a top level matcher expression for matching and deriving a stub pattern`() {
         val matcherEngine = mockk<MatcherEngine>()
         mockkObject(MatcherEngine.Companion)
         every { MatcherEngine.load() } returns matcherEngine
 
-        val matcherExpression = "\$match(contains: 10)"
-        val bodyPattern = JSONObjectPattern(mapOf("id" to NumberPattern()))
+        val matcherExpression = "\$match(contains: \$(data.product), value: each, times: 3)"
+        val bodyPattern = JSONObjectPattern(mapOf("type" to StringPattern()))
         every { matcherEngine.patternFrom(StringValue(matcherExpression), bodyPattern, any()) } returns bodyPattern
 
         try {
-            val result = HttpRequestPattern(
+            val requestPattern = HttpRequestPattern(
                 method = "POST",
-                httpPathPattern = buildHttpPathPattern("/"),
-                body = bodyPattern
-            ).matches(
-                HttpRequest(method = "POST", path = "/", body = StringValue(matcherExpression)),
-                Resolver(mockMode = true)
+                httpPathPattern = buildHttpPathPattern("/products"),
+                body = bodyPattern,
+            )
+            val request = HttpRequest(
+                method = "POST",
+                path = "/products",
+                body = StringValue(matcherExpression),
             )
 
+            val result = requestPattern.matches(
+                request,
+                Resolver(mockMode = true)
+            )
+            val exactPattern = requestPattern.generateExactRequestPatternForStub(request, Resolver())
+
             assertThat(result).isInstanceOf(Success::class.java)
-            verify(exactly = 1) {
+            assertThat(exactPattern.body).isSameAs(bodyPattern)
+            verify(exactly = 2) {
                 matcherEngine.patternFrom(StringValue(matcherExpression), bodyPattern, any())
             }
         } finally {
