@@ -92,7 +92,6 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.TEST_LENIENT_MODE
 import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
-import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
@@ -355,10 +354,6 @@ data class SpecmaticConfigV3Impl(val file: File? = null, val specmaticConfig: Sp
 
     override fun isExtensibleSchemaEnabled(): Boolean {
         return false
-    }
-
-    override fun isResponseValueValidationEnabled(): Boolean {
-        return testSettings.validateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
     }
 
     override fun parsedDefaultPatternValues(): Map<String, Value> {

@@ -48,20 +48,11 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
             entry.map { it.key } to entry.map { it.value }
         }
 
-        val responseExample: ResponseExample? = response.let { httpResponse ->
-            when {
-                specmaticConfig.isResponseValueValidationEnabled() -> ResponseValueExample(httpResponse)
-                else -> null
-            }
-        }
-
         return Row(
             columnNames,
             values,
             name = testName,
             fileSource = this.file.canonicalPath,
-            exactResponseExample = responseExample,
-            responseExampleForAssertion = response,
             requestExample = scenarioStub.getRequestWithAdditionalParamsIfAny(specmaticConfig.getAdditionalExampleParamsFilePath()),
             responseExample = response,
             isPartial = scenarioStub.partial != null,

@@ -63,7 +63,6 @@ security:
 test:
   resiliencyTests:
     enable: all
-  validateResponseValues: true
   allowExtensibleSchema: true
   timeoutInMilliseconds: 3000
 
@@ -73,4 +72,3 @@ stub:
 examples:
   - folder1/examples
   - folder2/examples
-

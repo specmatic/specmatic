@@ -36,7 +36,6 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.TEST_LENIENT_MODE
 import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
-import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
@@ -780,11 +779,6 @@ data class SpecmaticConfigV1V2Common(
     }
 
     @JsonIgnore
-    override fun isResponseValueValidationEnabled(): Boolean {
-        return test?.validateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
-    }
-
-    @JsonIgnore
     override fun parsedDefaultPatternValues(): Map<String, Value> {
         return parsedJSONObject(ObjectMapper().writeValueAsString(defaultPatternValues)).jsonObject
     }
@@ -1468,7 +1462,6 @@ data class SpecmaticConfigV1V2Common(
 
 data class TestConfiguration(
     val resiliencyTests: ResiliencyTestsConfig? = null,
-    val validateResponseValues: Boolean? = null,
     val allowExtensibleSchema: Boolean? = null,
     val timeoutInMilliseconds: Long? = null,
     val strictMode: Boolean? = null,

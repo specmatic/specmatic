@@ -20,8 +20,6 @@ data class Row(
     val name: String = "",
     val fileSource: String? = null,
     val requestBodyJSONExample: JSONExample? = null,
-    val responseExampleForAssertion: HttpResponse? = null,
-    val exactResponseExample: ResponseExample? = null,
     val requestExample: HttpRequest? = null,
     val responseExample: HttpResponse? = null,
     val isPartial: Boolean = false,

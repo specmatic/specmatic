@@ -12,7 +12,6 @@ data class TestSettings(
     val parallelism: String? = null,
     val maxTestRequestCombinations: Int? = null,
     val junitReportDir: String? = null,
-    val validateResponseValues: Boolean? = null,
     val maxTestCount: Int? = null,
 ) {
     fun merge(fallback: TestSettings?): TestSettings {
@@ -25,7 +24,6 @@ data class TestSettings(
             parallelism = this.parallelism ?: fallback.parallelism,
             maxTestRequestCombinations = this.maxTestRequestCombinations ?: fallback.maxTestRequestCombinations,
             junitReportDir = this.junitReportDir ?: fallback.junitReportDir,
-            validateResponseValues = this.validateResponseValues ?: fallback.validateResponseValues,
             maxTestCount = this.maxTestCount ?: fallback.maxTestCount,
         )
     }

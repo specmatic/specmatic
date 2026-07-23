@@ -21,7 +21,6 @@ import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_GENERATIVE_TESTS
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_STUB_DELAY
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
-import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import org.assertj.core.api.Assertions.assertThat
@@ -235,7 +234,6 @@ internal class SpecmaticConfigKtTest {
 
         assertThat(config.isResiliencyTestingEnabled()).isEqualTo(true)
         assertThat(config.isExtensibleSchemaEnabled()).isTrue()
-        assertThat(config.isResponseValueValidationEnabled()).isTrue()
 
         assertThat(config.getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)
         assertThat(config.getStubGenerative(File("spec.yaml"))).isEqualTo(false)
@@ -349,7 +347,6 @@ internal class SpecmaticConfigKtTest {
         val properties = mapOf(
             SPECMATIC_GENERATIVE_TESTS to "true",
             ONLY_POSITIVE to "false",
-            VALIDATE_RESPONSE_VALUE to "true",
             EXTENSIBLE_SCHEMA to "false",
             SCHEMA_EXAMPLE_DEFAULT to "true",
             MAX_TEST_REQUEST_COMBINATIONS to "50",
@@ -362,7 +359,6 @@ internal class SpecmaticConfigKtTest {
             val config = SpecmaticConfig()
             assertThat(config.isResiliencyTestingEnabled()).isTrue()
             assertThat(config.isOnlyPositiveTestingEnabled()).isFalse()
-            assertThat(config.isResponseValueValidationEnabled()).isTrue()
             assertThat(config.isExtensibleSchemaEnabled()).isFalse()
             assertThat(config.getSchemaExampleDefault()).isTrue()
             assertThat(config.getMaxTestRequestCombinations()).isEqualTo(50)
@@ -733,7 +729,6 @@ internal class SpecmaticConfigKtTest {
     fun `should give preferences to values coming from config file over the env vars or system properties`(configFile: String) {
         val props = mapOf(
             SPECMATIC_GENERATIVE_TESTS to "false",
-            VALIDATE_RESPONSE_VALUE to "false",
             EXTENSIBLE_SCHEMA to "false",
             EXAMPLE_DIRECTORIES to "folder1/examples,folder2/examples",
             SPECMATIC_STUB_DELAY to "5000",
@@ -744,7 +739,6 @@ internal class SpecmaticConfigKtTest {
             props.forEach { System.setProperty(it.key, it.value) }
             val config: SpecmaticConfig = loadSpecmaticConfig(configFile)
             assertThat(config.isResiliencyTestingEnabled()).isTrue()
-            assertThat(config.isResponseValueValidationEnabled()).isTrue()
             assertThat(config.isExtensibleSchemaEnabled()).isTrue()
             assertThat(config.getExamples()).isEqualTo(listOf("folder1/examples", "folder2/examples"))
             assertThat(config.getStubDelayInMilliseconds(File("spec.yaml"))).isEqualTo(1000L)

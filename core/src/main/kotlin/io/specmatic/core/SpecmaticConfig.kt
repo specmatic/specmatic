@@ -165,9 +165,6 @@ interface SpecmaticConfig {
     }
 
     @JsonIgnore
-    fun isResponseValueValidationEnabled(): Boolean
-
-    @JsonIgnore
     fun parsedDefaultPatternValues(): Map<String, Value>
 
     @JsonIgnore
