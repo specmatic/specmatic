@@ -10,11 +10,8 @@ import java.util.function.Consumer
 
 internal class ResultKtTest {
     private val scenario = object : ScenarioDetailsForResult {
-        val status: Int = 200
         override val ignoreFailure: Boolean = false
         override val name: String = "scenario"
-        val method: String = "GET"
-        val path: String = "/route"
         override fun testDescription(): String = "scenario description"
         override fun operationDescription(): String = "operation 1"
 
@@ -22,11 +19,8 @@ internal class ResultKtTest {
     }
 
     private fun scenario(name: String, operationDescription: String) = object : ScenarioDetailsForResult {
-        val status: Int = 200
         override val ignoreFailure: Boolean = false
         override val name: String = name
-        val method: String = "GET"
-        val path: String = "/route"
         override fun testDescription(): String = "$name description"
         override fun operationDescription(): String = operationDescription
         override fun failureReportSubHeading(): String = "API: ${operationDescription()}"

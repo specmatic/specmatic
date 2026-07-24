@@ -140,11 +140,8 @@ private fun testIdentifier(type: TestDescriptor.Type): TestIdentifier {
 }
 
 private class FakeScenario : ScenarioDetailsForResult {
-    val status: Int = 200
     override val ignoreFailure: Boolean = false
     override val name: String = "Partial success scenario"
-    val method: String = "GET"
-    val path: String = "/partial-success"
     override fun testDescription(): String = name
 
     override fun operationDescription() = "operation 1"

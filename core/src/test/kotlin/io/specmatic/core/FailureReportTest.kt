@@ -7,11 +7,9 @@ import org.junit.jupiter.api.Test
 
 internal class FailureReportTest {
 
-    private class FakeScenario(val status: Int) : ScenarioDetailsForResult {
+    private class FakeScenario : ScenarioDetailsForResult {
         override val ignoreFailure: Boolean = false
         override val name: String = "fake scenario"
-        val method: String = "GET"
-        val path: String = "/fake"
         override fun testDescription(): String = name
 
         override fun operationDescription() = "operation 1"
@@ -25,7 +23,7 @@ internal class FailureReportTest {
             val report = FailureReport(
                 contractPath = "contract-path",
                 scenarioMessage = null,
-                scenario = FakeScenario(status = 0),
+                scenario = FakeScenario(),
                 matchFailureDetailList = emptyList()
             )
 
@@ -49,7 +47,7 @@ internal class FailureReportTest {
             val report = FailureReport(
                 contractPath = null,
                 scenarioMessage = null,
-                scenario = FakeScenario(status = 0),
+                scenario = FakeScenario(),
                 matchFailureDetailList = emptyList()
             )
 
@@ -77,7 +75,7 @@ internal class FailureReportTest {
         val failureReport = FailureReport(
             contractPath = null,
             scenarioMessage = null,
-            scenario = FakeScenario(status = 0),
+            scenario = FakeScenario(),
             matchFailureDetailList = matchFailureDetailList
         )
         assertThat(failureReport.toText()).isEqualTo(
