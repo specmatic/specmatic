@@ -6,6 +6,7 @@ import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.BinaryPattern
+import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.BinaryValue
@@ -221,5 +222,12 @@ internal class MultiPartFilePatternTest {
 
         assertThat(pattern.matches(matching, Resolver())).isInstanceOf(Success::class.java)
         assertThat(pattern.matches(mismatching, Resolver())).isInstanceOf(Failure::class.java)
+    }
+
+    @Test
+    fun `should drop the question mark from an optional content part`() {
+        val pattern = MultiPartFilePattern("data?", ExactValuePattern(StringValue("file.txt")), "text/plain")
+        val value = pattern.generate(Resolver())
+        assertThat(value.name).isEqualTo("data")
     }
 }

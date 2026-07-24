@@ -124,6 +124,13 @@ internal class MultiPartContentPatternTest {
         assertThat(pattern.matches(value, mockModeResolver)).isInstanceOf(Success::class.java)
     }
 
+    @Test
+    fun `should drop the question mark from an optional content part`() {
+        val pattern = MultiPartContentPattern("data?", NumberPattern(), "text/plain")
+        val value = pattern.generate(Resolver())
+        assertThat(value.name).isEqualTo("data")
+    }
+
     @Disabled
     @Test
     fun `content pattern should not match value when the contentType in pattern and value are different`() {

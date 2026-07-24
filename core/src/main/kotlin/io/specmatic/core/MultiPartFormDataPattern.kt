@@ -31,7 +31,7 @@ data class MultiPartContentPattern(override val name: String, val content: Patte
         }
 
     override fun generate(resolver: Resolver): MultiPartFormDataValue =
-            MultiPartContentValue(name, resolver.withCyclePrevention(content, content::generate), specifiedContentType = contentType)
+            MultiPartContentValue(withoutOptionality(name), resolver.withCyclePrevention(content, content::generate), specifiedContentType = contentType)
 
     override fun matches(value: MultiPartFormDataValue, resolver: Resolver): Result {
         if(withoutOptionality(name) != value.name)
@@ -106,7 +106,7 @@ data class MultiPartFilePattern(
         } ?: MultiPartContent()
 
         return MultiPartFileValue(
-            name = name,
+            name = withoutOptionality(name),
             filename = generatedFilename,
             contentType = contentType ?: "",
             contentEncoding = contentEncoding,

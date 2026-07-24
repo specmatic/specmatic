@@ -34,6 +34,9 @@ data class Operation(
 
     fun isFormUrlEncodedContent(): Boolean =
         hasRequestContentType() && requestContentType!!.lowercase() == "application/x-www-form-urlencoded"
+
+    fun isMultiPart(): Boolean =
+        hasRequestContentType() && requestContentType!!.lowercase().startsWith("multipart/form-data")
 }
 
 class OpenApiSpec(private val specFile: File) {
@@ -129,6 +132,7 @@ class OpenApiSpec(private val specFile: File) {
         val jsonNode = when {
             operation.isJsonContent() || operation.isYamlContent() -> yamlMapper.readTree(body)
             operation.isFormUrlEncodedContent() -> formUrlEncodedToJson(body, operation)
+            operation.isMultiPart() -> multiPartToJson(body, operation)
             else -> error("no support for validating requests of type:${operation.requestContentType}\nbody=${body}")
         }
 
@@ -288,6 +292,39 @@ class OpenApiSpec(private val specFile: File) {
             ?.requestBody?.content?.get(operation.requestContentType)?.schema
             ?: return emptyMap()
         return schema.properties.orEmpty()
+    }
+
+    private fun multiPartToJson(body: String, operation: Operation): JsonNode {
+        val properties = requestBodyProperties(operation)
+
+        val obj = jsonMapper.createObjectNode()
+
+        val separator = body.lines().first()
+
+        body
+            .replace("\r\n", "\n")
+            .trim()
+            .lines()
+            .dropLast(1)
+            .joinToString("\n")
+            .split(separator)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .forEach { rawPartString ->
+                val parts = rawPartString.split("\n\n")
+                val headers = parts[0]
+                val value = parts[1]
+
+                val key = headers.lines().first().split(" ").last().split("=").last()
+
+                val schema = properties[key]
+                val schemaType = schema?.type ?: schema?.types?.firstOrNull()
+                val parsedValue = parseFormValue(value, schemaType)
+
+                obj.set<JsonNode>(key, parsedValue)
+            }
+
+        return obj
     }
 
     private fun formUrlEncodedToJson(body: String, operation: Operation): JsonNode {
