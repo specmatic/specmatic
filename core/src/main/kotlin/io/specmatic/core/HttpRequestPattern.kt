@@ -30,6 +30,7 @@ import io.specmatic.core.pattern.isSubstitution
 import io.specmatic.core.pattern.newBasedOn
 import io.specmatic.core.pattern.newMapBasedOn
 import io.specmatic.core.pattern.parsedPattern
+import io.specmatic.core.pattern.patternFromValueUsing
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.pattern.returnValue
 import io.specmatic.core.pattern.singleLineDescription
@@ -326,7 +327,10 @@ data class HttpRequestPattern(
             val bodyValue =
                 if (httpRequest.body is JSONObjectValue || httpRequest.body is JSONArrayValue || httpRequest.body is XMLNode) {
                     httpRequest.body
-                } else if (isPatternToken(httpRequest.bodyString) || isSubstitution(httpRequest.bodyString)) {
+                } else if (isPatternToken(httpRequest.bodyString) ||
+                    isDollarMethodOrLookup(httpRequest.bodyString) ||
+                    isSubstitution(httpRequest.bodyString)
+                ) {
                     StringValue(httpRequest.bodyString)
                 } else {
                     body.parse(httpRequest.bodyString, resolver)
@@ -688,7 +692,8 @@ data class HttpRequestPattern(
     private fun exactEncompassedType(valueString: String, key: String?, type: Pattern, resolver: Resolver): Pattern {
         return when {
             isPatternToken(valueString) -> resolvedHop(parsedPattern(valueString, key), resolver)
-            isDollarMethodOrLookup(valueString) -> type.patternFrom(StringValue(valueString), resolver) { it.exactMatchElseType() }
+            isDollarMethodOrLookup(valueString) ->
+                patternFromValueUsing(type, StringValue(valueString), resolver) { it.exactMatchElseType() }
             else -> runCatching { type.parseToType(valueString, resolver) }.getOrElse { StringValue(valueString).exactMatchElseType() }
         }
     }

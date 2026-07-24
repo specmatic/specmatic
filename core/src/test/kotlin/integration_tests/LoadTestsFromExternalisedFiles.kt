@@ -1653,7 +1653,8 @@ class RowValueLookupFixtureExecutor : OpenAPIFixtureExecutor {
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
         executionMetadata: FixtureExecutionMetadata,
-        substitution: Substitution
+        substitution: Substitution,
+        data: JSONObjectValue,
     ): FixtureExecutionDetails {
         val updatedSubstitution = substitution
             .upsertStoreUsing(StringValue("(ORDER_ID:string)"), StringValue("order-123"))
