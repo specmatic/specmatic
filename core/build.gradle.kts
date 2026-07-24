@@ -47,17 +47,17 @@ dependencies {
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
 
     implementation("dk.brics:automaton:1.12-4")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.1.2")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.14.4")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:6.1.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.1.2")
     testImplementation("org.json:json:20250517")
     testImplementation("com.networknt:json-schema-validator:2.0.1")
     testImplementation("org.springframework:spring-web:6.2.18")
     testImplementation("io.mockk:mockk-jvm:1.14.11")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("io.ktor:ktor-client-mock-jvm:2.3.13")
-    implementation("org.junit.platform:junit-platform-launcher:1.14.4")
+    implementation("org.junit.platform:junit-platform-launcher:6.1.2")
 }
 
 configurations.implementation.configure {
