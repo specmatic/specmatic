@@ -38,9 +38,9 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ### Changed
 
-- Fixed the backward compatibility check file count to exclude externalised examples that are not checked directly.
+- Fixed: Multipart schema being used to generate filename
 - Improved backward compatibility check logs for changed externalised examples.
-  
+- Fixed the backward compatibility check file count to exclude externalised examples that are not checked directly.
 
 ## 2.50.1 (2026-07-17)
 
