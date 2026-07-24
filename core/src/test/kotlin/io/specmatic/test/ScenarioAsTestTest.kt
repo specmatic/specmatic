@@ -386,6 +386,7 @@ class ScenarioAsTestTest {
             assertThat(updatedScenario.status).isEqualTo(422)
             assertThat(updatedScenario.isNegative).isTrue
             assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+            assertThat(scenarioInRecord.status).isEqualTo(422)
             assertThat(scenarioInRecord.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
         } finally {
             server.stop(1000, 1000)

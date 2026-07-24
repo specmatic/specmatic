@@ -17,6 +17,7 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.stub.RequestContext
@@ -24,14 +25,8 @@ import io.specmatic.test.TestExecutionReason
 import io.specmatic.test.TestSkipReason
 
 interface ScenarioDetailsForResult {
-    val status: Int
     val ignoreFailure: Boolean
     val name: String
-    val method: String
-    val path: String
-
-    val operation: Operation
-        get() = Operation(method = method, path = path, responseCode = status)
 
     fun testDescription(): String
 
@@ -76,19 +71,18 @@ data class Scenario(
     val generatedFrom: GeneratedScenarioOrigin? = null,
     val sourceLocations: Map<String, SourceLocation> = emptyMap(),
     val operationSourcePointer: String? = null,
-    private val requestContentTypeForReport: String? = null
-): ScenarioDetailsForResult, HasScenarioMetadata {
+    private val requestContentTypeForReport: String? = null,
+    private val operationProvider: ScenarioOperationProvider = OpenApiScenarioOperationProvider
+) : ScenarioDetailsForResult, HasScenarioMetadata {
+    fun toApiOperation(): APIOperation = operationProvider.operationFor(this)
+
     data class RequestDetails(
         private val method: String,
         private val requestContentType: String,
         private val path: String,
     ) {
         constructor(scenario: Scenario) :
-            this(
-                scenario.httpRequestPattern.method.orEmpty(),
-                scenario.requestContentType.orEmpty(),
-                scenario.path,
-            )
+                this(scenario.httpRequestPattern.method.orEmpty(), scenario.requestContentType.orEmpty(), scenario.path,)
     }
 
     constructor(scenarioInfo: ScenarioInfo) : this(
@@ -121,17 +115,17 @@ data class Scenario(
         return RequestDetails(this)
     }
 
-    override val method: String
+    val method: String
         get() {
             return httpRequestPattern.method ?: ""
         }
 
-    override val path: String
+    val path: String
         get() {
             return httpRequestPattern.httpPathPattern?.toInternalPath() ?: ""
         }
 
-    override val status: Int
+    val status: Int
         get() {
             return if (isNegative && !isA4xxScenario()) 400 else httpResponsePattern.status
         }
@@ -756,18 +750,18 @@ data class Scenario(
     }
 
     val defaultAPIDescription: String get() {
-        if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
-        return baseApiDescription()
+            if (customAPIDescription != null) return "$customAPIDescription ${disambiguate()}"
+            return baseApiDescription()
     }
 
     val fullApiDescription: String get() {
-        val baseDescription = customAPIDescription ?: baseApiDescription()
-        return buildList {
-            add(baseDescription)
-            contentTypeDescription()?.takeIf(String::isNotBlank)?.let(::add)
-            disambiguate().takeIf(String::isNotBlank)?.let(::add)
-        }.joinToString(separator = " ")
-    }
+            val baseDescription = customAPIDescription ?: baseApiDescription()
+            return buildList {
+                add(baseDescription)
+                contentTypeDescription()?.takeIf(String::isNotBlank)?.let(::add)
+                disambiguate().takeIf(String::isNotBlank)?.let(::add)
+            }.joinToString(separator = " ")
+        }
 
     fun fullApiTestDescription(): String {
         val apiDescription = this.fullApiDescription
@@ -833,7 +827,7 @@ data class Scenario(
         if (fieldsToBeMadeMandatory.isEmpty()) return this
 
         val responseBodyPattern = this.httpResponsePattern.body
-        val updatedResponseBodyPattern = if(responseBodyPattern is PossibleJsonObjectPatternContainer) {
+        val updatedResponseBodyPattern = if (responseBodyPattern is PossibleJsonObjectPatternContainer) {
             responseBodyPattern.removeKeysNotPresentIn(fieldsToBeMadeMandatory, resolver)
         } else {
             responseBodyPattern
@@ -958,9 +952,7 @@ data class Scenario(
 
     private fun matchesRequestOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
         return operationId.requestMethod.equals(method, ignoreCase = true)
-                && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let {
-                    it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure
-                }
+                && httpRequestPattern.matchesPath(operationId.requestPath, patternMatchingResolver).let { it.isSuccess() || (it as? Result.Failure)?.failureReason == FailureReason.URLPathParamMismatchButSameStructure }
                 && matchesRequestContentType(operationId)
     }
 

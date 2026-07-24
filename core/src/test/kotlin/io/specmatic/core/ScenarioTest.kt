@@ -16,6 +16,8 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.internal.dto.operation.APIOperation
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.NamedExampleMismatchMessages
 import io.specmatic.toViolationReportString
@@ -34,6 +36,32 @@ import io.specmatic.test.TestSkipReason
 import org.assertj.core.api.Assertions.assertThat
 
 class ScenarioTest {
+
+    @Test
+    fun `operation is derived through the scenario operation provider`() {
+        val delegatedOperation = OpenAPIOperation(
+            path = "/delegated",
+            method = "POST",
+            responseCode = 202,
+            protocol = SpecmaticProtocol.HTTP
+        )
+        val operationProvider = object : ScenarioOperationProvider {
+            override fun operationFor(scenario: Scenario): APIOperation = delegatedOperation
+        }
+        val scenario = Scenario(
+            name = "orders",
+            httpRequestPattern = HttpRequestPattern(
+                method = "GET",
+                httpPathPattern = buildHttpPathPattern("/orders")
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI,
+            operationProvider = operationProvider
+        )
+
+        assertThat(scenario.toApiOperation()).isSameAs(delegatedOperation)
+    }
 
     companion object {
         @JvmStatic

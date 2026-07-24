@@ -4392,8 +4392,9 @@ Then status 200
                 val testResultRecord = stub.ctrfTestResultRecords().single()
                 assertThat(testResultRecord.scenarioResult).isNotNull
                 assertThat(testResultRecord.scenarioResult?.scenario).isNotNull
-                assertThat(testResultRecord.scenarioResult?.scenario?.method).isEqualTo("POST")
-                assertThat(testResultRecord.scenarioResult?.scenario?.path).isEqualTo("/hello")
+                val scenario = testResultRecord.scenarioResult?.scenario as Scenario
+                assertThat(scenario.method).isEqualTo("POST")
+                assertThat(scenario.path).isEqualTo("/hello")
             }
         } finally {
             tempDir.deleteRecursively()
