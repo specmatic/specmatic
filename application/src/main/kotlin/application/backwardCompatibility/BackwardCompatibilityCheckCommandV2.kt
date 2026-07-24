@@ -2,12 +2,15 @@ package application.backwardCompatibility
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
+import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -25,6 +28,7 @@ import kotlin.io.path.pathString
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
     private val exampleCompatibilityChecker = OpenApiSpecCompatibilityChecker()
+    private val exampleValidationModule = ExampleValidationModule(specmaticConfig = specmaticConfig)
 
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
         val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature, effectiveRepoDir)
@@ -155,6 +159,52 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
         feature as Feature
         return feature.loadExternalisedExamplesAndListUnloadableExamples().second
     }
+
+    override fun validateExamples(feature: IFeature, paths: Set<Path>): List<ExampleValidationResult> {
+        feature as Feature
+        return paths.map { path ->
+            ExampleValidationResult(path, exampleValidationModule.validateExample(feature, path.toFile()))
+        }
+    }
+
+    override fun exampleValidationReportRecords(
+        feature: IFeature,
+        exampleValidationResults: List<ExampleValidationResult>
+    ): List<CtrfBackwardCompatibilityRecord> {
+        feature as Feature
+        return exampleValidationResults.mapNotNull { exampleValidationResult ->
+            scenarioFor(feature, exampleValidationResult.examplePath)?.let { scenario ->
+                OpenApiBackwardCompatibilityCheckRecord(
+                    feature = feature,
+                    scenario = scenario,
+                    compatResult = exampleValidationResult.result.withExamplePath(exampleValidationResult.examplePath),
+                    recordName = exampleValidationResult.examplePath.fileName.toString()
+                )
+            }
+        }
+    }
+
+    private fun Result.withExamplePath(path: Path): Result = when (this) {
+        is Result.Failure -> Result.Failure(
+            message = "(Example: $path)",
+            cause = this,
+            isPartial = isPartial,
+            scenario = scenario,
+            contractPath = contractPath
+        )
+        else -> this
+    }
+
+    private fun scenarioFor(feature: Feature, path: Path): Scenario? =
+        ExampleFromFile.fromFile(path.toFile(), strictMode = false).realise(
+            hasValue = { example, _ ->
+                feature.scenarios.firstOrNull {
+                    it.matchesPathStructureAndMethod(example.request) && it.matchesStatusAndContentType(example.response)
+                }
+            },
+            orFailure = { null },
+            orException = { null }
+        )
 
     private fun findSpecFiles(path: Path): List<Path> {
         val extensions = CONTRACT_EXTENSIONS

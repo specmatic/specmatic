@@ -151,8 +151,7 @@ class BackwardCompatibilityCheckBaseCommandTest {
             TODO("Not yet implemented")
         }
 
-        override fun getSpecsOfChangedExternalisedExamples(filesChangedInCurrentBranch: Set<String>): Set<String> {
-            TODO("Not yet implemented")
-        }
+        override fun getSpecsOfChangedExternalisedExamples(filesChangedInCurrentBranch: Set<String>) = emptySet<String>()
+
     }
 }

@@ -464,6 +464,106 @@ class BackwardCompatibilityCheckCommandV2Test {
         }
 
         @Test
+        fun `should fail and report invalid changed externalised example`() {
+            val oasDir = File("src/test/resources/specifications/spec_with_examples")
+            oasDir.copyRecursively(remoteDir); oasDir.copyRecursively(tempDir)
+            commitAndPush(tempDir, "Initial commit")
+
+            val exampleFile = tempDir.resolve("api_examples").resolve("example.json")
+            exampleFile.writeText(exampleFile.readText().replace("\"method\": \"POST\"", "\"method\": \"GET\""))
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).contains("Changed Externalised Examples Validation")
+                .contains("1. Error(s) found in ${exampleFile.canonicalPath}")
+                .contains("Example validation verdict:")
+                .contains(exampleFile.canonicalPath)
+                .contains("All 1 example(s) are invalid.")
+                .doesNotContain("(Example:")
+        }
+
+        @Test
+        fun `should include changed externalised example validation in bcc report`() {
+            val oasDir = File("src/test/resources/specifications/spec_with_examples")
+            oasDir.copyRecursively(remoteDir); oasDir.copyRecursively(tempDir)
+            commitAndPush(tempDir, "Initial commit")
+
+            val exampleFile = tempDir.resolve("api_examples/example.json")
+            exampleFile.writeText(exampleFile.readText().replace("\"id\": 10", "\"id\": false"))
+            val configFile = remoteDir.resolve("specmatic.yaml").apply {
+                writeText("version: 2\nreportDirPath: ${tempDir.resolve("reports").canonicalPath}")
+            }
+
+            val (_, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+                using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+                    BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+                }
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+
+            val report = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
+            val exampleTest = report.path("results").path("tests").single { it.path("name").asText() == exampleFile.name }
+            val operation = report.path("results").path("summary").path("extra").path("executionDetails").first()
+                .path("operations").single()
+            val description = exampleTest.path("extra").path("breakingChanges").first().path("description").asText()
+
+            assertThat(exampleTest.path("status").asText()).isEqualTo("failed")
+            assertThat(exampleTest.path("rawStatus").asText()).isEqualTo("incompatible")
+            assertThat(exampleTest.path("type").asText()).isEqualTo("Backward Compatibility")
+            assertThat(exampleTest.path("message").asText()).contains("Type mismatch")
+            assertThat(description).contains("(Example: ${exampleFile.canonicalPath})")
+            assertThat(description.indexOf("(Example:")).isLessThan(description.indexOf("Specification expected"))
+            assertThat(operation.path("status").asText()).isEqualTo("incompatible")
+            assertThat(operation.path("testIds").map { it.asText() }).contains(exampleTest.path("id").asText())
+        }
+
+        @Test
+        fun `should validate changed externalised example for a new spec`() {
+            tempDir.resolve("README.md").writeText("base")
+            commitAndPush(tempDir, "Initial commit")
+
+            File("src/test/resources/specifications/spec_with_examples").copyRecursively(tempDir)
+            commit(tempDir, "Add API spec")
+
+            val exampleFile = tempDir.resolve("api_examples").resolve("example.json")
+            exampleFile.writeText(exampleFile.readText().replace("\"method\": \"POST\"", "\"method\": \"GET\""))
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).contains("Changed Externalised Examples Validation")
+                .contains("1. Error(s) found in ${exampleFile.canonicalPath}")
+                .contains("Example validation verdict:")
+                .contains(exampleFile.canonicalPath)
+                .contains("All 1 example(s) are invalid.")
+        }
+
+        @Test
+        fun `should not validate changed externalised example when spec is incompatible`() {
+            val oasDir = File("src/test/resources/specifications/spec_with_examples")
+            oasDir.copyRecursively(remoteDir); oasDir.copyRecursively(tempDir)
+            commitAndPush(tempDir, "Initial commit")
+
+            val specFile = tempDir.resolve("api.yaml")
+            specFile.writeText(specFile.readText().replace("\"201\":", "\"202\":"))
+            val exampleFile = tempDir.resolve("api_examples").resolve("example.json")
+            exampleFile.writeText(exampleFile.readText().replace("\"method\": \"POST\"", "\"method\": \"GET\""))
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).doesNotContain("Changed Externalised Examples Validation")
+        }
+
+        @Test
         fun `should fail when externalised example changes but corresponding spec file is missing`() {
             val exampleDir = tempDir.resolve("orders_examples").apply { mkdirs() }
             val exampleFile = exampleDir.resolve("example.json").apply { writeText("""{"http-request":{"method":"GET"}}""") }
