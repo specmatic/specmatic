@@ -38,9 +38,9 @@ class MockServerToolTest {
         return field.get(tool) as ConcurrentHashMap<Int, StubCommand>
     }
 
-    private fun extractLogDir(result: String): String {
-        return result.lines().find { it.contains("Log directory:") }
-            ?.substringAfter("Log directory: ")
+    private fun extractSpecFile(result: String): String {
+        return result.lines().find { it.contains("Spec file:") }
+            ?.substringAfter("Spec file: ")
             ?.trim() ?: ""
     }
 
@@ -61,9 +61,10 @@ class MockServerToolTest {
         
         coEvery { waitUntilConnectable(any(), any(), any()) } returns true
 
+        val specFile = tempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0...") }
         val args = ManageMockServerArgs(
             command = "start",
-            openApiSpec = "openapi: 3.0.0...",
+            specFilePath = specFile.canonicalPath,
             port = 9001
         )
         
@@ -71,10 +72,10 @@ class MockServerToolTest {
 
         assertThat(result).contains("Mock server started successfully")
         assertThat(result).contains("Server URL: http://localhost:9001")
-        assertThat(result).contains("Log directory:")
+        assertThat(result).contains("Spec file:")
         
-        val logDir = extractLogDir(result)
-        assertThat(File(logDir)).isDirectory()
+        val specPath = extractSpecFile(result)
+        assertThat(File(specPath)).exists()
         
         // Verify tool internal state
         assertThat(getRunningMocks()).containsKey(9001)
@@ -113,7 +114,8 @@ class MockServerToolTest {
         coEvery { waitUntilConnectable(any(), any(), any()) } returns true
 
         // Start a server first
-        tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9006))
+        val specFile = tempDir.resolve("spec.yaml").apply { writeText("...") }
+        tool.manageMockServer(ManageMockServerArgs(command = "start", specFilePath = specFile.canonicalPath, port = 9006))
         assertThat(getRunningMocks()).containsKey(9006)
         
         // Stop it
@@ -133,8 +135,10 @@ class MockServerToolTest {
         every { anyConstructed<StubCommand>().close() } just Runs
         coEvery { waitUntilConnectable(any(), any(), any()) } returns true
 
-        tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9010))
-        tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9011))
+        val specFile1 = tempDir.resolve("spec1.yaml").apply { writeText("...") }
+        val specFile2 = tempDir.resolve("spec2.yaml").apply { writeText("...") }
+        tool.manageMockServer(ManageMockServerArgs(command = "start", specFilePath = specFile1.canonicalPath, port = 9010))
+        tool.manageMockServer(ManageMockServerArgs(command = "start", specFilePath = specFile2.canonicalPath, port = 9011))
         
         val result = tool.manageMockServer(ManageMockServerArgs(command = "list"))
 
@@ -152,9 +156,10 @@ class MockServerToolTest {
         // Simulate timeout
         coEvery { waitUntilConnectable(any(), any(), any()) } returns false
 
+        val specFile = tempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0...") }
         val args = ManageMockServerArgs(
             command = "start",
-            openApiSpec = "openapi: 3.0.0...",
+            specFilePath = specFile.canonicalPath,
             port = 9025
         )
         
@@ -176,22 +181,23 @@ class MockServerToolTest {
         every { anyConstructed<StubCommand>().close() } just Runs
         coEvery { waitUntilConnectable(any(), any(), any()) } returns true
 
-        tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9020))
+        val specFile = tempDir.resolve("spec.yaml").apply { writeText("...") }
+        tool.manageMockServer(ManageMockServerArgs(command = "start", specFilePath = specFile.canonicalPath, port = 9020))
         
-        val result = tool.manageMockServer(ManageMockServerArgs(command = "start", openApiSpec = "...", port = 9020))
+        val result = tool.manageMockServer(ManageMockServerArgs(command = "start", specFilePath = specFile.canonicalPath, port = 9020))
 
         assertThat(result).contains("Failed to start mock server")
         assertThat(result).contains("Port 9020 is already in use by a mock server running in this process.")
     }
 
     @Test
-    fun `manageMockServer start should fail if openApiSpec is missing`() {
+    fun `manageMockServer start should fail if specFilePath is missing`() {
         val args = ManageMockServerArgs(command = "start", port = 9000)
         
         try {
             tool.manageMockServer(args)
         } catch (e: IllegalArgumentException) {
-            assertThat(e.message).isEqualTo("openApiSpec is required for 'start' command")
+            assertThat(e.message).isEqualTo("specFilePath is required for 'start' command")
         }
     }
 }
