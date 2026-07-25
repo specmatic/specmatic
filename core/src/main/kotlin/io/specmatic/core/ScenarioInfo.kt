@@ -4,7 +4,6 @@ import io.ktor.http.HttpStatusCode
 import io.specmatic.conversions.ApiSpecification
 import io.specmatic.conversions.OperationMetadata
 import io.specmatic.core.pattern.*
-import io.specmatic.core.value.Value
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 
@@ -13,7 +12,6 @@ data class ScenarioInfo(
     val httpRequestPattern: HttpRequestPattern = HttpRequestPattern(),
     val httpResponsePattern: HttpResponsePattern = HttpResponsePattern(),
     val patterns: Map<String, Pattern> = emptyMap(),
-    val fixtures: Map<String, Value> = emptyMap(),
     val examples: List<Examples> = emptyList(),
     val ignoreFailure: Boolean = false,
     val isGherkinScenario: Boolean = false,

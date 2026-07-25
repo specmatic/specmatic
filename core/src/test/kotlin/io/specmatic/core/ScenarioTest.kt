@@ -113,7 +113,6 @@ class ScenarioTest {
                 )
             ),
             emptyMap(),
-            emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
@@ -156,7 +155,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
@@ -201,7 +199,6 @@ class ScenarioTest {
                 )
             ),
             emptyMap(),
-            emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
@@ -240,7 +237,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
@@ -284,7 +280,6 @@ class ScenarioTest {
                 )
             ),
             emptyMap(),
-            emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
 
@@ -327,7 +322,6 @@ class ScenarioTest {
                     )
                 )
             ),
-            emptyMap(),
             emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )

@@ -32,7 +32,6 @@ internal class RunContractTestsUsingScenario {
             HttpResponsePattern(),
             LinkedList(),
             HashMap(),
-            HashMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI
         )
         scenario.generateTestScenarios(DefaultStrategies).map { it.value }.let {
@@ -48,7 +47,6 @@ internal class RunContractTestsUsingScenario {
             HttpRequestPattern(),
             HttpResponsePattern(),
             listOf(patterns),
-            HashMap(),
             HashMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
@@ -67,7 +65,6 @@ internal class RunContractTestsUsingScenario {
             httpResponsePattern,
             LinkedList(),
             HashMap(),
-            HashMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
         scenario.matches(HttpResponse.EMPTY).let {
@@ -83,7 +80,6 @@ internal class RunContractTestsUsingScenario {
             HttpRequestPattern(method="GET", httpPathPattern = HttpPathPattern(emptyList(), "/"), headersPattern = HttpHeadersPattern(mapOf("X-Expected" to StringPattern()))),
             HttpResponsePattern(status = 200),
             emptyList(),
-            emptyMap(),
             emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
@@ -101,7 +97,6 @@ internal class RunContractTestsUsingScenario {
             HttpResponsePattern(status = 200, headersPattern = HttpHeadersPattern(mapOf("X-Expected" to StringPattern()))),
             emptyList(),
             emptyMap(),
-            emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
         val mockRequest = HttpRequest(method = "GET", path = "/")
@@ -118,7 +113,6 @@ internal class RunContractTestsUsingScenario {
             HttpResponsePattern(status = 200),
             emptyList(),
             emptyMap(),
-            emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
         val mockRequest = HttpRequest(method = "GET", path = "/", queryParametersMap = mapOf("expected" to "value", "unexpected" to "value"))
@@ -134,7 +128,6 @@ internal class RunContractTestsUsingScenario {
             HttpRequestPattern(method="POST", httpPathPattern = HttpPathPattern(emptyList(), "/"), httpQueryParamPattern = HttpQueryParamPattern(mapOf("expected" to StringPattern())), headersPattern = HttpHeadersPattern(emptyMap(), null), body = parsedPattern("""{"expected": "value"}""")),
             HttpResponsePattern(status = 200),
             emptyList(),
-            emptyMap(),
             emptyMap(),
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
         )
