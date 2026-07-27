@@ -100,17 +100,15 @@ internal class ListPatternTest {
     @Test
     fun `a list should encompass a json array with items matching the list`() {
         val bigger = ListPattern(AnyPattern(listOf(NumberPattern(), NullPattern), extensions = emptyMap()))
-        val smaller1Element = parsedPattern("""["(number)"]""")
-        val smaller1ElementAndRest = parsedPattern("""["(number)", "(number...)"]""")
+        val smaller = parsedPattern("""["(number)", "(null)"]""")
 
-        assertThat(bigger.encompasses(smaller1Element, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
-        assertThat(bigger.encompasses(smaller1ElementAndRest, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
+        assertThat(bigger.encompasses(smaller, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
     @Test
     fun `should fail if there are any match failures at all`() {
         val bigger = ListPattern(NumberPattern())
-        val matching = parsedPattern("""["(number)", "(string...)"]""")
+        val matching = parsedPattern("""["(number)", "(string)"]""")
 
         assertThat(bigger.encompasses(matching, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
     }

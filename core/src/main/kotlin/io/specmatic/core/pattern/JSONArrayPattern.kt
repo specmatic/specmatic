@@ -9,26 +9,12 @@ import io.specmatic.core.utilities.stringTooPatternArray
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.utilities.withNumberType
 import io.specmatic.core.value.JSONArrayValue
-import io.specmatic.core.value.ListValue
 import io.specmatic.core.value.Value
 import java.util.*
 
 data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), override val typeAlias: String? = null) : Pattern, SequenceType {
     override val memberList: MemberList
-        get() {
-            if (pattern.isEmpty())
-                return MemberList(emptyList(), null)
-
-            if (pattern.indexOfFirst { it is RestPattern }.let { it >= 0 && it < pattern.lastIndex })
-                throw ContractException("A rest operator ... can only be used in the last entry of an array.")
-
-            return pattern.last().let { last ->
-                when (last) {
-                    is RestPattern -> MemberList(pattern.dropLast(1), last.pattern)
-                    else -> MemberList(pattern, null)
-                }
-            }
-        }
+        get() = MemberList(pattern, null)
 
     constructor(jsonString: String, typeAlias: String?) : this(stringTooPatternArray(jsonString), typeAlias = typeAlias)
 
@@ -41,7 +27,7 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
 
         val theOnlyPatternInTheArray = resolvedPatterns.singleOrNull()
 
-        if(theOnlyPatternInTheArray is ListPattern || theOnlyPatternInTheArray is RestPattern) {
+        if(theOnlyPatternInTheArray is ListPattern) {
             return theOnlyPatternInTheArray.matches(sampleData, resolverWithNumberType)
         }
 
@@ -304,17 +290,11 @@ private fun generate(jsonArrayPatter: JSONArrayPattern, resolver: Resolver): Lis
     return jsonArrayPatter.pattern.mapIndexed { index, pattern ->
         resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
             val updatedResolver = cyclePreventedResolver.updateLookupPath(jsonArrayPatter, pattern)
-            when (pattern) {
-                is RestPattern -> attempt(breadCrumb = "[$index...${jsonArrayPatter.pattern.lastIndex}]") {
-                    val list = updatedResolver.generate(pattern) as ListValue
-                    list.list
-                }
-                else -> attempt(breadCrumb = "[$index]") {
-                    listOf(updatedResolver.generate(pattern))
-                }
+            attempt(breadCrumb = "[$index]") {
+                updatedResolver.generate(pattern)
             }
         }
-    }.flatten()
+    }
 }
 
 const val RANDOM_NUMBER_CEILING = 10
