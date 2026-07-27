@@ -318,7 +318,6 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     backwardCompatibilityResult = Results(),
                     newer = newer,
                     unusedExamples = unusedExamples,
-                    precomputedCompatibilityResult = CompatibilityResult.PASSED,
                     isNewFile = true
                 )
             }
@@ -330,8 +329,6 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
             val checkResult = checkBackwardCompatibility(older, newer)
             val backwardCompatibilityResult = checkResult.results
-            val result =
-                if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
             LicenseResolver.utilize(
                 product = LicensedProduct.OPEN_SOURCE,
                 feature = SpecmaticFeature.BACKWARD_COMPATIBILITY_CHECK,
@@ -343,7 +340,6 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 backwardCompatibilityResult = backwardCompatibilityResult,
                 newer = newer,
                 unusedExamples = unusedExamples,
-                precomputedCompatibilityResult = result,
                 isNewFile = false,
                 reportRecords = checkResult.reportRecords
             )
@@ -408,14 +404,16 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val backwardCompatibilityResult: Results,
         val newer: IFeature,
         val unusedExamples: Set<String>,
-        val precomputedCompatibilityResult: CompatibilityResult,
         val computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
             CompatibilityResult.UNKNOWN, emptyList()
         ),
         val isNewFile: Boolean,
         val exampleValidationResults: List<ExampleValidationResult> = emptyList(),
         val reportRecords: List<CtrfBackwardCompatibilityRecord> = emptyList()
-    )
+    ) {
+        fun precomputedCompatibilityResult(): CompatibilityResult =
+            if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
+    }
 
     data class ExternalisedExamplesToValidate(
         val specPath: Path,
@@ -437,7 +435,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from $baseBranch"
 
             return hook?.failedVerdictAndMessage(processedSpec, strictMode)
-                ?: Pair(processedSpec.precomputedCompatibilityResult, defaultMessage)
+                ?: Pair(processedSpec.precomputedCompatibilityResult(), defaultMessage)
         }
     }
 }

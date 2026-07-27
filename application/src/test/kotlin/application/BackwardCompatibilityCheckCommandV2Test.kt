@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.mockk.every
 import io.mockk.spyk
 import io.specmatic.core.IFeature
+import io.specmatic.core.Result
 import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
@@ -375,10 +376,9 @@ class BackwardCompatibilityCheckCommandV2Test {
     inner class VerdictMessageTests {
         val processedSpec = BackwardCompatibilityCheckBaseCommand.ProcessedSpec(
             specFilePath = "spec.yaml",
-            backwardCompatibilityResult = Results(),
+            backwardCompatibilityResult = Results(listOf(Result.Failure("failure"))),
             newer = object : IFeature {},
             unusedExamples = emptySet(),
-            precomputedCompatibilityResult = CompatibilityResult.FAILED,
             computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNKNOWN, emptyList()),
             isNewFile = false
         )
