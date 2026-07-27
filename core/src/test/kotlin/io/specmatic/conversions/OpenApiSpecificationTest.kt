@@ -554,49 +554,6 @@ components:
     }
 
     @Test
-    fun `scenarios should have examples of type ResponseValueExample leading to response value validation when VALIDATE_RESPONSE_VALUE flag is true and response is not empty`() {
-        val openApiFile = "src/test/resources/openapi/response_schema_validation_including_optional_spec.yaml"
-        val specmaticConfig = mockk<SpecmaticConfig> {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getIgnoreInlineExamples() } returns false
-            every { getIgnoreInlineExampleWarnings() } returns false
-            every { getDictionary() } returns null
-            every { getStubDictionary(any()) } returns null
-            every { getExtensibleQueryParams() } returns false
-            every { getEscapeSoapAction() } returns false
-        }
-
-        val openApiSpecification = OpenApiSpecification(
-            openApiFilePath = openApiFile,
-            parsedOpenApi = OpenApiSpecification.getParsedOpenApi(openApiFile),
-            specmaticConfig = specmaticConfig
-        )
-
-        val (scenarioInfos, _) = openApiSpecification.toScenarioInfos()
-
-        val examples = scenarioInfos.first().examples.flatMap {
-            it.rows.map { row -> row.exactResponseExample }
-        }
-        examples.forEach {
-            assertThat(it).isInstanceOf(ResponseValueExample::class.java)
-        }
-    }
-
-    @Test
-    fun `scenarios should have null examples leading to no response value validation when the example response is empty`() {
-        val openApiSpecification = OpenApiSpecification.fromFile("src/test/resources/openapi/response_schema_validation_for_empty_response_example.yaml")
-
-        val (scenarioInfos, _) = openApiSpecification.toScenarioInfos()
-
-        val examples = scenarioInfos.first().examples.flatMap {
-            it.rows.map { row -> row.exactResponseExample }
-        }
-        examples.forEach {
-            assertThat(it).isNull()
-        }
-    }
-
-    @Test
     fun `programmatically construct OpenAPI YAML for GET with request headers and path and query params`() {
         val feature = parseGherkinStringToFeature(
             """

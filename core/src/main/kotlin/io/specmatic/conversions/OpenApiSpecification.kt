@@ -1256,15 +1256,6 @@ class OpenApiSpecification(
                 }
             }
 
-            val resolvedResponseExample: ResponseExample? =
-                when {
-                    specmaticConfig.isResponseValueValidationEnabled() ->
-                        ResponseValueExample(responseExample)
-
-                    else ->
-                        null
-                }
-
             Row(
                 requestExamples.keys.toList().map { keyName: String -> keyName },
                 requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
@@ -1274,7 +1265,6 @@ class OpenApiSpecification(
                         } else valueString
                     },
                 name = exampleName,
-                exactResponseExample = if(resolvedResponseExample != null && responseExample.isNotEmpty()) resolvedResponseExample else null,
                 requestExample = requestExampleAsHttpRequests[exampleName]?.first(),
                 responseExample = responseExample
             )

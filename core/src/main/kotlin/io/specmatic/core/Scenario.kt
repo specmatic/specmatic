@@ -443,8 +443,6 @@ data class Scenario(
                     is HasFailure -> return@attempt sequenceOf(resolvedRow.cast())
                 }
 
-                val newResponsePattern: HttpResponsePattern = this.httpResponsePattern.withResponseExampleValue(rowValue, resolver)
-
                 val (newRequestPatterns: Sequence<ReturnValue<HttpRequestPattern>>, generativePrefix: String) = when {
                     !isNegative ->
                         Pair(httpRequestPattern.newBasedOn(rowValue, resolver, httpResponsePattern.status), flagsBased.positivePrefix)
@@ -460,7 +458,6 @@ data class Scenario(
                             HasValue(
                                 this.copy(
                                     httpRequestPattern = it,
-                                    httpResponsePattern = newResponsePattern,
                                     ignoreFailure = ignoreFailure,
                                     exampleName = row.name,
                                     exampleRow = row,
@@ -486,11 +483,8 @@ data class Scenario(
         val requestExample = row.requestExample ?: return null
         val requestPatternResult = httpRequestPattern.exactRequestPatternForUndeclaredRequest(requestExample, resolver)
             ?: return null
-        val newResponsePattern = httpResponsePattern.withResponseExampleValue(row, resolver)
-
         return copy(
             httpRequestPattern = requestPatternResult.requestPattern,
-            httpResponsePattern = newResponsePattern,
             ignoreFailure = ignoreFailure,
             exampleName = row.name,
             exampleRow = row,
