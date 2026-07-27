@@ -6,6 +6,9 @@ import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.mapValueOrReference
+import io.specmatic.core.config.v3.mapValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
@@ -26,6 +29,18 @@ import kotlin.collections.plus
 
 data class MockServiceConfig(val services: List<Value>, val data: Data? = null, val settings: RefOrValue<MockSettings>? = null) {
     data class Value(val service: RefOrValue<CommonServiceConfig<MockRunOptions, MockSettings>>)
+
+    fun mapPaths(
+        mapper: ConfigPathMapper,
+        configDirectory: File,
+        sourceReferences: Map<String, SourceV3>,
+        resolver: RefOrValueResolver,
+    ): MockServiceConfig = copy(
+        data = data?.mapPaths(mapper.child("data"), configDirectory),
+        services = services.mapIndexed { index, value ->
+            mapService(index, value, configDirectory, mapper, resolver, sourceReferences)
+        },
+    )
 
     @JsonIgnore
     fun getService(specFile: File, resolver: RefOrValueResolver): CommonServiceConfig<MockRunOptions, MockSettings>? {
@@ -230,5 +245,48 @@ data class MockServiceConfig(val services: List<Value>, val data: Data? = null, 
             }
         }
         return listOfNotNull(globalHooks) + serviceHooks
+    }
+
+    private fun mapService(
+        index: Int,
+        value: Value,
+        configDirectory: File,
+        mapper: ConfigPathMapper,
+        resolver: RefOrValueResolver,
+        sourceReferences: Map<String, SourceV3>,
+    ): Value {
+        val serviceMapper = mapper.child("services").child(index).child("service")
+        return value.copy(
+            service = value.service.mapValueOrReference(
+                resolver = resolver,
+                resolve = { ref, refResolver -> ref.resolveElseThrow<MockRunOptions, MockSettings>(refResolver) },
+                transform = { service -> mapService(configDirectory, serviceMapper, sourceReferences, service) },
+                transformReference = { service -> mapService(configDirectory, serviceMapper, sourceReferences, service, mapDefinitions = false) },
+            )
+        )
+    }
+
+    private fun mapService(
+        configDirectory: File,
+        serviceMapper: ConfigPathMapper,
+        sourceReferences: Map<String, SourceV3>,
+        service: CommonServiceConfig<MockRunOptions, MockSettings>,
+        mapDefinitions: Boolean = true,
+    ): CommonServiceConfig<MockRunOptions, MockSettings> {
+        return service.copy(
+            data = service.data?.mapPaths(serviceMapper.child("data"), configDirectory),
+            runOptions = service.runOptions?.mapValue { it.mapPaths(serviceMapper.child("runOptions"), configDirectory) },
+            definitions = if (mapDefinitions) {
+                service.definitions.mapIndexed { definitionIndex, definition ->
+                    definition.mapPaths(
+                        configDirectory = configDirectory,
+                        sourceReferences = sourceReferences,
+                        mapper = serviceMapper.child("definitions").child(definitionIndex),
+                    )
+                }
+            } else {
+                service.definitions
+            },
+        )
     }
 }

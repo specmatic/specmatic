@@ -142,6 +142,13 @@ data class StubConfiguration(
     private val https: HttpsConfiguration? = null,
     private val lenientMode: Boolean? = null
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): StubConfiguration {
+        return copy(
+            https = https?.mapPaths(mapper.child("https"), configDirectory),
+            dictionary = dictionary?.let { mapper.child("dictionary").map(it, configDirectory) },
+        )
+    }
+
     fun getLenientMode(): Boolean? {
         return lenientMode
     }
@@ -204,6 +211,16 @@ data class VirtualServiceConfiguration(
     private val logMode: VSLogMode? = null,
     private val nonPatchableKeys: Set<String> = emptySet()
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): VirtualServiceConfiguration {
+        return copy(
+            logsDirPath = logsDirPath?.let { mapper.child("logsDirPath").map(it, configDirectory) },
+            specsDirPath = specsDirPath?.let { mapper.child("specsDirPath").map(it, configDirectory) },
+            specs = specs?.mapIndexed { index, path ->
+                mapper.child("specs").child(index).map(path, configDirectory)
+            },
+        )
+    }
+
 
     enum class VSLogMode {
         ALL,
@@ -1466,7 +1483,16 @@ data class TestConfiguration(
     val overlayFilePath: String? = null,
     val junitReportDir: String? = null,
     val https: HttpsConfiguration? = null,
-)
+) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): TestConfiguration {
+        return copy(
+            https = https?.mapPaths(mapper.child("https"), configDirectory),
+            testsDirectory = testsDirectory?.let { mapper.child("testsDirectory").map(it, configDirectory) },
+            junitReportDir = junitReportDir?.let { mapper.child("junitReportDir").map(it, configDirectory) },
+            overlayFilePath = overlayFilePath?.let { mapper.child("overlayFilePath").map(it, configDirectory) },
+        )
+    }
+}
 
 enum class ResiliencyTestSuite {
     all, positiveOnly, none
@@ -1502,7 +1528,11 @@ data class Auth(
     @param:JsonProperty("bearer-file") val bearerFile: String = "bearer.txt",
     @param:JsonProperty("bearer-environment-variable") val bearerEnvironmentVariable: String? = null,
     @param:JsonProperty("personal-access-token") @JsonAlias("personalAccessToken") val personalAccessToken: String? = null
-)
+) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): Auth {
+        return copy(bearerFile = mapper.child("bearerFile").map(bearerFile, configDirectory))
+    }
+}
 
 enum class PipelineProvider { azure }
 

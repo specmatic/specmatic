@@ -21,6 +21,10 @@ enum class ConfigLoggingLevel(private val level: String) {
 }
 
 data class LogOutputConfig(val directory: String?, val console: Boolean?, @field:JsonAlias("logPrefix") val logFilePrefix: String? = null) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): LogOutputConfig {
+        return copy(directory = directory?.let { mapper.map(it, configDirectory) })
+    }
+
     @JsonIgnore
     fun getLogDirectory(): File? = directory?.let(::File)
 
@@ -51,6 +55,13 @@ data class LoggingConfiguration(
     val json: LogOutputConfig? = null,
     val text: LogOutputConfig? = null
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): LoggingConfiguration {
+        return copy(
+            json = json?.mapPaths(mapper.child("json"), configDirectory),
+            text = text?.mapPaths(mapper.child("text"), configDirectory),
+        )
+    }
+
     fun levelOrDefault(): ConfigLoggingLevel = level ?: ConfigLoggingLevel.INFO
 
     fun hasJsonConfiguration(): Boolean = json != null

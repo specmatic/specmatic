@@ -99,6 +99,10 @@ data class HttpsConfiguration(
     val keyStorePassword: String? = null,
     val mtlsEnabled: Boolean? = null
 ) {
+    fun mapPaths(location: ConfigPathMapper, configDirectory: File): HttpsConfiguration {
+        return copy(keyStore = keyStore?.mapPaths(location.child("keyStore"), configDirectory))
+    }
+
     fun keyStoreFile(): String? = keyStore?.getFilePath()
 
     fun keyStoreDir(): String? = keyStore?.getDirectoryPath()
@@ -143,4 +147,10 @@ data class HttpsConfiguration(
             )
         }
     }
+}
+
+private fun KeyStoreConfiguration.mapPaths(location: ConfigPathMapper, base: File): KeyStoreConfiguration = when (this) {
+    is KeyStoreConfiguration.PartialConfig -> this
+    is KeyStoreConfiguration.FileBasedConfig -> copy(file = location.child("file").map(file, base))
+    is KeyStoreConfiguration.DirectoryBasedConfig -> copy(directory = location.child("directory").map(directory, base))
 }

@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.config.McpConfiguration
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.SpecmaticConfigVersion
 import io.specmatic.core.config.SpecmaticVersionedConfig
 import io.specmatic.core.config.SpecmaticVersionedConfigLoader
@@ -21,6 +22,29 @@ data class SpecmaticConfigV3(
     val specmatic: Specmatic? = null,
     val components: Components? = null,
 ) : SpecmaticVersionedConfig {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): SpecmaticConfigV3 {
+        val resolver = SpecmaticConfigV3Resolver(components ?: Components(), configDirectory.toPath())
+        val mappedComponents = components?.mapPaths(mapper.child("components"), configDirectory)
+        val sourceReferences = mappedComponents?.sources.orEmpty()
+
+        val mappedProxies = proxies?.mapIndexed { index, proxy ->
+            proxy.copy(
+                proxy = proxy.proxy.mapPaths(
+                    mapper.child("proxies").child(index).child("proxy"), configDirectory
+                )
+            )
+        }
+
+        return copy(
+            proxies = mappedProxies,
+            components = mappedComponents,
+            mcp = mcp?.mapPaths(mapper.child("mcp"), configDirectory),
+            specmatic = specmatic?.mapPaths(mapper.child("specmatic"), configDirectory),
+            dependencies = dependencies?.mapPaths(mapper.child("dependencies"), configDirectory, sourceReferences, resolver),
+            systemUnderTest = systemUnderTest?.mapPaths(mapper.child("systemUnderTest"), configDirectory, sourceReferences, resolver),
+        )
+    }
+
     override fun transform(file: File?): SpecmaticConfig {
         return SpecmaticConfigV3Impl(file, this)
     }
