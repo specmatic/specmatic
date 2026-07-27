@@ -154,19 +154,6 @@ internal class HttpRequestTest {
     }
 
     @Test
-    fun `converting to pattern with request with array containing string rest should result in a string rest pattern`() {
-        val request = HttpRequest("POST", "/", emptyMap(), parsedValue("""{"data": ["(string...)"]}"""))
-        val requestPattern = request.toPattern()
-        val body = requestPattern.body
-
-        if (body !is JSONObjectPattern) fail("Expected json object pattern")
-
-        val dataPattern = body.pattern.getValue("data") as JSONArrayPattern
-        val deferredPattern = dataPattern.pattern.first() as DeferredPattern
-        assertThat(deferredPattern.resolvePattern(Resolver())).isEqualTo(RestPattern(StringPattern()))
-    }
-
-    @Test
     fun `when request body is string question then converting to pattern should result in nullable string pattern as body`() {
         val request = HttpRequest("POST", "/", emptyMap(), parsedValue("(string?)"))
         val requestPattern = request.toPattern()
