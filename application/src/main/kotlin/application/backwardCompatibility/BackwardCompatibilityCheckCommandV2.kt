@@ -197,11 +197,7 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
 
     private fun scenarioFor(feature: Feature, path: Path): Scenario? =
         ExampleFromFile.fromFile(path.toFile(), strictMode = false).realise(
-            hasValue = { example, _ ->
-                feature.scenarios.firstOrNull {
-                    it.matchesPathStructureAndMethod(example.request) && it.matchesStatusAndContentType(example.response)
-                }
-            },
+            hasValue = { example, _ -> feature.identifierMatchingScenario(example.request, example.response) },
             orFailure = { null },
             orException = { null }
         )

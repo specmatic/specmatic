@@ -522,6 +522,70 @@ class BackwardCompatibilityCheckCommandV2Test {
         }
 
         @Test
+        fun `should associate changed externalised example with its request content type in bcc report`() {
+            val specFile = tempDir.resolve("api.yaml")
+            val exampleFile = tempDir.resolve("api_examples/example.json")
+            specFile.writeText(
+                """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /products:
+                    post:
+                      requestBody:
+                        content:
+                          text/plain:
+                            schema: { type: string }
+                          application/json:
+                            schema:
+                              type: object
+                              properties: { name: { type: string } }
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                properties: { id: { type: integer } }
+                """.trimIndent()
+            )
+            exampleFile.parentFile.mkdirs()
+            exampleFile.writeText(
+                """
+                {
+                  "http-request": {
+                    "method": "POST",
+                    "path": "/products",
+                    "headers": { "Content-Type": "application/json" },
+                    "body": { "name": "Tea" }
+                  },
+                  "http-response": {
+                    "status": 200,
+                    "headers": { "Content-Type": "application/json" },
+                    "body": { "id": 1 }
+                  }
+                }
+                """.trimIndent()
+            )
+            commitAndPush(tempDir, "Initial contract")
+
+            exampleFile.writeText(exampleFile.readText().replace("\"id\": 1", "\"id\": false"))
+            val configFile = remoteDir.resolve("specmatic.yaml").apply {
+                writeText("version: 2\nreportDirPath: ${tempDir.resolve("reports").canonicalPath}")
+            }
+
+            val exitCode = using(CONFIG_FILE_PATH to configFile.canonicalPath) {
+                BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            val report = bccReportJson(tempDir.resolve("reports/backward_compatibility"))
+            val exampleTest = report.path("results").path("tests").single { it.path("name").asText() == exampleFile.name }
+            assertThat(exampleTest.path("tags").map { it.asText() }).contains("content-type:application/json")
+        }
+
+        @Test
         fun `should validate changed externalised example for a new spec`() {
             tempDir.resolve("README.md").writeText("base")
             commitAndPush(tempDir, "Initial commit")
