@@ -53,19 +53,20 @@ internal class BackwardCompatibilityCheckLogger {
     fun logBackwardCompatibleSpec(
         processedSpec: ProcessedSpec,
         exampleValidationStatus: BCCExampleValidationStatus,
-        verdictMessage: String
+        verdictMessage: String,
+        rawIncompatibilityReported: Boolean = false
     ) {
         logExampleValidationSummary(processedSpec, exampleValidationStatus)
         logChangedExternalisedExampleValidation(processedSpec)
         logVerdictFor(
             processedSpec.specFilePath,
             verdictMessage.prependIndent(ONE_INDENT),
-            startWithNewLine = exampleValidationStatus.hasErrors || processedSpec.exampleValidationResults.isNotEmpty()
+            startWithNewLine = rawIncompatibilityReported || exampleValidationStatus.hasErrors || processedSpec.exampleValidation.changedExternalisedExampleResults.isNotEmpty()
         )
     }
 
     fun logChangedExternalisedExampleValidation(processedSpec: ProcessedSpec) {
-        val results = processedSpec.exampleValidationResults
+        val results = processedSpec.exampleValidation.changedExternalisedExampleResults
         if (results.isEmpty()) return
 
         logger.log("_".repeat(40).prependIndent(ONE_INDENT))
@@ -85,7 +86,7 @@ internal class BackwardCompatibilityCheckLogger {
         logger.log(validationResult.result.reportString().prependIndent(TWO_INDENTS))
     }
 
-    private fun logIncompatibilityReport(backwardCompatibilityResult: Results) {
+    fun logIncompatibilityReport(backwardCompatibilityResult: Results) {
         logger.log("_".repeat(40).prependIndent(ONE_INDENT))
         logger.log("The Incompatibility Report:$newLine".prependIndent(ONE_INDENT))
         logger.log(

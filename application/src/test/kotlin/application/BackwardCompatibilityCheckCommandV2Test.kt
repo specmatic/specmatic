@@ -373,31 +373,31 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     @Nested
-    inner class VerdictMessageTests {
+    inner class SpecCompatibilityVerdictTests {
         val processedSpec = BackwardCompatibilityCheckBaseCommand.ProcessedSpec(
             specFilePath = "spec.yaml",
             backwardCompatibilityResult = Results(listOf(Result.Failure("failure"))),
             newer = object : IFeature {},
-            unusedExamples = emptySet(),
             computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNKNOWN, emptyList()),
-            isNewFile = false
+            isNewFile = false,
+            exampleValidation = BackwardCompatibilityCheckBaseCommand.ExampleValidation(emptySet())
         )
 
         @Test
-        fun `verdictMessage without hook returns base message`() {
-            val result = BackwardCompatibilityCheckBaseCommand.failedVerdictMessage(
+        fun `spec compatibility verdict without hook returns base verdict`() {
+            val result = BackwardCompatibilityCheckBaseCommand.specCompatibilityVerdict(
                 processedSpec,
                 null,
                 true,
                 "some-branch"
             )
 
-            assertThat(result.first).isEqualTo(CompatibilityResult.FAILED)
-            assertThat(result.second).isEqualTo("(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from some-branch")
+            assertThat(result.result).isEqualTo(CompatibilityResult.FAILED)
+            assertThat(result.message).isEqualTo("(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from some-branch")
         }
 
         @Test
-        fun `verdictMessage with hook returns verdict from hook`() {
+        fun `spec compatibility verdict with hook returns hook verdict`() {
             val hook = object : BackwardCompatibilityCheckHook {
                 override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {}
                 override fun check(
@@ -417,14 +417,14 @@ class BackwardCompatibilityCheckCommandV2Test {
 
             }
 
-            val result = BackwardCompatibilityCheckBaseCommand.failedVerdictMessage(
+            val result = BackwardCompatibilityCheckBaseCommand.specCompatibilityVerdict(
                 processedSpec,
                 hook,
                 true,
                 "some-branch"
             )
 
-            assertThat(result.second).isEqualTo("(HOOK: override)")
+            assertThat(result.message).isEqualTo("(HOOK: override)")
         }
     }
 
@@ -606,6 +606,50 @@ class BackwardCompatibilityCheckCommandV2Test {
                 .contains("Example validation verdict:")
                 .contains(exampleFile.canonicalPath)
                 .contains("All 1 example(s) are invalid.")
+        }
+
+        @Test
+        fun `should validate changed externalised example when hook passes incompatible spec`() {
+            fun specWithIdType(type: String) = """
+                openapi: 3.0.0
+                info: { title: API, version: 1.0.0 }
+                paths:
+                  /products:
+                    get:
+                      responses:
+                        '200':
+                          description: ok
+                          content:
+                            application/json:
+                              schema:
+                                type: object
+                                properties: { id: { type: $type } }
+            """.trimIndent()
+
+            val specFile = tempDir.resolve("api.yaml")
+            val exampleFile = tempDir.resolve("api_examples/example.json")
+            specFile.writeText(specWithIdType("string"))
+            exampleFile.parentFile.mkdirs()
+            exampleFile.writeText(
+                """{"http-request":{"method":"GET","path":"/products"},"http-response":{"status":200,"headers":{"Content-Type":"application/json"},"body":{"id":"1"}}}"""
+            )
+            commitAndPush(tempDir, "Initial contract")
+
+            specFile.writeText(specWithIdType("integer"))
+            exampleFile.writeText(exampleFile.readText().replace("\"id\":\"1\"", "\"id\":false"))
+
+            val (stdOut, exitCode) = withRegisteredService(
+                BackwardCompatibilityCheckHook::class.java,
+                AlwaysPassingBackwardCompatibilityCheckHook::class.java
+            ) {
+                captureStandardOutput(redirectStdErrToStdout = true) {
+                    BackwardCompatibilityCheckCommandV2().apply { options.repoDir = tempDir.canonicalPath }.call()
+                }
+            }
+
+            assertThat(exitCode).isEqualTo(1)
+            assertThat(stdOut).contains("Changed Externalised Examples Validation")
+                .contains("1. Error(s) found in ${exampleFile.canonicalPath}")
         }
 
         @Test

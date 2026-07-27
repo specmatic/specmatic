@@ -220,15 +220,18 @@ abstract class BackwardCompatibilityCheckBaseCommand(
             val specsValidatedByHook =
                 BackwardCompatibilityCheckHookValidator(hook, gitCommand, effectiveRepoDir).validate(processedSpecs)
 
-            // THIRD PASS: validate changed externalised examples for compatible specs.
+            // THIRD PASS: resolve final spec compatibility from raw BCC and hook results.
+            val specsWithCompatibilityVerdicts = specsValidatedByHook.map(::withSpecCompatibilityVerdict)
+
+            // FOURTH PASS: validate changed externalised examples for compatible specs.
             val examplesToValidateBySpec = externalisedExamplesToValidate.associateBy { it.specPath }
-            val specsWithValidatedExamples = specsValidatedByHook.map { processedSpec ->
+            val specsWithValidatedExamples = specsWithCompatibilityVerdicts.map { processedSpec ->
                 validateChangedExternalisedExamplesIfApplicable(
                     processedSpec, examplesToValidateBySpec[Paths.get(processedSpec.specFilePath)]
                 )
             }
 
-            // FOURTH PASS: do the actual logging and produce final CompatibilityResult list.
+            // FIFTH PASS: do the actual logging and produce final CompatibilityResult list.
             val results = specsWithValidatedExamples.mapIndexed { index, processedSpec ->
                 logCompatibilityResultAndReturn(index, processedSpec)
             }
@@ -251,39 +254,43 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         if (processedSpec.isNewFile) {
             backwardCompatibilityLogger.logNewFile(processedSpec)
             backwardCompatibilityLogger.logChangedExternalisedExampleValidation(processedSpec)
-            return processedSpec.exampleValidationResults.toCompatibilityResult()
+            return processedSpec.exampleValidation.changedExternalisedExampleResults.toCompatibilityResult()
         }
 
-        if (processedSpec.backwardCompatibilityResult.successExcludingIgnorableFailures().not()) {
-            val (result, verdictMessage) = failedVerdictMessage(processedSpec, hook, effectiveStrictMode, effectiveBaseBranch)
-            backwardCompatibilityLogger.logIncompatibleSpec(processedSpec, verdictMessage)
-            return result
+        if (processedSpec.isBackwardCompatible().not()) {
+            backwardCompatibilityLogger.logIncompatibleSpec(processedSpec, processedSpec.specCompatibilityVerdict.message)
+            return processedSpec.specCompatibilityVerdict.result
         }
 
+        if (processedSpec.precomputedCompatibilityResult() == CompatibilityResult.FAILED) {
+            backwardCompatibilityLogger.logIncompatibilityReport(processedSpec.backwardCompatibilityResult)
+        }
         backwardCompatibilityLogger.logWipScenarios(processedSpec.backwardCompatibilityResult)
         val exampleValidationStatus = BCCExampleValidationStatus(
             areExamplesInvalid = areExamplesValid(processedSpec.newer, "newer").not(),
-            hasUnloadableExamples = processedSpec.unusedExamples.isNotEmpty(),
-            hasInvalidChangedExternalisedExamples = processedSpec.exampleValidationResults.hasCompleteFailures()
+            hasUnloadableExamples = processedSpec.exampleValidation.unusedExamples.isNotEmpty(),
+            hasInvalidChangedExternalisedExamples = processedSpec.exampleValidation.changedExternalisedExampleResults.hasCompleteFailures()
         )
-        val (result, verdictMessage) = backwardCompatibleVerdict(exampleValidationStatus)
+        val verdict = backwardCompatibleVerdict(processedSpec, exampleValidationStatus)
         backwardCompatibilityLogger.logBackwardCompatibleSpec(
             processedSpec = processedSpec,
             exampleValidationStatus = exampleValidationStatus,
-            verdictMessage = verdictMessage
+            verdictMessage = verdict.message,
+            rawIncompatibilityReported = processedSpec.precomputedCompatibilityResult() == CompatibilityResult.FAILED
         )
 
-        return result
+        return verdict.result
     }
 
-    private fun backwardCompatibleVerdict(exampleValidationStatus: BCCExampleValidationStatus): Pair<CompatibilityResult, String> {
+    private fun backwardCompatibleVerdict(
+        processedSpec: ProcessedSpec,
+        exampleValidationStatus: BCCExampleValidationStatus
+    ): SpecCompatibilityVerdict {
         return if (exampleValidationStatus.hasErrors) {
-            CompatibilityResult.FAILED to
+            SpecCompatibilityVerdict(CompatibilityResult.FAILED,
                 "(INCOMPATIBLE) The spec is backward compatible but the examples are NOT backward compatible or are INVALID."
-        } else {
-            CompatibilityResult.PASSED to
-                "(COMPATIBLE) The spec is backward compatible with the corresponding spec from $effectiveBaseBranch"
-        }
+            )
+        } else processedSpec.specCompatibilityVerdict
     }
 
     private fun runBackwardCompatibilityCheckForSpec(
@@ -317,7 +324,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                     specFilePath = specFilePath,
                     backwardCompatibilityResult = Results(),
                     newer = newer,
-                    unusedExamples = unusedExamples,
+                    exampleValidation = ExampleValidation(unusedExamples),
                     isNewFile = true
                 )
             }
@@ -339,7 +346,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
                 specFilePath = specFilePath,
                 backwardCompatibilityResult = backwardCompatibilityResult,
                 newer = newer,
-                unusedExamples = unusedExamples,
+                exampleValidation = ExampleValidation(unusedExamples),
                 isNewFile = false,
                 reportRecords = checkResult.reportRecords
             )
@@ -368,23 +375,32 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         examplesToValidate: ExternalisedExamplesToValidate?
     ): ProcessedSpec {
         if (examplesToValidate == null) return processedSpec
-        if (processedSpec.isNewFile.not() && processedSpec.backwardCompatibilityResult.successExcludingIgnorableFailures().not()) {
+        if (processedSpec.isNewFile.not() && processedSpec.isBackwardCompatible().not()) {
             return processedSpec
         }
 
-        val exampleValidationResults = validateExamples(
+        val changedExternalisedExampleResults = validateExamples(
             feature = processedSpec.newer,
             paths = examplesToValidate.externalisedExamplePaths
         )
 
         return processedSpec.copy(
-            exampleValidationResults = exampleValidationResults,
+            exampleValidation = processedSpec.exampleValidation.copy(
+                changedExternalisedExampleResults = changedExternalisedExampleResults
+            ),
             reportRecords = processedSpec.reportRecords + exampleValidationReportRecords(
                 feature = processedSpec.newer,
-                exampleValidationResults = exampleValidationResults
+                exampleValidationResults = changedExternalisedExampleResults
             )
         )
     }
+
+    private fun withSpecCompatibilityVerdict(processedSpec: ProcessedSpec): ProcessedSpec =
+        processedSpec.copy(
+            specCompatibilityVerdict = specCompatibilityVerdict(
+                processedSpec, hook, effectiveStrictMode, effectiveBaseBranch
+            )
+        )
 
     internal data class ChangedFiles(
         val specs: Set<String>,
@@ -403,17 +419,26 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val specFilePath: String,
         val backwardCompatibilityResult: Results,
         val newer: IFeature,
-        val unusedExamples: Set<String>,
         val computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
             CompatibilityResult.UNKNOWN, emptyList()
         ),
         val isNewFile: Boolean,
-        val exampleValidationResults: List<ExampleValidationResult> = emptyList(),
+        val specCompatibilityVerdict: SpecCompatibilityVerdict = SpecCompatibilityVerdict(CompatibilityResult.UNKNOWN, ""),
+        val exampleValidation: ExampleValidation,
         val reportRecords: List<CtrfBackwardCompatibilityRecord> = emptyList()
     ) {
         fun precomputedCompatibilityResult(): CompatibilityResult =
             if (backwardCompatibilityResult.successExcludingIgnorableFailures()) CompatibilityResult.PASSED else CompatibilityResult.FAILED
+
+        fun isBackwardCompatible(): Boolean = specCompatibilityVerdict.result == CompatibilityResult.PASSED
     }
+
+    data class SpecCompatibilityVerdict(val result: CompatibilityResult, val message: String)
+
+    data class ExampleValidation(
+        val unusedExamples: Set<String>,
+        val changedExternalisedExampleResults: List<ExampleValidationResult> = emptyList()
+    )
 
     data class ExternalisedExamplesToValidate(
         val specPath: Path,
@@ -428,14 +453,24 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     companion object {
         private const val HEAD = "HEAD"
 
-        fun failedVerdictMessage(
+        fun specCompatibilityVerdict(
             processedSpec: ProcessedSpec, hook: BackwardCompatibilityCheckHook?, strictMode: Boolean, baseBranch: String
-        ): Pair<CompatibilityResult, String> {
-            val defaultMessage =
+        ): SpecCompatibilityVerdict {
+            if (processedSpec.precomputedCompatibilityResult() == CompatibilityResult.PASSED) {
+                return SpecCompatibilityVerdict(
+                    CompatibilityResult.PASSED,
+                    "(COMPATIBLE) The spec is backward compatible with the corresponding spec from $baseBranch"
+                )
+            }
+
+            val defaultVerdict = SpecCompatibilityVerdict(
+                CompatibilityResult.FAILED,
                 "(INCOMPATIBLE) The changes to the spec are NOT backward compatible with the corresponding spec from $baseBranch"
+            )
 
             return hook?.failedVerdictAndMessage(processedSpec, strictMode)
-                ?: Pair(processedSpec.precomputedCompatibilityResult(), defaultMessage)
+                ?.let { (result, message) -> SpecCompatibilityVerdict(result, message) }
+                ?: defaultVerdict
         }
     }
 }
