@@ -1,12 +1,15 @@
 package io.specmatic.core.config.v3.components.runOptions
 
 import com.fasterxml.jackson.annotation.*
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.ServerOrigin
+import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(AsyncApiTestConfig::class, name = "test"), JsonSubTypes.Type(AsyncApiMockConfig::class, name = "mock"))
 sealed interface AsyncApiRunOptions : IRunOptions {
     val type: RunOptionType?
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiRunOptions
 
     @JsonIgnore
     override fun gerServerOrigin(): ServerOrigin? {
@@ -22,6 +25,11 @@ data class AsyncApiTestConfig(
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
     fun withConfig(newConfig: Map<String, Any>): AsyncApiTestConfig = copy(_config = LinkedHashMap(newConfig))
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiTestConfig = copy(
+        specs = specs?.mapIndexed { index, spec ->
+            spec.mapPaths(mapper.child("specs").child(index), configDirectory)
+        }
+    )
 
     init {
         require(type == null || type == RunOptionType.TEST) {
@@ -45,6 +53,11 @@ data class AsyncApiMockConfig(
     @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : AsyncApiRunOptions {
     fun withConfig(newConfig: Map<String, Any>): AsyncApiMockConfig = copy(_config = LinkedHashMap(newConfig))
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): AsyncApiMockConfig = copy(
+        specs = specs?.mapIndexed { index, spec ->
+            spec.mapPaths(mapper.child("specs").child(index), configDirectory)
+        }
+    )
 
     init {
         require(type == null || type == RunOptionType.MOCK) {

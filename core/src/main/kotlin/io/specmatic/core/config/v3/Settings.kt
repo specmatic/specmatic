@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ObjectNode
 import io.specmatic.core.config.BackwardCompatibilityConfig
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 import io.specmatic.core.config.v3.components.settings.GeneralSettings
 import io.specmatic.core.config.v3.components.settings.MockSettings
 import io.specmatic.core.config.v3.components.settings.ProxySettings
@@ -48,4 +50,11 @@ data class ConcreteSettings(
     val mock: MockSettings? = null,
     val proxy: ProxySettings? = null,
     val backwardCompatibility: BackwardCompatibilityConfig? = null,
-): Settings
+): Settings {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ConcreteSettings {
+        return copy(
+            general = general?.mapPaths(mapper.child("general"), configDirectory),
+            backwardCompatibility = backwardCompatibility?.mapPaths(mapper.child("backwardCompatibility"), configDirectory),
+        )
+    }
+}

@@ -7,6 +7,9 @@ import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.nonNullElse
 import io.specmatic.core.config.v3.Data
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.mapValueOrReference
+import io.specmatic.core.config.v3.mapValue
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.SpecmaticConfigV3Resolver
@@ -23,6 +26,20 @@ import io.specmatic.reporter.model.SpecType
 import java.io.File
 
 data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRunOptions, TestSettings>>) {
+    fun mapPaths(
+        mapper: ConfigPathMapper,
+        configDirectory: File,
+        sourceReferences: Map<String, SourceV3>,
+        resolver: RefOrValueResolver,
+    ): TestServiceConfig = copy(
+        service = service.mapValueOrReference(
+            resolver = resolver,
+            resolve = { ref, refResolver -> ref.resolveElseThrow<TestRunOptions, TestSettings>(refResolver) },
+            transform = { mapService(configDirectory, mapper.child("service"), sourceReferences, it) },
+            transformReference = { mapService(configDirectory, mapper.child("service"), sourceReferences, it, mapDefinitions = false) },
+        )
+    )
+
     @JsonIgnore
     fun getSpecDefinitionFor(specFile: File, resolver: RefOrValueResolver): SpecificationDefinition? {
         val serviceConfig = service.resolveElseThrow(resolver)
@@ -201,5 +218,30 @@ data class TestServiceConfig(val service: RefOrValue<CommonServiceConfig<TestRun
             val runOptionSpecOverride = specId?.let(runOptions::getMatchingSpecification)
             runOptionSpecOverride?.getServerOrigin("localhost") ?: runOptions.gerServerOrigin()
         }
+    }
+
+    private fun mapService(
+        configDirectory: File,
+        mapper: ConfigPathMapper,
+        sourceReferences: Map<String, SourceV3>,
+        service: CommonServiceConfig<TestRunOptions, TestSettings>,
+        mapDefinitions: Boolean = true,
+    ): CommonServiceConfig<TestRunOptions, TestSettings> {
+        return service.copy(
+            data = service.data?.mapPaths(mapper.child("data"), configDirectory),
+            settings = service.settings?.mapValue { it.mapPaths(mapper.child("settings"), configDirectory) },
+            runOptions = service.runOptions?.mapValue { it.mapPaths(mapper.child("runOptions"), configDirectory) },
+            definitions = if (mapDefinitions) {
+                service.definitions.mapIndexed { index, definition ->
+                    definition.mapPaths(
+                        configDirectory = configDirectory,
+                        sourceReferences = sourceReferences,
+                        mapper = mapper.child("definitions").child(index),
+                    )
+                }
+            } else {
+                service.definitions
+            },
+        )
     }
 }

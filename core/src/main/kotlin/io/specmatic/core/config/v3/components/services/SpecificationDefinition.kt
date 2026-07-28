@@ -12,14 +12,20 @@ import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.config.v3.components.sources.SourceV3
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.utilities.Flags
 import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION, defaultImpl = SpecificationDefinition.StringValue::class)
 sealed interface SpecificationDefinition {
-    data class Specification(val id: String? = null, val path: String, val urlPathPrefix: String? = null) {
-        private val _config: MutableMap<String, Any?> = linkedMapOf()
+    fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): SpecificationDefinition
 
+    data class Specification(
+        val id: String? = null,
+        val path: String,
+        val urlPathPrefix: String? = null,
+        @JsonIgnore private val _config: MutableMap<String, Any?> = linkedMapOf()
+    ) {
         @get:JsonAnyGetter
         val config: Map<String, Any?> get() = _config.toMap()
 
@@ -40,6 +46,10 @@ sealed interface SpecificationDefinition {
             val specFile = source.resolveSpecification(File(spec.path))
             val serverOrigin = getServerOrigin(getSpecificationId(), specFile).let(::getServerOriginWithBasePath)
             return source.toSpecificationSource(specFile, spec.path, serverOrigin, resiliencyTestSuite, examples)
+        }
+
+        override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): SpecificationDefinition {
+            return copy(spec = spec.copy(path = mapper.child("spec").child("path").map(spec.path, baseDirectory)))
         }
 
         fun hasNoData(): Boolean = spec.urlPathPrefix == null && spec.config.isEmpty()
@@ -67,6 +77,10 @@ sealed interface SpecificationDefinition {
             val specFile = source.resolveSpecification(File(specification))
             val serverOrigin = getServerOrigin(getSpecificationId(), specFile).let(::getServerOriginWithBasePath)
             return source.toSpecificationSource(specFile, specification, serverOrigin, resiliencyTestSuite, examples)
+        }
+
+        override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): SpecificationDefinition {
+            return StringValue(mapper.map(specification, baseDirectory))
         }
 
         companion object {

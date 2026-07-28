@@ -27,8 +27,16 @@ data class McpTestConfiguration(
     val filterTools: List<String>? = null,
     val skipTools: List<String>? = null,
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): McpTestConfiguration {
+        return copy(dictionaryFile = dictionaryFile?.let { mapper.child("dictionaryFile").map(it, configDirectory) })
+    }
+
     @JsonIgnore
     fun getDictionaryIfExists(): File? = dictionaryFile?.let(::File)
 }
 
-data class McpConfiguration(val test: McpTestConfiguration)
+data class McpConfiguration(val test: McpTestConfiguration) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): McpConfiguration {
+        return copy(test = test.mapPaths(mapper.child("test"), configDirectory))
+    }
+}

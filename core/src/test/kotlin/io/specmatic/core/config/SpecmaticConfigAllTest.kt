@@ -1018,7 +1018,7 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
-    fun `when the source v1 config has a source of filesystem type with no directory it gets converted to v2 with no source` () {
+    fun `when the source v1 config has a source of filesystem type with no directory it gets converted to v2 with cwd filesystem source` () {
         val contractConfigYaml = """
             sources:
               - provides:
@@ -1031,7 +1031,7 @@ internal class SpecmaticConfigAllTest {
 
         val configV2 = SpecmaticConfigV2.loadFrom(dslConfig) as SpecmaticConfigV2
 
-        assertThat(configV2.contracts.first().contractSource).isNull()
+        assertThat(configV2.contracts.first().contractSource).isEqualTo(FileSystemContractSource(directory = "."))
     }
 
     @Test

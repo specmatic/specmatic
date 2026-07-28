@@ -10,6 +10,7 @@ import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.config.v3.ServerOrigin
 import io.specmatic.core.getConfigFilePath
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.utilities.applyIf
 import io.specmatic.core.utilities.ResolvedWebSource
@@ -37,6 +38,15 @@ data class SourceV3(private val git: Git?, private val fileSystem: FileSystem?, 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @JsonProperty("web")
     fun getWeb(): Web? = web
+
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): SourceV3 {
+        return copy(
+            git = git?.copy(auth = git.auth?.mapPaths(mapper.child("git").child("auth"), configDirectory)),
+            fileSystem = fileSystem?.copy(directory = fileSystem.directory?.let {
+                mapper.child("fileSystem").child("directory").map(it, configDirectory)
+            })
+        )
+    }
 
     fun resolveSpecification(specification: File): File {
         if (git != null) return git.resolveSpecification(specification)
