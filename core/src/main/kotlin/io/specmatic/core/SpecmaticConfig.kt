@@ -67,6 +67,14 @@ data class SpecificationSourceEntry(
     )
 }
 
+internal fun SpecmaticConfig.mostSpecificMatchingBaseUrl(requestUrl: URI, candidates: Collection<URI>): URI? {
+    return candidates.filter { candidate ->
+        isSameBaseIgnoringHost(requestUrl, candidate)
+    }.maxByOrNull { candidate ->
+        candidate.path.length
+    }
+}
+
 interface SpecmaticConfig {
     @JsonIgnore
     fun getLogConfigurationOrDefault(): LoggingConfiguration
@@ -130,9 +138,7 @@ interface SpecmaticConfig {
     @JsonIgnore
     fun stubBaseUrlPathAssociatedTo(url: String, defaultBaseUrl: String): String {
         val parsedUrl = URI(url)
-        return stubBaseUrls(defaultBaseUrl).map(::URI).firstOrNull { stubBaseUrl ->
-            isSameBaseIgnoringHost(parsedUrl, stubBaseUrl)
-        }?.path.orEmpty()
+        return this.mostSpecificMatchingBaseUrl(parsedUrl, stubBaseUrls(defaultBaseUrl).map(::URI))?.path.orEmpty()
     }
 
     @JsonIgnore

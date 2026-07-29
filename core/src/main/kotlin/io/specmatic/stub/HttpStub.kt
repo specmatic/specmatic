@@ -43,6 +43,7 @@ import io.specmatic.core.WorkingDirectory
 import io.specmatic.core.examples.server.ExampleMismatchMessages
 import io.specmatic.core.invalidRequestStatuses
 import io.specmatic.core.listOfExcludedHeaders
+import io.specmatic.core.mostSpecificMatchingBaseUrl
 import io.specmatic.core.log.HttpLogMessage
 import io.specmatic.core.log.LogMessage
 import io.specmatic.core.log.LogTail
@@ -865,8 +866,16 @@ class HttpStub(
         urlPath: String
     ): List<Feature> {
         val parsedBaseUrl = URI(baseUrl + urlPath)
-        val specsForGivenBaseUrl = specToBaseUrlMap.mapValues { URI(it.value) }.filterValues { stubBaseUrl ->
+        val specToParsedBaseUrlMap = specToBaseUrlMap.mapValues { URI(it.value) }
+        val matchingSpecs = specToParsedBaseUrlMap.filterValues { stubBaseUrl ->
             isSameBaseIgnoringHost(parsedBaseUrl, stubBaseUrl)
+        }
+        val selectedBaseUrl = specmaticConfigInstance.mostSpecificMatchingBaseUrl(
+            parsedBaseUrl,
+            matchingSpecs.values
+        ) ?: return emptyList()
+        val specsForGivenBaseUrl = matchingSpecs.filterValues { stubBaseUrl ->
+            selectedBaseUrl.path == stubBaseUrl.path
         }
 
         return features.filter { feature -> feature.path in specsForGivenBaseUrl }.distinctBy { feature -> feature.path }

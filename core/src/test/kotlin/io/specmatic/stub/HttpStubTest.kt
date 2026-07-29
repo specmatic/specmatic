@@ -4,6 +4,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.config.v2.SpecExecutionConfig
 import io.specmatic.core.log.*
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.*
@@ -50,6 +51,64 @@ import kotlin.time.measureTime
 private const val STUB_SHUTDOWN_TIMEOUT = 0L
 
 internal class HttpStubTest {
+    @Test
+    fun `should route root and nested synthetic features on the same port`() {
+        val rootFeature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Root service
+              version: 1.0.0
+            paths:
+              /root-resource:
+                get:
+                  responses:
+                    "200":
+                      description: Root resource
+            """.trimIndent(), "root.yaml"
+        ).toFeature()
+        val nestedFeature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.3
+            info:
+              title: Nested service
+              version: 1.0.0
+            paths:
+              /accounts:
+                get:
+                  responses:
+                    "200":
+                      description: Account
+            """.trimIndent(), "nested.yaml"
+        ).toFeature()
+        val port = ServerSocket(0).use { it.localPort }
+        val config = SpecmaticConfigV1V2Common(
+            sources = listOf(
+                Source(
+                    stub = listOf(
+                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:$port", specs = listOf("root.yaml")),
+                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:$port/services/nested", specs = listOf("nested.yaml"))
+                    )
+                )
+            )
+        )
+
+        HttpStub(
+            features = listOf(rootFeature, nestedFeature),
+            port = port,
+            specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(config),
+            specToStubBaseUrlMap = mapOf(
+                rootFeature.path to "http://localhost:$port",
+                nestedFeature.path to "http://localhost:$port/services/nested"
+            )
+        ).use { stub ->
+            val client = LegacyHttpClient(stub.endPoint)
+
+            assertThat(client.execute(HttpRequest(method = "GET", path = "/root-resource")).status).isEqualTo(200)
+            assertThat(client.execute(HttpRequest(method = "GET", path = "/services/nested/accounts")).status).isEqualTo(200)
+        }
+    }
+
     @Test
     fun `randomly generated HTTP response includes an HTTP header indicating that it was randomly generated`() {
         val gherkin = """
@@ -4065,6 +4124,48 @@ Then status 200
                     )
 
                     assertThat(result).isEqualTo(listOf(feature1, feature2))
+                }
+            }
+
+            @Test
+            fun `should return features from the most specific matching baseUrl`() {
+                val specToStubBaseUrlMap = linkedMapOf(
+                    "root.yaml" to "http://localhost:8080",
+                    "nested-first.yaml" to "http://localhost:8080/api",
+                    "nested-second.yaml" to "http://stub-host:8080/api"
+                )
+                val rootFeature = mockk<Feature> {
+                    every { path } returns "root.yaml"
+                    every { specification } returns "root.yaml"
+                    every { loadInlineExamplesAsStub() } returns emptyList()
+                    every { scenarios } returns emptyList()
+                    every { protocol } returns SpecmaticProtocol.HTTP
+                }
+                val nestedFirstFeature = mockk<Feature> {
+                    every { path } returns "nested-first.yaml"
+                    every { specification } returns "nested-first.yaml"
+                    every { loadInlineExamplesAsStub() } returns emptyList()
+                    every { scenarios } returns emptyList()
+                    every { protocol } returns SpecmaticProtocol.HTTP
+                }
+                val nestedSecondFeature = mockk<Feature> {
+                    every { path } returns "nested-second.yaml"
+                    every { specification } returns "nested-second.yaml"
+                    every { loadInlineExamplesAsStub() } returns emptyList()
+                    every { scenarios } returns emptyList()
+                    every { protocol } returns SpecmaticProtocol.HTTP
+                }
+                val features = listOf(rootFeature, nestedFirstFeature, nestedSecondFeature)
+
+                HttpStub(features = features, port = ServerSocket(0).use { it.localPort }).use { stub ->
+                    val result = stub.featuresAssociatedTo(
+                        "http://localhost:8080",
+                        features,
+                        specToStubBaseUrlMap,
+                        urlPath = "/api/widgets"
+                    )
+
+                    assertThat(result).isEqualTo(listOf(nestedFirstFeature, nestedSecondFeature))
                 }
             }
 

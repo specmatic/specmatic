@@ -44,7 +44,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
 import java.net.URI
@@ -680,9 +679,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun stubBaseUrlPathAssociatedTo(url: String, defaultBaseUrl: String): String {
         val parsedUrl = URI(url)
-        return stubBaseUrls(defaultBaseUrl).map(::URI).firstOrNull { stubBaseUrl ->
-            isSameBaseIgnoringHost(parsedUrl, stubBaseUrl)
-        }?.path.orEmpty()
+        return this.mostSpecificMatchingBaseUrl(parsedUrl, stubBaseUrls(defaultBaseUrl).map(::URI))?.path.orEmpty()
     }
 
     @JsonIgnore

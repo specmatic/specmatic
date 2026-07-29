@@ -40,6 +40,27 @@ import java.util.stream.Stream
 
 internal class SpecmaticConfigKtTest {
     @Test
+    fun `should use the longest matching stub baseUrl path while retaining partial prefix matching`() {
+        val config = SpecmaticConfigV1V2Common(
+            sources = listOf(
+                Source(
+                    stub = listOf(
+                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:8080", specs = listOf("root.yaml")),
+                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:8080/api", specs = listOf("nested.yaml"))
+                    )
+                )
+            )
+        )
+
+        val baseUrlPath = config.stubBaseUrlPathAssociatedTo(
+            "http://localhost:8080/apiary/widgets",
+            "http://localhost:8080"
+        )
+
+        assertThat(baseUrlPath).isEqualTo("/api")
+    }
+
+    @Test
     fun `getStubHooks should return global hook associations for v1 v2 config`() {
         val hooks = mapOf("preSpecmaticRequestProcessor" to "./hooks/decode_request.sh")
         val config = SpecmaticConfigV1V2Common(version = SpecmaticConfigVersion.VERSION_2, hooks = hooks)

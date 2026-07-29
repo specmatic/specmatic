@@ -31,6 +31,44 @@ class SpecmaticConfigV3ImplTest {
     @TempDir
     lateinit var tempDir: File
 
+    @Test
+    fun `should use the longest matching stub baseUrl path`() {
+        val config = v3Config(
+            """
+            version: 3
+            dependencies:
+              services:
+                - service:
+                    definitions:
+                      - definition:
+                          source:
+                            filesystem:
+                              directory: ./synthetic-specs
+                          specs:
+                            - spec:
+                                id: root
+                                path: root.yaml
+                            - spec:
+                                id: nested
+                                path: nested.yaml
+                    runOptions:
+                      openapi:
+                        baseUrl: http://localhost:8080
+                        specs:
+                          - spec:
+                              id: nested
+                              baseUrl: http://localhost:8080/api
+            """.trimIndent()
+        )
+
+        val baseUrlPath = config.stubBaseUrlPathAssociatedTo(
+            "http://localhost:8080/api/widgets",
+            "http://localhost:8080"
+        )
+
+        assertThat(baseUrlPath).isEqualTo("/api")
+    }
+
     @ParameterizedTest
     @MethodSource("loadSourcesTestCases")
     fun `should return similar values between v2 and v3 loadSources`(testCase: TestCase) = testCase.run(tempDir)
