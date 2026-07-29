@@ -53,33 +53,41 @@ private const val STUB_SHUTDOWN_TIMEOUT = 0L
 internal class HttpStubTest {
     @Test
     fun `should route root and nested synthetic features on the same port`() {
-        val rootFeature = parseGherkinStringToFeature(
+        val rootFeature = OpenApiSpecification.fromYAML(
             """
-            Feature: Root service
-
-              Scenario: Get root resource
-                When GET /root-resource
-                Then status 200
-            """.trimIndent(),
-            "root.spec"
-        )
-        val nestedFeature = parseGherkinStringToFeature(
+            openapi: 3.0.3
+            info:
+              title: Root service
+              version: 1.0.0
+            paths:
+              /root-resource:
+                get:
+                  responses:
+                    "200":
+                      description: Root resource
+            """.trimIndent(), "root.yaml"
+        ).toFeature()
+        val nestedFeature = OpenApiSpecification.fromYAML(
             """
-            Feature: Nested service
-
-              Scenario: Get account
-                When GET /accounts
-                Then status 200
-            """.trimIndent(),
-            "nested.spec"
-        )
+            openapi: 3.0.3
+            info:
+              title: Nested service
+              version: 1.0.0
+            paths:
+              /accounts:
+                get:
+                  responses:
+                    "200":
+                      description: Account
+            """.trimIndent(), "nested.yaml"
+        ).toFeature()
         val port = ServerSocket(0).use { it.localPort }
         val config = SpecmaticConfigV1V2Common(
             sources = listOf(
                 Source(
                     stub = listOf(
-                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:$port", specs = listOf("root.spec")),
-                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:$port/services/nested", specs = listOf("nested.spec"))
+                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:$port", specs = listOf("root.yaml")),
+                        SpecExecutionConfig.ObjectValue.FullUrl(baseUrl = "http://localhost:$port/services/nested", specs = listOf("nested.yaml"))
                     )
                 )
             )
