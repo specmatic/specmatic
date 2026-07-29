@@ -5,6 +5,7 @@ import io.specmatic.core.RequestScore.Companion.orEmpty
 import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.invalidRequestStatuses
+import io.specmatic.core.mostSpecificMatchingBaseUrl
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.IgnoreUnexpectedKeys
 import io.specmatic.mock.ScenarioStub
@@ -27,9 +28,10 @@ class ThreadSafeListOfStubs(
         val resolvedUrls = setOf(baseUrl, defaultBaseUrl).map { it.plus(urlPath) }.map(::URI)
 
         return resolvedUrls.firstNotNullOfOrNull { resolvedUrl ->
-            baseUrlToListOfStubsMap.entries.firstOrNull { (stubBaseUrl, _) ->
-                isSameBaseIgnoringHost(resolvedUrl, stubBaseUrl)
-            }?.value
+            specmaticConfig.mostSpecificMatchingBaseUrl(
+                resolvedUrl,
+                baseUrlToListOfStubsMap.keys
+            )?.let(baseUrlToListOfStubsMap::get)
         } ?: emptyStubs()
     }
 

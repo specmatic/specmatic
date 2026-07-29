@@ -431,6 +431,28 @@ class ThreadSafeListOfStubsTest {
         }
 
         @Test
+        fun `should return stubs from the most specific matching baseUrl`() {
+            val specToBaseUrlMap = linkedMapOf(
+                "root-first.yaml" to "http://localhost:8080",
+                "root-second.yaml" to "http://localhost:8080",
+                "nested.yaml" to "http://localhost:8080/api"
+            )
+            val httpStubs = mutableListOf(
+                mockk<HttpStubData> { every { contractPath } returns "root-first.yaml" },
+                mockk<HttpStubData> { every { contractPath } returns "root-second.yaml" },
+                mockk<HttpStubData> { every { contractPath } returns "nested.yaml" }
+            )
+
+            val result = ThreadSafeListOfStubs(httpStubs, specToBaseUrlMap).stubAssociatedTo(
+                baseUrl = "http://localhost:8080",
+                defaultBaseUrl = "http://localhost:9090",
+                urlPath = "/api/widgets"
+            )
+
+            assertThat(result.size).isEqualTo(1)
+        }
+
+        @Test
         fun `should return an empty list if no stubs exist`() {
             val specToBaseUrlMap = mapOf("spec1.yaml" to "http://localhost:8080")
             val httpStubs = mutableListOf<HttpStubData>()
