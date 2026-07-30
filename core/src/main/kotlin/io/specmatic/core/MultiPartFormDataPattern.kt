@@ -222,8 +222,6 @@ data class MultiPartContentPattern(
     }
 
     private fun FilenamePattern.fromRow(row: Row): FilenamePattern {
-        if (this !is FilenamePattern.Match || pattern == null) return this
-
         val rowKey = "${withoutOptionality(name)}_filename"
         val filenameFromRow = row.getFieldOrNull(rowKey) ?: return this
         if (filenameFromRow.isBlank()) return FilenamePattern.Match(null)
