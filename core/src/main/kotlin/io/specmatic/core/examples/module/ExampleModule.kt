@@ -8,22 +8,44 @@ import io.specmatic.core.log.consoleDebug
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.NullValue
+import io.specmatic.mock.PARTIAL
 import java.io.File
 import kotlin.system.exitProcess
 
+data class ScenarioExampleMatch<T>(val example: T, val result: Result)
 class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
     fun getExistingExampleFiles(feature: Feature, scenario: Scenario, examples: List<ExampleFromFile>): List<Pair<ExampleFromFile, Result>> {
+        val results = matchExamplesForScenario(
+            feature = feature,
+            scenario = scenario,
+            examples = examples,
+            requestOf = { it.request },
+            responseOf = { it.response },
+            isPartial = { it.isPartial() }
+        )
+
+        return results.map { it.example to it.result }
+    }
+
+    fun <T> matchExamplesForScenario(
+        feature: Feature,
+        examples: List<T>,
+        scenario: Scenario,
+        isPartial: (T) -> Boolean,
+        requestOf: (T) -> HttpRequest,
+        responseOf: (T) -> HttpResponse,
+    ): List<ScenarioExampleMatch<T>> {
         return examples.mapNotNull { example ->
             val matchResult = scenario.matches(
-                httpRequest = example.request,
-                httpResponse = example.response,
+                httpRequest = requestOf(example),
+                httpResponse = responseOf(example),
                 mismatchMessages = ExampleMismatchMessages,
                 flagsBased = feature.flagsBased,
-                isPartial = example.isPartial()
+                isPartial = isPartial(example),
             )
 
             when (matchResult) {
-                is Result.Success -> example to matchResult
+                is Result.Success -> ScenarioExampleMatch(example, matchResult)
                 is Result.Failure -> {
                     val isFailureRelatedToScenario = matchResult.getFailureBreadCrumbs("").none { breadCrumb ->
                         breadCrumb.contains(BreadCrumb.PATH.value)
@@ -33,7 +55,10 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
                                 || breadCrumb.contains(BreadCrumb.RESPONSE.plus(BreadCrumb.HEADER).with(CONTENT_TYPE))
                     } || matchResult.hasReason(FailureReason.URLPathParamMismatchButSameStructure)
                             || matchResult.hasReason(FailureReason.UndeclaredRequestVariantMismatch)
-                    if (isFailureRelatedToScenario) { example to example.breadCrumbIfPartial(matchResult) } else null
+
+                    if (!isFailureRelatedToScenario) return@mapNotNull null
+                    if (!isPartial(example)) return@mapNotNull ScenarioExampleMatch(example, matchResult)
+                    ScenarioExampleMatch(example, matchResult.breadCrumb(PARTIAL))
                 }
             }
         }
@@ -46,6 +71,12 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
         return listOf(implicitExamplesDir, testDirs, stubDirs).flatten().distinctBy { it.normalizedPath() }
     }
 
+    fun getCandidateExampleFiles(contractFile: File): List<File> {
+        return getExamplesDirPaths(contractFile)
+            .filter { it.isDirectory }
+            .flatMap { it.jsonFilesRecursively() }
+    }
+
     fun getExamplesFor(contractFile: File, strictMode: Boolean = true): List<ExampleFromFile> {
         return getExamplesDirPaths(contractFile)
             .filter { it.isDirectory }
@@ -54,7 +85,7 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
     }
 
     fun getExamplesFromDir(dir: File, strictMode: Boolean = true): List<ExampleFromFile> {
-        return getExamplesFromFiles(dir.listFiles().orEmpty().filter { it.extension == "json" }, strictMode)
+        return getExamplesFromFiles(dir.jsonFilesRecursively(), strictMode)
     }
 
     fun getExamplesFromFiles(files: List<File>, strictMode: Boolean = true): List<ExampleFromFile> {
@@ -116,7 +147,7 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
     }
 
     private fun getSchemaExamples(dir: File): List<SchemaExample> {
-        return dir.listFiles().orEmpty().filter { it.extension == "json" }.mapNotNull {
+        return dir.jsonFilesRecursively().mapNotNull {
             SchemaExample.fromFile(it).realise(
                 hasValue = { example, _ -> example },
                 orException = { err -> consoleDebug(exceptionCauseMessage(err.t)); null },
@@ -127,6 +158,10 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
 
     private fun File.normalizedPath(): String {
         return runCatching { canonicalPath }.getOrElse { absolutePath }
+    }
+
+    private fun File.jsonFilesRecursively(): List<File> {
+        return walk().filter { it.isFile && it.extension == "json" }.toList()
     }
 
     private fun firstCommonByNormalizedPath(first: List<File>, second: List<File>): File? {
