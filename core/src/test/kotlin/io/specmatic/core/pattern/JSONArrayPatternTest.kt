@@ -138,7 +138,7 @@ internal class JSONArrayPatternTest {
     fun `should not encompass a pattern with a different number of items`() {
         val bigger = parsedPattern("""["(number)", "(number)"]""")
         val smallerLess = parsedPattern("""["(number)"]""")
-        val smallerMore = parsedPattern("""["(number)"]""")
+        val smallerMore = parsedPattern("""["(number)", "(number)", "(number)"]""")
 
         assertThat(bigger.encompasses(smallerLess, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
         assertThat(bigger.encompasses(smallerMore, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
