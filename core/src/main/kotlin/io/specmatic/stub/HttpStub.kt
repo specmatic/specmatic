@@ -26,9 +26,7 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyData
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.MismatchMessages
-import io.specmatic.core.MultiPartContent
 import io.specmatic.core.MultiPartContentValue
-import io.specmatic.core.MultiPartFileValue
 import io.specmatic.core.MultiPartFormDataValue
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.QueryParameters
@@ -67,6 +65,7 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.toMap
 import io.specmatic.core.utilities.validateTestOrStubUri
 import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -111,7 +110,6 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.broadcast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.Writer
 import java.net.InetAddress
@@ -1306,16 +1304,14 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
             val parts = multiPartData.readAllParts().map {
                 when (it) {
                     is PartData.FileItem -> {
-                        val content = it.provider().asStream().use { inputStream ->
-                            MultiPartContent(inputStream.readBytes())
-                        }
-                        MultiPartFileValue(
-                            it.name ?: "",
-                            it.originalFileName ?: "",
-                            it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
-                            null,
-                            content,
-                            boundary
+                        MultiPartContentValue(
+                            name = it.name ?: "",
+                            content = it.provider().asStream().use { inputStream ->
+                                BinaryValue(inputStream.readBytes())
+                            },
+                            boundary = boundary,
+                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                            filename = it.originalFileName,
                         )
                     }
 
@@ -1329,17 +1325,11 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
                     }
 
                     is PartData.BinaryItem -> {
-                        val content = it.provider().asStream().use { input ->
-                            val output = ByteArrayOutputStream()
-                            input.copyTo(output)
-                            output.toString()
-                        }
-
                         MultiPartContentValue(
-                            it.name ?: "",
-                            StringValue(content),
-                            boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" }
+                            name = it.name ?: "",
+                            content = it.provider().asStream().use { input -> BinaryValue(input.readBytes()) },
+                            boundary = boundary,
+                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
                         )
                     }
 

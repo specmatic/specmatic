@@ -5292,6 +5292,48 @@ paths:
             """.trimIndent()
 
         @Test
+        fun `multipart schema creates content patterns without filename expectations and uses OpenAPI content type defaults`() {
+            val openAPIWithStringAndBinaryParts = """
+                openapi: 3.0.1
+                info:
+                  title: Multipart API
+                  version: "1"
+                paths:
+                  /data:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          multipart/form-data:
+                            schema:
+                              type: object
+                              required: [description, document]
+                              properties:
+                                description:
+                                  type: string
+                                document:
+                                  type: string
+                                  format: binary
+                      responses:
+                        "200":
+                          description: OK
+            """.trimIndent()
+
+            val patterns = OpenApiSpecification.fromYAML(openAPIWithStringAndBinaryParts, "")
+                .toFeature()
+                .scenarios
+                .single()
+                .httpRequestPattern
+                .multiPartFormDataPattern
+                .associateBy { it.name }
+
+            assertThat(patterns.getValue("description").contentType).isEqualTo("text/plain")
+            assertThat(patterns.getValue("document").contentType).isEqualTo("application/octet-stream")
+            assertThat(patterns.values).allMatch { it.filename == FilenamePattern.Ignore }
+            assertThat(patterns.values.map { it.generate(Resolver()).filename }).containsOnlyNulls()
+        }
+
+        @Test
         fun `should make multipart type optional or non-optional as per the schema`() {
             val openAPINonOptional = """
             ---
@@ -5382,7 +5424,7 @@ paths:
                 "path": "/data_csv",
                 "multipart-formdata": [{
                   "name": "csv",
-                  "content": "(string)",
+                  "filename": "@${csvFile.canonicalPath}",
                   "contentType": "text/csv"
                 }]
               },
@@ -7142,7 +7184,7 @@ paths:
                             MultiPartFileValue(
                                 "filesPart",
                                 "test.pdf",
-                                "application/pdf",
+                                "application/octet-stream",
                                 "UTF-8"
                             )
                         )

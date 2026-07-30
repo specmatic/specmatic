@@ -9,7 +9,6 @@ import io.specmatic.core.pattern.Row
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
@@ -124,7 +123,6 @@ internal class MultiPartContentPatternTest {
         assertThat(pattern.matches(value, mockModeResolver)).isInstanceOf(Success::class.java)
     }
 
-    @Disabled
     @Test
     fun `content pattern should not match value when the contentType in pattern and value are different`() {
         val pattern = MultiPartContentPattern("id", NumberPattern(), "text/plain")

@@ -2838,17 +2838,27 @@ fun toFormDataPart(step: StepInfo, contractFilePath: String): MultiPartFormDataP
 
             val multipartFilename = content.removePrefix("@")
 
-            val expandedFilenamePattern = when (val filenamePattern = parsedPattern(multipartFilename)) {
+            val filenamePattern = parsedPattern(multipartFilename)
+            when (filenamePattern) {
                 is ExactValuePattern -> {
-                    val multipartFilePath =
-                        File(contractFilePath).absoluteFile.parentFile.resolve(multipartFilename).absolutePath
-                    ExactValuePattern(StringValue(multipartFilePath))
+                    val multipartFile =
+                        File(contractFilePath).absoluteFile.parentFile.resolve(multipartFilename).absoluteFile
+                    MultiPartContentPattern(
+                        name = name,
+                        content = BinaryPattern(),
+                        contentType = contentType,
+                        contentEncoding = contentEncoding,
+                        filename = FilenamePattern.Match(ExactValuePattern(StringValue(multipartFile.absolutePath))),
+                    )
                 }
-                else ->
-                    filenamePattern
+                else -> MultiPartContentPattern(
+                    name = name,
+                    content = BinaryPattern(),
+                    contentType = contentType,
+                    contentEncoding = contentEncoding,
+                    filename = FilenamePattern.Match(filenamePattern),
+                )
             }
-
-            MultiPartFilePattern(name, expandedFilenamePattern, contentType, contentEncoding)
         }
         isPatternToken(content) -> {
             MultiPartContentPattern(name, parsedPattern(content))

@@ -11,7 +11,7 @@ internal class MultiPartContentValueTest {
         val pattern = MultiPartContentValue("some name", StringValue("data")).inferType() as MultiPartContentPattern
         assertThat(pattern.name).isEqualTo("some name")
         assertThat(pattern.content).isEqualTo(ExactValuePattern(StringValue("data")))
-        assertThat(pattern.contentType).isEqualTo("text/plain")
+        assertThat(pattern.contentType).isNull()
     }
 
     @Test
