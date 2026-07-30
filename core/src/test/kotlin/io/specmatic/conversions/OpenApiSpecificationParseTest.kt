@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
+import io.specmatic.core.Feature
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.IssueSeverity
@@ -23,7 +24,6 @@ import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
 import io.specmatic.core.pattern.NullPattern
-import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
@@ -33,9 +33,9 @@ import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
-import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.toXMLNode
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -2067,6 +2067,179 @@ $parameters
                     '200':
                       description: OK
         """.trimIndent()
+    }
+
+
+    @Nested
+    inner class InlineExampleSourceMetadata {
+        @Test
+        fun `retains logical request and response variant pointers`() {
+            val source = parse("""
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                        examples:
+                          sample:
+                            value:
+                              id: order-1
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                          examples:
+                            sample:
+                              value:
+                                accepted: true
+            """).inlineNamedStubs.single().source
+
+            assertThat(source).isNotNull
+            assertThat(source!!.operationPointer).isEqualTo("/paths/~1orders/post")
+            assertThat(source.requestVariantPointer).isEqualTo("/paths/~1orders/post/requestBody/content/application~1json")
+            assertThat(source.responseVariantPointer).isEqualTo("/paths/~1orders/post/responses/200/content/application~1json")
+        }
+
+        @Test
+        fun `parameter only example uses the operation and no body request variant`() {
+            val source = parse("""
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        sample:
+                          value: order-1
+                  responses:
+                    '204':
+                      description: No content
+            """).inlineNamedStubs.single().source
+
+            assertThat(source).isNotNull
+            assertThat(source!!.operationPointer).isEqualTo("/paths/~1orders~1{id}/get")
+            assertThat(source.requestVariantPointer).isEqualTo("/paths/~1orders~1{id}/get")
+            assertThat(source.responseVariantPointer).isEqualTo("/paths/~1orders~1{id}/get/responses/204")
+        }
+
+        @Test
+        fun `request only example keeps real request and no body response variants`() {
+            val source = parse("""
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                        examples:
+                          sample:
+                            value:
+                              id: order-1
+                  responses:
+                    '204':
+                      description: No content
+            """).inlineNamedStubs.single().source
+
+            assertThat(source).isNotNull
+            assertThat(source!!.responseVariantPointer).isEqualTo("/paths/~1orders/post/responses/204")
+            assertThat(source.requestVariantPointer).isEqualTo("/paths/~1orders/post/requestBody/content/application~1json")
+        }
+
+        @Test
+        fun `distinguishes the same name by response variant`() {
+            val sources = parse("""
+            paths:
+              /orders:
+                get:
+                  parameters:
+                    - name: trace
+                      in: query
+                      schema:
+                        type: string
+                      examples:
+                        sample:
+                          value: trace-1
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                          examples:
+                            sample:
+                              value:
+                                state: accepted
+                    '400':
+                      description: Bad request
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                          examples:
+                            sample:
+                              value:
+                                state: rejected
+            """).inlineNamedStubs.map { it.source!! }
+
+            assertThat(sources).hasSize(2)
+            assertThat(sources.map { it.operationPointer }).containsOnly("/paths/~1orders/get")
+            assertThat(sources.map { it.responseVariantPointer }).containsExactlyInAnyOrder(
+                "/paths/~1orders/get/responses/200/content/application~1json",
+                "/paths/~1orders/get/responses/400/content/application~1json",
+            )
+        }
+
+        @Test
+        fun `payload changes do not change source metadata`() {
+            fun source(requestId: String, accepted: Boolean) = parse("""
+            paths:
+              /orders:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                        examples:
+                          sample:
+                            value:
+                              id: $requestId
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                          examples:
+                            sample:
+                              value:
+                                accepted: $accepted
+            """).inlineNamedStubs.single().source
+            assertThat(source("order-1", true)).isEqualTo(source("order-2", false))
+        }
+
+        private fun parse(paths: String): Feature {
+            return OpenApiSpecification.fromYAML("""
+            openapi: 3.0.0
+            info:
+              title: Inline example source metadata
+              version: 1.0.0
+            """.trimIndent() + "\n" + paths.trimIndent(), "inline-example-source.yaml").toFeature()
+        }
     }
 
     @Suppress("SameParameterValue")

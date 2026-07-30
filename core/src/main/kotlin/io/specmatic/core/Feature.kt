@@ -199,7 +199,7 @@ data class Feature(
         get() = exampleStore.examples
             .asSequence()
             .filter { it.type == ExampleType.INLINE }
-            .map { NamedStub(name = it.name, stub = it.example) }
+            .map { data -> NamedStub(data.name, data.example, data.source) }
             .toList()
 
     @Deprecated(

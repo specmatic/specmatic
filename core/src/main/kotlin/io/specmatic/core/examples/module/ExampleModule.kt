@@ -89,13 +89,15 @@ class ExampleModule(private val specmaticConfig: SpecmaticConfig) {
     }
 
     fun getExamplesFromFiles(files: List<File>, strictMode: Boolean = true): List<ExampleFromFile> {
-        return files.mapNotNull {
-            ExampleFromFile.fromFile(it, strictMode).realise(
-                hasValue = { example, _ -> example },
-                orException = { err -> consoleDebug(exceptionCauseMessage(err.t)); null },
-                orFailure = { null }
-            )
-        }
+        return files.mapNotNull { exampleFromFile(it, strictMode) }
+    }
+
+    fun exampleFromFile(file: File, strictMode: Boolean = true): ExampleFromFile? {
+        return ExampleFromFile.fromFile(file, strictMode).realise(
+            orFailure = { null },
+            hasValue = { example, _ -> example },
+            orException = { err -> consoleDebug(exceptionCauseMessage(err.t)); null },
+        )
     }
 
     fun getSchemaExamplesFor(contractFile: File): List<SchemaExample> {
