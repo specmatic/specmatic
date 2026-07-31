@@ -75,7 +75,7 @@ Scenario: zero should return not found
         @JvmStatic
         fun multiPartFileUploadSpecs(): Stream<Arguments> {
             return Stream.of(
-                Arguments.of("openapi/helloMultipart.yaml", ".*"),
+                Arguments.of("openapi/helloMultipart.yaml", null),
                 Arguments.of("openapi/helloMultipartWithExamples.yaml", "input.txt"),
             )
         }
@@ -709,7 +709,10 @@ Background:
 
     @ParameterizedTest
     @MethodSource("multiPartFileUploadSpecs")
-    fun `should generate test with multipart file upload`(openApiFile: String, fileName: String) {
+    fun `should generate multipart test with filename only when supplied by an example`(
+        openApiFile: String,
+        expectedFilename: String?,
+    ) {
         val contract: Feature = parseGherkinStringToFeature(
             """
 Feature: multipart file upload
@@ -722,10 +725,9 @@ Feature: multipart file upload
         val contractTests = contract.generateContractTests()
         val result = contractTests.first().runTest(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                val multipartFileValues = request.multiPartFormData.filterIsInstance<MultiPartFileValue>()
-                assertThat(multipartFileValues.size).isEqualTo(1)
-                assertThat(multipartFileValues.first().name).isEqualTo("fileName")
-                assertThat(multipartFileValues.first().filename).matches(fileName)
+                assertThat(request.multiPartFormData).hasSize(3)
+                val binaryPart = request.multiPartFormData.single { it.name == "fileName" }
+                assertThat(binaryPart.filename).isEqualTo(expectedFilename)
                 return HttpResponse.ok("success")
             }
 
@@ -748,8 +750,8 @@ Background:
         HttpStub(feature).use {
             val restTemplate = RestTemplate()
             val body: MultiValueMap<String, Any> = LinkedMultiValueMap()
-            body.add("orderId", 1)
-            body.add("userId", 2)
+            body.add("orderId", HttpEntity("1", HttpHeaders().apply { contentType = MediaType.TEXT_PLAIN }))
+            body.add("userId", HttpEntity("2", HttpHeaders().apply { contentType = MediaType.TEXT_PLAIN }))
             val filePair: MultiValueMap<String, String> = LinkedMultiValueMap()
             val contentDisposition = ContentDisposition
                 .builder("form-data")
@@ -757,6 +759,7 @@ Background:
                 .filename("input.txt")
                 .build()
             filePair.add(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+            filePair.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
             val fileEntity = HttpEntity("test".toByteArray(), filePair)
             body.add("fileName", fileEntity)
             val headers = HttpHeaders()
@@ -769,7 +772,7 @@ Background:
     }
 
     @Test
-    fun `should generate stub that that returns error when multipart content is not a file`() {
+    fun `should generate stub that accepts binary multipart content without a filename`() {
         val feature = parseGherkinStringToFeature(
             """
 Feature: Hello world
@@ -782,17 +785,22 @@ Background:
         HttpStub(feature).use {
             val restTemplate = RestTemplate()
             val body: MultiValueMap<String, Any> = LinkedMultiValueMap()
-            body.add("orderId", 1)
-            body.add("userId", 2)
-            body.add("fileName", "not a file")
+            body.add("orderId", HttpEntity("1", HttpHeaders().apply { contentType = MediaType.TEXT_PLAIN }))
+            body.add("userId", HttpEntity("2", HttpHeaders().apply { contentType = MediaType.TEXT_PLAIN }))
+            body.add(
+                "fileName",
+                HttpEntity(
+                    "not a file".toByteArray(),
+                    HttpHeaders().apply { contentType = MediaType.APPLICATION_OCTET_STREAM },
+                ),
+            )
             val headers = HttpHeaders()
             headers.contentType = MediaType.MULTIPART_FORM_DATA
             val requestEntity = HttpEntity(body, headers)
-            val httpClientErrorException = assertThrows<HttpClientErrorException> {
-                restTemplate
-                    .postForEntity(URI.create("http://localhost:9000/hello"), requestEntity, String::class.java)
-            }
-            assertThat(httpClientErrorException.message).contains("The contract expected a file, but got content instead.")
+            val response = restTemplate
+                .postForEntity(URI.create("http://localhost:9000/hello"), requestEntity, String::class.java)
+
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         }
     }
 

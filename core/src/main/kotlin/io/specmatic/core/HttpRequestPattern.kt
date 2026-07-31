@@ -591,7 +591,7 @@ data class HttpRequestPattern(
                     withoutOptionality(it.name) in multiPartFormDataRequestMap
                 }.map {
                     val key = withoutOptionality(it.name)
-                    multiPartFormDataRequestMap.getValue(key).inferType()
+                    it.withExample(multiPartFormDataRequestMap.getValue(key))
                 })
             }
         }

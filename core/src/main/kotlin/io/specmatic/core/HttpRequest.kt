@@ -302,26 +302,7 @@ data class HttpRequest(
     }
 
     fun loadFileContentIntoParts(): HttpRequest {
-        val parts = multiPartFormData
-
-        val newMultiPartFormData: List<MultiPartFormDataValue> = parts.map { part ->
-            when (part) {
-                is MultiPartContentValue -> part
-                is MultiPartFileValue -> {
-                    if (part.filename.isBlank()) return@map part
-
-                    val partFile = File(part.filename.removePrefix("@"))
-                    val binaryContent = if (partFile.exists()) {
-                        MultiPartContent(partFile)
-                    } else {
-                        MultiPartContent(StringPattern().generate(Resolver()).toStringLiteral())
-                    }
-                    part.copy(content = binaryContent)
-                }
-            }
-        }
-
-        return copy(multiPartFormData = newMultiPartFormData)
+        return copy(multiPartFormData = multiPartFormData.map(MultiPartContentValue::loadExternalFileContent))
     }
 
     interface RequestNotRecognizedMessages {
@@ -594,17 +575,22 @@ fun adjustForSOAP(headers: Map<String, String>): Map<String, String> {
 private fun parsePartType(multiPartSpec: Map<String, Value>, name: String): MultiPartFormDataValue {
     return when {
         multiPartSpec.containsKey("content") -> MultiPartContentValue(
-            name,
-            multiPartSpec.getValue("content"),
-            specifiedContentType = multiPartSpec["contentType"]?.toStringLiteral()
+            name = name,
+            content = multiPartSpec.getValue("content"),
+            specifiedContentType = multiPartSpec["contentType"]?.toStringLiteral(),
+            contentEncoding = multiPartSpec["contentEncoding"]?.toStringLiteral(),
         )
 
-        multiPartSpec.containsKey("filename") -> MultiPartFileValue(
-            name,
-            multiPartSpec.getValue("filename").toStringLiteral().removePrefix("@"),
-            multiPartSpec["contentType"]?.toStringLiteral(),
-            multiPartSpec["contentEncoding"]?.toStringLiteral()
-        )
+        multiPartSpec.containsKey("filename") -> {
+            val filenameOrSource = multiPartSpec.getValue("filename").toStringLiteral().removePrefix("@")
+            MultiPartContentValue(
+                name = name,
+                content = BinaryValue(),
+                specifiedContentType = multiPartSpec["contentType"]?.toStringLiteral(),
+                contentEncoding = multiPartSpec["contentEncoding"]?.toStringLiteral(),
+                filename = filenameOrSource,
+            )
+        }
 
         else -> throw ContractException("Multipart entry $name must have either a content key or a filename key")
     }
