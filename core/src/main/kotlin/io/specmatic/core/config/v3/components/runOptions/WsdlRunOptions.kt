@@ -4,10 +4,16 @@ import com.fasterxml.jackson.annotation.*
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.ConfigPathMapper
+import io.specmatic.core.config.v3.mapValue
+import java.io.File
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(WsdlTestConfig::class, name = "test"), JsonSubTypes.Type(WsdlMockConfig::class, name = "mock"))
-sealed interface WsdlRunOptions : IRunOptions { val type: RunOptionType? }
+sealed interface WsdlRunOptions : IRunOptions {
+    val type: RunOptionType?
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): WsdlRunOptions
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class WsdlTestConfig(
@@ -16,9 +22,12 @@ data class WsdlTestConfig(
     val host: String? = null,
     val port: Int? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<WsdlRunOptionsSpecifications>? = null
+    override val specs: List<WsdlRunOptionsSpecifications>? = null,
+    @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : WsdlRunOptions, ConfigWithCert {
-    private val _config: MutableMap<String, Any> = linkedMapOf()
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): WsdlTestConfig = copy(
+        cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },
+    )
 
     @JsonIgnore
     override fun gerServerOrigin(): ServerOrigin? {
@@ -49,9 +58,12 @@ data class WsdlMockConfig(
     val host: String? = null,
     val port: Int? = null,
     override val cert: RefOrValue<HttpsConfiguration>? = null,
-    override val specs: List<WsdlRunOptionsSpecifications>? = null
+    override val specs: List<WsdlRunOptionsSpecifications>? = null,
+    @JsonIgnore private val _config: MutableMap<String, Any> = linkedMapOf()
 ) : WsdlRunOptions, ConfigWithCert {
-    private val _config: MutableMap<String, Any> = linkedMapOf()
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): WsdlMockConfig = copy(
+        cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },
+    )
 
     @JsonIgnore
     override fun gerServerOrigin(): ServerOrigin? {

@@ -23,9 +23,31 @@ import io.specmatic.mock.MOCK_HTTP_REQUEST
 import java.util.stream.Stream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.io.CleanupMode
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 internal class HttpRequestTest {
+    @Test
+    fun `loading a filename-only multipart example reads the referenced file`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val expectedBytes = byteArrayOf(1, 2, 3)
+        val exampleFile = tempDir.resolve("example.bin").apply { writeBytes(expectedBytes) }
+
+        val loadedPart = HttpRequest(
+            method = "POST",
+            path = "/documents",
+            multiPartFormData = listOf(
+                MultiPartFileValue(
+                    name = "document",
+                    filename = exampleFile.canonicalPath,
+                    contentType = "application/octet-stream"
+                )
+            )
+        ).loadFileContentIntoParts().multiPartFormData.single()
+
+        assertThat((loadedPart.content as BinaryValue).byteArray).containsExactly(*expectedBytes)
+    }
+
     @Test
     fun `it should serialise the request correctly`() {
         val request = HttpRequest("GET", "/", HashMap(), EmptyString, HashMap(mapOf("one" to "two")))
@@ -34,6 +56,20 @@ internal class HttpRequestTest {
 """
 
         assertEquals(expectedString, request.toLogString(""))
+    }
+
+    @Test
+    fun `multipart parts should be separated by a blank line in request logs`() {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/documents",
+            multiPartFormData = listOf(
+                MultiPartContentValue("metadata", StringValue("first")),
+                MultiPartContentValue("content", StringValue("second"))
+            )
+        )
+
+        assertThat(request.toLogString()).contains("first\n\n--#####")
     }
 
     @Test
@@ -115,19 +151,6 @@ internal class HttpRequestTest {
         val listOfStringsPattern = ListPattern(StringPattern())
 
         assertThat(dataPattern.resolvePattern(Resolver())).isEqualTo(listOfStringsPattern)
-    }
-
-    @Test
-    fun `converting to pattern with request with array containing string rest should result in a string rest pattern`() {
-        val request = HttpRequest("POST", "/", emptyMap(), parsedValue("""{"data": ["(string...)"]}"""))
-        val requestPattern = request.toPattern()
-        val body = requestPattern.body
-
-        if (body !is JSONObjectPattern) fail("Expected json object pattern")
-
-        val dataPattern = body.pattern.getValue("data") as JSONArrayPattern
-        val deferredPattern = dataPattern.pattern.first() as DeferredPattern
-        assertThat(deferredPattern.resolvePattern(Resolver())).isEqualTo(RestPattern(StringPattern()))
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_HOST
 import io.specmatic.core.Configuration.Companion.DEFAULT_PROXY_PORT
 import io.specmatic.core.config.HttpsConfiguration
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.components.Adapter
 import io.specmatic.stub.extractHost
 import io.specmatic.stub.extractPort
@@ -20,6 +21,19 @@ data class ProxyConfig(
     val https: HttpsConfiguration? = null,
     val outputDirectory: String? = null,
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ProxyConfig {
+        return copy(
+            adapters = adapters?.mapPaths(mapper.child("adapters"), configDirectory),
+            https = https?.mapPaths(mapper.child("https"), configDirectory),
+            outputDirectory = outputDirectory?.let {
+                mapper.child("outputDirectory").map(it, configDirectory)
+            },
+            consumes = consumes?.mapIndexed { index, path ->
+                mapper.child("consumes").child(index).map(path, configDirectory)
+            },
+        )
+    }
+
     @JsonIgnore
     fun getHostOrDefault(default: String = DEFAULT_PROXY_HOST): String {
         val hostFromBaseUrl = baseUrl?.let(::extractHost)

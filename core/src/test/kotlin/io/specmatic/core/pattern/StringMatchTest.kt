@@ -14,7 +14,7 @@ class StringMatchTest {
 
     @Test
     fun `array of nulls should match json array pattern`() {
-        val pattern = parsedPattern("""{"id": ["(string?...)"]}""")
+        val pattern = parsedPattern("""{"id": "(string?*)"}""")
         val value = parsedValue("""{"id": [null, null]}""")
 
         value shouldMatch pattern

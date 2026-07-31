@@ -1,7 +1,9 @@
 package io.specmatic.core.config.v3.components.services
 
 import io.specmatic.core.config.v3.Data
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.v3.RefOrValue
+import io.specmatic.core.config.v3.components.sources.SourceV3
 import io.specmatic.core.config.v3.RefOrValueResolver
 import io.specmatic.core.config.v3.resolveElseThrow
 import java.io.File
@@ -13,6 +15,25 @@ data class CommonServiceConfig<RunOptions : Any, Settings : Any>(
     val data: Data? = null,
     val settings: RefOrValue<Settings>? = null
 ) {
+    fun mapPaths(
+        mapper: ConfigPathMapper,
+        configDirectory: File,
+        sourceReferences: Map<String, SourceV3> = emptyMap()
+    ): CommonServiceConfig<RunOptions, Settings> {
+        val mappedDefinitions = definitions.mapIndexed { index, definition ->
+            definition.mapPaths(
+                configDirectory = configDirectory,
+                sourceReferences = sourceReferences,
+                mapper = mapper.child("definitions").child(index),
+            )
+        }
+
+        return copy(
+            definitions = mappedDefinitions,
+            data = data?.mapPaths(mapper.child("data"), configDirectory),
+        )
+    }
+
     fun withCanonicalizedDefinitionFilesystemSources(
         resolver: RefOrValueResolver,
         workingDirectory: File

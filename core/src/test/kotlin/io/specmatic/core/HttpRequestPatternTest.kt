@@ -1,10 +1,16 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.*
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
+import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.*
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONArrayValue
@@ -93,6 +99,60 @@ internal class HttpRequestPatternTest {
             assertThat(it).isInstanceOf(Failure::class.java)
             assertThat((it as Failure).toMatchFailureDetails()).isEqualTo(MatchFailureDetails(listOf("REQUEST", "BODY", "name"), listOf(DefaultMismatchMessages.expectedKeyWasMissing("property", "name"))))
         }
+    }
+
+    @Test
+    fun `should preserve a top level matcher expression for matching and deriving a stub pattern`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+
+        val matcherExpression = "\$match(contains: \$(data.product), value: each, times: 3)"
+        val bodyPattern = JSONObjectPattern(mapOf("type" to StringPattern()))
+        every { matcherEngine.patternFrom(StringValue(matcherExpression), bodyPattern, any()) } returns bodyPattern
+
+        try {
+            val requestPattern = HttpRequestPattern(
+                method = "POST",
+                httpPathPattern = buildHttpPathPattern("/products"),
+                body = bodyPattern,
+            )
+            val request = HttpRequest(
+                method = "POST",
+                path = "/products",
+                body = StringValue(matcherExpression),
+            )
+
+            val result = requestPattern.matches(
+                request,
+                Resolver(mockMode = true)
+            )
+            val exactPattern = requestPattern.generateExactRequestPatternForStub(request, Resolver())
+
+            assertThat(result).isInstanceOf(Success::class.java)
+            assertThat(exactPattern.body).isSameAs(bodyPattern)
+            verify(exactly = 2) {
+                matcherEngine.patternFrom(StringValue(matcherExpression), bodyPattern, any())
+            }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+    }
+
+    @Test
+    fun `should reject an ordinary invalid request body`() {
+        val result = HttpRequestPattern(
+            method = "POST",
+            httpPathPattern = buildHttpPathPattern("/"),
+            body = JSONObjectPattern(mapOf("id" to NumberPattern()))
+        ).matches(
+            HttpRequest(method = "POST", path = "/", body = StringValue("not-json")),
+            Resolver(mockMode = true)
+        )
+
+        assertThat(result).isInstanceOf(Failure::class.java)
+        assertThat((result as Failure).toMatchFailureDetails().breadCrumbs)
+            .containsExactly("REQUEST", "BODY")
     }
 
     @Test

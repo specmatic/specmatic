@@ -22,10 +22,7 @@ data class XMLChoiceGroupPattern(
     override val typeName: String = "xml-choice-group"
 
     override val memberList: MemberList
-        get() = MemberList(
-            choices.firstOrNull() ?: emptyList(),
-            null
-        )
+        get() = MemberList(choices.firstOrNull() ?: emptyList())
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
@@ -489,7 +486,7 @@ data class XMLSequencePattern(
     override val typeName: String = "xml-sequence"
 
     override val memberList: MemberList
-        get() = MemberList(members, null)
+        get() = MemberList(members)
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {

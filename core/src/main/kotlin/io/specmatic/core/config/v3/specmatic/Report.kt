@@ -2,6 +2,8 @@ package io.specmatic.core.config.v3.specmatic
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 
 enum class ReportFormat(val value: String) {
     HTML("html"),
@@ -21,4 +23,8 @@ enum class ReportFormat(val value: String) {
     }
 }
 
-data class Report(val formats: List<ReportFormat>? = null, val outputDirectory: String? = null)
+data class Report(val formats: List<ReportFormat>? = null, val outputDirectory: String? = null) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): Report {
+        return copy(outputDirectory = outputDirectory?.let { mapper.child("outputDirectory").map(it, configDirectory) })
+    }
+}

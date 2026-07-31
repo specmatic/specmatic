@@ -2,6 +2,7 @@ package io.specmatic.test.reports
 
 import io.ktor.http.HttpHeaders
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Scenario
 import io.specmatic.core.config.toSpecmaticConfig
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.test.utils.ContractTestScope
@@ -47,7 +48,8 @@ class TestHooksTest {
                 assertThat(testExecutionResult.testRecord.result).isEqualTo(TestResult.Success)
                 assertThat(testExecutionResult.scenario.status).isEqualTo(400)
                 assertThat(testExecutionResult.result.scenario).isNotNull
-                assertThat(testExecutionResult.result.scenario?.status).isEqualTo(400)
+                val scenario = testExecutionResult.result.scenario as Scenario
+                assertThat(scenario.status).isEqualTo(400)
             }
         }
     }

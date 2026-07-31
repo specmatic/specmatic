@@ -807,7 +807,6 @@ internal class SpecmaticConfigAllTest {
             test:
                 resiliencyTests:
                     enable: all
-                validateResponseValues: true
                 allowExtensibleSchema: true
                 timeoutInMilliseconds: 10
         """.trimIndent()
@@ -817,7 +816,6 @@ internal class SpecmaticConfigAllTest {
 
         specmaticConfig.apply {
             assertThat(isResiliencyTestingEnabled()).isTrue()
-            assertThat(isResponseValueValidationEnabled()).isTrue()
             assertThat(isExtensibleSchemaEnabled()).isTrue()
             assertThat(getTestTimeoutInMilliseconds()).isEqualTo(10)
         }
@@ -843,7 +841,6 @@ internal class SpecmaticConfigAllTest {
             test:
                 resiliencyTests:
                     enable: all
-                validateResponseValues: true
                 allowExtensibleSchema: true
                 timeoutInMilliseconds: 10
         """.trimIndent()
@@ -853,7 +850,6 @@ internal class SpecmaticConfigAllTest {
 
         configV2.test!!.apply {
             assertThat(resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.all)
-            assertThat(validateResponseValues).isTrue()
             assertThat(allowExtensibleSchema).isTrue()
             assertThat(timeoutInMilliseconds).isEqualTo(10)
         }
@@ -866,7 +862,6 @@ internal class SpecmaticConfigAllTest {
             test:
                 resiliencyTests:
                     enable: all
-                validateResponseValues: true
                 allowExtensibleSchema: true
                 timeoutInMilliseconds: 10
         """.trimIndent()
@@ -876,7 +871,6 @@ internal class SpecmaticConfigAllTest {
 
         configV3.test!!.apply {
             assertThat(resiliencyTests?.enable).isEqualTo(ResiliencyTestSuite.all)
-            assertThat(validateResponseValues).isTrue()
             assertThat(allowExtensibleSchema).isTrue()
             assertThat(timeoutInMilliseconds).isEqualTo(10)
         }
@@ -1024,7 +1018,7 @@ internal class SpecmaticConfigAllTest {
     }
 
     @Test
-    fun `when the source v1 config has a source of filesystem type with no directory it gets converted to v2 with no source` () {
+    fun `when the source v1 config has a source of filesystem type with no directory it gets converted to v2 with cwd filesystem source` () {
         val contractConfigYaml = """
             sources:
               - provides:
@@ -1037,7 +1031,7 @@ internal class SpecmaticConfigAllTest {
 
         val configV2 = SpecmaticConfigV2.loadFrom(dslConfig) as SpecmaticConfigV2
 
-        assertThat(configV2.contracts.first().contractSource).isNull()
+        assertThat(configV2.contracts.first().contractSource).isEqualTo(FileSystemContractSource(directory = "."))
     }
 
     @Test

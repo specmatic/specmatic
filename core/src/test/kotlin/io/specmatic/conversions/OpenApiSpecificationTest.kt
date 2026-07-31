@@ -18,6 +18,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
@@ -550,49 +551,6 @@ components:
         for (scenarioInfo in scenarioInfos) {
             assertNotFoundInHeaders(scenarioInfo.httpRequestPattern.headersPattern)
             assertNotFoundInHeaders(scenarioInfo.httpResponsePattern.headersPattern)
-        }
-    }
-
-    @Test
-    fun `scenarios should have examples of type ResponseValueExample leading to response value validation when VALIDATE_RESPONSE_VALUE flag is true and response is not empty`() {
-        val openApiFile = "src/test/resources/openapi/response_schema_validation_including_optional_spec.yaml"
-        val specmaticConfig = mockk<SpecmaticConfig> {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getIgnoreInlineExamples() } returns false
-            every { getIgnoreInlineExampleWarnings() } returns false
-            every { getDictionary() } returns null
-            every { getStubDictionary(any()) } returns null
-            every { getExtensibleQueryParams() } returns false
-            every { getEscapeSoapAction() } returns false
-        }
-
-        val openApiSpecification = OpenApiSpecification(
-            openApiFilePath = openApiFile,
-            parsedOpenApi = OpenApiSpecification.getParsedOpenApi(openApiFile),
-            specmaticConfig = specmaticConfig
-        )
-
-        val (scenarioInfos, _) = openApiSpecification.toScenarioInfos()
-
-        val examples = scenarioInfos.first().examples.flatMap {
-            it.rows.map { row -> row.exactResponseExample }
-        }
-        examples.forEach {
-            assertThat(it).isInstanceOf(ResponseValueExample::class.java)
-        }
-    }
-
-    @Test
-    fun `scenarios should have null examples leading to no response value validation when the example response is empty`() {
-        val openApiSpecification = OpenApiSpecification.fromFile("src/test/resources/openapi/response_schema_validation_for_empty_response_example.yaml")
-
-        val (scenarioInfos, _) = openApiSpecification.toScenarioInfos()
-
-        val examples = scenarioInfos.first().examples.flatMap {
-            it.rows.map { row -> row.exactResponseExample }
-        }
-        examples.forEach {
-            assertThat(it).isNull()
         }
     }
 
@@ -7191,6 +7149,48 @@ paths:
                     ), HttpResponse(200, parsedJSONObject("{\"filename\": \"ThIsi5ByT3sD4tA\"}"))
                 )
             assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+    }
+
+    @Test
+    fun `binary multipart parts generate raw content without inventing a filename`(@TempDir(cleanup = CleanupMode.ALWAYS) tempDir: File) {
+        val openAPI = """
+            openapi: 3.0.0
+            info:
+              title: Multipart Binary Upload API
+              version: 0.1.0
+            paths:
+              /documents:
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      multipart/form-data:
+                        schema:
+                          type: object
+                          required:
+                            - content
+                          properties:
+                            content:
+                              type: string
+                              format: binary
+                  responses:
+                    '200':
+                      description: Document stored successfully
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
+        val request = feature.scenarios.single().generateHttpRequest()
+        val contentPart = request.multiPartFormData.single()
+
+        assertThat(contentPart.filename).isNull()
+        assertThat((contentPart.content as BinaryValue).byteArray).isNotEmpty()
+        assertThat(contentPart.contentType).isEqualTo("application/octet-stream")
+        assertThat(feature.scenarios.single().matches(request)).isInstanceOf(Result.Success::class.java)
+
+        val openAPIFile = tempDir.resolve("specification.yaml").apply { writeText(openAPI) }
+        createStubFromContracts(listOf(openAPIFile.canonicalPath), "localhost", 9000, timeoutMillis = 0).use { stub ->
+            assertThat(stub.client.execute(request).status).isEqualTo(200)
         }
     }
 

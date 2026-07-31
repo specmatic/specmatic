@@ -237,11 +237,12 @@ data class ScenarioAsTest(
                     val matchesResult = it.matchResponseValue(
                         responseBodyFromExample,
                         response.body,
-                        testScenario.resolver
+                        testScenario.resolver,
+                        testScenario.exampleRow?.scenarioStub?.data ?: JSONObjectValue()
                     )
                     if(matchesResult is Result.Failure) {
                         return ContractTestExecutionResult(
-                            result = matchesResult,
+                            result = matchesResult.breadCrumb("RESPONSE.BODY"),
                             request = request,
                             response = response,
                             beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
@@ -379,6 +380,7 @@ data class ScenarioAsTest(
             substitution = substitution,
             executionMetadata = fixtureExecutionMetadata,
             fixtureDiscriminatorKey = fixtureDiscriminatorKey,
+            data = scenarioStub.data,
         ) ?: FixtureExecutionDetails(
             combinedResult = Result.Success(),
             updatedSubstitution = substitution

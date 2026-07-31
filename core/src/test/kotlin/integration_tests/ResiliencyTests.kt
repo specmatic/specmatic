@@ -2457,7 +2457,7 @@ class GenerativeTests {
         var currentScenarioIsNegative = false
         mockkObject(MatcherEngine.Companion)
         every { MatcherEngine.load() } returns matcherEngine
-        every { matcherEngine.matchResponseValue(any(), any(), any()) } answers {
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } answers {
             if (currentScenarioIsNegative) negativeMatcherCallCount++
             Result.Success()
         }

@@ -138,7 +138,7 @@ internal class JSONArrayPatternTest {
     fun `should not encompass a pattern with a different number of items`() {
         val bigger = parsedPattern("""["(number)", "(number)"]""")
         val smallerLess = parsedPattern("""["(number)"]""")
-        val smallerMore = parsedPattern("""["(number)"]""")
+        val smallerMore = parsedPattern("""["(number)", "(number)", "(number)"]""")
 
         assertThat(bigger.encompasses(smallerLess, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
         assertThat(bigger.encompasses(smallerMore, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
@@ -150,48 +150,6 @@ internal class JSONArrayPatternTest {
         val bigger = ListPattern(NumberPattern())
 
         assertThat(smaller.encompasses(bigger, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
-    }
-
-    @Test
-    fun `should encompass a list containing a subtype of all elements`() {
-        val bigger = parsedPattern("""["(number)", "(number...)"]""")
-        val alsoBigger = parsedPattern("""["(number...)"]""")
-        val matching = ListPattern(NumberPattern())
-
-        assertThat(bigger.encompasses(matching, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
-        assertThat(alsoBigger.encompasses(matching, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `finite array should not encompass an infinite array`() {
-        val bigger = parsedPattern("""["(number)", "(number...)"]""")
-        val smaller = parsedPattern("""["(number)", "(number)", "(number)"]""")
-
-        assertThat(smaller.encompasses(bigger, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
-    }
-
-    @Test
-    fun `smaller infinite array should match larger infinite array if all types match`() {
-        val bigger = parsedPattern("""["(number)", "(number...)"]""")
-        val matching = parsedPattern("""["(number)", "(number)", "(number...)"]""")
-
-        assertThat(bigger.encompasses(matching, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `bigger infinite array should match smaller infinite array if all types match`() {
-        val bigger = parsedPattern("""["(number)", "(number)", "(number...)"]""")
-        val matching = parsedPattern("""["(number)", "(number...)"]""")
-
-        assertThat(bigger.encompasses(matching, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
-    }
-
-    @Test
-    fun `should fail if there are any match failures at all`() {
-        val bigger = parsedPattern("""["(number)", "(number...)"]""")
-        val matching = parsedPattern("""["(number)", "(string...)"]""")
-
-        assertThat(bigger.encompasses(matching, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
     }
 
     @Test

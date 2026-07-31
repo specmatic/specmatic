@@ -270,7 +270,7 @@ fun parsedPattern(rawContent: String, key: String? = null, typeAlias: String? = 
                     AnyPattern(patterns, extensions = patterns.extractCombinedExtensions())
                 }
 
-                isRestPattern(it) -> RestPattern(parsedPattern(withoutRestToken(it), typeAlias = typeAlias))
+                it.endsWith("...)") -> throw ContractException("The ... operator is no longer supported. Use * for a list.")
                 isRepeatingPattern(it) -> ListPattern(parsedPattern(withoutListToken(it), typeAlias = typeAlias))
                 it == "(number)" || it == "(integer)" -> DeferredPattern(it, null)
                 isBuiltInPattern(it) -> getBuiltInPattern(it)

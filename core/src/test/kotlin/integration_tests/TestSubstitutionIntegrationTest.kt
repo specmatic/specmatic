@@ -124,7 +124,8 @@ class SubstitutionFixtureExecutor : OpenAPIFixtureExecutor {
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
         executionMetadata: FixtureExecutionMetadata,
-        substitution: Substitution
+        substitution: Substitution,
+        data: JSONObjectValue,
     ): FixtureExecutionDetails {
         val filteredFixtures = fixtures.filterFor(executionMetadata)
         calls.add(fixtureDiscriminatorKey)

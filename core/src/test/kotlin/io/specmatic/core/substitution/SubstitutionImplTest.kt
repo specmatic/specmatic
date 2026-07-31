@@ -272,6 +272,15 @@ class SubstitutionImplTest {
         assertThat((result as HasValue<*>).value).isEqualTo(StringValue("one-two"))
     }
 
+    @Test
+    fun `complete matcher expression remains unchanged during substitution`() {
+        val matcherExpression = StringValue("\$match(contains: \$(data.person))")
+
+        val result = SubstitutionImpl.empty(strictMode = true).substitute(matcherExpression)
+
+        assertThat(result).isEqualTo(HasValue(matcherExpression))
+    }
+
     @Nested
     inner class ValueOnlySubstitution {
         @Test

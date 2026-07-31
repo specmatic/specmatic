@@ -5,6 +5,7 @@ import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
+import io.specmatic.core.value.isMatcherTemplate
 
 internal object InterpolatedSubstitution {
     private val useRegex = Regex("\\$\\(([^()]+)\\)")
@@ -12,14 +13,16 @@ internal object InterpolatedSubstitution {
     private val dollarFunctionBeforeParenRegex = Regex("""\$\w+\s*$""")
 
     fun isLookup(value: String): Boolean {
-        return useRegex.matches(value)
+        return !value.isMatcherTemplate() && useRegex.matches(value)
     }
 
     fun containsLookup(value: String): Boolean {
-        return useRegex.containsMatchIn(value)
+        return !value.isMatcherTemplate() && useRegex.containsMatchIn(value)
     }
 
     fun resolve(value: String, resolveToken: (String) -> Value): Value {
+        if (value.isMatcherTemplate()) return StringValue(value)
+
         val entireMatch = useRegex.matchEntire(value)
         if (entireMatch != null) {
             return resolveToken(entireMatch.value)

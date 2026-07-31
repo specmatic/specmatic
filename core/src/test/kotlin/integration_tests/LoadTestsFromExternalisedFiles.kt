@@ -546,81 +546,6 @@ class LoadTestsFromExternalisedFiles {
     }
 
     @Test
-    fun `tests from external examples validate response values when the VALIDATE_RESPONSE_VALUE flag is true`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfigV1V2Common.Companion)
-        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-        val feature = OpenApiSpecification
-            .fromFile("src/test/resources/openapi/has_inline_and_external_examples.yaml", specmaticConfig)
-            .toFeature()
-            .loadExternalisedExamples()
-
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                val path = request.path ?: fail("Path expected")
-                val id = path.split("/").last()
-
-                return when(id) {
-                    "123" -> HttpResponse(200, parsedJSONObject("""{"id": 123, "name": "John Doe"}"""))
-                    "456" -> HttpResponse(200, parsedJSONObject("""{"id": 456, "name": "Alice Johnson"}"""))
-                    else -> HttpResponse(400, "Expected either 123 or 456")
-                }.also {
-                    println("---")
-                    println(request.toLogString())
-                    println(it.toLogString())
-                    println()
-                }
-            }
-        })
-
-        assertThat(results.testCount).isEqualTo(3)
-    }
-
-    @Test
-    fun `tests from external examples reject responses with values different from the example when the VALIDATE_RESPONSE_VALUE flag is true`() {
-        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true) {
-            every { isResponseValueValidationEnabled() } returns true
-            every { getWorkflowDetails() } returns null
-        }
-        mockkObject(SpecmaticConfigV1V2Common.Companion)
-        every { SpecmaticConfigV1V2Common.Companion.getAttributeSelectionPattern(any()) } returns AttributeSelectionPattern()
-
-        val feature = OpenApiSpecification
-            .fromFile(
-                "src/test/resources/openapi/has_inline_and_external_examples.yaml",
-                specmaticConfig
-            )
-            .toFeature()
-            .loadExternalisedExamples()
-
-        val results = feature.executeTests(object : TestExecutor {
-            override fun execute(request: HttpRequest): HttpResponse {
-                val path = request.path ?: fail("Path expected")
-                val id = path.split("/").last()
-
-                return when(id) {
-                    "123" -> HttpResponse(200, parsedJSONObject("""{"id": 123, "name": "Unexpected name instead of John Doe"}"""))
-                    "456" -> HttpResponse(200, parsedJSONObject("""{"id": 456, "name": "Unexpected name instead of Alice Johnson"}"""))
-                    else -> HttpResponse(400, "Expected either 123 or 456")
-                }.also {
-                    println("---")
-                    println(request.toLogString())
-                    println(it.toLogString())
-                    println()
-                }
-            }
-        })
-
-        println(results.report())
-
-        assertThat(results.testCount).isEqualTo(3)
-        assertThat(results.failureCount).isEqualTo(3)
-    }
-
-    @Test
     fun `should load anyvalue pattern based examples`() {
         val feature = OpenApiSpecification.fromFile(
             "src/test/resources/openapi/spec_with_path_param.yaml"
@@ -1122,7 +1047,7 @@ class LoadTestsFromExternalisedFiles {
                 }
             })
 
-            val result = results.results.first {it.scenario!!.path == "/employeesObjectResponse"}
+            val result = results.results.first { (it.scenario as Scenario).path == "/employeesObjectResponse" }
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -1156,7 +1081,7 @@ class LoadTestsFromExternalisedFiles {
                 }
             })
 
-            val result = results.results.first {it.scenario!!.path == "/employeesArrayResponse"}
+            val result = results.results.first { (it.scenario as Scenario).path == "/employeesArrayResponse" }
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -1185,7 +1110,7 @@ class LoadTestsFromExternalisedFiles {
                 }
             })
 
-            val result = results.results.first {it.scenario!!.path == "/employeesAllOfResponse"}
+            val result = results.results.first { (it.scenario as Scenario).path == "/employeesAllOfResponse" }
             println(result.reportString())
             assertThat(result).isInstanceOf(Result.Success::class.java)
         }
@@ -1653,7 +1578,8 @@ class RowValueLookupFixtureExecutor : OpenAPIFixtureExecutor {
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
         executionMetadata: FixtureExecutionMetadata,
-        substitution: Substitution
+        substitution: Substitution,
+        data: JSONObjectValue,
     ): FixtureExecutionDetails {
         val updatedSubstitution = substitution
             .upsertStoreUsing(StringValue("(ORDER_ID:string)"), StringValue("order-123"))

@@ -10,7 +10,6 @@ import io.specmatic.reporter.ctrf.model.CtrfSourceLocation
 import io.specmatic.reporter.internal.dto.operation.APIOperation
 import io.specmatic.reporter.model.BackwardCompatibilityStatus
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.test.openAPIOperationFrom
 import java.util.UUID
 
 data class OpenApiBackwardCompatibilityCheckRecord(
@@ -49,7 +48,7 @@ data class OpenApiBackwardCompatibilityCheckRecord(
             )
         }
     }
-    override val operations: Set<APIOperation> = toOpenApiOperation(scenario)
+    override val operations: Set<APIOperation> = setOf(scenario.toApiOperation())
     override val tags: List<String> = buildList {
         if (isWip) add("wip")
         add("status:${scenario.status}")
@@ -69,7 +68,4 @@ data class OpenApiBackwardCompatibilityCheckRecord(
         if (changeStatus == ChangeStatus.CHANGED) add(CtrfOperationQualifiers.CHANGED)
     }
 
-    private fun toOpenApiOperation(scenario: Scenario): Set<APIOperation> = setOf(
-        element = openAPIOperationFrom(scenario, convertPathParameterStyle(scenario.path))
-    )
 }

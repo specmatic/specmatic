@@ -25,7 +25,6 @@ class WorkflowTest {
         ),
         emptyList(),
         emptyMap(),
-        emptyMap(),
         protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )
 
@@ -45,7 +44,6 @@ class WorkflowTest {
             )
         ),
         emptyList(),
-        emptyMap(),
         emptyMap(),
         protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI,
     )

@@ -402,7 +402,7 @@ class ContractAsTest {
                 "  Scenario: api call\n" +
                 "    Given pattern Location {\"city\": \"(string)\"}\n" +
                 "    When POST /locations\n" +
-                "    And request-body {\"locations\": [\"(Location...)\"]}\n" +
+                "    And request-body {\"locations\": \"(Location*)\"}\n" +
                 "    Then status 200\n"
         verifyJsonArrayGenerationInRequestBody(contractGherkin)
     }
@@ -413,7 +413,7 @@ class ContractAsTest {
         val contractGherkin = "Feature: Contract for /locations API\n" +
                 "  Scenario: api call\n" +
                 "    Given pattern Location {\"city\": \"(string)\"}\n" +
-                "    And pattern Locations {\"locations\": [\"(Location...)\"]}\n" +
+                "    And pattern Locations {\"locations\": \"(Location*)\"}\n" +
                 "    When POST /locations\n" +
                 "    And request-body (Locations)\n" +
                 "    Then status 200\n"
@@ -449,7 +449,7 @@ class ContractAsTest {
                 "    Given pattern Location {\"city\": \"(string)\"}\n" +
                 "    When GET /locations\n" +
                 "    Then status 200\n" +
-                "    And response-body {\"locations\": [\"(Location...)\"]}"
+                "    And response-body {\"locations\": \"(Location*)\"}"
         verifyJsonArrayGenerationInResponseBody(contractGherkin)
     }
 
@@ -459,7 +459,7 @@ class ContractAsTest {
         val contractGherkin = "Feature: Contract for /locations API\n" +
                 "  Scenario: api call\n" +
                 "    Given pattern Location {\"city\": \"(string)\"}\n" +
-                "    And pattern Locations {\"locations\": [\"(Location...)\"]}\n" +
+                "    And pattern Locations {\"locations\": \"(Location*)\"}\n" +
                 "    When GET /locations\n" +
                 "    Then status 200\n" +
                 "    And response-body (Locations)"

@@ -24,7 +24,7 @@ data class XMLSubstitutionGroupPattern(
     override val typeName: String = "xml-substitution-group"
 
     override val memberList: MemberList
-        get() = MemberList(candidates, null)
+        get() = MemberList(candidates)
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {

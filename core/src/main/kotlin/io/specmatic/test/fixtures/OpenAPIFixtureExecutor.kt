@@ -1,6 +1,7 @@
 package io.specmatic.test.fixtures
 
 import io.specmatic.core.Substitution
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.test.FixtureExecutionDetails
 
@@ -10,6 +11,7 @@ interface OpenAPIFixtureExecutor {
         fixtures: List<Value>,
         fixtureDiscriminatorKey: String,
         executionMetadata: FixtureExecutionMetadata,
-        substitution: Substitution
+        substitution: Substitution,
+        data: JSONObjectValue
     ): FixtureExecutionDetails
 }

@@ -36,7 +36,6 @@ import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_PARALLELISM
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_TEST_TIMEOUT
 import io.specmatic.core.utilities.Flags.Companion.TEST_LENIENT_MODE
 import io.specmatic.core.utilities.Flags.Companion.TEST_STRICT_MODE
-import io.specmatic.core.utilities.Flags.Companion.VALIDATE_RESPONSE_VALUE
 import io.specmatic.core.utilities.Flags.Companion.getBooleanValue
 import io.specmatic.core.utilities.Flags.Companion.getIntValue
 import io.specmatic.core.utilities.Flags.Companion.getLongValue
@@ -45,7 +44,6 @@ import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfSpecConfig
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.isSameBaseIgnoringHost
 import io.specmatic.test.TestResultRecord.Companion.CONTRACT_TEST_TEST_TYPE
 import java.io.File
 import java.net.URI
@@ -143,6 +141,13 @@ data class StubConfiguration(
     private val https: HttpsConfiguration? = null,
     private val lenientMode: Boolean? = null
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): StubConfiguration {
+        return copy(
+            https = https?.mapPaths(mapper.child("https"), configDirectory),
+            dictionary = dictionary?.let { mapper.child("dictionary").map(it, configDirectory) },
+        )
+    }
+
     fun getLenientMode(): Boolean? {
         return lenientMode
     }
@@ -205,6 +210,16 @@ data class VirtualServiceConfiguration(
     private val logMode: VSLogMode? = null,
     private val nonPatchableKeys: Set<String> = emptySet()
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): VirtualServiceConfiguration {
+        return copy(
+            logsDirPath = logsDirPath?.let { mapper.child("logsDirPath").map(it, configDirectory) },
+            specsDirPath = specsDirPath?.let { mapper.child("specsDirPath").map(it, configDirectory) },
+            specs = specs?.mapIndexed { index, path ->
+                mapper.child("specs").child(index).map(path, configDirectory)
+            },
+        )
+    }
+
 
     enum class VSLogMode {
         ALL,
@@ -664,9 +679,7 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun stubBaseUrlPathAssociatedTo(url: String, defaultBaseUrl: String): String {
         val parsedUrl = URI(url)
-        return stubBaseUrls(defaultBaseUrl).map(::URI).firstOrNull { stubBaseUrl ->
-            isSameBaseIgnoringHost(parsedUrl, stubBaseUrl)
-        }?.path.orEmpty()
+        return this.mostSpecificMatchingBaseUrl(parsedUrl, stubBaseUrls(defaultBaseUrl).map(::URI))?.path.orEmpty()
     }
 
     @JsonIgnore
@@ -772,11 +785,6 @@ data class SpecmaticConfigV1V2Common(
     @JsonIgnore
     override fun isOnlyPositiveTestingEnabled(): Boolean {
         return (getResiliencyTestsEnabled() == ResiliencyTestSuite.positiveOnly)
-    }
-
-    @JsonIgnore
-    override fun isResponseValueValidationEnabled(): Boolean {
-        return test?.validateResponseValues ?: getBooleanValue(VALIDATE_RESPONSE_VALUE)
     }
 
     @JsonIgnore
@@ -1454,7 +1462,6 @@ data class SpecmaticConfigV1V2Common(
 
 data class TestConfiguration(
     val resiliencyTests: ResiliencyTestsConfig? = null,
-    val validateResponseValues: Boolean? = null,
     val allowExtensibleSchema: Boolean? = null,
     val timeoutInMilliseconds: Long? = null,
     val strictMode: Boolean? = null,
@@ -1473,7 +1480,16 @@ data class TestConfiguration(
     val overlayFilePath: String? = null,
     val junitReportDir: String? = null,
     val https: HttpsConfiguration? = null,
-)
+) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): TestConfiguration {
+        return copy(
+            https = https?.mapPaths(mapper.child("https"), configDirectory),
+            testsDirectory = testsDirectory?.let { mapper.child("testsDirectory").map(it, configDirectory) },
+            junitReportDir = junitReportDir?.let { mapper.child("junitReportDir").map(it, configDirectory) },
+            overlayFilePath = overlayFilePath?.let { mapper.child("overlayFilePath").map(it, configDirectory) },
+        )
+    }
+}
 
 enum class ResiliencyTestSuite {
     all, positiveOnly, none
@@ -1509,7 +1525,11 @@ data class Auth(
     @param:JsonProperty("bearer-file") val bearerFile: String = "bearer.txt",
     @param:JsonProperty("bearer-environment-variable") val bearerEnvironmentVariable: String? = null,
     @param:JsonProperty("personal-access-token") @JsonAlias("personalAccessToken") val personalAccessToken: String? = null
-)
+) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): Auth {
+        return copy(bearerFile = mapper.child("bearerFile").map(bearerFile, configDirectory))
+    }
+}
 
 enum class PipelineProvider { azure }
 

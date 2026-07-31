@@ -51,7 +51,6 @@ class SpecmaticConfigV3UpgradeTest {
                     test:
                       resiliencyTests:
                         enable: positiveOnly
-                      validateResponseValues: false
                       allowExtensibleSchema: true
                       timeoutInMilliseconds: 4321
                       strictMode: false
@@ -67,7 +66,6 @@ class SpecmaticConfigV3UpgradeTest {
                       settings:
                         test:
                           schemaResiliencyTests: positiveOnly
-                          validateResponseValues: false
                           timeoutInMilliseconds: 4321
                           strictMode: false
                           lenientMode: true
@@ -84,7 +82,6 @@ class SpecmaticConfigV3UpgradeTest {
                     test:
                       resiliencyTests:
                         enable: all
-                      validateResponseValues: true
                       timeoutInMilliseconds: 1234
                       strictMode: true
                       lenientMode: true
@@ -99,7 +96,6 @@ class SpecmaticConfigV3UpgradeTest {
                       settings:
                         test:
                           schemaResiliencyTests: all
-                          validateResponseValues: true
                           timeoutInMilliseconds: 1234
                           strictMode: true
                           lenientMode: true

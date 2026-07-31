@@ -81,6 +81,21 @@ internal class MultiPartContentPatternTest {
         }
 
         @Test
+        fun `exact source path matches a generated value that retains the source path`(@TempDir tempDir: File) {
+            val source = tempDir.resolve("fixtures/data.txt").apply {
+                parentFile.mkdirs()
+                writeText("hello")
+            }
+            val pattern = MultiPartContentPattern(
+                name = "data",
+                content = BinaryPattern(),
+                filename = FilenamePattern.Match(ExactValuePattern(StringValue(source.absolutePath))),
+            )
+
+            assertThat(pattern.matches(pattern.generate(resolver), resolver).isSuccess()).isTrue()
+        }
+
+        @Test
         fun `filename mismatch has a filename breadcrumb`() {
             val pattern = pattern(
                 filename = FilenamePattern.Match(ExactValuePattern(StringValue("data.txt"))),

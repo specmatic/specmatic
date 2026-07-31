@@ -1016,8 +1016,9 @@ class YamlToPatternTests {
 
         @JvmStatic
         fun allOfScenarios(): Stream<Arguments> {
-            return listOf(
-                multiVersionCase("allOf merge objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
+            return (
+                listOf(
+                    multiVersionCase("allOf merge objects", OpenApiVersion.OAS30, OpenApiVersion.OAS31) {
                     schema {
                         put("allOf", listOf(
                             mapOf(
@@ -1059,6 +1060,31 @@ class YamlToPatternTests {
                         assertFailure(pattern.match(mapOf("name" to "Alice")))
                     }
                 },
+                ) + listOf(false, true).flatMap { memberRequired ->
+                    listOf(false, true).map { mainRequired ->
+                        multiVersionCase(
+                            "allOf main schema ${if (mainRequired) "required" else "optional"} property overrides ${if (memberRequired) "required" else "optional"} member property",
+                            OpenApiVersion.OAS30,
+                            OpenApiVersion.OAS31,
+                        ) {
+                            schema {
+                                put("type", "object")
+                                put("allOf", listOf(buildMap {
+                                    put("type", "object")
+                                    put("properties", mapOf("common" to mapOf("type" to "string")))
+                                    if (memberRequired) put("required", listOf("common"))
+                                }))
+                                put("properties", mapOf("common" to mapOf("type" to "string")))
+                                if (mainRequired) put("required", listOf("common"))
+                            }
+                            validate { pattern ->
+                                val objectPattern = pattern as JSONObjectPattern
+                                val key = if (mainRequired) "common" else "common?"
+                                assertThat(objectPattern.pattern).containsOnlyKeys(key)
+                            }
+                        }
+                    }
+                }
             ).flatten().stream()
         }
 

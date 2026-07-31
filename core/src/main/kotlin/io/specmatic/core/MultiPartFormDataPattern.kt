@@ -202,8 +202,10 @@ data class MultiPartContentPattern(
                     breadCrumb = "filename",
                     ruleViolation = StandardRuleViolation.VALUE_MISMATCH,
                 )
-                else -> resolver.matchesPattern(filenamePatternForMatching(filename.pattern), StringValue(actual))
-                    .breadCrumb("filename")
+                else -> resolver.matchesPattern(
+                    filenamePatternForMatching(filename.pattern),
+                    StringValue(filenameValueForMatching(filename.pattern, actual)),
+                ).breadCrumb("filename")
             }
         }
 
@@ -212,6 +214,12 @@ data class MultiPartContentPattern(
         val filename = (exactFilename.pattern as? StringValue)?.string ?: return pattern
         return ExactValuePattern(StringValue(File(filename).name))
     }
+
+    private fun filenameValueForMatching(pattern: Pattern, filename: String): String =
+        when (pattern) {
+            is ExactValuePattern -> File(filename).name
+            else -> filename
+        }
 
     private fun fileReferencedByFilename(): File? {
         if (content !is BinaryPattern) return null

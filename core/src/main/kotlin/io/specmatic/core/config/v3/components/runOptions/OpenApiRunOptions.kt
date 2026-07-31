@@ -7,12 +7,18 @@ import io.specmatic.core.WorkflowConfiguration
 import io.specmatic.core.config.HttpsConfiguration
 import io.specmatic.core.config.v3.RefOrValue
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.v3.mapValue
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 
 interface ConfigWithCert { val cert: RefOrValue<HttpsConfiguration>? }
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes(JsonSubTypes.Type(OpenApiTestConfig::class, name = "test"), JsonSubTypes.Type(OpenApiMockConfig::class, name = "mock"), JsonSubTypes.Type(OpenApiMockConfig::class, name = "stateful-mock"))
-sealed interface OpenApiRunOptions : IRunOptions { val type: RunOptionType? }
+sealed interface OpenApiRunOptions : IRunOptions {
+    val type: RunOptionType?
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): OpenApiRunOptions
+}
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 data class OpenApiTestConfig(
@@ -29,6 +35,13 @@ data class OpenApiTestConfig(
     override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions, ConfigWithCert {
     override val config: Map<String, Any> = emptyMap()
+
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): OpenApiTestConfig = copy(
+        cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },
+        specs = specs?.mapIndexed { index, spec ->
+            spec.mapPaths(mapper = mapper.child("specs").child(index), baseDirectory = configDirectory)
+        }
+    )
 
     @JsonIgnore
     override fun gerServerOrigin(): ServerOrigin? {
@@ -57,6 +70,14 @@ data class OpenApiMockConfig(
     override val specs: List<OpenApiRunOptionsSpecifications>? = null
 ) : OpenApiRunOptions, ConfigWithCert {
     override val config: Map<String, Any> = emptyMap()
+
+    override fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): OpenApiMockConfig = copy(
+        cert = cert?.mapValue { it.mapPaths(mapper.child("cert"), configDirectory) },
+        logsDirPath = logsDirPath?.let { mapper.child("logsDirPath").map(it, configDirectory) },
+        specs = specs?.mapIndexed { index, spec ->
+            spec.mapPaths(mapper = mapper.child("specs").child(index), baseDirectory = configDirectory)
+        }
+    )
 
     @JsonIgnore
     override fun gerServerOrigin(): ServerOrigin? {

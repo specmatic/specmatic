@@ -1211,7 +1211,6 @@ data class XMLPattern(
                 choice.map { it.withoutXMLOccurrenceMarkers() }
             })
             is ListPattern -> copy(pattern = pattern.withoutXMLOccurrenceMarkers())
-            is RestPattern -> copy(pattern = pattern.withoutXMLOccurrenceMarkers())
             is AnyPattern -> copy(pattern = pattern.map { it.withoutXMLOccurrenceMarkers() })
             else -> this
         }
@@ -1592,7 +1591,7 @@ data class XMLPattern(
         }
 
     override val memberList: MemberList
-        get() = MemberList(pattern.nodes, null)
+        get() = MemberList(pattern.nodes)
 
     override val typeName: String = "xml"
 

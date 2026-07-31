@@ -55,7 +55,6 @@ security:
 test:
   resiliencyTests:
     enable: all
-  validateResponseValues: true
   allowExtensibleSchema: true
   timeoutInMilliseconds: 3000
 
