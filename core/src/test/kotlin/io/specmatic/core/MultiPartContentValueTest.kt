@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.nio.file.Files
 
 internal class MultiPartContentValueTest {
     @Nested
@@ -171,22 +172,29 @@ internal class MultiPartContentValueTest {
         }
 
         @Test
-        fun `nested relative path survives repeated loading`(@TempDir tempDir: File) {
-            val source = tempDir.resolve("fixtures/data.bin").apply {
-                parentFile.mkdirs()
-                writeBytes(byteArrayOf(0, -1, 10, 13))
+        fun `nested relative path survives repeated loading`() {
+            val workingDirectory = File(".").canonicalFile
+            val tempDirectory = Files.createTempDirectory(workingDirectory.toPath(), "multipart-content-").toFile()
+
+            try {
+                val source = tempDirectory.resolve("fixtures/data.bin").apply {
+                    parentFile.mkdirs()
+                    writeBytes(byteArrayOf(0, -1, 10, 13))
+                }
+                val relativePath = source.canonicalFile.relativeTo(workingDirectory).path
+                val value = MultiPartContentValue(
+                    name = "data",
+                    content = BinaryValue(),
+                    filename = relativePath,
+                )
+
+                val loadedTwice = value.loadExternalFileContent().loadExternalFileContent()
+
+                assertThat(loadedTwice.filename).isEqualTo(relativePath)
+                assertThat(loadedTwice.content).isEqualTo(BinaryValue(byteArrayOf(0, -1, 10, 13)))
+            } finally {
+                tempDirectory.deleteRecursively()
             }
-            val relativePath = source.canonicalFile.relativeTo(File(".").canonicalFile).path
-            val value = MultiPartContentValue(
-                name = "data",
-                content = BinaryValue(),
-                filename = relativePath,
-            )
-
-            val loadedTwice = value.loadExternalFileContent().loadExternalFileContent()
-
-            assertThat(loadedTwice.filename).isEqualTo(relativePath)
-            assertThat(loadedTwice.content).isEqualTo(BinaryValue(byteArrayOf(0, -1, 10, 13)))
         }
 
         @Test

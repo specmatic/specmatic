@@ -37,13 +37,11 @@ internal class MultipartContractTestGenerationTest {
         fun `content example generates exact content without a filename`(@TempDir tempDir: File) {
             val loadedFeature = featureWithExternalExample(
                 tempDir = tempDir,
-                examplePart = """
-                    {
-                      "name": "data",
-                      "content": "hello",
-                      "contentType": "text/plain"
-                    }
-                """.trimIndent(),
+                examplePart = MultiPartContentValue(
+                    name = "data",
+                    content = StringValue("hello"),
+                    specifiedContentType = "text/plain",
+                ),
             )
 
             val part = generatedRequest(loadedFeature).multiPartFormData.single()
@@ -62,13 +60,12 @@ internal class MultipartContractTestGenerationTest {
             val loadedFeature = featureWithExternalExample(
                 tempDir = tempDir,
                 format = "binary",
-                examplePart = """
-                    {
-                      "name": "data",
-                      "filename": "@${source.absolutePath}",
-                      "contentType": "application/octet-stream"
-                    }
-                """.trimIndent(),
+                examplePart = MultiPartContentValue(
+                    name = "data",
+                    content = BinaryValue(),
+                    specifiedContentType = "application/octet-stream",
+                    filename = source.absolutePath,
+                ),
             )
 
             val part = generatedRequest(loadedFeature).multiPartFormData.single()
@@ -83,13 +80,12 @@ internal class MultipartContractTestGenerationTest {
             val loadedFeature = featureWithExternalExample(
                 tempDir = tempDir,
                 format = "binary",
-                examplePart = """
-                    {
-                      "name": "data",
-                      "filename": "@(string)",
-                      "contentType": "application/octet-stream"
-                    }
-                """.trimIndent(),
+                examplePart = MultiPartContentValue(
+                    name = "data",
+                    content = BinaryValue(),
+                    specifiedContentType = "application/octet-stream",
+                    filename = "(string)",
+                ),
             )
 
             val part = generatedRequest(loadedFeature).multiPartFormData.single()
@@ -120,7 +116,7 @@ internal class MultipartContractTestGenerationTest {
 
     private fun featureWithExternalExample(
         tempDir: File,
-        examplePart: String,
+        examplePart: MultiPartContentValue,
         format: String? = null,
     ): Feature {
         val specification = tempDir.resolve("api.yaml").apply {
@@ -128,13 +124,14 @@ internal class MultipartContractTestGenerationTest {
         }
         tempDir.resolve("api_examples").apply {
             mkdirs()
+            val serializedPart = examplePart.toJSONObject().toStringLiteral()
             resolve("example.json").writeText(
                 """
                 {
                   "http-request": {
                     "method": "POST",
                     "path": "/data",
-                    "multipart-formdata": [$examplePart]
+                    "multipart-formdata": [$serializedPart]
                   },
                   "http-response": {
                     "status": 200
