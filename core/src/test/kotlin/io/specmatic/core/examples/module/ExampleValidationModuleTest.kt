@@ -71,7 +71,7 @@ class ExampleValidationModuleTest {
             )
         )
 
-        val result = exampleValidationModule.validateExample(Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP), example)
+        val result = exampleValidationModule.validateExampleReturningResults(Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP), example)
         assertThat(result.toResultIfAny()).isInstanceOf(Result.Success::class.java)
     }
 
@@ -108,7 +108,7 @@ class ExampleValidationModuleTest {
             )
         )
 
-        val result = exampleValidationModule.validateExample(Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP), example)
+        val result = exampleValidationModule.validateExampleReturningResults(Feature(listOf(scenario), name= "", protocol = SpecmaticProtocol.HTTP), example)
         assertThat(result.report()).isEqualToNormalizingWhitespace("""
         In scenario ""
         API: POST /add -> 200
@@ -175,7 +175,7 @@ class ExampleValidationModuleTest {
         )
         val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val example = ScenarioStub(request = HttpRequest(method = "GET", path = "/test/abc/name/123"), response = HttpResponse.OK)
-        val result = exampleValidationModule.validateExample(feature, example).toResultIfAny()
+        val result = exampleValidationModule.validateExampleReturningResults(feature, example).toResultIfAny()
 
         assertThat(result).isInstanceOf(Result.Failure::class.java)
         assertThat(result.reportString()).isEqualToNormalizingWhitespace("""
@@ -200,7 +200,7 @@ class ExampleValidationModuleTest {
         )
         val feature = Feature(listOf(scenario), name = "", protocol = SpecmaticProtocol.HTTP)
         val example = ScenarioStub(request = HttpRequest(method = "GET", path = "/test/abc/name/123"), response = HttpResponse(status = 400))
-        val result = exampleValidationModule.validateExample(feature, example)
+        val result = exampleValidationModule.validateExampleReturningResults(feature, example)
 
         assertThat(result.toResultIfAny()).isInstanceOf(Result.Success::class.java)
     }
