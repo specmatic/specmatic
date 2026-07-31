@@ -1,6 +1,5 @@
 package io.specmatic.core.value
 
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
 import io.specmatic.core.value.fold.TextValueCase
@@ -69,12 +68,6 @@ data class StringValue(val string: String = "", private val xml: Boolean) : Valu
     }
 
     override fun type(): Pattern = StringPattern()
-
-    override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType(), newLineStrippedValue())
-
-    override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            primitiveTypeDeclarationWithoutKey(exampleKey, types, exampleDeclarations, displayableType(), newLineStrippedValue())
 
     override val nativeValue: String
         get() = string

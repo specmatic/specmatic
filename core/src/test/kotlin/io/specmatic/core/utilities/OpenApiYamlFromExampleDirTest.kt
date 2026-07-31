@@ -2,6 +2,9 @@ package io.specmatic.core.utilities
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.MultiPartContentValue
+import io.specmatic.core.MultiPartFileValue
+import io.specmatic.core.MultiPartFormDataValue
 import io.specmatic.core.NamedStub
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.QueryParameters
@@ -46,13 +49,14 @@ class OpenApiYamlFromExampleDirTest {
         assertThat(openApi.paths["/empty"]!!.get.responses["204"]!!.content).isNull()
     }
 
-    @Test
-    fun `converges fields across objects in a top level array`() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("topLevelArrayFieldCases")
+    fun `converges optional fields across objects in a top level array`(description: String, body: String) {
         val openApi = openApiFromTraffic(
             "Items",
             listOf(namedStub(
                 "create items",
-                HttpRequest("POST", "/items", body = parsedJSON("""[{"id":1},{"id":2,"enabled":true}]""")),
+                HttpRequest("POST", "/items", body = parsedJSON(body)),
                 HttpResponse.ok("created"),
             )),
         )!!
@@ -65,13 +69,14 @@ class OpenApiYamlFromExampleDirTest {
         assertThat(itemSchema.required).contains("id").doesNotContain("enabled")
     }
 
-    @Test
-    fun `converges an empty nested array with a later object array`() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nestedArrayCases")
+    fun `converges empty and populated nested arrays in either order`(description: String, body: String) {
         val openApi = openApiFromTraffic(
             "Groups",
             listOf(namedStub(
                 "create groups",
-                HttpRequest("POST", "/groups", body = parsedJSON("""[{"members":[]},{"members":[{"id":1}]}]""")),
+                HttpRequest("POST", "/groups", body = parsedJSON(body)),
                 HttpResponse.ok("created"),
             )),
         )!!
@@ -82,6 +87,163 @@ class OpenApiYamlFromExampleDirTest {
         val memberSchema = openApi.components.schemas[membersSchema.items.`$ref`.substringAfterLast('/')]!!
         assertThat(membersSchema.type).isEqualTo("array")
         assertThat(memberSchema.properties.keys).containsExactly("id")
+    }
+
+    @Test
+    fun `keeps repeated nested component names distinct in a request body`() {
+        val openApi = openApiFromTraffic(
+            "Entries",
+            listOf(namedStub(
+                "create entries",
+                HttpRequest(
+                    "POST",
+                    "/data",
+                    body = parsedJSON("""{"entries":[{"name":"James"}],"data":{"entries":[{"id":10}]}}"""),
+                ),
+                HttpResponse.ok(parsedJSON("""{"operationId":10}""")),
+            )),
+        )!!
+
+        val requestSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("RequestBody") }.value
+        val outerEntriesReference = requestSchema.properties["entries"]!!.items.`$ref`
+        val dataSchema = openApi.components.schemas[requestSchema.properties["data"]!!.`$ref`.substringAfterLast('/')]!!
+        val nestedEntriesReference = dataSchema.properties["entries"]!!.items.`$ref`
+        val outerEntriesSchema = openApi.components.schemas[outerEntriesReference.substringAfterLast('/')]!!
+        val nestedEntriesSchema = openApi.components.schemas[nestedEntriesReference.substringAfterLast('/')]!!
+
+        assertThat(outerEntriesReference).isNotEqualTo(nestedEntriesReference)
+        assertThat(outerEntriesSchema.properties.keys).containsExactly("name")
+        assertThat(nestedEntriesSchema.properties.keys).containsExactly("id")
+    }
+
+    @Test
+    fun `keeps repeated nested component names distinct in a response body`() {
+        val openApi = openApiFromTraffic(
+            "Entries",
+            listOf(namedStub(
+                "list entries",
+                HttpRequest("POST", "/data"),
+                HttpResponse.ok(parsedJSON("""{"entries":[{"name":"James"}],"data":{"entries":[{"id":10}]}}""")),
+            )),
+        )!!
+
+        val responseSchema = openApi.components.schemas.entries.single { (name, _) -> name.contains("ResponseBody") }.value
+        val outerEntriesReference = responseSchema.properties["entries"]!!.items.`$ref`
+        val dataSchema = openApi.components.schemas[responseSchema.properties["data"]!!.`$ref`.substringAfterLast('/')]!!
+        val nestedEntriesReference = dataSchema.properties["entries"]!!.items.`$ref`
+        val outerEntriesSchema = openApi.components.schemas[outerEntriesReference.substringAfterLast('/')]!!
+        val nestedEntriesSchema = openApi.components.schemas[nestedEntriesReference.substringAfterLast('/')]!!
+
+        assertThat(outerEntriesReference).isNotEqualTo(nestedEntriesReference)
+        assertThat(outerEntriesSchema.properties.keys).containsExactly("name")
+        assertThat(nestedEntriesSchema.properties.keys).containsExactly("id")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nullableObjectPropertyCases")
+    fun `converges null and concrete object properties in recorded order`(
+        description: String,
+        body: String,
+        expectedOptional: Boolean,
+    ) {
+        val openApi = openApiFromTraffic(
+            "Nullable",
+            listOf(namedStub(
+                "nullable objects",
+                HttpRequest("POST", "/nullable", body = parsedJSON(body)),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val requestSchema = openApi.paths["/nullable"]!!.post.requestBody.content["application/json"]!!.schema
+        val itemSchema = openApi.components.schemas[requestSchema.items.`$ref`.substringAfterLast('/')]!!
+        val nameSchema = itemSchema.properties["name"]!!
+
+        assertThat(nameSchema.type).isEqualTo("string")
+        assertThat(nameSchema.nullable).isTrue()
+        assertThat(itemSchema.required?.contains("name") == true).isEqualTo(!expectedOptional)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("incompatibleArrayElementCases")
+    fun `uses the first array element type when element shapes are incompatible`(
+        description: String,
+        body: String,
+        expectedType: String,
+    ) {
+        val openApi = openApiFromTraffic(
+            "Incompatible elements",
+            listOf(namedStub(
+                "incompatible elements",
+                HttpRequest("POST", "/values", body = parsedJSON(body)),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val requestSchema = openApi.paths["/values"]!!.post.requestBody.content["application/json"]!!.schema
+        assertThat(requestSchema.items.type).isEqualTo(expectedType)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("incompatibleArrayPropertyCases")
+    fun `uses the first property shape when array object properties are incompatible`(
+        description: String,
+        body: String,
+        expectedType: String,
+    ) {
+        val openApi = openApiFromTraffic(
+            "Incompatible properties",
+            listOf(namedStub(
+                "incompatible properties",
+                HttpRequest("POST", "/values", body = parsedJSON(body)),
+                HttpResponse.ok("done"),
+            )),
+        )!!
+
+        val requestSchema = openApi.paths["/values"]!!.post.requestBody.content["application/json"]!!.schema
+        val itemSchema = openApi.components.schemas[requestSchema.items.`$ref`.substringAfterLast('/')]!!
+        assertThat(itemSchema.properties["value"]!!.type).isEqualTo(expectedType)
+    }
+
+    @Test
+    fun `removes the query suffix from the operation summary and response description`() {
+        val openApi = openApiFromTraffic(
+            "Query suffix",
+            listOf(namedStub(
+                "http://localhost?a=b",
+                HttpRequest("GET", "/data", queryParametersMap = mapOf("id" to "10")),
+                HttpResponse.OK,
+            )),
+        )!!
+
+        val operation = openApi.paths["/data"]!!.get
+        val queryParameter = operation.parameters.single { it.`in` == "query" && it.name == "id" }
+
+        assertThat(operation.summary).isEqualTo("http://localhost")
+        assertThat(operation.responses["200"]!!.description).isEqualTo("http://localhost")
+        assertThat(queryParameter.schema.type).isEqualTo("integer")
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("multipartCases")
+    fun `currently rejects multipart traffic when generating OpenAPI`(
+        description: String,
+        multiPartFormDataValue: MultiPartFormDataValue,
+    ) {
+        val request = HttpRequest(
+            method = "POST",
+            path = "/customer",
+            multiPartFormData = listOf(multiPartFormDataValue),
+        )
+
+        val exception = assertThrows(NotImplementedError::class.java) {
+            openApiFromTraffic(
+                "Multipart",
+                listOf(namedStub("multipart", request, HttpResponse.ok("done"))),
+            )
+        }
+
+        assertThat(exception.message).isEqualTo("multipart form data not yet supported")
     }
 
     @Test
@@ -575,6 +737,86 @@ class OpenApiYamlFromExampleDirTest {
     }
 
     companion object {
+        @JvmStatic
+        private fun topLevelArrayFieldCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                "field is present in the second object",
+                """[{"id":1},{"id":2,"enabled":true}]""",
+            ),
+            Arguments.of(
+                "field is present in the first object",
+                """[{"id":1,"enabled":true},{"id":2}]""",
+            ),
+        )
+
+        @JvmStatic
+        private fun nestedArrayCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                "empty array is observed first",
+                """[{"members":[]},{"members":[{"id":1}]}]""",
+            ),
+            Arguments.of(
+                "populated array is observed first",
+                """[{"members":[{"id":1}]},{"members":[]}]""",
+            ),
+        )
+
+        @JvmStatic
+        private fun nullableObjectPropertyCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                "concrete string followed by null",
+                """[{"name":"John Doe"},{"name":null}]""",
+                false,
+            ),
+            Arguments.of(
+                "null followed by concrete string",
+                """[{"name":null},{"name":"John Doe"}]""",
+                false,
+            ),
+            Arguments.of(
+                "null followed by concrete string followed by null",
+                """[{"name":null},{"name":"John Doe"},{"name":null}]""",
+                false,
+            ),
+            Arguments.of(
+                "missing field followed by null and concrete string",
+                """[{},{"name":null},{"name":"John Doe"}]""",
+                true,
+            ),
+        )
+
+        @JvmStatic
+        private fun incompatibleArrayElementCases(): Stream<Arguments> = Stream.of(
+            Arguments.of("string is observed before integer", """["one",2]""", "string"),
+            Arguments.of("integer is observed before string", """[2,"one"]""", "integer"),
+        )
+
+        @JvmStatic
+        private fun incompatibleArrayPropertyCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                "empty array property is observed before integer property",
+                """[{"value":[]},{"value":2}]""",
+                "array",
+            ),
+            Arguments.of(
+                "integer property is observed before empty array property",
+                """[{"value":2},{"value":[]}]""",
+                "integer",
+            ),
+        )
+
+        @JvmStatic
+        private fun multipartCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                "multipart content",
+                MultiPartContentValue("name", StringValue("John Doe")),
+            ),
+            Arguments.of(
+                "multipart file",
+                MultiPartFileValue("customer_csv", "customer.csv", "text/csv", "identity"),
+            ),
+        )
+
         @JvmStatic
         private fun scalarBodyCases(): Stream<Arguments> = Stream.of(
             Arguments.of(StringValue("hello"), "string"),

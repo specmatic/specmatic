@@ -31,22 +31,6 @@ object NoBodyValue : Value {
         return NoBodyPattern
     }
 
-    override fun typeDeclarationWithoutKey(
-        exampleKey: String,
-        types: Map<String, Pattern>,
-        exampleDeclarations: ExampleDeclarations
-    ): Pair<TypeDeclaration, ExampleDeclarations> {
-        return TypeDeclaration("No body", types) to exampleDeclarations
-    }
-
-    override fun typeDeclarationWithKey(
-        key: String,
-        types: Map<String, Pattern>,
-        exampleDeclarations: ExampleDeclarations
-    ): Pair<TypeDeclaration, ExampleDeclarations> {
-        return TypeDeclaration("No body", types) to exampleDeclarations
-    }
-
     override fun listOf(valueList: List<Value>): Value {
         return JSONArrayValue(valueList)
     }

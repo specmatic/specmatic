@@ -1,6 +1,5 @@
 package io.specmatic.core.value
 
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.Pattern
@@ -33,26 +32,6 @@ data class BinaryValue(val byteArray: ByteArray = ByteArray(0)) : Value, ScalarV
     override fun specificity(): Int = 1
 
     override fun type(): Pattern = StringPattern()
-
-    override fun typeDeclarationWithKey(
-        key: String,
-        types: Map<String, Pattern>,
-        exampleDeclarations: ExampleDeclarations
-    ): Pair<TypeDeclaration, ExampleDeclarations> =
-        primitiveTypeDeclarationWithKey(key, types, exampleDeclarations, displayableType(), byteArray.contentToString())
-
-    override fun typeDeclarationWithoutKey(
-        exampleKey: String,
-        types: Map<String, Pattern>,
-        exampleDeclarations: ExampleDeclarations
-    ): Pair<TypeDeclaration, ExampleDeclarations> =
-        primitiveTypeDeclarationWithoutKey(
-            exampleKey,
-            types,
-            exampleDeclarations,
-            displayableType(),
-            byteArray.contentToString()
-        )
 
     override val nativeValue: ByteArray
         get() = byteArray

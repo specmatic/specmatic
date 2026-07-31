@@ -1,6 +1,5 @@
 package io.specmatic.core.value
 
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
@@ -70,26 +69,9 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
 
     override fun toString() = valueMapToPrettyJsonString(jsonObject)
 
-    override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> {
-        val (jsonTypeMap, newTypes, newExamples) = dictionaryToDeclarations(jsonObject, types, exampleDeclarations)
-
-        val newType = toTabularPattern(jsonTypeMap.mapValues {
-            DeferredPattern(it.value.pattern)
-        })
-
-        val newTypeName = exampleDeclarations.getNewName(key.capitalizeFirstChar(), newTypes.keys)
-
-        val typeDeclaration = TypeDeclaration("($newTypeName)", newTypes.plus(newTypeName to newType))
-
-        return Pair(typeDeclaration, newExamples)
-    }
-
     override fun listOf(valueList: List<Value>): Value {
         return JSONArrayValue(valueList)
     }
-
-    override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            typeDeclarationWithKey(exampleKey, types, exampleDeclarations)
 
     fun getString(key: String): String {
         return (jsonObject.getValue(key) as StringValue).string
@@ -159,16 +141,4 @@ data class JSONObjectValue(val jsonObject: Map<String, Value> = emptyMap()) : Va
             jsonObject = jsonObject.mapValues { it.value.replace(oldString, newString) }
         )
     }
-}
-
-internal fun dictionaryToDeclarations(jsonObject: Map<String, Value>, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Triple<Map<String, DeferredPattern>, Map<String, Pattern>, ExampleDeclarations> {
-    return jsonObject
-            .entries
-            .fold(Triple(emptyMap(), types, exampleDeclarations)) { acc, entry ->
-                val (jsonTypeMap, accTypes, accExamples) = acc
-                val (key, value) = entry
-
-                val (newTypes, newExamples) = value.typeDeclarationWithKey(key, accTypes, accExamples)
-                Triple(jsonTypeMap.plus(key to DeferredPattern(newTypes.typeValue)), newTypes.types, newExamples)
-            }
 }

@@ -1,7 +1,6 @@
 package io.specmatic.core
 
 import io.specmatic.conversions.guessType
-import io.specmatic.core.GherkinSection.When
 import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.URIUtils.parseQuery
 import io.specmatic.core.value.*
@@ -599,48 +598,6 @@ private fun parsePartType(multiPartSpec: Map<String, Value>, name: String): Mult
 internal fun startLinesWith(str: String, startValue: String) =
     str.split("\n").joinToString("\n") { "$startValue$it" }
 
-fun toGherkinClauses(request: HttpRequest): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-    return Triple(
-        emptyList<GherkinClause>(),
-        emptyMap<String, Pattern>(),
-        UseExampleDeclarations()
-    ).let { (clauses, types, exampleDeclaration) ->
-        val (newClauses, newTypes, newExamples) = firstLineToGherkin(request, types, exampleDeclaration)
-        Triple(clauses.plus(newClauses), newTypes, newExamples)
-    }.let { (clauses, types, examples) ->
-        val (contentTypeEntry, restHeaders) = partitionOnContentType(request.headers)
-        val contentTypHeaderClause = contentTypeEntry?.let { (key, value) ->
-            val contentType = value.split(";").firstOrNull()
-
-            if (contentType == null) {
-                if (value.isBlank()) {
-                    logger.log("WARNING: Content-Type header for ${request.method} ${request.path} is blank")
-                } else {
-                    logger.log("WARNING: Could not parse content type from header value '$value'")
-                }
-
-                return@let null
-            }
-
-            listOf(GherkinClause("request-header $key $contentType", When))
-        }.orEmpty()
-
-        val (newClauses, newTypes, newExamples) = headersToGherkin(
-            restHeaders,
-            "request-header",
-            types,
-            examples,
-            When
-        )
-        Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, newExamples)
-    }.let { (clauses, types, examples) ->
-        val (newClauses, newTypes, newExamples) = bodyToGherkin(request, types, examples)
-        Triple(clauses.plus(newClauses), newTypes, newExamples)
-    }.let { (clauses, types, examples) ->
-        Triple(clauses, types, examples)
-    }
-}
-
 fun stringMapToValueMap(stringStringMap: Map<String, String>) =
     stringStringMap.mapValues { guessType(parsedValue(it.value)) }
 
@@ -649,89 +606,6 @@ fun stringMapToScalarMap(stringStringMap: Map<String, String>) =
 
 fun queryParamsToScalarMap(queryParams: QueryParameters) =
     queryParams.paramPairs.associate { (key, value) -> key to parsedScalarValue(value) }
-
-fun bodyToGherkin(
-    request: HttpRequest,
-    types: Map<String, Pattern>,
-    exampleDeclarations: ExampleDeclarations
-): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-    return when {
-        request.multiPartFormData.isNotEmpty() -> multiPartFormDataToGherkin(
-            request.multiPartFormData,
-            types,
-            exampleDeclarations
-        )
-
-        request.formFields.isNotEmpty() -> formFieldsToGherkin(request.formFields, types, exampleDeclarations)
-        else -> requestBodyToGherkinClauses(request.body, types, exampleDeclarations)
-    }
-}
-
-fun multiPartFormDataToGherkin(
-    multiPartFormData: List<MultiPartFormDataValue>,
-    types: Map<String, Pattern>,
-    exampleDeclarations: ExampleDeclarations
-): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-    return multiPartFormData.fold(
-        Triple(
-            emptyList(),
-            types,
-            exampleDeclarations
-        )
-    ) { (clauses, newTypes, examples), part ->
-        part.toClauseData(clauses, newTypes, examples)
-    }
-}
-
-fun firstLineToGherkin(
-    request: HttpRequest,
-    types: Map<String, Pattern>,
-    exampleDeclarationsStore: ExampleDeclarations
-): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-    val method = request.method ?: throw ContractException("Can't generate a spec file without the http method.")
-
-    if (request.path == null)
-        throw ContractException("Can't generate a contract without the url.")
-
-    val (query, newTypes, newExamples) = when {
-        request.queryParams.isNotEmpty() -> {
-            val (dictionaryType, newTypes, examples) = dictionaryToDeclarations(
-                queryParamsToScalarMap(request.queryParams),
-                types,
-                exampleDeclarationsStore
-            )
-
-            val query =
-                dictionaryType.entries.joinToString("&") { (key, typeDeclaration) -> "$key=${typeDeclaration.pattern}" }
-            Triple("?$query", newTypes, examples)
-        }
-
-        else -> Triple("", emptyMap(), exampleDeclarationsStore)
-    }
-
-    val path = "${escapeSpaceInPath(request.path)}$query"
-
-    val requestLineGherkin = GherkinClause("$method $path", When)
-
-    return Triple(listOf(requestLineGherkin), newTypes, newExamples)
-}
-
-fun formFieldsToGherkin(
-    formFields: Map<String, String>,
-    types: Map<String, Pattern>,
-    exampleDeclarations: ExampleDeclarations
-): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-    val (dictionaryTypeMap, newTypes, newExamples) = dictionaryToDeclarations(
-        stringMapToValueMap(formFields),
-        types,
-        exampleDeclarations
-    )
-
-    val formFieldClauses =
-        dictionaryTypeMap.entries.map { entry -> GherkinClause("form-field ${entry.key} ${entry.value.pattern}", When) }
-
-    return Triple(formFieldClauses, newTypes, exampleDeclarations.plus(newExamples))
-}
 
 fun listOfExcludedHeaders(): List<String> = HttpHeaders.UnsafeHeadersList.plus(
     arrayOf(

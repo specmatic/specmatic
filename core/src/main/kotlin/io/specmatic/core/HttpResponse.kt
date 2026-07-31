@@ -2,10 +2,7 @@ package io.specmatic.core
 
 import io.ktor.http.*
 import io.specmatic.conversions.guessType
-import io.specmatic.core.GherkinSection.Then
 import io.specmatic.core.log.logger
-import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.utilities.isXML
@@ -225,62 +222,6 @@ data class HttpResponse(
         val updatedContentLengthHeader = replaceHeaderIfExists(updatedHeaders, HttpHeaders.ContentLength, contentLength.toString())
 
         return this.copy(headers = updatedContentLengthHeader, body = updatedBody)
-    }
-}
-
-fun toGherkinClauses(
-    response: HttpResponse,
-    types: Map<String, Pattern> = emptyMap()
-): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-    return try {
-        return Triple(
-            emptyList<GherkinClause>(),
-            types,
-            DiscardExampleDeclarations()
-        ).let { (clauses, types, examples) ->
-            val status = when {
-                response.status > 0 -> response.status
-                else -> throw ContractException("Can't generate a contract without a response status")
-            }
-            Triple(clauses.plus(GherkinClause("status $status", Then)), types, examples)
-        }.let { (clauses, types, _) ->
-            val (contentTypeEntry, restHeaders) = partitionOnContentType(response.headers)
-            val contentTypHeaderClause = contentTypeEntry?.let { (key, value) ->
-                val contentType = value.split(";").firstOrNull()
-
-                if (contentType == null) {
-                    if (value.isBlank()) {
-                        logger.log("WARNING: Content-Type header for ${response.status} response is blank")
-                    } else {
-                        logger.log("WARNING: Could not parse content type from header value '$value'")
-                    }
-
-                    return@let null
-                }
-
-                listOf(GherkinClause("response-header $key $contentType", Then))
-            }.orEmpty()
-
-            val (newClauses, newTypes, _) = headersToGherkin(
-                restHeaders,
-                "response-header",
-                types,
-                DiscardExampleDeclarations(),
-                Then
-            )
-            Triple(clauses.plus(newClauses).plus(contentTypHeaderClause), newTypes, DiscardExampleDeclarations())
-        }.let { (clauses, types, examples) ->
-            val adjustedResponsePayload = adjustPayloadForContentType(response.body, response.headers)
-            when (val result = responseBodyToGherkinClauses("ResponseBody", adjustedResponsePayload, types)) {
-                null -> Triple(clauses, types, examples)
-                else -> {
-                    val (newClauses, newTypes, _) = result
-                    Triple(clauses.plus(newClauses), newTypes, DiscardExampleDeclarations())
-                }
-            }
-        }
-    } catch (e: NotImplementedError) {
-        Triple(emptyList(), types, DiscardExampleDeclarations())
     }
 }
 

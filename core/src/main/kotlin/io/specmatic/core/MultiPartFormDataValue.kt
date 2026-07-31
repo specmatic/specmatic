@@ -5,9 +5,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.utils.io.streams.asInput
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.ExactValuePattern
-import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.value.BinaryValue
@@ -127,40 +125,6 @@ $displayedContent
         return copy(content = loadedContent)
     }
 
-    fun toClauseData(
-        clauses: List<GherkinClause>,
-        newTypes: Map<String, Pattern>,
-        examples: ExampleDeclarations,
-    ): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-        if (filename == null) {
-            val (typeDeclaration, newExamples) = content.typeDeclarationWithKey(name, newTypes, examples)
-            val clause = GherkinClause("request-part $name ${typeDeclaration.typeValue}", GherkinSection.When)
-            return Triple(clauses.plus(clause), typeDeclaration.types, examples.plus(newExamples))
-        }
-
-        val filenameValue = filename
-        val encoding = contentType?.let { contentEncoding }.orEmpty()
-        val mediaType = contentType.orEmpty()
-        val (newFilename, newExamples) = when {
-            !isPatternToken(filenameValue) -> {
-                val filenameExampleName = examples.getNewName("${name}_filename", newTypes.keys)
-                Pair("(string)", examples.plus(filenameExampleName to filenameValue))
-            }
-            filenameValue.trim() != "(string)" -> throw ContractException("Only (string) is supported as a type", name)
-            else -> Pair(filenameValue, examples)
-        }
-
-        return Triple(
-            clauses.plus(
-                GherkinClause(
-                    "request-part $name @$newFilename $mediaType $encoding".trim(),
-                    GherkinSection.When,
-                )
-            ),
-            newTypes,
-            newExamples,
-        )
-    }
 }
 
 data class MultiPartContent(val bytes: ByteArray) {
