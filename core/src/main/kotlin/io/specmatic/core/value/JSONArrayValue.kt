@@ -1,6 +1,5 @@
 package io.specmatic.core.value
 
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.*
@@ -9,8 +8,6 @@ import io.specmatic.core.utilities.valueArrayToUnformattedJsonString
 import io.specmatic.core.value.fold.IndexedListValueCase
 import io.specmatic.core.value.fold.Item
 import io.specmatic.core.value.fold.ValueVisitor
-
-typealias TypeDeclarationsCallType = (Value, String, Map<String, Pattern>, ExampleDeclarations) -> Pair<TypeDeclaration, ExampleDeclarations>
 
 data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value, ListValue, JSONComposite {
     override fun <C, R> accept(visitor: ValueVisitor<C, R>, context: C): R {
@@ -41,47 +38,9 @@ data class JSONArrayValue(override val list: List<Value> = emptyList()) : Value,
         return if (list.isEmpty()) ListPattern(AnythingPattern) else ListPattern(list.first().deepPattern())
     }
 
-    private fun typeDeclaration(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations, typeDeclarationsStoreCall: TypeDeclarationsCallType): Pair<TypeDeclaration, ExampleDeclarations> = when {
-        list.isEmpty() -> Pair(TypeDeclaration(LIST_BREAD_CRUMB, types), exampleDeclarations)
-        else -> {
-            val declarations = list.map {
-                val (typeDeclaration, newExamples) = typeDeclarationsStoreCall(it, key, types, exampleDeclarations)
-                Pair(TypeDeclaration("(${withoutPatternDelimiters(typeDeclaration.typeValue)}*)", typeDeclaration.types), newExamples)
-            }.let { declarations ->
-                when {
-                    list.first() is ScalarValue -> declarations.map { Pair(removeKey(it.first), exampleDeclarations) }
-                    else -> declarations
-                }
-            }
-
-            val newExamples = declarations.first().second
-            val convergedType = declarations.map { it.first }.reduce { converged, current -> convergeTypeDeclarations(converged, current) }
-
-            Pair(convergedType, newExamples)
-        }
-    }
-
-    private fun removeKey(declaration: TypeDeclaration): TypeDeclaration {
-        val newTypeValue = when {
-            declaration.typeValue.contains(":") -> {
-                val withoutKey = withoutPatternDelimiters(declaration.typeValue).split(":")[1].trim()
-                "($withoutKey)"
-            }
-            else -> declaration.typeValue
-        }
-
-        return declaration.copy(typeValue = newTypeValue)
-    }
-
-    override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            typeDeclaration(key, types, exampleDeclarations) { value, innerKey, innerTypes, newExamples -> value.typeDeclarationWithKey(innerKey, innerTypes, newExamples) }
-
     override fun listOf(valueList: List<Value>): Value {
         TODO("Not yet implemented")
     }
-
-    override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> =
-            typeDeclaration(exampleKey, types, exampleDeclarations) { value, innerKey, innerTypes, newExamples -> value.typeDeclarationWithoutKey(innerKey, innerTypes, newExamples) }
 
     override fun checkIfAllRootLevelKeysAreAttributeSelected(
         attributeSelectedFields: Set<String>,

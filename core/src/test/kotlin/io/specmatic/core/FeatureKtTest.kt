@@ -6,8 +6,6 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.mock.ScenarioStub
-import io.specmatic.mock.mockFromJSON
 import io.specmatic.osAgnosticPath
 import io.mockk.every
 import io.mockk.mockk
@@ -15,7 +13,6 @@ import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.captureStandardOutput
-import io.swagger.v3.core.util.Yaml
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -243,200 +240,6 @@ class FeatureKtTest {
     }
 
     @Test
-    fun `a single scenario with 2 examples should be generated out of 2 stubs with the same structure`() {
-        val stub1 = NamedStub("stub", ScenarioStub(
-            HttpRequest("GET", "/", queryParametersMap = mapOf("hello" to "world")),
-            HttpResponse.OK
-        ))
-        val stub2 = NamedStub("stub", ScenarioStub(
-            HttpRequest("GET", "/", queryParametersMap = mapOf("hello" to "hello")),
-            HttpResponse.OK
-        ))
-
-        val generatedGherkin = toGherkinFeature("new feature", listOf(stub1, stub2)).trim()
-
-        val expectedGherkin = """Feature: new feature
-  Scenario: stub
-    When GET /?hello=(string)
-    Then status 200
-  
-    Examples:
-    | hello |
-    | world |
-    | hello |""".trim()
-
-        assertThat(generatedGherkin).isEqualTo(expectedGherkin)
-    }
-
-    @Test
-    fun `a single scenario with 2 examples of a multipart file should be generated out of 2 stubs with the same structure`() {
-        val stub1 = NamedStub("stub", ScenarioStub(
-            HttpRequest("GET", "/", multiPartFormData = listOf(MultiPartFileValue("employees", "employees1.csv", content=MultiPartContent("1,2,3")))),
-            HttpResponse.OK
-        ))
-        val stub2 = NamedStub("stub", ScenarioStub(
-            HttpRequest("GET", "/", multiPartFormData = listOf(MultiPartFileValue("employees", "employees2.csv", content=MultiPartContent("1,2,3")))),
-            HttpResponse.OK
-        ))
-
-        val generatedGherkin = toGherkinFeature("new feature", listOf(stub1, stub2)).trim()
-
-        val expectedGherkin = """Feature: new feature
-  Scenario: stub
-    When GET /
-    And request-part employees @(string)
-    Then status 200
-  
-    Examples:
-    | employees_filename |
-    | employees1.csv |
-    | employees2.csv |""".trim()
-
-        assertThat(generatedGherkin).isEqualTo(expectedGherkin)
-    }
-
-    @Test
-    fun `an example should have the response Date headers value at the end as a comment`() {
-        val stub = NamedStub("stub", ScenarioStub(
-            HttpRequest("POST", "/", body = StringValue("hello world")),
-            HttpResponse.OK.copy(headers = mapOf("Date" to "Tuesday 1st Jan 2020"))
-        ))
-
-        val generatedGherkin = toGherkinFeature("new feature", listOf(stub)).trim()
-
-        val expectedGherkin = """Feature: new feature
-  Scenario: stub
-    When POST /
-    And request-body (RequestBody: string)
-    Then status 200
-    And response-header Date (string)
-  
-    Examples:
-    | RequestBody | __comment__ |
-    | hello world | Tuesday 1st Jan 2020 |""".trim()
-
-        assertThat(generatedGherkin).isEqualTo(expectedGherkin)
-    }
-
-    @Test
-    fun `arrays should be converged when converting stubs into a specification`() {
-        val requestBodies = listOf(
-            parsedJSONObject("""{id: 10, addresses: [{"street": "Shaeffer Street"}, {"street": "Ransom Street"}]}"""),
-            parsedJSONObject("""{id: 10, addresses: [{"street": "Gladstone Street"}, {"street": "Abacus Street"}]}"""),
-            parsedJSONObject("""{id: 10, addresses: [{"street": "Maxwell Street"}, {"street": "Xander Street"}]}""")
-        )
-
-        val stubs = requestBodies.mapIndexed { index, requestBody ->
-            NamedStub("stub$index", ScenarioStub(HttpRequest("POST", "/body", body = requestBody), HttpResponse.OK))
-        }
-
-        val gherkin = toGherkinFeature("New Feature", stubs)
-        val openApi = parseGherkinStringToFeature(gherkin).toOpenApi()
-        assertThat(Yaml.pretty(openApi).trim().replace("'", "").replace("\"", "")).isEqualTo("""
-          openapi: 3.0.1
-          info:
-            title: New Feature
-            version: 1
-          paths:
-            /body:
-              post:
-                summary: stub0
-                parameters: []
-                requestBody:
-                  content:
-                    application/json:
-                      schema:
-                        ${"$"}ref: #/components/schemas/Body_POST_RequestBody
-                  required: true
-                responses:
-                  200:
-                    description: stub0
-          components:
-            schemas:
-              Addresses:
-                required:
-                - street
-                type: object
-                properties:
-                  street:
-                    type: string
-              Body_POST_RequestBody:
-                required:
-                - addresses
-                - id
-                type: object
-                properties:
-                  id:
-                    type: integer
-                  addresses:
-                    type: array
-                    items:
-                      ${"$"}ref: #/components/schemas/Addresses
-        """.trimIndent())
-    }
-
-    @Test
-    fun `Scenario and description of a GET should not contain the query param section`() {
-        val requestBody =
-            parsedJSONObject("""{id: 10, addresses: [{"street": "Shaeffer Street"}, {"street": "Ransom Street"}]}""")
-
-        val stubs = listOf(
-            NamedStub("http://localhost?a=b", ScenarioStub(
-                HttpRequest("GET", "/data", queryParametersMap = mapOf("id" to "10"), body = requestBody),
-                HttpResponse.OK
-            ))
-        )
-
-        val gherkin = toGherkinFeature("New Feature", stubs)
-        val openApi = parseGherkinStringToFeature(gherkin).toOpenApi()
-        assertThat(Yaml.pretty(openApi).trim().replace("'", "").replace("\"", "")).isEqualTo("""
-              openapi: 3.0.1
-              info:
-                title: New Feature
-                version: 1
-              paths:
-                /data:
-                  get:
-                    summary: http://localhost
-                    parameters:
-                    - name: id
-                      in: query
-                      schema:
-                        type: integer
-                    requestBody:
-                      content:
-                        application/json:
-                          schema:
-                            ${"$"}ref: #/components/schemas/Data_GET_RequestBody
-                      required: true
-                    responses:
-                      200:
-                        description: http://localhost
-              components:
-                schemas:
-                  Addresses:
-                    required:
-                    - street
-                    type: object
-                    properties:
-                      street:
-                        type: string
-                  Data_GET_RequestBody:
-                    required:
-                    - addresses
-                    - id
-                    type: object
-                    properties:
-                      id:
-                        type: integer
-                      addresses:
-                        type: array
-                        items:
-                          ${"$"}ref: #/components/schemas/Addresses
-                """.trimIndent())
-    }
-
-    @Test
     fun `large numeric path segments should be treated as ids when comparing similar URLs once normalized`() {
         val feature = parseGherkinStringToFeature(
             """
@@ -466,109 +269,6 @@ class FeatureKtTest {
 
     private fun deferredToNumberPattern(pattern: Pattern, resolver: Resolver): NumberPattern =
             (pattern as DeferredPattern).resolvePattern(resolver) as NumberPattern
-
-    @Test
-    fun `should handle multiple types in the response at different levels with the same key and hence the same name`() {
-        val stubJSON = """
-            {
-            	"http-request": {
-            		"method": "POST",
-            		"path": "/data"
-            	},
-            	"http-response": {
-            		"status": 200,
-            		"body": {
-            			"entries": [
-            				{
-            					"name": "James"
-            				}
-            			],
-            			"data": {
-            				"entries": [
-            					{
-            						"id": 10
-            					}
-            				]
-            			}
-            		}
-            	}
-            }
-        """.trimIndent()
-
-        val gherkinString = stubJSON.toFeatureString().trim()
-
-        assertThat(gherkinString).isEqualTo("""Feature: New Feature
-  Scenario: Test Feature
-    Given type Entries
-      | name | (string) |
-    And type Entries_
-      | id | (integer) |
-    And type Data
-      | entries | (Entries_*) |
-    And type ResponseBody
-      | entries | (Entries*) |
-      | data | (Data) |
-    When POST /data
-    Then status 200
-    And response-body (ResponseBody)""")
-    }
-
-    @Test
-    fun `should handle multiple types in the request at different levels with the same key and hence the same name`() {
-        val stubJSON = """
-            {
-                "http-request": {
-                    "method": "POST",
-                    "path": "/data",
-                    "body": {
-                        "entries": [
-                            {
-                                "name": "James"
-                            }
-                        ],
-                        "data": {
-                            "entries": [
-                                {
-                                    "id": 10
-                                }
-                            ]
-                        }
-                    }
-                },
-                "http-response": {
-                    "status": 200,
-                    "body": {
-                        "operationId": 10
-                    }
-                }
-            }
-        """.trimIndent()
-
-        val gherkinString = stubJSON.toFeatureString().trim()
-
-        println(gherkinString)
-        assertThat(gherkinString).isEqualTo("""Feature: New Feature
-  Scenario: Test Feature
-    Given type Entries
-      | name | (string) |
-    And type Entries_
-      | id | (integer) |
-    And type Data
-      | entries | (Entries_*) |
-    And type RequestBody
-      | entries | (Entries*) |
-      | data | (Data) |
-    And type ResponseBody
-      | operationId | (integer) |
-    When POST /data
-    And request-body (RequestBody)
-    Then status 200
-    And response-body (ResponseBody)
-  
-    Examples:
-    | name | id |
-    | James | 10 |""")
-    }
 
     @Test
     fun `invokes hook when it is passed`() {
@@ -1106,11 +806,6 @@ paths:
         assertThat(yamlToJson.success()).withFailMessage(yamlToJson.report()).isTrue
         val jsonToYAml = testBackwardCompatibility(jsonSpec, yamlSpec)
         assertThat(jsonToYAml.success()).withFailMessage(jsonToYAml.report()).isTrue
-    }
-
-    private fun String.toFeatureString(): String {
-        val parsedJSONValue = parsedJSON(this) as JSONObjectValue
-        return toGherkinFeature(NamedStub("Test Feature", mockFromJSON(parsedJSONValue.jsonObject)))
     }
 
     @Test

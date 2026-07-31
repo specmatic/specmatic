@@ -1,6 +1,5 @@
 package io.specmatic.core.value
 
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.value.fold.OpaqueValueCase
 import io.specmatic.core.value.fold.ValueVisitor
@@ -38,8 +37,6 @@ interface Value {
         return type()
     }
 
-    fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations>
-    fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations>
     fun listOf(valueList: List<Value>): Value
 
     fun hasSupportedTemplate(): Boolean {

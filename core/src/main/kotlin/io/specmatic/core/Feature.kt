@@ -3040,46 +3040,6 @@ private fun backgroundWsdl(featureChildren: List<FeatureChild>): Step? {
 
 private fun scenarios(featureChildren: List<FeatureChild>) = featureChildren.filter { it.background.isEmpty }
 
-fun toGherkinFeature(stub: NamedStub): String = toGherkinFeature("New Feature", listOf(stub))
-
-private fun stubToClauses(namedStub: NamedStub): Pair<List<GherkinClause>, ExampleDeclarations> {
-    val (requestClauses, typesFromRequest, examples) = toGherkinClauses(namedStub.stub.request)
-
-    for (message in examples.messages) {
-        logger.log(message)
-    }
-
-    val (responseClauses, allTypes, _) = toGherkinClauses(namedStub.stub.response, typesFromRequest)
-    val typeClauses = toGherkinClauses(allTypes)
-    return Pair(typeClauses.plus(requestClauses).plus(responseClauses), examples)
-}
-
-data class GherkinScenario(val scenarioName: String, val clauses: List<GherkinClause>)
-
-fun toGherkinFeature(featureName: String, stubs: List<NamedStub>): String {
-    val groupedStubs = stubs.map { stub ->
-        val (clauses, examples) = stubToClauses(stub)
-        val commentedExamples = addCommentsToExamples(examples, stub)
-
-        Pair(GherkinScenario(stub.name, clauses), listOf(commentedExamples))
-    }.fold(emptyMap<GherkinScenario, List<ExampleDeclarations>>()) { groups, (scenario, examples) ->
-        groups.plus(scenario to groups.getOrDefault(scenario, emptyList()).plus(examples))
-    }
-
-    val scenarioStrings = groupedStubs.map { (nameAndClauses, examplesList) ->
-        val (name, clauses) = nameAndClauses
-
-        toGherkinScenario(name, clauses, examplesList)
-    }
-
-    return withFeatureClause(featureName, scenarioStrings.joinToString("\n\n"))
-}
-
-private fun addCommentsToExamples(examples: ExampleDeclarations, stub: NamedStub): ExampleDeclarations {
-    val date = stub.stub.response.headers["Date"]
-    return examples.withComment(date)
-}
-
 private fun List<String>.second(): String {
     return this[1]
 }

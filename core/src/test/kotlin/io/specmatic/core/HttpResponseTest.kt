@@ -1,9 +1,7 @@
 package io.specmatic.core
 
-import io.specmatic.core.GherkinSection.Then
 import io.specmatic.core.jsonoperator.value.ObjectValueOperator
 import io.specmatic.core.pattern.ContractException
-import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.pattern.readValueAs
@@ -46,62 +44,6 @@ internal class HttpResponseTest {
 
             assertEquals("John Doe", responseBody.jsonObject.getValue("name").toStringLiteral())
             assertEquals("application/json", it.headers.getOrDefault("Content-Type", ""))
-        }
-    }
-
-    @Test
-    fun `gherkin clauses from simple 200 response`() {
-        val clauses = toGherkinClauses(HttpResponse.OK)
-
-        assertThat(clauses.first).hasSize(1)
-        assertThat(clauses.first.single().section).isEqualTo(Then)
-        assertThat(clauses.first.single().content).isEqualTo("status 200")
-    }
-
-    @Test
-    fun `gherkin clauses from response with headers`() {
-        val clauses = toGherkinClauses(HttpResponse(200, headers = mapOf("X-Value" to "10"), body = EmptyString))
-
-        assertThat(clauses.first).hasSize(2)
-        assertThat(clauses.first.first().section).isEqualTo(Then)
-        assertThat(clauses.first.first().content).isEqualTo("status 200")
-
-        assertThat(clauses.first[1].section).isEqualTo(Then)
-        assertThat(clauses.first[1].content).isEqualTo("response-header X-Value (integer)")
-    }
-
-    @Test
-    fun `gherkin clauses from response with body`() {
-        val clauses = toGherkinClauses(HttpResponse(200, headers = emptyMap(), body = StringValue("response data")))
-
-        assertThat(clauses.first).hasSize(2)
-        assertThat(clauses.first.first().section).isEqualTo(Then)
-        assertThat(clauses.first.first().content).isEqualTo("status 200")
-
-        assertThat(clauses.first[1].section).isEqualTo(Then)
-        assertThat(clauses.first[1].content).isEqualTo("response-body (string)")
-    }
-
-    @Test
-    fun `gherkin clauses from response with number body`() {
-        val clauses = toGherkinClauses(HttpResponse(200, headers = emptyMap(), body = StringValue("10")))
-
-        assertThat(clauses.first).hasSize(2)
-        assertThat(clauses.first.first().section).isEqualTo(Then)
-        assertThat(clauses.first.first().content).isEqualTo("status 200")
-
-        assertThat(clauses.first[1].section).isEqualTo(Then)
-        assertThat(clauses.first[1].content).isEqualTo("response-body (integer)")
-    }
-
-    @Test
-    fun `gherkin clauses should contain no underscores when there are duplicate keys`() {
-        val (clauses, _, examples) = toGherkinClauses(HttpResponse(200, body = parsedJSON("""[{"data": 1}, {"data": 2}]""")))
-
-        assertThat(examples).isInstanceOf(DiscardExampleDeclarations::class.java)
-
-        for(clause in clauses) {
-            assertThat(clause.content).doesNotContain("_")
         }
     }
 

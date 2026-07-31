@@ -3,7 +3,6 @@ package io.specmatic.core.value
 import org.w3c.dom.Attr
 import org.w3c.dom.Document
 import org.w3c.dom.Node
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.Result
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
@@ -368,18 +367,6 @@ data class XMLNode(val name: String, val realName: String, val attributes: Map<S
 
     override fun deepPattern(): Pattern {
         return XMLPattern(this)
-    }
-
-    override fun typeDeclarationWithoutKey(exampleKey: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> {
-        return typeDeclarationWithKey(exampleKey, types, exampleDeclarations)
-    }
-
-    override fun typeDeclarationWithKey(key: String, types: Map<String, Pattern>, exampleDeclarations: ExampleDeclarations): Pair<TypeDeclaration, ExampleDeclarations> {
-        val newTypeName = exampleDeclarations.getNewName(key.capitalizeFirstChar(), types.keys)
-
-        val typeDeclaration = TypeDeclaration("($newTypeName)", types.plus(newTypeName to XMLPattern(this, key)))
-
-        return Pair(typeDeclaration, exampleDeclarations)
     }
 
     override fun listOf(valueList: List<Value>): Value {

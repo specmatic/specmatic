@@ -1,11 +1,9 @@
 package io.specmatic.core.value.fold
 
-import io.specmatic.core.ExampleDeclarations
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.ScalarValue
-import io.specmatic.core.value.TypeDeclaration
 import io.specmatic.core.value.Value
 import io.specmatic.core.value.XMLValue
 
@@ -125,22 +123,6 @@ internal open class BaseTestValue(private val rendered: String) : Value {
     override fun exactMatchElseType(): Pattern = StringPattern()
 
     override fun type(): Pattern = StringPattern()
-
-    override fun typeDeclarationWithoutKey(
-        exampleKey: String,
-        types: Map<String, Pattern>,
-        exampleDeclarations: ExampleDeclarations
-    ): Pair<TypeDeclaration, ExampleDeclarations> {
-        return TypeDeclaration(rendered, types) to exampleDeclarations
-    }
-
-    override fun typeDeclarationWithKey(
-        key: String,
-        types: Map<String, Pattern>,
-        exampleDeclarations: ExampleDeclarations
-    ): Pair<TypeDeclaration, ExampleDeclarations> {
-        return TypeDeclaration(rendered, types) to exampleDeclarations
-    }
 
     override fun listOf(valueList: List<Value>): Value = NoBodyValue
 

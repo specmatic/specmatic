@@ -1,8 +1,6 @@
 package io.specmatic.core
 
-import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.isPatternToken
 import io.specmatic.core.pattern.parsedPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
@@ -21,11 +19,6 @@ sealed class MultiPartFormDataValue(open val name: String, open val contentType:
     abstract fun toDisplayableValue(): String
     abstract fun toJSONObject(): JSONObjectValue
     abstract fun addTo(formBuilder: FormBuilder)
-    abstract fun toClauseData(
-        clauses: List<GherkinClause>,
-        newTypes: Map<String, Pattern>,
-        examples: ExampleDeclarations
-    ): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations>
 }
 
 data class MultiPartContentValue(override val name: String, val content: Value, val boundary: String = "#####", val specifiedContentType: String? = null) : MultiPartFormDataValue(name,
@@ -57,19 +50,6 @@ $content
         })
     }
 
-    override fun toClauseData(
-        clauses: List<GherkinClause>,
-        newTypes: Map<String, Pattern>,
-        examples: ExampleDeclarations
-    ): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-        val (typeDeclaration, newExamples) = this.content.typeDeclarationWithKey(this.name, newTypes, examples)
-
-        val newGherkinClause = GherkinClause(
-            "request-part ${this.name} ${typeDeclaration.typeValue}",
-            GherkinSection.When
-        )
-        return Triple(clauses.plus(newGherkinClause), typeDeclaration.types, examples.plus(newExamples))
-    }
 }
 
 data class MultiPartContent(val bytes: ByteArray) {
@@ -174,28 +154,4 @@ ${filename.takeIf(String::isNotBlank)?.let { "(File content not shown here.  Ple
         }
     }
 
-    override fun toClauseData(clauses: List<GherkinClause>, newTypes: Map<String, Pattern>, examples: ExampleDeclarations ): Triple<List<GherkinClause>, Map<String, Pattern>, ExampleDeclarations> {
-        val contentEncoding = this.contentType?.let { this.contentEncoding } ?: ""
-        val contentType = this.contentType ?: ""
-
-        val (newFilename, newExamples) = when {
-            !isPatternToken(filename) -> {
-                val filenameExampleName = examples.getNewName("${name}_filename", newTypes.keys)
-                val newExamples = examples.plus(filenameExampleName to filename)
-
-                Pair("(string)", newExamples)
-            }
-            isPatternToken(filename) && filename.trim() != "(string)" -> throw ContractException("Only (string) is supported as a type", name)
-            else -> Pair(filename, examples)
-        }
-
-        return Triple(
-            clauses.plus(
-                GherkinClause(
-                    "request-part ${this.name} @$newFilename $contentType $contentEncoding".trim(),
-                    GherkinSection.When
-                )
-            ), newTypes, newExamples
-        )
-    }
 }
