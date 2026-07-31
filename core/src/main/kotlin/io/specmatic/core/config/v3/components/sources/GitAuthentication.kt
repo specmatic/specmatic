@@ -7,12 +7,20 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ObjectNode
 import io.specmatic.core.Auth
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 
 @JsonDeserialize(using = GitAuthentication.Companion.GitAuthenticationDeserializer::class)
 sealed interface GitAuthentication {
     data class BearerFile(val bearerFile: String) : GitAuthentication
     data class BearerEnv(val bearerEnvironmentVariable: String) : GitAuthentication
     data class PersonalAccessToken(val personalAccessToken: String) : GitAuthentication
+
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): GitAuthentication = when (this) {
+        is BearerEnv -> this
+        is PersonalAccessToken -> this
+        is BearerFile -> copy(bearerFile = mapper.child("bearerFile").map(bearerFile, configDirectory))
+    }
 
     fun toCommonAuth(): Auth {
         return Auth(

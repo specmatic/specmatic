@@ -1256,15 +1256,6 @@ class OpenApiSpecification(
                 }
             }
 
-            val resolvedResponseExample: ResponseExample? =
-                when {
-                    specmaticConfig.isResponseValueValidationEnabled() ->
-                        ResponseValueExample(responseExample)
-
-                    else ->
-                        null
-                }
-
             Row(
                 requestExamples.keys.toList().map { keyName: String -> keyName },
                 requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
@@ -1274,7 +1265,6 @@ class OpenApiSpecification(
                         } else valueString
                     },
                 name = exampleName,
-                exactResponseExample = if(resolvedResponseExample != null && responseExample.isNotEmpty()) resolvedResponseExample else null,
                 requestExample = requestExampleAsHttpRequests[exampleName]?.first(),
                 responseExample = responseExample
             )
@@ -1705,9 +1695,10 @@ class OpenApiSpecification(
 
                             if (partSchema.isBinarySchema()) {
                                 MultiPartFilePattern(
-                                    partNameWithPresence,
-                                    toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext),
-                                    partContentType
+                                    name = partNameWithPresence,
+                                    filename = null,
+                                    contentType = partContentType ?: "application/octet-stream",
+                                    content = toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext)
                                 )
                             } else {
                                 MultiPartContentPattern(
@@ -3025,28 +3016,18 @@ class OpenApiSpecification(
         propertiesEntry: Map<String, Pattern>,
         propertiesAcc: Map<String, Pattern>
     ): Map<String, Pattern> {
-        val updatedPropertiesAcc: Map<String, Pattern> =
-            propertiesEntry.entries.fold(propertiesAcc) { acc, propertyEntry ->
-                val existingPropertyValue = acc[propertyEntry.key.withOptionalSuffix()]
-                    ?: acc[propertyEntry.key.withoutOptionalSuffix()]
+        return propertiesEntry.entries.fold(propertiesAcc) { acc, propertyEntry ->
+            val existingPropertyValue = acc[propertyEntry.key.withOptionalSuffix()]
+                ?: acc[propertyEntry.key.withoutOptionalSuffix()]
+            val newPropertyValue = existingPropertyValue?.let {
+                restrictivePatternBetween(it, propertyEntry.value)
+            } ?: propertyEntry.value
+            val keyWithoutOptionality = withoutOptionality(propertyEntry.key)
 
-                val newPropertyValue = if (existingPropertyValue != null)
-                    restrictivePatternBetween(existingPropertyValue, propertyEntry.value)
-                else propertyEntry.value
-
-                when (val keyWithoutOptionality = withoutOptionality(propertyEntry.key)) {
-                    in acc ->
-                        acc.plus(propertyEntry.key to newPropertyValue)
-
-                    propertyEntry.key ->
-                        acc.minus("$keyWithoutOptionality?").plus(propertyEntry.key to newPropertyValue)
-
-                    else ->
-                        acc.plus(propertyEntry.key to newPropertyValue)
-                }
-            }
-
-        return updatedPropertiesAcc
+            acc.minus(keyWithoutOptionality)
+                .minus("$keyWithoutOptionality?")
+                .plus(propertyEntry.key to newPropertyValue)
+        }
     }
 
     private fun restrictivePatternBetween(pattern1: Pattern, pattern2: Pattern): Pattern {

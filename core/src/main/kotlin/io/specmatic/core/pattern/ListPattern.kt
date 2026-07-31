@@ -14,7 +14,7 @@ data class ListPattern(
     val itemsPointer: String? = null
 ) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
     override val memberList: MemberList
-        get() = MemberList(emptyList(), pattern)
+        get() = MemberList(listOf(pattern))
 
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(this, value).isSuccess()) return value

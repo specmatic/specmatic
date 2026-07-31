@@ -10,6 +10,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class InterpolatedSubstitutionTest {
     @Test
@@ -148,9 +150,56 @@ class InterpolatedSubstitutionTest {
     }
 
     @Test
-    fun `detects lookup tokens`() {
+    fun `detects ordinary exact and embedded lookup tokens`() {
+        assertThat(InterpolatedSubstitution.isLookup("$(ID)")).isTrue()
+        assertThat(InterpolatedSubstitution.containsLookup("$(ID)")).isTrue()
+        assertThat(InterpolatedSubstitution.isLookup("order-$(ID)")).isFalse()
         assertThat(InterpolatedSubstitution.containsLookup("order-$(ID)")).isTrue()
         assertThat(InterpolatedSubstitution.containsLookup("prefix-abc")).isFalse()
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "\$match(contains: \$(data.person))",
+            "\$match(contains: [\$(data.person), \$(data.company)])",
+        ]
+    )
+    fun `does not detect matcher references as substitution lookups`(matcherExpression: String) {
+        assertThat(StringValue(matcherExpression).hasMatcherTemplate()).isTrue()
+        assertThat(InterpolatedSubstitution.isLookup(matcherExpression)).isFalse()
+        assertThat(InterpolatedSubstitution.containsLookup(matcherExpression)).isFalse()
+    }
+
+    @Test
+    fun `returns complete matcher expression unchanged without resolving its references`() {
+        val matcherExpression = "\$match(contains: \$(data.person))"
+        var tokenResolverInvoked = false
+
+        val result = InterpolatedSubstitution.resolve(matcherExpression) {
+            tokenResolverInvoked = true
+            StringValue("resolved")
+        }
+
+        assertThat(result).isEqualTo(StringValue(matcherExpression))
+        assertThat(tokenResolverInvoked).isFalse()
+    }
+
+    @Test
+    fun `does not protect matcher shaped text rejected by the existing matcher recognizer`() {
+        val incompleteMatcherExpression = "\$match(contains: \$(data.person) "
+        val resolvedTokens = mutableListOf<String>()
+
+        assertThat(StringValue(incompleteMatcherExpression).hasMatcherTemplate()).isFalse()
+        assertThat(InterpolatedSubstitution.containsLookup(incompleteMatcherExpression)).isTrue()
+
+        val result = InterpolatedSubstitution.resolve(incompleteMatcherExpression) { token ->
+            resolvedTokens.add(token)
+            StringValue("resolved")
+        }
+
+        assertThat(result).isEqualTo(StringValue("\$match(contains: resolved "))
+        assertThat(resolvedTokens).containsExactly("$(data.person)")
     }
 
     @Nested

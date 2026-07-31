@@ -21,7 +21,7 @@ class SpecmaticMetadataMapperTest {
     @Test
     fun `maps test settings and picks resiliency from source when test config missing`() {
         val config = SpecmaticConfigV1V2Common(
-            test = TestConfiguration(parallelism = "4", timeoutInMilliseconds = 9000, validateResponseValues = true),
+            test = TestConfiguration(parallelism = "4", timeoutInMilliseconds = 9000),
             sources = listOf(
                 Source(
                     provider = SourceProvider.filesystem,
@@ -39,7 +39,6 @@ class SpecmaticMetadataMapperTest {
         val settings = (metadata.settings as RefOrValue.Value<ConcreteSettings>).value
 
         assertThat(settings.test?.parallelism).isEqualTo("4")
-        assertThat(settings.test?.validateResponseValues).isTrue()
         assertThat(settings.test?.timeoutInMilliseconds).isEqualTo(9000)
         assertThat(settings.test?.schemaResiliencyTests).isEqualTo(ResiliencyTestSuite.positiveOnly)
     }

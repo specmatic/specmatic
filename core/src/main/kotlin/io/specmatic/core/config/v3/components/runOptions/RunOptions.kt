@@ -6,11 +6,15 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.SpecmaticSpecConfig
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 import io.specmatic.reporter.model.SpecType
 
 interface IRunOptions {
     val specs: List<IRunOptionSpecification>?
     val config: Map<String, Any>
+
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): IRunOptions
 
     @JsonIgnore
     fun gerServerOrigin(): ServerOrigin?
@@ -38,7 +42,15 @@ data class RunOptions(
     val asyncapi: AsyncApiRunOptions? = null,
     val graphqlsdl: GraphQLSdlRunOptions? = null,
     val protobuf: ProtobufRunOptions? = null,
-)
+) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): RunOptions = copy(
+        wsdl = wsdl?.mapPaths(mapper.child("wsdl"), configDirectory),
+        openapi = openapi?.mapPaths(mapper.child("openapi"), configDirectory),
+        asyncapi = asyncapi?.mapPaths(mapper.child("asyncapi"), configDirectory),
+        protobuf = protobuf?.mapPaths(mapper.child("protobuf"), configDirectory),
+        graphqlsdl = graphqlsdl?.mapPaths(mapper.child("graphqlsdl"), configDirectory),
+    )
+}
 
 data class TestRunOptions(
     val openapi: OpenApiTestConfig? = null,
@@ -47,6 +59,14 @@ data class TestRunOptions(
     val graphqlsdl: GraphQLSdlTestConfig? = null,
     val protobuf: ProtobufTestConfig? = null,
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): TestRunOptions = copy(
+        wsdl = wsdl?.mapPaths(mapper.child("wsdl"), configDirectory),
+        openapi = openapi?.mapPaths(mapper.child("openapi"), configDirectory),
+        asyncapi = asyncapi?.mapPaths(mapper.child("asyncapi"), configDirectory),
+        protobuf = protobuf?.mapPaths(mapper.child("protobuf"), configDirectory),
+        graphqlsdl = graphqlsdl?.mapPaths(mapper.child("graphqlsdl"), configDirectory),
+    )
+
     @JsonIgnore
     fun hasSpecOverride(specId: String): Boolean {
         return collectOverriddenSpecIds().contains(specId)
@@ -93,6 +113,14 @@ data class MockRunOptions(
     val graphqlsdl: GraphQLSdlMockConfig? = null,
     val protobuf: ProtobufMockConfig? = null,
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): MockRunOptions = copy(
+        wsdl = wsdl?.mapPaths(mapper.child("wsdl"), configDirectory),
+        openapi = openapi?.mapPaths(mapper.child("openapi"), configDirectory),
+        protobuf = protobuf?.mapPaths(mapper.child("protobuf"), configDirectory),
+        asyncapi = asyncapi?.mapPaths(mapper.child("asyncapi"), configDirectory),
+        graphqlsdl = graphqlsdl?.mapPaths(mapper.child("graphqlsdl"), configDirectory),
+    )
+
     @JsonIgnore
     fun hasSpecOverride(specId: String): Boolean {
         return collectOverriddenSpecIds().contains(specId)

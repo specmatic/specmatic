@@ -2595,17 +2595,6 @@ data class Feature(
 
 class EmptyContract : Throwable()
 
-private fun toFixtureInfo(rest: String): Pair<String, Value> {
-    val fixtureTokens = breakIntoPartsMaxLength(rest.trim(), 2)
-
-    if (fixtureTokens.size != 2)
-        throw ContractException("Couldn't parse fixture data: $rest")
-
-    return Pair(fixtureTokens[0], toFixtureData(fixtureTokens[1]))
-}
-
-private fun toFixtureData(rawData: String): Value = parsedJSON(rawData)
-
 internal fun stringOrDocString(string: String?, step: StepInfo): String {
     val trimmed = string?.trim() ?: ""
     return trimmed.ifEmpty { step.docString }
@@ -2722,8 +2711,6 @@ private fun lexScenario(
                 scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(toPatternInfo(step, step.rowsList, isWSDL)))
             "ENUM" ->
                 scenarioInfo.copy(patterns = scenarioInfo.patterns.plus(parseEnum(step)))
-            "FIXTURE" ->
-                scenarioInfo.copy(fixtures = scenarioInfo.fixtures.plus(toFixtureInfo(step.rest)))
             "FORM-FIELD" ->
                 scenarioInfo.copy(
                     httpRequestPattern = scenarioInfo.httpRequestPattern.copy(

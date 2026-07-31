@@ -12,6 +12,7 @@ import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getWorkflowConfigur
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getTestConfigOrNull
 import io.specmatic.core.SpecmaticConfigV1V2Common.Companion.getVirtualServiceConfigOrNull
 import io.specmatic.core.config.BackwardCompatibilityConfig
+import io.specmatic.core.config.ConfigPathMapper
 import io.specmatic.core.config.LoggingConfiguration
 import io.specmatic.core.config.McpConfiguration
 import io.specmatic.core.config.SpecmaticConfigVersion
@@ -24,6 +25,7 @@ import io.specmatic.core.utilities.Flags.Companion.EXAMPLE_DIRECTORIES
 import io.specmatic.core.utilities.Flags.Companion.getStringValue
 import java.io.File
 import java.nio.file.Path
+import kotlin.io.path.pathString
 
 data class SpecmaticConfigV2(
     val version: SpecmaticConfigVersion,
@@ -59,7 +61,7 @@ data class SpecmaticConfigV2(
     @field:JsonAlias("disable_telemetry")
     val disableTelemetry: Boolean? = null,
     private val logging: LoggingConfiguration? = null,
-    private val mcp: McpConfiguration? = null,
+    val mcp: McpConfiguration? = null,
     @field:JsonAlias("license_path")
     val licensePath: Path? = null,
     @field:JsonAlias("report_dir_path")
@@ -102,6 +104,35 @@ data class SpecmaticConfigV2(
             globalSettings = this.globalSettings
         )
     }
+
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): SpecmaticConfigV2 = copy(
+        mcp = mcp?.mapPaths(mapper.child("mcp"), configDirectory),
+        auth = auth?.mapPaths(mapper.child("auth"), configDirectory),
+        test = test?.mapPaths(mapper.child("test"), configDirectory),
+        stub = stub?.mapPaths(mapper.child("stub"), configDirectory),
+        proxy = proxy?.mapPaths(mapper.child("proxy"), configDirectory),
+        virtualService = virtualService?.mapPaths(mapper.child("virtualService"), configDirectory),
+        backwardCompatibility = backwardCompatibility?.mapPaths(mapper.child("backwardCompatibility"), configDirectory),
+        logging = logging?.mapPaths(mapper.child("logging"), configDirectory),
+        hooks = hooks.mapValues { (key, value) ->
+            mapper.child("hooks").child(key).map(path = value, baseDirectory = configDirectory)
+        },
+        additionalExampleParamsFilePath = additionalExampleParamsFilePath?.let { path ->
+            mapper.child("additionalExampleParamsFilePath").map(path = path, baseDirectory = configDirectory)
+        },
+        licensePath = licensePath?.let { path ->
+            Path.of(mapper.child("licensePath").map(path = path.pathString, baseDirectory = configDirectory))
+        },
+        reportDirPath = reportDirPath?.let { path ->
+            Path.of(mapper.child("reportDirPath").map(path = path.pathString, baseDirectory = configDirectory))
+        },
+        examples = examples.mapIndexed { i, value ->
+            mapper.child("examples").child(i).map(path = value, baseDirectory = configDirectory)
+        },
+        contracts = contracts.mapIndexed { i, value ->
+            value.mapPaths(mapper = mapper.child("contracts").child(i), configDirectory = configDirectory)
+        },
+    )
 
     companion object : SpecmaticVersionedConfigLoader {
         private fun currentConfigVersion(): SpecmaticConfigVersion {

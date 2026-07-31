@@ -4,8 +4,9 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import io.specmatic.core.config.v3.ServerOrigin
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 import io.specmatic.core.config.v3.components.SecuritySchemeConfigurationV3
-import kotlin.String
 
 interface IRunOptionSpecification {
     fun getId(): String?
@@ -23,6 +24,10 @@ interface IRunOptionSpecification {
 }
 
 data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
+    fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): RunOptionsSpecifications {
+        return copy(spec = spec.mapPaths(mapper, baseDirectory))
+    }
+
     @JsonIgnore
     override fun getId(): String? {
         return spec.id
@@ -61,6 +66,10 @@ data class RunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
         @JsonIgnore
         private val _config: MutableMap<String, Any> = linkedMapOf()
     ) {
+        fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): Value {
+            return copy(overlayFilePath = overlayFilePath?.let { mapper.child("overlayFilePath").map(it, baseDirectory) })
+        }
+
         @get:JsonAnyGetter
         val config: Map<String, Any> get() = _config.toMap()
 
@@ -110,6 +119,10 @@ data class WsdlRunOptionsSpecifications(val spec: Value) : IRunOptionSpecificati
 }
 
 data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecification {
+    fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File): OpenApiRunOptionsSpecifications {
+        return copy(spec = spec.mapPaths(mapper, baseDirectory))
+    }
+
     @JsonIgnore
     override fun getId(): String? {
         return spec.id
@@ -160,4 +173,8 @@ data class OpenApiRunOptionsSpecifications(val spec: Value) : IRunOptionSpecific
         val swaggerUiBaseUrl: String? = null,
         val actuatorUrl: String? = null,
     )
+
+    private fun Value.mapPaths(mapper: ConfigPathMapper, baseDirectory: File): Value {
+        return copy(overlayFilePath = overlayFilePath?.let { mapper.child("overlayFilePath").map(it, baseDirectory) })
+    }
 }

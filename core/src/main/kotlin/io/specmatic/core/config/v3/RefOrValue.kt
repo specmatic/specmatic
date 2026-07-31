@@ -1,6 +1,7 @@
 package io.specmatic.core.config.v3
 
 import com.fasterxml.jackson.annotation.*
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.JavaType
 import io.specmatic.core.config.v3.components.ExampleDirectories
 import io.specmatic.core.config.v3.components.services.CommonServiceConfig
@@ -55,6 +56,29 @@ sealed interface RefOrValue<out T: Any> {
     }
 }
 
+fun <T : Any> RefOrValue<T>.mapValue(transform: (T) -> T): RefOrValue<T> = when (this) {
+    is RefOrValue.Reference -> this
+    is RefOrValue.Value -> RefOrValue.Value(transform(value))
+}
+
+fun <T : Any> RefOrValue<T>.mapValueOrReference(
+    transform: (T) -> T,
+    resolver: RefOrValueResolver,
+    resolve: (RefOrValue<T>, RefOrValueResolver) -> T,
+    transformReference: (T) -> T = transform,
+): RefOrValue<T> = when (this) {
+    is RefOrValue.Value -> RefOrValue.Value(transform(value))
+    is RefOrValue.Reference -> {
+        if (extra.isEmpty()) return this
+        val mappedValue = transformReference(resolve(this, resolver))
+        val mappedFields: Map<String, Any?> = yamlMapper.convertValue(mappedValue, object : TypeReference<Map<String, Any?>>() {})
+        RefOrValue.Reference(
+            ref = ref,
+            extra = extra.mapValues { (key, value) -> if (mappedFields.containsKey(key)) mappedFields[key] else value }
+        )
+    }
+}
+
 inline fun <reified T : Any> RefOrValue<T>.resolveElseThrow(resolver: RefOrValueResolver): T {
     val type = yamlMapper.typeFactory.constructType(T::class.java)
     return resolveElseThrowWithType(resolver, type, T::class.simpleName ?: T::class.jvmName)
@@ -95,7 +119,7 @@ fun <T : Any> RefOrValue<T>.resolveElseThrowWithType(resolver: RefOrValueResolve
     }
 
     return runCatching {
-        yamlMapper.convertValue(combined, type) as T
+        yamlMapper.convertValue<T>(combined, type)
     }.getOrElse { e ->
         throw IllegalStateException("Failed to convert resolved value to $typeLabel", e)
     }

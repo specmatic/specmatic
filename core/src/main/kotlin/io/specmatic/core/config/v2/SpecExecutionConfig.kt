@@ -15,11 +15,17 @@ import io.specmatic.core.SpecificationSourceEntry
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.utilities.ResolvedWebSource
 import io.specmatic.core.utilities.Flags
+import io.specmatic.core.config.ConfigPathMapper
 import java.io.File
 import java.net.URI
 
 sealed class SpecExecutionConfig {
     data class StringValue(@get:JsonValue val value: String) : SpecExecutionConfig() {
+        override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File?, configDirectory: File): StringValue {
+            if (baseDirectory == null) return this
+            return copy(value = mapper.map(value, baseDirectory))
+        }
+
         override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
             return StringValue(baseDirectory.resolve(value).canonicalPath)
         }
@@ -57,6 +63,15 @@ sealed class SpecExecutionConfig {
             override val specs: List<String>,
             override val resiliencyTests: ResiliencyTestsConfig? = null,
         ) : ObjectValue() {
+            override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File?, configDirectory: File): FullUrl {
+                if (baseDirectory == null) return this
+                return copy(
+                    specs = specs.mapIndexed { index, path ->
+                        mapper.child("specs").child(index).map(path, baseDirectory)
+                    }
+                )
+            }
+
             override fun toUrl(default: URI) = URI(baseUrl)
 
             override fun resolveAgainst(baseDirectory: File): SpecExecutionConfig {
@@ -88,6 +103,15 @@ sealed class SpecExecutionConfig {
             override val specs: List<String>,
             override val resiliencyTests: ResiliencyTestsConfig? = null,
         ) : ObjectValue() {
+            override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File?, configDirectory: File): PartialUrl {
+                if (baseDirectory == null) return this
+                return copy(
+                    specs = specs.mapIndexed { index, path ->
+                        mapper.child("specs").child(index).map(path, baseDirectory)
+                    }
+                )
+            }
+
             override fun toUrl(default: URI): URI {
                 return URI(
                     default.scheme,
@@ -128,6 +152,27 @@ sealed class SpecExecutionConfig {
         val specType: String,
         val config: Map<String, Any>
     ) : SpecExecutionConfig() {
+        override fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File?, configDirectory: File): SpecExecutionConfig {
+            if (baseDirectory == null) return copy(config = mapConfigPaths(mapper, configDirectory))
+            return copy(
+                config = mapConfigPaths(mapper, configDirectory),
+                specs = baseDirectory.let { base ->
+                    specs.mapIndexed { i, path ->
+                        mapper.child("specs").child(i).map(path, base)
+                    }
+                },
+            )
+        }
+
+        private fun mapConfigPaths(mapper: ConfigPathMapper, configDirectory: File): Map<String, Any> = config.mapValues { (key, value) ->
+            if (key !in setOf("examples", "importPaths")) return@mapValues value
+            if (value !is List<*>) return@mapValues value
+            value.mapIndexed { index, item ->
+                if (item !is String) return@mapIndexed item
+                mapper.child("config").child(key).child(index).map(item, configDirectory)
+            }
+        }
+
         fun contains(specPath: String, specType: String): Boolean {
             return specPath in this.specs.toSet() && specType == this.specType
         }
@@ -182,6 +227,8 @@ sealed class SpecExecutionConfig {
             }
         }
     }
+
+    abstract fun mapPaths(mapper: ConfigPathMapper, baseDirectory: File?, configDirectory: File): SpecExecutionConfig
 
     abstract fun resolveAgainst(baseDirectory: File): SpecExecutionConfig
 

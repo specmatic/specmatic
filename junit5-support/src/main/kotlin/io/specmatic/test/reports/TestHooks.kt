@@ -48,18 +48,22 @@ internal fun getTestName(testResult: TestResultRecord, httpLogMessage: HttpLogMe
 }
 
 internal fun List<TestReportListener>.onTestResult(testResultRecord: TestResultRecord, testHttpLogMessages: List<HttpLogMessage>) {
-    val httpLogMessages = testHttpLogMessages.filter { it.scenario == testResultRecord.scenarioResult?.scenario }
-    if (httpLogMessages.isEmpty()) return
-    val firstHttpLogMessage = httpLogMessages.first()
-    val lastHttpLogMessage = httpLogMessages.last()
+    val scenarioAssociatedWithTest = testResultRecord.scenarioResult?.scenario as? Scenario
+    val httpLogMessages = testHttpLogMessages.filter { it.scenario == scenarioAssociatedWithTest }
+    if (httpLogMessages.isEmpty() && testResultRecord.beforeFixtureExecutionResult.isNullOrEmpty()) return
+
+    val firstHttpLogMessage = httpLogMessages.firstOrNull()
+    val scenario = scenarioAssociatedWithTest ?: return
+    val lastHttpLogMessage = httpLogMessages.lastOrNull()
+
     val testExecutionResult = TestExecutionResult(
         testRecord = testResultRecord,
-        scenario = firstHttpLogMessage.scenario!!,
+        scenario = scenario,
         name = getTestName(testResultRecord, firstHttpLogMessage),
         request = httpLogMessages.map(HttpLogMessage::request),
-        requestTime = firstHttpLogMessage.requestTime.toEpochMillis(),
+        requestTime = firstHttpLogMessage?.requestTime?.toEpochMillis() ?: 0L,
         response = httpLogMessages.map(HttpLogMessage::response),
-        responseTime = lastHttpLogMessage.responseTime?.toEpochMillis(),
+        responseTime = lastHttpLogMessage?.responseTime?.toEpochMillis(),
         result = testResultRecord.scenarioResult ?: Result.Failure("No details found for this test"),
     )
     onEachListener { onTestResult(testExecutionResult) }

@@ -76,7 +76,6 @@ class SpecmaticMetadataMapper {
             maxTestCount = view.testConfig?.maxTestCount,
             junitReportDir = view.testConfig?.junitReportDir,
             timeoutInMilliseconds = view.testConfig?.timeoutInMilliseconds,
-            validateResponseValues = view.testConfig?.validateResponseValues,
             maxTestRequestCombinations = view.testConfig?.maxTestRequestCombinations,
             schemaResiliencyTests = view.testConfig?.resiliencyTests?.enable ?: schemaResiliencyTestsFromProvides,
         )

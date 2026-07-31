@@ -2,6 +2,8 @@ package io.specmatic.core.config.v3.components.settings
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import io.specmatic.core.ResiliencyTestSuite
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 
 data class TestSettings(
     @field:JsonAlias("resiliencyTests")
@@ -12,9 +14,16 @@ data class TestSettings(
     val parallelism: String? = null,
     val maxTestRequestCombinations: Int? = null,
     val junitReportDir: String? = null,
-    val validateResponseValues: Boolean? = null,
     val maxTestCount: Int? = null,
 ) {
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): TestSettings {
+        return copy(
+            junitReportDir = junitReportDir?.let {
+                mapper.child("junitReportDir").map(it, configDirectory)
+            }
+        )
+    }
+
     fun merge(fallback: TestSettings?): TestSettings {
         if (fallback == null) return this
         return TestSettings(
@@ -25,7 +34,6 @@ data class TestSettings(
             parallelism = this.parallelism ?: fallback.parallelism,
             maxTestRequestCombinations = this.maxTestRequestCombinations ?: fallback.maxTestRequestCombinations,
             junitReportDir = this.junitReportDir ?: fallback.junitReportDir,
-            validateResponseValues = this.validateResponseValues ?: fallback.validateResponseValues,
             maxTestCount = this.maxTestCount ?: fallback.maxTestCount,
         )
     }

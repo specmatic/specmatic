@@ -69,7 +69,7 @@ class PatternDefinitionTests {
                 "  Scenario: api call\n\n" +
                 "    Given pattern Address {\"city\": \"(string)\"}\n" +
                 "    When POST /addresses\n" +
-                "    And request-body {\"addresses\": [\"(Address...)\"]}\n" +
+                "    And request-body {\"addresses\": \"(Address*)\"}\n" +
                 "    Then status 200\n"
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
         val requestBody = "{\"addresses\": [{\"city\": \"Mumbai\"}, {\"city\": \"Bangalore\"}]}"
@@ -102,7 +102,7 @@ class PatternDefinitionTests {
                 "    Given pattern Address {\"city\": \"(string)\"}\n" +
                 "    When GET /addresses\n" +
                 "    Then status 200\n" +
-                "    And response-body {\"addresses\": [\"(Address...)\"]}"
+                "    And response-body {\"addresses\": \"(Address*)\"}"
         val contractBehaviour = parseGherkinStringToFeature(contractGherkin)
         val request = HttpRequest().updateMethod("GET").updatePath("/addresses")
         val response = contractBehaviour.lookupResponse(request)
@@ -183,9 +183,9 @@ class PatternDefinitionTests {
         val contractGherkin = "Feature: Contract for updating accounts API\n\n" +
                 "  Scenario: api call\n\n" +
                 "    Given pattern Person {\"id\": \"(number)\", \"name\": \"(string)\"} \n" +
-                "    And pattern People [\"(Person...)\"] \n" +
+                "    And pattern People (Person*) \n" +
                 "    And pattern Id {\"id\": \"(number)\"}\n" +
-                "    And pattern Ids [\"(Id...)\"]\n" +
+                "    And pattern Ids (Id*)\n" +
                 "    When POST /accounts\n" +
                 "    And request-body (People)\n" +
                 "    Then status 200\n" +

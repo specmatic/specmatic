@@ -14,8 +14,7 @@ const val STATUS_BREAD_CRUMB = "STATUS"
 data class HttpResponsePattern(
     val headersPattern: HttpHeadersPattern = HttpHeadersPattern(),
     val status: Int = 0,
-    val body: Pattern = EmptyStringPattern,
-    val responseValueAssertion: ResponseValueAssertion = AnyResponse
+    val body: Pattern = EmptyStringPattern
 ) {
     constructor(response: HttpResponse) : this(HttpHeadersPattern(response.headers.mapValues { stringToPattern(it.value, it.key) }), response.status, response.body.exactMatchElseType())
 
@@ -62,31 +61,10 @@ data class HttpResponsePattern(
             ::matchStatus then
             ::matchHeaders then
             ::matchResponseBodySchema then
-            ::matchExactResponseBodyValue then
             ::summarize otherwise
             ::handleError toResult
             ::returnResult
     }
-
-    fun withResponseExampleValue(row: Row, resolver: Resolver): HttpResponsePattern =
-        attempt(breadCrumb = "RESPONSE") {
-            val responseExample: ResponseExample = row.exactResponseExample ?: return@attempt this
-
-            val responseExampleMatchResult = matchesResponse(responseExample.responseExample, resolver)
-
-            if(responseExampleMatchResult is Result.Failure)
-                throw ContractException("""Error in response in example "${row.name}": ${responseExampleMatchResult.reportString()}""")
-
-            val expectedResponseValue = HttpResponsePattern(
-                    responseExample.headersPattern(),
-                    responseExample.responseExample.status,
-                    responseExample.bodyPattern()
-                )
-
-            val responseValueAssertion: ResponseValueAssertion = ValueAssertion(expectedResponseValue)
-
-            this.copy(responseValueAssertion = responseValueAssertion)
-        }
 
     fun matchesMock(response: HttpResponse, resolver: Resolver) = matchesResponse(response, resolver)
 
@@ -137,23 +115,6 @@ data class HttpResponsePattern(
                 )
             )
         }
-
-        return MatchSuccess(parameters)
-    }
-
-    private fun matchExactResponseBodyValue(parameters: Triple<HttpResponse, Resolver, List<Result.Failure>>): MatchingResult<Triple<HttpResponse, Resolver, List<Result.Failure>>> {
-        val (response, resolver, failures) = parameters
-
-        val result = responseValueAssertion.matches(response, resolver.copy(mismatchMessages = valueMismatchMessages))
-
-        if(result is Result.Failure)
-            return MatchSuccess(
-                Triple(
-                    response,
-                    resolver,
-                    failures.plus(result)
-                )
-            )
 
         return MatchSuccess(parameters)
     }

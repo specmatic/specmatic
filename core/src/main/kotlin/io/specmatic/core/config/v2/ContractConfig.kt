@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.specmatic.core.Source
 import io.specmatic.core.SourceProvider
 import io.specmatic.core.pattern.ContractException
+import io.specmatic.core.config.ConfigPathMapper
+import java.io.File
 
 data class ContractConfig(
     @JsonIgnore
@@ -32,7 +34,7 @@ data class ContractConfig(
     constructor(source: Source) : this(
         contractSource = when {
             source.provider == SourceProvider.git -> GitContractSource(source)
-            source.directory != null -> FileSystemContractSource(source)
+            source.provider == SourceProvider.filesystem -> FileSystemContractSource(source)
             source.provider == SourceProvider.web && source.webBaseUrl != null -> WebContractSource(source.webBaseUrl)
             else -> null
         },
@@ -63,7 +65,28 @@ data class ContractConfig(
             ?: Source(test = provides, stub = consumes)
     }
 
+    fun mapPaths(mapper: ConfigPathMapper, configDirectory: File): ContractConfig {
+        val source = contractSource?.mapPaths(mapper.child("filesystem"), configDirectory)
+        val sourceBase = (source as? FileSystemContractSource)?.directory?.let { directory ->
+            val file = File(directory)
+            if (file.isAbsolute) file else configDirectory.resolve(file)
+        }
+
+        return copy(
+            contractSource = source,
+            provides = provides?.mapIndexed { i, value ->
+                val childMapper = mapper.child("provides").child(i)
+                value.mapPaths(childMapper, sourceBase, configDirectory)
+            },
+            consumes = consumes?.mapIndexed { i, value ->
+                val childMapper = mapper.child("consumes").child(i)
+                value.mapPaths(childMapper, sourceBase, configDirectory)
+            }
+        )
+    }
+
     fun interface ContractSource {
+        fun mapPaths(mapper: ConfigPathMapper, base: File): ContractSource = this
         fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source
     }
 
@@ -89,6 +112,7 @@ data class ContractConfig(
     data class FileSystemContractSource(
         val directory: String = "."
     ) : ContractSource {
+        override fun mapPaths(mapper: ConfigPathMapper, base: File) = copy(directory = mapper.child("directory").map(directory, base))
         constructor(source: Source) : this(source.directory ?: ".")
 
         override fun transform(provides: List<SpecExecutionConfig>?, consumes: List<SpecExecutionConfig>?): Source {
