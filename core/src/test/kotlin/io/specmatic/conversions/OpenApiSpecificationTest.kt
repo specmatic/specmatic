@@ -18,6 +18,7 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.core.value.EmptyString
+import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
@@ -5249,6 +5250,48 @@ paths:
             """.trimIndent()
 
         @Test
+        fun `multipart schema creates content patterns without filename expectations and uses OpenAPI content type defaults`() {
+            val openAPIWithStringAndBinaryParts = """
+                openapi: 3.0.1
+                info:
+                  title: Multipart API
+                  version: "1"
+                paths:
+                  /data:
+                    post:
+                      requestBody:
+                        required: true
+                        content:
+                          multipart/form-data:
+                            schema:
+                              type: object
+                              required: [description, document]
+                              properties:
+                                description:
+                                  type: string
+                                document:
+                                  type: string
+                                  format: binary
+                      responses:
+                        "200":
+                          description: OK
+            """.trimIndent()
+
+            val patterns = OpenApiSpecification.fromYAML(openAPIWithStringAndBinaryParts, "")
+                .toFeature()
+                .scenarios
+                .single()
+                .httpRequestPattern
+                .multiPartFormDataPattern
+                .associateBy { it.name }
+
+            assertThat(patterns.getValue("description").contentType).isEqualTo("text/plain")
+            assertThat(patterns.getValue("document").contentType).isEqualTo("application/octet-stream")
+            assertThat(patterns.values).allMatch { it.filename == FilenamePattern.Ignore }
+            assertThat(patterns.values.map { it.generate(Resolver()).filename }).containsOnlyNulls()
+        }
+
+        @Test
         fun `should make multipart type optional or non-optional as per the schema`() {
             val openAPINonOptional = """
             ---
@@ -5339,7 +5382,7 @@ paths:
                 "path": "/data_csv",
                 "multipart-formdata": [{
                   "name": "csv",
-                  "content": "(string)",
+                  "filename": "@${csvFile.canonicalPath}",
                   "contentType": "text/csv"
                 }]
               },
@@ -7099,7 +7142,7 @@ paths:
                             MultiPartFileValue(
                                 "filesPart",
                                 "test.pdf",
-                                "application/pdf",
+                                "application/octet-stream",
                                 "UTF-8"
                             )
                         )
@@ -7138,11 +7181,11 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(openAPI, "").toFeature()
         val request = feature.scenarios.single().generateHttpRequest()
-        val filePart = request.multiPartFormData.single() as MultiPartFileValue
+        val contentPart = request.multiPartFormData.single()
 
-        assertThat(filePart.filename).isEmpty()
-        assertThat(filePart.content.bytes).isNotEmpty()
-        assertThat(filePart.contentType).isEqualTo("application/octet-stream")
+        assertThat(contentPart.filename).isNull()
+        assertThat((contentPart.content as BinaryValue).byteArray).isNotEmpty()
+        assertThat(contentPart.contentType).isEqualTo("application/octet-stream")
         assertThat(feature.scenarios.single().matches(request)).isInstanceOf(Result.Success::class.java)
 
         val openAPIFile = tempDir.resolve("specification.yaml").apply { writeText(openAPI) }

@@ -1688,25 +1688,18 @@ class OpenApiSpecification(
                         partSchemas.resolvedSchema.properties.orEmpty().map { (partName, partSchema) ->
                             val partNameContext = partSchemas.collectorContext.at("properties").at(partName)
                             val partContentType = mediaType.encoding?.get(partName)?.contentType
+                                ?: partSchema.defaultMultiPartContentType()
                             val partNameWithPresence = if (partSchemas.resolvedSchema.required?.contains(partName) == true)
                                 partName
                             else
                                 "$partName?"
 
-                            if (partSchema.isBinarySchema()) {
-                                MultiPartFilePattern(
-                                    name = partNameWithPresence,
-                                    filename = null,
-                                    contentType = partContentType ?: "application/octet-stream",
-                                    content = toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext)
-                                )
-                            } else {
-                                MultiPartContentPattern(
-                                    partNameWithPresence,
-                                    toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext),
-                                    partContentType
-                                )
-                            }
+                            MultiPartContentPattern(
+                                name = partNameWithPresence,
+                                content = toSpecmaticPattern(partSchema, emptyList(), collectorContext = partNameContext),
+                                contentType = partContentType,
+                                filename = FilenamePattern.Ignore,
+                            )
                         }
 
                     val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
@@ -3751,9 +3744,20 @@ class OpenApiSpecification(
         return (this.types ?: setOfNotNull(this.type)).contains(NULL_TYPE)
     }
 
-    private fun Schema<*>.isBinarySchema(): Boolean {
-        val types = (this.types ?: setOfNotNull(this.type))
-        return types.contains("string") && this.format == BINARY_FORMAT
+    private fun Schema<*>.defaultMultiPartContentType(): String {
+        val effectiveType = (types ?: setOfNotNull(type)).firstOrNull { it != NULL_TYPE }
+        return when (effectiveType) {
+            null -> "application/octet-stream"
+            "string" -> when {
+                parsedOpenApi.specVersion == SpecVersion.V31 && contentEncoding != null -> "application/octet-stream"
+                parsedOpenApi.specVersion != SpecVersion.V31 && (format == "binary" || format == "byte") -> "application/octet-stream"
+                else -> "text/plain"
+            }
+            "number", "integer", "boolean" -> "text/plain"
+            "object" -> "application/json"
+            "array" -> items?.defaultMultiPartContentType() ?: "application/octet-stream"
+            else -> "application/octet-stream"
+        }
     }
 
     private fun Schema<*>.isPrimitive(): Boolean {

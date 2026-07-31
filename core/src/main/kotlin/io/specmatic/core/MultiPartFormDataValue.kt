@@ -1,157 +1,137 @@
 package io.specmatic.core
 
-import io.specmatic.core.pattern.Pattern
-import io.specmatic.core.pattern.parsedPattern
+import io.ktor.client.request.forms.FormBuilder
+import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
+import io.ktor.utils.io.streams.asInput
+import io.specmatic.core.pattern.ExactValuePattern
+import io.specmatic.core.pattern.StringPattern
+import io.specmatic.core.pattern.isPatternToken
+import io.specmatic.core.value.BinaryValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
-import io.ktor.client.request.forms.*
-import io.ktor.http.*
-import io.ktor.utils.io.core.*
-import io.ktor.utils.io.streams.*
 import java.io.File
-import kotlin.text.String
 
 const val CONTENT_DISPOSITION = "Content-Disposition"
 
-sealed class MultiPartFormDataValue(open val name: String, open val contentType: String?) {
-    abstract fun inferType(): MultiPartFormDataPattern
-    abstract fun toDisplayableValue(): String
-    abstract fun toJSONObject(): JSONObjectValue
-    abstract fun addTo(formBuilder: FormBuilder)
-}
-
-data class MultiPartContentValue(override val name: String, val content: Value, val boundary: String = "#####", val specifiedContentType: String? = null) : MultiPartFormDataValue(name,
-    specifiedContentType ?: content.httpContentType
+data class MultiPartContentValue(
+    val name: String,
+    val content: Value,
+    val boundary: String = "#####",
+    val specifiedContentType: String? = null,
+    val contentEncoding: String? = null,
+    val filename: String? = null,
 ) {
-    override val contentType: String
-      get() {
-          return specifiedContentType ?: content.httpContentType
-      }
+    constructor(
+        name: String,
+        filename: String,
+        contentType: String? = null,
+        contentEncoding: String? = null,
+        content: MultiPartContent = MultiPartContent(),
+        boundary: String = "#####",
+    ) : this(
+        name = name,
+        content = BinaryValue(content.bytes),
+        boundary = boundary,
+        specifiedContentType = contentType,
+        contentEncoding = contentEncoding,
+        filename = filename.removePrefix("@"),
+    )
 
-    override fun inferType(): MultiPartFormDataPattern {
-        return MultiPartContentPattern(name, content.exactMatchElseType(), contentType)
+    val contentType: String?
+        get() = specifiedContentType
+
+    fun inferType(): MultiPartContentPattern =
+        MultiPartContentPattern(
+            name = name,
+            content = content.exactMatchElseType(),
+            contentType = contentType,
+            contentEncoding = contentEncoding,
+            filename = FilenamePattern.Match(filename?.let {
+                if (it == "(string)") StringPattern()
+                else ExactValuePattern(StringValue(it))
+            }),
+        )
+
+    fun toDisplayableValue(): String {
+        val headers = buildMap {
+            put(CONTENT_DISPOSITION, buildString {
+                append("""form-data; name="$name"""")
+                filename?.let { append("""; filename="${File(it).name}"""") }
+            })
+            contentType?.let { put(HttpHeaders.ContentType, it) }
+            contentEncoding?.let { put(HttpHeaders.ContentEncoding, it) }
+        }
+
+        val displayedContent = when (content) {
+            is BinaryValue -> "(Binary content not shown)"
+            else -> content.toStringLiteral()
+        }
+
+        return """
+--$boundary
+${headers.entries.joinToString("\n") { "${it.key}: ${it.value}" }}
+
+$displayedContent
+""".trim()
     }
 
-    override fun toDisplayableValue(): String = """
---$boundary
-$CONTENT_DISPOSITION: form-data; name="$name"
-Content-Type: $contentType
+    fun toJSONObject(): JSONObjectValue {
+        val part = mutableMapOf<String, Value>("name" to StringValue(name))
+        when {
+            filename != null -> part["filename"] = StringValue("@$filename")
+            else -> part["content"] = content
+        }
+        contentType?.let { part["contentType"] = StringValue(it) }
+        contentEncoding?.let { part["contentEncoding"] = StringValue(it) }
+        return JSONObjectValue(part)
+    }
 
-$content
-""".trim()
+    fun addTo(formBuilder: FormBuilder) {
+        val bytes = when (content) {
+            is BinaryValue -> content.byteArray
+            else -> content.toStringLiteral().encodeToByteArray()
+        }
 
-    override fun toJSONObject(): JSONObjectValue =
-            JSONObjectValue(mapOf("name" to StringValue(name), "content" to StringValue(content.toStringLiteral()), "contentType" to StringValue(contentType)))
+        formBuilder.appendInput(
+            key = name,
+            headers = Headers.build {
+                contentType?.let { append(HttpHeaders.ContentType, ContentType.parse(it).toString()) }
+                contentEncoding?.let { append(HttpHeaders.ContentEncoding, it) }
+                filename?.let {
+                    append(CONTENT_DISPOSITION, "filename=${File(it).name}")
+                    append("Content-Transfer-Encoding", "binary")
+                }
+            },
+            size = bytes.size.toLong(),
+        ) {
+            bytes.inputStream().asInput()
+        }
+    }
 
-    override fun addTo(formBuilder: FormBuilder) {
-        formBuilder.append(name, content.toStringLiteral(), Headers.build {
-            append(HttpHeaders.ContentType, ContentType.parse(contentType))
-        })
+    fun loadExternalFileContent(): MultiPartContentValue {
+        val fileNameOrPattern = filename ?: return this
+        if (isPatternToken(fileNameOrPattern)) return this
+
+        val file = File(fileNameOrPattern)
+        val loadedContent = if (file.exists()) {
+            BinaryValue(file.readBytes())
+        } else {
+            BinaryValue(StringPattern().generate(Resolver()).toStringLiteral().encodeToByteArray())
+        }
+
+        return copy(content = loadedContent)
     }
 
 }
 
 data class MultiPartContent(val bytes: ByteArray) {
-    constructor(text: String): this(text.encodeToByteArray())
-    constructor(file: File): this(file.readBytes())
-    constructor(): this(ByteArray(0))
-
-    val length: Long = bytes.size.toLong()
-    val text: String = String(bytes)
-    val input: Input = bytes.inputStream().asInput()
-
-    fun toStringLiteral(): String {
-        return String(bytes)
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as MultiPartContent
-
-        if (!bytes.contentEquals(other.bytes)) return false
-        if (length != other.length) return false
-        if (text != other.text) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = bytes.contentHashCode()
-        result = 31 * result + length.hashCode()
-        result = 31 * result + text.hashCode()
-        return result
-    }
+    constructor(text: String) : this(text.encodeToByteArray())
+    constructor(file: File) : this(file.readBytes())
+    constructor() : this(ByteArray(0))
 }
 
-data class MultiPartFileValue(override val name: String, val filename: String, override val contentType: String? = null, val contentEncoding: String? = null, val content: MultiPartContent = MultiPartContent(), val boundary: String = "#####") : MultiPartFormDataValue(name, contentType) {
-    override fun inferType(): MultiPartFormDataPattern {
-        return MultiPartFilePattern(
-            name = name,
-            filename = filenameToType(),
-            contentType = contentType,
-            contentEncoding = contentEncoding
-        )
-    }
-
-    private fun filenameToType(): Pattern? =
-        filename.takeIf { it.isNotBlank() }?.let { parsedPattern(it.removePrefix("@")) }
-
-    override fun toDisplayableValue(): String {
-        val headers = mapOf (
-                CONTENT_DISPOSITION to listOfNotNull(
-                    """form-data; name="$name"""",
-                    filename.takeIf { it.isNotBlank() }?.let { """filename="$it""" }
-                ).joinToString("; "),
-                "Content-Type" to (contentType ?: ""),
-                "Content-Encoding" to (contentEncoding ?: "")
-        ).filter { it.value.isNotBlank() }
-
-        val headerString = headers.entries.joinToString("\n") {
-            "${it.key}: ${it.value}"
-        }
-
-        return """
---$boundary
-$headerString
-
-${filename.takeIf(String::isNotBlank)?.let { "(File content not shown here.  Please examine the file ${it.removePrefix("@")})" } ?: "(File content not shown here.)"}
-""".trim()
-    }
-
-    override fun toJSONObject() =
-            JSONObjectValue(mapOf("name" to StringValue(name), "filename" to StringValue("@${filename}")).let { map ->
-                when (contentType) {
-                    null -> map
-                    else -> map.plus("contentType" to StringValue(contentType))
-                }
-            }.let { map ->
-                when (contentEncoding) {
-                    null -> map
-                    else -> map.plus("contentEncoding" to StringValue(contentEncoding))
-                }
-            })
-
-    override fun addTo(formBuilder: FormBuilder) {
-        formBuilder.appendInput(name, Headers.build {
-            if(contentType != null)
-                append(HttpHeaders.ContentType, ContentType.parse(contentType))
-
-            if(contentEncoding != null)
-                append(HttpHeaders.ContentEncoding, contentEncoding)
-
-            append("Content-Transfer-Encoding", "binary")
-
-            filename.takeIf(String::isNotBlank)?.let {
-                val partFilePath = it.removePrefix("@")
-                val partFileName = File(partFilePath).name
-                append(CONTENT_DISPOSITION, "filename=$partFileName")
-            }
-        }, content.length) {
-            content.input
-        }
-    }
-
-}
+typealias MultiPartFormDataValue = MultiPartContentValue
+typealias MultiPartFileValue = MultiPartContentValue

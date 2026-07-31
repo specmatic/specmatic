@@ -30,11 +30,12 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased
+## 2.51.1 (2026-07-31)
 
 ### Changed
 
 - Fixed OpenAPI `allOf` conversion so a main-schema property overrides a matching member property without generating both optional and required keys.
+- Fixed multi-spec stubs to route requests to the most specific matching base-URL path.
 
 ## 2.51.0 (2026-07-25)
 

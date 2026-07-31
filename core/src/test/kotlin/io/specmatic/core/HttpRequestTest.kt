@@ -42,9 +42,9 @@ internal class HttpRequestTest {
                     contentType = "application/octet-stream"
                 )
             )
-        ).loadFileContentIntoParts().multiPartFormData.single() as MultiPartFileValue
+        ).loadFileContentIntoParts().multiPartFormData.single()
 
-        assertThat(loadedPart.content.bytes).containsExactly(*expectedBytes)
+        assertThat((loadedPart.content as BinaryValue).byteArray).containsExactly(*expectedBytes)
     }
 
     @Test

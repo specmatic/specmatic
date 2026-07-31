@@ -124,10 +124,10 @@ class FeatureKtTest {
               Then status 200
         """.trimIndent())
 
-        val pattern = feature.scenarios.single().httpRequestPattern.multiPartFormDataPattern.single() as MultiPartFilePattern
+        val pattern = feature.scenarios.single().httpRequestPattern.multiPartFormDataPattern.single()
         assertThat(pattern.name).isEqualTo("customer_info")
-        val filename = (pattern.filename as ExactValuePattern).pattern.toStringLiteral()
-        assertThat(filename).endsWith(osAgnosticPath("/customer_info.csv"))
+        val filename = ((pattern.filename as FilenamePattern.Match).pattern as ExactValuePattern).pattern.toStringLiteral()
+        assertThat(File(filename).name).isEqualTo("customer_info.csv")
         assertThat(pattern.contentType).isEqualTo("text/csv")
         assertThat(pattern.contentEncoding).isEqualTo("gzip")
     }
@@ -143,10 +143,10 @@ class FeatureKtTest {
               Then status 200
         """.trimIndent())
 
-        val pattern = behaviour.scenarios.single().httpRequestPattern.multiPartFormDataPattern.single() as MultiPartFilePattern
+        val pattern = behaviour.scenarios.single().httpRequestPattern.multiPartFormDataPattern.single()
         assertThat(pattern.name).isEqualTo("customer_info")
-        val filename = (pattern.filename as ExactValuePattern).pattern.toStringLiteral()
-        assertThat(filename).endsWith(osAgnosticPath("/customer_info.csv"))
+        val filename = ((pattern.filename as FilenamePattern.Match).pattern as ExactValuePattern).pattern.toStringLiteral()
+        assertThat(File(filename).name).isEqualTo("customer_info.csv")
         assertThat(pattern.contentType).isEqualTo("text/csv")
         assertThat(pattern.contentEncoding).isEqualTo(null)
     }
@@ -162,10 +162,10 @@ class FeatureKtTest {
               Then status 200
         """.trimIndent())
 
-        val pattern = behaviour.scenarios.single().httpRequestPattern.multiPartFormDataPattern.single() as MultiPartFilePattern
+        val pattern = behaviour.scenarios.single().httpRequestPattern.multiPartFormDataPattern.single()
         assertThat(pattern.name).isEqualTo("customer_info")
-        val filename = (pattern.filename as ExactValuePattern).pattern.toStringLiteral()
-        assertThat(filename).endsWith(osAgnosticPath("/customer_info.csv"))
+        val filename = ((pattern.filename as FilenamePattern.Match).pattern as ExactValuePattern).pattern.toStringLiteral()
+        assertThat(File(filename).name).isEqualTo("customer_info.csv")
         assertThat(pattern.contentType).isEqualTo(null)
         assertThat(pattern.contentEncoding).isEqualTo(null)
     }

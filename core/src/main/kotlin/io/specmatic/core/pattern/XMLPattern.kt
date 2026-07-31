@@ -1591,7 +1591,7 @@ data class XMLPattern(
         }
 
     override val memberList: MemberList
-        get() = MemberList(pattern.nodes, null)
+        get() = MemberList(pattern.nodes)
 
     override val typeName: String = "xml"
 
