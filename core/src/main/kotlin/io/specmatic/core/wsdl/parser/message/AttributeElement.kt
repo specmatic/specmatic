@@ -4,9 +4,9 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Pattern
 import io.specmatic.core.pattern.XMLAttributeWildcard
-import io.specmatic.core.pattern.XML_ATTR_OPTIONAL_SUFFIX
 import io.specmatic.core.pattern.XMLProcessContents
 import io.specmatic.core.pattern.withoutOptionality
+import io.specmatic.core.pattern.withOptionality
 import io.specmatic.core.pattern.xmlNamespaceConstraint
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
@@ -25,7 +25,7 @@ class AttributeElement(xmlNode: XMLNode, wsdl: WSDL) {
     private val mandatory: Boolean = isMandatory(resolvedAttribute) ?: false
     val nameWithOptionality: String = when (mandatory) {
         true -> name
-        else -> "${name}${XML_ATTR_OPTIONAL_SUFFIX}"
+        else -> withOptionality(name)
     }
 }
 

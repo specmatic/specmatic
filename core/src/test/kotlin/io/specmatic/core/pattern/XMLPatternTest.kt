@@ -1482,7 +1482,14 @@ internal class XMLPatternTest {
 
         @Test
         fun `optional attribute encompasses non optional`() {
-            val bigger = XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX="(number)">(number)</number>""")
+            val bigger = XMLPattern(
+                XMLTypeData(
+                    name = "number",
+                    realName = "number",
+                    attributes = mapOf("val?" to DeferredPattern("(number)")),
+                    nodes = listOf(DeferredPattern("(number)")),
+                )
+            )
             val smaller = XMLPattern("""<number val="(number)">(number)</number>""")
             assertThat(bigger.encompasses(smaller, Resolver(), Resolver())).isInstanceOf(Result.Success::class.java)
         }
@@ -1638,8 +1645,17 @@ internal class XMLPatternTest {
         }
 
         @Test
+        fun `optional attribute may be absent and is validated when present`() {
+            val type = optionalNumberAttributePattern()
+
+            toXMLNode("""<number/>""") shouldMatch type
+            toXMLNode("""<number val="10"/>""") shouldMatch type
+            toXMLNode("""<number val="invalid"/>""") shouldNotMatch type
+        }
+
+        @Test
         fun `optional attribute should pick up example value`() {
-            val type = XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX="(number)"></number>""")
+            val type = optionalNumberAttributePattern()
             val example = Row(listOf("val"), listOf("10"))
 
             val newTypes = type.newBasedOn(example, Resolver()).map { it.value as XMLPattern }.toList()
@@ -1651,7 +1667,7 @@ internal class XMLPatternTest {
 
         @Test
         fun `optional attribute without examples should generate all tests for the attribute and without the attribute`() {
-            val type = XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX="(number)"></number>""")
+            val type = optionalNumberAttributePattern()
 
             val newTypes = type.newBasedOn(Row(), Resolver()).map { it.value as XMLPattern }.toList()
             assertThat(newTypes.size).isEqualTo(2)
@@ -1670,27 +1686,13 @@ internal class XMLPatternTest {
             assertThat(flags).contains("without")
         }
 
-        @Test
-        fun `sanity test that double optional gets handled right`() {
-            val type =
-                XMLPattern("""<number val$XML_ATTR_OPTIONAL_SUFFIX$XML_ATTR_OPTIONAL_SUFFIX="(number)"></number>""")
-
-            val newTypes = type.newBasedOn(Row(), Resolver()).map { it.value as XMLPattern }.toList()
-            assertThat(newTypes).hasSize(2)
-
-            val flags = mutableListOf<String>()
-
-            for (newType in newTypes) {
-                when {
-                    newType.pattern.attributes.containsKey("val$XML_ATTR_OPTIONAL_SUFFIX") -> flags.add("with")
-                    else -> flags.add("without")
-                }
-            }
-
-            assertThat(flags).hasSize(2)
-            assertThat(flags).contains("with")
-            assertThat(flags).contains("without")
-        }
+        private fun optionalNumberAttributePattern() = XMLPattern(
+            XMLTypeData(
+                name = "number",
+                realName = "number",
+                attributes = mapOf("val?" to DeferredPattern("(number)")),
+            )
+        )
     }
 
     @Nested

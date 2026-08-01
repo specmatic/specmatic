@@ -2189,9 +2189,9 @@ class OpenApiSpecification(
 
         val requiredAttributeNames = schema.required.orEmpty().toSet()
         val attributePointers = attributeProperties.mapKeys { (name, _) ->
-            if (name in requiredAttributeNames) name else "$name.opt"
+            if (name in requiredAttributeNames) name else withOptionality(name)
         }.mapValues { (propertyName, _) ->
-            "$schemaPointer/properties/${escapeJsonPointer(propertyName.removeSuffix(".opt"))}"
+            "$schemaPointer/properties/${escapeJsonPointer(withoutOptionality(propertyName))}"
         }
 
         return withPointer.copy(
@@ -3100,7 +3100,7 @@ class OpenApiSpecification(
                 val attributes: Map<String, Pattern> = attributeProperties.map { (name, propertySchema) ->
                     val attributeContext = collectorContext.at(name)
                     val attributeName = if(name !in schema.required.orEmpty())
-                        "$name.opt"
+                        withOptionality(name)
                     else
                         name
                     attributeName to toSpecmaticPattern(propertySchema, emptyList(), collectorContext = attributeContext)
