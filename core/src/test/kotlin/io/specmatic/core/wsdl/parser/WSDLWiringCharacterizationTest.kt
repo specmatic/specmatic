@@ -489,8 +489,8 @@ class WSDLWiringCharacterizationTest {
         val finalPattern = typeInfo.types.getValue("FinalType") as XMLPattern
 
         assertXmlAttribute(finalPattern, "baseId", "(string)")
-        assertXmlAttribute(finalPattern, "middleId.opt", "(string)")
-        assertXmlAttribute(finalPattern, "finalId.opt", "(string)")
+        assertXmlAttribute(finalPattern, "middleId?", "(string)")
+        assertXmlAttribute(finalPattern, "finalId?", "(string)")
     }
 
     @Test
@@ -502,7 +502,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("DerivedType", emptyMap(), emptySet())
         val derivedPattern = typeInfo.types.getValue("DerivedType") as XMLPattern
 
-        assertXmlAttribute(derivedPattern, "traceId.opt", "(string)")
+        assertXmlAttribute(derivedPattern, "traceId?", "(string)")
         assertThat(derivedPattern.pattern.attributeWildcards).hasSize(1)
     }
 
@@ -514,7 +514,7 @@ class WSDLWiringCharacterizationTest {
         val derivedType = wsdl.getComplexTypeNode(derivedElement)
 
         assertThat(derivedType.getAttributes().map { it.nameWithOptionality })
-            .contains("traceId.opt", "localCode.opt")
+            .contains("traceId?", "localCode?")
         assertThat(derivedType.getAttributeWildcards()).hasSize(1)
     }
 
@@ -529,8 +529,8 @@ class WSDLWiringCharacterizationTest {
         val childNames = derivedPattern.pattern.nodes.filterIsInstance<XMLPattern>().map { it.pattern.name }
 
         assertThat(childNames).containsExactly("id")
-        assertXmlAttribute(derivedPattern, "traceId.opt", "(string)")
-        assertXmlAttribute(derivedPattern, "localCode.opt", "(string)")
+        assertXmlAttribute(derivedPattern, "traceId?", "(string)")
+        assertXmlAttribute(derivedPattern, "localCode?", "(string)")
     }
 
     @Test
@@ -540,8 +540,20 @@ class WSDLWiringCharacterizationTest {
 
         val soapElement = wsdl.getSOAPElement(FullyQualifiedName("tns", namespace, "Final"))
         val typeInfo = soapElement.deriveSpecmaticTypes("FinalType", emptyMap(), emptySet())
+        val payloadPattern = soapElement.getSOAPPayload(
+            "Final",
+            "FinalType",
+            wsdl.getNamespaces(typeInfo),
+            typeInfo,
+        ).toPattern(RequestHeaders()) as XMLPattern
+        val bodyPattern = payloadPattern.pattern.nodes
+            .filterIsInstance<XMLPattern>()
+            .single { it.pattern.name == "Body" }
+            .pattern.nodes.single() as XMLPattern
         val requestBody = soapBody(soapElement, wsdl, "Final", "FinalType", typeInfo)
 
+        assertThat(bodyPattern.pattern.attributes.keys)
+            .containsExactlyInAnyOrder(TYPE_ATTRIBUTE_NAME, "baseId", "middleId?", "finalId?")
         assertThat(requestBody)
             .contains("baseId=")
             .contains("middleId=")
@@ -571,7 +583,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("CodeType", emptyMap(), emptySet())
         val codePattern = typeInfo.types.getValue("CodeType") as XMLPattern
 
-        assertXmlAttribute(codePattern, "code.opt", "(string)")
+        assertXmlAttribute(codePattern, "code?", "(string)")
     }
 
     @Test
@@ -701,7 +713,7 @@ class WSDLWiringCharacterizationTest {
             toXMLNode("""<tns:LabelledDateTime xmlns:tns="$namespace">not-a-date</tns:LabelledDateTime>"""),
             Resolver(),
         )).isInstanceOf(Result.Failure::class.java)
-        assertXmlAttribute(pattern, "timezone.opt", "(string)")
+        assertXmlAttribute(pattern, "timezone?", "(string)")
         assertThat(pattern.pattern.attributeWildcards).hasSize(1)
     }
 
@@ -759,9 +771,9 @@ class WSDLWiringCharacterizationTest {
             toXMLNode("""<tns:Final xmlns:tns="$namespace">value</tns:Final>"""),
             Resolver(),
         )).isInstanceOf(Result.Success::class.java)
-        assertXmlAttribute(pattern, "baseId.opt", "(string)")
-        assertXmlAttribute(pattern, "middleId.opt", "(string)")
-        assertXmlAttribute(pattern, "finalId.opt", "(string)")
+        assertXmlAttribute(pattern, "baseId?", "(string)")
+        assertXmlAttribute(pattern, "middleId?", "(string)")
+        assertXmlAttribute(pattern, "finalId?", "(string)")
     }
 
     @Test
@@ -812,8 +824,8 @@ class WSDLWiringCharacterizationTest {
         val pattern = concreteRoot(typeInfo.types.getValue("Boolean") as XMLPattern, "Boolean", "tns:Boolean", namespace)
         val sample = toXMLNode("""<tns:Boolean xmlns:tns="$namespace" baseLabel="inherited" source="request">true</tns:Boolean>""")
 
-        assertXmlAttribute(pattern, "baseLabel.opt", "(string)")
-        assertXmlAttribute(pattern, "source.opt", "(string)")
+        assertXmlAttribute(pattern, "baseLabel?", "(string)")
+        assertXmlAttribute(pattern, "source?", "(string)")
         assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
     }
 
@@ -863,8 +875,8 @@ class WSDLWiringCharacterizationTest {
         val pattern = concreteRoot(typeInfo.types.getValue("Code") as XMLPattern, "Code", "tns:Code", namespace)
         val sample = toXMLNode("""<tns:Code xmlns:tns="$namespace" baseLabel="inherited" code="A1">ABC</tns:Code>""")
 
-        assertXmlAttribute(pattern, "baseLabel.opt", "(string)")
-        assertXmlAttribute(pattern, "code.opt", "(string)")
+        assertXmlAttribute(pattern, "baseLabel?", "(string)")
+        assertXmlAttribute(pattern, "code?", "(string)")
         assertThat(pattern.matches(sample, Resolver())).isInstanceOf(Result.Success::class.java)
         assertThat(pattern.matches(
             toXMLNode("""<tns:Code xmlns:tns="$namespace">a</tns:Code>"""),
@@ -1065,8 +1077,8 @@ class WSDLWiringCharacterizationTest {
         val personPattern = typeInfo.types.getValue("PersonType") as XMLPattern
 
         assertXmlAttribute(personPattern, "traceId", "(string)")
-        assertXmlAttribute(personPattern, "createdBy.opt", "(string)")
-        assertXmlAttribute(personPattern, "requestNumber.opt", "(number)")
+        assertXmlAttribute(personPattern, "createdBy?", "(string)")
+        assertXmlAttribute(personPattern, "requestNumber?", "(number)")
     }
 
     @Test
@@ -1081,8 +1093,8 @@ class WSDLWiringCharacterizationTest {
         val ownerPattern = typeInfo.types.getValue("AccountType_Owner") as XMLPattern
 
         assertXmlAttribute(ownerPattern, "traceId", "(string)")
-        assertXmlAttribute(ownerPattern, "createdBy.opt", "(string)")
-        assertXmlAttribute(ownerPattern, "requestNumber.opt", "(number)")
+        assertXmlAttribute(ownerPattern, "createdBy?", "(string)")
+        assertXmlAttribute(ownerPattern, "requestNumber?", "(number)")
     }
 
     @Test
@@ -1097,7 +1109,7 @@ class WSDLWiringCharacterizationTest {
         val importedPersonPattern = typeInfo.types.getValue("ImportedPersonType") as XMLPattern
 
         assertXmlAttribute(importedPersonPattern, "externalTrace", "(string)")
-        assertXmlAttribute(importedPersonPattern, "externalTenant.opt", "(string)")
+        assertXmlAttribute(importedPersonPattern, "externalTenant?", "(string)")
     }
 
     @Test
@@ -1122,7 +1134,7 @@ class WSDLWiringCharacterizationTest {
         val typeInfo = soapElement.deriveSpecmaticTypes("RecursivePersonType", emptyMap(), emptySet())
         val recursivePersonPattern = typeInfo.types.getValue("RecursivePersonType") as XMLPattern
 
-        assertXmlAttribute(recursivePersonPattern, "safe.opt", "(string)")
+        assertXmlAttribute(recursivePersonPattern, "safe?", "(string)")
     }
 
     @Test
@@ -1137,7 +1149,7 @@ class WSDLWiringCharacterizationTest {
     fun `optional untyped attribute defaults to optional string`() {
         val personPattern = personPatternForAttribute("""<xsd:attribute name="id"/>""")
 
-        assertXmlAttribute(personPattern, "id.opt", "(string)")
+        assertXmlAttribute(personPattern, "id?", "(string)")
     }
 
     @Test

@@ -11,7 +11,6 @@ import io.specmatic.core.value.*
 import java.io.File
 import java.math.BigDecimal
 
-const val XML_ATTR_OPTIONAL_SUFFIX = ".opt"
 const val DEFAULT_OPTIONAL_SUFFIX = "?"
 const val UTF_BYTE_ORDER_MARK = "\uFEFF"
 val TOKEN_REGEX = Regex("""\([^)]+\)|\$(\w+)?\([^()]*\)""")
@@ -20,7 +19,6 @@ private val DOLLAR_METHOD_OR_LOOKUP_PATTERN = Regex("^\\$(\\w+)?\\((.*)\\)$")
 fun withoutOptionality(key: String): String {
     return when {
         key.endsWith(DEFAULT_OPTIONAL_SUFFIX) -> key.removeSuffix(DEFAULT_OPTIONAL_SUFFIX)
-        key.endsWith(XML_ATTR_OPTIONAL_SUFFIX) -> key.removeSuffix(XML_ATTR_OPTIONAL_SUFFIX)
         else -> key
     }
 }
@@ -33,7 +31,7 @@ internal fun withOptionality(key: String): String {
 }
 
 fun isOptional(key: String): Boolean =
-    key.endsWith(DEFAULT_OPTIONAL_SUFFIX) || key.endsWith(XML_ATTR_OPTIONAL_SUFFIX)
+    key.endsWith(DEFAULT_OPTIONAL_SUFFIX)
 
 internal fun containsKey(jsonObject: Map<String, Any?>, key: String) =
     when {

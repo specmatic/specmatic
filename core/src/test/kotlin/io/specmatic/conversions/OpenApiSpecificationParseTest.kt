@@ -34,6 +34,7 @@ import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
 import io.specmatic.core.value.StringValue
+import io.specmatic.core.value.toXMLNode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -1523,6 +1524,58 @@ class OpenApiSpecificationParseTest {
         val resNumberPattern = responseInventory.nodes.single() as NumberPattern
         assertThat(resNumberPattern.minimum).isEqualTo(BigDecimal(1))
         assertThat(resNumberPattern.maximum).isEqualTo(BigDecimal(101))
+    }
+
+    @Test
+    fun `XML optional attributes use canonical keys and retain source pointers`() {
+        val spec = """
+            openapi: 3.0.0
+            info:
+              title: XML attributes
+              version: 1.0.0
+            paths:
+              /users:
+                post:
+                  requestBody:
+                    content:
+                      application/xml:
+                        schema:
+                          ${'$'}ref: '#/components/schemas/User'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              schemas:
+                User:
+                  type: object
+                  xml:
+                    name: user
+                  properties:
+                    id:
+                      type: string
+                      xml:
+                        attribute: true
+                    nickname:
+                      type: integer
+                      xml:
+                        attribute: true
+                  required:
+                    - id
+        """.trimIndent()
+
+        val scenario = OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single()
+        val requestPattern = resolvedHop(scenario.httpRequestPattern.body, scenario.resolver) as XMLPattern
+        val userPattern = resolvedHop(DeferredPattern("(User)"), scenario.resolver) as XMLPattern
+
+        assertThat(userPattern.pattern.attributes).containsKeys("id", "nickname?")
+        assertThat(requestPattern.attributePointers)
+            .containsEntry("nickname?", "/components/schemas/User/properties/nickname")
+        assertThat(requestPattern.matches(toXMLNode("""<user id="1"/>"""), scenario.resolver))
+            .isInstanceOf(Result.Success::class.java)
+        assertThat(requestPattern.matches(toXMLNode("""<user id="1" nickname="2"/>"""), scenario.resolver))
+            .isInstanceOf(Result.Success::class.java)
+        assertThat(requestPattern.matches(toXMLNode("""<user id="1" nickname="invalid"/>"""), scenario.resolver))
+            .isInstanceOf(Result.Failure::class.java)
     }
 
     @ParameterizedTest

@@ -3339,44 +3339,6 @@ Then status 200
             assertThat(postResponse.statusCode.value()).isEqualTo(200)
         }
 
-        @Test
-        fun `it should be able to stub out xml with an optional attribute when specifying an attribute value in the stub`() {
-            val gherkin = """Feature: Number
-Scenario: Accept a number
-When POST /number
-And request-body <data number$XML_ATTR_OPTIONAL_SUFFIX="(number)"/>
-Then status 200
-        """.trim()
-
-            val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data number="10"/>"""))
-            val mock = ScenarioStub(request, HttpResponse.OK)
-
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
-                RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data number="10"/>""")
-            }
-
-            assertThat(postResponse.statusCode.value()).isEqualTo(200)
-        }
-
-        @Test
-        fun `it should be able to stub out xml with an optional attribute using no attribute in the stub`() {
-            val gherkin = """Feature: Number
-Scenario: Accept a number
-When POST /number
-And request-body <data number$XML_ATTR_OPTIONAL_SUFFIX="(number)"/>
-Then status 200
-        """.trim()
-
-            val request = HttpRequest("POST", "/number", emptyMap(), parsedValue("""<data/>"""))
-            val mock = ScenarioStub(request, HttpResponse.OK)
-
-            val postResponse = HttpStub(gherkin, listOf(mock)).use { fake ->
-                RestTemplate().postForEntity<String>(fake.endPoint + "/number", """<data/>""")
-            }
-
-            assertThat(postResponse.statusCode.value()).isEqualTo(200)
-        }
-
     }
 
     @Nested
