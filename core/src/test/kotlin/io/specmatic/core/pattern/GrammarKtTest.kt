@@ -80,6 +80,31 @@ internal class GrammarKtTest {
         assertThat(parsedScalarValue(inputString)).isEqualTo(StringValue("DATA"))
     }
 
+    @Test
+    fun `null literal parses to null value`() {
+        assertThat(parsedScalarValue("null")).isEqualTo(NullValue)
+    }
+
+    @Test
+    fun `null literal with surrounding whitespace parses to null value`() {
+        assertThat(parsedScalarValue("  null\n")).isEqualTo(NullValue)
+    }
+
+    @ParameterizedTest
+    @MethodSource("bomProvider")
+    fun `null literal with BOM parses to null value`(bom: ByteOrderMark) {
+        val charSet = Charset.forName(bom.charsetName)
+        val inputBytes = bom.bytes + "null".toByteArray(charSet)
+        val inputString = String(inputBytes, charset = charSet)
+
+        assertThat(parsedScalarValue(inputString)).isEqualTo(NullValue)
+    }
+
+    @Test
+    fun `uppercase null literal remains a string value`() {
+        assertThat(parsedScalarValue("NULL")).isEqualTo(StringValue("NULL"))
+    }
+
     @ParameterizedTest
     @MethodSource("bomProvider")
     fun `should be able to parse JsonObject data with BOM`(bom: ByteOrderMark) {

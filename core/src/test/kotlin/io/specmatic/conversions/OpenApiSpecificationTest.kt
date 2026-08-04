@@ -6825,6 +6825,52 @@ paths:
     }
 
     @Test
+    fun `accept null response for a nullable array`() {
+        val feature = OpenApiSpecification.fromYAML(
+            """
+            openapi: 3.0.1
+            info:
+              title: Pet API
+              version: "1"
+            paths:
+              /pets:
+                get:
+                  responses:
+                    200:
+                      description: Pets
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            nullable: true
+                            items:
+                              ${"$"}ref: '#/components/schemas/Pet'
+            components:
+              schemas:
+                Pet:
+                  type: object
+                  required:
+                    - id
+                  properties:
+                    id:
+                      type: integer
+            """.trimIndent(),
+            ""
+        ).toFeature()
+
+        val result = feature.scenarios.single().matchesMock(
+            HttpRequest("GET", "/pets"),
+            HttpResponse(
+                status = 200,
+                body = "null",
+                headers = mapOf(CONTENT_TYPE to "application/json")
+            )
+        )
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `randomized response when stubbing out API with byte array request body`() {
         val specification = OpenApiSpecification.fromYAML(
             """
