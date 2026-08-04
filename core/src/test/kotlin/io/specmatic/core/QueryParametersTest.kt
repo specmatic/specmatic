@@ -1,9 +1,17 @@
 package io.specmatic.core
 
+import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class QueryParametersTest {
+
+    @Test
+    fun `should preserve null literal as a string value`() {
+        val queryParameters = QueryParameters(mapOf("q" to "null"))
+
+        assertThat(queryParameters.asValueMap()).containsEntry("q", StringValue("null"))
+    }
 
     @Test
     fun `should return map with value as json array for numeric array query parameters`() {

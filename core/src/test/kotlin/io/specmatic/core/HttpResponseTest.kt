@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import java.util.stream.Stream
 
@@ -139,6 +140,18 @@ internal class HttpResponseTest {
 
     @Nested
     inner class AdjustResponseForContentTypeTests {
+
+        @ParameterizedTest
+        @ValueSource(strings = ["application/json", "application/problem+json"])
+        fun `should parse null literal for json content types`(contentType: String) {
+            val response = HttpResponse(
+                status = 200,
+                headers = mapOf("Content-Type" to contentType),
+                body = StringValue("null"),
+            )
+
+            assertThat(response.adjustPayloadForContentType().body).isEqualTo(NullValue)
+        }
 
         @ParameterizedTest
         @MethodSource("io.specmatic.core.HttpResponseTest#xmlContentTypeScenarios")

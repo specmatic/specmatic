@@ -21,6 +21,14 @@ internal class GrammarKtTest {
         }
 
         @JvmStatic
+        fun quotedJsonScalarProvider(): List<String> = listOf(
+            "\"null\"",
+            "\"123\"",
+            "\"true\"",
+            "\"line\\nquote\\\"slash\\\\\"",
+        )
+
+        @JvmStatic
         fun contentToFormatProvider(): Stream<Arguments> {
             val expectedValue = JSONObjectValue(mapOf("hello" to StringValue("world")))
             val expectedXmlValue = XMLNode("hello", "hello", emptyMap(), listOf(StringValue("world")), "", emptyMap())
@@ -29,6 +37,7 @@ internal class GrammarKtTest {
                 Arguments.of("hello: world", "yaml", expectedValue),
                 Arguments.of("hello: world", "yml", expectedValue),
                 Arguments.of("<hello>world</hello>", "xml", expectedXmlValue),
+                Arguments.of("null", "txt", StringValue("null")),
             )
         }
     }
@@ -81,23 +90,44 @@ internal class GrammarKtTest {
     }
 
     @Test
-    fun `null literal parses to null value`() {
-        assertThat(parsedScalarValue("null")).isEqualTo(NullValue)
+    fun `null literal remains a scalar string value`() {
+        assertThat(parsedScalarValue("null")).isEqualTo(StringValue("null"))
     }
 
     @Test
-    fun `null literal with surrounding whitespace parses to null value`() {
-        assertThat(parsedScalarValue("  null\n")).isEqualTo(NullValue)
+    fun `null literal with surrounding whitespace remains a scalar string value`() {
+        assertThat(parsedScalarValue("  null\n")).isEqualTo(StringValue("null"))
     }
 
     @ParameterizedTest
     @MethodSource("bomProvider")
-    fun `null literal with BOM parses to null value`(bom: ByteOrderMark) {
+    fun `null literal with BOM remains a scalar string value`(bom: ByteOrderMark) {
         val charSet = Charset.forName(bom.charsetName)
         val inputBytes = bom.bytes + "null".toByteArray(charSet)
         val inputString = String(inputBytes, charset = charSet)
 
-        assertThat(parsedScalarValue(inputString)).isEqualTo(NullValue)
+        assertThat(parsedScalarValue(inputString)).isEqualTo(StringValue("null"))
+    }
+
+    @Test
+    fun `json null literal parses to null value`() {
+        assertThat(parsedJsonValue("  null\n")).isEqualTo(NullValue)
+    }
+
+    @ParameterizedTest
+    @MethodSource("bomProvider")
+    fun `json null literal with BOM parses to null value`(bom: ByteOrderMark) {
+        val charSet = Charset.forName(bom.charsetName)
+        val inputBytes = bom.bytes + "  null\n".toByteArray(charSet)
+        val inputString = String(inputBytes, charset = charSet)
+
+        assertThat(parsedJsonValue(inputString)).isEqualTo(NullValue)
+    }
+
+    @ParameterizedTest
+    @MethodSource("quotedJsonScalarProvider")
+    fun `quoted json scalar preserves its wire representation`(input: String) {
+        assertThat(parsedJsonValue(input)).isEqualTo(StringValue(input))
     }
 
     @Test

@@ -863,6 +863,16 @@ internal class HttpPathPatternTest {
         }
 
         @Test
+        fun `should preserve null literal from a path example row`() {
+            val pathPattern = buildHttpPathPattern("/items/(id:string)")
+            val generatedPathSegments = pathPattern.readFrom(Row(mapOf("id" to "null")), Resolver()).single()
+
+            val path = generatedPathSegments.joinToString("") { it.generate(Resolver()).toStringLiteral() }
+
+            assertThat(path).isEqualTo("/items/null")
+        }
+
+        @Test
         fun `should generate negative interpolated path params with annotations`() {
             val pathPattern = buildHttpPathPattern("/product/product-(id:number)/order/order-(orderId:number)/latest")
             val negatives = pathPattern.negativeBasedOn(Row(mapOf("id" to "10", "orderId" to "20")), Resolver()).toList()
