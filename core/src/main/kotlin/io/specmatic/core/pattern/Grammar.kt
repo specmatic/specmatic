@@ -380,8 +380,9 @@ fun parsedJSONArray(content: String, mismatchMessages: MismatchMessages = Defaul
 }
 
 fun parsedJsonValue(content: String?): Value {
-    return content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK)?.let {
+    return content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK)?.trim()?.let {
         when {
+            it == "null" -> NullValue
             it.startsWith("{") -> JSONObjectValue(jsonStringToValueMap(it))
             it.startsWith("[") -> JSONArrayValue(jsonStringToValueArray(it))
             else -> parsedScalarValue(it)
@@ -407,7 +408,6 @@ fun parsedValue(content: String?): Value {
 fun parsedScalarValue(content: String?): Value {
     val trimmed = content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK) ?: return NullValue
     return when {
-        trimmed == "null" -> NullValue
         trimmed.toIntOrNull() != null -> NumberValue(trimmed.toInt())
         trimmed.toLongOrNull() != null -> NumberValue(trimmed.toLong())
         trimmed.toDoubleOrNull() != null -> NumberValue(trimmed.toDouble())

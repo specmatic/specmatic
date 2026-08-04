@@ -47,6 +47,33 @@ import java.math.BigDecimal
 import java.util.stream.Stream
 
 class OpenApiSpecificationParseTest {
+    @Test
+    fun `unsupported enum type preserves null string fallback`() {
+        val specification = """
+            openapi: 3.1.0
+            info:
+              title: Null enum
+              version: "1"
+            paths:
+              /state:
+                get:
+                  responses:
+                    "200":
+                      description: state
+                      content:
+                        application/json:
+                          schema:
+                            type: mystery
+                            enum: ["null"]
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(specification, "").toFeature()
+        val scenario = feature.scenarios.single()
+
+        assertThat(scenario.httpResponsePattern.body.matches(StringValue("null"), scenario.resolver))
+            .isInstanceOf(Result.Success::class.java)
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["3.0.0", "3.1.0"])
     fun `should parse openapi paths with multi parameters per segment using a separator`(openApiVersion: String) {

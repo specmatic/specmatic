@@ -441,6 +441,28 @@ class OpenApiYamlFromExampleDirTest {
     }
 
     @Test
+    fun `infers null literals in query parameters and headers as strings`() {
+        val request = HttpRequest(
+            method = "GET",
+            path = "/search",
+            headers = mapOf("X-Mode" to "null"),
+            queryParams = QueryParameters(mapOf("q" to "null")),
+        )
+        val response = HttpResponse(
+            status = 200,
+            headers = mapOf("X-State" to "null"),
+            body = StringValue("ok"),
+        )
+
+        val openApi = openApiFromTraffic("Search", listOf(namedStub("search", request, response)))!!
+        val operation = openApi.paths["/search"]!!.get
+
+        assertThat(operation.parameters.single { it.`in` == "query" && it.name == "q" }.schema.type).isEqualTo("string")
+        assertThat(operation.parameters.single { it.`in` == "header" && it.name == "X-Mode" }.schema.type).isEqualTo("string")
+        assertThat(operation.responses["200"]!!.headers["X-State"]!!.schema.type).isEqualTo("string")
+    }
+
+    @Test
     fun `infers header optionality and preserves optional query parameters across recordings`() {
         val firstRequest = HttpRequest(
             method = "GET",
