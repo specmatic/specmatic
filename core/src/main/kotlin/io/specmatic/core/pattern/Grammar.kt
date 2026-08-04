@@ -407,6 +407,7 @@ fun parsedValue(content: String?): Value {
 fun parsedScalarValue(content: String?): Value {
     val trimmed = content?.trim()?.removePrefix(UTF_BYTE_ORDER_MARK) ?: return NullValue
     return when {
+        trimmed == "null" -> NullValue
         trimmed.toIntOrNull() != null -> NumberValue(trimmed.toInt())
         trimmed.toLongOrNull() != null -> NumberValue(trimmed.toLong())
         trimmed.toDoubleOrNull() != null -> NumberValue(trimmed.toDouble())
