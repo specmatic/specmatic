@@ -8781,6 +8781,48 @@ components:
     }
 
     @Test
+    fun `strict mode should select first available 2xx response example in declaration order when operation cannot contain a named request example`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Declaration Order API
+              version: 1.0.0
+            paths:
+              /result:
+                get:
+                  responses:
+                    '201':
+                      description: Created
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                          examples:
+                            CREATED_FIRST:
+                              value: first created response
+                            CREATED_SECOND:
+                              value: second created response
+                    '200':
+                      description: Success
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                          examples:
+                            SUCCESS:
+                              value: successful response
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "", strictMode = true).toFeature()
+        val firstDeclaredResponse = feature.scenarios.single { it.status == 201 }
+        val laterDeclaredResponse = feature.scenarios.single { it.status == 200 }
+
+        assertThat(firstDeclaredResponse.examples.single().rows.map { it.name })
+            .containsExactly("CREATED_FIRST")
+        assertThat(laterDeclaredResponse.examples).isEmpty()
+    }
+
+    @Test
     fun `strict mode should warn and ignore non-2xx response example when operation cannot contain a named request example`() {
         val path = "/health"
         val spec = """
