@@ -8419,7 +8419,7 @@ paths:
 
         val exampleName = "SUCCESSFUL_API_CALL"
         assertThat(stdout)
-            .contains("Ignoring response example named $exampleName for test or stub data, because no associated request example named $exampleName was found.")
+            .contains(missingRequestExampleErrorMessageForTest(exampleName))
     }
 
     @Test
@@ -8745,7 +8745,7 @@ components:
     }
 
     @Test
-    fun `missing request example should still pick up valid 2xx response example`() {
+    fun `strict mode should retain only first example from first available 2xx response for tests when operation cannot contain a named request example`() {
         val spec = """
         ---
         openapi: "3.0.1"
@@ -8758,6 +8758,8 @@ components:
               summary: "Get all persons"
               responses:
                 200:
+                  description: "accepted without an example"
+                201:
                   description: "all persons"
                   content:
                     text/plain:
@@ -8766,10 +8768,135 @@ components:
                       examples:
                         SUCCESSFUL_API_CALL:
                           value: "all persons"
+                        ANOTHER_SUCCESSFUL_API_CALL:
+                          value: "another set of persons"
         """.trimIndent()
-        val name =
-            OpenApiSpecification.fromYAML(spec, "").toFeature().scenarios.single().examples.single().rows.single().name
-        assertThat(name).isEqualTo("SUCCESSFUL_API_CALL")
+        val feature = OpenApiSpecification.fromYAML(spec, "", strictMode = true).toFeature()
+        val responseWithoutExamples = feature.scenarios.single { it.status == 200 }
+        val responseWithExamples = feature.scenarios.single { it.status == 201 }
+
+        assertThat(responseWithoutExamples.examples).isEmpty()
+        assertThat(responseWithExamples.examples.single().rows.map { it.name })
+            .containsExactly("SUCCESSFUL_API_CALL")
+    }
+
+    @Test
+    fun `strict mode should warn and ignore non-2xx response example when operation cannot contain a named request example`() {
+        val path = "/health"
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Health API
+              version: 1.0.0
+            paths:
+              $path:
+                get:
+                  responses:
+                    '200':
+                      description: Healthy
+                    '503':
+                      description: Service unavailable
+                      content:
+                        application/json:
+                          schema:
+                            type: string
+                          examples:
+                            serviceUnavailable:
+                              value: unavailable
+        """.trimIndent()
+
+        lateinit var feature: Feature
+        val (output, _) = captureStandardOutput {
+            feature = OpenApiSpecification.fromYAML(spec, "", strictMode = true).toFeature()
+        }
+
+        assertThat(output).contains(
+            responseExampleWithoutRequestWarning("serviceUnavailable", 503, "get", path)
+        )
+        assertThat(feature.inlineNamedStubs).isEmpty()
+        assertThat(feature.scenarios.single { it.status == 503 }.examples).isEmpty()
+    }
+
+    @Test
+    fun `strict mode should create inline mock expectation from first 2xx response example when operation cannot contain a named request example`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Secured Ping API
+              version: 1.0.0
+            security:
+              - apiKey: []
+            paths:
+              /ping:
+                get:
+                  responses:
+                    '200':
+                      description: Success without an example
+                    '201':
+                      description: Created
+                      content:
+                        text/plain:
+                          schema:
+                            type: string
+                          examples:
+                            PING:
+                              value: success
+                            ANOTHER_PING:
+                              value: another success
+            components:
+              securitySchemes:
+                apiKey:
+                  type: apiKey
+                  in: header
+                  name: X-API-Key
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(spec, "", strictMode = true).toFeature()
+        val inlineStub = feature.inlineNamedStubs.single { it.name == "PING" }.stub
+
+        assertThat(inlineStub.request.method).isEqualTo("GET")
+        assertThat(inlineStub.request.path).isEqualTo("/ping")
+        assertThat(inlineStub.request.headers).containsKey("X-API-Key")
+        assertThat(inlineStub.response.status).isEqualTo(201)
+        assertThat(inlineStub.response.body).isEqualTo(StringValue("success"))
+        assertThat(feature.inlineNamedStubs.map { it.name }).containsExactly("PING")
+        assertThat(feature.loadInlineExamplesAsStub()).hasSize(1)
+    }
+
+    @Test
+    fun `strict mode should error when a parameter could contain the matching named request example`() {
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Search API
+              version: 1.0.0
+            paths:
+              /items:
+                get:
+                  parameters:
+                    - name: pageToken
+                      in: query
+                      schema:
+                        type: string
+                  responses:
+                    '200':
+                      description: Items
+                      content:
+                        application/json:
+                          schema:
+                            type: array
+                            items:
+                              type: string
+                          examples:
+                            firstPage:
+                              value: []
+        """.trimIndent()
+
+        val error = assertThrows<ContractException> {
+            OpenApiSpecification.fromYAML(spec, "", strictMode = true).toFeature()
+        }
+
+        assertThat(error.message).isEqualTo(missingRequestExampleErrorMessage("firstPage"))
     }
 
     @Test
@@ -12414,14 +12541,14 @@ paths:
     }
 
     @Test
-    fun `should throw exception when a request example has no matching response example during conversion in strict mode`() {
+    fun `should throw an error when a response example has no matching request example during conversion in strict mode`() {
         val specPath = "src/test/resources/openapi/inline_response_example_without_request.yaml"
         val error = assertThrows<ContractException> {
             OpenApiSpecification.fromYAML(yamlContent= File(specPath).readText(), openApiFilePath = specPath, strictMode = true).toFeature()
         }
 
         assertThat(error.message)
-            .contains(missingRequestExampleErrorMessageForTest("success_response"))
+            .isEqualTo(missingRequestExampleErrorMessage("success_response"))
     }
 
 

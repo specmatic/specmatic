@@ -69,9 +69,21 @@ private val HINT_VALUE_DELIMITERS = charArrayOf(',')
 
 var missingRequestExampleErrorMessageForTest: String = "WARNING: Ignoring response example named %s for test or stub data, because no associated request example named %s was found."
 var missingResponseExampleErrorMessageForTest: String = "WARNING: Ignoring request example named %s for test or stub data, because no associated response example named %s was found."
+private const val MISSING_REQUEST_EXAMPLE_ERROR_MESSAGE = "ERROR: Response example named %s has no associated request example named %s."
 
 internal fun missingRequestExampleErrorMessageForTest(exampleName: String): String =
     missingRequestExampleErrorMessageForTest.format(exampleName, exampleName)
+
+internal fun missingRequestExampleErrorMessage(exampleName: String): String =
+    MISSING_REQUEST_EXAMPLE_ERROR_MESSAGE.format(exampleName, exampleName)
+
+internal fun responseExampleWithoutRequestWarning(
+    exampleName: String,
+    responseStatus: Int,
+    httpMethod: String,
+    openApiPath: String
+): String =
+    "WARNING: Ignoring $responseStatus response example named $exampleName for ${httpMethod.uppercase()} $openApiPath because the operation has no request parameters or body where a matching named request example can be defined."
 
 internal fun missingResponseExampleErrorMessageForTest(exampleName: String): String =
     missingResponseExampleErrorMessageForTest.format(exampleName, exampleName)
@@ -773,6 +785,11 @@ class OpenApiSpecification(
         val unusedRequestExampleNames: Set<String>
     )
 
+    private data class ResponseExampleIdentifier(val status: Int, val name: String) {
+        fun matches(responseExample: HttpResponse, exampleName: String): Boolean =
+            responseExample.status == status && exampleName == name
+    }
+
     private data class NoBodyExampleUpdate(
         val additionalInlineExamples: List<NamedStub>,
         val updatedScenarioInfos: List<ScenarioInfo>
@@ -823,6 +840,11 @@ class OpenApiSpecification(
                         httpResponsePatterns.filter { it.responsePattern.status.toString().startsWith("2") }
                             .minOfOrNull { it.responsePattern.status }
 
+                    val firstAvailable2xxResponseExample = httpResponsePatterns.asSequence()
+                        .filter { it.responsePattern.status.toString().startsWith("2") && it.examples.isNotEmpty() }
+                        .map { ResponseExampleIdentifier(it.responsePattern.status, it.examples.keys.first()) }
+                        .firstOrNull()
+
                     val firstNoBodyResponseStatus =
                         httpResponsePatterns.filter { it.responsePattern.body is NoBodyPattern }
                             .minOfOrNull { it.responsePattern.status }
@@ -842,6 +864,9 @@ class OpenApiSpecification(
                                 requestHeaderPointers = requestHeaderPointers
                             )
                         }
+
+                    val canContainNamedRequestExample =
+                        parameters.isNotEmpty() || httpRequestPatterns.any { it.original != null }
 
                     val httpRequestPatternDataGroupedByContentType = httpRequestPatterns.groupBy {
                         it.requestPattern.headersPattern.contentType
@@ -895,6 +920,10 @@ class OpenApiSpecification(
                                 parameters,
                                 openApiRequest,
                                 first2xxResponseStatus,
+                                firstAvailable2xxResponseExample,
+                                canContainNamedRequestExample,
+                                httpMethod,
+                                openApiPath,
                                 httpRequestPattern.nestedObjectQueryParamsByName(),
                                 httpRequestPattern.httpQueryParamPattern.queryPatterns
                             )
@@ -932,10 +961,17 @@ class OpenApiSpecification(
                     }
 
                     val requestExamples = mergeRequestExamples(httpRequestPatterns)
+
+                    val requestsForResponseExamplesWithoutNamedRequests =
+                        if (canContainNamedRequestExample) emptyList()
+                        else requestsForOperationWithoutNamedRequestExamples(httpRequestPatterns)
+
                     val examples = collateExamplesForExpectations(
                         requestExamples = requestExamples,
                         responseExamplesList = httpResponsePatterns,
                         operationPointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
+                        requestsForResponseExamplesWithoutNamedRequests = requestsForResponseExamplesWithoutNamedRequests,
+                        firstAvailable2xxResponseExample = firstAvailable2xxResponseExample,
                     )
 
                     val requestExampleNames = requestExamples.keys.toSet()
@@ -1116,14 +1152,21 @@ class OpenApiSpecification(
         operationPointer: String,
         requestExamples: Map<String, List<RequestExample>>,
         responseExamplesList: List<ResponsePatternData>,
+        requestsForResponseExamplesWithoutNamedRequests: List<RequestExample>,
+        firstAvailable2xxResponseExample: ResponseExampleIdentifier?,
     ): List<NamedStub> {
         return responseExamplesList.flatMap { responseData ->
-            responseData.examples.filter { (name, response) ->
-                name in requestExamples
-                        && response.status != HttpStatusCode.MethodNotAllowed.value
-                        && response.status != HttpStatusCode.UnsupportedMediaType.value
+            responseData.examples.filterNot { (_, response) ->
+                response.status == HttpStatusCode.MethodNotAllowed.value ||
+                        response.status == HttpStatusCode.UnsupportedMediaType.value
             }.flatMap { (name, response) ->
-                requestExamples.getValue(name).map { requestExample ->
+                val requests = requestExamples[name]
+                    ?: requestsForResponseExamplesWithoutNamedRequests.takeIf {
+                        firstAvailable2xxResponseExample?.matches(response, name) == true
+                    }
+                    ?: emptyList()
+
+                requests.map { requestExample ->
                     NamedStub(
                         name = name,
                         stub = ScenarioStub(request = requestExample.request, response = response, exampleType = ExampleType.INLINE),
@@ -1137,6 +1180,24 @@ class OpenApiSpecification(
             }
         }
     }
+
+    private fun requestsForOperationWithoutNamedRequestExamples(
+        requestPatterns: List<RequestPatternsData>
+    ): List<RequestExample> =
+        requestPatterns.flatMap { requestPatternData ->
+            val requestPattern = requestPatternData.requestPattern
+            val request = HttpRequest(
+                method = requestPattern.method,
+                path = requestPattern.httpPathPattern?.toInternalPath()
+            )
+
+            requestPattern.securitySchemes.map { securityScheme ->
+                RequestExample(
+                    request = securityScheme.addTo(request),
+                    sourcePointer = requestPatternData.sourcePointer,
+                )
+            }
+        }.distinct()
 
     private fun mergeRequestExamples(requestPatterns: List<RequestPatternsData>): Map<String, List<RequestExample>> {
         return requestPatterns
@@ -1258,6 +1319,10 @@ class OpenApiSpecification(
         parameters: List<Parameter>,
         openApiRequest: Pair<String, MediaType>?,
         first2xxResponseStatus: Int?,
+        firstAvailable2xxResponseExample: ResponseExampleIdentifier?,
+        canContainNamedRequestExample: Boolean,
+        httpMethod: String,
+        openApiPath: String,
         nestedObjectQueryParamsByName: Map<String, NestedObjectQueryParam> = emptyMap(),
         effectiveQueryPatterns: Map<String, Pattern> = emptyMap()
     ): List<Row> {
@@ -1278,13 +1343,28 @@ class OpenApiSpecification(
             }.toMap().ifEmpty { mapOf(SPECMATIC_TEST_WITH_NO_REQ_EX to "") }
 
             if (requestExamples.containsKey(SPECMATIC_TEST_WITH_NO_REQ_EX)) {
-                if (strictMode) {
-                    throw ContractException(missingRequestExampleErrorMessageForTest(exampleName))
+                if (strictMode && canContainNamedRequestExample) {
+                    throw ContractException(missingRequestExampleErrorMessage(exampleName))
                 }
-                if (responseExample.status != first2xxResponseStatus) {
+                val shouldUseResponseExample = if (canContainNamedRequestExample)
+                    responseExample.status == first2xxResponseStatus
+                else
+                    firstAvailable2xxResponseExample?.matches(responseExample, exampleName) == true
+
+                if (shouldUseResponseExample.not()) {
                     // TODO: Collect as warning
-                    if (specmaticConfig.getIgnoreInlineExampleWarnings().not())
-                        logger.log(missingRequestExampleErrorMessageForTest(exampleName))
+                    if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
+                        val warning = if (canContainNamedRequestExample)
+                            missingRequestExampleErrorMessageForTest(exampleName)
+                        else
+                            responseExampleWithoutRequestWarning(
+                                exampleName,
+                                responseExample.status,
+                                httpMethod,
+                                openApiPath
+                            )
+                        logger.log(warning)
+                    }
                     return@mapNotNull null
                 }
             }
