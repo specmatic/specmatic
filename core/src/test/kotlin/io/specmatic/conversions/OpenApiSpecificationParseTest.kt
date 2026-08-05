@@ -30,6 +30,7 @@ import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.core.value.StringValue
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
