@@ -759,7 +759,13 @@ class OpenApiSpecification(
         })
     }
 
-    data class RequestPatternsData(val requestPattern: HttpRequestPattern, val examples: Map<String, List<HttpRequest>>, val original: Pair<String, MediaType>? = null)
+    private data class RequestExample(val request: HttpRequest, val sourcePointer: String)
+    private data class RequestPatternsData(
+        val requestPattern: HttpRequestPattern,
+        val examples: Map<String, List<HttpRequest>>,
+        val original: Pair<String, MediaType>? = null,
+        val sourcePointer: String,
+    )
 
     private data class ParsedOperation(
         val scenarioInfos: List<ScenarioInfo>,
@@ -925,11 +931,12 @@ class OpenApiSpecification(
                         )
                     }
 
-                    val responseExamplesList = httpResponsePatterns.map { it.examples }
-
-                    val requestExamples = mergeRequestExamples(httpRequestPatterns.map { it.examples })
-
-                    val examples = collateExamplesForExpectations(requestExamples, responseExamplesList)
+                    val requestExamples = mergeRequestExamples(httpRequestPatterns)
+                    val examples = collateExamplesForExpectations(
+                        requestExamples = requestExamples,
+                        responseExamplesList = httpResponsePatterns,
+                        operationPointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
+                    )
 
                     val requestExampleNames = requestExamples.keys.toSet()
 
@@ -950,7 +957,8 @@ class OpenApiSpecification(
                                 unusedRequestExampleNames,
                                 scenarioInfos,
                                 parameters,
-                                firstNoBodyResponseStatus
+                                firstNoBodyResponseStatus,
+                                "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}",
                             )
 
                         else -> NoBodyExampleUpdate(additionalInlineExamples = emptyList(), updatedScenarioInfos = scenarioInfos)
@@ -1011,11 +1019,12 @@ class OpenApiSpecification(
 
     private fun getUpdatedScenarioInfosWithNoBodyResponseExamples(
         responseThatReturnsNoValues: ResponsePatternData,
-        requestExamples: Map<String, List<HttpRequest>>,
+        requestExamples: Map<String, List<RequestExample>>,
         unusedRequestExampleNames: Set<String>,
         scenarioInfos: List<ScenarioInfo>,
         parameters: List<Parameter>,
         firstNoBodyResponseStatus: Int?,
+        operationPointer: String,
     ): NoBodyExampleUpdate {
         val emptyResponse = HttpResponse(
             status = responseThatReturnsNoValues.responsePattern.status,
@@ -1026,8 +1035,16 @@ class OpenApiSpecification(
             requestExamples
                 .filterKeys { it in unusedRequestExampleNames }
                 .flatMap { (exampleName, examples) ->
-                    examples.map { request ->
-                        NamedStub(exampleName, ScenarioStub(request = request, response = emptyResponse, exampleType = ExampleType.INLINE))
+                    examples.map { requestExample ->
+                        NamedStub(
+                            name = exampleName,
+                            stub = ScenarioStub(request = requestExample.request, response = emptyResponse, exampleType = ExampleType.INLINE),
+                            source = NamedStubSource(
+                                operationPointer = operationPointer,
+                                requestVariantPointer = requestExample.sourcePointer,
+                                responseVariantPointer = responseThatReturnsNoValues.sourcePointer,
+                            ),
+                        )
                     }
                 }
 
@@ -1060,12 +1077,13 @@ class OpenApiSpecification(
     }
 
     private fun getRowsFromRequestExample(
-        requestExample: Map<String, List<HttpRequest>>,
+        requestExample: Map<String, List<RequestExample>>,
         parameters: List<Parameter>,
         scenarioInfo: ScenarioInfo
     ): List<Row> {
         return requestExample.flatMap { (key, requests) ->
-            requests.map { request ->
+            requests.map { requestExample ->
+                val request = requestExample.request
                 val paramExamples = (request.headers + request.queryParams.asMap()).toList()
                 val pathParameterExamples = try {
                     serializedParameterExamples(
@@ -1095,26 +1113,41 @@ class OpenApiSpecification(
     }
 
     private fun collateExamplesForExpectations(
-        requestExamples: Map<String, List<HttpRequest>>,
-        responseExamplesList: List<Map<String, HttpResponse>>
+        operationPointer: String,
+        requestExamples: Map<String, List<RequestExample>>,
+        responseExamplesList: List<ResponsePatternData>,
     ): List<NamedStub> {
-        return responseExamplesList.flatMap { responseExamples ->
-            responseExamples.filter { (key, responseExample) ->
-                key in requestExamples
-                        && responseExample.status != HttpStatusCode.MethodNotAllowed.value
-                        && responseExample.status != HttpStatusCode.UnsupportedMediaType.value
-            }.map { (key, responseExample) ->
-                requestExamples.getValue(key).map { request ->
-                    NamedStub(key, ScenarioStub(request = request, response = responseExample, exampleType = ExampleType.INLINE))
+        return responseExamplesList.flatMap { responseData ->
+            responseData.examples.filter { (name, response) ->
+                name in requestExamples
+                        && response.status != HttpStatusCode.MethodNotAllowed.value
+                        && response.status != HttpStatusCode.UnsupportedMediaType.value
+            }.flatMap { (name, response) ->
+                requestExamples.getValue(name).map { requestExample ->
+                    NamedStub(
+                        name = name,
+                        stub = ScenarioStub(request = requestExample.request, response = response, exampleType = ExampleType.INLINE),
+                        source = NamedStubSource(
+                            operationPointer = operationPointer,
+                            requestVariantPointer = requestExample.sourcePointer,
+                            responseVariantPointer = responseData.sourcePointer,
+                        ),
+                    )
                 }
             }
-        }.flatten()
+        }
     }
 
-    private fun mergeRequestExamples(examplesList: List<Map<String, List<HttpRequest>>>): Map<String, List<HttpRequest>> {
-        return examplesList
-            .flatMap { it.entries }
-            .groupBy(keySelector = { it.key }, valueTransform = { it.value })
+    private fun mergeRequestExamples(requestPatterns: List<RequestPatternsData>): Map<String, List<RequestExample>> {
+        return requestPatterns
+            .flatMap { requestPattern ->
+                requestPattern.examples.map { (name, requests) ->
+                    name to requests.map { request ->
+                        RequestExample(request = request, sourcePointer = requestPattern.sourcePointer)
+                    }
+                }
+            }
+            .groupBy(keySelector = { it.first }, valueTransform = { it.second })
             .mapValues { (_, groupedRequests) -> groupedRequests.flatten() }
     }
 
@@ -1392,7 +1425,15 @@ class OpenApiSpecification(
             val responseHeaderPointers = buildResponseHeaderPointers(resolvedResponse, responseBasePointer)
 
             attempt(breadCrumb = status) {
-                openAPIResponseToSpecmatic(resolvedResponse, finalizedStatus, headersMap, responseContext, responseBasePointer, responseHeaderPointers)
+                openAPIResponseToSpecmatic(
+                    response = resolvedResponse,
+                    status = finalizedStatus,
+                    headersMap = headersMap,
+                    collectorContext = responseContext,
+                    responseBasePointer = responseBasePointer,
+                    responseUseSitePointer = responseUseSitePointer,
+                    responseHeaderPointers = responseHeaderPointers,
+                )
             }
         }.flatten()
     }
@@ -1422,7 +1463,8 @@ class OpenApiSpecification(
         val response: ApiResponse,
         val mediaType: MediaType,
         val responsePattern: HttpResponsePattern,
-        val examples: Map<String, HttpResponse>
+        val examples: Map<String, HttpResponse>,
+        val sourcePointer: String,
     )
 
     private fun resolveResponseHeader(header: Header, collectorContext: CollectorContext): Pair<Header, CollectorContext> {
@@ -1463,7 +1505,15 @@ class OpenApiSpecification(
         )
     }
 
-    private fun openAPIResponseToSpecmatic(response: ApiResponse, status: String, headersMap: Map<String, Pair<Pattern, CollectorContext>>, collectorContext: CollectorContext, responseBasePointer: String, responseHeaderPointers: Map<String, String> = emptyMap()): List<ResponsePatternData> {
+    private fun openAPIResponseToSpecmatic(
+        response: ApiResponse,
+        status: String,
+        headersMap: Map<String, Pair<Pattern, CollectorContext>>,
+        collectorContext: CollectorContext,
+        responseBasePointer: String,
+        responseUseSitePointer: String,
+        responseHeaderPointers: Map<String, String> = emptyMap(),
+    ): List<ResponsePatternData> {
         val headerExamples =
             if (specmaticConfig.getIgnoreInlineExamples())
                 emptyMap()
@@ -1496,7 +1546,15 @@ class OpenApiSpecification(
                         )
                 }.toMap()
 
-            return listOf(ResponsePatternData(response, MediaType(), responsePattern, examples))
+            return listOf(
+                ResponsePatternData(
+                    response = response,
+                    examples = examples,
+                    mediaType = MediaType(),
+                    responsePattern = responsePattern,
+                    sourcePointer = responseUseSitePointer,
+                )
+            )
         }
 
         val contentTypeHeader = headersMap.entries.find { it.key.lowercase() in listOf("content-type", "content-type?") }?.value
@@ -1564,7 +1622,13 @@ class OpenApiSpecification(
                     }.toMap()
                 }
 
-            ResponsePatternData(response, mediaType, responsePattern, examples)
+            ResponsePatternData(
+                response = response,
+                examples = examples,
+                mediaType = mediaType,
+                responsePattern = responsePattern,
+                sourcePointer = "$responseUseSitePointer/content/${escapeJsonPointer(contentType)}",
+            )
         }
     }
 
@@ -1667,13 +1731,19 @@ class OpenApiSpecification(
 
         val (requestBody, requestBodyContext) = resolveRequestBody(operation, collectorContext) ?: return listOf(
             RequestPatternsData(
-                requestPattern.copy(body = NoBodyPattern),
-                exampleRequestBuilder.examplesBasedOnParameters
+                requestPattern = requestPattern.copy(body = NoBodyPattern),
+                examples = exampleRequestBuilder.examplesBasedOnParameters,
+                sourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
             )
         )
 
         if (requestBody.content == null || requestBody.content.isEmpty()) {
-            val patternData = RequestPatternsData(requestPattern.copy(body = NoBodyPattern), exampleRequestBuilder.examplesBasedOnParameters)
+            val patternData = RequestPatternsData(
+                requestPattern = requestPattern.copy(body = NoBodyPattern),
+                examples = exampleRequestBuilder.examplesBasedOnParameters,
+                sourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}"
+            )
+
             return listOf(patternData)
         }
 
@@ -1796,7 +1866,14 @@ class OpenApiSpecification(
                         ), allExamples
                     )
                 }
-            }.let { RequestPatternsData(it.first, it.second, Pair(contentType, mediaType)) }
+            }.let {
+                RequestPatternsData(
+                    examples = it.second,
+                    requestPattern = it.first,
+                    original = Pair(contentType, mediaType),
+                    sourcePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody/content/${escapeJsonPointer(contentType)}",
+                )
+            }
         }
     }
 

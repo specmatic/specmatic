@@ -54,7 +54,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
             logger.debug("Validating $name")
 
             exampleList.mapNotNull { example ->
-                val results = validateExample(updatedFeature, example)
+                val results = validateExampleReturningResults(updatedFeature, example)
                 if (!results.hasResults()) return@mapNotNull null else results.toResultIfAny()
             }.let {
                 Result.fromResults(it)
@@ -85,8 +85,8 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     fun validateExample(contractFile: File, exampleFile: File): ValidationResult {
         val feature = parseContractFileToFeature(contractFile, specmaticConfig = specmaticConfig, lenientMode = lenientMode)
         return ValidationResult(
-            validateExample(feature, exampleFile),
-            callLifecycleHook(feature, ExampleModule(specmaticConfig).getExamplesFromFiles(listOf(exampleFile)))
+            exampleValidationResult = validateExample(feature, exampleFile),
+            hookValidationResult = callLifecycleHook(feature, ExampleModule(specmaticConfig).getExamplesFromFiles(listOf(exampleFile)))
         )
     }
 
@@ -98,11 +98,29 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
         )
     }
 
-    fun validateExample(feature: Feature, scenarioStub: ScenarioStub): Results {
+    fun validateExampleReturningResults(feature: Feature, scenarioStub: ScenarioStub): Results {
+        LicenseResolver.utilize(
+            product = LicensedProduct.OPEN_SOURCE,
+            feature = SpecmaticFeature.EXAMPLES_VALIDATED,
+            protocol = listOf(feature.protocol)
+        )
+
         return feature.matchResultFlagBased(scenarioStub, ExampleMismatchMessages)
     }
 
-    private fun validateExample(feature: Feature, example: ExampleFromFile): Result {
+    fun validateExample(feature: Feature, scenarioStub: ScenarioStub): Result {
+        val result = validateExampleReturningResults(feature, scenarioStub).toResultIfAnyWithCauses()
+        val scenarioResultWithBreadCrumb = scenarioStub.breadCrumbIfPartial(result)
+        return Result.fromResults(listOf(scenarioStub.validationErrors, scenarioResultWithBreadCrumb))
+    }
+
+    fun validateExample(feature: Feature, example: ExampleFromFile): Result {
+        LicenseResolver.utilize(
+            product = LicensedProduct.OPEN_SOURCE,
+            feature = SpecmaticFeature.EXAMPLES_VALIDATED,
+            protocol = listOf(feature.protocol)
+        )
+
         val scenarioResult = feature.matchResultFlagBased(
             request = example.request,
             response = example.response,
@@ -115,6 +133,12 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     private fun validateExample(feature: Feature, schemaExample: SchemaExample): Result {
+        LicenseResolver.utilize(
+            product = LicensedProduct.OPEN_SOURCE,
+            feature = SpecmaticFeature.EXAMPLES_VALIDATED,
+            protocol = listOf(feature.protocol)
+        )
+
         if (schemaExample.value is NullValue) {
             return Result.Success()
         }
@@ -129,12 +153,6 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
     }
 
     fun validateExample(feature: Feature, exampleFile: File, strictMode: Boolean = false): Result {
-        LicenseResolver.utilize(
-            product = LicensedProduct.OPEN_SOURCE,
-            feature = SpecmaticFeature.EXAMPLES_VALIDATED,
-            protocol = listOf(feature.protocol)
-        )
-
         return ExampleFromFile.fromFile(exampleFile, strictMode = strictMode).realise(
             hasValue = { example, _ -> validateExample(feature, example) },
             orFailure = { validateSchemaExample(feature, exampleFile) },
@@ -156,6 +174,14 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
             ExamplesUsedFor.Validation,
             listOf(Pair(feature, scenarioStubs))
         )
+    }
+}
+
+internal fun ScenarioStub.breadCrumbIfPartial(result: Result): Result {
+    return if (isPartial()) {
+        result.breadCrumb(PARTIAL)
+    } else {
+        result
     }
 }
 

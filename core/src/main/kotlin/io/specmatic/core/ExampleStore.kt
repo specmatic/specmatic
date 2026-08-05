@@ -10,7 +10,8 @@ data class ExampleData(
     val example: ScenarioStub,
     val name: String,
     val type: ExampleType,
-    val tags: Set<ExampleTag>
+    val tags: Set<ExampleTag>,
+    val source: NamedStubSource? = null
 )
 
 data class ExampleStore(val examples: List<ExampleData>, val size: Int = examples.size) {
@@ -22,7 +23,8 @@ data class ExampleStore(val examples: List<ExampleData>, val size: Int = example
                         name = namedStub.name,
                         example = namedStub.stub.withType(type),
                         type = type,
-                        tags = namedStub.stub.getTags()
+                        tags = namedStub.stub.getTags(),
+                        source = namedStub.source
                     )
                 }
             )

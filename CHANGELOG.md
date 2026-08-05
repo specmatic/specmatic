@@ -35,6 +35,7 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Changed
 
 - Fixed OpenAPI `allOf` conversion so a main-schema property overrides a matching member property without generating both optional and required keys.
+- Example files are now discovered recursively in configured example directories, including nested directories for `examples` command and `studio`.
 - Fixed multi-spec stubs to route requests to the most specific matching base-URL path.
 
 ## 2.51.0 (2026-07-25)

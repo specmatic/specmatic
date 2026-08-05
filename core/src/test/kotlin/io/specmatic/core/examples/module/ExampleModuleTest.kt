@@ -1,8 +1,10 @@
 package io.specmatic.core.examples.module
 
+import io.specmatic.conversions.ExampleFromFile
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.Result
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.config.SpecmaticConfigVersion
@@ -30,6 +32,79 @@ import java.util.UUID
 
 class ExampleModuleTest {
     private val exampleModule = ExampleModule(SpecmaticConfig())
+
+    @Test
+    fun `generic matcher returns original example and excludes structural mismatch`() {
+        data class Candidate(val request: HttpRequest, val response: HttpResponse)
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.3
+        info: { title: Sample, version: 1.0.0 }
+        paths:
+          /hello:
+            get:
+              responses:
+                '200': { description: ok }
+        """.trimIndent(), "api.yaml").toFeature()
+
+        val scenario = feature.scenarios.single()
+        val matching = Candidate(HttpRequest("GET", "/hello"), HttpResponse(status = 200))
+        val wrongMethod = Candidate(HttpRequest("POST", "/hello"), HttpResponse(status = 200))
+        val matches = exampleModule.matchExamplesForScenario(
+            feature = feature,
+            scenario = scenario,
+            isPartial = { false },
+            requestOf = { it.request },
+            responseOf = { it.response },
+            examples = listOf(matching, wrongMethod),
+        )
+
+        assertThat(matches).hasSize(1)
+        assertThat(matches.single().example).isSameAs(matching)
+        assertThat(matches.single().result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `get existing examples returns structural result without external validation errors`() {
+        val feature = OpenApiSpecification.fromYAML("""
+        openapi: 3.0.3
+        info: { title: Sample, version: 1.0.0 }
+        paths:
+          /hello:
+            get:
+              responses:
+                '200':
+                  description: ok
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        required: [message]
+                        properties:
+                          message: { type: string }
+        """.trimIndent(), "api.yaml").toFeature()
+
+        val example = ExampleFromFile(
+            ScenarioStub(
+                strictMode = false,
+                response = HttpResponse(status = 200),
+                request = HttpRequest("GET", "/hello"),
+                validationErrors = Result.Failure("validation error"),
+            )
+        )
+
+        val scenario = feature.scenarios.single()
+        val structuralResult = exampleModule.matchExamplesForScenario(
+            feature = feature,
+            scenario = scenario,
+            examples = listOf(example),
+            requestOf = { it.request },
+            responseOf = { it.response },
+            isPartial = { it.isPartial() },
+        ).single().result
+
+        val result = exampleModule.getExistingExampleFiles(feature, scenario, listOf(example)).single().second
+        assertThat(result).isEqualTo(structuralResult)
+    }
 
     @Test
     fun `get existing examples should be able to pick mutated and partial examples properly`(@TempDir tempDir: File) {
@@ -631,9 +706,11 @@ class ExampleModuleTest {
         val contractFile = tempDir.resolve("api.yaml")
         val configuredDir = tempDir.resolve("configured_examples").apply { mkdirs() }
         val implicitDir = tempDir.resolve("api_examples").apply { mkdirs() }
+        val nestedConfiguredDir = configuredDir.resolve("nested").apply { mkdirs() }
 
         val configuredExample = ScenarioStub(request = HttpRequest("GET", "/orders/10"),response = HttpResponse(status = 200)).toJSON().toStringLiteral()
         configuredDir.resolve("configured.json").writeText(configuredExample)
+        nestedConfiguredDir.resolve("nested-configured.json").writeText(configuredExample)
 
         val implicitExample = ScenarioStub(request = HttpRequest("POST", "/orders"),response = HttpResponse(status = 201)).toJSON().toStringLiteral()
         implicitDir.resolve("implicit.json").writeText(implicitExample)
@@ -646,7 +723,7 @@ class ExampleModuleTest {
         val module = ExampleModule(specmaticConfig)
         val loadedExamples = module.getExamplesFor(contractFile).map { it.file.name }
 
-        assertThat(loadedExamples).containsExactlyInAnyOrder("configured.json", "implicit.json")
+        assertThat(loadedExamples).containsExactlyInAnyOrder("configured.json", "nested-configured.json", "implicit.json")
     }
 
     @Test
@@ -654,8 +731,10 @@ class ExampleModuleTest {
         val contractFile = tempDir.resolve("api.yaml")
         val configuredDir = tempDir.resolve("configured_examples").apply { mkdirs() }
         val implicitDir = tempDir.resolve("api_examples").apply { mkdirs() }
+        val nestedConfiguredDir = configuredDir.resolve("nested").apply { mkdirs() }
 
         configuredDir.resolve("resource.order.example.json").writeText("""{"id": 10}""")
+        nestedConfiguredDir.resolve("resource.nested.example.json").writeText("""{"id": 30}""")
         implicitDir.resolve("resource.customer.example.json").writeText("""{"id": 20}""")
 
         val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
@@ -667,7 +746,7 @@ class ExampleModuleTest {
         val schemaExamples = module.getSchemaExamplesFor(contractFile)
 
         assertThat(schemaExamples.map { it.file.name })
-            .containsExactlyInAnyOrder("resource.order.example.json", "resource.customer.example.json")
+            .containsExactlyInAnyOrder("resource.order.example.json", "resource.nested.example.json", "resource.customer.example.json")
     }
 
     @Test
@@ -830,5 +909,43 @@ class ExampleModuleTest {
         val dir = module.getFirstExampleDir(contractFile)
         assertThat(dir.path).isEqualTo(File(missingDir).path)
         assertThat(dir.exists()).isFalse()
+    }
+
+    @Test
+    fun `getCandidateExampleFiles should return all JSON files in example directories`(@TempDir tempDir: File) {
+        val contractFile = tempDir.resolve("api.yaml")
+        val testDir = tempDir.resolve("test_examples").apply { mkdirs() }
+        val stubDir = tempDir.resolve("stub_examples").apply { mkdirs() }
+
+        // Create implicit examples
+        tempDir.resolve("api_examples").apply { mkdirs() }.resolve("implicit1.json").writeText("{}")
+        tempDir.resolve("api_examples").apply { mkdirs() }.resolve("implicit2.json").writeText("{}")
+
+        // Create test examples
+        tempDir.resolve("test_examples").resolve("test1.json").writeText("{}")
+        tempDir.resolve("test_examples").resolve("test2.json").writeText("{}")
+        tempDir.resolve("test_examples").resolve("nested").apply { mkdirs() }.resolve("nested-test.json").writeText("{}")
+        tempDir.resolve("test_examples").resolve("test.txt").writeText("not json")
+
+        // Create stub examples
+        tempDir.resolve("stub_examples").resolve("stub1.json").writeText("{}")
+        tempDir.resolve("stub_examples").resolve("stub2.json").writeText("{}")
+
+        val specmaticConfig = mockk<SpecmaticConfig>(relaxed = true).apply {
+            every { getTestExampleDirs(contractFile) } returns listOf(testDir.path)
+            every { getStubExampleDirs(contractFile) } returns listOf(stubDir.path)
+        }
+
+        val module = ExampleModule(specmaticConfig)
+        val files = module.getCandidateExampleFiles(contractFile)
+        assertThat(files.map { it.name }).hasSize(7).containsExactlyInAnyOrder(
+            "implicit1.json",
+            "implicit2.json",
+            "test1.json",
+            "test2.json",
+            "nested-test.json",
+            "stub1.json",
+            "stub2.json"
+        )
     }
 }
