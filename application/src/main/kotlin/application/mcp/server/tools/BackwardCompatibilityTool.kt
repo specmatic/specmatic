@@ -2,7 +2,9 @@ package application.mcp.server.tools
 
 import application.backwardCompatibility.BackwardCompatibilityCheckCommandV2
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import picocli.CommandLine
+import java.io.File
 
 @Serializable
 data class BackwardCompatArgs(
@@ -11,14 +13,30 @@ data class BackwardCompatArgs(
     val repoDir: String? = null
 )
 
+@Serializable
+data class BackwardCompatibilityFallbackResponse(
+    val action: String = "display_only",
+    val title: String = "Specmatic Backward Compatibility Check",
+    val status: String = "FALLBACK",
+    val message: String,
+    val dockerCommand: String,
+    val suggestion: String
+)
+
 class BackwardCompatibilityTool {
 
     internal fun runBackwardCompatibilityCheck(args: BackwardCompatArgs): String {
+        if(args.repoDir != null) {
+            val repoDirFile = File(args.repoDir)
+            if (!repoDirFile.exists() || !repoDirFile.isDirectory) {
+                return getReturnMessage(args)
+            }
+        }
         val command = BackwardCompatibilityCheckCommandV2()
         val argsList = mutableListOf<String>()
         args.targetPath?.let { argsList.add("--target-path"); argsList.add(it) }
         args.baseBranch?.let { argsList.add("--base-branch"); argsList.add(it) }
-        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(it) }
+        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(args.repoDir) }
 
         val (exitCode, stdout, stderr) = captureStandardStreams {
             CommandLine(command).execute(*argsList.toTypedArray())
@@ -52,5 +70,34 @@ class BackwardCompatibilityTool {
                 append("\n```\n")
             }
         }
+    }
+
+    internal fun getReturnMessage(args: BackwardCompatArgs): String {
+        val command = mutableListOf(
+            "docker",
+            "run",
+            "--rm",
+            "-i",
+            "-v",
+            "${args.repoDir}:/usr/src/app",
+            "specmatic/specmatic",
+            "backward-compatibility-check"
+        )
+
+        args.targetPath?.takeIf { it.isNotBlank() }?.let {
+            command += listOf("--target-path", it)
+        }
+
+        args.baseBranch?.takeIf { it.isNotBlank() }?.let {
+            command += listOf("--base-branch", it)
+        }
+
+        return Json.encodeToString(
+            BackwardCompatibilityFallbackResponse(
+                message = "The specified repository directory `${args.repoDir}` does not exist or is not available from the current container filesystem.",
+                dockerCommand = command.joinToString(" "),
+                suggestion = "Use the docker command below or retry from the CLI variant."
+            )
+        )
     }
 }
