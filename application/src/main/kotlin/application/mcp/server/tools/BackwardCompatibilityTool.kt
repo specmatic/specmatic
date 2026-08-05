@@ -15,9 +15,7 @@ data class BackwardCompatArgs(
 
 @Serializable
 data class BackwardCompatibilityFallbackResponse(
-    val action: String = "display_only",
     val title: String = "Specmatic Backward Compatibility Check",
-    val status: String = "FALLBACK",
     val message: String,
     val dockerCommand: String,
     val suggestion: String
@@ -29,7 +27,7 @@ class BackwardCompatibilityTool {
         if(args.repoDir != null) {
             val repoDirFile = File(args.repoDir)
             if (!repoDirFile.exists() || !repoDirFile.isDirectory) {
-                return getReturnMessage(args)
+                return getFallbackResponse(args)
             }
         }
         val command = BackwardCompatibilityCheckCommandV2()
@@ -72,7 +70,7 @@ class BackwardCompatibilityTool {
         }
     }
 
-    internal fun getReturnMessage(args: BackwardCompatArgs): String {
+    internal fun getFallbackResponse(args: BackwardCompatArgs): String {
         val command = mutableListOf(
             "docker",
             "run",
@@ -96,7 +94,7 @@ class BackwardCompatibilityTool {
             BackwardCompatibilityFallbackResponse(
                 message = "The specified repository directory `${args.repoDir}` does not exist or is not available from the current container filesystem.",
                 dockerCommand = command.joinToString(" "),
-                suggestion = "Use the docker command below or retry from the CLI variant."
+                suggestion = "Use the docker command"
             )
         )
     }

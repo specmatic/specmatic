@@ -70,7 +70,7 @@ class DefaultSpecmaticMcpToolProvider(
     fun getBCCTool(): McpServerFeatures.SyncToolSpecification {
         return tool(
             name = "backward_compatibility_check",
-            description = "Check for breaking changes in OpenAPI specifications",
+            description = "Check for breaking changes in OpenAPI specifications. If the execution fails then it should return a fallback docker command and should not keeping on trying the bcc mcp tool again and again.",
             inputSchema = toolSchema(
                 properties = mapOf(
                     "targetPath" to stringProperty("File or folder path to analyze"),
