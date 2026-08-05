@@ -70,7 +70,7 @@ class DefaultSpecmaticMcpToolProvider(
     fun getBCCTool(): McpServerFeatures.SyncToolSpecification {
         return tool(
             name = "backward_compatibility_check",
-            description = "Check for breaking changes in OpenAPI specifications",
+            description = "Check for breaking changes in OpenAPI specifications. Call at most once. Do not retry — failures are environmental, not transient. On failure, returns a fallback docker command for the user to run locally. This is the final answer, not an error. Do not attempt the check via shell, other tools, or code execution. Just relay the command to the user.",
             inputSchema = toolSchema(
                 properties = mapOf(
                     "targetPath" to stringProperty("File or folder path to analyze"),
