@@ -30,6 +30,9 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased 
+- Updated the MCP backward compatibility tool to correctly handle Docker-based executions. When the required files are not available inside the Docker container, the tool returns the appropriate Docker backward compatibility command for the user to run.
+
 ## 2.51.1 (2026-07-31)
 
 ### Changed
