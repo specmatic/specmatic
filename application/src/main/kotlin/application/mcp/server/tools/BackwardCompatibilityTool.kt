@@ -24,17 +24,12 @@ data class BackwardCompatibilityFallbackResponse(
 class BackwardCompatibilityTool {
 
     internal fun runBackwardCompatibilityCheck(args: BackwardCompatArgs): String {
-        if(args.repoDir != null) {
-            val repoDirFile = File(args.repoDir)
-            if (!repoDirFile.exists() || !repoDirFile.isDirectory) {
-                return getFallbackResponse(args)
-            }
-        }
+        if(isInvalidRepoDir(args)) return getFallbackResponse(args)
         val command = BackwardCompatibilityCheckCommandV2()
         val argsList = mutableListOf<String>()
         args.targetPath?.let { argsList.add("--target-path"); argsList.add(it) }
         args.baseBranch?.let { argsList.add("--base-branch"); argsList.add(it) }
-        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(args.repoDir) }
+        args.repoDir?.let { argsList.add("--repo-dir"); argsList.add(it) }
 
         val (exitCode, stdout, stderr) = captureStandardStreams {
             CommandLine(command).execute(*argsList.toTypedArray())
@@ -97,5 +92,13 @@ class BackwardCompatibilityTool {
                 suggestion = "Use the docker command"
             )
         )
+    }
+
+    internal fun isInvalidRepoDir(args: BackwardCompatArgs): Boolean {
+        if(args.repoDir != null) {
+            val repoDirFile = File(args.repoDir)
+            return !repoDirFile.exists() || !repoDirFile.isDirectory
+        }
+        return true
     }
 }

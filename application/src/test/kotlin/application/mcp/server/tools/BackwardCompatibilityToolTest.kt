@@ -6,7 +6,9 @@ import io.mockk.unmockkAll
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import picocli.CommandLine
+import java.io.File
 
 class BackwardCompatibilityToolTest {
 
@@ -18,7 +20,7 @@ class BackwardCompatibilityToolTest {
     }
 
     @Test
-    fun `runBackwardCompatibilityCheck should format results correctly for a successful check`() {
+    fun `runBackwardCompatibilityCheck should format results correctly for a successful check`(@TempDir tempDir: File) {
         var capturedArgs: List<String> = emptyList()
 
         mockkConstructor(CommandLine::class)
@@ -37,7 +39,7 @@ class BackwardCompatibilityToolTest {
         val args = BackwardCompatArgs(
             targetPath = "spec.yaml",
             baseBranch = "main",
-            repoDir = "repo"
+            repoDir = tempDir.path
         )
 
         val result = tool.runBackwardCompatibilityCheck(args)
@@ -45,7 +47,7 @@ class BackwardCompatibilityToolTest {
         assertThat(capturedArgs).containsExactly(
             "--target-path", "spec.yaml",
             "--base-branch", "main",
-            "--repo-dir", "repo"
+            "--repo-dir", tempDir.path
         )
         assertThat(result).contains("## Specmatic Backward Compatibility Check")
         assertThat(result).contains("File: `spec.yaml`")
@@ -55,17 +57,36 @@ class BackwardCompatibilityToolTest {
     }
 
     @Test
-    fun `runBackwardCompatibilityCheck should format results correctly for a failed check`() {
+    fun `runBackwardCompatibilityCheck should format results correctly for a failed check`(@TempDir tempDir: File) {
         mockkConstructor(CommandLine::class)
         every { anyConstructed<CommandLine>().execute(*anyVararg()) } returns 1
 
         val args = BackwardCompatArgs(
-            targetPath = "spec.yaml"
+            targetPath = "spec.yaml",
+            repoDir = tempDir.path
         )
 
         val result = tool.runBackwardCompatibilityCheck(args)
 
         assertThat(result).contains("## Specmatic Backward Compatibility Check")
         assertThat(result).contains("Status: BREAKING CHANGES DETECTED OR CHECK FAILED")
+    }
+
+    @Test
+    fun `isInvalidRepoDir should return true when repoDir is null`() {
+        val args = BackwardCompatArgs(targetPath = "spec.yaml")
+        assertThat(tool.isInvalidRepoDir(args)).isTrue()
+    }
+
+    @Test
+    fun `isInvalidRepoDir should return false when repoDir exists`(@TempDir tempDir: File) {
+        val args = BackwardCompatArgs(repoDir = tempDir.path)
+        assertThat(tool.isInvalidRepoDir(args)).isFalse()
+    }
+
+    @Test
+    fun `isInvalidRepoDir should return true when repoDir does not exist`() {
+        val args = BackwardCompatArgs(repoDir = "non_existent_dir_12345")
+        assertThat(tool.isInvalidRepoDir(args)).isTrue()
     }
 }
