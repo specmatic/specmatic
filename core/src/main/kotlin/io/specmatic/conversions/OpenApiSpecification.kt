@@ -85,6 +85,16 @@ internal fun responseExampleWithoutRequestWarning(
 ): String =
     "WARNING: Ignoring $responseStatus response example named $exampleName for ${httpMethod.uppercase()} $openApiPath because the operation has no request parameters or body where a matching named request example can be defined."
 
+internal fun unselected2xxResponseExampleWarning(
+    exampleName: String,
+    responseStatus: Int,
+    httpMethod: String,
+    openApiPath: String,
+    selectedExampleName: String,
+    selectedResponseStatus: Int
+): String =
+    "WARNING: Ignoring $responseStatus response example named $exampleName for ${httpMethod.uppercase()} $openApiPath. Since the operation has no request parameters or body, there is no way to indicate which response should be triggered by the request. The first example named $selectedExampleName from the first 2xx response with examples ($selectedResponseStatus) will be used."
+
 internal fun missingResponseExampleErrorMessageForTest(exampleName: String): String =
     missingResponseExampleErrorMessageForTest.format(exampleName, exampleName)
 
@@ -1354,15 +1364,24 @@ class OpenApiSpecification(
                 if (shouldUseResponseExample.not()) {
                     // TODO: Collect as warning
                     if (specmaticConfig.getIgnoreInlineExampleWarnings().not()) {
-                        val warning = if (canContainNamedRequestExample)
-                            missingRequestExampleErrorMessageForTest(exampleName)
-                        else
-                            responseExampleWithoutRequestWarning(
+                        val warning = when {
+                            canContainNamedRequestExample -> missingRequestExampleErrorMessageForTest(exampleName)
+                            responseExample.status in 200..299 && firstAvailable2xxResponseExample != null ->
+                                unselected2xxResponseExampleWarning(
+                                    exampleName,
+                                    responseExample.status,
+                                    httpMethod,
+                                    openApiPath,
+                                    firstAvailable2xxResponseExample.name,
+                                    firstAvailable2xxResponseExample.status
+                                )
+                            else -> responseExampleWithoutRequestWarning(
                                 exampleName,
                                 responseExample.status,
                                 httpMethod,
                                 openApiPath
                             )
+                        }
                         logger.log(warning)
                     }
                     return@mapNotNull null

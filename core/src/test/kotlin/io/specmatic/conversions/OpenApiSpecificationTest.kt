@@ -8823,6 +8823,50 @@ components:
     }
 
     @Test
+    fun `strict mode should explain which inline example is selected when ignoring additional 2xx response examples`() {
+        val path = "/customer"
+        val spec = """
+            openapi: 3.0.3
+            info:
+              title: Customer API
+              version: 1.0.0
+            paths:
+              $path:
+                get:
+                  responses:
+                    '201':
+                      description: Created
+                      content:
+                        application/json:
+                          schema:
+                            type: string
+                          examples:
+                            SUCCESS_1:
+                              value: success-1
+                            SUCCESS_2:
+                              value: success-2
+                    '200':
+                      description: Success
+                      content:
+                        application/json:
+                          schema:
+                            type: string
+                          examples:
+                            SUCCESS_3:
+                              value: success-3
+        """.trimIndent()
+
+        val (output, _) = captureStandardOutput {
+            OpenApiSpecification.fromYAML(spec, "", strictMode = true).toFeature()
+        }
+
+        assertThat(output).contains(
+            unselected2xxResponseExampleWarning("SUCCESS_2", 201, "get", path, "SUCCESS_1", 201),
+            unselected2xxResponseExampleWarning("SUCCESS_3", 200, "get", path, "SUCCESS_1", 201)
+        )
+    }
+
+    @Test
     fun `strict mode should warn and ignore non-2xx response example when operation cannot contain a named request example`() {
         val path = "/health"
         val spec = """
