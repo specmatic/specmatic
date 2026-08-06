@@ -450,7 +450,7 @@ paths:
             assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces("""
             =============== Inline Example Validation Summary ===============
-            All 1 example(s) are valid.
+            All 2 example(s) are valid.
             =================================================================
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
@@ -460,7 +460,7 @@ paths:
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
             =============== Overall Validation Summary ===============
-            All 3 example(s) are valid.
+            All 4 example(s) are valid.
             ==========================================================
             """.trimIndent())
         }
@@ -475,7 +475,7 @@ paths:
             assertThat(exitCode).isEqualTo(0)
             assertThat(stdOut).containsIgnoringWhitespaces("""
             =============== Inline Example Validation Summary ===============
-            All 1 example(s) are valid.
+            All 2 example(s) are valid.
             =================================================================
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
@@ -485,7 +485,7 @@ paths:
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
             =============== Overall Validation Summary ===============
-            All 3 example(s) are valid.
+            All 4 example(s) are valid.
             ==========================================================
             """.trimIndent())
         }
@@ -502,7 +502,7 @@ paths:
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
             =============== Inline Example Validation Summary ===============
-            All 1 example(s) are valid.
+            All 2 example(s) are valid.
             =================================================================
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
@@ -513,7 +513,7 @@ paths:
             assertThat(stdOut).containsIgnoringWhitespaces("""
             Summary:
             =============== Overall Validation Summary ===============
-            All 1 example(s) are valid.
+            All 2 example(s) are valid.
             ==========================================================
             """.trimIndent())
         }
@@ -593,7 +593,7 @@ paths:
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'persons.yaml'
-            implicit example: 'person-example-01,person-example-11'
+            implicit example: 'person-example-01,person-example-11,person-list-example'
             external stub: 'create_person-01.json,create_person-02.json'
             """.trimIndent())
         }
@@ -611,7 +611,7 @@ paths:
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'persons.yaml'
-            implicit example: 'person-example-01,person-example-11'
+            implicit example: 'person-example-01,person-example-11,person-list-example'
             external stub: 'create_person-01.json'
             """.trimIndent())
         }
@@ -629,7 +629,7 @@ paths:
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'persons.yaml'
-            implicit example: 'person-example-01,person-example-11'
+            implicit example: 'person-example-01,person-example-11,person-list-example'
             external stub: 'create_person-01.json,create_person-02.json'
             """.trimIndent())
         }
@@ -644,13 +644,13 @@ paths:
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'persons.yaml'
-            implicit example: 'person-example-01,person-example-11'
+            implicit example: 'person-example-01,person-example-11,person-list-example'
             external stub: 'create_person-01.json,create_person-02.json'
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'spec.yaml'
-            implicit example: 'CreateProduct'
+            implicit example: 'CreateProduct,GetProduct'
             external stub: 'example_1.json,example_3.json'
             """.trimIndent())
         }
@@ -667,13 +667,13 @@ paths:
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'persons.yaml'
-            implicit example: 'person-example-01,person-example-11'
+            implicit example: 'person-example-01,person-example-11,person-list-example'
             external stub: 'create_person-01.json,create_person-02.json'
             """.trimIndent())
             assertThat(stdOut).containsIgnoringWhitespaces("""
             life cycle hook called for 'Validation'
             spec: 'spec.yaml'
-            implicit example: 'CreateProduct'
+            implicit example: 'CreateProduct,GetProduct'
             external stub: 'example_1.json,example_3.json'
             """.trimIndent())
         }
