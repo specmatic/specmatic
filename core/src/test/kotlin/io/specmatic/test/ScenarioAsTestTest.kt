@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.Feature
 import io.specmatic.core.utilities.Decision
 import io.specmatic.core.utilities.Reasoning
@@ -44,6 +45,7 @@ import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.test.fixtures.OpenAPIFixtureExecutor
 import io.specmatic.test.fixtures.FixtureExecutionMetadata
@@ -476,6 +478,8 @@ class ScenarioAsTestTest {
         assertThat(updatedScenario.statusInDescription).isEqualTo("1000")
         assertThat(scenarioInRecord.statusInDescription).isEqualTo("1000")
         assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+        assertThat(testResultRecord.responseStatus).isEqualTo(400)
+        assertThat((testResultRecord.operations.single() as OpenAPIOperation).responseCode).isEqualTo(DEFAULT_RESPONSE_CODE)
     }
 
     @Test

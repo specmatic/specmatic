@@ -835,6 +835,8 @@ data class Scenario(
 
     fun isA4xxScenario(): Boolean = this.httpResponsePattern.status in 400..499
 
+    fun isDefaultResponse(): Boolean = this.httpResponsePattern.status == DEFAULT_RESPONSE_CODE
+
     fun hasExampleRows(): Boolean = examples.any { it.rows.isNotEmpty() }
 
     fun hasExamples(): Boolean = examples.isNotEmpty() && hasExampleRows()
