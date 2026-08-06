@@ -924,6 +924,16 @@ paths:
                 paths:
                   /hello:
                     get:
+                      parameters:
+                        - name: example
+                          in: query
+                          schema:
+                            type: string
+                          examples:
+                            FIRST:
+                              value: first
+                            SECOND:
+                              value: second
                       responses:
                         '200':
                           description: OK
