@@ -197,8 +197,11 @@ fun openAPIOperationFrom(scenario: Scenario, path: String): OpenAPIOperation {
         path = path,
         method = scenario.soapActionUnescaped ?: scenario.method,
         contentType = scenario.requestContentType,
-        responseCode = scenario.status,
+        responseCode = scenario.openAPIResponseCode(),
         protocol = scenario.protocol,
         responseContentType = scenario.responseContentType,
     )
 }
+
+private fun Scenario.openAPIResponseCode(): Int =
+    if (isDefaultResponse()) DEFAULT_RESPONSE_CODE else status

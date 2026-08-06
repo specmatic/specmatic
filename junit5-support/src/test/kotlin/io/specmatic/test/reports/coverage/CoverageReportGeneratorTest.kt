@@ -1,5 +1,6 @@
 package io.specmatic.test.reports.coverage
 
+import io.specmatic.core.DEFAULT_RESPONSE_CODE
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.Scenario
 import io.specmatic.core.utilities.Decision
@@ -81,6 +82,37 @@ class CoverageReportGeneratorTest {
         val missingInSpecFromApplicationEndpoint = reportOperations.single { it.operation.path == "/payments" }
         assertThat(missingInSpecFromApplicationEndpoint.coverageStatus).isEqualTo(CoverageStatus.MISSING_IN_SPEC)
         assertThat(missingInSpecFromApplicationEndpoint.specConfig.specification).isEqualTo("specs/openapi.yaml")
+    }
+
+    @Test
+    fun `should cover default response operation when an undeclared status matches it`() {
+        val defaultEndpoint = endpoint("/orders", "GET", null, DEFAULT_RESPONSE_CODE, "text/plain")
+        val defaultOperation = defaultEndpoint.toOpenApiOperation()
+        val defaultResponseRecord = TestResultRecord(
+            path = "/orders",
+            method = "GET",
+            responseStatus = DEFAULT_RESPONSE_CODE,
+            responseContentType = "text/plain",
+            request = null,
+            response = HttpResponse(status = 400, headers = mapOf("Content-Type" to "text/plain")),
+            result = TestResult.Success,
+            specification = "specs/openapi.yaml",
+            specType = SpecType.OPENAPI,
+            actualResponseStatus = 400,
+            actualResponseContentType = "text/plain",
+            operations = setOf(defaultOperation),
+        )
+        val context = CoverageContext(
+            tests = listOf(defaultResponseRecord),
+            allSpecEndpoints = listOf(defaultEndpoint),
+        )
+
+        val reportOperation = reportGenerator.generateReportOperations(context).single()
+
+        assertThat(reportOperation.operation.responseCode).isEqualTo(DEFAULT_RESPONSE_CODE)
+        assertThat(reportOperation.coverageStatus).isEqualTo(CoverageStatus.COVERED)
+        assertThat(reportOperation.metrics?.attempts).isEqualTo(1)
+        assertThat(reportOperation.metrics?.matches).isEqualTo(1)
     }
 
     @Test
