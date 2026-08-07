@@ -42,7 +42,7 @@ dependencies {
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
     implementation("io.swagger.parser.v3:swagger-parser:${project.property("swaggerParserVersion")}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0")
-    implementation("io.modelcontextprotocol.sdk:mcp-core:1.1.3")
+    implementation("io.modelcontextprotocol.sdk:mcp-core:2.0.0")
     implementation("io.modelcontextprotocol.sdk:mcp-json-jackson2:1.1.3")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect:2.3.21")
