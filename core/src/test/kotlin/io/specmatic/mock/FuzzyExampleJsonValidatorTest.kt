@@ -3,12 +3,15 @@ package io.specmatic.mock
 import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.core.value.BooleanValue
+import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -55,6 +58,43 @@ class FuzzyExampleJsonValidatorTest {
 
         val afterResult = FuzzyExampleJsonValidator.matches(fixedStub)
         assertThat(afterResult).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Nested
+    inner class InlineProjectedExampleValidation {
+        @Test
+        fun `should validate an inline example with only request and response`() {
+            val inlineExample = validStub().apply {
+                modifyNested(MOCK_HTTP_REQUEST) {
+                    put("headers", JSONObjectValue(mapOf("X-Test" to StringValue("value"))))
+                }
+            }
+
+            val result = FuzzyExampleJsonValidator.matchesInlineExample(inlineExample)
+            assertThat(result).isInstanceOf(Result.Success::class.java)
+        }
+
+        @ParameterizedTest
+        @MethodSource("io.specmatic.mock.FuzzyExampleJsonValidatorTest#inlineExamplesWithDisallowedTopLevelFields")
+        fun `should reject invalid fields and fix recoverable inline examples`(inlineExample: Map<String, Value>, disallowedField: String) {
+            val result = FuzzyExampleJsonValidator.matchesInlineExample(inlineExample)
+            assertFailureContainsExactLines(result, FuzzyInlineExampleMisMatchMessages.unexpectedKey("property", disallowedField))
+
+            val fixedExample = FuzzyExampleJsonValidator.fixInlineExample(JSONObjectValue(inlineExample))
+            assertThat(FuzzyExampleJsonValidator.matchesInlineExample(fixedExample)).isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `should use inline example mismatch messages`() {
+            val inlineExample = validStub().apply {
+                modifyNested(MOCK_HTTP_REQUEST) {
+                    put("method", NumberValue(123))
+                }
+            }
+
+            val result = FuzzyExampleJsonValidator.matchesInlineExample(inlineExample)
+            assertFailureContainsExactLines(result, FuzzyInlineExampleMisMatchMessages.typeMismatch("string", "123", "number"))
+        }
     }
 
     companion object {
@@ -698,6 +738,23 @@ class FuzzyExampleJsonValidatorTest {
                         }
                     }
                 )
+            )
+        }
+
+        @JvmStatic
+        fun inlineExamplesWithDisallowedTopLevelFields(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(stubWithPartial {}, PARTIAL),
+                Arguments.of(stubWith { put("name", StringValue("inline")) }, "name"),
+                Arguments.of(stubWith { put(TRANSIENT_MOCK, BooleanValue(true)) }, TRANSIENT_MOCK),
+                Arguments.of(stubWith { put(DELAY_IN_SECONDS, NumberValue(1)) }, DELAY_IN_SECONDS),
+                Arguments.of(stubWith { put(DELAY_IN_MILLISECONDS, NumberValue(1)) }, DELAY_IN_MILLISECONDS),
+                Arguments.of(stubWith { put(TRANSIENT_MOCK_ID, StringValue("inline-id")) }, TRANSIENT_MOCK_ID),
+                Arguments.of(stubWith { put(AFTER_FIXTURES, JSONArrayValue(emptyList())) }, AFTER_FIXTURES),
+                Arguments.of(stubWith { put(BEFORE_FIXTURES, JSONArrayValue(emptyList())) }, BEFORE_FIXTURES),
+                Arguments.of(stubWith { modifyNested(MOCK_HTTP_REQUEST) { put(REQUEST_BODY_REGEX, StringValue(".+")) } }, REQUEST_BODY_REGEX),
+                Arguments.of(stubWith { modifyNested(MOCK_HTTP_RESPONSE) { put("externalisedResponseCommand", StringValue("echo response")) } }, "externalisedResponseCommand"),
+                Arguments.of(stubWith { modifyNested(MOCK_HTTP_REQUEST) { remove("method"); put("mthd", StringValue("GET")) } }, "mthd"),
             )
         }
 

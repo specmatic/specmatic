@@ -40,6 +40,24 @@ object FuzzyExampleMisMatchMessages : MismatchMessages {
     }
 }
 
+object FuzzyInlineExampleMisMatchMessages : MismatchMessages {
+    override fun mismatchMessage(expected: String, actual: String): String {
+        return "Inline example format expected $expected, but example contained $actual"
+    }
+
+    override fun unexpectedKey(keyLabel: String, keyName: String): String {
+        return "${keyLabel.capitalizeFirstChar()} \"$keyName\" is invalid in inline example"
+    }
+
+    override fun expectedKeyWasMissing(keyLabel: String, keyName: String): String {
+        return "Inline example format expected mandatory $keyLabel \"$keyName\" to be present but was missing from the example"
+    }
+
+    override fun optionalKeyMissing(keyLabel: String, keyName: String): String {
+        return "Expected optional $keyLabel \"$keyName\" to be present but was missing from the inline example"
+    }
+}
+
 object FuzzyExampleJsonValidator {
     private const val EXAMPLE_SCHEMA_PATH: String = "/schemas/external_example.yaml"
     private val patterns: Map<String, Pattern> by lazy {
@@ -72,12 +90,45 @@ object FuzzyExampleJsonValidator {
         }
     }
 
+    fun matchesInlineExample(rawValue: Map<String, Value>): Result {
+        return matchesInlineExample(JSONObjectValue(rawValue))
+    }
+
+    fun matchesInlineExample(value: JSONObjectValue): Result {
+        return try {
+            val inlineExamplePattern = patterns["(InlineExample)"]
+                ?: throw IllegalStateException("CRITICAL: External Example Schema is missing the required schema named 'InlineExample'")
+
+            inlineExamplePattern.matches(sampleData = value, resolver = inlineResolver())
+        } catch (e: Exception) {
+            logger.log(e, "Unexpected error during inline example validation")
+            Result.Failure("Critical internal error validating inline example: ${e.message}")
+        }
+    }
+
     fun fix(value: JSONObjectValue): JSONObjectValue {
         return try {
             val examplePattern = resolvePatternToUse(value.jsonObject)
             examplePattern.fixValue(value, resolver) as? JSONObjectValue ?: value
         } catch (e: Exception) {
             logger.log(e, "Unexpected error during External Example fix")
+            value
+        }
+    }
+
+    fun fixInlineExample(value: JSONObjectValue): JSONObjectValue {
+        return try {
+            val inlineExamplePattern = patterns["(InlineExample)"]
+                ?: throw IllegalStateException("CRITICAL: External Example Schema is missing the required schema named 'InlineExample'")
+
+            val valueToFix = buildMap {
+                putAll((value.jsonObject[PARTIAL] as? JSONObjectValue)?.jsonObject.orEmpty())
+                putAll(value.jsonObject.minus(PARTIAL))
+            }.let(::JSONObjectValue)
+
+            inlineExamplePattern.fixValue(valueToFix, inlineResolver()) as? JSONObjectValue ?: value
+        } catch (e: Exception) {
+            logger.log(e, "Unexpected error during inline example fix")
             value
         }
     }
@@ -104,5 +155,9 @@ object FuzzyExampleJsonValidator {
         val strategy = LevenshteinStrategy()
         val maxAllowedDistance = strategy.maxAllowedDistance(PARTIAL.length)
         return rawValue.any { strategy.score(it.key, PARTIAL) <= maxAllowedDistance }
+    }
+
+    private fun inlineResolver(): Resolver {
+        return resolver.copy(findKeyErrorCheck = FuzzyKeyCheck(), mismatchMessages = FuzzyInlineExampleMisMatchMessages)
     }
 }
