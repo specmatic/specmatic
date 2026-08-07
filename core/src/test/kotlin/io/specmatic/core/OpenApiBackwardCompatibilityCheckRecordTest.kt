@@ -67,6 +67,21 @@ class OpenApiBackwardCompatibilityCheckRecordTest {
     }
 
     @Test
+    fun `should use externalised example name when provided`() {
+        val feature = openApiFeature()
+        val scenario = feature.scenarios.single()
+
+        val record = OpenApiBackwardCompatibilityCheckRecord(
+            feature = feature,
+            scenario = scenario,
+            compatResult = Result.Success(),
+            recordName = "get-orders_200.json"
+        )
+
+        assertThat(record.name).isEqualTo("get-orders_200.json")
+    }
+
+    @Test
     fun `should expose structured breakages with breadcrumb, rule and source-location chain`() {
         val feature = openApiFeature()
         val scenario = feature.scenarios.single()
