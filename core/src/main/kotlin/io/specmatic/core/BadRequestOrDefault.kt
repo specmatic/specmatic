@@ -32,14 +32,12 @@ class BadRequestOrDefault(val badRequestResponses: Map<Int, List<Scenario>> = em
         val sameStatus = badRequestResponses[httpResponse.status].orEmpty()
         val otherStatuses = badRequestResponses.filterKeys { it != httpResponse.status }.values.flatten()
 
-        val sameStatusAndContentType = matchByContentType(sameStatus, httpResponse)
-        if (sameStatusAndContentType != null) return BestEffortMatch(sameStatusAndContentType)
+        if (sameStatus.isNotEmpty()) {
+            return BestEffortMatch(matchByContentType(sameStatus, httpResponse) ?: sameStatus.first())
+        }
 
         val defaultAndContentType = matchByContentType(defaultResponses, httpResponse)
         if (defaultAndContentType != null) return BestEffortMatch(defaultAndContentType, fromDefault = true)
-
-        val sameStatusFirst = sameStatus.firstOrNull()
-        if (sameStatusFirst != null) return BestEffortMatch(sameStatusFirst)
 
         val otherStatusAndContentType = matchByContentType(otherStatuses, httpResponse)
         if (otherStatusAndContentType != null) return BestEffortMatch(otherStatusAndContentType)

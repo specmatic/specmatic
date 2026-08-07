@@ -174,9 +174,10 @@ class BadRequestOrDefaultTest {
         }
 
         @Test
-        fun `should choose default and content type when same status content type does not match`() {
+        fun `should choose explicit same status before validating content type`() {
+            val explicitScenario = scenario(status = 400, contentType = "text/plain", name = "same-status")
             val badRequestOrDefault = BadRequestOrDefault(
-                badRequestResponses = mapOf(400 to listOf(scenario(status = 400, contentType = "text/plain", name = "same-status"))),
+                badRequestResponses = mapOf(400 to listOf(explicitScenario)),
                 defaultResponses = listOf(scenario(status = DEFAULT_RESPONSE_CODE, contentType = "application/json", name = "default"))
             )
 
@@ -185,7 +186,8 @@ class BadRequestOrDefaultTest {
                 scenario(status = 201, contentType = "application/xml", name = "input")
             )
 
-            assertThat(updated.statusInDescription).isEqualTo(DEFAULT_RESPONSE_CODE.toString())
+            assertThat(updated.statusInDescription).isEqualTo("400")
+            assertThat(updated.httpResponsePattern).isEqualTo(explicitScenario.httpResponsePattern)
         }
 
         @Test
