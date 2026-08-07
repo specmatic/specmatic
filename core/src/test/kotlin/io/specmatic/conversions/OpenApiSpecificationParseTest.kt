@@ -28,6 +28,8 @@ import io.specmatic.core.pattern.QueryParameterScalarPattern
 import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.pattern.XMLPattern
 import io.specmatic.core.pattern.XMLTypeData
+import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
 import io.specmatic.core.value.StringValue
@@ -2267,6 +2269,506 @@ $parameters
               title: Inline example source metadata
               version: 1.0.0
             """.trimIndent() + "\n" + paths.trimIndent(), "inline-example-source.yaml").toFeature()
+        }
+    }
+
+    @Nested
+    inner class InlineExampleValueDeserialisation {
+        @Test
+        fun `parameter example values are de-serialised from inline and internal and external refs`(@TempDir tempDir: File) {
+            val externalFile = tempDir.resolve("parameter-examples.yaml")
+            externalFile.writeText("""
+            IdExternal:
+              value: person-external
+            TraceExternal:
+              value: trace-external
+            """.trimIndent())
+
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Parameter examples
+              version: 1.0.0
+            paths:
+              /people/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        INLINE_EXAMPLE:
+                          value: person-1
+                        INTERNAL_REF_EXAMPLE:
+                          $ref: '#/components/examples/IdInternal'
+                        EXTERNAL_REF_EXAMPLE:
+                          $ref: './parameter-examples.yaml#/IdExternal'
+                    - name: X-Trace
+                      in: header
+                      schema:
+                        type: string
+                      examples:
+                        INLINE_EXAMPLE:
+                          value: trace-1
+                        INTERNAL_REF_EXAMPLE:
+                          $ref: '#/components/examples/TraceInternal'
+                        EXTERNAL_REF_EXAMPLE:
+                          $ref: './parameter-examples.yaml#/TraceExternal'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              examples:
+                IdInternal:
+                  value: person-internal
+                TraceInternal:
+                  value: trace-internal
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val rows = feature.scenarios.single().examples.single().rows.associateBy { it.name }
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.getField("id")).isEqualTo("person-1")
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.getField("id")).isEqualTo("person-internal")
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.getField("id")).isEqualTo("person-external")
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.getField("X-Trace")).isEqualTo("trace-1")
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.getField("X-Trace")).isEqualTo("trace-internal")
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.getField("X-Trace")).isEqualTo("trace-external")
+        }
+
+        @Test
+        fun `query parameter example values are de-serialised from inline and internal and external refs`(@TempDir tempDir: File) {
+            val externalFile = tempDir.resolve("query-parameter-examples.yaml")
+            externalFile.writeText("""
+            value:
+              value: people-external
+            """.trimIndent())
+
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Query parameter examples
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - name: search
+                      in: query
+                      schema:
+                        type: string
+                      examples:
+                        INLINE_EXAMPLE:
+                          value: people
+                        INTERNAL_REF_EXAMPLE:
+                          $ref: '#/components/examples/InternalQueryExample'
+                        EXTERNAL_REF_EXAMPLE:
+                          $ref: './query-parameter-examples.yaml#/value'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              examples:
+                InternalQueryExample:
+                  value: people-internal
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val rows = feature.scenarios.single().examples.single().rows.associateBy { it.name }
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.getField("search")).isEqualTo("people")
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.getField("search")).isEqualTo("people-internal")
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.getField("search")).isEqualTo("people-external")
+        }
+
+        @Test
+        fun `nested query parameter example values are de-serialised from inline and internal and external refs`(@TempDir tempDir: File) {
+            val externalFile = tempDir.resolve("nested-query-parameter-examples.yaml")
+            externalFile.writeText("""
+            value:
+              value: name=External&address[0].street=External%20Street
+            """.trimIndent())
+
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Nested query parameter examples
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - name: details
+                      in: query
+                      required: true
+                      schema:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          address:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                street:
+                                  type: string
+                      examples:
+                        INLINE_EXAMPLE:
+                          value: name=Jack&address[0].street=Baker%20Street
+                        INTERNAL_REF_EXAMPLE:
+                          $ref: '#/components/examples/InternalNestedQueryExample'
+                        EXTERNAL_REF_EXAMPLE:
+                          $ref: './nested-query-parameter-examples.yaml#/value'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              examples:
+                InternalNestedQueryExample:
+                  value: name=Internal&address[0].street=Internal%20Street
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val rows = feature.scenarios.single().examples.single().rows.associateBy { it.name }
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.getField("details")).contains("Jack", "Baker Street")
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.getField("details")).contains("Internal", "Internal Street")
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.getField("details")).contains("External", "External Street")
+        }
+
+        @Test
+        fun `response body example values are de-serialised from inline and internal and external refs`(@TempDir tempDir: File) {
+            val externalFile = tempDir.resolve("response-body-examples.yaml")
+            externalFile.writeText("""
+            ExternalResponse:
+              value:
+                name: External
+            ExternalRequest:
+              value:
+                request: external
+            """.trimIndent())
+
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Response body examples
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                        examples:
+                          INLINE_EXAMPLE:
+                            value:
+                              request: inline
+                          INTERNAL_REF_EXAMPLE:
+                            $ref: '#/components/examples/InternalRequest'
+                          EXTERNAL_REF_EXAMPLE:
+                            $ref: './response-body-examples.yaml#/ExternalRequest'
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                          examples:
+                            INLINE_EXAMPLE:
+                              value:
+                                name: Jack
+                            INTERNAL_REF_EXAMPLE:
+                              $ref: '#/components/examples/InternalResponse'
+                            EXTERNAL_REF_EXAMPLE:
+                              $ref: './response-body-examples.yaml#/ExternalResponse'
+            components:
+              examples:
+                InternalResponse:
+                  value:
+                    name: Internal
+                InternalRequest:
+                  value:
+                    request: internal
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val rows = feature.scenarios.single().examples.single().rows.associateBy { it.name }
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.responseExample!!.body).isEqualTo(parsedJSONObject("""{"name":"Jack"}"""))
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.responseExample!!.body).isEqualTo(parsedJSONObject("""{"name":"Internal"}"""))
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.responseExample!!.body).isEqualTo(parsedJSONObject("""{"name":"External"}"""))
+        }
+
+        @Test
+        fun `response header example values are de-serialised from inline and internal and external refs`(@TempDir tempDir: File) {
+            val externalFile = tempDir.resolve("response-header-examples.yaml")
+            externalFile.writeText("""
+            ExternalHeader:
+              value: trace-external
+            ExternalRequest:
+              value: request-external
+            """.trimIndent())
+
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Response header examples
+              version: 1.0.0
+            paths:
+              /people:
+                get:
+                  parameters:
+                    - name: requestId
+                      in: query
+                      schema:
+                        type: string
+                      examples:
+                        INLINE_EXAMPLE:
+                          value: request-inline
+                        INTERNAL_REF_EXAMPLE:
+                          $ref: '#/components/examples/InternalRequest'
+                        EXTERNAL_REF_EXAMPLE:
+                          $ref: './response-header-examples.yaml#/ExternalRequest'
+                  responses:
+                    '200':
+                      description: OK
+                      headers:
+                        X-Trace:
+                          schema:
+                            type: string
+                          examples:
+                            INLINE_EXAMPLE:
+                              value: trace-1
+                            INTERNAL_REF_EXAMPLE:
+                              $ref: '#/components/examples/InternalHeader'
+                            EXTERNAL_REF_EXAMPLE:
+                              $ref: './response-header-examples.yaml#/ExternalHeader'
+            components:
+              examples:
+                InternalHeader:
+                  value: trace-internal
+                InternalRequest:
+                  value: request-internal
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val rows = feature.scenarios.single().examples.single().rows.associateBy { it.name }
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.columnNames).doesNotHaveDuplicates()
+
+            assertThat(rows["INLINE_EXAMPLE"]!!.responseExample!!.headers).containsEntry("X-Trace", "trace-1")
+            assertThat(rows["INTERNAL_REF_EXAMPLE"]!!.responseExample!!.headers).containsEntry("X-Trace", "trace-internal")
+            assertThat(rows["EXTERNAL_REF_EXAMPLE"]!!.responseExample!!.headers).containsEntry("X-Trace", "trace-external")
+        }
+
+        @Test
+        fun `structured OpenAPI request examples support inline, internal ref, external ref, and externalValue`(@TempDir tempDir: File) {
+            val externalFile = tempDir.resolve("external-examples.yaml")
+            externalFile.writeText("""
+            ExternalExampleRef:
+              value:
+                type: "external_reference"
+                description: "Loaded from a file via external ref"
+            """.trimIndent())
+
+            val externalValueFile = tempDir.resolve("external-value.json")
+            externalValueFile.writeText("""
+            {
+              "type": "external_value",
+              "description": "Loaded from a file via externalValue"
+            }
+            """.trimIndent())
+
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText($$"""
+            openapi: 3.0.0
+            info:
+              title: Example serialization
+              version: 1.0.0
+            paths:
+              /people:
+                post:
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                        examples:
+                          INLINE_EXAMPLE:
+                            value:
+                              type: "inline"
+                              description: "Defined inline with the specification"
+                          INTERNAL_REF_EXAMPLE:
+                            $ref: '#/components/examples/InternalExampleRef'
+                          EXTERNAL_REF_EXAMPLE:
+                            $ref: './external-examples.yaml#/ExternalExampleRef'
+                          EXTERNAL_VALUE_EXAMPLE:
+                            externalValue: './external-value.json'
+                  responses:
+                    '200':
+                      description: OK
+            components:
+              examples:
+                InternalExampleRef:
+                  value:
+                    type: "internal_reference"
+                    description: "Defined as a reusable component within the specification"
+            """.trimIndent())
+
+            val specification = OpenApiSpecification.fromYAML(
+                yamlContent = openApiFile.readText(),
+                openApiFilePath = openApiFile.canonicalPath
+            )
+
+            val examplesMap = specification.parsedOpenApi.paths["/people"]!!.post!!.requestBody!!.content["application/json"]!!.examples
+            assertThat(examplesMap).containsKeys(
+                "INLINE_EXAMPLE",
+                "INTERNAL_REF_EXAMPLE",
+                "EXTERNAL_REF_EXAMPLE",
+                "EXTERNAL_VALUE_EXAMPLE"
+            )
+
+            val feature = specification.toFeature()
+            val rows = feature.scenarios.single().examples.single().rows
+
+            assertThat(rows).allSatisfy { row ->
+                assertThat(row.columnNames).doesNotHaveDuplicates()
+                val requestBody = parsedJsonValue(row.getField("(REQUEST-BODY)"))
+                assertThat(requestBody).isIn(
+                    StringValue(), // externalValue examples are unsupported
+                    """{"type":"inline","description":"Defined inline with the specification"}""".let(::parsedJSONObject),
+                    """{"type":"external_reference","description":"Loaded from a file via external ref"}""".let(::parsedJSONObject),
+                    """{"type":"internal_reference","description":"Defined as a reusable component within the specification"}""".let(::parsedJSONObject),
+                )
+            }
+        }
+
+        @Test
+        fun `parameter example values include path parameters when request has a body and unused example with empty response`(@TempDir tempDir: File) {
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText("""
+            openapi: 3.0.0
+            info:
+              title: Parameter examples with request body
+              version: 1.0.0
+    
+            paths:
+              /people/{id}:
+                post:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: string
+                      examples:
+                        INLINE_EXAMPLE:
+                          value: person-1
+    
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                        examples:
+                          INLINE_EXAMPLE:
+                            value:
+                              name: John
+    
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val row = feature.scenarios.single().examples.single().rows.single { it.name == "INLINE_EXAMPLE" }
+
+            assertThat(row.columnNames).doesNotHaveDuplicates()
+            assertThat(row.getField("id")).isEqualTo("person-1")
+            assertThat(row.getField("(REQUEST-BODY)").let(::parsedJsonValue)).isEqualTo("""{"name":"John"}""".let(::parsedJSONObject))
+        }
+
+        @Test
+        fun `path level parameter example values are included when request has a body and unused example with empty response`(@TempDir tempDir: File) {
+            val openApiFile = tempDir.resolve("openapi.yaml")
+            openApiFile.writeText("""
+            openapi: 3.0.0
+            info:
+              title: Path level parameter examples with request body
+              version: 1.0.0
+        
+            paths:
+              /people/{id}:
+                parameters:
+                  - name: id
+                    in: path
+                    required: true
+                    schema:
+                      type: string
+                    examples:
+                      INLINE_EXAMPLE:
+                        value: person-1
+        
+                post:
+                  requestBody:
+                    required: true
+                    content:
+                      application/json:
+                        schema:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                        examples:
+                          INLINE_EXAMPLE:
+                            value:
+                              name: John
+        
+                  responses:
+                    '200':
+                      description: OK
+            """.trimIndent())
+
+            val feature = OpenApiSpecification.fromYAML(openApiFile.readText(), openApiFile.canonicalPath).toFeature()
+            val row = feature.scenarios.single().examples.single().rows.single { it.name == "INLINE_EXAMPLE" }
+
+            assertThat(row.columnNames).doesNotHaveDuplicates()
+            assertThat(row.getField("id")).isEqualTo("person-1")
+            assertThat(row.getField("(REQUEST-BODY)").let(::parsedJsonValue)).isEqualTo("""{"name":"John"}""".let(::parsedJSONObject))
         }
     }
 
