@@ -24,18 +24,22 @@ allprojects {
 }
 
 specmatic {
-    releasePublishTasks = listOf(
-        "dockerBuildxPublish",
-        "publishAllPublicationsToMavenCentralRepository",
-        "publishAllPublicationsToSpecmaticPrivateRepository",
-        "publishAllPublicationsToSpecmaticReleasesRepository",
-    )
-
+    promotion {
+        sourceMavenRepository("specmaticSnapshots", "https://repo.specmatic.io/snapshots")
+        targetMavenCentral()
+        targetMavenRepository(
+            "specmaticReleases",
+            "https://repo.specmatic.io/releases",
+            RepoType.PUBLISH_OBFUSCATED_ONLY
+        )
+        dockerImage("specmatic/specmatic-snapshots:$version", "specmatic/specmatic:$version")
+        dockerImage("specmatic/specmatic-snapshots", "specmatic/specmatic")
+    }
 
     withOSSLibrary(project(":specmatic-core")) {
         githubRelease()
 
-        publishToMavenCentral()
+        promote()
         publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
         publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
         publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
@@ -69,7 +73,7 @@ specmatic {
     withOSSLibrary(project(":junit5-support")) {
         githubRelease()
 
-        publishToMavenCentral()
+        promote()
         publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
         publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
         publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
@@ -105,15 +109,16 @@ specmatic {
             addFile("unobfuscatedShadowJar", "specmatic.jar")
         }
 
-        publishToMavenCentral()
+        promote()
         publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
         publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
         publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)
 
         dockerBuild {
-            imageName = "specmatic"
+            imageName = "specmatic-snapshots"
             dockerOrgNames = listOf("specmatic")
         }
+
         publish {
             pom {
                 name = "Specmatic Executable"
@@ -142,7 +147,7 @@ specmatic {
     withOSSLibrary(project(":specmatic-mcp")) {
         githubRelease()
 
-        publishToMavenCentral()
+        promote()
         publishTo("specmaticPrivate", "https://repo.specmatic.io/private", RepoType.PUBLISH_ALL)
         publishTo("specmaticSnapshots", "https://repo.specmatic.io/snapshots", RepoType.PUBLISH_ALL)
         publishTo("specmaticReleases", "https://repo.specmatic.io/releases", RepoType.PUBLISH_ALL)

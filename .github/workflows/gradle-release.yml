@@ -18,26 +18,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: 'Base setup'
+        uses: specmatic/specmatic-github-workflows/action-base-setup@main
 
       - name: Docker Login
         run: echo ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }} | docker login -u ${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }} --password-stdin
 
-      - name: 'Build/test'
-        uses: specmatic/specmatic-github-workflows/action-build-gradle@main
-        with:
-          # compile/assemble in parallel to speed things up, but we will run the tests in a separate step (in sequence)
-          pre-gradle-command: ./gradlew validateSnapshotDependencies compileTestKotlin assemble --parallel -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
-          gradle-extra-args: -Preposilite.user=${{ vars.SPECMATIC_REPOSILITE_USERNAME }} -Preposilite.token=${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}
-
       - name: 'Release'
         run: |
           RELEASE_VERSION=$(semver get release $(/usr/bin/grep -E '^\s*version\s*=' gradle.properties | /usr/bin/sed -E -e 's/^\s*version\s*=//g'))
-          NEXT_VERSION=$(semver bump ${{ github.event.inputs.bump_type }} $(/usr/bin/grep -E '^\s*version\s*=' gradle.properties | /usr/bin/sed -E -e 's/^\s*version\s*=//g'))-SNAPSHOT
+          NEXT_VERSION=$(semver bump ${{ github.event.inputs.bump_type }} $(/usr/bin/grep -E '^\s*version\s*=' gradle.properties | /usr/bin/sed -E -e 's/^\s*version\s*=//g'))
           echo "Making a release with version $RELEASE_VERSION and next version $NEXT_VERSION..."
           
           git clean -fd
@@ -48,7 +38,7 @@ jobs:
           git config set --local http.https://github.com/.extraheader "Authorization: basic $(/bin/echo -n x-access-token:${{ secrets.SPECMATIC_GITHUB_TOKEN }} | base64)"
           
           ./gradlew --stacktrace \
-            release \
+            promote \
             -Prelease.releaseVersion=${RELEASE_VERSION} \
             -Prelease.newVersion=${NEXT_VERSION}
 

@@ -52,10 +52,10 @@ jobs:
       
       - name: Publish Snapshot
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main') && matrix.os == 'ubuntu-latest'
-        run: ./gradlew publishAllPublicationsToMavenCentralRepository publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository --parallel
+        run: |
+          echo ${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }} | docker login -u ${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }} --password-stdin
+          ./gradlew publishAllPublicationsToSpecmaticPrivateRepository publishAllPublicationsToSpecmaticSnapshotsRepository dockerBuildxPublish --parallel
         env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_USERNAME }}"
-          ORG_GRADLE_PROJECT_mavenCentralPassword: "${{ secrets.SPECMATIC_MAVEN_CENTRAL_PASSWORD }}"
           ORG_GRADLE_PROJECT_signingInMemoryKey: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: "${{ secrets.SPECMATIC_GPG_KEY_ID }}"
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: "${{ secrets.SPECMATIC_GPG_PRIVATE_KEY_PASSPHRASE }}"
@@ -63,6 +63,8 @@ jobs:
           ORG_GRADLE_PROJECT_specmaticSnapshotsPassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
           ORG_GRADLE_PROJECT_specmaticPrivateUsername: "${{ vars.SPECMATIC_REPOSILITE_USERNAME }}"
           ORG_GRADLE_PROJECT_specmaticPrivatePassword: "${{ secrets.SPECMATIC_REPOSILITE_TOKEN }}"
+          SPECMATIC_DOCKER_HUB_TOKEN: '${{ secrets.SPECMATIC_DOCKER_HUB_TOKEN }}'
+          SPECMATIC_DOCKER_HUB_USERNAME: '${{ vars.SPECMATIC_DOCKER_HUB_USERNAME }}'
 
       - name: Trigger Specmatic Tests Orchestrator
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'workflow_dispatch'
