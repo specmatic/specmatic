@@ -26,6 +26,31 @@ class ExampleValidationModuleTest {
     private val exampleValidationModule = ExampleValidationModule(specmaticConfig = SpecmaticConfig())
 
     @Test
+    fun `validates a projected inline ScenarioStub`() {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        val example = feature.inlineNamedStubs.first().stub
+        assertThat(exampleValidationModule.validateProjectedInlineExample(feature, example).isSuccess()).isTrue()
+    }
+
+    @Test
+    fun `validates a projected inline ExampleFromFile`(@TempDir tempDir: File) {
+        val feature = OpenApiSpecification
+            .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)
+            .toFeature()
+
+        val exampleFile = feature.inlineNamedStubs.first().stub.toExample(tempDir)
+        assertThat(
+            exampleValidationModule.validateProjectedInlineExample(
+                feature = feature,
+                example = ExampleFromFile(exampleFile, strictMode = false),
+            ).isSuccess()
+        ).isTrue()
+    }
+
+    @Test
     fun `should validate inline xml oneOf examples`() {
         val feature = OpenApiSpecification
             .fromFile(XML_ONEOF_CONTRACT_WITH_INLINE_EXAMPLES.path)

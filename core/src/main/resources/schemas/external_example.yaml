@@ -20,6 +20,20 @@ components:
             - partial
         - $ref: "#/components/schemas/FixtureHooks"
 
+    InlineExample:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        http-request:
+          $ref: "#/components/schemas/InlineRequestSchema"
+        http-response:
+          $ref: "#/components/schemas/InlineResponseSchema"
+      required:
+        - http-request
+        - http-response
+
     AnyValue: {}
 
     DurationString:
@@ -90,6 +104,34 @@ components:
       required:
         - method
 
+    InlineRequestSchema:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        method:
+          type: string
+        query:
+          type: object
+        headers:
+          type: object
+        body:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
+        form-fields:
+          type: object
+        multipart-formdata:
+          type: array
+          items:
+            $ref: "#/components/schemas/MultiPartFormData"
+        description:
+          type: string
+      required:
+        - path
+        - method
+
     ResponseSchema:
       type: object
       properties:
@@ -105,6 +147,26 @@ components:
             - $ref: "#/components/schemas/AnyValue"
         externalisedResponseCommand:
           nullable: true
+          type: string
+      required:
+        - status
+
+    InlineResponseSchema:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: integer
+          minimum: 0
+        headers:
+          type: object
+        body:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
+        status-text:
+          type: string
+        description:
           type: string
       required:
         - status

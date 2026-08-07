@@ -9,14 +9,38 @@ import io.specmatic.core.lifecycle.ExamplesUsedFor
 import io.specmatic.core.lifecycle.LifecycleHooks
 import io.specmatic.core.log.logger
 import io.specmatic.core.value.NullValue
+import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
+import io.specmatic.mock.FuzzyExampleJsonValidator
 import io.specmatic.mock.PARTIAL
 import io.specmatic.mock.ScenarioStub
 import java.io.File
 
 class ExampleValidationModule(private val lenientMode: Boolean = false, private val specmaticConfig: SpecmaticConfig) {
+    fun validateProjectedInlineExampleStructure(example: JSONObjectValue): Result {
+        return FuzzyExampleJsonValidator.matchesInlineExample(example)
+    }
+
+    fun validateProjectedInlineExample(feature: Feature, example: ScenarioStub): Result {
+        return Result.fromResults(
+            listOf(
+                validateProjectedInlineExampleStructure(example.toJSON()),
+                validateExample(feature, example)
+            )
+        )
+    }
+
+    fun validateProjectedInlineExample(feature: Feature, example: ExampleFromFile): Result {
+        return Result.fromResults(
+            listOf(
+                validateProjectedInlineExampleStructure(example.json),
+                validateExample(feature, example),
+            )
+        )
+    }
+
     fun validateInlineExamples(
         feature: Feature,
         examples: List<NamedStub>,
@@ -132,7 +156,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
         return Result.fromResults(listOf(example.validationErrors, scenarioResultWithBreadCrumb))
     }
 
-    private fun validateExample(feature: Feature, schemaExample: SchemaExample): Result {
+    fun validateSchemaExample(feature: Feature, schemaExample: SchemaExample): Result {
         LicenseResolver.utilize(
             product = LicensedProduct.OPEN_SOURCE,
             feature = SpecmaticFeature.EXAMPLES_VALIDATED,
@@ -162,7 +186,7 @@ class ExampleValidationModule(private val lenientMode: Boolean = false, private 
 
     fun validateSchemaExample(feature: Feature, exampleFile: File): Result {
         return SchemaExample.fromFile(exampleFile).realise(
-            hasValue = { example, _ -> validateExample(feature, example) },
+            hasValue = { example, _ -> validateSchemaExample(feature, example) },
             orException = { it.toHasFailure().failure },
             orFailure = { it.failure }
         )
