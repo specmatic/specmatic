@@ -1,5 +1,6 @@
 package io.specmatic.conversions
 
+import io.specmatic.conversions.OpenApiSpecification.Companion.toOpenApiExampleString
 import io.specmatic.conversions.lenient.CollectorContext
 import io.specmatic.core.NestedObjectQueryParam
 import io.specmatic.core.NestedQueryParameterExamples
@@ -41,9 +42,9 @@ internal fun nestedObjectQueryStringExampleEntries(
 
 internal fun QueryParameter.nestedQueryExamples(resolveExample: (Example?) -> Example?): NestedQueryParameterExamples {
     return NestedQueryParameterExamples(
-        example = example?.toString(),
+        example = example?.toOpenApiExampleString(),
         examples = examples.orEmpty().values.mapNotNull { example ->
-            resolveExample(example)?.value?.toString()
+            resolveExample(example)?.value.toOpenApiExampleString()
         }
     )
 }
