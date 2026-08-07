@@ -2,7 +2,7 @@ services:
   mock:
     environment:
       - SPECMATIC_TELEMETRY_EXTRA_LABELS=${SPECMATIC_TELEMETRY_EXTRA_LABELS:?error}
-    image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
+    image: specmatic/specmatic-snapshots:${SPECMATIC_VERSION:?error}
     command: mock /service.yaml --port 9000
     expose:
       - "9000"
@@ -33,7 +33,7 @@ services:
   test:
     environment:
       - SPECMATIC_TELEMETRY_EXTRA_LABELS=${SPECMATIC_TELEMETRY_EXTRA_LABELS:?error}
-    image: specmatic/specmatic:${SPECMATIC_VERSION:?error}
+    image: specmatic/specmatic-snapshots:${SPECMATIC_VERSION:?error}
     depends_on:
       mitm:
         condition: service_started
