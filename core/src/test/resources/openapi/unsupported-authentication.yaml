@@ -42,6 +42,6 @@ paths:
 
 components:
   securitySchemes:
-    basicAuth:
-      type: openIdConnect
-      scheme: basic
+    digestAuth:
+      type: http
+      scheme: digest

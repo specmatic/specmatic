@@ -4,6 +4,7 @@ import io.specmatic.core.APIKeySecuritySchemeConfiguration
 import io.specmatic.core.BasicAuthSecuritySchemeConfiguration
 import io.specmatic.core.BearerSecuritySchemeConfiguration
 import io.specmatic.core.OAuth2SecuritySchemeConfiguration
+import io.specmatic.core.OpenIdConnectSecuritySchemeConfiguration
 import io.specmatic.core.SecurityConfiguration
 import io.specmatic.core.SecuritySchemeConfiguration
 import io.specmatic.core.config.OpenAPITestConfig as LegacyOpenAPITestConfig
@@ -114,6 +115,8 @@ class SystemUnderTestMapper {
         return when (this) {
             is OAuth2SecuritySchemeConfiguration ->
                 SecuritySchemeConfigurationV3(SecuritySchemeType.OAUTH2, token)
+            is OpenIdConnectSecuritySchemeConfiguration ->
+                SecuritySchemeConfigurationV3(SecuritySchemeType.OPEN_ID_CONNECT, token)
             is BasicAuthSecuritySchemeConfiguration ->
                 SecuritySchemeConfigurationV3(SecuritySchemeType.BASIC_AUTH, token)
             is BearerSecuritySchemeConfiguration ->

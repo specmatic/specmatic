@@ -1823,6 +1823,7 @@ data class OpenAPISecurityConfiguration(
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
     JsonSubTypes.Type(value = OAuth2SecuritySchemeConfiguration::class, name = "oauth2"),
+    JsonSubTypes.Type(value = OpenIdConnectSecuritySchemeConfiguration::class, name = "openIdConnect"),
     JsonSubTypes.Type(value = BasicAuthSecuritySchemeConfiguration::class, name = "basicAuth"),
     JsonSubTypes.Type(value = BearerSecuritySchemeConfiguration::class, name = "bearer"),
     JsonSubTypes.Type(value = APIKeySecuritySchemeConfiguration::class, name = "apiKey")
@@ -1838,6 +1839,12 @@ interface SecuritySchemeWithOAuthToken {
 @JsonTypeName("oauth2")
 data class OAuth2SecuritySchemeConfiguration(
     override val type: String = "oauth2",
+    override val token: String = ""
+) : SecuritySchemeConfiguration(), SecuritySchemeWithOAuthToken
+
+@JsonTypeName("openIdConnect")
+data class OpenIdConnectSecuritySchemeConfiguration(
+    override val type: String = "openIdConnect",
     override val token: String = ""
 ) : SecuritySchemeConfiguration(), SecuritySchemeWithOAuthToken
 

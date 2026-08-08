@@ -1242,6 +1242,9 @@ class SpecmaticConfigV3UpgradeTest {
                           bearerAuth:
                             type: bearer
                             token: bearer-token
+                          oidcAuth:
+                            type: openIdConnect
+                            token: oidc-token
                     """.trimIndent(),
                     beforeV2 = """
                     version: 2
@@ -1259,6 +1262,9 @@ class SpecmaticConfigV3UpgradeTest {
                           bearerAuth:
                             type: bearer
                             token: bearer-token
+                          oidcAuth:
+                            type: openIdConnect
+                            token: oidc-token
                     """.trimIndent(),
                     afterV3 = """
                     version: 3
@@ -1285,6 +1291,9 @@ class SpecmaticConfigV3UpgradeTest {
                                     bearerAuth:
                                       type: bearer
                                       token: bearer-token
+                                    oidcAuth:
+                                      type: openIdConnect
+                                      token: oidc-token
                     """.trimIndent()
                 ),
                 LegacyPairCase(
