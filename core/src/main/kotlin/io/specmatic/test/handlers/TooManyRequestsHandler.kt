@@ -25,10 +25,9 @@ class TooManyRequestsHandler(
     private val retryHandler: RetryHandler<MonitorResult, HttpResponse> = RetryHandler(DelayStrategy.RespectRetryAfter())
 ) : ResponseHandler {
     override fun canHandle(response: HttpResponse, scenario: Scenario): Boolean {
-        val isTooManyRequestsPossible = feature.isResponseStatusPossible(scenario, HttpStatusCode.TooManyRequests.value)
+        if (response.status != HttpStatusCode.TooManyRequests.value) return false
 
-        return response.status == HttpStatusCode.TooManyRequests.value &&
-                isTooManyRequestsPossible
+        return feature.isResponseStatusPossible(scenario, HttpStatusCode.TooManyRequests.value)
     }
 
     override fun handle(request: HttpRequest, response: HttpResponse, testScenario: Scenario, testExecutor: TestExecutor): ResponseHandlingResult {
