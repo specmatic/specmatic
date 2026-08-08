@@ -15,6 +15,7 @@ import io.specmatic.test.MonitorRequestGeneratorStrategy
 import io.specmatic.test.MonitorResult
 import io.specmatic.test.ResponseMonitor
 import io.specmatic.test.TestExecutor
+import io.specmatic.test.normalizedContentType
 import io.specmatic.test.utils.DelayStrategy
 import io.specmatic.test.utils.RetryHandler
 import io.specmatic.test.utils.RetryResult
@@ -31,7 +32,7 @@ class TooManyRequestsHandler(
     }
 
     override fun handle(request: HttpRequest, response: HttpResponse, testScenario: Scenario, testExecutor: TestExecutor): ResponseHandlingResult {
-        val processingScenario = getProcessingScenario()
+        val processingScenario = getProcessingScenario(response)
             ?: return ResponseHandlingResult.Stop(Result.Failure("No tooManyRequests scenario found for ${originalScenario.defaultAPIDescription}"))
 
         val processingScenarioResult = processingScenario.matches(response)
@@ -85,7 +86,7 @@ class TooManyRequestsHandler(
 
         return when (val monitorResult = responseMonitor.waitForResponse(testExecutor)) {
             is MonitorResult.Success -> ResponseHandlingResult.Continue(
-                terminalResponse = monitorResult.response,
+                response = monitorResult.response,
                 responseForTestResultOverride = monitorResult.response.takeUnless {
                     testScenario.status == HttpStatusCode.TooManyRequests.value
                 },
@@ -118,11 +119,18 @@ class TooManyRequestsHandler(
         )
     }
 
-    private fun getProcessingScenario(): Scenario? {
+    private fun getProcessingScenario(response: HttpResponse): Scenario? {
         return feature.scenarioAssociatedTo(
             path = originalScenario.path,
             method = originalScenario.method,
             responseStatusCode = HttpStatusCode.TooManyRequests.value,
+            reqContentType = originalScenario.requestContentType,
+            resContentType = response.normalizedContentType(),
+        ) ?: feature.scenarioAssociatedTo(
+            path = originalScenario.path,
+            method = originalScenario.method,
+            responseStatusCode = HttpStatusCode.TooManyRequests.value,
+            reqContentType = originalScenario.requestContentType,
         )
     }
 }

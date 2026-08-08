@@ -76,6 +76,60 @@ class TooManyRequestsHandlerTest {
     }
 
     @Test
+    fun `should validate too-many-requests response against the matching request and response content types`() {
+        val jsonPostScenario = postScenario.copy(
+            httpRequestPattern = postScenario.httpRequestPattern.copy(
+                headersPattern = HttpHeadersPattern(contentType = ContentType.Application.Json.toString()),
+            ),
+        )
+        val xmlTooManyRequestsScenario = tooManyRequestsScenario.copy(
+            httpRequestPattern = tooManyRequestsScenario.httpRequestPattern.copy(
+                headersPattern = HttpHeadersPattern(contentType = ContentType.Application.Xml.toString()),
+            ),
+            httpResponsePattern = HttpResponsePattern(
+                status = HttpStatusCode.TooManyRequests.value,
+                headersPattern = HttpHeadersPattern(contentType = ContentType.Application.Xml.toString()),
+                body = ExactValuePattern(StringValue("xml rate limit")),
+            ),
+        )
+        val jsonTooManyRequestsScenario = tooManyRequestsScenario.copy(
+            httpRequestPattern = tooManyRequestsScenario.httpRequestPattern.copy(
+                headersPattern = HttpHeadersPattern(contentType = ContentType.Application.Json.toString()),
+            ),
+            httpResponsePattern = HttpResponsePattern(
+                status = HttpStatusCode.TooManyRequests.value,
+                headersPattern = HttpHeadersPattern(contentType = ContentType.Application.Json.toString()),
+                body = ExactValuePattern(StringValue("json rate limit")),
+            ),
+        )
+        val feature = Feature(
+            name = "",
+            scenarios = listOf(jsonPostScenario, xmlTooManyRequestsScenario, jsonTooManyRequestsScenario),
+            protocol = SpecmaticProtocol.HTTP,
+        )
+
+        val result = TooManyRequestsHandler(feature, jsonPostScenario).handle(
+            request = HttpRequest(
+                method = "POST",
+                path = "/ABC",
+                headers = mapOf(HttpHeaders.ContentType to ContentType.Application.Json.toString()),
+                body = JSONObjectValue(mapOf("age" to NumberValue(10))),
+            ),
+            response = HttpResponse(
+                status = HttpStatusCode.TooManyRequests.value,
+                headers = mapOf(HttpHeaders.ContentType to ContentType.Application.Json.toString()),
+                body = StringValue("json rate limit"),
+            ),
+            testScenario = jsonPostScenario,
+            testExecutor = object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = HttpResponse(status = 201)
+            },
+        )
+
+        assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java)
+    }
+
+    @Test
     fun `should retry failure if too-many-requests response is not possible`() {
         val feature = Feature(name = "", scenarios = listOf(postScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = TooManyRequestsHandler(feature, postScenario)
@@ -145,7 +199,7 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
         assertThat(result.responseForTestResultOverride).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations).containsExactly(5.seconds.inWholeMilliseconds)
     }
@@ -185,7 +239,7 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
         assertThat(result.responseForTestResultOverride).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations).isEqualTo(sleepSequence.map { it.seconds.inWholeMilliseconds }.toList())
     }
@@ -316,7 +370,7 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations.single()).isBetween(expectedDelay - tolerance, expectedDelay + tolerance)
     }
 
@@ -380,7 +434,7 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 202))
+        assertThat(result.response).isEqualTo(HttpResponse(status = 202))
         assertThat(result.responseForTestResultOverride).isNull()
     }
 

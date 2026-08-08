@@ -235,51 +235,7 @@ data class ScenarioAsTest(
             testExecutor.preExecuteScenario(testScenario, request)
             val immediateResponse = testExecutor.execute(request)
 
-            val responseBodyFromExample = testScenario.responseBodyFromExample()
-
-            if(testScenario.isNegative.not() && responseBodyFromExample != null) {
-                matcherEngine?.let {
-                    val matchesResult = it.matchResponseValue(
-                        responseBodyFromExample,
-                        immediateResponse.body,
-                        testScenario.resolver,
-                        testScenario.exampleRow?.scenarioStub?.data ?: JSONObjectValue()
-                    )
-                    if(matchesResult is Result.Failure) {
-                        return ContractTestExecutionResult(
-                            result = matchesResult.breadCrumb("RESPONSE.BODY"),
-                            request = request,
-                            response = immediateResponse,
-                            beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
-                        )
-                    }
-                }
-            }
-
-            //TODO: Review - Do we need workflow anymore
-            workflow.extractDataFrom(immediateResponse, originalScenario)
-            val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, immediateResponse) }.firstOrNull()
-
-            if (validatorResult is Result.Failure) {
-                return ContractTestExecutionResult(
-                    result = validatorResult,
-                    request = request,
-                    response = immediateResponse,
-                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
-                )
-            }
-
-            val testResult = validatorResult ?: testResult(request, immediateResponse, testScenario, flagsBased)
             val responseHandler = immediateResponse.getResponseHandlerIfExists()
-            if (testResult is Result.Failure && responseHandler == null) {
-                return ContractTestExecutionResult(
-                    result = testResult,
-                    request = request,
-                    response = immediateResponse,
-                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
-                )
-            }
-
             val (responseForTestResult, terminalResponse) = when (responseHandler) {
                 null -> ResponsesAfterHandling(
                     responseForTestResult = immediateResponse,
@@ -290,7 +246,7 @@ data class ScenarioAsTest(
                     when (val handlerResult = responseHandler.handle(request, immediateResponse, scenario, client)) {
                         is ResponseHandlingResult.Continue -> ResponsesAfterHandling(
                             responseForTestResult = handlerResult.responseForTestResultOverride ?: immediateResponse,
-                            terminalResponse = handlerResult.terminalResponse,
+                            terminalResponse = handlerResult.response,
                         )
                         is ResponseHandlingResult.Stop -> {
                             val bindingResponse = handlerResult.response ?: immediateResponse
@@ -303,6 +259,50 @@ data class ScenarioAsTest(
                         }
                     }
                 }
+            }
+
+            val responseBodyFromExample = testScenario.responseBodyFromExample()
+
+            if(testScenario.isNegative.not() && responseBodyFromExample != null) {
+                matcherEngine?.let {
+                    val matchesResult = it.matchResponseValue(
+                        responseBodyFromExample,
+                        responseForTestResult.body,
+                        testScenario.resolver,
+                        testScenario.exampleRow?.scenarioStub?.data ?: JSONObjectValue()
+                    )
+                    if(matchesResult is Result.Failure) {
+                        return ContractTestExecutionResult(
+                            result = matchesResult.breadCrumb("RESPONSE.BODY"),
+                            request = request,
+                            response = responseForTestResult,
+                            beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
+                        )
+                    }
+                }
+            }
+
+            //TODO: Review - Do we need workflow anymore
+            workflow.extractDataFrom(responseForTestResult, originalScenario)
+            val validatorResult = validators.asSequence().mapNotNull { it.validate(scenario, responseForTestResult) }.firstOrNull()
+
+            if (validatorResult is Result.Failure) {
+                return ContractTestExecutionResult(
+                    result = validatorResult,
+                    request = request,
+                    response = responseForTestResult,
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
+                )
+            }
+
+            val testResult = validatorResult ?: testResult(request, responseForTestResult, testScenario, flagsBased)
+            if (testResult is Result.Failure) {
+                return ContractTestExecutionResult(
+                    result = testResult,
+                    request = request,
+                    response = responseForTestResult,
+                    beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
+                )
             }
 
             val result = validators.asSequence().mapNotNull {
