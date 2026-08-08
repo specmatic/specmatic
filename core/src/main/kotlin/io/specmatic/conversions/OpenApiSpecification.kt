@@ -2588,7 +2588,7 @@ class OpenApiSpecification(
             return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
         }
 
-        if (securityScheme.type == SecurityScheme.Type.OAUTH2) {
+        if (securityScheme.type == SecurityScheme.Type.OAUTH2 || securityScheme.type == SecurityScheme.Type.OPENIDCONNECT) {
             return toBearerSecurityScheme(securitySchemeConfiguration, schemeName)
         }
 
@@ -2603,7 +2603,7 @@ class OpenApiSpecification(
         }
 
         collectorContext.record(
-            message = "Specmatic only supports oauth2, bearer, and api key authentication (header, query) security schemes at the moment, ignoring this scheme",
+            message = "Specmatic only supports oauth2, openIdConnect, bearer, basic, and api key authentication (header, query) security schemes at the moment, ignoring this scheme",
             ruleViolation = OpenApiLintViolations.UNSUPPORTED_FEATURE
         )
         return null

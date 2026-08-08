@@ -819,7 +819,7 @@ Feature: Authenticated
         }
 
         @Test
-        fun `should throw not supported error when a security scheme other than oauth2 bearer or api key is defined`() {
+        fun `should throw not supported error when an unsupported security scheme is defined`() {
             assertThrows<ContractException> {
                 parseGherkinStringToFeature(
                     """
@@ -829,7 +829,7 @@ Background:
   Given openapi openapi/unsupported-authentication.yaml
         """.trimIndent(), sourceSpecPath
                 )
-            }.also { assertThat(exceptionCauseMessage(it)).contains("Specmatic only supports oauth2, bearer, and api key authentication (header, query) security schemes at the moment") }
+            }.also { assertThat(exceptionCauseMessage(it)).contains("Specmatic only supports oauth2, openIdConnect, bearer, basic, and api key authentication (header, query) security schemes at the moment") }
         }
 
         @Test
@@ -843,7 +843,7 @@ Background:
   Given openapi openapi/apiKeyAuthCookie.yaml
         """.trimIndent(), sourceSpecPath
                 )
-            }.also { assertThat(exceptionCauseMessage(it)).contains("Specmatic only supports oauth2, bearer, and api key authentication (header, query) security schemes at the moment") }
+            }.also { assertThat(exceptionCauseMessage(it)).contains("Specmatic only supports oauth2, openIdConnect, bearer, basic, and api key authentication (header, query) security schemes at the moment") }
         }
 
         @Test

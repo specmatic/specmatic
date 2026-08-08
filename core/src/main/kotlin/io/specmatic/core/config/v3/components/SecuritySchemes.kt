@@ -3,6 +3,7 @@ package io.specmatic.core.config.v3.components
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
 import io.specmatic.core.OAuth2SecuritySchemeConfiguration
+import io.specmatic.core.OpenIdConnectSecuritySchemeConfiguration
 import io.specmatic.core.BasicAuthSecuritySchemeConfiguration
 import io.specmatic.core.BearerSecuritySchemeConfiguration
 import io.specmatic.core.APIKeySecuritySchemeConfiguration
@@ -10,6 +11,7 @@ import io.specmatic.core.SecuritySchemeConfiguration
 
 enum class SecuritySchemeType(private val value: String) {
     OAUTH2("oauth2"),
+    OPEN_ID_CONNECT("openIdConnect"),
     BASIC_AUTH("basicAuth"),
     BEARER("bearer"),
     API_KEY("apiKey");
@@ -29,6 +31,7 @@ data class SecuritySchemeConfigurationV3(val type: SecuritySchemeType, val token
     fun toSecuritySchemeConfiguration(): SecuritySchemeConfiguration {
         return when(type) {
             SecuritySchemeType.OAUTH2 -> OAuth2SecuritySchemeConfiguration(token = token)
+            SecuritySchemeType.OPEN_ID_CONNECT -> OpenIdConnectSecuritySchemeConfiguration(token = token)
             SecuritySchemeType.BASIC_AUTH -> BasicAuthSecuritySchemeConfiguration(token = token)
             SecuritySchemeType.BEARER -> BearerSecuritySchemeConfiguration(token = token)
             SecuritySchemeType.API_KEY -> APIKeySecuritySchemeConfiguration(value = token)
