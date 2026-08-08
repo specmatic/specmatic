@@ -463,7 +463,7 @@ class ScenarioAsTestTest {
     }
 
     @Test
-    fun `runTest should choose default response with matching content type when same-status content type does not match`() {
+    fun `runTest should choose explicit response before validating content type`() {
         val negativeScenario = negativeScenario(
             expectedResponses = mapOf(400 to listOf(expectationScenario(status = 400, contentType = "text/plain"))),
             defaultResponses = listOf(expectationScenario(status = 1000, contentType = "application/xml"))
@@ -475,11 +475,12 @@ class ScenarioAsTestTest {
         val testResultRecord = scenarioAsTest(negativeScenario).testResultRecord(executionResult)
         val scenarioInRecord = testResultRecord.scenarioResult?.scenario as Scenario
 
-        assertThat(updatedScenario.statusInDescription).isEqualTo("1000")
-        assertThat(scenarioInRecord.statusInDescription).isEqualTo("1000")
-        assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("application/xml")
+        assertThat(executionResult.result).isInstanceOf(Result.Failure::class.java)
+        assertThat(updatedScenario.statusInDescription).isEqualTo("400")
+        assertThat(scenarioInRecord.statusInDescription).isEqualTo("400")
+        assertThat(updatedScenario.httpResponsePattern.headersPattern.contentType).isEqualTo("text/plain")
         assertThat(testResultRecord.responseStatus).isEqualTo(400)
-        assertThat((testResultRecord.operations.single() as OpenAPIOperation).responseCode).isEqualTo(DEFAULT_RESPONSE_CODE)
+        assertThat((testResultRecord.operations.single() as OpenAPIOperation).responseCode).isEqualTo(400)
     }
 
     @Test
