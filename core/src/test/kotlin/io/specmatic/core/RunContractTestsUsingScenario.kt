@@ -791,7 +791,7 @@ paths:
     }
 
     @Test
-    fun `should fail a test if a tooManyRequests response was returned for a 201 test`() {
+    fun `should retry a documented tooManyRequests response returned for a 201 test`() {
         val postScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(
                 httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
@@ -820,15 +820,68 @@ paths:
             protocol = SpecmaticProtocol.HTTP,
             specType = SpecType.OPENAPI
         )
-        val (result) = contractTest.runTest(object : TestExecutor {
+        val executionResult = contractTest.runTest(object : TestExecutor {
+            var executionCount = 0
+
             override fun execute(request: HttpRequest): HttpResponse {
-                return HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+                executionCount++
+                return if (executionCount == 1) {
+                    HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+                } else {
+                    HttpResponse(201)
+                }
             }
         })
 
-        println(result.reportString())
-        assertThat(result).isInstanceOf(Result.Failure::class.java)
-        assertThat(result.reportString()).contains("expected status 201 but response contained status 429")
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(executionResult.response).isEqualTo(HttpResponse(201))
+    }
+
+    @Test
+    fun `should retry a documented tooManyRequests response returned for a 403 test`() {
+        val forbiddenScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.Forbidden.value),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        ))
+        val tooManyRequestsScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.TooManyRequests.value),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        ))
+
+        val feature = Feature(name = "", scenarios = listOf(forbiddenScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
+        val contractTest = ScenarioAsTest(
+            forbiddenScenario,
+            feature,
+            feature.flagsBased,
+            originalScenario = forbiddenScenario,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        val executionResult = contractTest.runTest(object : TestExecutor {
+            var executionCount = 0
+
+            override fun execute(request: HttpRequest): HttpResponse {
+                executionCount++
+                return if (executionCount == 1) {
+                    HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+                } else {
+                    HttpResponse(HttpStatusCode.Forbidden.value)
+                }
+            }
+        })
+
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(executionResult.response).isEqualTo(HttpResponse(HttpStatusCode.Forbidden.value))
     }
 
     @Test
@@ -861,7 +914,7 @@ paths:
         val feature = Feature(name = "", scenarios = listOf(postScenario, acceptedScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val contractTest = ScenarioAsTest(tooManyRequestsScenario, feature, feature.flagsBased, originalScenario = tooManyRequestsScenario,
             protocol = SpecmaticProtocol.HTTP, specType = SpecType.OPENAPI)
-        val (result) = contractTest.runTest(object : TestExecutor {
+        val executionResult = contractTest.runTest(object : TestExecutor {
             var retryCount: Int = 0
 
             override fun execute(request: HttpRequest): HttpResponse {
@@ -870,7 +923,8 @@ paths:
             }
         })
 
-        assertThat(result).isInstanceOf(Result.Success::class.java)
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(executionResult.response).isEqualTo(HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
     }
 
     @ParameterizedTest

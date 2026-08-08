@@ -2,10 +2,13 @@ package io.specmatic.test.handlers
 
 import io.ktor.http.*
 import io.specmatic.core.*
+import io.specmatic.core.pattern.ExactValuePattern
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.NumberPattern
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
+import io.specmatic.core.value.StringValue
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.toViolationReportString
@@ -43,6 +46,33 @@ class TooManyRequestsHandlerTest {
         private val throwAwayExecutor = object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse { throw AssertionError() }
         }
+    }
+
+    @Test
+    fun `should handle documented too-many-requests responses for a 2xx test`() {
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
+        val handler = TooManyRequestsHandler(feature, postScenario)
+
+        assertThat(handler.canHandle(HttpResponse(status = 429), postScenario)).isTrue()
+    }
+
+    @Test
+    fun `should handle documented too-many-requests responses for a non-2xx test`() {
+        val forbiddenScenario = postScenario.copy(
+            httpResponsePattern = HttpResponsePattern(status = HttpStatusCode.Forbidden.value)
+        )
+        val feature = Feature(name = "", scenarios = listOf(forbiddenScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
+        val handler = TooManyRequestsHandler(feature, forbiddenScenario)
+
+        assertThat(handler.canHandle(HttpResponse(status = 429), forbiddenScenario)).isTrue()
+    }
+
+    @Test
+    fun `should not handle too-many-requests responses when they are undocumented`() {
+        val feature = Feature(name = "", scenarios = listOf(postScenario), protocol = SpecmaticProtocol.HTTP)
+        val handler = TooManyRequestsHandler(feature, postScenario)
+
+        assertThat(handler.canHandle(HttpResponse(status = 429), postScenario)).isFalse()
     }
 
     @Test
@@ -116,11 +146,12 @@ class TooManyRequestsHandlerTest {
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
         assertThat(result.response).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.recordedResponseOverride).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations).containsExactly(5.seconds.inWholeMilliseconds)
     }
 
     @Test
-    fun `should retry for specified times while following the next retry-after delay from response`() {
+    fun `should retry repeated valid too-many-requests responses using each retry-after delay`() {
         val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
         val sleepSequence = sequenceOf(1, 2, 3, 4, 5)
         val sleepDurations = mutableListOf<Long>()
@@ -145,7 +176,7 @@ class TooManyRequestsHandlerTest {
                 override fun execute(request: HttpRequest): HttpResponse {
                     assertThat(request).isEqualTo(initialRequest)
                     return if (iterator.hasNext()) {
-                        HttpResponse(status = 402, headers = mapOf(HttpHeaders.RetryAfter to iterator.next().toString()))
+                        HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to iterator.next().toString()))
                     } else {
                         HttpResponse(status = 201)
                     }
@@ -155,7 +186,103 @@ class TooManyRequestsHandlerTest {
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
         assertThat(result.response).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.recordedResponseOverride).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations).isEqualTo(sleepSequence.map { it.seconds.inWholeMilliseconds }.toList())
+    }
+
+    @Test
+    fun `should fail immediately when a later too-many-requests response violates its contract`() {
+        val tooManyRequestsWithRequiredHeader = tooManyRequestsScenario.copy(
+            httpResponsePattern = HttpResponsePattern(
+                status = HttpStatusCode.TooManyRequests.value,
+                headersPattern = HttpHeadersPattern(pattern = mapOf(HttpHeaders.RetryAfter to NumberPattern())),
+            )
+        )
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsWithRequiredHeader), protocol = SpecmaticProtocol.HTTP)
+        var executions = 0
+        val handler = TooManyRequestsHandler(
+            feature,
+            postScenario,
+            RetryHandler(
+                maxAttempts = 3,
+                delayStrategy = DelayStrategy.RespectRetryAfter(),
+                sleeper = object : Sleeper {
+                    override fun sleep(milliSeconds: Long) = Unit
+                },
+            ),
+        )
+
+        val invalidRetryResponse = HttpResponse(status = 429)
+        val result = handler.handle(
+            HttpRequest("POST", "/ABC", body = JSONObjectValue(mapOf("age" to NumberValue(10)))),
+            HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")),
+            postScenario,
+            object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executions++
+                    return invalidRetryResponse
+                }
+            },
+        )
+
+        assertThat(result).isInstanceOf(ResponseHandlingResult.Stop::class.java); result as ResponseHandlingResult.Stop
+        assertThat(result.response).isEqualTo(invalidRetryResponse)
+        assertThat(result.result.reportString()).contains("Response doesn't match processing scenario")
+        assertThat(executions).isEqualTo(1)
+    }
+
+    @Test
+    fun `should fail immediately when a retry returns an unexpected non-429 response`() {
+        val feature = Feature(name = "", scenarios = listOf(postScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
+        var executions = 0
+        val unexpectedResponse = HttpResponse(status = 500)
+        val handler = TooManyRequestsHandler(feature, postScenario)
+
+        val result = handler.handle(
+            HttpRequest("POST", "/ABC", body = JSONObjectValue(mapOf("age" to NumberValue(10)))),
+            HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")),
+            postScenario,
+            object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    executions++
+                    return unexpectedResponse
+                }
+            },
+        )
+
+        assertThat(result).isInstanceOf(ResponseHandlingResult.Stop::class.java); result as ResponseHandlingResult.Stop
+        assertThat(result.response).isEqualTo(unexpectedResponse)
+        assertThat(result.result.reportString()).contains("Invalid response received on retry")
+        assertThat(executions).isEqualTo(1)
+    }
+
+    @Test
+    fun `should validate the terminal response against the generated test scenario`() {
+        val originalScenario = postScenario.copy(
+            httpResponsePattern = HttpResponsePattern(status = 201, body = StringPattern())
+        )
+        val generatedTestScenario = originalScenario.copy(
+            httpResponsePattern = HttpResponsePattern(
+                status = 201,
+                body = ExactValuePattern(StringValue("expected")),
+            )
+        )
+        val feature = Feature(name = "", scenarios = listOf(originalScenario, tooManyRequestsScenario), protocol = SpecmaticProtocol.HTTP)
+        val terminalResponse = HttpResponse(status = 201, body = "different")
+        val handler = TooManyRequestsHandler(feature, originalScenario)
+
+        val result = handler.handle(
+            HttpRequest("POST", "/ABC", body = JSONObjectValue(mapOf("age" to NumberValue(10)))),
+            HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")),
+            generatedTestScenario,
+            object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = terminalResponse
+            },
+        )
+
+        assertThat(result).isInstanceOf(ResponseHandlingResult.Stop::class.java); result as ResponseHandlingResult.Stop
+        assertThat(result.response).isEqualTo(terminalResponse)
+        assertThat(result.result.reportString()).contains("Invalid response received on retry")
     }
 
     @Test
@@ -226,7 +353,7 @@ class TooManyRequestsHandlerTest {
         ${
             toViolationReportString(
                 breadCrumb = "RESPONSE.STATUS",
-                details = "Invalid 2xx response received on retry\n${DefaultMismatchMessages.mismatchMessage("status 201", "status 202")}",
+                details = "Invalid response received on retry\n${DefaultMismatchMessages.mismatchMessage("status 201", "status 202")}",
                 OpenApiRuleViolation.STATUS_MISMATCH
             )
         }
@@ -254,6 +381,7 @@ class TooManyRequestsHandlerTest {
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
         assertThat(result.response).isEqualTo(HttpResponse(status = 202))
+        assertThat(result.recordedResponseOverride).isNull()
     }
 
     @Test
@@ -274,8 +402,14 @@ class TooManyRequestsHandlerTest {
             HttpResponse(status = 429),
             postScenario,
             object : TestExecutor {
+                var retryCount = 0
+
                 override fun execute(request: HttpRequest): HttpResponse {
-                    return HttpResponse(status = 429)
+                    retryCount++
+                    return HttpResponse(
+                        status = 429,
+                        headers = mapOf(HttpHeaders.RetryAfter to retryCount.toString()),
+                    )
                 }
             },
         )
@@ -286,5 +420,8 @@ class TooManyRequestsHandlerTest {
         API: POST /(id:string) -> 201
         Max retries of 5 exceeded with POST /ABC
         """.trimIndent())
+        assertThat(result.response).isEqualTo(
+            HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "5"))
+        )
     }
 }

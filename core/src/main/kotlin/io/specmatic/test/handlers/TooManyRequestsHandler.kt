@@ -23,12 +23,12 @@ class TooManyRequestsHandler(
     private val feature: Feature,
     private val originalScenario: Scenario,
     private val retryHandler: RetryHandler<MonitorResult, HttpResponse> = RetryHandler(DelayStrategy.RespectRetryAfter())
-): ResponseHandler {
+) : ResponseHandler {
     override fun canHandle(response: HttpResponse, scenario: Scenario): Boolean {
-        val isTooManyRequestsPossible= feature.isResponseStatusPossible(scenario, HttpStatusCode.TooManyRequests.value)
-        return scenario.status == HttpStatusCode.TooManyRequests.value
-                && response.status == HttpStatusCode.TooManyRequests.value
-                && isTooManyRequestsPossible
+        val isTooManyRequestsPossible = feature.isResponseStatusPossible(scenario, HttpStatusCode.TooManyRequests.value)
+
+        return response.status == HttpStatusCode.TooManyRequests.value &&
+                isTooManyRequestsPossible
     }
 
     override fun handle(request: HttpRequest, response: HttpResponse, testScenario: Scenario, testExecutor: TestExecutor): ResponseHandlingResult {
@@ -44,11 +44,31 @@ class TooManyRequestsHandler(
         }
 
         val matchingScenarios = findMatchingScenarios(testScenario)
+        var lastRetryResponse: HttpResponse? = null
         val responseMonitor = ResponseMonitor(
             requestGeneratorStrategy = MonitorRequestGeneratorStrategy.ReuseRequest(testScenario, request),
             initialDelayContext = response,
             retryHandler = retryHandler,
             onResponse = { response ->
+                lastRetryResponse = response
+
+                if (response.status == HttpStatusCode.TooManyRequests.value) {
+                    val retryResponseResult = processingScenario.matches(response)
+                    if (retryResponseResult is Result.Failure) {
+                        return@ResponseMonitor RetryResult.Stop(
+                            MonitorResult.Failure(
+                                failure = Result.Failure(
+                                    message = "Response doesn't match processing scenario",
+                                    cause = retryResponseResult,
+                                ).updateScenario(processingScenario),
+                                response = response,
+                            )
+                        )
+                    }
+
+                    return@ResponseMonitor RetryResult.Continue(response)
+                }
+
                 val matchResult = matchingScenarios.findMatching(response)
                 if (matchResult is ReturnFailure) {
                     logger.debug("Response didn't match any valid scenarios")
@@ -58,25 +78,33 @@ class TooManyRequestsHandler(
 
                 matchResult.realise(
                     hasValue = { _, _ -> RetryResult.Stop(MonitorResult.Success(response)) },
-                    orException = { e -> retryResultOnMatchFailure(e, response) },
-                    orFailure = { f -> retryResultOnMatchFailure(f, response) },
+                    orException = { e -> RetryResult.Stop(MonitorResult.Failure(e.toFailure(), response)) },
+                    orFailure = { f -> RetryResult.Stop(MonitorResult.Failure(f.toFailure(), response)) },
                 )
             },
         )
 
         return when (val monitorResult = responseMonitor.waitForResponse(testExecutor)) {
-            is MonitorResult.Success -> ResponseHandlingResult.Continue(monitorResult.response)
-            is MonitorResult.Failure -> ResponseHandlingResult.Stop(monitorResult.failure.updateScenario(testScenario), monitorResult.response)
+            is MonitorResult.Success -> ResponseHandlingResult.Continue(
+                response = monitorResult.response,
+                recordedResponseOverride = monitorResult.response.takeUnless {
+                    testScenario.status == HttpStatusCode.TooManyRequests.value
+                },
+            )
+            is MonitorResult.Failure -> ResponseHandlingResult.Stop(
+                monitorResult.failure.updateScenario(testScenario),
+                monitorResult.response ?: lastRetryResponse,
+            )
         }
     }
 
-    private fun findMatchingScenarios(testScenarios: Scenario): List<Scenario> {
-        return if (testScenarios.status == HttpStatusCode.TooManyRequests.value) {
+    private fun findMatchingScenarios(testScenario: Scenario): List<Scenario> {
+        return if (testScenario.status == HttpStatusCode.TooManyRequests.value) {
             feature.scenarios.filter {
-                it.path == testScenarios.path && it.method == testScenarios.method && it.isA2xxScenario()
+                it.path == testScenario.path && it.method == testScenario.method && it.isA2xxScenario()
             }
         } else {
-            listOf(originalScenario)
+            listOf(testScenario)
         }
     }
 
@@ -87,16 +115,8 @@ class TooManyRequestsHandler(
 
         return results.firstOrNull { it.isSuccess() }?.let(::HasValue) ?: HasFailure(
             failure = Result.fromFailures(results.filterIsInstance<Result.Failure>().toList()) as Result.Failure,
-            message = "Invalid 2xx response received on retry",
+            message = "Invalid response received on retry",
         )
-    }
-
-    private fun retryResultOnMatchFailure(result: ReturnFailure, response: HttpResponse): RetryResult<MonitorResult, HttpResponse> {
-        return if (response.status in 200..299) {
-            RetryResult.Stop(MonitorResult.Failure(failure = result.toFailure()))
-        } else {
-            RetryResult.Continue(response)
-        }
     }
 
     private fun getProcessingScenario(): Scenario? {

@@ -38,6 +38,11 @@ import kotlin.jvm.java
 private const val BEFORE_FIXTURE_DISCRIMINATOR_KEY = "before"
 private const val AFTER_FIXTURE_DISCRIMINATOR_KEY = "after"
 
+private data class ResponsesAfterHandling(
+    val responseForResult: HttpResponse,
+    val responseToValidate: HttpResponse,
+)
+
 data class ScenarioAsTest(
     override val scenario: Scenario,
     private val feature: Feature,
@@ -275,12 +280,18 @@ data class ScenarioAsTest(
                 )
             }
 
-            val responseToCheckAndStore = when (responseHandler) {
-                null -> response
+            val (responseForResult, responseToValidate) = when (responseHandler) {
+                null -> ResponsesAfterHandling(
+                    responseForResult = response,
+                    responseToValidate = response,
+                )
                 else -> {
                     val client = if (testExecutor is LegacyHttpClient) testExecutor.copy() else testExecutor
                     when (val handlerResult = responseHandler.handle(request, response, scenario, client)) {
-                        is ResponseHandlingResult.Continue -> handlerResult.response
+                        is ResponseHandlingResult.Continue -> ResponsesAfterHandling(
+                            responseForResult = handlerResult.recordedResponseOverride ?: response,
+                            responseToValidate = handlerResult.response,
+                        )
                         is ResponseHandlingResult.Stop -> {
                             val bindingResponse = handlerResult.response ?: response
                             return ContractTestExecutionResult(
@@ -295,21 +306,21 @@ data class ScenarioAsTest(
             }
 
             val result = validators.asSequence().mapNotNull {
-                it.postValidate(testScenario, originalScenario, request, responseToCheckAndStore)
+                it.postValidate(testScenario, originalScenario, request, responseToValidate)
             }.firstOrNull() ?: Result.Success()
 
             if(result !is Result.Failure) {
                 val updatedSubstitution = updateSubstitutionWithResponse(
                     substitution = requestSubstitution,
                     scenario = testScenario,
-                    httpResponse = response
+                    httpResponse = responseForResult
                 )
 
                 val substitution = when (updatedSubstitution) {
                     !is ReturnFailure -> updatedSubstitution.value
                     else -> return ContractTestExecutionResult(
                         request = request,
-                        response = response,
+                        response = responseForResult,
                         beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
                         result = updatedSubstitution.toFailure(),
                     )
@@ -328,7 +339,7 @@ data class ScenarioAsTest(
                 return ContractTestExecutionResult(
                     result = contractTestResult,
                     request = request,
-                    response = response,
+                    response = responseForResult,
                     beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults,
                     afterFixtureExecutionResult = afterFixtureExecutionResult.fixtureExecutionResults
                 )
@@ -337,7 +348,7 @@ data class ScenarioAsTest(
             return ContractTestExecutionResult(
                 result = result,
                 request = request,
-                response = response,
+                response = responseForResult,
                 beforeFixtureExecutionResult = beforeFixtureExecutionResult.fixtureExecutionResults
             )
         } catch (exception: Throwable) {
