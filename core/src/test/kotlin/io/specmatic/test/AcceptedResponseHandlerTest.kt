@@ -188,7 +188,7 @@ class AcceptedResponseHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.response).isEqualTo(HttpResponse(
+        assertThat(result.terminalResponse).isEqualTo(HttpResponse(
             status = 201,
             headers = mapOf("Content-Type" to "application/json"),
             body = parsedJSONObject("""{"name": "John", "age": 20}"""),
@@ -260,7 +260,7 @@ class AcceptedResponseHandlerTest {
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
         assertThat(count).isEqualTo(1)
-        assertThat(result.response).isEqualTo(HttpResponse(
+        assertThat(result.terminalResponse).isEqualTo(HttpResponse(
             status = 201,
             headers = mapOf("Content-Type" to "application/json"),
             body = parsedJSONObject("""{"name": "John", "age": 20}"""),
@@ -457,11 +457,11 @@ class AcceptedResponseHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.response.status).isEqualTo(201)
-        assertThat(result.response.headers).isEqualTo(mapOf(
+        assertThat(result.terminalResponse.status).isEqualTo(201)
+        assertThat(result.terminalResponse.headers).isEqualTo(mapOf(
             "Content-Type" to "application/json",
             "X-Extra" to "Extra-Value",
         ))
-        assertThat(result.response.body).isEqualTo(response.jsonObject["body"])
+        assertThat(result.terminalResponse.body).isEqualTo(response.jsonObject["body"])
     }
 }

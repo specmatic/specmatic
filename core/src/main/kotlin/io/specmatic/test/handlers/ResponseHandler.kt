@@ -8,8 +8,8 @@ import io.specmatic.test.TestExecutor
 
 sealed interface ResponseHandlingResult {
     data class Continue(
-        val response: HttpResponse,
-        val recordedResponseOverride: HttpResponse? = null,
+        val terminalResponse: HttpResponse,
+        val responseForTestResultOverride: HttpResponse? = null,
     ) : ResponseHandlingResult
     data class Stop(val result: Result, val response: HttpResponse? = null) : ResponseHandlingResult
 }

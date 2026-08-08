@@ -86,8 +86,8 @@ class TooManyRequestsHandler(
 
         return when (val monitorResult = responseMonitor.waitForResponse(testExecutor)) {
             is MonitorResult.Success -> ResponseHandlingResult.Continue(
-                response = monitorResult.response,
-                recordedResponseOverride = monitorResult.response.takeUnless {
+                terminalResponse = monitorResult.response,
+                responseForTestResultOverride = monitorResult.response.takeUnless {
                     testScenario.status == HttpStatusCode.TooManyRequests.value
                 },
             )

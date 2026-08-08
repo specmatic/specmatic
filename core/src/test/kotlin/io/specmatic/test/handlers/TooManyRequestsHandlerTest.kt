@@ -145,8 +145,8 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
-        assertThat(result.recordedResponseOverride).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.responseForTestResultOverride).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations).containsExactly(5.seconds.inWholeMilliseconds)
     }
 
@@ -185,8 +185,8 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
-        assertThat(result.recordedResponseOverride).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.responseForTestResultOverride).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations).isEqualTo(sleepSequence.map { it.seconds.inWholeMilliseconds }.toList())
     }
 
@@ -316,7 +316,7 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
+        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 201))
         assertThat(sleepDurations.single()).isBetween(expectedDelay - tolerance, expectedDelay + tolerance)
     }
 
@@ -380,8 +380,8 @@ class TooManyRequestsHandlerTest {
         )
 
         assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
-        assertThat(result.response).isEqualTo(HttpResponse(status = 202))
-        assertThat(result.recordedResponseOverride).isNull()
+        assertThat(result.terminalResponse).isEqualTo(HttpResponse(status = 202))
+        assertThat(result.responseForTestResultOverride).isNull()
     }
 
     @Test
