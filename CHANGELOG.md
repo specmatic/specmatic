@@ -32,6 +32,7 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased 
 - Updated the MCP backward compatibility tool to correctly handle Docker-based executions. When the required files are not available inside the Docker container, the tool returns the appropriate Docker backward compatibility command for the user to run.
+- Contract tests now retry documented `429 Too Many Requests` responses according to `Retry-After`, while preserving every request and response attempt for reporting integrations such as Studio.
 
 ## 2.51.1 (2026-07-31)
 

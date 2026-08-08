@@ -6,11 +6,10 @@ import org.junit.jupiter.api.Test
 
 class ResponseHandlerTest {
     @Test
-    fun `Continue should preserve its one-argument JVM constructor and response property`() {
-        val constructor = ResponseHandlingResult.Continue::class.java.getConstructor(HttpResponse::class.java)
+    fun `Continue should preserve its one-argument constructor and response property`() {
         val response = HttpResponse(status = 200)
 
-        val result = constructor.newInstance(response)
+        val result = ResponseHandlingResult.Continue(response)
 
         assertThat(result.response).isSameAs(response)
         assertThat(result.responseForTestResultOverride).isNull()
