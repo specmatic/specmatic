@@ -7,7 +7,12 @@ import io.specmatic.core.Scenario
 import io.specmatic.test.TestExecutor
 
 sealed interface ResponseHandlingResult {
-    data class Continue(val response: HttpResponse) : ResponseHandlingResult
+    data class Continue(
+        val response: HttpResponse,
+        val responseForTestResultOverride: HttpResponse?,
+    ) : ResponseHandlingResult {
+        constructor(response: HttpResponse) : this(response, null)
+    }
     data class Stop(val result: Result, val response: HttpResponse? = null) : ResponseHandlingResult
 }
 

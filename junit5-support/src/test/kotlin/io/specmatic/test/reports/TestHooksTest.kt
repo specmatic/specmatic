@@ -56,42 +56,17 @@ class TestHooksTest {
 
     @Test
     fun `onTestResult should report retries for special handling cases like 429`(@TempDir tempDir: File) {
-        val specYaml = """
-        openapi: 3.0.0
-        info:
-          title: TestHooks special case reporting
-          version: 1.0.0
-        paths:
-          /products:
-            get:
-              parameters:
-                - in: header
-                  name: X-Header
-                  required: true
-                  schema:
-                    type: integer
-                  examples:
-                    TOO_MANY_REQUESTS:
-                      value: 0
-              responses:
-                '200':
-                  description: OK
-                '429':
-                  description: Bad request
-                  headers:
-                    X-Retry-After:
-                      schema:
-                        type: integer
-                      examples:
-                        TOO_MANY_REQUESTS:
-                          value: 0
-        """.trimIndent()
-
-        ContractTestScope.from(specYaml, tempDir).execute(v3Config(tempDir)) { server ->
+        ContractTestScope.from(rateLimitSpecYaml(), tempDir).execute(v3Config(tempDir)) { server ->
             server.on("/products", "GET") {
                 header("X-Header", "0")
                 respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
-                times(3)
+                times(2)
+            }
+
+            server.on("/products", "GET") {
+                header("X-Header", "(number)")
+                respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
+                times(1)
             }
 
             server.on("/products", "GET") {
@@ -100,14 +75,67 @@ class TestHooksTest {
             }
         }.verify { listener ->
             assertThat(listener.testResults).hasSize(listener.dynamicTests.size).hasSize(2)
+            assertThat(listener.testResults.filter { it.scenario.status == 200 }).hasSize(1).allSatisfy { record ->
+                assertThat(record.testRecord.result).isEqualTo(TestResult.Success)
+                assertThat(record.request).hasSize(record.response.size).hasSize(2)
+                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 200)
+            }
             assertThat(listener.testResults.filter { it.scenario.status == 429 }).hasSize(1).allSatisfy { record ->
                 assertThat(record.testRecord.result).isEqualTo(TestResult.Success)
+                assertThat(record.request).hasSize(record.response.size).hasSize(3)
+                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 200)
+            }
+        }
+    }
+
+    @Test
+    fun `onTestResult should report every too-many-requests response when retries are exhausted`(@TempDir tempDir: File) {
+        ContractTestScope.from(rateLimitSpecYaml(), tempDir).execute(v3Config(tempDir)) { server ->
+            server.on("/products", "GET") {
+                header("X-Header", "(number)")
+                respond(HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")))
+            }
+        }.verify { listener ->
+            assertThat(listener.testResults).hasSize(listener.dynamicTests.size).hasSize(2)
+            assertThat(listener.testResults.filter { it.scenario.status == 200 }).hasSize(1).allSatisfy { record ->
+                assertThat(record.testRecord.result).isEqualTo(TestResult.Failed)
                 assertThat(record.request).hasSize(record.response.size).hasSize(4)
-                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 429, 200)
+                assertThat(record.response.mapNotNull { it?.status }).containsExactly(429, 429, 429, 429)
             }
         }
     }
 }
+
+private fun rateLimitSpecYaml() = """
+    openapi: 3.0.0
+    info:
+      title: TestHooks special case reporting
+      version: 1.0.0
+    paths:
+      /products:
+        get:
+          parameters:
+            - in: header
+              name: X-Header
+              required: true
+              schema:
+                type: integer
+              examples:
+                TOO_MANY_REQUESTS:
+                  value: 0
+          responses:
+            '200':
+              description: OK
+            '429':
+              description: Bad request
+              headers:
+                X-Retry-After:
+                  schema:
+                    type: integer
+                  examples:
+                    TOO_MANY_REQUESTS:
+                      value: 0
+""".trimIndent()
 
 private fun v3Config(tempDir: File) =
     tempDir.resolve("specmatic.yaml").apply {

@@ -19,6 +19,9 @@ import io.specmatic.core.Result
 import io.specmatic.core.Scenario
 import io.specmatic.core.ScenarioInfo
 import io.specmatic.core.Substitution
+import io.specmatic.core.Workflow
+import io.specmatic.core.WorkflowConfiguration
+import io.specmatic.core.WorkflowIDOperation
 import io.specmatic.core.HttpQueryParamPattern
 import io.specmatic.core.matchers.MatcherEngine
 import io.specmatic.core.pattern.ExactValuePattern
@@ -527,6 +530,78 @@ class ScenarioAsTestTest {
     }
 
     @Test
+    fun `runTest should pass the terminal response to the response example matcher after a documented 429`() {
+        val matcherEngine = mockk<MatcherEngine>()
+        mockkObject(MatcherEngine.Companion)
+        every { MatcherEngine.load() } returns matcherEngine
+        every { matcherEngine.matchResponseValue(any(), any(), any(), any()) } returns Result.Success()
+
+        val terminalBody = parsedJSONObject("""{"id": "terminal"}""")
+        val testScenario = scenarioWithDocumentedRateLimit().copy(
+            exampleRow = Row(
+                scenarioStub = ScenarioStub(
+                    response = HttpResponse(status = 200, body = terminalBody),
+                ),
+            ),
+        )
+        val rateLimitScenario = documentedRateLimitScenario()
+
+        try {
+            val executionResult = scenarioAsTest(
+                scenario = testScenario,
+                scenarios = listOf(testScenario, rateLimitScenario),
+            ).runTest(rateLimitedExecutor(terminalBody))
+
+            assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+            verify(exactly = 1) { matcherEngine.matchResponseValue(terminalBody, terminalBody, any(), any()) }
+        } finally {
+            unmockkObject(MatcherEngine.Companion)
+        }
+    }
+
+    @Test
+    fun `runTest should extract workflow data from the test result response after a documented 429`() {
+        val testScenario = scenarioWithDocumentedRateLimit()
+        val rateLimitScenario = documentedRateLimitScenario()
+        val workflow = Workflow(
+            workflow = WorkflowConfiguration(
+                ids = mapOf(testScenario.defaultAPIDescription to WorkflowIDOperation(extract = "BODY.id")),
+            ),
+        )
+        val terminalBody = parsedJSONObject("""{"id": "terminal"}""")
+
+        val executionResult = scenarioAsTest(
+            scenario = testScenario,
+            scenarios = listOf(testScenario, rateLimitScenario),
+            workflow = workflow,
+        ).runTest(rateLimitedExecutor(terminalBody))
+
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(workflow.id).isEqualTo(StringValue("terminal"))
+    }
+
+    @Test
+    fun `runTest should pass the test result response to first-phase validators after a documented 429`() {
+        val testScenario = scenarioWithDocumentedRateLimit()
+        val rateLimitScenario = documentedRateLimitScenario()
+        val validatedStatuses = mutableListOf<Int>()
+        val validator = object : ResponseValidator {
+            override fun validate(scenario: Scenario, httpResponse: HttpResponse): Result? {
+                validatedStatuses.add(httpResponse.status)
+                return if (httpResponse.status == 429) Result.Failure("intermediate response") else null
+            }
+        }
+
+        val executionResult = scenarioAsTest(
+            scenario = testScenario,
+            scenarios = listOf(testScenario, rateLimitScenario),
+        ).plusValidator(validator).runTest(rateLimitedExecutor(parsedJSONObject("""{"id": "terminal"}""")))
+
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(validatedStatuses).containsExactly(200)
+    }
+
+    @Test
     fun `runTest should report positive response example matcher failures under response body`() {
         val matcherEngine = mockk<MatcherEngine>()
         mockkObject(MatcherEngine.Companion)
@@ -705,7 +780,8 @@ class ScenarioAsTestTest {
         scenario: Scenario,
         scenarios: List<Scenario> = listOf(scenario),
         originalScenario: Scenario = scenario,
-        substitution: Substitution = SubstitutionImpl.empty()
+        substitution: Substitution = SubstitutionImpl.empty(),
+        workflow: Workflow = Workflow(),
     ): ScenarioAsTest {
         val feature = Feature(name = "feature", scenarios = scenarios, protocol = SpecmaticProtocol.HTTP)
         return ScenarioAsTest(
@@ -715,8 +791,51 @@ class ScenarioAsTestTest {
             originalScenario = originalScenario,
             protocol = SpecmaticProtocol.HTTP,
             specType = SpecType.OPENAPI,
-            substitution = substitution
+            substitution = substitution,
+            workflow = workflow,
         )
+    }
+
+    private fun scenarioWithDocumentedRateLimit(): Scenario {
+        return Scenario(
+            ScenarioInfo(
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpRequestPattern = HttpRequestPattern(httpPathPattern = buildHttpPathPattern("/resource"), method = "GET"),
+                httpResponsePattern = HttpResponsePattern(
+                    status = 200,
+                    body = JSONObjectPattern(mapOf("id" to StringPattern())),
+                ),
+            )
+        )
+    }
+
+    private fun documentedRateLimitScenario(): Scenario {
+        return scenarioWithDocumentedRateLimit().copy(
+            httpResponsePattern = HttpResponsePattern(
+                status = 429,
+                body = JSONObjectPattern(mapOf("error" to StringPattern())),
+            ),
+        )
+    }
+
+    private fun rateLimitedExecutor(terminalBody: Value): TestExecutor {
+        return object : TestExecutor {
+            private var executionCount = 0
+
+            override fun execute(request: HttpRequest): HttpResponse {
+                executionCount++
+                return if (executionCount == 1) {
+                    HttpResponse(
+                        status = 429,
+                        headers = mapOf("Retry-After" to "0"),
+                        body = parsedJSONObject("""{"error": "rate limited"}"""),
+                    )
+                } else {
+                    HttpResponse(status = 200, body = terminalBody)
+                }
+            }
+        }
     }
 
     private fun fixedResponseExecutor(status: Int = 200, body: String, headers: Map<String, String> = emptyMap()): TestExecutor {
