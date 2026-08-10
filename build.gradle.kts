@@ -32,7 +32,7 @@ specmatic {
             "https://repo.specmatic.io/releases",
             RepoType.PUBLISH_OBFUSCATED_ONLY
         )
-        dockerImage("specmatic/specmatic-snapshots:$version", "specmatic/specmatic:$version")
+        dockerImage("specmatic/specmatic-snapshots", "specmatic/specmatic:$version")
         dockerImage("specmatic/specmatic-snapshots", "specmatic/specmatic")
     }
 
