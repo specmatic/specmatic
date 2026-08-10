@@ -838,6 +838,44 @@ paths:
     }
 
     @Test
+    fun `should retry an undocumented tooManyRequests response returned for a 200 test`() {
+        val successScenario = Scenario(ScenarioInfo(
+            httpRequestPattern = HttpRequestPattern(
+                httpPathPattern = buildHttpPathPattern("/(id:string)"), method = "POST",
+                body = JSONObjectPattern(mapOf("age" to NumberPattern()))
+            ),
+            httpResponsePattern = HttpResponsePattern(status = 200),
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        ))
+        val feature = Feature(name = "", scenarios = listOf(successScenario), protocol = SpecmaticProtocol.HTTP)
+        val contractTest = ScenarioAsTest(
+            successScenario,
+            feature,
+            feature.flagsBased,
+            originalScenario = successScenario,
+            protocol = SpecmaticProtocol.HTTP,
+            specType = SpecType.OPENAPI
+        )
+        var executionCount = 0
+
+        val executionResult = contractTest.runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                executionCount++
+                return if (executionCount == 1) {
+                    HttpResponse(429, headers = mapOf(HttpHeaders.RetryAfter to "0"))
+                } else {
+                    HttpResponse(200)
+                }
+            }
+        })
+
+        assertThat(executionResult.result).isInstanceOf(Result.Success::class.java)
+        assertThat(executionResult.response).isEqualTo(HttpResponse(200))
+        assertThat(executionCount).isEqualTo(2)
+    }
+
+    @Test
     fun `should retry a documented tooManyRequests response returned for a 403 test`() {
         val forbiddenScenario = Scenario(ScenarioInfo(
             httpRequestPattern = HttpRequestPattern(

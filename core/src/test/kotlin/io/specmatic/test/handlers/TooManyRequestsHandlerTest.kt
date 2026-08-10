@@ -68,11 +68,11 @@ class TooManyRequestsHandlerTest {
     }
 
     @Test
-    fun `should not handle too-many-requests responses when they are undocumented`() {
+    fun `should handle too-many-requests responses when they are undocumented`() {
         val feature = Feature(name = "", scenarios = listOf(postScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = TooManyRequestsHandler(feature, postScenario)
 
-        assertThat(handler.canHandle(HttpResponse(status = 429), postScenario)).isFalse()
+        assertThat(handler.canHandle(HttpResponse(status = 429), postScenario)).isTrue()
     }
 
     @Test
@@ -130,20 +130,44 @@ class TooManyRequestsHandlerTest {
     }
 
     @Test
-    fun `should retry failure if too-many-requests response is not possible`() {
+    fun `should retry too-many-requests response without validating it when it is undocumented`() {
         val feature = Feature(name = "", scenarios = listOf(postScenario), protocol = SpecmaticProtocol.HTTP)
         val handler = TooManyRequestsHandler(feature, postScenario)
         val result = handler.handle(
-            HttpRequest(),
-            HttpResponse(status = 429),
+            HttpRequest("POST", "/ABC", body = JSONObjectValue(mapOf("age" to NumberValue(10)))),
+            HttpResponse(status = 429, headers = mapOf(HttpHeaders.RetryAfter to "0")),
             postScenario,
-            throwAwayExecutor,
+            object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = HttpResponse(status = 201)
+            },
         )
 
-        assertThat(result).isInstanceOf(ResponseHandlingResult.Stop::class.java); result as ResponseHandlingResult.Stop
-        assertThat(result.result.reportString()).isEqualToNormalizingWhitespace("""
-        No tooManyRequests scenario found for POST /(id:string) -> 201
-        """.trimIndent())
+        assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
+        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
+    }
+
+    @Test
+    fun `should not validate undocumented too-many-requests response against default response`() {
+        val defaultScenario = tooManyRequestsScenario.copy(
+            httpResponsePattern = HttpResponsePattern(
+                status = DEFAULT_RESPONSE_CODE,
+                body = ExactValuePattern(StringValue("default error")),
+            ),
+        )
+        val feature = Feature(name = "", scenarios = listOf(postScenario, defaultScenario), protocol = SpecmaticProtocol.HTTP)
+        val handler = TooManyRequestsHandler(feature, postScenario)
+
+        val result = handler.handle(
+            HttpRequest("POST", "/ABC", body = JSONObjectValue(mapOf("age" to NumberValue(10)))),
+            HttpResponse(status = 429, body = StringValue("rate limited")),
+            postScenario,
+            object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse = HttpResponse(status = 201)
+            },
+        )
+
+        assertThat(result).isInstanceOf(ResponseHandlingResult.Continue::class.java); result as ResponseHandlingResult.Continue
+        assertThat(result.response).isEqualTo(HttpResponse(status = 201))
     }
 
     @Test
