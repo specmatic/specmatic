@@ -26,21 +26,13 @@ class TooManyRequestsHandler(
     private val retryHandler: RetryHandler<MonitorResult, HttpResponse> = RetryHandler(DelayStrategy.RespectRetryAfter())
 ) : ResponseHandler {
     override fun canHandle(response: HttpResponse, scenario: Scenario): Boolean {
-        if (response.status != HttpStatusCode.TooManyRequests.value) return false
-
-        return feature.isResponseStatusPossible(scenario, HttpStatusCode.TooManyRequests.value)
+        return response.status == HttpStatusCode.TooManyRequests.value
     }
 
     override fun handle(request: HttpRequest, response: HttpResponse, testScenario: Scenario, testExecutor: TestExecutor): ResponseHandlingResult {
         val processingScenario = getProcessingScenario(response)
-            ?: return ResponseHandlingResult.Stop(Result.Failure("No tooManyRequests scenario found for ${originalScenario.defaultAPIDescription}"))
-
-        val processingScenarioResult = processingScenario.matches(response)
-        if (processingScenarioResult is Result.Failure) {
-            return ResponseHandlingResult.Stop(Result.Failure(
-                message = "Response doesn't match processing scenario",
-                cause = processingScenarioResult,
-            ).updateScenario(processingScenario))
+        validateDocumentedTooManyRequestsResponse(response, processingScenario)?.let {
+            return ResponseHandlingResult.Stop(it)
         }
 
         val matchingScenarios = findMatchingScenarios(testScenario)
@@ -53,14 +45,11 @@ class TooManyRequestsHandler(
                 lastRetryResponse = response
 
                 if (response.status == HttpStatusCode.TooManyRequests.value) {
-                    val retryResponseResult = processingScenario.matches(response)
-                    if (retryResponseResult is Result.Failure) {
+                    val retryResponseFailure = validateDocumentedTooManyRequestsResponse(response, processingScenario)
+                    if (retryResponseFailure != null) {
                         return@ResponseMonitor RetryResult.Stop(
                             MonitorResult.Failure(
-                                failure = Result.Failure(
-                                    message = "Response doesn't match processing scenario",
-                                    cause = retryResponseResult,
-                                ).updateScenario(processingScenario),
+                                failure = retryResponseFailure,
                                 response = response,
                             )
                         )
@@ -96,6 +85,19 @@ class TooManyRequestsHandler(
                 monitorResult.response ?: lastRetryResponse,
             )
         }
+    }
+
+    private fun validateDocumentedTooManyRequestsResponse(
+        response: HttpResponse,
+        processingScenario: Scenario?,
+    ): Result.Failure? {
+        val result = processingScenario?.matches(response) ?: return null
+        if (result !is Result.Failure) return null
+
+        return Result.Failure(
+            message = "Response doesn't match processing scenario",
+            cause = result,
+        ).updateScenario(processingScenario)
     }
 
     private fun findMatchingScenarios(testScenario: Scenario): List<Scenario> {

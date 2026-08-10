@@ -28,11 +28,14 @@ sealed interface DelayStrategy<T> {
 
         private fun extractRetryAfter(response: HttpResponse?): Long? {
             val retryAfter = response?.headers?.getCaseInsensitive(HttpHeaders.RetryAfter)?.value ?: return null
-            retryAfter.toLongOrNull()?.let { seconds -> return seconds * 1000 }
+            retryAfter.toLongOrNull()?.takeIf { it >= 0 }?.let { seconds -> return seconds * 1000 }
             return runCatching {
-                val target = Instant.parse(retryAfter)
+                val target = runCatching { retryAfter.fromHttpToGmtDate().timestamp }.getOrElse {
+                    // Retain support for ISO-8601 values accepted by earlier versions, even though HTTP specifies HTTP-date.
+                    Instant.parse(retryAfter).toEpochMilli()
+                }
                 val now = Instant.now()
-                val delayMillis = target.toEpochMilli() - now.toEpochMilli()
+                val delayMillis = target - now.toEpochMilli()
                 delayMillis.coerceAtLeast(0)
             }.getOrNull()
         }
