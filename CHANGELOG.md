@@ -30,7 +30,7 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased
+## 2.52.0 (2026-08-10)
 
 ### Added
 
