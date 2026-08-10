@@ -30,17 +30,27 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
-## Unreleased 
-- Added support for OpenAPI `openIdConnect` security schemes.
-- Updated the MCP backward compatibility tool to correctly handle Docker-based executions. When the required files are not available inside the Docker container, the tool returns the appropriate Docker backward compatibility command for the user to run.
-- Contract tests now retry documented `429 Too Many Requests` responses according to `Retry-After`, while preserving every request and response attempt for reporting integrations such as Studio.
+## Unreleased
+
+### Added
+
+- Added support for OpenAPI `openIdConnect` security schemes as bearer-token authentication.
+
+### Changed
+
+- Contract tests now retry documented and undocumented `429 Too Many Requests` responses. Retry delays honor `Retry-After` values expressed as seconds or HTTP dates while retaining compatibility with ISO-8601 timestamps, and every request and response attempt remains available to reporting integrations such as Studio.
+- Improved multipart handling across contract tests and mocks. Specification-derived multipart parts no longer assume a filename, example-supplied filenames remain enforceable, and each part's declared content type and encoding are validated consistently.
+- Nullable OpenAPI JSON response bodies now accept the literal JSON value `null`, while `null` in scalar parameters and non-JSON payloads remains a string value.
+- Strict-mode OpenAPI loading now supports response examples for operations that have no request parameters or request body in the spec. Specmatic uses the first named example from the first `2xx` response and reports clearer warnings for examples it cannot select.
+- Coverage reports now retain the OpenAPI `default` response designation when it matches an undeclared response status, so the owning operation is reported as covered.
+- Updated the MCP backward compatibility tool to handle Docker-based executions. When required files are unavailable inside the container, the tool returns a complete Docker backward compatibility command to run.
+- The bundled CTRF report API now requires `timestamp` and `generatedBy` when constructing reports and exposes `reportId` as a UUID.
 
 ## 2.51.1 (2026-07-31)
 
 ### Changed
 
 - Fixed OpenAPI `allOf` conversion so a main-schema property overrides a matching member property without generating both optional and required keys.
-- Example files are now discovered recursively in configured example directories, including nested directories for `examples` command and `studio`.
 - Fixed multi-spec stubs to route requests to the most specific matching base-URL path.
 
 ## 2.51.0 (2026-07-25)
