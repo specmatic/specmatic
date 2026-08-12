@@ -1,0 +1,30 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/upload",
+    "form-fields": {
+      "count": 12,
+      "enabled": true,
+      "token": "${TOKEN:fallback-token}"
+    },
+    "multipart-formdata": [
+      {
+        "name": "metadata",
+        "content": {
+          "id": 123,
+          "active": true
+        },
+        "contentType": "application/json",
+        "contentEncoding": "identity"
+      },
+      {
+        "name": "notes",
+        "content": "${NOTES:default-notes}",
+        "contentType": "text/plain"
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200
+  }
+}

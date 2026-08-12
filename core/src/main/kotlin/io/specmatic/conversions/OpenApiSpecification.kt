@@ -2,8 +2,12 @@
 
 package io.specmatic.conversions
 
+import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -144,12 +148,22 @@ class OpenApiSpecification(
     }
 
     companion object {
-        private val jsonMapper = ObjectMapper().registerKotlinModule()
         private const val X_CONST_EXPLICIT = "x-const-explicit"
         private const val NULL_TYPE = "null"
         private const val OBJECT_TYPE = "object"
         private const val ARRAY_TYPE = "array"
         private const val BINARY_FORMAT = "binary"
+        private val jsonMapper = ObjectMapper().apply {
+            val module = SimpleModule()
+            module.addSerializer(Value::class.java, object : JsonSerializer<Value>() {
+                override fun serialize(value: Value, gen: JsonGenerator, serializers: SerializerProvider) {
+                    gen.writeRawValue(value.toUnformattedString())
+                }
+            })
+
+            registerModule(module)
+            registerKotlinModule()
+        }
 
         fun patternsFrom(jsonSchema: Map<String, Any?>, schemaName: String = "Schema"): Map<String, Pattern> {
             val definitions = try {
@@ -565,6 +579,16 @@ class OpenApiSpecification(
                 return this
 
             return OverlayMerger().merge(this, OverlayParser.parse(overlayContent))
+        }
+
+        internal fun Any?.toOpenApiExampleString(): String {
+            if (this == null || (this is JsonNode && this.isNull)) return ""
+            return when (this) {
+                is JsonNode -> if (isContainerNode) toString() else asText()
+                is Sequence<*> -> jsonMapper.writeValueAsString(toList())
+                is String, is Char, is Number, is Boolean, is Enum<*> -> toString()
+                else -> jsonMapper.writeValueAsString(this)
+            }
         }
     }
 
@@ -1138,21 +1162,25 @@ class OpenApiSpecification(
                         scenarioInfo.httpRequestPattern.nestedObjectQueryParamsByName(),
                         scenarioInfo.httpRequestPattern.httpQueryParamPattern.queryPatterns,
                         CollectorContext()
-                    )
-                        .mapValues { (it.value as? String) ?: jsonMapper.writeValueAsString(it.value) }
+                    ).mapValues { it.value.toOpenApiExampleString() }
                 } catch (_: Exception) {
                     emptyMap()
                 }.entries.map { it.key to it.value }
 
 
-                val allExamples = if (scenarioInfo.httpRequestPattern.body is NoBodyPattern) {
-                    paramExamples + pathParameterExamples
-                } else
-                    listOf("(REQUEST-BODY)" to request.body.toStringLiteral()) + paramExamples
+                val allExamples = buildMap {
+                    if (scenarioInfo.httpRequestPattern.body !is NoBodyPattern) {
+                        put("(REQUEST-BODY)", request.body.toStringLiteral())
+                    }
+
+                    putAll(paramExamples.toMap())
+                    putAll(pathParameterExamples.toMap())
+                }
+
                 Row(
                     name = key,
-                    columnNames = allExamples.map { it.first },
-                    values = allExamples.map { it.second }
+                    columnNames = allExamples.keys.toList(),
+                    values = allExamples.values.toList(),
                 )
             }
         }
@@ -1348,7 +1376,7 @@ class OpenApiSpecification(
                 requestBodyExample(openApiRequest, exampleName, operation.summary)
 
             val requestExamples = parameterExamples.plus(requestBodyExample).map { (key, value) ->
-                if (value.toString().contains("externalValue")) "${key}_filename" to value
+                if (value.toOpenApiExampleString().contains("externalValue")) "${key}_filename" to value
                 else key to value
             }.toMap().ifEmpty { mapOf(SPECMATIC_TEST_WITH_NO_REQ_EX to "") }
 
@@ -1390,10 +1418,10 @@ class OpenApiSpecification(
 
             Row(
                 requestExamples.keys.toList().map { keyName: String -> keyName },
-                requestExamples.values.toList().map { value: Any? -> value?.toString() ?: "" }
+                requestExamples.values.toList().map { value: Any? -> value.toOpenApiExampleString() }
                     .map { valueString: String ->
                         if (valueString.contains("externalValue")) {
-                            ObjectMapper().readValue(valueString, Map::class.java).values.first().toString()
+                            ObjectMapper().readValue(valueString, Map::class.java).values.first().toOpenApiExampleString()
                         } else valueString
                     },
                 name = exampleName,
@@ -1449,6 +1477,46 @@ class OpenApiSpecification(
         }.toMap()
     }
 
+    private fun multiPartFormDataExamplesFromMediaType(requestBodyMediaType: MediaType, parts: List<MultiPartFormDataPattern>, operationSummary: String?): Map<String, List<MultiPartContentValue>> {
+        return requestBodyMediaType.examples.orEmpty().mapNotNull { (exampleName, example) ->
+            val requestExampleValue = resolveExample(example)?.value ?: return@mapNotNull null
+            val operationSummaryClause = operationSummary?.let { " for operation \"$it\"" } ?: ""
+            val jsonExample = attempt("Could not parse example $exampleName$operationSummaryClause") {
+                parsedJSON(requestExampleValue.toOpenApiExampleString()) as JSONObjectValue
+            }
+
+            exampleName to jsonExample.jsonObject.map { (partName, partValue) ->
+                val partPattern = parts.firstOrNull { withoutOptionality(it.name) == partName }
+                multipartContentValue(partName, partValue, partPattern)
+            }
+        }.toMap()
+    }
+
+    private fun multipartContentValue(partName: String, partValue: Value, partPattern: MultiPartFormDataPattern?): MultiPartContentValue {
+        val externalValue = (partValue as? JSONObjectValue)?.jsonObject?.get("externalValue")?.toStringLiteral()
+        return if (externalValue != null) {
+            MultiPartContentValue(
+                name = partName,
+                filename = externalValue,
+                contentType = partPattern?.contentType,
+                contentEncoding = partPattern?.contentEncoding,
+            )
+        } else {
+            MultiPartContentValue(
+                name = partName,
+                contentEncoding = partPattern?.contentEncoding,
+                specifiedContentType = partPattern?.contentType,
+                content = partPattern?.let { parseMultipartPartContent(it.content, partValue) } ?: partValue,
+            )
+        }
+    }
+
+    private fun parseMultipartPartContent(pattern: Pattern, value: Value): Value {
+        return runCatching {
+            pattern.parse(value.toStringLiteral(), Resolver())
+        }.getOrDefault(value)
+    }
+
     private fun formFieldsFromExampleValue(
         requestExampleValue: Any,
         exampleName: String,
@@ -1458,7 +1526,7 @@ class OpenApiSpecification(
         val jsonExample =
             attempt("Could not parse example $exampleName$operationSummaryClause") {
                 // TODO: Collect as error
-                parsedJSON(requestExampleValue.toString()) as JSONObjectValue
+                parsedJSON(requestExampleValue.toOpenApiExampleString()) as JSONObjectValue
             }
 
         return jsonExample.jsonObject.mapValues { (_, value) ->
@@ -1699,7 +1767,7 @@ class OpenApiSpecification(
                     emptyMap()
                 else
                     mediaType.examples?.mapValues {
-                        resolveExample(it.value)?.value?.toString() ?: ""
+                        resolveExample(it.value)?.value.toOpenApiExampleString()
                     } ?: emptyMap()
 
             val examples: Map<String, HttpResponse> =
@@ -1871,6 +1939,15 @@ class OpenApiSpecification(
                             )
                         }
 
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithMultiPartFormData(
+                                contentType = contentType,
+                                exampleMultiPartFormData = multiPartFormDataExamplesFromMediaType(mediaType, parts, operation.summary),
+                            )
+
                     val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
                     val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
@@ -1879,7 +1956,7 @@ class OpenApiSpecification(
                             multiPartFormDataPattern = parts,
                             multiPartPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                        ), emptyMap()
+                        ), allExamples
                     )
                 }
 
@@ -1908,7 +1985,7 @@ class OpenApiSpecification(
                 "application/xml" -> {
                     val examplesFromMediaType = mediaType.examples ?: emptyMap()
                     val exampleBodies: Map<String, String?> = examplesFromMediaType.mapValues {
-                        resolveExample(it.value)?.value?.toString() ?: ""
+                        resolveExample(it.value)?.value.toOpenApiExampleString()
                     }
 
                     val allExamples =
@@ -1940,7 +2017,7 @@ class OpenApiSpecification(
 
                     val examplesFromMediaType = mediaType.examples ?: emptyMap()
                     val exampleBodies: Map<String, String?> = examplesFromMediaType.mapValues {
-                        resolveExample(it.value)?.value?.toString() ?: ""
+                        resolveExample(it.value)?.value.toOpenApiExampleString()
                     }
 
                     val allExamples =
@@ -2101,9 +2178,9 @@ class OpenApiSpecification(
         examplesAccumulatedSoFar: Map<String, Map<String, String>>
     ): Map<String, Map<String, String>> {
         return examplesToAdd.orEmpty()
-            .entries.filter { it.value.value?.toString().orEmpty() !in OMIT }
+            .entries.filter { it.value.value.toOpenApiExampleString() !in OMIT }
             .fold(examplesAccumulatedSoFar) { acc, (exampleName, example) ->
-                val exampleValue = resolveExample(example)?.value?.toString() ?: ""
+                val exampleValue = resolveExample(example)?.value.toOpenApiExampleString()
                 val exampleMap = acc[exampleName] ?: emptyMap()
                 acc.plus(exampleName to exampleMap.plus(parameterName to exampleValue))
             }
@@ -2117,7 +2194,7 @@ class OpenApiSpecification(
         parameterContext: CollectorContext
     ): Map<String, Map<String, String>> {
         return parameter.examples.orEmpty()
-            .entries.filter { it.value.value?.toString().orEmpty() !in OMIT }
+            .entries.filter { it.value.value.toOpenApiExampleString() !in OMIT }
             .fold(examplesAccumulatedSoFar) { acc, (exampleName, example) ->
                 val exampleValue = resolveExample(example)?.value ?: ""
                 val exampleMap = acc[exampleName] ?: emptyMap()
@@ -2127,7 +2204,7 @@ class OpenApiSpecification(
                     nestedObjectQueryParamsByName = nestedObjectQueryParamsByName,
                     effectiveQueryPatterns = effectiveQueryPatterns,
                     exampleContext = parameterContext.at("examples").at(exampleName).at("value")
-                ).mapValues { it.value.toExampleString() }
+                ).mapValues { it.value.toOpenApiExampleString() }
                 acc.plus(exampleName to exampleMap.plus(serializedExamples))
             }
     }
@@ -2180,14 +2257,6 @@ class OpenApiSpecification(
     private fun jsonNodeObjectEntries(exampleValue: JsonNode): Map<String, Any?>? {
         if (!exampleValue.isObject) return null
         return exampleValue.properties().associate { (key, value) -> key to value.toExampleValue() }
-    }
-
-    private fun Any?.toExampleString(): String {
-        return when (this) {
-            null -> ""
-            is JsonNode -> this.toExampleValue()?.toString() ?: ""
-            else -> toString()
-        }
     }
 
     private fun JsonNode.toExampleValue(): Any? {
@@ -3122,10 +3191,10 @@ class OpenApiSpecification(
         val converter: (Any) -> Value = { value ->
             enumDataTypes.firstNotNullOfOrNull {
                 val pattern = builtInPatterns[it] ?: return@firstNotNullOfOrNull null
-                runCatching { pattern.parse(value.toString(), Resolver()) }.getOrNull()
+                runCatching { pattern.parse(value.toOpenApiExampleString(), Resolver()) }.getOrNull()
             } ?: run {
                 logger.debug("Failed to convert enum value $value against provided list of types $enumDataTypes, defaulting to any scalar")
-                parsedScalarValue(value.toString())
+                parsedScalarValue(value.toOpenApiExampleString())
             }
         }
 

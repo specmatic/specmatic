@@ -16,7 +16,7 @@ import io.specmatic.mock.ScenarioStub
 import java.io.File
 import java.net.URI
 
-class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
+class ExampleFromFile(val scenarioStub: ScenarioStub, val file: File) {
     companion object {
         fun fromFile(file: File, strictMode: Boolean = true): ReturnValue<ExampleFromFile> {
             if (SchemaExample.matchesFilePattern(file)) {
@@ -82,6 +82,11 @@ class ExampleFromFile(private val scenarioStub: ScenarioStub, val file: File) {
 
     fun isPartial(): Boolean = scenarioStub.isPartial()
     fun isInvalid(): Boolean = scenarioStub.isInvalid()
+
+    fun withRequest(request: HttpRequest): ExampleFromFile {
+        return ExampleFromFile(scenarioStub.updateRequest(request), file)
+    }
+
     private fun <T> Map<String, T>.getCaseInsensitive(key: String): T? {
         return this.asSequence().find { it.key.equals(key, ignoreCase = true) }?.value
     }

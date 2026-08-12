@@ -10,7 +10,7 @@
       },
       {
         "name": "attachment",
-        "filename": "report.csv",
+        "filename": "@report.csv",
         "contentType": "text/csv",
         "contentEncoding": "identity"
       }

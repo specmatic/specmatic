@@ -12,3 +12,8 @@ The following is a list of directories and the gradle modules that they contain:
 - directory: 'junit5-support', module: 'junit5-support'
 
 Create temp files locally in the "temp" directory as it is ignored by git.
+
+## Examples
+
+- Whenever ScenarioStub structure is modified, make sure the necessary changes are propagated to ExampleForFile, which is supposed to be a thin wrapper over ScenarioStub.
+- When ScenarioStub structure is modified, update the schema files named `external_example.yaml` and `external_examples.schema.json`.

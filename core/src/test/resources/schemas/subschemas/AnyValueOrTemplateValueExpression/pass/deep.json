@@ -1,0 +1,13 @@
+{
+  "id": 123,
+  "active": true,
+  "optional": null,
+  "name": "${NAME:default-name}",
+  "nested": {
+    "items": [
+      "plain text",
+      "prefix-${CODE:fallback}",
+      false
+    ]
+  }
+}

@@ -30,6 +30,18 @@ Each release section should stand on its own and describe the behavior shipped i
 - When generating notes for downstream repos, this repo is consumed by:
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
+## Unreleased
+
+### Added
+
+- Added support for loading OpenAPI `multipart/form-data` request examples, including multipart content and external file references for mock.
+
+### Changed
+
+- Fixed loading of OpenAPI examples referenced through internal or external references, with consistent handling of scalar, structured, array, null, and Specmatic values.
+- Fixed request examples for operations with an empty response body so path parameter examples are retained when a request body is present.
+- Synchronized the bundled multipart-form-data example schemas with the supported example structure.
+
 ## 2.52.0 (2026-08-10)
 
 ### Added

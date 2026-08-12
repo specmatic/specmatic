@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.HttpHeadersPattern
+import io.specmatic.core.HttpRequest
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.Resolver
 import io.specmatic.core.SpecmaticConfig
@@ -195,6 +196,28 @@ class ExampleFromFileTest {
 
         assertThat(exampleFromFile.requestBody).isNotNull
         assertThat(exampleFromFile.responseBody).isNotNull
+    }
+
+    @Test
+    fun `should create a copy with an updated request`() {
+        val example = ExampleFromFile(
+            file = createTempFile("{}"),
+            json = parsedJSONObject("""
+            {
+                "name": "copy-example",
+                "http-request": { "method": "GET", "path": "/original" },
+                "http-response": { "status": 200 }
+            }
+            """.trimIndent()),
+        )
+
+        val updatedRequest = HttpRequest(method = "POST", path = "/updated")
+        val copy = example.withRequest(updatedRequest)
+
+        assertThat(example.request).isNotEqualTo(updatedRequest)
+        assertThat(copy.request).isEqualTo(updatedRequest)
+        assertThat(copy.response).isEqualTo(example.response)
+        assertThat(copy.json).isEqualTo(example.json)
     }
 
     @Test
