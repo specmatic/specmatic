@@ -123,6 +123,11 @@ data class Scenario(
             return httpRequestPattern.httpPathPattern?.toInternalPath() ?: ""
         }
 
+    val openApiPath: String
+        get() {
+            return httpRequestPattern.httpPathPattern?.toOpenApiPath() ?: ""
+        }
+
     val status: Int
         get() {
             return if (isNegative && !isA4xxScenario()) 400 else httpResponsePattern.status

@@ -15,9 +15,9 @@ class OpenApiBackwardCompatibilityChecker(
 ) {
     private val newScenariosByMethodAndReqContentType = newFeature.scenarios.groupBy { it.method to it.requestContentType }
     private val oldChangeTrackingScenariosByPathAndMethod = oldFeature.scenariosForChangeTracking()
-        .groupBy { it.path to it.method }
+        .groupBy { it.openApiPath to it.method }
     private val newChangeTrackingScenariosByPathAndMethod = newFeature.scenariosForChangeTracking()
-        .groupBy { it.path to it.method }
+        .groupBy { it.openApiPath to it.method }
 
     fun run(): List<OpenApiBackwardCompatibilityCheckRecord> {
         val requestFamilies = groupScenariosByPathAndMethod(oldFeature)
@@ -32,7 +32,7 @@ class OpenApiBackwardCompatibilityChecker(
     }
 
     private fun operationChangeStatus(requestFamily: RequestFamily): (Scenario) -> ChangeStatus {
-        val operationIdentifier = requestFamily.path to requestFamily.method
+        val operationIdentifier = requestFamily.openApiPath to requestFamily.method
         val oldScenariosForOperation = oldChangeTrackingScenariosByPathAndMethod[operationIdentifier].orEmpty()
         val newScenariosForOperation = newChangeTrackingScenariosByPathAndMethod[operationIdentifier].orEmpty()
         return ScenarioFingerprint.changeStatusBetween(oldScenariosForOperation, newScenariosForOperation)
@@ -239,7 +239,7 @@ private data class RequestFamily(val scenarios: List<Scenario>) {
     private val groupedByRequestIdentifiers = scenarios.groupBy { Triple(it.path, it.method, it.requestContentType) }
     private val groupedByResponseIdentifiers = scenarios.groupBy { Pair(it.status, it.responseContentType) }
 
-    val path: String get() = representativeScenario.path
+    val openApiPath: String get() = representativeScenario.openApiPath
     val method: String get() = representativeScenario.method
 
     fun oneScenarioPerReqIdentifiers(): List<Scenario> {

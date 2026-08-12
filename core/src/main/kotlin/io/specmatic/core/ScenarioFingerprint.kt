@@ -30,7 +30,7 @@ data class ScenarioFingerprint(
         )
 
         fun keyOf(scenario: Scenario): Key = Key(
-            path = scenario.path,
+            path = scenario.openApiPath,
             method = scenario.method,
             requestContentType = scenario.requestContentType,
             status = scenario.status,
@@ -41,8 +41,8 @@ data class ScenarioFingerprint(
             oldScenarios: Collection<Scenario>,
             newScenarios: Collection<Scenario>,
         ): (Scenario) -> ChangeStatus {
-            val oldByKey = oldScenarios.associate { keyOf(it) to from(it) }
-            val newByKey = newScenarios.associate { keyOf(it) to from(it) }
+            val oldByKey = oldScenarios.groupBy(::keyOf).mapValues { (_, scenarios) -> scenarios.map(::from).toSet() }
+            val newByKey = newScenarios.groupBy(::keyOf).mapValues { (_, scenarios) -> scenarios.map(::from).toSet() }
             val statusByKey = (oldByKey.keys + newByKey.keys).associateWith { key ->
                 if (oldByKey[key] == newByKey[key]) ChangeStatus.UNCHANGED else ChangeStatus.CHANGED
             }

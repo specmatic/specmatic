@@ -80,6 +80,36 @@ class ScenarioFingerprintTest {
     }
 
     @Test
+    fun `openApiPath preserves the OpenAPI template when the internal path contains a ref alias`() {
+        val spec = $$"""
+        openapi: 3.0.0
+        info:
+          title: Orders API
+          version: 1.0.0
+        paths:
+          /orders/{id}:
+            get:
+              parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    $ref: '#/components/schemas/OrderId'
+              responses:
+                '200':
+                  description: ok
+        components:
+          schemas:
+            OrderId:
+              type: integer
+        """.trimIndent()
+
+        val scenario = OpenApiSpecification.fromYAML(spec, "test.yaml").toFeature().scenarios.single()
+        assertThat(scenario.path).isEqualTo("/orders/(id:OrderId)")
+        assertThat(scenario.openApiPath).isEqualTo("/orders/{id}")
+    }
+
+    @Test
     fun `fingerprints of structurally identical scenarios are equal`() {
         val first = singleScenarioFrom(baseSpec)
         val second = singleScenarioFrom(baseSpec)
@@ -161,6 +191,13 @@ class ScenarioFingerprintTest {
     }
 
     @Test
+    fun `changeStatusBetween stays UNCHANGED when an inline schema becomes an equivalent ref`() {
+        val old = scenariosFrom(baseSpec)
+        val new = scenariosFrom(componentRefSpec)
+        assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.UNCHANGED)
+    }
+
+    @Test
     fun `changeStatusBetween returns UNCHANGED when an unused component schema changes`() {
         val specWithUnusedComponent = componentRefSpec.applyJsonPatch("""
             - op: add
@@ -205,6 +242,80 @@ class ScenarioFingerprintTest {
         val new = scenariosFrom(baseSpec)
 
         assertThat(aggregateChangeStatus(old, new)).isEqualTo(ChangeStatus.CHANGED)
+    }
+
+    @Test
+    fun `changeStatusBetween compares all scenarios sharing a canonical operation key`() {
+        val pathParameterSpec = """
+        openapi: 3.0.0
+        info:
+          title: Orders API
+          version: 1.0.0
+        paths:
+          /orders/{id}:
+            get:
+              parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              responses:
+                '200':
+                  description: ok
+        """.trimIndent()
+
+        val original = singleScenarioFrom(pathParameterSpec)
+        val variant = original.copy(
+            httpRequestPattern = original.httpRequestPattern.copy(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:number)")
+            )
+        )
+
+        val statusFor = ScenarioFingerprint.changeStatusBetween(
+            oldScenarios = listOf(variant, original),
+            newScenarios = listOf(original),
+        )
+
+        assertThat(statusFor(original)).isEqualTo(ChangeStatus.CHANGED)
+        assertThat(statusFor(variant)).isEqualTo(ChangeStatus.CHANGED)
+    }
+
+    @Test
+    fun `changeStatusBetween is independent of scenario order for multiple internal path variants`() {
+        val pathParameterSpec = """
+        openapi: 3.0.0
+        info:
+          title: Orders API
+          version: 1.0.0
+        paths:
+          /orders/{id}:
+            get:
+              parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              responses:
+                '200':
+                  description: ok
+        """.trimIndent()
+
+        val original = singleScenarioFrom(pathParameterSpec)
+        val variant = original.copy(
+            httpRequestPattern = original.httpRequestPattern.copy(
+                httpPathPattern = HttpPathPattern.from("/orders/(id:number)")
+            )
+        )
+
+        val statusFor = ScenarioFingerprint.changeStatusBetween(
+            oldScenarios = listOf(variant, original),
+            newScenarios = listOf(original, variant),
+        )
+
+        assertThat(statusFor(original)).isEqualTo(ChangeStatus.UNCHANGED)
+        assertThat(statusFor(variant)).isEqualTo(ChangeStatus.UNCHANGED)
     }
 
     @Test
