@@ -6036,6 +6036,333 @@ paths:
             return if (qualifiers.contains("changed")) "CHANGED" else "UNCHANGED"
         }
 
+        @Test
+        fun `a schema ref used by a path parameter keeps the operation change status stable`(@TempDir tempDir: File) {
+            val referencedPathParameterSpec = $$"""
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        $ref: '#/components/schemas/OrderId'
+                  responses:
+                    '200':
+                      description: ok
+            components:
+              schemas:
+                OrderId:
+                  type: integer
+            """.trimIndent()
+
+            val unchangedOperations = runBccAndGetOperations(
+                oldSpec = referencedPathParameterSpec,
+                newSpec = referencedPathParameterSpec,
+                tempDir = tempDir.resolve("unchanged").apply { mkdirs() },
+            )
+
+            assertThat(unchangedOperations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("UNCHANGED")
+            val changedSpec = referencedPathParameterSpec.applyJsonPatch("""
+            - op: replace
+              path: /components/schemas/OrderId/type
+              value: string
+            """.trimIndent())
+
+            val changedOperations = runBccAndGetOperations(
+                newSpec = changedSpec,
+                oldSpec = referencedPathParameterSpec,
+                tempDir = tempDir.resolve("changed").apply { mkdirs() },
+            )
+
+            assertThat(changedOperations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("CHANGED")
+        }
+
+        @Test
+        fun `a path parameter ref changed to an equivalent inline schema stays unchanged`(@TempDir tempDir: File) {
+            val refSpec = $$"""
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        $ref: '#/components/schemas/OrderId'
+                  responses:
+                    '200':
+                      description: ok
+            components:
+              schemas:
+                OrderId:
+                  type: integer
+            """.trimIndent()
+
+            val inlineSpec = refSpec.applyJsonPatch("""
+            - op: replace
+              path: /paths/~1orders~1{id}/get/parameters/0/schema
+              value:
+                type: integer
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(
+                oldSpec = refSpec,
+                newSpec = inlineSpec,
+                tempDir = tempDir.apply { mkdirs() },
+            )
+
+            assertThat(operations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("UNCHANGED")
+        }
+
+        @Test
+        fun `an inline path parameter changed to an equivalent schema ref stays unchanged`(@TempDir tempDir: File) {
+            val inlineSpec = """
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: ok
+            """.trimIndent()
+
+            val refSpec = inlineSpec.applyJsonPatch($$"""
+            - op: add
+              path: /components
+              value:
+                schemas:
+                  OrderId:
+                    type: integer
+            - op: replace
+              path: /paths/~1orders~1{id}/get/parameters/0/schema
+              value:
+                $ref: '#/components/schemas/OrderId'
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(
+                oldSpec = inlineSpec,
+                newSpec = refSpec,
+                tempDir = tempDir.apply { mkdirs() },
+            )
+
+            assertThat(operations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("UNCHANGED")
+        }
+
+        @Test
+        fun `an inline path parameter changed to a ref with a different schema is changed`(@TempDir tempDir: File) {
+            val inlineSpec = """
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: ok
+            """.trimIndent()
+
+            val refSpec = inlineSpec.applyJsonPatch($$"""
+            - op: add
+              path: /components
+              value:
+                schemas:
+                  OrderId:
+                    type: string
+            - op: replace
+              path: /paths/~1orders~1{id}/get/parameters/0/schema
+              value:
+                $ref: '#/components/schemas/OrderId'
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(
+                oldSpec = inlineSpec,
+                newSpec = refSpec,
+                tempDir = tempDir.apply { mkdirs() },
+            )
+
+            assertThat(operations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("CHANGED")
+        }
+
+        @Test
+        fun `an inline path parameter changed to an equivalent whole parameter ref stays unchanged`(@TempDir tempDir: File) {
+            val inlineSpec = """
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - name: id
+                      in: path
+                      required: true
+                      schema:
+                        type: integer
+                  responses:
+                    '200':
+                      description: ok
+            """.trimIndent()
+
+            val refSpec = inlineSpec.applyJsonPatch($$"""
+            - op: add
+              path: /components
+              value:
+                parameters:
+                  OrderId:
+                    name: id
+                    in: path
+                    required: true
+                    schema:
+                      type: integer
+            - op: replace
+              path: /paths/~1orders~1{id}/get/parameters/0
+              value:
+                $ref: '#/components/parameters/OrderId'
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(
+                oldSpec = inlineSpec,
+                newSpec = refSpec,
+                tempDir = tempDir.apply { mkdirs() },
+            )
+
+            assertThat(operations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("UNCHANGED")
+        }
+
+        @Test
+        fun `a whole path parameter ref changed to an equivalent inline parameter stays unchanged`(@TempDir tempDir: File) {
+            val refSpec = $$"""
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{id}:
+                get:
+                  parameters:
+                    - $ref: '#/components/parameters/OrderId'
+                  responses:
+                    '200':
+                      description: ok
+            components:
+              parameters:
+                OrderId:
+                  name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+            """.trimIndent()
+
+            val inlineSpec = refSpec.applyJsonPatch("""
+            - op: replace
+              path: /paths/~1orders~1{id}/get/parameters/0
+              value:
+                name: id
+                in: path
+                required: true
+                schema:
+                  type: integer
+            """.trimIndent())
+
+            val operations = runBccAndGetOperations(
+                oldSpec = refSpec,
+                newSpec = inlineSpec,
+                tempDir = tempDir.apply { mkdirs() },
+            )
+
+            assertThat(operations.changeStatusFor(method = "GET", path = "/orders/{id}")).isEqualTo("UNCHANGED")
+        }
+
+        @Test
+        fun `multiple referenced path parameters use one stable OpenAPI operation identity`(@TempDir tempDir: File) {
+            val spec = $$"""
+            openapi: 3.0.0
+            info:
+              title: Orders API
+              version: 1.0.0
+            paths:
+              /orders/{orderId}/items/{itemId}:
+                get:
+                  parameters:
+                    - $ref: '#/components/parameters/OrderId'
+                    - $ref: '#/components/parameters/ItemId'
+                  responses:
+                    '200':
+                      description: ok
+            components:
+              parameters:
+                OrderId:
+                  name: orderId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                ItemId:
+                  name: itemId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            """.trimIndent()
+
+            val changedSpec = spec.applyJsonPatch("""
+            - op: replace
+              path: /components/parameters/ItemId/schema/type
+              value: integer
+            """.trimIndent())
+
+            val unchangedOperations = runBccAndGetOperations(
+                oldSpec = spec,
+                newSpec = spec,
+                tempDir = tempDir.resolve("unchanged").apply { mkdirs() },
+            )
+
+            assertThat(unchangedOperations.changeStatusFor(
+                method = "GET",
+                path = "/orders/{orderId}/items/{itemId}",
+            )).isEqualTo("UNCHANGED")
+
+            val changedOperations = runBccAndGetOperations(
+                oldSpec = spec,
+                newSpec = changedSpec,
+                tempDir = tempDir.resolve("changed").apply { mkdirs() },
+            )
+
+            assertThat(changedOperations.changeStatusFor(
+                method = "GET",
+                path = "/orders/{orderId}/items/{itemId}",
+            )).isEqualTo("CHANGED")
+        }
+
         // TODO(product): decide whether new-only operations should surface as CHANGED in the BCC report.
         // Today OpenApiBackwardCompatibilityChecker iterates over old scenarios only, so an operation
         // present in the new spec but absent in the old spec produces no record and is not reported.
