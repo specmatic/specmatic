@@ -1,0 +1,23 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/upload",
+    "multipart-formdata": [
+      {
+        "name": "matcher",
+        "content": "$match(pattern: approved)"
+      },
+      {
+        "name": "substitution",
+        "content": "$(CONTENT)"
+      },
+      {
+        "name": "pattern",
+        "content": "(string)"
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200
+  }
+}

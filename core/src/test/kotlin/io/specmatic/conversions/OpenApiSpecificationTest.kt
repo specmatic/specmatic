@@ -5802,6 +5802,12 @@ paths:
 
         val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
 
+        val inlineStub = feature.inlineNamedStubs.single { it.name == "200_OK" }
+        assertThat(inlineStub.stub.request.multiPartFormData).hasSize(1)
+        assertThat(inlineStub.stub.request.multiPartFormData.single().name).isEqualTo("Data")
+        assertThat(inlineStub.source?.requestVariantPointer)
+            .isEqualTo("/paths/~1users/post/requestBody/content/multipart~1form-data")
+
         val results: List<Result> =
             feature.generateContractTests().toList().map {
                 it.runTest(object : TestExecutor {
@@ -5821,6 +5827,126 @@ paths:
         println(results.single().reportString())
 
         assertThat(results.single()).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should test and mock each multipart inline example`() {
+        val contractString = """
+        openapi: 3.0.3
+        info:
+          title: test
+          version: '1.0'
+        paths:
+          /users:
+            post:
+              requestBody:
+                content:
+                  multipart/form-data:
+                    schema:
+                      type: object
+                      required: [Data]
+                      properties:
+                        Data:
+                          type: string
+                    examples:
+                      first:
+                        value:
+                          Data: abc123
+                      second:
+                        value:
+                          Data: xyz789
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+                      examples:
+                        first:
+                          value:
+                        second:
+                          value:
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
+        val requests = feature.inlineNamedStubs.associate { it.name to it.stub.request }
+
+        val testedRequests = mutableListOf<HttpRequest>()
+        val testResults = feature.executeTests(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                testedRequests += request
+                return HttpResponse.OK
+            }
+        })
+
+        assertThat(testResults.success()).withFailMessage(testResults.report()).isTrue()
+        assertThat(testedRequests.map { it.multiPartFormData.single().content.toStringLiteral() })
+            .containsExactlyInAnyOrder("abc123", "xyz789")
+
+        HttpStub(feature).use { stub ->
+            requests.forEach { (exampleName, request) ->
+                val response = stub.client.execute(request)
+                assertThat(response.status)
+                    .withFailMessage("Mock did not match inline example $exampleName")
+                    .isEqualTo(200)
+            }
+        }
+    }
+
+    @Test
+    fun `should preserve filename in multipart inline example`() {
+        val contractString = """
+        openapi: 3.0.3
+        info:
+          title: test
+          version: '1.0'
+        paths:
+          /documents:
+            post:
+              requestBody:
+                content:
+                  multipart/form-data:
+                    schema:
+                      type: object
+                      required: [document]
+                      properties:
+                        document:
+                          type: string
+                          format: binary
+                    examples:
+                      upload:
+                        value:
+                          document:
+                            externalValue: document.bin
+              responses:
+                '200':
+                  description: OK
+                  content:
+                    text/plain:
+                      schema:
+                        type: string
+                      examples:
+                        upload:
+                          value: uploaded
+        """.trimIndent()
+
+        val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
+        val inlineStub = feature.inlineNamedStubs.single { it.name == "upload" }
+        val part = inlineStub.stub.request.multiPartFormData.single()
+
+        assertThat(part.filename).isEqualTo("document.bin")
+        assertThat(inlineStub.source?.requestVariantPointer)
+            .isEqualTo("/paths/~1documents/post/requestBody/content/multipart~1form-data")
+
+        val result = feature.generateContractTests().single().runTest(object : TestExecutor {
+            override fun execute(request: HttpRequest): HttpResponse {
+                assertThat(request.multiPartFormData.single().filename).isEqualTo("document.bin")
+                return HttpResponse.ok("uploaded")
+            }
+        }).result
+
+        assertThat(result).isInstanceOf(Result.Success::class.java)
     }
 
     @Test

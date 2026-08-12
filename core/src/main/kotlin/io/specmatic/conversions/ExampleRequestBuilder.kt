@@ -3,6 +3,7 @@ package io.specmatic.conversions
 import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpPathPattern
 import io.specmatic.core.HttpRequest
+import io.specmatic.core.MultiPartContentValue
 import io.specmatic.core.NoBodyValue
 import io.specmatic.core.pattern.parsedValue
 
@@ -75,6 +76,34 @@ class ExampleRequestBuilder(
         return examplesWithFormFields + examplesWithoutFormFields
     }
 
+    fun examplesWithMultiPartFormData(exampleMultiPartFormData: Map<String, List<MultiPartContentValue>>, contentType: String): Map<String, List<HttpRequest>> {
+        val examplesWithMultiPartFormData = exampleMultiPartFormData.mapValues { (exampleName, multiPartFormData) ->
+            val requests = if (exampleName in examplesBasedOnParameters) {
+                examplesBasedOnParameters.getValue(exampleName).map { exampleRequest ->
+                    exampleRequest.withMultiPartFormData(multiPartFormData, contentType)
+                }
+            } else {
+                val httpRequest = HttpRequest(
+                    method = httpMethod,
+                    multiPartFormData = multiPartFormData,
+                    path = httpPathPattern.toInternalPath(),
+                    headers = mapOf(CONTENT_TYPE to contentType),
+                )
+
+                securitySchemes.map { securityScheme ->
+                    securityScheme.addTo(httpRequest)
+                }
+            }
+
+            requests
+        }
+
+        val examplesWithoutMultiPartFormData = (examplesBasedOnParameters.keys - exampleMultiPartFormData.keys)
+            .associateWith { key -> examplesBasedOnParameters.getValue(key) }
+
+        return examplesWithMultiPartFormData + examplesWithoutMultiPartFormData
+    }
+
     private val unionOfParameterKeys =
         (exampleQueryParams.keys + examplePathParams.keys + exampleHeaderParams.keys).distinct()
 
@@ -108,6 +137,20 @@ private fun HttpRequest.withFormFields(formFields: Map<String, String>, contentT
         headers = headers + contentTypeHeader,
         formFields = formFields,
         body = NoBodyValue
+    )
+}
+
+private fun HttpRequest.withMultiPartFormData(multiPartFormData: List<MultiPartContentValue>, contentType: String): HttpRequest {
+    val contentTypeHeader = if (headers.keys.any { it.equals(CONTENT_TYPE, ignoreCase = true) }) {
+        emptyMap()
+    } else {
+        mapOf(CONTENT_TYPE to contentType)
+    }
+
+    return copy(
+        body = NoBodyValue,
+        headers = headers + contentTypeHeader,
+        multiPartFormData = multiPartFormData,
     )
 }
 

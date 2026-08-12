@@ -1477,6 +1477,46 @@ class OpenApiSpecification(
         }.toMap()
     }
 
+    private fun multiPartFormDataExamplesFromMediaType(requestBodyMediaType: MediaType, parts: List<MultiPartFormDataPattern>, operationSummary: String?): Map<String, List<MultiPartContentValue>> {
+        return requestBodyMediaType.examples.orEmpty().mapNotNull { (exampleName, example) ->
+            val requestExampleValue = resolveExample(example)?.value ?: return@mapNotNull null
+            val operationSummaryClause = operationSummary?.let { " for operation \"$it\"" } ?: ""
+            val jsonExample = attempt("Could not parse example $exampleName$operationSummaryClause") {
+                parsedJSON(requestExampleValue.toOpenApiExampleString()) as JSONObjectValue
+            }
+
+            exampleName to jsonExample.jsonObject.map { (partName, partValue) ->
+                val partPattern = parts.firstOrNull { withoutOptionality(it.name) == partName }
+                multipartContentValue(partName, partValue, partPattern)
+            }
+        }.toMap()
+    }
+
+    private fun multipartContentValue(partName: String, partValue: Value, partPattern: MultiPartFormDataPattern?): MultiPartContentValue {
+        val externalValue = (partValue as? JSONObjectValue)?.jsonObject?.get("externalValue")?.toStringLiteral()
+        return if (externalValue != null) {
+            MultiPartContentValue(
+                name = partName,
+                filename = externalValue,
+                contentType = partPattern?.contentType,
+                contentEncoding = partPattern?.contentEncoding,
+            )
+        } else {
+            MultiPartContentValue(
+                name = partName,
+                contentEncoding = partPattern?.contentEncoding,
+                specifiedContentType = partPattern?.contentType,
+                content = partPattern?.let { parseMultipartPartContent(it.content, partValue) } ?: partValue,
+            )
+        }
+    }
+
+    private fun parseMultipartPartContent(pattern: Pattern, value: Value): Value {
+        return runCatching {
+            pattern.parse(value.toStringLiteral(), Resolver())
+        }.getOrDefault(value)
+    }
+
     private fun formFieldsFromExampleValue(
         requestExampleValue: Any,
         exampleName: String,
@@ -1899,6 +1939,15 @@ class OpenApiSpecification(
                             )
                         }
 
+                    val allExamples =
+                        if (specmaticConfig.getIgnoreInlineExamples())
+                            emptyMap()
+                        else
+                            exampleRequestBuilder.examplesWithMultiPartFormData(
+                                contentType = contentType,
+                                exampleMultiPartFormData = multiPartFormDataExamplesFromMediaType(mediaType, parts, operation.summary),
+                            )
+
                     val requestBodyUseSitePointer = "${pathScopePointer(openApiPath)}/${httpMethod.lowercase()}/requestBody"
                     val requestBodyBasePointer = sourcePointerForRefUseSite(requestBodyUseSitePointer, operation.requestBody?.`$ref`)
                     val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
@@ -1907,7 +1956,7 @@ class OpenApiSpecification(
                             multiPartFormDataPattern = parts,
                             multiPartPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
-                        ), emptyMap()
+                        ), allExamples
                     )
                 }
 

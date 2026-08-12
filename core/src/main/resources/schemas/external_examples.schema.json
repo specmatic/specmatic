@@ -33,6 +33,30 @@
         }
       ]
     },
+    "AnyValueOrTemplateValueExpression": {
+      "title": "Any Value Or Template Value Expression",
+      "description": "Any JSON value or a template value expression. Template values are supported, but matchers, substitutions, and pattern tokens are not.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/AnyValueOrTemplateValueExpression"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AnyValueOrTemplateValueExpression"
+          }
+        },
+        {
+          "$ref": "#/$defs/AnyScalarValue"
+        },
+        {
+          "$ref": "#/$defs/TemplateValueStringExpression"
+        }
+      ]
+    },
     "AnyObjectValue": {
       "title": "Any Object Value",
       "description": "A JSON object whose property values may recursively contain any supported value.",
@@ -1019,7 +1043,7 @@
     },
     "MultiPartContent": {
       "title": "Multipart Inline Content",
-      "description": "Multipart form-data field represented by inline string content or null.",
+      "description": "Multipart form-data field represented by inline content. Content may be any JSON value, including null.",
       "examples": [
         {
           "name": "description",
@@ -1035,20 +1059,18 @@
           "$ref": "#/$defs/StringOrTemplateValueExpression"
         },
         "content": {
-          "description": "Inline content of the multipart field.",
-          "examples": ["Order details"],
-          "anyOf": [
-            {
-              "$ref": "#/$defs/StringOrTemplateValueExpression"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "description": "Inline multipart content may be any JSON value, including objects, arrays, null, or template-value expressions. Matchers, substitutions, and pattern tokens are not allowed.",
+          "examples": ["Order details", {"id": 123}, "${CONTENT:default}"],
+          "$ref": "#/$defs/AnyValueOrTemplateValueExpression"
         },
         "contentType": {
           "description": "Content-Type value for the inline multipart part.",
           "examples": ["text/plain"],
+          "$ref": "#/$defs/StringOrTemplateValueExpression"
+        },
+        "contentEncoding": {
+          "description": "Content-Encoding value for the inline multipart part.",
+          "examples": ["identity"],
           "$ref": "#/$defs/StringOrTemplateValueExpression"
         }
       },

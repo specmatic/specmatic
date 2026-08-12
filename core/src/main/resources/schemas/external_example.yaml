@@ -125,7 +125,7 @@ components:
         multipart-formdata:
           type: array
           items:
-            $ref: "#/components/schemas/MultiPartFormData"
+            $ref: "#/components/schemas/InlineMultiPartFormData"
         description:
           type: string
       required:
@@ -209,13 +209,60 @@ components:
           type: string
         content:
           nullable: true
-          type: string
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
         contentType:
+          nullable: true
+          type: string
+        contentEncoding:
           nullable: true
           type: string
       required:
         - name
         - content
+
+    InlineMultiPartContent:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        content:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AnyValue"
+        contentType:
+          nullable: true
+          type: string
+        contentEncoding:
+          nullable: true
+          type: string
+      required:
+        - name
+        - content
+
+    InlineMultiPartFormData:
+      oneOf:
+        - $ref: "#/components/schemas/InlineMultiPartContent"
+        - $ref: "#/components/schemas/InlineMultiPartFile"
+
+    InlineMultiPartFile:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        filename:
+          type: string
+        contentType:
+          nullable: true
+          type: string
+        contentEncoding:
+          nullable: true
+          type: string
+      required:
+        - name
+        - filename
 
     MultiPartFile:
       type: object

@@ -14,6 +14,7 @@ import io.specmatic.core.QueryParameters
 import io.specmatic.core.QueryPropertyStyle
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.core.SpecmaticConfigV1V2Common
 import io.specmatic.core.pattern.AnythingPattern
 import io.specmatic.core.pattern.AnyPattern
 import io.specmatic.core.pattern.AnyOfPattern
@@ -32,6 +33,8 @@ import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.core.pattern.resolvedHop
 import io.specmatic.core.utilities.yamlMapper
+import io.specmatic.core.value.JSONObjectValue
+import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.stub.captureStandardOutput
@@ -2769,6 +2772,142 @@ $parameters
             assertThat(row.columnNames).doesNotHaveDuplicates()
             assertThat(row.getField("id")).isEqualTo("person-1")
             assertThat(row.getField("(REQUEST-BODY)").let(::parsedJsonValue)).isEqualTo("""{"name":"John"}""".let(::parsedJSONObject))
+        }
+    }
+
+    @Nested
+    inner class MultiPartFormDataExamples {
+        @Test
+        fun `should read typed and encoded multipart inline examples`() {
+            val contractString = """
+            openapi: 3.0.3
+            info: { title: test, version: '1.0' }
+            paths:
+              /documents:
+                post:
+                  requestBody:
+                    content:
+                      multipart/form-data:
+                        encoding:
+                          metadata:
+                            contentType: application/json
+                          document:
+                            contentType: application/octet-stream
+                        schema:
+                          type: object
+                          required: [metadata, document]
+                          properties:
+                            metadata:
+                              type: object
+                              required: [id]
+                              properties:
+                                id: { type: integer }
+                            document:
+                              type: string
+                              format: binary
+                        examples:
+                          selected:
+                            value:
+                              metadata: { id: 7 }
+                              document: encoded-content
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          examples:
+                            selected: { value: ok }
+            """.trimIndent()
+
+            val inlineStub = OpenApiSpecification.fromYAML(contractString, "")
+                .toFeature()
+                .inlineNamedStubs
+                .single { it.name == "selected" }
+
+            val parts = inlineStub.stub.request.multiPartFormData.associateBy { it.name }
+            assertThat(parts.getValue("document").filename).isNull()
+            assertThat(parts.keys).containsExactlyInAnyOrder("metadata", "document")
+            assertThat(parts.getValue("metadata").contentType).isEqualTo("application/json")
+            assertThat(parts.getValue("document").content).isEqualTo(StringValue("encoded-content"))
+            assertThat(parts.getValue("document").contentType).isEqualTo("application/octet-stream")
+            assertThat(parts.getValue("metadata").content).isEqualTo(JSONObjectValue(mapOf("id" to NumberValue(7))))
+        }
+
+        @Test
+        fun `should resolve multipart inline example refs`() {
+            val contractString = $$"""
+            openapi: 3.0.3
+            info: { title: test, version: '1.0' }
+            paths:
+              /documents:
+                post:
+                  requestBody:
+                    content:
+                      multipart/form-data:
+                        schema:
+                          type: object
+                          properties:
+                            document: { type: string }
+                        examples:
+                          selected:
+                            $ref: '#/components/examples/selectedMultipart'
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          examples:
+                            selected: { value: ok }
+            components:
+              examples:
+                selectedMultipart:
+                  value:
+                    document: from-ref
+            """.trimIndent()
+
+            val inlineStub = OpenApiSpecification.fromYAML(contractString, "")
+                .toFeature()
+                .inlineNamedStubs
+                .single { it.name == "selected" }
+
+            assertThat(inlineStub.stub.request.multiPartFormData.single().content).isEqualTo(StringValue("from-ref"))
+        }
+
+        @Test
+        fun `should ignore multipart inline examples when configured`() {
+            val contractString = """
+            openapi: 3.0.3
+            info: { title: test, version: '1.0' }
+            paths:
+              /documents:
+                post:
+                  requestBody:
+                    content:
+                      multipart/form-data:
+                        schema:
+                          type: object
+                          properties:
+                            document: { type: string }
+                        examples:
+                          selected:
+                            value:
+                              document: ignored
+                  responses:
+                    '200':
+                      description: OK
+                      content:
+                        text/plain:
+                          examples:
+                            selected: { value: ok }
+            """.trimIndent()
+
+            val feature = OpenApiSpecification.fromYAML(
+                openApiFilePath = "",
+                yamlContent = contractString,
+                specmaticConfig = SpecmaticConfigV1V2Common(ignoreInlineExamples = true),
+            ).toFeature()
+
+            assertThat(feature.inlineNamedStubs).isEmpty()
         }
     }
 

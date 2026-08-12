@@ -95,6 +95,81 @@ class FuzzyExampleJsonValidatorTest {
             val result = FuzzyExampleJsonValidator.matchesInlineExample(inlineExample)
             assertFailureContainsExactLines(result, FuzzyInlineExampleMisMatchMessages.typeMismatch("string", "123", "number"))
         }
+
+        @Test
+        fun `should validate typed inline multipart content without a filename`() {
+            val inlineExample = validStub().apply {
+                modifyNested(MOCK_HTTP_REQUEST) {
+                    put(
+                        "multipart-formdata",
+                        JSONArrayValue(
+                            listOf(
+                                JSONObjectValue(
+                                    mapOf(
+                                        "name" to StringValue("metadata"),
+                                        "content" to JSONObjectValue(mapOf("enabled" to BooleanValue(true))),
+                                        "contentType" to StringValue("application/json"),
+                                        "contentEncoding" to StringValue("identity"),
+                                    )
+                                )
+                            )
+                        )
+                    )
+                }
+            }
+
+            assertThat(FuzzyExampleJsonValidator.matchesInlineExample(inlineExample))
+                .isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `should validate filename based inline multipart content`() {
+            val inlineExample = validStub().apply {
+                modifyNested(MOCK_HTTP_REQUEST) {
+                    put(
+                        "multipart-formdata",
+                        JSONArrayValue(
+                            listOf(
+                                JSONObjectValue(
+                                    mapOf(
+                                        "name" to StringValue("document"),
+                                        "filename" to StringValue("@document.txt"),
+                                    )
+                                )
+                            )
+                        )
+                    )
+                }
+            }
+
+            assertThat(FuzzyExampleJsonValidator.matchesInlineExample(inlineExample))
+                .isInstanceOf(Result.Success::class.java)
+        }
+
+        @Test
+        fun `should reject inline multipart parts containing both content and filename`() {
+            val inlineExample = validStub().apply {
+                modifyNested(MOCK_HTTP_REQUEST) {
+                    put(
+                        "multipart-formdata",
+                        JSONArrayValue(
+                            listOf(
+                                JSONObjectValue(
+                                    mapOf(
+                                        "name" to StringValue("document"),
+                                        "content" to StringValue("contents"),
+                                        "filename" to StringValue("@document.txt"),
+                                    )
+                                )
+                            )
+                        )
+                    )
+                }
+            }
+
+            val result = FuzzyExampleJsonValidator.matchesInlineExample(inlineExample)
+            assertFailureContainsExactLines(result, "filename", "content")
+        }
     }
 
     companion object {
