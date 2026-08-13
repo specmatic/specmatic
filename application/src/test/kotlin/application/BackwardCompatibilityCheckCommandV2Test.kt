@@ -326,7 +326,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
                 Verdict for spec $newSpec:
-                  (COMPATIBLE) The spec is a new file and is considered backward compatible because no corresponding spec exists at this path on main
+                  (COMPATIBLE) No spec exists at this path on main, so no existing contract consumers are affected.
                 """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
