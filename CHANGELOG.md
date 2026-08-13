@@ -39,6 +39,8 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Changed
 
 - Fixed loading of OpenAPI examples referenced through internal or external references, with consistent handling of scalar, structured, array, null, and Specmatic values.
+- Fixed OpenAPI `multipart/form-data` and `application/x-www-form-urlencoded` examples so their requests use multipart parts or form fields instead of a generic request body, allowing inline and external examples to match request patterns during test generation and mocking.
+- Fixed multipart mock request parsing to preserve each part's `Content-Encoding`, so multipart examples declaring an encoding can match the incoming request.
 - Fixed request examples for operations with an empty response body so path parameter examples are retained when a request body is present.
 - Synchronized the bundled multipart-form-data example schemas with the supported example structure.
 
