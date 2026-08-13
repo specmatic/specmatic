@@ -2,9 +2,13 @@ package io.specmatic.conversions
 
 import integration_tests.OpenApiVersion
 import io.specmatic.core.Feature
+import io.specmatic.core.CONTENT_TYPE
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
 import io.specmatic.core.IssueSeverity
+import io.specmatic.core.MultiPartContentValue
+import io.specmatic.core.NoBodyPattern
+import io.specmatic.core.NoBodyValue
 import io.specmatic.core.NestedQuerySchema
 import io.specmatic.core.ObjectQueryRoot
 import io.specmatic.core.ObjectQuerySyntax
@@ -2819,10 +2823,31 @@ $parameters
                             selected: { value: ok }
             """.trimIndent()
 
-            val inlineStub = OpenApiSpecification.fromYAML(contractString, "")
-                .toFeature()
-                .inlineNamedStubs
+            val feature = OpenApiSpecification.fromYAML(contractString, "").toFeature()
+            val inlineStub = feature.inlineNamedStubs
                 .single { it.name == "selected" }
+
+            assertThat(feature.scenarios.single().httpRequestPattern.body).isEqualTo(NoBodyPattern)
+            assertThat(inlineStub.stub.request).isEqualTo(
+                HttpRequest(
+                    method = "POST",
+                    path = "/documents",
+                    headers = mapOf(CONTENT_TYPE to "multipart/form-data"),
+                    body = NoBodyValue,
+                    multiPartFormData = listOf(
+                        MultiPartContentValue(
+                            name = "metadata",
+                            content = JSONObjectValue(mapOf("id" to NumberValue(7))),
+                            specifiedContentType = "application/json",
+                        ),
+                        MultiPartContentValue(
+                            name = "document",
+                            content = StringValue("encoded-content"),
+                            specifiedContentType = "application/octet-stream",
+                        ),
+                    ),
+                )
+            )
 
             val parts = inlineStub.stub.request.multiPartFormData.associateBy { it.name }
             assertThat(parts.getValue("document").filename).isNull()
@@ -2908,6 +2933,49 @@ $parameters
             ).toFeature()
 
             assertThat(feature.inlineNamedStubs).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class FormUrlEncodedExamples {
+        @Test
+        fun `inline form-urlencoded example has a bodyless request and bodyless request pattern`() {
+            val feature = OpenApiSpecification.fromYAML(
+                """
+                openapi: 3.0.3
+                info: { title: test, version: '1.0' }
+                paths:
+                  /token:
+                    post:
+                      requestBody:
+                        content:
+                          application/x-www-form-urlencoded:
+                            schema:
+                              type: object
+                              required: [client_id]
+                              properties:
+                                client_id: { type: string }
+                            examples:
+                              selected:
+                                value:
+                                  client_id: client-123
+                      responses:
+                        '200':
+                          description: OK
+                """.trimIndent(),
+                "",
+            ).toFeature()
+
+            assertThat(feature.scenarios.single().httpRequestPattern.body).isEqualTo(NoBodyPattern)
+            assertThat(feature.inlineNamedStubs.single { it.name == "selected" }.stub.request).isEqualTo(
+                HttpRequest(
+                    method = "POST",
+                    path = "/token",
+                    headers = mapOf(CONTENT_TYPE to "application/x-www-form-urlencoded"),
+                    body = NoBodyValue,
+                    formFields = mapOf("client_id" to "client-123"),
+                )
+            )
         }
     }
 

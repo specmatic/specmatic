@@ -1,0 +1,33 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/data",
+    "headers": {
+      "Content-Type": "multipart/form-data"
+    },
+    "query": {
+      "trace": "external-secondary-trace"
+    },
+    "multipart-formdata": [
+      {
+        "name": "data",
+        "content": "external-secondary",
+        "contentType": "text/plain",
+        "contentEncoding": "identity"
+      },
+      {
+        "name": "document",
+        "filename": "@src/test/resources/openapi/form_data_examples/multipart_files/external-document.txt",
+        "contentType": "application/octet-stream",
+        "contentEncoding": "identity"
+      }
+    ]
+  },
+  "http-response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/plain"
+    },
+    "body": "ok"
+  }
+}

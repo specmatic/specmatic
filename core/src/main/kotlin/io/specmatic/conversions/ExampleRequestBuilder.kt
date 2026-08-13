@@ -60,6 +60,7 @@ class ExampleRequestBuilder(
                     method = httpMethod,
                     path = httpPathPattern.toInternalPath(),
                     headers = mapOf(CONTENT_TYPE to contentType),
+                    body = NoBodyValue,
                     formFields = formFields
                 )
 
@@ -88,6 +89,7 @@ class ExampleRequestBuilder(
                     multiPartFormData = multiPartFormData,
                     path = httpPathPattern.toInternalPath(),
                     headers = mapOf(CONTENT_TYPE to contentType),
+                    body = NoBodyValue,
                 )
 
                 securitySchemes.map { securityScheme ->

@@ -8,6 +8,7 @@ import io.specmatic.core.examples.module.ExampleValidationModule
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpStub
+import io.specmatic.stub.SPECMATIC_RESPONSE_CODE_HEADER
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -120,8 +121,18 @@ internal class FormUrlEncodedExampleTest {
     private fun assertContractTestUsesFormFields(feature: Feature) {
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
-                assertThat(request.path).isEqualTo("/token")
-                assertThat(request.formFields).isEqualTo(VALID_FORM_FIELDS)
+                assertThat(request).isEqualTo(
+                    HttpRequest(
+                        method = "POST",
+                        path = "/token",
+                        headers = mapOf(
+                            CONTENT_TYPE to FORM_URLENCODED,
+                            SPECMATIC_RESPONSE_CODE_HEADER to "200",
+                        ),
+                        body = NoBodyValue,
+                        formFields = VALID_FORM_FIELDS,
+                    )
+                )
 
                 return tokenResponse()
             }

@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Form data examples
+  version: "1.0"
+paths:
+  /data:
+    post:
+      parameters:
+        - name: trace
+          in: query
+          required: true
+          schema:
+            type: string
+          examples:
+            inline:
+              value: inline-trace
+            inline-secondary:
+              value: inline-secondary-trace
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [data, document]
+              properties:
+                data: { type: string }
+                document:
+                  type: string
+                  format: binary
+            examples:
+              inline:
+                value:
+                  data: inline
+                  document:
+                    externalValue: src/test/resources/openapi/form_data_examples/multipart_files/inline-document.txt
+              inline-secondary:
+                $ref: '#/components/examples/InlineSecondary'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema: { type: string }
+              examples:
+                inline:
+                  value: ok
+                inline-secondary:
+                  value: ok
+components:
+  examples:
+    InlineSecondary:
+      value:
+        data: inline-secondary
+        document:
+          externalValue: src/test/resources/openapi/form_data_examples/multipart_files/inline-secondary-document.txt

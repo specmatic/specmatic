@@ -111,6 +111,7 @@ internal class MultipartContractTestGenerationTest {
 
         assertThat(results).allSatisfy { assertThat(it.isSuccess()).isTrue() }
         assertThat(requests).hasSize(1)
+        assertThat(requests.single().body).isEqualTo(NoBodyValue)
         return requests.single()
     }
 
