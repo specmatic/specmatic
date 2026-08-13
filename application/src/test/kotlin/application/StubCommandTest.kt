@@ -14,6 +14,8 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.core.utilities.Flags.Companion.CONFIG_FILE_PATH
 import io.specmatic.core.utilities.StubServerWatcher
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.RawReportSender
+import io.specmatic.reporter.RawReportType
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
 import kotlinx.coroutines.runBlocking
@@ -61,10 +63,56 @@ internal class StubCommandTest {
         stubCommand.registerShutdownHook = false
     }
 
+    @Test
+    fun `accepts Insights reporting options`() {
+        CommandLine(stubCommand).parseArgs(
+            "--ci", "--build-id", "42", "--repo-id", "repo-id", "--repo-name", "repo-name",
+            "--repo-url", "https://example.com/repo.git", "--branch-name", "main",
+        )
+
+        assertThat(stubCommand.insightsReportOptions.repoName).isEqualTo("repo-name")
+        assertThat(stubCommand.insightsReportOptions.buildId).isEqualTo("42")
+    }
+
+    @Test
+    fun `sends reports from each completed mock lifecycle`(@TempDir tempDir: Path) {
+        val report = tempDir.resolve("reports/stub/ctrf/ctrf-report.json").toFile()
+        val restartedReport = tempDir.resolve("reports/stub/ctrf/ctrf-report-after-restart.json").toFile()
+        stubCommand.configFileName = tempDir.resolve("specmatic.yaml").toFile().apply {
+            writeText("version: 2\nreportDirPath: ${tempDir.resolve("reports")}")
+        }.path
+        stubCommand.httpStub = mockk {
+            every { close() } answers {
+                report.parentFile.mkdirs()
+                report.writeText("{}")
+            }
+            every { getReport() } returns report
+        }
+        mockkObject(RawReportSender)
+        every {
+            RawReportSender.send(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns true
+
+        try {
+            stubCommand.close()
+            stubCommand.httpStub = mockk {
+                every { close() } answers { restartedReport.parentFile.mkdirs(); restartedReport.writeText("{}") }
+                every { getReport() } returns restartedReport
+            }
+            stubCommand.close()
+
+            verify(exactly = 1) { RawReportSender.send(report, RawReportType.MOCK, any(), any(), any(), any(), any(), any(), any(), any()) }
+            verify(exactly = 1) { RawReportSender.send(restartedReport, RawReportType.MOCK, any(), any(), any(), any(), any(), any(), any(), any()) }
+        } finally {
+            unmockkObject(RawReportSender)
+        }
+    }
+
     @AfterEach
     fun cleanUp() {
         clearAllMocks()
         System.clearProperty(Flags.SPECMATIC_BASE_URL)
+        System.clearProperty(CONFIG_FILE_PATH)
         stubCommand.contractPaths = arrayListOf()
         stubCommand.specmaticConfigPath = null
     }

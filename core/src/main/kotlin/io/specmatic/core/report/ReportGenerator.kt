@@ -22,9 +22,9 @@ object ReportGenerator {
         absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
-    ) {
-        if (isCoverageReportSpecificationsValid(coverageReportSpecifications).not()) return
-
+        generateEmptyReport: Boolean = false,
+    ): File? {
+        if (!generateEmptyReport && isCoverageReportSpecificationsValid(coverageReportSpecifications).not()) return null
         val extra = buildMap<String, Any> {
             coverage?.let { put("apiCoverage", "$coverage%") }
             actuatorEnabled?.let { put("actuatorEnabled", it) }
@@ -41,8 +41,9 @@ object ReportGenerator {
             toolName = toolName
         )
 
-        ReportProvider.generateCtrfReport(report, reportDir)
+        val reportFile = ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
+        return reportFile
     }
 
     fun generateReportBcc(
@@ -52,7 +53,7 @@ object ReportGenerator {
         specConfigs: List<CtrfSpecConfig>,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
         coverageReportOperations: List<BaseBccReportOperation>,
-    ): CtrfReport? {
+    ): Pair<CtrfReport, File?>? {
         if (isCtrfSpecConfigsValid(specConfigs).not()) return null
         val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()
         val extra = buildMap<String, Any> {
@@ -70,9 +71,9 @@ object ReportGenerator {
             extra = extra,
         )
 
-        ReportProvider.generateCtrfReport(report, reportDir)
+        val reportFile = ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
-        return report
+        return report to reportFile
     }
 
     internal fun specmaticConfigAsMap(): Map<String, Any> {

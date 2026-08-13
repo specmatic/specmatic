@@ -1,8 +1,33 @@
 package application.backwardCompatibility
 
+import io.specmatic.reporter.commands.InsightsReportOptions
+import picocli.CommandLine.Mixin
 import picocli.CommandLine.Option
 
 class BackwardCompatibilityCheckOptions {
+    @field:Mixin
+    val insightsReportOptions = InsightsReportOptions()
+
+    var branchName: String?
+        get() = insightsReportOptions.branchName
+        set(value) { insightsReportOptions.branchName = value }
+
+    var repoName: String?
+        get() = insightsReportOptions.repoName
+        set(value) { insightsReportOptions.repoName = value }
+
+    var repoId: String?
+        get() = insightsReportOptions.repoId
+        set(value) { insightsReportOptions.repoId = value }
+
+    var repoUrl: String?
+        get() = insightsReportOptions.repoUrl
+        set(value) { insightsReportOptions.repoUrl = value }
+
+    var token: String?
+        get() = insightsReportOptions.token
+        set(value) { insightsReportOptions.token = value }
+
     @Option(
         names = ["--base-branch"],
         description = ["Base branch to compare the changes against", "Default value is the local origin HEAD of the current branch"],

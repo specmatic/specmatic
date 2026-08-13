@@ -4,10 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.git.SystemGit
 import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
+import io.specmatic.reporter.RawReportType
+import io.specmatic.test.sendRawReportToInsights
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -20,7 +23,7 @@ import kotlin.io.path.pathString
 @Command(
     name = "backward-compatibility-check",
     mixinStandardHelpOptions = true,
-    description = ["Checks backward compatibility of OpenAPI specifications"]
+    description = ["Checks backward compatibility of OpenAPI specifications"],
 )
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {
@@ -29,6 +32,10 @@ class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOpt
     override fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult {
         val (results, records) = backwardCompatibilityRecords(oldFeature as Feature, newFeature as Feature, effectiveRepoDir)
         return BackwardCompatibilityCheckResult(results, records)
+    }
+
+    override fun sendReportsToInsights() {
+        sendRawReportToInsights(bccReport, RawReportType.BCC, options.insightsReportOptions, SystemGit(effectiveRepoDir))
     }
 
     companion object {

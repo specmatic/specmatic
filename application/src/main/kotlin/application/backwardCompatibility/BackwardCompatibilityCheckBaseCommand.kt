@@ -5,7 +5,7 @@ import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.config.LoggingConfiguration
-import io.specmatic.core.generateBackwardCompatibilityReport
+import io.specmatic.core.generateBackwardCompatibilityReportWithFile
 import io.specmatic.core.git.GitCommand
 import io.specmatic.core.git.SystemGit
 import io.specmatic.core.loadSpecmaticConfigIfAvailableElseDefault
@@ -42,6 +42,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     private val backwardCompatibilityLogger = BackwardCompatibilityCheckLogger()
 
     private var areLocalChangesStashed = false
+    protected var bccReport: File? = null
 
     abstract fun checkBackwardCompatibility(oldFeature: IFeature, newFeature: IFeature): BackwardCompatibilityCheckResult
     abstract fun File.isValidFileFormat(): Boolean
@@ -56,10 +57,13 @@ abstract class BackwardCompatibilityCheckBaseCommand(
     open fun regexForMatchingReferred(schemaFileName: String): String = ""
     open fun areExamplesValid(feature: IFeature, which: String): Boolean = true
     open fun getUnusedExamples(feature: IFeature): Set<String> = emptySet()
+    protected open fun sendReportsToInsights() {}
 
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
+        options.insightsReportOptions.validate()
         addShutdownHook()
+        bccReport = null
 
         val specsToCheck = getSpecsToCheck()
         if (specsToCheck.isEmpty()) {
@@ -77,6 +81,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         }
 
         logger.log(result.report)
+        sendReportsToInsights()
         return result.exitCode
     }
 
@@ -195,11 +200,11 @@ abstract class BackwardCompatibilityCheckBaseCommand(
             // THIRD PASS: do the actual logging and produce final CompatibilityResult list
             val results = specsValidatedByHook.mapIndexed(::logCompatibilityResultAndReturn)
 
-            generateBackwardCompatibilityReport(
+            bccReport = generateBackwardCompatibilityReportWithFile(
                 specsValidatedByHook.flatMap { it.reportRecords },
                 reportStartTime,
                 System.currentTimeMillis()
-            )
+            )?.second
 
             return CompatibilityReport(results)
         } finally {

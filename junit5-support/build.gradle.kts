@@ -29,4 +29,5 @@ dependencies {
     implementation("org.junit.platform:junit-platform-reporting:1.14.4")
 
     implementation("org.fusesource.jansi:jansi:2.4.3")
+    testImplementation("io.mockk:mockk-jvm:1.14.11")
 }

@@ -10,6 +10,12 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+
+        maven {
+            name = "specmaticSnapshots"
+            url = uri("https://repo.specmatic.io/snapshots")
+        }
+
         maven {
             name = "sonatypeCentralSnapshots"
             url = uri("https://central.sonatype.com/repository/maven-snapshots/")

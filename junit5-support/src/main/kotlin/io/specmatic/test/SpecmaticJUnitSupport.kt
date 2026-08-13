@@ -2,6 +2,8 @@ package io.specmatic.test
 
 import io.specmatic.conversions.convertPathParameterStyle
 import io.specmatic.core.*
+import io.specmatic.reporter.RawReportType
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.core.filters.ScenarioMetadataFilter
 import io.specmatic.core.filters.ScenarioMetadataFilter.Companion.filterUsingDecisions
 import io.specmatic.core.log.LogMessage
@@ -69,7 +71,17 @@ open class SpecmaticJUnitSupport {
     init { setLoggerUsing(specmaticConfig.getLogConfigurationOrDefault()) }
 
     companion object {
-        val settingsStaging = ThreadLocal<ContractTestSettings?>()
+        private val generatedCtrfReport = AtomicReference<File?>(null)
+        private val submittedCtrfReport = AtomicReference<String?>(null)
+
+        fun getReport(): File? = generatedCtrfReport.get()
+        fun sendGeneratedCtrfReportToInsights(options: InsightsReportOptions) {
+            val report = getReport() ?: return
+            val reportPath = report.canonicalPath
+            if (!submittedCtrfReport.compareAndSet(null, reportPath)) return
+            sendRawReportToInsights(report, RawReportType.TEST, options)
+        }
+        val settingsStaging = InheritableThreadLocal<ContractTestSettings?>()
 
         const val HOST = "host"
         const val PORT = "port"
@@ -128,14 +140,14 @@ open class SpecmaticJUnitSupport {
 
     private fun getConfigFileWithAbsolutePath() = File(settings.configFile.orEmpty()).canonicalPath
 
-    fun generateCtrfReport() {
+    fun generateCtrfReport(): File? {
         val start = startTime?.toEpochMilli() ?: 0L
         val reportDirPath = specmaticConfig.getReportDirPath()
         val end = startTime?.let { Instant.now().toEpochMilli() } ?: 0L
         val coverageReport = openApiCoverage.generateWithoutHooks()
 
         consoleLog("Generating CTRF report using coverage report specifications...")
-        ReportGenerator.generateReport(
+        val report = ReportGenerator.generateReport(
             endTime = end,
             startTime = start,
             reportDir = File("$reportDirPath/test"),
@@ -143,7 +155,10 @@ open class SpecmaticJUnitSupport {
             coverage = coverageReport.totalCoveragePercentage,
             actuatorEnabled = coverageReport.actuatorEnabled,
             absoluteCoverage = coverageReport.absoluteCoveragePercentage,
+            generateEmptyReport = true,
         )
+        generatedCtrfReport.set(report)
+        return report
     }
 
     @AfterAll
@@ -161,6 +176,7 @@ open class SpecmaticJUnitSupport {
         } finally {
             report.onProcessingComplete()
             this.generateCtrfReport()
+            sendGeneratedCtrfReportToInsights(settings.insightsReportOptions)
             threads.distinct().let {
                 if (it.size > 1) {
                     logger.newLine()
@@ -188,6 +204,8 @@ open class SpecmaticJUnitSupport {
 
     @TestFactory
     fun contractTest(): Stream<DynamicTest> {
+        generatedCtrfReport.set(null)
+        submittedCtrfReport.set(null)
         LicenseResolver.setCurrentExecutorIfNotSet(Executor.PROGRAMMATIC)
 
         settings = ContractTestSettings(settings, specmaticConfig)

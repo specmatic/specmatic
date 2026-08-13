@@ -7,7 +7,10 @@ import application.backwardCompatibility.CompatibilityResult
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.mockk.every
+import io.mockk.mockkObject
 import io.mockk.spyk
+import io.mockk.unmockkObject
+import io.mockk.verify
 import io.specmatic.core.IFeature
 import io.specmatic.core.Results
 import io.specmatic.core.git.SystemGit
@@ -18,6 +21,8 @@ import io.specmatic.license.core.LicensedProduct
 import io.specmatic.license.core.SpecmaticFeature
 import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.reporter.backwardcompat.dto.OperationUsageResponse
+import io.specmatic.reporter.RawReportSender
+import io.specmatic.reporter.RawReportType
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.AfterEach
@@ -30,6 +35,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import picocli.CommandLine
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -37,6 +43,45 @@ import java.nio.file.Paths
 
 class BackwardCompatibilityCheckCommandV2Test {
     private val objectMapper = ObjectMapper()
+
+    @Test
+    fun `accepts Insights reporting options`() {
+        val command = BackwardCompatibilityCheckCommandV2()
+
+        CommandLine(command).parseArgs(
+            "--ci", "--build-id", "42", "--repo-id", "repo-id", "--repo-name", "repo-name",
+            "--repo-url", "https://example.com/repo.git", "--branch-name", "main",
+        )
+
+        assertThat(command.options.insightsReportOptions.repoName).isEqualTo("repo-name")
+        assertThat(command.options.insightsReportOptions.buildId).isEqualTo("42")
+    }
+
+    @Test
+    fun `sends the generated BCC report with Insights metadata`() {
+        val report = tempDir.resolve("ctrf-report.json").apply { writeText("{}") }
+        val command = BackwardCompatibilityCheckCommandV2().apply {
+            options.repoDir = tempDir.canonicalPath
+            options.insightsReportOptions.apply {
+                repoId = "repo-id"
+                repoName = "repo-name"
+                repoUrl = "https://example.com/repo.git"
+                branchName = "main"
+                token = "token"
+            }
+        }
+        BackwardCompatibilityCheckBaseCommand::class.java.getDeclaredField("bccReport").apply { isAccessible = true }.set(command, report)
+        mockkObject(RawReportSender)
+        every { RawReportSender.send(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns true
+
+        try {
+            command.javaClass.getDeclaredMethod("sendReportsToInsights").apply { isAccessible = true }.invoke(command)
+
+            verify { RawReportSender.send(report, RawReportType.BCC, false, null, "repo-id", "repo-name", "https://example.com/repo.git", "main", "token") }
+        } finally {
+            unmockkObject(RawReportSender)
+        }
+    }
 
     companion object {
         @JvmStatic
