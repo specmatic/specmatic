@@ -1,5 +1,12 @@
 package io.specmatic.stub
 
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.call
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.response.respond
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
@@ -8,6 +15,7 @@ import io.specmatic.core.SPECMATIC_TYPE_HEADER
 import io.specmatic.core.pattern.parsedJSONObject
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.test.HttpClient
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -153,6 +161,57 @@ internal class MultipartFilenameHttpStubTest {
                 assertThat(response.headers[SPECMATIC_TYPE_HEADER]).isEqualTo("random")
             }
         }
+
+        @Test
+        fun `multipart content encoding is preserved when matching a mock expectation`() {
+            val request = request(filename = null, contentEncoding = "identity")
+
+            val example = ScenarioStub(request, HttpResponse.ok("example response"))
+            HttpStub(feature(), listOf(example), port = availablePort(), strictMode = true).use { stub ->
+                val response = stub.client.execute(request)
+                assertThat(response.status).isEqualTo(200)
+                assertThat(response.body.toStringLiteral()).isEqualTo("example response")
+            }
+        }
+
+        @Test
+        fun `ktor request conversion preserves multipart content encoding`() {
+            val port = availablePort()
+            val server = embeddedServer(Netty, port = port) {
+                routing {
+                    post("/data") {
+                        val convertedRequest = ktorHttpRequestToHttpRequest(call)
+                        val convertedPart = convertedRequest.multiPartFormData.single()
+
+                        assertThat(convertedRequest.method).isEqualTo("POST")
+                        assertThat(convertedRequest.path).isEqualTo("/data")
+                        assertThat(convertedPart.toJSONObject()).isEqualTo(
+                            MultiPartContentValue(
+                                name = "data",
+                                contentEncoding = "identity",
+                                content = StringValue("hello"),
+                                specifiedContentType = "text/plain",
+                            ).toJSONObject(),
+                        )
+
+                        call.respond(HttpStatusCode.OK)
+                    }
+                }
+            }
+
+            server.start(wait = false)
+            try {
+                HttpClient("http://localhost:$port").use { client ->
+                    val response = client.execute(
+                        request(filename = null, contentEncoding = "identity"),
+                    )
+
+                    assertThat(response.status).isEqualTo(200)
+                }
+            } finally {
+                server.stop()
+            }
+        }
     }
 
     private fun example(filename: String?) =
@@ -161,7 +220,7 @@ internal class MultipartFilenameHttpStubTest {
             response = HttpResponse.ok("example response"),
         )
 
-    private fun request(filename: String?): HttpRequest =
+    private fun request(filename: String?, contentEncoding: String? = null): HttpRequest =
         HttpRequest(
             method = "POST",
             path = "/data",
@@ -170,6 +229,7 @@ internal class MultipartFilenameHttpStubTest {
                     name = "data",
                     content = StringValue("hello"),
                     specifiedContentType = "text/plain",
+                    contentEncoding = contentEncoding,
                     filename = filename,
                 ),
             ),

@@ -6,6 +6,7 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
+import io.specmatic.core.examples.module.ExampleModule
 import io.specmatic.core.examples.source.CombinedSource
 import io.specmatic.core.examples.source.DirectoryExampleSource
 import io.specmatic.core.examples.source.PreLoadedExampleObjects
@@ -21,6 +22,7 @@ import io.specmatic.core.utilities.Flags.Companion.EXTENSIBLE_SCHEMA
 import io.specmatic.core.utilities.Flags.Companion.IGNORE_INLINE_EXAMPLES
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
 import io.specmatic.test.FixtureExecutionDetails
 import io.specmatic.test.fixtures.FixtureExecutionMetadata
@@ -30,8 +32,11 @@ import io.specmatic.test.interceptor.InterceptResult
 import org.assertj.core.api.Assertions.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.io.File
 import java.math.BigDecimal
+import java.net.ServerSocket
 import java.net.URLClassLoader
 import java.nio.file.Files
 
@@ -486,6 +491,65 @@ class LoadTestsFromExternalisedFiles {
 
         assertThat(idsSeen).contains("123", "456")
         assertThat(results.testCount).isEqualTo(3)
+    }
+
+    @Nested
+    inner class FormDataExampleMatrix {
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(FormDataKind::class)
+        fun `two inline and two external examples are all executed`(kind: FormDataKind) {
+            val feature = OpenApiSpecification.fromFile(kind.specificationPath)
+                .toFeature()
+                .loadExternalisedExamples()
+
+            feature.validateExamplesOrException()
+            assertThat(feature.scenarios.single().examples.flatMap { it.rows }.map { it.name })
+                .containsExactlyInAnyOrderElementsOf(kind.expectedExamples.map { it.name })
+
+            val requests = mutableListOf<HttpRequest>()
+            val results = feature.executeTests(object : TestExecutor {
+                override fun execute(request: HttpRequest): HttpResponse {
+                    requests += request
+                    return HttpResponse(
+                        status = 200,
+                        body = StringValue("ok"),
+                        headers = mapOf(CONTENT_TYPE to "text/plain"),
+                    )
+                }
+            })
+
+            assertThat(results.results).hasOnlyElementsOfTypes(Result.Success::class.java).hasSize(kind.expectedExamples.size)
+            assertThat(requests).containsExactlyInAnyOrderElementsOf(kind.expectedExamples.map { it.request(kind.contentType) })
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(FormDataKind::class)
+        fun `inline and external examples can be used as mock expectations`(kind: FormDataKind) {
+            val feature = OpenApiSpecification.fromFile(kind.specificationPath).toFeature()
+            feature.loadExternalisedExamples().validateExamplesOrException()
+            val externalExamples = ExampleModule(SpecmaticConfig()).getExamplesFor(File(kind.specificationPath))
+
+            assertThat(externalExamples.map { it.file.nameWithoutExtension })
+                .containsExactlyInAnyOrder("external", "external-secondary")
+
+            HttpStub(
+                feature = feature,
+                port = freePort(),
+                strictMode = true,
+                scenarioStubs = externalExamples.map { it.scenarioStub },
+            ).use { stub ->
+                assertThat(stub.stubCount).isEqualTo(kind.expectedExamples.size)
+
+                val responses = kind.expectedExamples.map { expectedExample ->
+                    stub.client.execute(expectedExample.request(kind.contentType))
+                }
+
+                assertThat(responses.map { it.status }).containsExactlyElementsOf(List(kind.expectedExamples.size) { 200 })
+                assertThat(responses.map { it.body }).containsExactlyElementsOf(
+                    List(kind.expectedExamples.size) { StringValue("ok") }
+                )
+            }
+        }
     }
 
     @Test
@@ -1549,8 +1613,141 @@ class LoadTestsFromExternalisedFiles {
             }
         }
     }
+
+    internal data class ExpectedFormDataExample(
+        val name: String,
+        val trace: String,
+        val fields: Map<String, String>? = null,
+        val multipart: List<MultiPartContentValue>? = null,
+    ) {
+        fun request(contentType: String): HttpRequest {
+            val request = HttpRequest(
+                path = "/data",
+                method = "POST",
+                body = NoBodyValue,
+                queryParametersMap = mapOf("trace" to trace),
+                headers = mapOf(CONTENT_TYPE to contentType, "Specmatic-Response-Code" to "200"),
+            )
+
+            return when {
+                fields != null -> request.copy(formFields = fields)
+                multipart != null -> request.copy(multiPartFormData = multipart)
+                else -> error("Expected form data example $name has no form data")
+            }
+        }
+    }
+
+    enum class FormDataKind(val contentType: String, val specificationPath: String) {
+        FORM_FIELDS(
+            contentType = "application/x-www-form-urlencoded",
+            specificationPath = "src/test/resources/openapi/form_data_examples/form_fields.yaml",
+        ),
+        MULTIPART(
+            contentType = "multipart/form-data",
+            specificationPath = "src/test/resources/openapi/form_data_examples/multipart.yaml",
+        );
+
+        internal val expectedExamples: List<ExpectedFormDataExample> get() = when (this) {
+            FORM_FIELDS -> listOf(
+                ExpectedFormDataExample(
+                    name = "inline",
+                    trace = "inline-trace",
+                    fields = mapOf("data" to "inline", "mode" to "alpha"),
+                ),
+                ExpectedFormDataExample(
+                    name = "inline-secondary",
+                    trace = "inline-secondary-trace",
+                    fields = mapOf("data" to "inline-secondary", "mode" to "beta"),
+                ),
+                ExpectedFormDataExample(
+                    name = "external",
+                    trace = "external-trace",
+                    fields = mapOf("data" to "external", "mode" to "gamma"),
+                ),
+                ExpectedFormDataExample(
+                    name = "external-secondary",
+                    trace = "external-secondary-trace",
+                    fields = mapOf("data" to "external-secondary", "mode" to "delta"),
+                ),
+            )
+            MULTIPART -> listOf(
+                ExpectedFormDataExample(
+                    name = "inline",
+                    trace = "inline-trace",
+                    multipart = listOf(
+                        MultiPartContentValue(
+                            name = "data",
+                            content = StringValue("inline"),
+                            specifiedContentType = "text/plain",
+                        ),
+                        MultiPartContentValue(
+                            name = "document",
+                            specifiedContentType = "application/octet-stream",
+                            filename = "src/test/resources/openapi/form_data_examples/multipart_files/inline-document.txt",
+                            content = BinaryValue(File("src/test/resources/openapi/form_data_examples/multipart_files/inline-document.txt").readBytes()),
+                        ),
+                    ),
+                ),
+                ExpectedFormDataExample(
+                    name = "inline-secondary",
+                    trace = "inline-secondary-trace",
+                    multipart = listOf(
+                        MultiPartContentValue(
+                            name = "data",
+                            specifiedContentType = "text/plain",
+                            content = StringValue("inline-secondary"),
+                        ),
+                        MultiPartContentValue(
+                            name = "document",
+                            specifiedContentType = "application/octet-stream",
+                            filename = "src/test/resources/openapi/form_data_examples/multipart_files/inline-secondary-document.txt",
+                            content = BinaryValue(File("src/test/resources/openapi/form_data_examples/multipart_files/inline-secondary-document.txt").readBytes()),
+                        ),
+                    ),
+                ),
+                ExpectedFormDataExample(
+                    name = "external",
+                    trace = "external-trace",
+                    multipart = listOf(
+                        MultiPartContentValue(
+                            name = "data",
+                            contentEncoding = "identity",
+                            content = StringValue("external"),
+                            specifiedContentType = "text/plain",
+                        ),
+                        MultiPartContentValue(
+                            name = "document",
+                            contentEncoding = "identity",
+                            specifiedContentType = "application/octet-stream",
+                            content = StringValue("external-document"),
+                        ),
+                    ),
+                ),
+                ExpectedFormDataExample(
+                    name = "external-secondary",
+                    trace = "external-secondary-trace",
+                    multipart = listOf(
+                        MultiPartContentValue(
+                            name = "data",
+                            contentEncoding = "identity",
+                            specifiedContentType = "text/plain",
+                            content = StringValue("external-secondary"),
+                        ),
+                        MultiPartContentValue(
+                            name = "document",
+                            contentEncoding = "identity",
+                            specifiedContentType = "application/octet-stream",
+                            filename = "src/test/resources/openapi/form_data_examples/multipart_files/external-document.txt",
+                            content = BinaryValue(File("src/test/resources/openapi/form_data_examples/multipart_files/external-document.txt").readBytes()),
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
 }
 
+private fun freePort(): Int = ServerSocket(0).use { it.localPort }
 private fun <T> withServiceLoaderEntries(entries: Map<Class<*>, String>, block: () -> T): T {
     val previousContextClassLoader = Thread.currentThread().contextClassLoader
     val tempDir = Files.createTempDirectory("specmatic-service-loader-test")

@@ -1320,6 +1320,7 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
                             },
                             boundary = boundary,
                             specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                            contentEncoding = it.headers[HttpHeaders.ContentEncoding],
                             filename = it.originalFileName,
                         )
                     }
@@ -1329,7 +1330,8 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
                             it.name ?: "",
                             StringValue(it.value),
                             boundary,
-                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" }
+                            specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                            contentEncoding = it.headers[HttpHeaders.ContentEncoding]
                         )
                     }
 
@@ -1339,6 +1341,7 @@ private suspend fun bodyFromCall(call: ApplicationCall): Triple<Value, Map<Strin
                             content = it.provider().asStream().use { input -> BinaryValue(input.readBytes()) },
                             boundary = boundary,
                             specifiedContentType = it.contentType?.let { contentType -> "${contentType.contentType}/${contentType.contentSubtype}" },
+                            contentEncoding = it.headers[HttpHeaders.ContentEncoding],
                         )
                     }
 

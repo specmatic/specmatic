@@ -1953,6 +1953,7 @@ class OpenApiSpecification(
                     val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     Pair(
                         requestPattern.copy(
+                            body = NoBodyPattern,
                             multiPartFormDataPattern = parts,
                             multiPartPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)
@@ -1975,6 +1976,7 @@ class OpenApiSpecification(
                     val schemaPointer = "$requestBodyBasePointer/content/${escapeJsonPointer(contentType)}/schema"
                     Pair(
                         requestPattern.copy(
+                            body = NoBodyPattern,
                             formFieldsPattern = toFormFields(mediaType, mediaTypeContext),
                             formFieldPointers = formContentPointers(mediaType.schema, schemaPointer),
                             headersPattern = headersPatternWithContentType(requestPattern, contentType)

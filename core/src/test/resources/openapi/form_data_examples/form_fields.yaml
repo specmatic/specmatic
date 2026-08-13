@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: Form data examples
+  version: "1.0"
+paths:
+  /data:
+    post:
+      parameters:
+        - name: trace
+          in: query
+          required: true
+          schema:
+            type: string
+          examples:
+            inline:
+              value: inline-trace
+            inline-secondary:
+              value: inline-secondary-trace
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [data, mode]
+              properties:
+                data: { type: string }
+                mode: { type: string }
+            examples:
+              inline:
+                value:
+                  data: inline
+                  mode: alpha
+              inline-secondary:
+                $ref: '#/components/examples/InlineSecondary'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema: { type: string }
+              examples:
+                inline:
+                  value: ok
+                inline-secondary:
+                  value: ok
+components:
+  examples:
+    InlineSecondary:
+      value:
+        data: inline-secondary
+        mode: beta
