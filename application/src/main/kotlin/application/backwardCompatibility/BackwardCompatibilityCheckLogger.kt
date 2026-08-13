@@ -29,8 +29,12 @@ internal class BackwardCompatibilityCheckLogger {
         logger.log("${index.inc()}. Running the check for ${processedSpec.specFilePath}:")
     }
 
-    fun logNewFile(processedSpec: ProcessedSpec) {
-        logger.log("${ONE_INDENT}${processedSpec.specFilePath} is a new file.$newLine")
+    fun logNewFile(processedSpec: ProcessedSpec, baseBranch: String) {
+        logVerdictFor(
+            processedSpec.specFilePath,
+            "(COMPATIBLE) The spec is a new file and is considered backward compatible because no corresponding spec exists at this path on $baseBranch"
+                .prependIndent(ONE_INDENT)
+        )
     }
 
     private fun Set<String>.printSummary(message: String) {
