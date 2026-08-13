@@ -1,6 +1,7 @@
 package io.specmatic.test
 
 import io.specmatic.core.HttpResponse
+import io.specmatic.core.report.ReportGenerator
 import io.specmatic.core.Result
 import io.specmatic.core.ResiliencyTestSuite
 import io.specmatic.core.Scenario
@@ -32,6 +33,9 @@ import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.reporter.model.TestResult
+import io.specmatic.reporter.RawReportSender
+import io.specmatic.reporter.RawReportType
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.HOST
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PORT
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.PROTOCOL
@@ -54,6 +58,10 @@ import org.junit.platform.launcher.TestExecutionListener
 import org.opentest4j.TestAbortedException
 import io.specmatic.core.pattern.parsedJsonValue
 import io.specmatic.test.utils.MockHttpServer
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -994,6 +1002,30 @@ paths:
             assertThat(listener.onTestsCompleteCalls).isEqualTo(1)
             assertThat(listener.onEndCalls).isEqualTo(1)
         } finally {
+            SpecmaticJUnitSupport.settingsStaging.remove()
+        }
+    }
+
+    @Test
+    fun `report sends CTRF output when programmatic Insights options are supplied`(@TempDir tempDir: File) {
+        val report = tempDir.resolve("ctrf-report.json").apply { writeText("{}") }
+        val options = InsightsReportOptions().apply {
+            repoName = "repo-name"
+            repoUrl = "https://example.com/repo.git"
+            branchName = "main"
+            token = "token"
+        }
+        SpecmaticJUnitSupport.settingsStaging.set(ContractTestSettings(insightsReportOptions = options))
+        mockkObject(ReportGenerator, RawReportSender)
+        every { ReportGenerator.generateReport(any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns report
+        every { RawReportSender.send(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns true
+
+        try {
+            SpecmaticJUnitSupport().report()
+
+            verify { RawReportSender.send(report, RawReportType.TEST, false, null, null, "repo-name", "https://example.com/repo.git", "main", "token") }
+        } finally {
+            unmockkObject(ReportGenerator, RawReportSender)
             SpecmaticJUnitSupport.settingsStaging.remove()
         }
     }

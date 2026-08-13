@@ -48,6 +48,7 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Added
 
 - Added support for loading OpenAPI `multipart/form-data` request examples, including multipart content and external file references for mock.
+- Test, mock, and backward-compatibility commands now submit their generated CTRF reports to Insights as raw reports, preserving the report type and passing CI, build, and repository metadata separately from the report payload. Local runs can infer Git repository metadata, while CI submissions require an explicit build ID.
 
 ### Changed
 

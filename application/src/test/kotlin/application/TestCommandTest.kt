@@ -29,6 +29,7 @@ import picocli.CommandLine
 import java.io.File
 import java.io.StringReader
 import java.util.*
+import java.util.concurrent.atomic.AtomicReference
 import java.util.stream.Stream
 
 
@@ -45,6 +46,13 @@ internal class TestCommandTest {
     fun `clean up test command`() {
         testCommand.contractPaths = arrayListOf()
         testCommand.junitReportDirName = null
+        testCommand.insightsReportOptions.ci = false
+        testCommand.insightsReportOptions.repoId = null
+        testCommand.insightsReportOptions.repoName = null
+        testCommand.insightsReportOptions.repoUrl = null
+        testCommand.insightsReportOptions.branchName = null
+        testCommand.insightsReportOptions.token = null
+        testCommand.insightsReportOptions.buildId = null
     }
 
     @Test
@@ -73,6 +81,27 @@ internal class TestCommandTest {
 
         assertThat(exitCode).isEqualTo(1)
         assertThat(output).contains("does not exist").contains("missing.$CONTRACT_EXTENSION")
+    }
+
+    @Test
+    fun `requires a CI build ID when ci is enabled`() {
+        val (output, exitCode) = captureStandardOutput(redirectStdErrToStdout = true) {
+            CommandLine(testCommand, factory).execute("--ci")
+        }
+
+        assertThat(exitCode).isEqualTo(1)
+        assertThat(output).contains("--build-id is required when --ci is specified")
+    }
+
+    @Test
+    fun `passes Insights options to the JUnit runner`() {
+        CommandLine(testCommand, factory).parseArgs("--token", "token", "--repo-id", "repo-id")
+        TestCommand::class.java.getDeclaredMethod("setTestThreadLocalSettings").apply { isAccessible = true }.invoke(testCommand)
+
+        val settings = AtomicReference<ContractTestSettings?>()
+        Thread { settings.set(SpecmaticJUnitSupport.settingsStaging.get()) }.apply { start(); join() }
+
+        assertThat(settings.get()?.insightsReportOptions).isSameAs(testCommand.insightsReportOptions)
     }
 
     @Test

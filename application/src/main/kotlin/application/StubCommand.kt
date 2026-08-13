@@ -13,6 +13,9 @@ import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.toIncomingMtlsRegistryForStub
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.license.core.cli.Category
+import io.specmatic.reporter.commands.GitReportDefaultValueProvider
+import io.specmatic.reporter.commands.InsightsReportOptions
+import io.specmatic.reporter.RawReportType
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
@@ -26,6 +29,7 @@ import io.specmatic.stub.isSupportedAPISpecification
 import io.specmatic.stub.listener.MockEventListener
 import io.specmatic.stub.waitForNotNull
 import io.specmatic.stub.waitUntilConnectable
+import io.specmatic.test.sendRawReportToInsights
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -40,7 +44,8 @@ import kotlin.time.toDuration
     name = "mock",
     aliases = ["virtualize", "stub"],
     mixinStandardHelpOptions = true,
-    description = ["Start a mock server with contract"]
+    description = ["Start a mock server with contract"],
+    defaultValueProvider = GitReportDefaultValueProvider::class,
 )
 @Category("Specmatic core")
 class StubCommand(
@@ -145,6 +150,12 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
     var lenientMode: Boolean? = null
 
+    @field:ArgGroup(
+        exclusive = false,
+        heading = "%nInsights reporting options:%n",
+    )
+    val insightsReportOptions = InsightsReportOptions()
+
     private var contractSources: List<ContractPathData> = emptyList()
 
     var specmaticConfigPath: String? = null
@@ -193,6 +204,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call(): Int {
+        insightsReportOptions.validate()
         configureLogging(
             LoggingFromOpts(
                 debug = verbose,
@@ -346,7 +358,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     private fun restartServer() {
         consoleLog(StringLog("Stopping servers..."))
         try {
-            stopServer()
+            sendReportToInsights(stopServer())
             consoleLog(StringLog("Stopped."))
         } catch (e: Throwable) {
             consoleLog(e,"Error stopping server")
@@ -357,9 +369,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         }
     }
 
-    private fun stopServer() {
-        httpStub?.close()
+    @Synchronized
+    private fun stopServer(): File? {
+        val report = httpStub?.also { it.close() }?.getReport()
         httpStub = null
+        return report
     }
 
     private fun addShutdownHook() {
@@ -367,9 +381,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             override fun run() {
                 try {
                     consoleLog(StringLog("Shutting down mock servers"))
-                    httpStub?.close()
-                } catch (e: InterruptedException) {
-                    currentThread().interrupt()
+                    sendReportToInsights(stopServer())
+                } catch (e: Throwable) {
+                    logger.debug("Could not generate the mock report during shutdown: ${e.message}")
                 }
             }
         })
@@ -402,7 +416,11 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun close() {
-        stopServer()
+        sendReportToInsights(stopServer())
+    }
+
+    private fun sendReportToInsights(report: File?) {
+        sendRawReportToInsights(report, RawReportType.MOCK, insightsReportOptions)
     }
 
     override suspend fun checkReadiness() {

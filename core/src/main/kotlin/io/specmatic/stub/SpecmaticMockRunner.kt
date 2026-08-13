@@ -11,12 +11,15 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.Callable
 import java.util.concurrent.TimeoutException
+import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 interface SpecmaticMockRunner: Callable<Int>, Closeable {
     suspend fun checkReadiness()
+
+    fun getReport(): File? = null
 
     companion object {
         val WILDCARDS = setOf("0.0.0.0", "::", "[::]")
