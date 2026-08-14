@@ -42,6 +42,8 @@ Each release section should stand on its own and describe the behavior shipped i
 - Fixed OpenAPI `multipart/form-data` and `application/x-www-form-urlencoded` examples so their requests use multipart parts or form fields instead of a generic request body, allowing inline and external examples to match request patterns during test generation and mocking.
 - Fixed multipart mock request parsing to preserve each part's `Content-Encoding`, so multipart examples declaring an encoding can match the incoming request.
 - Fixed request examples for operations with an empty response body so path parameter examples are retained when a request body is present.
+- Fixed backward-compatibility change tracking for path parameters defined through `$ref`, preventing unchanged OpenAPI operations from being reported as changed.
+- Backward-compatibility checks now report newly added specifications as compatible when no corresponding specification exists on the base branch, and explain the verdict using the base branch name.
 - Synchronized the bundled multipart-form-data example schemas with the supported example structure.
 
 ## 2.52.0 (2026-08-10)
