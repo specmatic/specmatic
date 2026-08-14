@@ -300,6 +300,43 @@ class BackwardCompatibilityCheckCommandV2Test {
     }
 
     @Nested
+    inner class NewFileTests {
+        @Test
+        fun `should report a committed new spec as compatible because there is no corresponding spec on the base branch`() {
+            tempDir.resolve("baseline.txt").writeText("baseline")
+            commitAndPush(tempDir, "Initial commit")
+            ProcessBuilder("git", "checkout", "-b", "feature")
+                .directory(tempDir)
+                .inheritIO()
+                .start()
+                .waitFor()
+
+            val newSpec = tempDir.resolve("customer_orders_v2.yaml").canonicalFile
+            File("src/test/resources/specifications/spec_with_examples/api.yaml").copyTo(newSpec)
+            commit(tempDir, "Add v2 spec")
+
+            val (stdOut, exitCode) = captureStandardOutput {
+                BackwardCompatibilityCheckCommandV2().apply {
+                    options.repoDir = tempDir.canonicalPath
+                    options.baseBranch = "main"
+                }.call()
+            }
+
+            assertThat(exitCode).isEqualTo(0)
+            assertThat(stdOut).containsIgnoringWhitespaces(
+                """
+                Verdict for spec $newSpec:
+                  (COMPATIBLE) No spec exists at this path on main, so no existing contract consumers are affected.
+                """.trimIndent()
+            ).containsIgnoringWhitespaces(
+                """
+                Files checked: 1 (Passed: 1, Failed: 0)
+                """.trimIndent()
+            )
+        }
+    }
+
+    @Nested
     inner class SystemGitTestsSpecificToBackwardCompatibility {
         @Test
         fun `getFilesChangedInCurrentBranch returns the uncommitted, unstaged changed file`() {

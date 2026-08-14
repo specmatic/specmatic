@@ -211,7 +211,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         backwardCompatibilityLogger.logCheckStart(index, processedSpec)
 
         if (processedSpec.isNewFile) {
-            backwardCompatibilityLogger.logNewFile(processedSpec)
+            backwardCompatibilityLogger.logNewFile(processedSpec, effectiveBaseBranch)
             return CompatibilityResult.PASSED
         }
 
