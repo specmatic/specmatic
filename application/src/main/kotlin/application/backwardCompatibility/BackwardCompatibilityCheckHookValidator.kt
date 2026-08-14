@@ -63,6 +63,6 @@ internal class BackwardCompatibilityCheckHookValidator(
 
     private companion object {
         const val POOL_SIZE = 5
-        val unknownResult = Pair<CompatibilityResult, List<OperationUsageResponse>?>(CompatibilityResult.UNKNOWN, emptyList())
+        val unknownResult = Pair<CompatibilityResult, List<OperationUsageResponse>?>(CompatibilityResult.UNSPECIFIED, emptyList())
     }
 }
