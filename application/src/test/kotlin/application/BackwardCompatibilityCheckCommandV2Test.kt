@@ -1748,7 +1748,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
               --------------------
               Verdict for spec $hookFailedSpecPath:
-                (HOOK: FAILED)
+                (HOOK: Failed)
               --------------------
 
 
@@ -1766,7 +1766,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
               --------------------
               Verdict for spec $hookPassedSpecPath:
-                (HOOK: PASSED)
+                (HOOK: Passed)
               --------------------
 
 
@@ -2364,7 +2364,8 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
         processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
         strictMode: Boolean,
     ): Pair<CompatibilityResult, String> =
-        processedSpec.computedCompatibilityCheckHookResult.first to "(HOOK: ${processedSpec.computedCompatibilityCheckHookResult.first})"
+        processedSpec.computedCompatibilityCheckHookResult.first to
+            "(HOOK: ${processedSpec.computedCompatibilityCheckHookResult.first})"
 
     companion object {
         const val PASSED_SPEC = "hook-passed.yaml"
