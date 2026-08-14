@@ -326,7 +326,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             assertThat(stdOut).containsIgnoringWhitespaces(
                 """
                 Verdict for spec $newSpec:
-                  (COMPATIBLE) No spec exists at this path on main, so no existing contract consumers are affected.
+                  (COMPATIBLE) No spec exists at this path on main, so no existing consumers are affected.
                 """.trimIndent()
             ).containsIgnoringWhitespaces(
                 """
