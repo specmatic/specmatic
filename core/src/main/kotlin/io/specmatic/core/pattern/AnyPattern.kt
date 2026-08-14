@@ -50,7 +50,11 @@ data class AnyPattern(
         } else null
     }
 
-    private fun selectPattern(value: Value, resolver: Resolver): Pattern {
+    private fun selectPattern(
+        value: Value,
+        resolver: Resolver,
+        updatedPatterns: List<Pattern> = getUpdatedPattern(resolver),
+    ): Pattern {
         val discriminatorValue = extractDiscriminatorValue(value)
         if (discriminatorValue != null) {
             val discriminatorBasedPattern = getDiscriminatorPattern(discriminatorValue, resolver)
@@ -59,7 +63,7 @@ data class AnyPattern(
             }
         }
 
-        val patternMatches = getUpdatedPattern(resolver).sortedBy(::isEmpty).map { pattern ->
+        val patternMatches = updatedPatterns.sortedBy(::isEmpty).map { pattern ->
             AnyPatternMatch(pattern, pattern.matches(value, resolver))
         }
         val bestMatch = patternMatches.minBy { (it.result as? Failure)?.failureCount() ?: 0 }
@@ -155,16 +159,32 @@ data class AnyPattern(
     }
 
     override fun resolveSubstitutions(substitution: Substitution, value: Value, resolver: Resolver, key: String?): ReturnValue<Value> {
-        return evaluateWithUpdatedResolver(resolver) { pattern, updatedResolver ->
+        val updatedPatterns = getUpdatedPattern(resolver)
+        val patternsToEvaluate = selectPatternsForSubstitution(substitution, value, resolver, updatedPatterns)
+
+        return evaluateWithUpdatedResolver(resolver, updatedPatterns, patternsToEvaluate) { pattern, updatedResolver ->
             pattern.resolveSubstitutions(substitution, value, updatedResolver, key)
         }
     }
 
+    private fun selectPatternsForSubstitution(
+        substitution: Substitution,
+        value: Value,
+        resolver: Resolver,
+        updatedPatterns: List<Pattern>,
+    ): List<Pattern> {
+        if (updatedPatterns.isEmpty()) return emptyList()
+
+        val valueForSelection = (substitution.substitute(value) as? HasValue)?.value ?: value
+        return listOf(selectPattern(valueForSelection, resolver, updatedPatterns))
+    }
+
     private inline fun evaluateWithUpdatedResolver(
         resolver: Resolver,
+        updatedPatterns: List<Pattern> = getUpdatedPattern(resolver),
+        patternsToEvaluate: List<Pattern> = updatedPatterns,
         crossinline evaluate: (Pattern, Resolver) -> ReturnValue<Value>
     ): ReturnValue<Value> {
-        val updatedPatterns = getUpdatedPattern(resolver)
         val newPatterns = updatedPatterns
             .filter { it.typeAlias != null && it !is DeferredPattern }
             .associateBy { it.typeAlias.orEmpty() }
@@ -173,7 +193,7 @@ data class AnyPattern(
             .copy(newPatterns = resolver.newPatterns.plus(newPatterns))
             .updateLookupPath(this.typeAlias)
 
-        val result = updatedPatterns.firstSuccessOrFailures(
+        val result = patternsToEvaluate.firstSuccessOrFailures(
             evaluate = { evaluate(it, updatedResolver) },
             isSuccess = { it is HasValue },
             toFailure = { it as ReturnFailure }

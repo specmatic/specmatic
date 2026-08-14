@@ -1199,6 +1199,126 @@ internal class AnyPatternTest {
 
     @Nested
     inner class ResolveSubstitutionsTests {
+        private fun substitution(variableName: String, pattern: Pattern, value: Value): Substitution =
+            SubstitutionImpl.empty().upsertStoreUsing(
+                StringValue("($variableName:${pattern.typeName})"),
+                value,
+                Resolver(),
+            )
+
+        @Test
+        fun `should resolve nested substitutions in nullable arrays`() {
+            val itemPattern = JSONObjectPattern(mapOf("id" to StringPattern()))
+            val pattern = ListPattern(itemPattern).toNullable(null)
+            val value = parsedJSONArray("""[{"id":"$(id)"}]""")
+            val substitution = substitution("id", StringPattern(), StringValue("ECHO-ME"))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, value, Resolver()).value
+
+            assertThat(resolvedValue).isEqualTo(parsedJSONArray("""[{"id":"ECHO-ME"}]"""))
+        }
+
+        @Test
+        fun `should resolve nested substitutions in nullable objects`() {
+            val pattern = JSONObjectPattern(mapOf("id" to StringPattern())).toNullable(null)
+            val value = parsedJSONObject("""{"id":"$(id)"}""")
+            val substitution = substitution("id", StringPattern(), StringValue("ECHO-ME"))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, value, Resolver()).value
+
+            assertThat(resolvedValue).isEqualTo(parsedJSONObject("""{"id":"ECHO-ME"}"""))
+        }
+
+        @Test
+        fun `should select nullable scalar branch using typed captured value`() {
+            val numberPattern = NumberPattern()
+            val pattern = numberPattern.toNullable(null)
+            val substitution = substitution("id", numberPattern, NumberValue(10))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, StringValue("$(id)"), Resolver()).value
+
+            assertThat(resolvedValue).isEqualTo(NumberValue(10))
+        }
+
+        @Test
+        fun `should resolve substitution in nullable string`() {
+            val stringPattern = StringPattern()
+            val pattern = stringPattern.toNullable(null)
+            val substitution = substitution("id", stringPattern, StringValue("ECHO-ME"))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, StringValue("$(id)"), Resolver()).value
+
+            assertThat(resolvedValue).isEqualTo(StringValue("ECHO-ME"))
+        }
+
+        @Test
+        fun `should select scalar oneOf alternative using typed captured value regardless of order`() {
+            val numberPattern = NumberPattern()
+            val substitution = substitution("id", numberPattern, NumberValue(10))
+            val patterns = listOf(
+                AnyPattern(listOf(StringPattern(), numberPattern), extensions = emptyMap()),
+                AnyPattern(listOf(numberPattern, StringPattern()), extensions = emptyMap()),
+            )
+
+            assertThat(patterns.map { it.resolveSubstitutions(substitution, StringValue("$(id)"), Resolver()).value })
+                .containsExactly(NumberValue(10), NumberValue(10))
+        }
+
+        @Test
+        fun `should select scalar anyOf alternative using typed captured value regardless of order`() {
+            val numberPattern = NumberPattern()
+            val substitution = substitution("id", numberPattern, NumberValue(10))
+            val patterns = listOf(
+                AnyOfPattern(listOf(StringPattern(), numberPattern), extensions = emptyMap()),
+                AnyOfPattern(listOf(numberPattern, StringPattern()), extensions = emptyMap()),
+            )
+
+            assertThat(patterns.map { it.resolveSubstitutions(substitution, StringValue("$(id)"), Resolver()).value })
+                .containsExactly(NumberValue(10), NumberValue(10))
+        }
+
+        @Test
+        fun `should select string alternative for interpolated substitutions regardless of order`() {
+            val stringPattern = StringPattern()
+            val substitution = substitution("id", stringPattern, StringValue("ECHO-ME"))
+            val patterns = listOf(
+                AnyPattern(listOf(NumberPattern(), stringPattern), extensions = emptyMap()),
+                AnyPattern(listOf(stringPattern, NumberPattern()), extensions = emptyMap()),
+            )
+
+            assertThat(patterns.map { it.resolveSubstitutions(substitution, StringValue("id-$(id)"), Resolver()).value })
+                .containsExactly(StringValue("id-ECHO-ME"), StringValue("id-ECHO-ME"))
+        }
+
+        @Test
+        fun `should select same-type constrained alternative using captured value`() {
+            val pattern = AnyPattern(
+                listOf(ExactValuePattern(StringValue("first")), ExactValuePattern(StringValue("second"))),
+                extensions = emptyMap(),
+            )
+            val substitution = substitution("id", StringPattern(), StringValue("second"))
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, StringValue("$(id)"), Resolver()).value
+
+            assertThat(resolvedValue).isEqualTo(StringValue("second"))
+        }
+
+        @Test
+        fun `should use selected branch lenient fallback when lookup is missing`() {
+            val pattern = AnyPattern(
+                listOf(NumberPattern(example = "10"), StringPattern(example = "fallback")),
+                extensions = emptyMap(),
+            )
+
+            val resolvedValue = pattern.resolveSubstitutions(
+                SubstitutionImpl.empty(),
+                StringValue("$(missing)"),
+                Resolver(),
+            ).value
+
+            assertThat(resolvedValue).isInstanceOf(NumberValue::class.java)
+        }
+
         @Test
         fun `should use dictionary backed generation with discriminator`() {
             val pattern = AnyPattern(
