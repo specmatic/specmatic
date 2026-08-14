@@ -6,6 +6,7 @@ import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.utilities.withNullPattern
 import io.specmatic.core.value.*
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Nested
@@ -13,8 +14,36 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.Stream
 
 internal class AnyPatternTest {
+    companion object {
+        @JvmStatic
+        fun jsonObjectAlternativeCases(): Stream<Arguments> = Stream.of(
+            Arguments.of(
+                Named.of(
+                    "alternatives with distinct keys",
+                    JSONObjectPattern(mapOf("string" to StringPattern())),
+                )
+            ),
+            Arguments.of(
+                Named.of(
+                    "first alternative containing all keys from the second",
+                    JSONObjectPattern(mapOf("string" to StringPattern(), "number" to NumberPattern())),
+                )
+            ),
+            Arguments.of(
+                Named.of(
+                    "first alternative containing all keys from the second",
+                    JSONObjectPattern(mapOf("string" to StringPattern(), "number" to StringPattern())),
+                )
+            ),
+        )
+    }
+
     @Test
     fun `should be able to generate for a discriminator value when it's nested inside another AnyPattern`() {
         val discriminator = Discriminator(
@@ -1301,6 +1330,22 @@ internal class AnyPatternTest {
             val resolvedValue = pattern.resolveSubstitutions(substitution, StringValue("$(id)"), Resolver()).value
 
             assertThat(resolvedValue).isEqualTo(StringValue("second"))
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.specmatic.core.pattern.AnyPatternTest#jsonObjectAlternativeCases")
+        fun `should select correct alternative between two json objects`(stringAlternative: JSONObjectPattern) {
+            val numberAlternative = JSONObjectPattern(mapOf("number" to NumberPattern()))
+
+            val pattern = AnyPattern(
+                listOf(stringAlternative, numberAlternative),
+                extensions = emptyMap(),
+            )
+            val substitution = SubstitutionImpl.empty()
+
+            val resolvedValue = pattern.resolveSubstitutions(substitution, JSONObjectValue(mapOf("number" to StringValue("$(id)"))), Resolver()).value
+
+            assertThat(numberAlternative.matches(resolvedValue, Resolver())).isInstanceOf(Result.Success::class.java)
         }
 
         @Test
