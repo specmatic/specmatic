@@ -1,0 +1,17 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/echo",
+    "body": {
+      "id": "(id_1:string)"
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": [
+      {
+        "id": "$(id_1)"
+      }
+    ]
+  }
+}

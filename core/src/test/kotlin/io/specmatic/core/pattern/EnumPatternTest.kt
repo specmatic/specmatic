@@ -479,6 +479,24 @@ class EnumPatternTest {
     }
 
     @Test
+    fun `resolveSubstitutions should preserve typed captured value for nullable multi-type enum`() {
+        val pattern = EnumPattern(
+            values = listOf(StringValue("active"), NumberValue(10), NullValue),
+            nullable = true,
+            multiType = true,
+        )
+        val substitution = SubstitutionImpl.empty().upsertStoreUsing(
+            StringValue("(status:number)"),
+            NumberValue(10),
+            Resolver(),
+        )
+
+        val result = pattern.resolveSubstitutions(substitution, StringValue("$(status)"), Resolver())
+
+        assertThat(result.value).isEqualTo(NumberValue(10))
+    }
+
+    @Test
     fun `resolveSubstitutions should not fail when substituted value not in enum`() {
         val enumValues = listOf(StringValue("active"), StringValue("inactive"))
         val pattern = EnumPattern(enumValues)

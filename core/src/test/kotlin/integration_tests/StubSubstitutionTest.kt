@@ -43,6 +43,20 @@ import java.io.File
 
 class StubSubstitutionTest {
     @Test
+    fun `stub example resolves substitution in nullable response array`() {
+        val spec = osAgnosticPath("src/test/resources/openapi/substitutions/nullable_array_response.yaml")
+
+        createStubFromContracts(listOf(spec), timeoutMillis = 0).use { stub ->
+            val response = stub.client.execute(
+                HttpRequest("POST", "/echo", body = parsedJSONObject("""{"id":"ECHO-ME"}"""))
+            )
+
+            assertThat(response.status).isEqualTo(200)
+            assertThat(response.body).isEqualTo(parsedJSON("""[{"id":"ECHO-ME"}]"""))
+        }
+    }
+
+    @Test
     fun `stub example with substitution in response body`() {
         val specWithSubstitution = osAgnosticPath("src/test/resources/openapi/substitutions/spec_with_substitution_in_response_body.yaml")
 
