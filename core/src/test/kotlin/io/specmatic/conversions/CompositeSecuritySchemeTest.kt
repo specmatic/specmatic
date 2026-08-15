@@ -23,6 +23,45 @@ class CompositeSecuritySchemeTest {
     ))
 
     @Test
+    fun `should return success when request does not contain any security scheme`() {
+        val httpRequest = HttpRequest(method = "GET", path = "/")
+        val result = securityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should return failure when request contains all security schemes`() {
+        val httpRequest = HttpRequest(
+            method = "GET", path = "/",
+            headers = mapOf(AUTHORIZATION to "Bearer API-SECRET"), queryParametersMap = mapOf("apiKey" to "1234")
+        )
+
+        val result = securityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isEqualTo(Result.Failure.fromFailures(listOf(
+            Result.Failure(
+                breadCrumb = "HEADER.$AUTHORIZATION",
+                message = DefaultMismatchMessages.unexpectedKey("header", AUTHORIZATION)
+            ),
+            Result.Failure(
+                breadCrumb = "QUERY.apiKey",
+                message = DefaultMismatchMessages.unexpectedKey("query", "apiKey")
+            )
+        )))
+    }
+
+    @Test
+    fun `should return failure when request contains at-least one security schemes`() {
+        val httpRequest = HttpRequest(method = "GET", path = "/", headers = mapOf(AUTHORIZATION to "Bearer API-SECRET"))
+        val result = securityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isEqualTo(Result.Failure.fromFailures(listOf(
+            Result.Failure(
+                breadCrumb = "HEADER.$AUTHORIZATION",
+                message = DefaultMismatchMessages.unexpectedKey("header", AUTHORIZATION)
+            ),
+        )))
+    }
+
+    @Test
     fun `should return success when request matches all security schemes`() {
         val httpRequest = HttpRequest(
             method = "GET", path ="/",

@@ -4,6 +4,7 @@ import io.specmatic.core.DefaultMismatchMessages
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.Resolver
 import io.specmatic.core.Result
+import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -12,6 +13,30 @@ import org.junit.jupiter.params.provider.ValueSource
 
 class BearerSecuritySchemeTest {
     private val scheme = BearerSecurityScheme()
+
+    @Test
+    fun `failIfInRequest should return success when authorization header is missing`() {
+        val requestWithoutHeader = HttpRequest(method = "POST", path = "/customer")
+        val result = scheme.failIfInRequest(requestWithoutHeader, Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = [AUTHORIZATION, "authorization", "AUTHORIZATION"])
+    fun `failIfInRequest should return failure when authorization header is present`(authorizationHeaderName: String) {
+        val requestWithBearer = HttpRequest(
+            method = "POST",
+            path = "/customer",
+            headers = mapOf(authorizationHeaderName to "Bearer foo")
+        )
+
+        val result = scheme.failIfInRequest(requestWithBearer, Resolver())
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "HEADER.$authorizationHeaderName",
+            details = DefaultMismatchMessages.unexpectedKey("header", authorizationHeaderName)
+        ))
+    }
 
     @Test
     fun `authentication header starts with Bearer when using Bearer security scheme`() {

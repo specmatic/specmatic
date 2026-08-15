@@ -12,6 +12,25 @@ import org.junit.jupiter.api.Test
 class APIKeyInQueryParamSecuritySchemeTest {
 
     @Test
+    fun `should result in failure when query api key is present`() {
+        val httpRequest = HttpRequest(queryParametersMap = mapOf("API-KEY" to "123"))
+        val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123").failIfInRequest(httpRequest, Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "QUERY.API-KEY",
+            details = DefaultMismatchMessages.unexpectedKey("query", "API-KEY")
+        ))
+    }
+
+    @Test
+    fun `should not result in failure when query api key is absent`() {
+        val httpRequest = HttpRequest(queryParametersMap = emptyMap())
+        val result = APIKeyInQueryParamSecurityScheme(name = "API-KEY", apiKey = "123").failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `should result in failure when query api key is missing`() {
         val httpRequest = HttpRequest(headers = emptyMap())
         val resolver = Resolver(mockMode = false)

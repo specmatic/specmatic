@@ -18,6 +18,7 @@ interface OpenAPISecurityScheme {
     fun isInRequest(request: HttpRequest, complete: Boolean): Boolean
     fun getHeaderKey(): String? = null
     fun collectErrorIfExistsInParameters(parameter: List<ParameterWithContext<Parameter>>)
+    fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result
 }
 
 fun addToHeaderType(

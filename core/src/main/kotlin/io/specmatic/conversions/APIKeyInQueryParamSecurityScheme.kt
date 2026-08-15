@@ -9,6 +9,14 @@ import io.swagger.v3.oas.models.parameters.QueryParameter
 const val apiKeyParamName = "API-Key"
 
 data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
+    override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
+        if (!httpRequest.hasQueryParam(name)) return Result.Success()
+        return Result.Failure(
+            breadCrumb = BreadCrumb.QUERY.with(name),
+            message = resolver.mismatchMessages.unexpectedKey("query", name)
+        )
+    }
+
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return if (httpRequest.queryParams.containsKey(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
