@@ -8,6 +8,14 @@ import io.swagger.v3.oas.models.parameters.Parameter
 import org.apache.http.HttpHeaders.AUTHORIZATION
 
 data class BearerSecurityScheme(private val configuredToken: String? = null) : OpenAPISecurityScheme {
+    override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
+        val entry = httpRequest.headers.getCaseInsensitive(AUTHORIZATION) ?: return Result.Success()
+        return Result.Failure(
+            breadCrumb = BreadCrumb.HEADER.with(entry.key),
+            message = resolver.mismatchMessages.unexpectedKey("header", entry.key)
+        )
+    }
+
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val authHeaderValue = httpRequest.headers.entries.find {
             it.key.equals(AUTHORIZATION, ignoreCase = true)

@@ -11,6 +11,25 @@ import org.junit.jupiter.api.Test
 
 class APIKeyInHeaderSecuritySchemeTest {
     @Test
+    fun `should result in failure when header api key is present`() {
+        val httpRequest = HttpRequest(headers = mapOf("api-key" to "123"))
+        val result = APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "123").failIfInRequest(httpRequest, Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "HEADER.api-key",
+            details = DefaultMismatchMessages.unexpectedKey("header", "api-key")
+        ))
+    }
+
+    @Test
+    fun `should not result in failure when header api key is absent`() {
+        val httpRequest = HttpRequest(headers = emptyMap())
+        val result = APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "123").failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
     fun `should result in failure when header api key is missing`() {
         val httpRequest = HttpRequest(headers = emptyMap())
         val resolver = Resolver(mockMode = false)

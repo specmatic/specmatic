@@ -9,6 +9,14 @@ import org.apache.http.HttpHeaders.AUTHORIZATION
 import java.util.Base64
 
 data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPISecurityScheme {
+    override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
+        val entry = httpRequest.headers.getCaseInsensitive(AUTHORIZATION) ?: return Result.Success()
+        return Result.Failure(
+            breadCrumb = BreadCrumb.HEADER.with(entry.key),
+            message = resolver.mismatchMessages.unexpectedKey("header", entry.key)
+        )
+    }
+
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         val authHeaderValue: String = httpRequest.headers[AUTHORIZATION] ?: return when(resolver.mockMode) {
             true -> Result.Success()
