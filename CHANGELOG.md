@@ -33,6 +33,11 @@ Each release section should stand on its own and describe the behavior shipped i
 ## Unreleased
 
 ### Added
+- Added support for column level filters in the HTML report
+
+
+## 2.53.0 (2026-08-14)
+### Added
 
 - Added support for loading OpenAPI `multipart/form-data` request examples, including multipart content and external file references for mock.
 
