@@ -20,6 +20,10 @@ allprojects {
                 includeGroup("io.specmatic.build-reporter")
             }
         }
+        maven {
+            name = "specmaticSnapshots"
+            url = uri("https://repo.specmatic.io/snapshots")
+        }
     }
 }
 
