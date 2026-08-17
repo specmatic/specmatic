@@ -31,10 +31,10 @@ Each release section should stand on its own and describe the behavior shipped i
   - `enterprise`, bumped in `enterprise/gradle.properties` via `specmaticVersion`
 
 ## Unreleased
-
 ### Added
 
 - Added support for loading OpenAPI `multipart/form-data` request examples, including multipart content and external file references for mock.
+- Added support for column level filters in the HTML report
 
 ### Changed
 
