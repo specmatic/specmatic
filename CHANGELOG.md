@@ -35,6 +35,10 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Added
 - Added support for column level filters in the HTML report
 
+### Changed
+
+- Updated backward-compatibility hook results to distinguish passed, failed, and reason-specific unknown outcomes, so downstream checks can report why consumer impact could not be determined.
+
 
 ## 2.53.0 (2026-08-14)
 ### Added

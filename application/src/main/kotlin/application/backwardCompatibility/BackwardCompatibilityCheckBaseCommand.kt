@@ -347,7 +347,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
         val unusedExamples: Set<String>,
         val precomputedCompatibilityResult: CompatibilityResult,
         val computedCompatibilityCheckHookResult: Pair<CompatibilityResult, List<OperationUsageResponse>?> = Pair(
-            CompatibilityResult.UNKNOWN, emptyList()
+            CompatibilityResult.UNSPECIFIED, emptyList()
         ),
         val isNewFile: Boolean,
         val reportRecords: List<CtrfBackwardCompatibilityRecord> = emptyList()

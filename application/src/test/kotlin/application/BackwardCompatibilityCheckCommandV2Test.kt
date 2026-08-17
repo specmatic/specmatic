@@ -416,7 +416,7 @@ class BackwardCompatibilityCheckCommandV2Test {
             newer = object : IFeature {},
             unusedExamples = emptySet(),
             precomputedCompatibilityResult = CompatibilityResult.FAILED,
-            computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNKNOWN, emptyList()),
+            computedCompatibilityCheckHookResult = Pair(CompatibilityResult.UNSPECIFIED, emptyList()),
             isNewFile = false
         )
 
@@ -442,14 +442,14 @@ class BackwardCompatibilityCheckCommandV2Test {
                     remoteUrl: String,
                     relativePath: String
                 ): Pair<CompatibilityResult, List<OperationUsageResponse>> =
-                    Pair(CompatibilityResult.UNKNOWN, emptyList())
+                    Pair(CompatibilityResult.UNSPECIFIED, emptyList())
 
                 override fun logCompletedMessage() {}
                 override fun failedVerdictAndMessage(
                     processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
                     strictMode: Boolean,
                 ): Pair<CompatibilityResult, String> {
-                    return Pair(CompatibilityResult.UNKNOWN, "(HOOK: override)")
+                    return Pair(CompatibilityResult.UNSPECIFIED, "(HOOK: override)")
                 }
 
             }
@@ -1748,7 +1748,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
               --------------------
               Verdict for spec $hookFailedSpecPath:
-                (HOOK: FAILED)
+                (HOOK: Failed)
               --------------------
 
 
@@ -1766,7 +1766,7 @@ class BackwardCompatibilityCheckCommandV2Test {
 
               --------------------
               Verdict for spec $hookPassedSpecPath:
-                (HOOK: PASSED)
+                (HOOK: Passed)
               --------------------
 
 
@@ -2353,7 +2353,7 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
     ): Pair<CompatibilityResult, List<OperationUsageResponse>?> = when (specFilePath) {
         PASSED_SPEC -> CompatibilityResult.PASSED to emptyList()
         FAILED_SPEC -> CompatibilityResult.FAILED to emptyList()
-        else -> CompatibilityResult.UNKNOWN to emptyList()
+        else -> CompatibilityResult.UNSPECIFIED to emptyList()
     }
 
     override fun logStartedMessage(failedSpecs: List<BackwardCompatibilityCheckBaseCommand.ProcessedSpec>) {}
@@ -2364,7 +2364,8 @@ class MixedResultBackwardCompatibilityCheckHook : BackwardCompatibilityCheckHook
         processedSpec: BackwardCompatibilityCheckBaseCommand.ProcessedSpec,
         strictMode: Boolean,
     ): Pair<CompatibilityResult, String> =
-        processedSpec.computedCompatibilityCheckHookResult.first to "(HOOK: ${processedSpec.computedCompatibilityCheckHookResult.first})"
+        processedSpec.computedCompatibilityCheckHookResult.first to
+            "(HOOK: ${processedSpec.computedCompatibilityCheckHookResult.first})"
 
     companion object {
         const val PASSED_SPEC = "hook-passed.yaml"
