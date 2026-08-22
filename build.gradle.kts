@@ -119,6 +119,7 @@ specmatic {
 
         dockerBuild {
             imageName = "specmatic-snapshots"
+            extraExecutableNames = listOf("specmatic")
             dockerOrgNames = listOf("specmatic")
         }
 
