@@ -11,6 +11,7 @@ import io.specmatic.core.utilities.Flags
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.test.SpecmaticJUnitSupport.Companion.TEST_BASE_URL
 import io.specmatic.test.reports.TestReportListener
 import java.io.File
@@ -39,6 +40,7 @@ data class ContractTestSettings(
     val lenientMode: Boolean? = null,
     val previousRunCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
     val timeoutInMilliSeconds: Long? = null,
+    val insightsReportOptions: InsightsReportOptions = InsightsReportOptions(),
     val otherArguments: DeprecatedArguments? = null,
 ) {
     val host: String? = otherArguments?.host
@@ -137,6 +139,7 @@ data class ContractTestSettings(
         testBaseURL = contractTestSettings?.testBaseURL,
         contractPaths = contractTestSettings?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings?.timeoutInMilliSeconds,
+        insightsReportOptions = contractTestSettings?.insightsReportOptions ?: InsightsReportOptions(),
         filter = contractTestSettings?.filter,
         otherArguments = DeprecatedArguments(
             host = contractTestSettings?.otherArguments?.host,

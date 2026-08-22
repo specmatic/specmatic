@@ -7,6 +7,7 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfReport
+import java.io.File
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
 
@@ -37,7 +38,10 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Res
         }
 }
 
-fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? =
+    generateBackwardCompatibilityReportWithFile(records, startTime, endTime)?.first
+
+fun generateBackwardCompatibilityReportWithFile(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): Pair<CtrfReport, File?>? {
     if (records.isEmpty()) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()

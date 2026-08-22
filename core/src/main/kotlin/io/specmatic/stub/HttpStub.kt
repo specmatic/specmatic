@@ -224,6 +224,9 @@ class HttpStub(
     private val prettyPrint = specmaticConfigInstance.getPrettyPrint()
 
     private val ctrfTestResultRecords = mutableListOf<TestResultRecord>()
+    private var generatedCtrfReport: File? = null
+
+    fun getReport(): File? = generatedCtrfReport
 
     val specToBaseUrlMap: Map<String, String> = getValidatedBaseUrlsOrExit(
         features.associate {
@@ -1168,19 +1171,19 @@ class HttpStub(
 
     override fun close() {
         val protocols = features.map { it.protocol }.distinct()
-        if (SpecmaticProtocol.HTTP in protocols) generateReports()
+        if (SpecmaticProtocol.HTTP in protocols) generateReport()
         logger.debug("Stopping the server with grace period of $timeoutMillis and force timeout of $forceTimeoutMillis")
         server.stop(gracePeriodMillis = timeoutMillis, timeoutMillis = max(timeoutMillis, forceTimeoutMillis))
     }
 
-    private fun generateReports() {
+    fun generateReport(): File? {
         synchronized(ctrfTestResultRecords) {
             val mockUsage = OpenApiMockUsage()
             mockUsage.addEndpoints(_allEndpoints)
             ctrfTestResultRecords.forEach(mockUsage::addTestResultRecord)
             val mockUsageReport = mockUsage.generate()
 
-            ReportGenerator.generateReport(
+            generatedCtrfReport = ReportGenerator.generateReport(
                 coverageReportSpecifications = mockUsage.coverageReportSpecifications(mockUsageReport.coverageReportOperations),
                 startTime = startTime.toEpochMilli(),
                 endTime = Instant.now().toEpochMilli(),
@@ -1188,6 +1191,7 @@ class HttpStub(
                 absoluteCoverage = mockUsageReport.absoluteCoverage,
                 reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
             )
+            return generatedCtrfReport
         }
     }
 
