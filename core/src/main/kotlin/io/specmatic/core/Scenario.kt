@@ -199,6 +199,10 @@ data class Scenario(
         return matchesContentType(httpResponse)
     }
 
+    internal fun ownsResponseStatus(responseStatus: Int, explicitlyDeclaredResponseStatuses: Set<Int>): Boolean =
+        status == responseStatus ||
+                (status == DEFAULT_RESPONSE_CODE && responseStatus !in explicitlyDeclaredResponseStatuses)
+
     fun matchesContentType(httpResponse: HttpResponse): Boolean {
         val result = this.httpResponsePattern.matchesContentType(httpResponse, resolver)
         return result.isSuccess()
@@ -880,8 +884,18 @@ data class Scenario(
         )
     }
 
-    fun useExamples(rawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Scenario {
-        val matchingRawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>> = matchingRows(rawExternalisedExamples)
+    fun useExamples(rawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Scenario =
+        useExamples(
+            rawExternalisedExamples,
+            setOf(status).filter { it != DEFAULT_RESPONSE_CODE }.toSet()
+        )
+
+    internal fun useExamples(
+        rawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>,
+        explicitlyDeclaredResponseStatuses: Set<Int>
+    ): Scenario {
+        val matchingRawExternalisedExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>> =
+            matchingRows(rawExternalisedExamples, explicitlyDeclaredResponseStatuses)
 
         val externalisedExamples: List<Examples> = matchingRawExternalisedExamples.map { (operationId, rows) ->
             if(rows.isEmpty())
@@ -897,7 +911,10 @@ data class Scenario(
         return this.copy(examples = inlineExamplesThatAreNotOverridden(externalisedExamples) + externalisedExamples)
     }
 
-    private fun matchingRows(externalisedJSONExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
+    private fun matchingRows(
+        externalisedJSONExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>,
+        explicitlyDeclaredResponseStatuses: Set<Int>
+    ): Map<OpenApiSpecification.OperationIdentifier, List<Row>> {
         val patternMatchingResolver = resolver.copy(mockMode = true)
 
         return externalisedJSONExamples.mapValues { (operationId, rows) ->
@@ -905,8 +922,13 @@ data class Scenario(
                 return@mapValues emptyList()
 
             rows.filter { row ->
-                requestBelongsToScenario(row, operationId, patternMatchingResolver)
-                        && responseBelongsToScenario(row, operationId, patternMatchingResolver)
+                requestBelongsToScenario(row, operationId, patternMatchingResolver) &&
+                        responseBelongsToScenario(
+                            row,
+                            operationId,
+                            patternMatchingResolver,
+                            explicitlyDeclaredResponseStatuses
+                        )
             }
         }.filterValues { it.isNotEmpty() }
     }
@@ -942,10 +964,16 @@ data class Scenario(
     private fun requestContentTypeForReporting(): String? =
         requestContentTypeForReport ?: httpRequestPattern.headersPattern.contentType
 
-    private fun responseBelongsToScenario(row: Row, operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
+    private fun responseBelongsToScenario(
+        row: Row,
+        operationId: OpenApiSpecification.OperationIdentifier,
+        patternMatchingResolver: Resolver,
+        explicitlyDeclaredResponseStatuses: Set<Int>
+    ): Boolean {
         return row.responseExample?.let { response ->
-            httpResponsePattern.matchesStatusAndContentType(response, patternMatchingResolver).isSuccess()
-        } ?: matchesResponseOperationIdentifier(operationId)
+            ownsResponseStatus(response.status, explicitlyDeclaredResponseStatuses) &&
+                    httpResponsePattern.matchesStatusAndContentType(response, patternMatchingResolver).isSuccess()
+        } ?: matchesResponseOperationIdentifier(operationId, explicitlyDeclaredResponseStatuses)
     }
 
     private fun matchesRequestOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier, patternMatchingResolver: Resolver): Boolean {
@@ -954,8 +982,12 @@ data class Scenario(
                 && matchesRequestContentType(operationId)
     }
 
-    private fun matchesResponseOperationIdentifier(operationId: OpenApiSpecification.OperationIdentifier): Boolean {
-        return operationId.responseStatus == status && matchesResponseContentType(operationId)
+    private fun matchesResponseOperationIdentifier(
+        operationId: OpenApiSpecification.OperationIdentifier,
+        explicitlyDeclaredResponseStatuses: Set<Int>
+    ): Boolean {
+        return ownsResponseStatus(operationId.responseStatus, explicitlyDeclaredResponseStatuses) &&
+                matchesResponseContentType(operationId)
     }
 
     private fun matchesResponseContentType(operationId: OpenApiSpecification.OperationIdentifier): Boolean {

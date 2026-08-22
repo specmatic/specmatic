@@ -803,11 +803,14 @@ data class Feature(
         onSuccess: (Scenario) -> T
     ): ScenarioMatchResult<T> {
         val failures = mutableListOf<Result>()
-        val filteredScenarios = getMatchingAndSortedScenarios(
+        val requestMatchingScenarios = getMatchingAndSortedScenarios(
             request,
             scenarios,
             responseStatus
         )
+        val filteredScenarios = responseStatus?.let {
+            scenariosEligibleForResponseStatus(request, it, requestMatchingScenarios)
+        } ?: requestMatchingScenarios
 
         for (scenario in filteredScenarios) {
             try {
@@ -821,6 +824,25 @@ data class Feature(
         }
 
         return EarlyResult.Failures(failures.filterIsInstance<Result.Failure>())
+    }
+
+    private fun scenariosEligibleForResponseStatus(
+        request: HttpRequest,
+        responseStatus: Int,
+        candidateScenarios: List<Scenario> = scenarios
+    ): List<Scenario> {
+        val operationScenarios = candidateScenarios.filter { it.matchesPathStructureAndMethod(request) }
+        if (operationScenarios.isEmpty()) return candidateScenarios
+
+        val explicitlyDeclaredResponseStatuses = operationScenarios.asSequence()
+            .map { it.status }
+            .filter { it != DEFAULT_RESPONSE_CODE }
+            .toSet()
+
+        return candidateScenarios.filter { scenario ->
+            scenario !in operationScenarios ||
+                    scenario.ownsResponseStatus(responseStatus, explicitlyDeclaredResponseStatuses)
+        }
     }
 
     private fun Decision<ReturnValue<Scenario>, Scenario>.normalizeAcceptHeader(): Decision<ReturnValue<Scenario>, Scenario> {
@@ -1150,6 +1172,7 @@ data class Feature(
         val request = scenarioStub.requestElsePartialRequest()
         val result = matchRequestScenariosWithEarlySuccess(
             request = request,
+            responseStatus = scenarioStub.responseStatus(),
             match = { scenario -> scenario.matchesPartial(scenarioStub.partial, mismatchMessages) },
             onSuccess = { scenario ->
                 val requestTypeWithAncestors = scenario.httpRequestPattern.copy(headersPattern = scenario.httpRequestPattern.headersPattern.copy(ancestorHeaders = scenario.httpRequestPattern.headersPattern.pattern))
@@ -2279,11 +2302,18 @@ data class Feature(
 
     private fun useExamples(externalisedJSONExamples: Map<OpenApiSpecification.OperationIdentifier, List<Row>>): Feature {
         val scenariosWithExamples: List<Scenario> = scenarios.map {
-            it.useExamples(externalisedJSONExamples)
+            it.useExamples(externalisedJSONExamples, explicitlyDeclaredResponseStatusesFor(it))
         }
 
         return this.copy(scenarios = scenariosWithExamples)
     }
+
+    private fun explicitlyDeclaredResponseStatusesFor(scenario: Scenario): Set<Int> =
+        scenarios.asSequence()
+            .filter { it.method == scenario.method && it.path == scenario.path }
+            .map { it.status }
+            .filter { it != DEFAULT_RESPONSE_CODE }
+            .toSet()
 
     fun filterExamples(examples: List<ScenarioStub>, filter: String): FeatureAndExamples {
         if (filter.isBlank()) return FeatureAndExamples(this, externalExamples = examples)
