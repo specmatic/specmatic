@@ -10,7 +10,7 @@ import kotlin.io.path.createTempDirectory
 
 @Serializable
 data class RunTestArgs(
-    val openApiSpec: String,
+    val specFilePath: String,
     val apiBaseUrl: String,
     val specFormat: String = "yaml"
 )
@@ -20,8 +20,6 @@ class ContractTestTool(
 ) {
 
     internal fun runContractTest(args: RunTestArgs, resiliency: Boolean): String {
-        val tempDir = createTempDirectory(if (resiliency) "specmatic-resiliency-" else "specmatic-contract-").toFile()
-        val specFile = tempDir.resolve("spec.${args.specFormat}").apply { writeText(args.openApiSpec) }
         val junitReportDir = junitReportDirectoryFactory(resiliency)
         val junitReportFile = junitReportDir.resolve(JUNIT_REPORT_FILE_NAME)
 
@@ -38,7 +36,7 @@ class ContractTestTool(
                 argsList.add(args.apiBaseUrl)
                 argsList.add("--junitReportDir")
                 argsList.add(junitReportDir.canonicalPath)
-                argsList.add(specFile.canonicalPath)
+                argsList.add(args.specFilePath)
 
                 CommandLine(command).execute(*argsList.toTypedArray())
             }
@@ -59,7 +57,6 @@ class ContractTestTool(
             } else {
                 System.clearProperty(SPECMATIC_GENERATIVE_TESTS)
             }
-            tempDir.deleteRecursively()
         }
     }
 

@@ -32,11 +32,11 @@ class DefaultSpecmaticMcpToolProvider(
             description = "Run Specmatic contract tests against an API using OpenAPI specification",
             inputSchema = toolSchema(
                 properties = mapOf(
-                    "openApiSpec" to stringProperty("The OpenAPI specification content (YAML or JSON)"),
+                    "specFilePath" to stringProperty("Path to the OpenAPI specification file (yaml or json)"),
                     "apiBaseUrl" to stringProperty("The base URL of the API to test against"),
                     "specFormat" to stringProperty("Format of the OpenAPI spec (yaml or json)")
                 ),
-                required = listOf("openApiSpec", "apiBaseUrl")
+                required = listOf("specFilePath", "apiBaseUrl")
             )
         ) { request ->
             safeToolCall {
@@ -53,7 +53,7 @@ class DefaultSpecmaticMcpToolProvider(
             inputSchema = toolSchema(
                 properties = mapOf(
                     "command" to stringProperty("The action to perform: start, stop, or list"),
-                    "openApiSpec" to stringProperty("The OpenAPI specification content (required for 'start')"),
+                    "specFilePath" to stringProperty("Path to the OpenAPI specification file (required for 'start')"),
                     "port" to typedProperty("integer", "Port number for the mock server"),
                     "specFormat" to stringProperty("Format of the OpenAPI spec (yaml or json)")
                 ),
@@ -93,11 +93,11 @@ class DefaultSpecmaticMcpToolProvider(
             description = "Run Specmatic resiliency tests against an API using OpenAPI specification",
             inputSchema = toolSchema(
                 properties = mapOf(
-                    "openApiSpec" to stringProperty("The OpenAPI specification content (YAML or JSON)"),
+                    "specFilePath" to stringProperty("Path to the OpenAPI specification file (yaml or json)"),
                     "apiBaseUrl" to stringProperty("The base URL of the API to test against"),
                     "specFormat" to stringProperty("Format of the OpenAPI spec (yaml or json)")
                 ),
-                required = listOf("openApiSpec", "apiBaseUrl")
+                required = listOf("specFilePath", "apiBaseUrl")
             )
         ) { request ->
             safeToolCall {
