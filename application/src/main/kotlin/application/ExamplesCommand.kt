@@ -197,9 +197,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
         private fun validateAllExamplesAssociatedToEachSpecIn(specsDir: File, examplesBaseDir: File): List<ValidationResults> {
             val ordinal = AtomicInteger(1)
-            val allSpecFiles = specsDir.walk().filter(File::isFile).filter { isOpenAPI(it.canonicalPath) }.onEach {
-                OpenApiSpecification.checkSpecValidity(it.canonicalPath, lenientMode)
-            }
+            val allSpecFiles = specsDir.walk().filter(::isFileAndOpenApi)
 
             val validationResults = allSpecFiles.map { specFile ->
                 val relativeSpecPath = specsDir.toPath().relativize(specFile.toPath()).toString()
@@ -315,6 +313,12 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             return this.any { it.value is Result.Failure }
         }
 
+        private fun isFileAndOpenApi(file: File): Boolean {
+            if (!file.isFile || file.extension.lowercase() !in OPENAPI_FILE_EXTENSIONS) return false
+            if (!isOpenAPI(file.canonicalPath, logFailure = false)) return false
+            OpenApiSpecification.checkSpecValidity(file.canonicalPath, lenientMode)
+            return true
+        }
     }
 
 }
