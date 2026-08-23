@@ -32,11 +32,15 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+## 2.53.1 (2026-08-22)
+
 ### Added
+
 - Added support for column level filters in the HTML report
 
 ### Changed
 
+- Fixed the Docker image to expose the `specmatic` executable.
 - Updated backward-compatibility hook results to distinguish passed, failed, and reason-specific unknown outcomes, so downstream checks can report why consumer impact could not be determined.
 
 
