@@ -6,6 +6,8 @@ import application.mcp.server.tools.ContractTestTool
 import application.mcp.server.tools.ManageMockServerArgs
 import application.mcp.server.tools.MockServerTool
 import application.mcp.server.tools.RunTestArgs
+import application.mcp.server.tools.ValidateExamplesArgs
+import application.mcp.server.tools.ValidateExamplesTool
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.modelcontextprotocol.server.McpServerFeatures
@@ -13,7 +15,8 @@ import io.modelcontextprotocol.server.McpServerFeatures
 class DefaultSpecmaticMcpToolProvider(
     private val contractTestTool: ContractTestTool = ContractTestTool(),
     private val mockServerTool: MockServerTool = MockServerTool(),
-    private val backwardCompatibilityTool: BackwardCompatibilityTool = BackwardCompatibilityTool()
+    private val backwardCompatibilityTool: BackwardCompatibilityTool = BackwardCompatibilityTool(),
+    private val validateExamplesTool: ValidateExamplesTool = ValidateExamplesTool()
 ) : McpToolProvider {
     private val objectMapper = jacksonObjectMapper()
 
@@ -22,7 +25,8 @@ class DefaultSpecmaticMcpToolProvider(
             getContractTestTool(),
             getResiliencyTestTool(),
             getMockServerTool(),
-            getBCCTool()
+            getBCCTool(),
+            getValidateExamplesTool()
         )
     }
 
@@ -103,6 +107,28 @@ class DefaultSpecmaticMcpToolProvider(
             safeToolCall {
                 val args = objectMapper.convertValue<RunTestArgs>(request.arguments() ?: emptyMap<String, Any>())
                 contractTestTool.runContractTest(args, resiliency = true)
+            }
+        }
+    }
+
+    fun getValidateExamplesTool(): McpServerFeatures.SyncToolSpecification {
+        return tool(
+            name = "validate_examples",
+            description = "Validate inline and external OpenAPI contract examples against specification contracts using Specmatic",
+            inputSchema = toolSchema(
+                properties = mapOf(
+                    "contractFile" to stringProperty("Contract specification file path"),
+                    "examplesDir" to stringProperty("Directory path containing external examples for a single contract file"),
+                    "specsDir" to stringProperty("Directory path containing API specification files"),
+                    "examplesBaseDir" to stringProperty("Base directory path containing multiple external example directories"),
+                    "examplesToValidate" to stringProperty("Validation mode: INLINE, EXTERNAL, or BOTH"),
+                ),
+                required = listOf("contractFile")
+            )
+        ) { request ->
+            safeToolCall {
+                val args = objectMapper.convertValue<ValidateExamplesArgs>(request.arguments() ?: emptyMap<String, Any>())
+                validateExamplesTool.validateExamples(args)
             }
         }
     }
