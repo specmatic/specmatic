@@ -32,6 +32,10 @@ Each release section should stand on its own and describe the behavior shipped i
 
 ## Unreleased
 
+### Changed
+
+- Fixed request fixing to preserve security scheme headers and query parameters and repair invalid security values.
+
 ## 2.53.1 (2026-08-22)
 
 ### Added
