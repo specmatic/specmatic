@@ -7,9 +7,28 @@ import io.specmatic.core.Result
 import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class APIKeyInHeaderSecuritySchemeTest {
+    @Nested
+    inner class FixValueTests {
+        @Test
+        fun `should preserve a present header api key`() {
+            val request = HttpRequest(headers = mapOf("API-KEY" to "original"))
+            val scheme = APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "generated")
+            assertThat(scheme.fixValue(request, Resolver())).isEqualTo(request)
+        }
+
+        @Test
+        fun `should add a missing header api key`() {
+            val scheme = APIKeyInHeaderSecurityScheme(name = "API-KEY", apiKey = "generated")
+            assertThat(scheme.fixValue(HttpRequest(), Resolver())).isEqualTo(
+                HttpRequest().addSecurityHeader("API-KEY", "generated")
+            )
+        }
+    }
+
     @Test
     fun `should result in failure when header api key is present`() {
         val httpRequest = HttpRequest(headers = mapOf("api-key" to "123"))

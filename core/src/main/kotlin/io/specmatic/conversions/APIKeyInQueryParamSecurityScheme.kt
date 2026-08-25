@@ -54,7 +54,7 @@ data class APIKeyInQueryParamSecurityScheme(val name: String, private val apiKey
     override fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest {
         if (!originalRequest.queryParams.containsKey(name)) return newHttpRequest
         val apiKeyValue = originalRequest.queryParams.getValues(name).first()
-        return newHttpRequest.copy(queryParams = newHttpRequest.queryParams.plus(name to apiKeyValue))
+        return newHttpRequest.copy(queryParams = newHttpRequest.queryParams.minus(name).plus(name to apiKeyValue))
     }
 
     override fun isInRow(row: Row): Boolean = row.containsField(name)

@@ -182,20 +182,8 @@ data class HttpRequestPattern(
 
     private fun matchSecurityScheme(parameters: Triple<HttpRequest, Resolver, List<Failure>>): MatchingResult<Triple<HttpRequest, Resolver, List<Failure>>> {
         val (httpRequest, resolver, failures) = parameters
-        val (modifiedHttpRequest, results) = securitySchemes.fold(
-            initial = Pair(httpRequest, emptyList<SecurityMatch>())
-        ) { (request, results), securityScheme ->
-            securityScheme.removeParam(request) to results.plus(
-                SecurityMatch(
-                    presence = when {
-                        securityScheme.isInRequest(httpRequest, complete = true) -> SchemePresence.FULL
-                        securityScheme.isInRequest(httpRequest, complete = false) -> SchemePresence.PARTIAL
-                        else -> SchemePresence.ABSENT
-                    },
-                    result = securityScheme.matches(httpRequest, resolver).breadCrumb(BreadCrumb.PARAMETERS.value)
-                )
-            )
-        }
+        val modifiedHttpRequest = withoutSecuritySchemes(httpRequest)
+        val results = securityMatches(httpRequest, resolver)
 
         SchemePresence.entries.forEach { presence ->
             val presenceResults = results.filter { it.presence == presence }.map { it.result }
@@ -216,6 +204,25 @@ data class HttpRequestPattern(
 
         return if (completeFailure == null) MatchSuccess(Triple(modifiedHttpRequest, resolver, failures))
         else MatchSuccess(Triple(modifiedHttpRequest, resolver, failures.plus(completeFailure)))
+    }
+
+    private fun securityMatches(httpRequest: HttpRequest, resolver: Resolver): List<SecurityMatch> {
+        return securitySchemes.map { securityScheme ->
+            SecurityMatch(
+                scheme = securityScheme,
+                result = securityScheme.matches(httpRequest, resolver).breadCrumb(BreadCrumb.PARAMETERS.value),
+                presence = when {
+                    securityScheme.isInRequest(httpRequest, complete = true) -> SchemePresence.FULL
+                    securityScheme.isInRequest(httpRequest, complete = false) -> SchemePresence.PARTIAL
+                    else -> SchemePresence.ABSENT
+                },
+            )
+        }
+    }
+
+    private fun selectSecurityMatches(results: List<SecurityMatch>): List<SecurityMatch> {
+        val selectedPresence = SchemePresence.entries.firstOrNull { presence -> results.any { it.presence == presence } } ?: return emptyList()
+        return results.filter { it.presence == selectedPresence }
     }
 
     fun matchesSignature(other: HttpRequestPattern): Boolean =
@@ -1131,13 +1138,26 @@ data class HttpRequestPattern(
     }
 
     fun fixRequest(request: HttpRequest, resolver: Resolver): HttpRequest {
-        return request.copy(
+        val sanitizedRequest = withoutSecuritySchemes(request)
+        val fixedRequest = sanitizedRequest.copy(
             method = method,
-            path = httpPathPattern?.fixValue(request.path, resolver),
-            queryParams = httpQueryParamPattern.fixValue(request.queryParams, resolver),
-            headers = headersPattern.fixValue(request.headers, resolver.disableOverrideUnexpectedKeyCheck().updateLookupPath(BreadCrumb.PARAMETERS.value)),
-            body = body.fixValue(request.body, resolver)
+            body = body.fixValue(sanitizedRequest.body, resolver),
+            path = httpPathPattern?.fixValue(sanitizedRequest.path, resolver),
+            queryParams = httpQueryParamPattern.fixValue(sanitizedRequest.queryParams, resolver),
+            headers = headersPattern.fixValue(sanitizedRequest.headers, resolver.disableOverrideUnexpectedKeyCheck().updateLookupPath(BreadCrumb.PARAMETERS.value)),
         )
+
+        return fixSecuritySchemes(request, fixedRequest, resolver)
+    }
+
+    private fun fixSecuritySchemes(originalRequest: HttpRequest, request: HttpRequest, resolver: Resolver): HttpRequest {
+        val selectedMatches = selectSecurityMatches(securityMatches(originalRequest, resolver))
+        if (selectedMatches.isEmpty()) return request
+
+        return selectedMatches.fold(request) { fixedRequest, securityMatch ->
+            val fixedSecurityRequest = securityMatch.scheme.fixValue(originalRequest, resolver)
+            securityMatch.scheme.copyFromTo(fixedSecurityRequest, fixedRequest)
+        }
     }
 
     fun fillInTheBlanks(request: HttpRequest, resolver: Resolver): HttpRequest {
@@ -1210,7 +1230,7 @@ data class HttpRequestPattern(
 }
 
 private enum class SchemePresence { FULL, PARTIAL, ABSENT }
-private data class SecurityMatch(val presence: SchemePresence, val result: Result)
+private data class SecurityMatch(val scheme: OpenAPISecurityScheme, val presence: SchemePresence, val result: Result)
 
 fun missingParam(missingValue: String): ContractException {
     return ContractException("$missingValue is missing. Can't generate the contract test.")

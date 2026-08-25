@@ -8,6 +8,7 @@ import io.specmatic.toViolationReportString
 import io.specmatic.core.DefaultMismatchMessages
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class CompositeSecuritySchemeTest {
@@ -21,6 +22,27 @@ class CompositeSecuritySchemeTest {
         BearerSecurityScheme(configuredToken = "API-SECRET"),
         APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
     ))
+
+    @Nested
+    inner class FixValueTests {
+        @Test
+        fun `should preserve valid components and fix only invalid components`() {
+            val scheme = CompositeSecurityScheme(listOf(
+                BearerSecurityScheme("expected-token"),
+                APIKeyInQueryParamSecurityScheme("apiKey", "expected-api-key")
+            ))
+
+            val request = HttpRequest(
+                headers = mapOf(AUTHORIZATION to "Basic invalid"),
+                queryParametersMap = mapOf("apiKey" to "original-api-key")
+            )
+
+            assertThat(scheme.fixValue(request, Resolver())).isEqualTo(
+                HttpRequest(queryParametersMap = mapOf("apiKey" to "original-api-key"))
+                    .addSecurityHeader(AUTHORIZATION, "Bearer expected-token")
+            )
+        }
+    }
 
     @Test
     fun `should return success when request does not contain any security scheme`() {

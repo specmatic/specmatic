@@ -29,6 +29,7 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.util.function.Consumer
 import java.util.stream.Stream
 import io.specmatic.test.TestExecutionReason
@@ -61,6 +62,48 @@ class ScenarioTest {
         )
 
         assertThat(scenario.toApiOperation()).isSameAs(delegatedOperation)
+    }
+
+    @Nested
+    inner class FixRequestResponseTests {
+        @ParameterizedTest
+        @ValueSource(booleans = [false, true])
+        fun `should use the partial key check without adding absent security`(isPartial: Boolean) {
+            val scenario = Scenario(
+                name = "GET /orders",
+                specType = SpecType.OPENAPI,
+                protocol = SpecmaticProtocol.HTTP,
+                httpResponsePattern = HttpResponsePattern(status = 200),
+                httpRequestPattern = HttpRequestPattern(
+                    method = "GET",
+                    httpPathPattern = buildHttpPathPattern("/orders"),
+                    securitySchemes = listOf(BearerSecurityScheme("generated-bearer")),
+                    headersPattern = HttpHeadersPattern(mapOf("X-Request-ID" to ExactValuePattern(StringValue("expected-request-id")))),
+                    httpQueryParamPattern = HttpQueryParamPattern(mapOf("page" to QueryParameterScalarPattern(ExactValuePattern(StringValue("expected-page"))))),
+                ),
+            )
+
+            val request = HttpRequest(method = "GET", path = "/orders")
+            val response = HttpResponse(status = 200)
+            val (fixedRequest, fixedResponse) = scenario.fixRequestResponse(
+                isPartial = isPartial,
+                httpRequest = request,
+                httpResponse = response,
+                flagsBased = DefaultStrategies,
+            )
+
+            val expectedRequest = if (isPartial) {
+                request
+            } else {
+                request.copy(
+                    headers = mapOf("X-Request-ID" to "expected-request-id"),
+                    queryParams = QueryParameters(mapOf("page" to "expected-page"))
+                )
+            }
+
+            assertThat(fixedRequest).isEqualTo(expectedRequest)
+            assertThat(fixedResponse).isEqualTo(response)
+        }
     }
 
     companion object {

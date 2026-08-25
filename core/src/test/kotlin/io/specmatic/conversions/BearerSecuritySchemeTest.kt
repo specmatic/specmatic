@@ -7,12 +7,32 @@ import io.specmatic.core.Result
 import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 class BearerSecuritySchemeTest {
     private val scheme = BearerSecurityScheme()
+
+    @Nested
+    inner class FixValueTests {
+        private val scheme = BearerSecurityScheme("expected-token")
+
+        @Test
+        fun `should preserve a valid bearer authorization value`() {
+            val request = HttpRequest(headers = mapOf(AUTHORIZATION to "Bearer original-token"))
+            assertThat(scheme.fixValue(request, Resolver())).isEqualTo(request)
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["Basic invalid", "Bearer", "BearerX invalid"])
+        fun `should replace an invalid bearer authorization value`(invalidValue: String) {
+            assertThat(scheme.fixValue(HttpRequest(headers = mapOf(AUTHORIZATION to invalidValue)), Resolver())).isEqualTo(
+                HttpRequest().addSecurityHeader(AUTHORIZATION, "Bearer expected-token")
+            )
+        }
+    }
 
     @Test
     fun `failIfInRequest should return success when authorization header is missing`() {

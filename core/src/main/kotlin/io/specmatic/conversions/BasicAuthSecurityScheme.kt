@@ -18,7 +18,7 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
     }
 
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
-        val authHeaderValue: String = httpRequest.headers[AUTHORIZATION] ?: return when(resolver.mockMode) {
+        val authHeaderValue: String = httpRequest.headers.getCaseInsensitive(AUTHORIZATION)?.value ?: return when(resolver.mockMode) {
             true -> Result.Success()
             else -> Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
@@ -61,7 +61,7 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
     }
 
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
-        return httpRequest.copy(headers = httpRequest.headers.minus(AUTHORIZATION))
+        return httpRequest.copy(headers = httpRequest.headers.minusCaseInsensitive(AUTHORIZATION))
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
@@ -73,8 +73,8 @@ data class BasicAuthSecurityScheme(private val token: String? = null) : OpenAPIS
     }
 
     override fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest {
-        if (!originalRequest.headers.containsKey(AUTHORIZATION)) return newHttpRequest
-        return newHttpRequest.addSecurityHeader(AUTHORIZATION, originalRequest.headers.getValue(AUTHORIZATION))
+        val authHeaderValue = originalRequest.headers.getCaseInsensitive(AUTHORIZATION)?.value ?: return newHttpRequest
+        return newHttpRequest.addSecurityHeader(AUTHORIZATION, authHeaderValue)
     }
 
     override fun isInRow(row: Row): Boolean = row.containsField(AUTHORIZATION)

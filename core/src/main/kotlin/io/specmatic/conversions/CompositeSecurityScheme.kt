@@ -17,6 +17,12 @@ data class CompositeSecurityScheme(val schemes: List<OpenAPISecurityScheme>): Op
         return Result.fromResults(results)
     }
 
+    override fun fixValue(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
+        return schemes.fold(httpRequest) { request, scheme ->
+            scheme.fixValue(request, resolver)
+        }
+    }
+
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
         return schemes.fold(httpRequest) { request, scheme ->
             scheme.removeParam(request)

@@ -28,7 +28,7 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
             )
         }
 
-        if (!authHeaderValue.value.lowercase().startsWith("bearer")) {
+        if (!authHeaderValue.value.lowercase().startsWith("bearer ")) {
             return Result.Failure(
                 breadCrumb = BreadCrumb.HEADER.with(AUTHORIZATION),
                 message = "$AUTHORIZATION header must be prefixed with \"Bearer\"",
@@ -66,8 +66,8 @@ data class BearerSecurityScheme(private val configuredToken: String? = null) : O
     }
 
     override fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest {
-        if (!originalRequest.headers.containsKey(AUTHORIZATION)) return newHttpRequest
-        return newHttpRequest.addSecurityHeader(AUTHORIZATION, originalRequest.headers.getValue(AUTHORIZATION))
+        val authHeaderValue = originalRequest.headers.getCaseInsensitive(AUTHORIZATION)?.value ?: return newHttpRequest
+        return newHttpRequest.addSecurityHeader(AUTHORIZATION, authHeaderValue)
     }
 
     override fun getHeaderKey(): String? {

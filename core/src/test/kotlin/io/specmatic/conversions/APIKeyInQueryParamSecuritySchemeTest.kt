@@ -7,9 +7,27 @@ import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.core.DefaultMismatchMessages
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class APIKeyInQueryParamSecuritySchemeTest {
+    @Nested
+    inner class FixValueTests {
+        @Test
+        fun `should preserve a present query api key`() {
+            val request = HttpRequest(queryParametersMap = mapOf("apiKey" to "original"))
+            val scheme = APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "generated")
+            assertThat(scheme.fixValue(request, Resolver())).isEqualTo(request)
+        }
+
+        @Test
+        fun `should add a missing query api key`() {
+            val scheme = APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "generated")
+            assertThat(scheme.fixValue(HttpRequest(), Resolver())).isEqualTo(
+                HttpRequest().addSecurityQueryParam("apiKey", "generated")
+            )
+        }
+    }
 
     @Test
     fun `should result in failure when query api key is present`() {
