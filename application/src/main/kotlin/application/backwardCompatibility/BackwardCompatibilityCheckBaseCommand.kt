@@ -59,6 +59,7 @@ abstract class BackwardCompatibilityCheckBaseCommand(
 
     final override fun call(): Int {
         configureLogging(LoggingConfiguration.Companion.LoggingFromOpts(debug = options.debugLog))
+        options.insightsReportOptions.validate()
         addShutdownHook()
 
         val specsToCheck = getSpecsToCheck()
@@ -198,7 +199,8 @@ abstract class BackwardCompatibilityCheckBaseCommand(
             generateBackwardCompatibilityReport(
                 specsValidatedByHook.flatMap { it.reportRecords },
                 reportStartTime,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                options.insightsReportOptions,
             )
 
             return CompatibilityReport(results)

@@ -13,6 +13,9 @@ import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.toIncomingMtlsRegistryForStub
 import io.specmatic.core.utilities.Flags.Companion.SPECMATIC_BASE_URL
 import io.specmatic.license.core.cli.Category
+import io.specmatic.reporter.commands.GitReportDefaultValueProvider
+import io.specmatic.reporter.commands.InsightsReportOptions
+import io.specmatic.reporter.ReportTracker
 import io.specmatic.mock.ScenarioStub
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.HttpStub
@@ -40,7 +43,8 @@ import kotlin.time.toDuration
     name = "mock",
     aliases = ["virtualize", "stub"],
     mixinStandardHelpOptions = true,
-    description = ["Start a mock server with contract"]
+    description = ["Start a mock server with contract"],
+    defaultValueProvider = GitReportDefaultValueProvider::class,
 )
 @Category("Specmatic core")
 class StubCommand(
@@ -145,6 +149,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
     var lenientMode: Boolean? = null
 
+    @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
+    val insightsReportOptions = InsightsReportOptions()
+
     private var contractSources: List<ContractPathData> = emptyList()
 
     var specmaticConfigPath: String? = null
@@ -193,6 +200,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     }
 
     override fun call(): Int {
+        insightsReportOptions.validate()
         configureLogging(
             LoggingFromOpts(
                 debug = verbose,
@@ -242,6 +250,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             startServer()
 
             if (httpStub != null) {
+                ReportTracker.instance
                 if (registerShutdownHook) addShutdownHook()
 
                 val configuredHotReload = configuredHotReload()
@@ -322,7 +331,8 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             gracefulRestartTimeoutInMs = configuredGracefulTimeout(),
             specToBaseUrlMap = contractSources.specToBaseUrlMap(),
             listeners = listeners,
-            requestHandlers = requestHandlers
+            requestHandlers = requestHandlers,
+            insightsReportOptions = insightsReportOptions,
         )
 
         LogTail.storeSnapshot()

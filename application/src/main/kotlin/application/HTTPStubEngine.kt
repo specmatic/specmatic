@@ -12,6 +12,7 @@ import io.specmatic.stub.RequestHandler
 import io.specmatic.stub.SpecmaticConfigSource
 import io.specmatic.stub.contractInfoToHttpExpectations
 import io.specmatic.stub.listener.MockEventListener
+import io.specmatic.reporter.commands.InsightsReportOptions
 
 class HTTPStubEngine {
     fun runHTTPStub(
@@ -28,7 +29,8 @@ class HTTPStubEngine {
         gracefulRestartTimeoutInMs: Long,
         specToBaseUrlMap: Map<String, String?>,
         listeners: List<MockEventListener> = emptyList(),
-        requestHandlers: List<RequestHandler> = emptyList()
+        requestHandlers: List<RequestHandler> = emptyList(),
+        insightsReportOptions: InsightsReportOptions? = null,
     ): HttpStub {
         return HttpStub(
             features = stubs.map { it.first },
@@ -46,7 +48,8 @@ class HTTPStubEngine {
             timeoutMillis = gracefulRestartTimeoutInMs,
             specToStubBaseUrlMap = specToBaseUrlMap,
             listeners = listeners,
-            requestHandlers = requestHandlers.toMutableList()
+            requestHandlers = requestHandlers.toMutableList(),
+            insightsReportOptions = insightsReportOptions,
         ).also {
             it.printStartupMessage()
         }

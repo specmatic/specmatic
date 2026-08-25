@@ -132,6 +132,7 @@ internal class StubCommandTest {
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
                     specmaticConfigSource = any(),
+                    insightsReportOptions = any(),
                 )
             }.returns(
                 mockk {
@@ -158,6 +159,7 @@ internal class StubCommandTest {
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
                     specmaticConfigSource = any(),
+                    insightsReportOptions = any(),
                 )
             }
         } finally {
@@ -179,7 +181,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() }.returns(arrayListOf("/config/path/to/contract.$extension"))
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every { stubLoaderEngine.loadStubs(any(), any(), any(), any()) } returns emptyList()
-        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
+        every { httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } answers {
             mockk<HttpStub> { every { close() } returns Unit }
         }
 
@@ -262,6 +264,7 @@ internal class StubCommandTest {
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
                     specmaticConfigSource = any(),
+                    insightsReportOptions = any(),
                 )
             }.returns(
                 mockk {
@@ -291,6 +294,7 @@ internal class StubCommandTest {
                     gracefulRestartTimeoutInMs = any(),
                     specToBaseUrlMap = any(),
                     specmaticConfigSource = any(),
+                    insightsReportOptions = any(),
                 )
             }
         } finally {
@@ -404,6 +408,7 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
@@ -479,7 +484,7 @@ internal class StubCommandTest {
         assertThat(output).contains("FATAL: No examples found for the given filters")
         assertThat(output).contains("METHOD='POST'")
         verify(exactly = 0) {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
 
@@ -490,7 +495,7 @@ internal class StubCommandTest {
         every { specmaticConfig.contractStubPaths() } returns emptyList()
         every { specmaticConfig.contractStubPathData() } returns emptyList()
         every {
-            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            httpStubEngine.runHTTPStub(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns mockk { every { close() } returns Unit }
 
         try {
@@ -547,6 +552,8 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 capture(timeoutSlot),
+                any(),
+                any(),
                 any(),
                 any()
             )
@@ -609,6 +616,8 @@ internal class StubCommandTest {
                 any(),
                 capture(timeoutSlot),
                 any(),
+                any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
@@ -662,6 +671,7 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns mockk<HttpStub> { every { close() } returns Unit }
@@ -702,6 +712,8 @@ internal class StubCommandTest {
                 any(),
                 capture(timeoutSlot),
                 any(),
+                any(),
+                any(),
                 any()
             )
         } answers {
@@ -739,6 +751,8 @@ internal class StubCommandTest {
                 any(),
                 capture(hostSlot),
                 capture(portSlot),
+                any(),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -790,6 +804,8 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
@@ -818,6 +834,8 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 capture(keyDataSlot),
+                any(),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -866,6 +884,8 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 any(),
+                any(),
+                any(),
                 any()
             )
         } returns mockk { every { close() } returns Unit }
@@ -900,6 +920,8 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 capture(incomingMtlsSlot),
+                any(),
+                any(),
                 any(),
                 any(),
                 any(),
@@ -953,6 +975,8 @@ internal class StubCommandTest {
                 any(),
                 any(),
                 capture(timeoutSlot),
+                any(),
+                any(),
                 any(),
                 any()
             )

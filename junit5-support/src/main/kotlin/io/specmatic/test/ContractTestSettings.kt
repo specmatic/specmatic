@@ -8,6 +8,7 @@ import io.specmatic.core.loadSpecmaticConfigOrDefault
 import io.specmatic.core.loadSpecmaticConfigOrNull
 import io.specmatic.core.orDefault
 import io.specmatic.core.utilities.Flags
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.ctrf.model.CtrfOperationMetrics
 import io.specmatic.reporter.model.OpenAPIOperation
 import io.specmatic.reporter.model.SpecType
@@ -40,6 +41,7 @@ data class ContractTestSettings(
     val previousRunCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
     val timeoutInMilliSeconds: Long? = null,
     val otherArguments: DeprecatedArguments? = null,
+    val insightsReportOptions: InsightsReportOptions? = null,
 ) {
     val host: String? = otherArguments?.host
     val port: String? = otherArguments?.port
@@ -138,6 +140,7 @@ data class ContractTestSettings(
         contractPaths = contractTestSettings?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings?.timeoutInMilliSeconds,
         filter = contractTestSettings?.filter,
+        insightsReportOptions = contractTestSettings?.insightsReportOptions,
         otherArguments = DeprecatedArguments(
             host = contractTestSettings?.otherArguments?.host,
             port = contractTestSettings?.otherArguments?.port,

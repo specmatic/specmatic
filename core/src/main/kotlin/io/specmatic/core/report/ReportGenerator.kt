@@ -3,6 +3,9 @@ package io.specmatic.core.report
 import io.specmatic.core.config.toResolvedSpecmaticConfigMap
 import io.specmatic.core.getConfigFilePath
 import io.specmatic.core.log.consoleLog
+import io.specmatic.reporter.ReportTracker
+import io.specmatic.reporter.RawReportType
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.ctrf.CoverageReportSpecification
 import io.specmatic.reporter.ctrf.CtrfReportGenerator
 import io.specmatic.reporter.ctrf.model.BaseBccReportOperation
@@ -22,6 +25,8 @@ object ReportGenerator {
         absoluteCoverage: Int? = null,
         reportDir: File,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
+        reportType: RawReportType,
+        insightsReportOptions: InsightsReportOptions,
     ) {
         if (isCoverageReportSpecificationsValid(coverageReportSpecifications).not()) return
 
@@ -41,6 +46,7 @@ object ReportGenerator {
             toolName = toolName
         )
 
+        ReportTracker.instance.send(report, reportType, insightsReportOptions)
         ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
     }
@@ -52,6 +58,7 @@ object ReportGenerator {
         specConfigs: List<CtrfSpecConfig>,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
         coverageReportOperations: List<BaseBccReportOperation>,
+        insightsReportOptions: InsightsReportOptions? = null,
     ): CtrfReport? {
         if (isCtrfSpecConfigsValid(specConfigs).not()) return null
         val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()
@@ -70,6 +77,7 @@ object ReportGenerator {
             extra = extra,
         )
 
+        ReportTracker.instance.send(report, RawReportType.BCC, insightsReportOptions)
         ReportProvider.generateCtrfReport(report, reportDir)
         ReportProvider.generateHtmlReport(report, reportDir, specmaticConfigAsMap())
         return report

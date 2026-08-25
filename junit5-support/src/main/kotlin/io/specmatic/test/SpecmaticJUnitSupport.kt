@@ -10,8 +10,8 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.log.setLoggerUsing
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.report.ReportGenerator
+import io.specmatic.reporter.RawReportType
 import io.specmatic.core.utilities.*
-import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.license.core.*
 import io.specmatic.license.core.util.LicenseConfig
 import io.specmatic.reporter.internal.dto.coverage.CoverageStatus
@@ -143,6 +143,8 @@ open class SpecmaticJUnitSupport {
             coverage = coverageReport.totalCoveragePercentage,
             actuatorEnabled = coverageReport.actuatorEnabled,
             absoluteCoverage = coverageReport.absoluteCoveragePercentage,
+            reportType = RawReportType.TEST,
+            insightsReportOptions = settings.insightsReportOptions,
         )
     }
 
