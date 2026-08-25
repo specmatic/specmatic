@@ -17,10 +17,7 @@ data class ValidateExamplesArgs(
 class ValidateExamplesTool {
 
     internal fun validateExamples(args: ValidateExamplesArgs): String {
-        val validationError = validateInputs(args)
-        if (validationError != null) {
-            return validationError
-        }
+        if (isInvalidRepoDir(args.contractFile)) return getFallbackResponse(args)
 
         return try {
             val command = ExamplesCommand.Validate()
@@ -65,30 +62,13 @@ class ValidateExamplesTool {
                 }
             }
         } catch (e: SystemExitException) {
-            buildErrorResponse(args, e.message ?: "Process exited with code ${e.code}")
+            getFallbackResponse(args, e.message)
         } catch (e: Throwable) {
-            buildErrorResponse(args, e.message ?: e::class.simpleName ?: "Unknown error")
+            getFallbackResponse(args, e.message)
         }
     }
 
-    internal fun validateInputs(args: ValidateExamplesArgs): String? {
-        if (args.contractFile.isNullOrBlank()) {
-            return getFallbackResponse(args, "The '--contract-file' parameter is required and cannot be empty.")
-        }
-        val specFile = File(args.contractFile)
-        if (!specFile.exists()) {
-            return getFallbackResponse(args, "`${args.contractFile}` is unavailable in the current environment or the spec-file path is not correct.")
-        }
-        if (!args.examplesDir.isNullOrBlank()) {
-            val examplesDirectory = File(args.examplesDir)
-            if (!examplesDirectory.exists()) {
-                return getFallbackResponse(args, "`${args.examplesDir}` directory does not exist or is not accessible.")
-            }
-        }
-        return null
-    }
-
-    internal fun isInvalidRepoDir(contractFilePath: String?): Boolean {
+    internal fun isInvalidRepoDir(contractFilePath:String?): Boolean {
         if (contractFilePath.isNullOrBlank()) return true
         return !File(contractFilePath).exists()
     }
@@ -102,16 +82,5 @@ class ValidateExamplesTool {
 
             $detail
         """.trimIndent()
-    }
-
-    private fun buildErrorResponse(args: ValidateExamplesArgs, message: String): String {
-        return buildString {
-            append("## Specmatic Validate Examples Results\n\n")
-            if (!args.contractFile.isNullOrBlank()) {
-                append("Contract File: `${args.contractFile}`\n\n")
-            }
-            append("### Status: FAILED\n\n")
-            append("> **Error:** $message\n")
-        }
     }
 }

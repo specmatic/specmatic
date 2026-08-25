@@ -141,7 +141,7 @@ class DefaultSpecmaticMcpToolProviderTest {
 
         val args = mapOf(
             "contractFile" to "spec.yaml",
-            "exampleFile" to "example.json"
+            "examplesDir" to "examples"
         )
         val request = McpSchema.CallToolRequest("validate_examples", args)
 
@@ -154,7 +154,7 @@ class DefaultSpecmaticMcpToolProviderTest {
 
         verify {
             validateExamplesTool.validateExamples(
-                ValidateExamplesArgs(contractFile = "spec.yaml", exampleFile = "example.json")
+                ValidateExamplesArgs(contractFile = "spec.yaml", examplesDir = "examples")
             )
         }
     }

@@ -119,9 +119,7 @@ class DefaultSpecmaticMcpToolProvider(
                 properties = mapOf(
                     "contractFile" to stringProperty("Contract specification file path"),
                     "examplesDir" to stringProperty("Directory path containing external examples for a single contract file"),
-                    "specsDir" to stringProperty("Directory path containing API specification files"),
-                    "examplesBaseDir" to stringProperty("Base directory path containing multiple external example directories"),
-                    "examplesToValidate" to stringProperty("Validation mode: INLINE, EXTERNAL, or BOTH"),
+                    "examplesToValidate" to stringProperty("Validation mode: INLINE, EXTERNAL, or BOTH")
                 ),
                 required = listOf("contractFile")
             )

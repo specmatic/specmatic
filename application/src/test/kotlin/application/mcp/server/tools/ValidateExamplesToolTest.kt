@@ -60,7 +60,7 @@ class ValidateExamplesToolTest {
 
         assertThat(result).contains("## Specmatic Example Validation")
         assertThat(result).contains("Status: UNAVAILABLE")
-        assertThat(result).contains("The '--contract-file' parameter is required")
+        assertThat(result).contains("is unavailable in the current environment or the spec-file path is not correct")
     }
 
     @Test
@@ -71,20 +71,6 @@ class ValidateExamplesToolTest {
         assertThat(result).contains("## Specmatic Example Validation")
         assertThat(result).contains("Status: UNAVAILABLE")
         assertThat(result).contains("`non_existent_file_1234.yaml` is unavailable")
-    }
-
-    @Test
-    fun `validateExamples should return UNAVAILABLE status when examplesDir does not exist`(@TempDir tempDir: File) {
-        val specFile = tempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0") }
-        val args = ValidateExamplesArgs(
-            contractFile = specFile.path,
-            examplesDir = "non_existent_dir_1234"
-        )
-        val result = tool.validateExamples(args)
-
-        assertThat(result).contains("## Specmatic Example Validation")
-        assertThat(result).contains("Status: UNAVAILABLE")
-        assertThat(result).contains("`non_existent_dir_1234` directory does not exist")
     }
 
     @Test

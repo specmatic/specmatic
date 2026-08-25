@@ -46,7 +46,7 @@ class SpecmaticMcpServerTest {
         assertThat(tools.getValue("backward_compatibility_check").inputSchema().required())
             .isEmpty()
         assertThat(tools.getValue("validate_examples").inputSchema().required())
-            .isEmpty()
+            .containsExactly("contractFile")
         assertThat(tools.getValue("manage_mock_server").inputSchema().properties().getValue("port"))
             .isEqualTo(mapOf("type" to "integer", "description" to "Port number for the mock server"))
     }
