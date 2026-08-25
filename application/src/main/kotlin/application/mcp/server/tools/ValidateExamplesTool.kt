@@ -80,6 +80,7 @@ class ValidateExamplesTool {
 
             ### Status: UNAVAILABLE
 
+
             ### In case you are using docker, this issue may be due to incorrect paths being sent to the docker container. Please use specmatic jar to run the mcp to solve this issue. Else, you can look at [this documentation](https://docs.specmatic.io/getting_started/studio_quick_start#getting-started-with-studio) to understand how you can run example validation using Studio.        """.trimIndent()
     }
 }

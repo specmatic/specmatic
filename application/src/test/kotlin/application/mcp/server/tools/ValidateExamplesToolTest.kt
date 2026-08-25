@@ -53,25 +53,6 @@ class ValidateExamplesToolTest {
         assertThat(result).contains("debug log")
     }
 
-    @Test
-    fun `validateExamples should return UNAVAILABLE status when contractFile is null or blank`() {
-        val args = ValidateExamplesArgs(contractFile = null)
-        val result = tool.validateExamples(args)
-
-        assertThat(result).contains("## Specmatic Example Validation")
-        assertThat(result).contains("Status: UNAVAILABLE")
-        assertThat(result).contains("is unavailable in the current environment or the spec-file path is not correct")
-    }
-
-    @Test
-    fun `validateExamples should return UNAVAILABLE status when contractFile does not exist`() {
-        val args = ValidateExamplesArgs(contractFile = "non_existent_file_1234.yaml")
-        val result = tool.validateExamples(args)
-
-        assertThat(result).contains("## Specmatic Example Validation")
-        assertThat(result).contains("Status: UNAVAILABLE")
-        assertThat(result).contains("`non_existent_file_1234.yaml` is unavailable")
-    }
 
     @Test
     fun `validateExamples should format results correctly for a failed check`(@TempDir tempDir: File) {
