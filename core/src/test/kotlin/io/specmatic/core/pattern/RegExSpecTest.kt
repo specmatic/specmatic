@@ -1,5 +1,6 @@
 package io.specmatic.core.pattern
 
+import dk.brics.automaton.RegExp
 import io.specmatic.core.value.StringValue
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -110,6 +111,39 @@ class RegExSpecTest {
     fun `match should not allow dot to cross newlines`() {
         val regExSpec = RegExSpec("^a.b$")
         assertThat(regExSpec.match(StringValue("a\nb"))).isFalse()
+    }
+
+    @Test
+    fun `generation for unescaped dot must not accept line terminators that match rejects`() {
+        val cleaned = RegExSpec(".").toString()
+        val automaton = RegExp(cleaned, 0).toAutomaton()
+        val spec = RegExSpec(".")
+
+        assertThat(automaton.run("\n")).isFalse()
+        assertThat(automaton.run("\r")).isFalse()
+        assertThat(automaton.run("\u0085")).isFalse()
+        assertThat(automaton.run("\u2028")).isFalse()
+        assertThat(automaton.run("\u2029")).isFalse()
+        assertThat(automaton.run("x")).isTrue()
+        assertThat(spec.match(StringValue("\n"))).isFalse()
+        assertThat(spec.match(StringValue("x"))).isTrue()
+    }
+
+    @Test
+    fun `escaped dots and dots inside character classes stay literal`() {
+        assertThat(RegExSpec("a\\.b").toString()).isEqualTo("a\\.b")
+        assertThat(RegExSpec("[a.b]").toString()).isEqualTo("[a.b]")
+        assertThat(RegExp(RegExSpec("[a.b]").toString(), 0).toAutomaton().run(".")).isTrue()
+        assertThat(RegExp(RegExSpec("a\\.b").toString(), 0).toAutomaton().run("a.b")).isTrue()
+        assertThat(RegExp(RegExSpec("a\\.b").toString(), 0).toAutomaton().run("axb")).isFalse()
+    }
+
+    @Test
+    fun `generated string for a regex containing a dot must match without DOTALL`() {
+        val spec = RegExSpec("^a.b$")
+        val generated = spec.generateRandomString(3, 3).toStringLiteral()
+        assertThat(spec.match(StringValue(generated))).isTrue()
+        assertThat(generated).matches("a.b")
     }
 
     @ParameterizedTest
