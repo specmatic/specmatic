@@ -154,6 +154,24 @@ internal class JSONArrayPatternTest {
     }
 
     @Test
+    fun `finite array should not encompass XML children`() {
+        val array = JSONArrayPattern(listOf(StringPattern()))
+        val xml = XMLPattern("<name>(string)</name>")
+
+        assertThat(array.encompasses(xml, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
+    fun `finite array should report an unresolved member as a compatibility failure`() {
+        val array = JSONArrayPattern(listOf(DeferredPattern("(MissingType)")))
+        val otherArray = JSONArrayPattern(listOf(StringPattern()))
+
+        val result = array.encompasses(otherArray, Resolver(), Resolver())
+
+        assertThat(result).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
     fun `json array type with recursive type definition should be validated without an infinite loop`() {
         val gherkin = """
 Feature: Recursive test

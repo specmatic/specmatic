@@ -410,11 +410,79 @@ class XMLChoiceGroupPatternTest {
     }
 
     @Test
+    fun `materialized sequence encompasses an equivalent required single branch choice`() {
+        val sequence = materializedChoice("A")
+        val choice = choiceGroup("A")
+
+        assertSuccess(sequence.encompasses(choice, resolver, resolver))
+    }
+
+    @Test
+    fun `materialized sequence does not encompass a choice with another branch`() {
+        val sequence = materializedChoice("A")
+        val choice = choiceGroup("A", "B")
+
+        assertFailure(sequence.encompasses(choice, resolver, resolver))
+    }
+
+    @Test
+    fun `materialized sequence does not encompass an optional single branch choice`() {
+        val sequence = materializedChoice("A")
+        val choice = choiceGroup("A", minOccurs = 0, maxOccurs = 1)
+
+        assertFailure(sequence.encompasses(choice, resolver, resolver))
+    }
+
+    @Test
     fun `materialized sequence does not encompass repeated choice schema`() {
         val myChoice = materializedChoice("A", "B")
         val otherChoice = choiceGroup("A", "B", minOccurs = 2, maxOccurs = 2)
 
         assertFailure(myChoice.encompasses(otherChoice, resolver, resolver))
+    }
+
+    @Test
+    fun `XML sequence compares a choice group using all of its alternatives`() {
+        val mySequence = XMLSequencePattern(listOf(choiceGroup("A")))
+        val otherChoice = choiceGroup("A", "B")
+
+        assertFailure(mySequence.encompasses(otherChoice, resolver, resolver))
+    }
+
+    @Test
+    fun `XML sequence encompasses the child nodes of an XML element`() {
+        val sequence = XMLSequencePattern(listOf(xmlElement("A"), xmlElement("B")))
+        val element = XMLPattern("<root><A>(string)</A><B>(string)</B></root>")
+
+        assertSuccess(sequence.encompasses(element, resolver, resolver))
+    }
+
+    @Test
+    fun `XML repetition encompasses a materialized sequence`() {
+        val element = xmlElement("A")
+        val repetition = ListPattern(element)
+        val repetitionSequence = XMLSequencePattern(listOf(repetition))
+        val materializedSequence = XMLSequencePattern(listOf(element))
+
+        assertSuccess(repetitionSequence.encompasses(materializedSequence, resolver, resolver))
+    }
+
+    @Test
+    fun `materialized sequence does not encompass XML repetition`() {
+        val element = xmlElement("A")
+        val materializedSequence = XMLSequencePattern(listOf(element))
+        val repetition = ListPattern(element)
+
+        assertFailure(materializedSequence.encompasses(repetition, resolver, resolver))
+    }
+
+    @Test
+    fun `XML sequence does not encompass a JSON array with structurally matching members`() {
+        val element = xmlElement("A")
+        val sequence = XMLSequencePattern(listOf(element))
+        val jsonArray = JSONArrayPattern(listOf(element))
+
+        assertFailure(sequence.encompasses(jsonArray, resolver, resolver))
     }
 
     @Test

@@ -17,14 +17,11 @@ data class XMLSubstitutionGroupPattern(
     val candidates: List<Pattern>,
     val substitutionGroupMembers: List<WSDLSubstitutionGroupMember> = emptyList(),
     override val typeAlias: String? = null
-) : Pattern, SequenceType, XMLChildGenerationPattern {
+) : Pattern, XMLChildGenerationPattern {
     override val pattern: Any
         get() = candidates
 
     override val typeName: String = "xml-substitution-group"
-
-    override val memberList: MemberList
-        get() = MemberList(candidates)
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {

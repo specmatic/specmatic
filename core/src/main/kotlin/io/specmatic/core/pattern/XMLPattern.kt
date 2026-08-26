@@ -85,7 +85,7 @@ data class XMLPattern(
     override val typeAlias: String? = null,
     val schemaPointer: String? = null,
     val attributePointers: Map<String, String> = emptyMap()
-) : Pattern, SequenceType, XMLChildGenerationPattern {
+) : Pattern, XMLChildGenerationPattern {
     constructor(
         node: XMLNode,
         typeAlias: String? = null,
@@ -1343,7 +1343,7 @@ data class XMLPattern(
             // toXMLPattern() returns a stub XMLPattern that only carries the `specmatic_type`
             // attribute and has no child nodes. encompasses() then compares the two stubs:
             // nodeNames match, attributes (both just `specmatic_type=Customer`) match, and
-            // memberList iteration is over empty lists — so any breakage *inside* the
+            // child-node iteration is over empty lists — so any breakage *inside* the
             // referenced component (e.g. a child property going from required to optional)
             // goes undetected. Request matches() is unaffected because matchesXMLNode() calls
             // dereferenceType() before deep-matching.
@@ -1375,12 +1375,11 @@ data class XMLPattern(
             }.ifSuccess {
                 thisOccurrenceEncompassesTheOther(this, otherResolvedPattern)
             }.ifSuccess {
-                val theseMembers = this.memberList
-                val otherMembers = otherResolvedPattern.memberList
-
-                val others = otherMembers.getEncompassables(otherResolver)
-                val these =
-                    adapt(adaptFromList(theseMembers.getEncompassables(thisResolver), thisResolver), thisResolver)
+                val others = otherResolvedPattern.pattern.nodes.map { resolvedHop(it, otherResolver) }
+                val these = adapt(
+                    adaptFromList(pattern.nodes.map { resolvedHop(it, thisResolver) }, thisResolver),
+                    thisResolver
+                )
 
                 val adaptedOthers = adapt(others, otherResolver)
 
@@ -1589,9 +1588,6 @@ data class XMLPattern(
                 it.pattern.toStringLiteral()
             }
         }
-
-    override val memberList: MemberList
-        get() = MemberList(pattern.nodes)
 
     override val typeName: String = "xml"
 

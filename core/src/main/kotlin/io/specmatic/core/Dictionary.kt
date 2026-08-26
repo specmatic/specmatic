@@ -58,7 +58,7 @@ data class Dictionary(
         return focusInto(pattern, key, resolver, focusedData)
     }
 
-    fun <T> focusIntoSequence(pattern: T, childPattern: Pattern, key: String, resolver: Resolver): Dictionary where T: Pattern, T: SequenceType {
+    fun focusIntoArrayItem(pattern: Pattern, childPattern: Pattern, key: String, resolver: Resolver): Dictionary {
         return focusInto(pattern, key, resolver, focusedData) { value ->
             when (val valueToMatch = getValueToMatch(value, childPattern, resolver, overrideNestedCheck = false)) {
                 is JSONObjectValue -> valueToMatch
@@ -121,11 +121,11 @@ data class Dictionary(
 
     private fun getValueToMatch(value: Value, pattern: Pattern, resolver: Resolver, overrideNestedCheck: Boolean = false): Value? {
         if (value !is JSONArrayValue) return value.takeIf { pattern.isScalar(resolver) || overrideNestedCheck }
-        if (pattern !is SequenceType) {
+        if (pattern.jsonArrayChildren(resolver) == null) {
             return if (overrideNestedCheck) value else selectValue(pattern, value.list, resolver)
         }
 
-        val patternDepth = calculateDepth<Pattern>(pattern) { (resolvedHop(it, resolver) as? SequenceType)?.memberList?.patternList() }
+        val patternDepth = calculateDepth(pattern) { it.jsonArrayChildren(resolver) }
         val valueDepth = calculateDepth<Value>(value) { (it as? JSONArrayValue)?.list }
         return when {
             valueDepth > patternDepth -> selectValue(pattern, value.list, resolver)
@@ -138,6 +138,14 @@ data class Dictionary(
         return when {
             children.isEmpty() -> 1
             else -> 1 + children.maxOf { calculateDepth(it, getChildren) }
+        }
+    }
+
+    private fun Pattern.jsonArrayChildren(resolver: Resolver): List<Pattern>? {
+        return when (val resolvedPattern = resolvedHop(this, resolver)) {
+            is ListPattern -> listOf(resolvedPattern.pattern)
+            is JSONArrayPattern -> resolvedPattern.pattern
+            else -> null
         }
     }
 

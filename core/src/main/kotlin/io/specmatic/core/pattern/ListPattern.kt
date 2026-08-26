@@ -12,13 +12,10 @@ data class ListPattern(
     override val example: List<String?>? = null,
     override val extensions: Map<String, Any>  = emptyMap(),
     val itemsPointer: String? = null
-) : Pattern, SequenceType, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
-    override val memberList: MemberList
-        get() = MemberList(listOf(pattern))
-
+) : Pattern, HasDefaultExample, PossibleJsonObjectPatternContainer, XMLChildGenerationPattern {
     override fun fixValue(value: Value, resolver: Resolver): Value {
         if (resolver.matchesPattern(this, value).isSuccess()) return value
-        val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPath(this, this.pattern)
+        val updatedResolver = resolver.addPatternAsSeen(this).updateLookupPathForArrayItem(this, this.pattern)
         if (value !is JSONArrayValue || (value.list.isEmpty() && resolver.allPatternsAreMandatory && !resolver.hasPartialKeyCheck())) {
             return pattern.listOf(0.until(randomNumber(3)).mapIndexed { index, _ ->
                 attempt(breadCrumb = "[$index (random)]") { pattern.fixValue(NullValue, updatedResolver) }
@@ -66,7 +63,7 @@ data class ListPattern(
         }
 
         return valueToConsider.mapIndexed { index, item ->
-            val updatedResolver = resolver.updateLookupPath(this, this.pattern)
+            val updatedResolver = resolver.updateLookupPathForArrayItem(this, this.pattern)
             patternToConsider.fillInTheBlanks(item, updatedResolver, removeExtraKeys).breadCrumb("[$index]")
         }.listFold().ifValue(::JSONArrayValue)
     }
@@ -79,7 +76,7 @@ data class ListPattern(
     ): ReturnValue<Value> {
         val resolved = substitution.substitute(value, this, resolver).unwrapOrReturn { return it.cast() }
         val resolvedValue = resolved as? JSONArrayValue ?: return HasValue(resolved)
-        val updatedResolver = resolver.updateLookupPath(this, this.pattern)
+        val updatedResolver = resolver.updateLookupPathForArrayItem(this, this.pattern)
 
         val updatedList = resolvedValue.list.withIndex().mapNotNull { item ->
             if (substitution.isDropDirective(item.value)) return@mapNotNull null
@@ -156,7 +153,7 @@ data class ListPattern(
     }
 
     private fun generateListXMLNodesByGeneratingItems(resolver: Resolver, state: XMLGenerationState): GeneratedNodes {
-        val listResolver = resolver.updateLookupPath(this, pattern)
+        val listResolver = resolver.updateLookupPathForArrayItem(this, pattern)
         val numberOfItemsToGenerate = listResolver.randomArraySize ?: randomNumber(DEFAULT_RANDOM_ARRAY_SIZE + 1)
         val generatedListItems = 0.until(numberOfItemsToGenerate).fold(GeneratedNodes.none(state)) { generatedItemsSoFar, index ->
             val generated = attempt(breadCrumb = "[$index (random)]") {
@@ -226,8 +223,8 @@ data class ListPattern(
         return when (otherPattern) {
             is ExactValuePattern -> otherPattern.fitsWithin(listOf(this), otherResolverWithEmptyType, thisResolverWithEmptyType, typeStack)
             is ListPattern -> biggerEncompassesSmaller(pattern, otherPattern.pattern, thisResolverWithEmptyType, otherResolverWithEmptyType, typeStack)
-            is SequenceType -> {
-                val results = otherPattern.memberList.getEncompassables(otherResolverWithEmptyType).asSequence().mapIndexed { index, otherPatternEntry ->
+            is JSONArrayPattern -> {
+                val results = otherPattern.pattern.map { resolvedHop(it, otherResolverWithEmptyType) }.asSequence().mapIndexed { index, otherPatternEntry ->
                     Pair(index, biggerEncompassesSmaller(pattern, otherPatternEntry, thisResolverWithEmptyType, otherResolverWithEmptyType, typeStack))
                 }
 
@@ -245,7 +242,7 @@ data class ListPattern(
             when (otherPattern) {
                 is ExactValuePattern ->
                     otherPattern.fitsWithin(listOf(this.pattern), otherResolverWithEmptyType, thisResolverWithEmptyType, typeStack)
-                is SequenceType ->
+                is ListPattern, is XMLPattern, is XMLSequencePattern, is XMLChoiceGroupPattern, is XMLSubstitutionGroupPattern ->
                     biggerEncompassesSmaller(pattern, resolvedHop(otherPattern, otherResolverWithEmptyType), thisResolverWithEmptyType, otherResolverWithEmptyType, typeStack)
                 else -> Result.Failure("Expected array or list type, got ${otherPattern.typeName}")
             }.breadCrumb("[$index]", otherResolverWithEmptyType.locate(itemsPointer))
