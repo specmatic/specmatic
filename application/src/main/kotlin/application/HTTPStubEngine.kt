@@ -30,7 +30,7 @@ class HTTPStubEngine {
         specToBaseUrlMap: Map<String, String?>,
         listeners: List<MockEventListener> = emptyList(),
         requestHandlers: List<RequestHandler> = emptyList(),
-        insightsReportOptions: InsightsReportOptions? = null,
+        insightsReportOptions: InsightsReportOptions,
     ): HttpStub {
         return HttpStub(
             features = stubs.map { it.first },

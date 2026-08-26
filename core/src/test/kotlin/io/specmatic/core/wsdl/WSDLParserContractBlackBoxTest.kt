@@ -8,9 +8,8 @@ import io.specmatic.core.SPECMATIC_RESULT_HEADER
 import io.specmatic.core.parseContractFileToFeature
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.testBackwardCompatibility
-import io.specmatic.core.value.toXMLNode
-import io.specmatic.core.wsdl.parser.WSDL
 import io.specmatic.core.wsdl.payload.emptySoapMessage
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.RequestContext
 import io.specmatic.test.TestExecutor
@@ -259,9 +258,9 @@ class WSDLParserContractBlackBoxTest {
             operation = "requestChoiceBcc",
         )
 
-        assertThat(testBackwardCompatibility(oldFeature, oldFeature).success()).isTrue()
-        assertThat(testBackwardCompatibility(oldFeature, featureWithAddedBranch).success()).isTrue()
-        assertThat(testBackwardCompatibility(oldFeature, featureWithRemovedBranch).success()).isFalse()
+        assertThat(testBackwardCompatibility(oldFeature, oldFeature, InsightsReportOptions()).success()).isTrue()
+        assertThat(testBackwardCompatibility(oldFeature, featureWithAddedBranch, InsightsReportOptions()).success()).isTrue()
+        assertThat(testBackwardCompatibility(oldFeature, featureWithRemovedBranch, InsightsReportOptions()).success()).isFalse()
     }
 
     @Test

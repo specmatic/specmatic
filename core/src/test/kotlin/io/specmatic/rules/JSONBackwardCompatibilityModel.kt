@@ -2,6 +2,7 @@ package io.specmatic.rules
 
 import io.specmatic.backwardCompatibleWith
 import io.specmatic.notBackwardCompatibleWith
+import io.specmatic.reporter.commands.InsightsReportOptions
 import org.junit.jupiter.api.Test
 
 class JSONBackwardCompatibilityModel {
@@ -35,7 +36,7 @@ Feature: User API
     And response-body (Status)
 """.trimIndent()
 
-        newContract notBackwardCompatibleWith oldContract
+        newContract.notBackwardCompatibleWith(oldContract, InsightsReportOptions())
     }
 
     @Test
@@ -55,7 +56,7 @@ Feature: User API
     And response-body (Status)
 """.trimIndent()
 
-        newContract backwardCompatibleWith oldContract
+        newContract.backwardCompatibleWith(oldContract, InsightsReportOptions())
     }
 
     @Test
@@ -74,7 +75,7 @@ Feature: User API
     And response-body (Status)
 """.trimIndent()
 
-        newContract backwardCompatibleWith oldContract
+        newContract.backwardCompatibleWith(oldContract, InsightsReportOptions())
     }
 
     @Test
@@ -107,7 +108,7 @@ Feature: User API
     And response-body (Status)
 """.trimIndent()
 
-        newContract backwardCompatibleWith oldContract
+        newContract.backwardCompatibleWith(oldContract, InsightsReportOptions())
     }
 
     @Test
@@ -140,7 +141,7 @@ Feature: User API
     And response-body (Status)
 """.trimIndent()
 
-        newContract notBackwardCompatibleWith oldContract
+        newContract.notBackwardCompatibleWith(oldContract, InsightsReportOptions())
     }
 
     @Test
@@ -159,6 +160,6 @@ Feature: User API
     And response-body (Status)
 """.trimIndent()
 
-        newContract backwardCompatibleWith oldContract
+        newContract.backwardCompatibleWith(oldContract, InsightsReportOptions())
     }
 }

@@ -4,6 +4,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.value.*
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.shouldMatch
 import io.specmatic.shouldNotMatch
 import io.specmatic.stub.HttpStub
@@ -165,7 +166,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         println(result.report())
         assertThat(result.success()).isTrue()
     }
@@ -185,7 +186,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         println(result.report())
         assertThat(result.success()).isTrue()
     }
@@ -205,7 +206,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         println(result.report())
         assertThat(result.success()).isTrue()
     }

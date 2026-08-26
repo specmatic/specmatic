@@ -5,6 +5,9 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.log.logException
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.license.core.cli.Category
+import io.specmatic.reporter.commands.GitReportDefaultValueProvider
+import io.specmatic.reporter.commands.InsightsReportOptions
+import picocli.CommandLine.ArgGroup
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import picocli.CommandLine.Parameters
@@ -18,7 +21,9 @@ import kotlin.system.exitProcess
 Checks if two contracts are equivalent.
 DEPRECATED: This command will be removed in the next major release. Use 'backward-compatibility-check' command instead.
 """
-        ])
+        ],
+        defaultValueProvider = GitReportDefaultValueProvider::class
+)
 @Category("Specmatic core")
 class CompareCommand : Callable<Unit> {
     @Parameters(index = "0", description = ["Older contract file path"])
@@ -30,7 +35,11 @@ class CompareCommand : Callable<Unit> {
     @Option(names = ["--mirror"], required = false)
     var mirror: Boolean = false
 
+    @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
+    val insightsReportOptions = InsightsReportOptions()
+
     override fun call() {
+        insightsReportOptions.validate()
         if(!olderContractFilePath.isContractFile()) {
             logger.log(invalidContractExtensionMessage(olderContractFilePath))
             exitProcess(1)
@@ -47,7 +56,7 @@ class CompareCommand : Callable<Unit> {
 
             if(mirror)
                 logger.log("Comparing older with newer...")
-            val report = backwardCompatible(olderContract, newerContract)
+            val report = backwardCompatible(olderContract, newerContract, insightsReportOptions)
             println(report.message())
 
             if(!mirror)
@@ -55,7 +64,7 @@ class CompareCommand : Callable<Unit> {
 
             logger.newLine()
             logger.log("Comparing newer with older...")
-            val mirrorReport = backwardCompatible(newerContract, olderContract)
+            val mirrorReport = backwardCompatible(newerContract, olderContract, insightsReportOptions)
             println(mirrorReport.message())
         }
 
@@ -63,9 +72,9 @@ class CompareCommand : Callable<Unit> {
     }
 }
 
-fun backwardCompatible(olderContract: Feature, newerContract: Feature): CompatibilityReport =
+fun backwardCompatible(olderContract: Feature, newerContract: Feature, insightsReportOptions: InsightsReportOptions): CompatibilityReport =
         try {
-            testBackwardCompatibility(olderContract, newerContract).let { results ->
+            testBackwardCompatibility(olderContract, newerContract, insightsReportOptions).let { results ->
                 when {
                     results.failureCount > 0 -> {
                         IncompatibleReport(results)

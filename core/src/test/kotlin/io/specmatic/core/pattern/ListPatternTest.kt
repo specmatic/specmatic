@@ -5,6 +5,7 @@ import io.specmatic.conversions.OpenApiSpecification
 import io.specmatic.core.*
 import io.specmatic.core.substitution.SubstitutionImpl
 import io.specmatic.core.value.*
+import io.specmatic.reporter.commands.InsightsReportOptions
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -128,7 +129,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         println(result.report())
         assertThat(result.success()).isTrue()
     }

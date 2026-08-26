@@ -11,6 +11,7 @@ import io.specmatic.core.log.Verbose
 import io.specmatic.core.log.logger
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.reporter.api.client.OBJECT_MAPPER
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.ctrf.model.CtrfReport
 import io.specmatic.stub.captureStandardOutput
 import io.specmatic.toViolationReportString
@@ -44,7 +45,7 @@ internal class TestBackwardCompatibilityKtTest {
         val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
         val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-        val results = testBackwardCompatibility(older, newer)
+        val results = testBackwardCompatibility(older, newer, InsightsReportOptions())
 
         assertThat(results.success()).isFalse
         assertThat(results.distinctReport().normalizeBlankLines()).isEqualToNormalizingNewlines(
@@ -347,7 +348,7 @@ Then status 200"""
         val olderContract = parseGherkinStringToFeature(oldContract)
         val newerContract = parseGherkinStringToFeature(newContract)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -389,7 +390,7 @@ Then status 200
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -439,7 +440,7 @@ And response-body (Value)
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -489,7 +490,7 @@ Feature: New contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -539,7 +540,7 @@ Feature: New contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -589,7 +590,7 @@ Feature: New contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -643,7 +644,7 @@ Feature: Old contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -697,7 +698,7 @@ Feature: Old contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -762,7 +763,7 @@ Feature: Old contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -814,7 +815,7 @@ Feature: New contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -870,7 +871,7 @@ Feature: New contract
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -920,7 +921,7 @@ Then status 200
         val olderContract = parseGherkinStringToFeature(gherkin1)
         val newerContract = parseGherkinStringToFeature(gherkin2)
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         println(result.report())
 
@@ -940,7 +941,7 @@ Then status 200
 
         val contract = parseGherkinStringToFeature(gherkin)
 
-        val results: Results = testBackwardCompatibility(contract, contract)
+        val results: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -963,7 +964,7 @@ Then status 200
 
         val contract = parseGherkinStringToFeature(gherkin)
 
-        val results: Results = testBackwardCompatibility(contract, contract)
+        val results: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -984,7 +985,7 @@ And response-body (number?)
 
         val contract = parseGherkinStringToFeature(gherkin)
 
-        val results: Results = testBackwardCompatibility(contract, contract)
+        val results: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1007,7 +1008,7 @@ And response-body (Number)
 
         val contract = parseGherkinStringToFeature(gherkin)
 
-        val results: Results = testBackwardCompatibility(contract, contract)
+        val results: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1031,7 +1032,7 @@ And response-body
 """.trim()
         )
 
-        val results: Results = testBackwardCompatibility(behaviour, behaviour)
+        val results: Results = testBackwardCompatibility(behaviour, behaviour, InsightsReportOptions())
 
         println(results.report())
         assertThat(results.success()).withFailMessage(results.report()).isTrue
@@ -1053,7 +1054,7 @@ And response-body
 """.trim()
         )
 
-        val results: Results = testBackwardCompatibility(behaviour, behaviour)
+        val results: Results = testBackwardCompatibility(behaviour, behaviour, InsightsReportOptions())
 
         println(results.report())
         assertThat(results.success()).withFailMessage(results.report()).isTrue
@@ -1075,7 +1076,7 @@ And response-body
 """.trim()
         )
 
-        val results: Results = testBackwardCompatibility(behaviour, behaviour)
+        val results: Results = testBackwardCompatibility(behaviour, behaviour, InsightsReportOptions())
 
         println(results.report())
         assertThat(results.success()).isTrue
@@ -1111,7 +1112,7 @@ And response-body
 """.trim()
         )
 
-        val results: Results = testBackwardCompatibility(older, newer)
+        val results: Results = testBackwardCompatibility(older, newer, InsightsReportOptions())
 
         println(results.report())
         assertBackwardCompatibilityFailure(
@@ -1144,7 +1145,7 @@ And response-body (number)
 
         val contract = parseGherkinStringToFeature(gherkin)
 
-        val results: Results = testBackwardCompatibility(contract, contract)
+        val results: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1168,7 +1169,7 @@ And response-body (number)
 
         val contract = parseGherkinStringToFeature(gherkin)
 
-        val results: Results = testBackwardCompatibility(contract, contract)
+        val results: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1203,7 +1204,7 @@ And response-body (number)
     """.trim()
 
         val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2), InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1248,7 +1249,7 @@ Then status 200
     """.trim()
 
         val results: Results =
-            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2))
+            testBackwardCompatibility(parseGherkinStringToFeature(gherkin1), parseGherkinStringToFeature(gherkin2), InsightsReportOptions())
 
         // The breaking WIP scenario is retained as an ignorable failure: it does not break the
         // check, but it is still visible (so it shows up in console output) rather than dropped.
@@ -1267,7 +1268,7 @@ Then status 200
         val older = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
         val newer = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-        val results = testBackwardCompatibility(older, newer)
+        val results = testBackwardCompatibility(older, newer, InsightsReportOptions())
 
         assertThat(results.success()).isFalse
         assertThat(results.distinctReport().normalizeBlankLines()).isEqualToNormalizingNewlines(
@@ -1327,7 +1328,7 @@ Then status 200
             """.trimIndent()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val results = testBackwardCompatibility(feature, feature)
+        val results = testBackwardCompatibility(feature, feature, InsightsReportOptions())
 
         if (results.failureCount > 0)
             println(results.report())
@@ -1391,7 +1392,7 @@ Then status 200
                             type: number
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(result.report()).doesNotContain("data?")
     }
@@ -1458,14 +1459,14 @@ Then status 200
 
         @Test
         fun `new should be should be backward compatible with old`() {
-            val results: Results = testBackwardCompatibility(specWithStringInResponse, specWithEnumInResponse)
+            val results: Results = testBackwardCompatibility(specWithStringInResponse, specWithEnumInResponse, InsightsReportOptions())
 
             assertThat(results.success()).withFailMessage(results.report()).isTrue
         }
 
         @Test
         fun `old should be backward incompatible with new`() {
-            val results: Results = testBackwardCompatibility(specWithEnumInResponse, specWithStringInResponse)
+            val results: Results = testBackwardCompatibility(specWithEnumInResponse, specWithStringInResponse, InsightsReportOptions())
 
             println(results.report())
 
@@ -1551,7 +1552,7 @@ paths:
 """.trimIndent(), "new.yaml"
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         assertThat(result.report()).isEqualToNormalizingWhitespace(
             """
@@ -1647,7 +1648,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         assertBackwardCompatibilityFailure(
             result,
@@ -1730,7 +1731,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         val report: String = result.report()
         println(report)
@@ -1793,7 +1794,7 @@ paths:
 """.trimIndent(), "new.yaml"
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         assertThat(result.distinctReport()).isEqualTo("""
             In scenario "POST /ping. Response: ok"
@@ -1893,7 +1894,7 @@ paths:
 """.trimIndent(), "new.yaml"
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         assertThat(result.distinctReport()).isEqualToIgnoringWhitespace("""
             In scenario "POST /ping. Response: common"
@@ -2009,7 +2010,7 @@ paths:
 """.trimIndent(), "new.yaml"
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         val reportText: String = result.report()
         println(reportText)
@@ -2086,7 +2087,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(contract, contract)
+        val result: Results = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         assertThat(result.success()).isTrue
     }
@@ -2163,7 +2164,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result: Results = testBackwardCompatibility(oldContract, newContract)
+        val result: Results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
 
         private val reportText: String = result.report().also { println(it) }
 
@@ -2250,7 +2251,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldContract, newContract)
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         val reportText = result.report()
 
         assertThat(reportText).contains("POST /data")
@@ -2347,7 +2348,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldContract, newContract)
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         val reportText = result.report()
 
         println(reportText)
@@ -2478,7 +2479,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldContract, newContract)
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         val reportText = result.report().also { println(it) }
 
         assertThat(reportText).contains("API: POST /data -> 200")
@@ -2553,7 +2554,7 @@ paths:
 """.trimIndent(), "new.yaml"
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldContract, newContract)
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             result,
             """
@@ -2636,7 +2637,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldContract, newContract)
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         assertThat(result.success()).isTrue()
     }
 
@@ -2709,7 +2710,7 @@ paths:
 """.trimIndent(), "new.yaml"
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldContract, newContract)
+        val result = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             result,
             """
@@ -2760,7 +2761,7 @@ paths:
         """.trimIndent()
         )
 
-        val result = testBackwardCompatibility(older, newer)
+        val result = testBackwardCompatibility(older, newer, InsightsReportOptions())
         assertThat(result.success()).withFailMessage(result.report()).isTrue
     }
 
@@ -2813,7 +2814,7 @@ paths:
 """.trimIndent(), ""
         ).toFeature()
 
-        val results = testBackwardCompatibility(oldContract, newContract)
+        val results = testBackwardCompatibility(oldContract, newContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             results,
             """
@@ -2885,7 +2886,7 @@ paths:
                         type: string
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(results.success()).isTrue
     }
@@ -2944,7 +2945,7 @@ paths:
                         type: string
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertBackwardCompatibilityFailure(
             results,
@@ -3021,7 +3022,7 @@ paths:
                         type: string
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(results.success()).isTrue
     }
@@ -3084,7 +3085,7 @@ paths:
                         type: string
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         println(results.report())
         assertThat(results.report())
             .containsIgnoringWhitespaces("""
@@ -3158,7 +3159,7 @@ paths:
                         type: string
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertThat(results.success()).isTrue
     }
 
@@ -3218,7 +3219,7 @@ paths:
                         type: string
             """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertThat(results.report())
             .containsIgnoringWhitespaces("""
             In scenario "get products. Response: OK"
@@ -3300,7 +3301,7 @@ paths:
                                     type: string
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             results,
             """
@@ -3382,7 +3383,7 @@ paths:
                           # No content key, indicating no body
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         println(results.report())
         assertBackwardCompatibilityFailure(
             results,
@@ -3448,7 +3449,7 @@ paths:
                           description: Created
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         println(results.report())
         assertBackwardCompatibilityFailure(
             results,
@@ -3484,7 +3485,7 @@ paths:
 
             logger = Verbose()
             val (stdout, _) = captureStandardOutput {
-                testBackwardCompatibility(feature, feature)
+                testBackwardCompatibility(feature, feature, InsightsReportOptions())
             }
 
         assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for POST /products against 1 operations")
@@ -3511,7 +3512,7 @@ paths:
 
         val groupedFeature = feature.copy(scenarios = listOf(feature.scenarios.first(), feature.scenarios.first().copy()))
         val (stdout, _) = captureStandardOutput {
-            testBackwardCompatibility(groupedFeature, groupedFeature)
+            testBackwardCompatibility(groupedFeature, groupedFeature, InsightsReportOptions())
         }
 
         assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
@@ -3536,7 +3537,7 @@ paths:
 
         val groupedFeature = feature.copy(scenarios = List(1001) { feature.scenarios.first().copy() })
         val (stdout, _) = captureStandardOutput {
-            testBackwardCompatibility(groupedFeature, groupedFeature)
+            testBackwardCompatibility(groupedFeature, groupedFeature, InsightsReportOptions())
         }
 
         assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
@@ -3567,7 +3568,7 @@ paths:
 
         val groupedFeature = feature.copy(scenarios = List(1000) { feature.scenarios.first().copy() }.plus(feature.scenarios.last()))
         val (stdout, _) = captureStandardOutput {
-            testBackwardCompatibility(groupedFeature, groupedFeature)
+            testBackwardCompatibility(groupedFeature, groupedFeature, InsightsReportOptions())
         }
 
         assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1001 operations")
@@ -3592,7 +3593,7 @@ paths:
 
         val groupedFeature = feature.copy(scenarios = listOf(feature.scenarios.first(), feature.scenarios.first().copy()))
         val (stdout, _) = captureStandardOutput {
-            testBackwardCompatibility(groupedFeature, groupedFeature)
+            testBackwardCompatibility(groupedFeature, groupedFeature, InsightsReportOptions())
         }
 
         assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 2 operations")
@@ -3638,7 +3639,7 @@ paths:
         """.trimIndent().openAPIToContract("new.yaml")
 
         val (stdout, _) = captureStandardOutput {
-            testBackwardCompatibility(olderContract, newerContract)
+            testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         }
 
         assertThat(stdout).contains("[Compatibility Check] Executing 1 scenarios for GET /products against 1 operations")
@@ -3696,7 +3697,7 @@ paths:
                           description: Created
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         println(results.report())
         assertBackwardCompatibilityFailure(
             results,
@@ -3753,7 +3754,7 @@ paths:
                   description: Created
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             results,
             """
@@ -3823,7 +3824,7 @@ paths:
                   description: Created
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             results = results,
             expectedReport = """
@@ -3927,7 +3928,7 @@ paths:
                   description: Created
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             results = results,
             expectedReport = """
@@ -4003,7 +4004,7 @@ paths:
                   description: Created
         """.trimIndent().openAPIToContract("new.yaml")
 
-        val results: Results = testBackwardCompatibility(olderContract, newerContract)
+        val results: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
         assertBackwardCompatibilityFailure(
             results = results,
             expectedReport = """
@@ -4076,7 +4077,7 @@ paths:
         val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
         val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(result.success()).isTrue
     }
@@ -4142,7 +4143,7 @@ paths:
         val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
         val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(result.success()).isTrue
     }
@@ -4204,7 +4205,7 @@ paths:
         val olderContract = OpenApiSpecification.fromYAML(oldSpec, "").toFeature()
         val newerContract = OpenApiSpecification.fromYAML(newSpec, "").toFeature()
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue
     }
@@ -4266,7 +4267,7 @@ paths:
         val olderContract = OpenApiSpecification.fromYAML(oldSpec, "old.yaml").toFeature()
         val newerContract = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
-        val result: Results = testBackwardCompatibility(olderContract, newerContract)
+        val result: Results = testBackwardCompatibility(olderContract, newerContract, InsightsReportOptions())
 
         assertThat(result.success()).withFailMessage(result.report()).isFalse
         assertThat(result.report())
@@ -4825,7 +4826,7 @@ paths:
         val reportDir = tempDir.resolve("reports/backward_compatibility").canonicalFile
 
         using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            val (result, report) = testBackwardCompatibilityWithReport(olderContract, newerContract)
+            val (result, report) = testBackwardCompatibilityWithReport(olderContract, newerContract, InsightsReportOptions())
             assertThat(report).withFailMessage("Expected CTRF Report to be generated").isNotNull
             assertThat(result.success()).isFalse
 
@@ -4885,7 +4886,7 @@ paths:
         }
 
         using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-            val report = generateBackwardCompatibilityReport(emptyList(), 0L, 1L)
+            val report = generateBackwardCompatibilityReport(emptyList(), 0L, 1L, InsightsReportOptions())
 
             assertThat(report).isNull()
             assertThat(tempDir.resolve("reports")).doesNotExist()
@@ -5563,7 +5564,7 @@ paths:
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
             return using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-                testBackwardCompatibilityWithReport(oldFeature, newFeature)
+                testBackwardCompatibilityWithReport(oldFeature, newFeature, InsightsReportOptions())
             }
         }
 
@@ -6397,7 +6398,7 @@ paths:
             val newFeature = OpenApiSpecification.fromYAML(newSpec, "new.yaml").toFeature()
 
             return using(CONFIG_FILE_PATH to configFile.canonicalPath) {
-                val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature)
+                val (_, report) = testBackwardCompatibilityWithReport(oldFeature, newFeature, InsightsReportOptions())
                 val json = OBJECT_MAPPER.valueToTree<JsonNode>(report)
                 json.path("results").path("summary").path("extra").path("executionDetails").first().path("operations")
             }

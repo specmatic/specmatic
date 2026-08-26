@@ -41,7 +41,7 @@ data class ContractTestSettings(
     val previousRunCoverageMetrics: Map<OpenAPIOperation, CtrfOperationMetrics> = emptyMap(),
     val timeoutInMilliSeconds: Long? = null,
     val otherArguments: DeprecatedArguments? = null,
-    val insightsReportOptions: InsightsReportOptions? = null,
+    val insightsReportOptions: InsightsReportOptions = InsightsReportOptions.sniff().also { it.validate() }
 ) {
     val host: String? = otherArguments?.host
     val port: String? = otherArguments?.port
@@ -140,7 +140,7 @@ data class ContractTestSettings(
         contractPaths = contractTestSettings?.contractPaths,
         timeoutInMilliSeconds = contractTestSettings?.timeoutInMilliSeconds,
         filter = contractTestSettings?.filter,
-        insightsReportOptions = contractTestSettings?.insightsReportOptions,
+        insightsReportOptions = contractTestSettings?.insightsReportOptions ?: InsightsReportOptions.sniff().also { it.validate() },
         otherArguments = DeprecatedArguments(
             host = contractTestSettings?.otherArguments?.host,
             port = contractTestSettings?.otherArguments?.port,

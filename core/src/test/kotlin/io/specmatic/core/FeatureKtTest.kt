@@ -6,13 +6,12 @@ import io.specmatic.core.pattern.*
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
-import io.specmatic.osAgnosticPath
 import io.mockk.every
 import io.mockk.mockk
 import io.specmatic.core.utilities.OpenApiPath
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.model.SpecType
-import io.specmatic.stub.captureStandardOutput
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -186,7 +185,7 @@ class FeatureKtTest {
               Then status 200
         """.trimIndent())
 
-        val patterns = behaviour.scenarios.single().httpRequestPattern.multiPartFormDataPattern.map { it as MultiPartContentPattern }
+        val patterns = behaviour.scenarios.single().httpRequestPattern.multiPartFormDataPattern
 
         val resolver = Resolver(newPatterns = behaviour.scenarios.single().patterns)
 
@@ -802,9 +801,9 @@ paths:
     fun `should parse equivalent json and yaml representation of an API`() {
         val yamlSpec = parseContractFileToFeature("src/test/resources/openapi/jsonAndYamlEquivalence/openapi.yaml")
         val jsonSpec = parseContractFileToFeature("src/test/resources/openapi/jsonAndYamlEquivalence/openapi.json")
-        val yamlToJson = testBackwardCompatibility(yamlSpec, jsonSpec)
+        val yamlToJson = testBackwardCompatibility(yamlSpec, jsonSpec, InsightsReportOptions())
         assertThat(yamlToJson.success()).withFailMessage(yamlToJson.report()).isTrue
-        val jsonToYAml = testBackwardCompatibility(jsonSpec, yamlSpec)
+        val jsonToYAml = testBackwardCompatibility(jsonSpec, yamlSpec, InsightsReportOptions())
         assertThat(jsonToYAml.success()).withFailMessage(jsonToYAml.report()).isTrue
     }
 

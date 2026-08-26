@@ -28,6 +28,7 @@ import io.specmatic.license.core.SpecmaticProtocol
 import io.specmatic.toViolationReportString
 import io.specmatic.mock.NoMatchingScenario
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.HttpStubData
@@ -7727,7 +7728,7 @@ paths:
             """.trimIndent(), ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldSpec, newSpec)
+        val result = testBackwardCompatibility(oldSpec, newSpec, InsightsReportOptions())
 
         assertThat(result.success()).isFalse()
 

@@ -58,7 +58,7 @@ object ReportGenerator {
         specConfigs: List<CtrfSpecConfig>,
         toolName: String = "Specmatic ${VersionInfo.describe()}",
         coverageReportOperations: List<BaseBccReportOperation>,
-        insightsReportOptions: InsightsReportOptions? = null,
+        insightsReportOptions: InsightsReportOptions,
     ): CtrfReport? {
         if (isCtrfSpecConfigsValid(specConfigs).not()) return null
         val totalChecksRan = coverageReportOperations.asSequence().flatMap { it.tests.asSequence() }.map { it.id }.distinct().count()

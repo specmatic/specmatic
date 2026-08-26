@@ -29,6 +29,7 @@ import io.specmatic.core.utilities.Flags.Companion.SCHEMA_EXAMPLE_DEFAULT
 import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.NumberValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
@@ -261,12 +262,12 @@ class OpenApi31Test {
         val openApi30Feature = ScenarioFilter(filterClauses = backwardCompatibilityFilter).filter(openApi30Specification.toFeature())
         val openApi31Feature = ScenarioFilter(filterClauses = backwardCompatibilityFilter).filter(openApi31Specification.toFeature())
 
-        val openApi30To31 = testBackwardCompatibility(openApi30Feature, openApi31Feature)
+        val openApi30To31 = testBackwardCompatibility(openApi30Feature, openApi31Feature, InsightsReportOptions())
         assertThat(Result.fromResults(openApi30To31.results))
             .withFailMessage { Result.fromResults(openApi30To31.results).reportString() }
             .isInstanceOf(Result.Success::class.java)
 
-        val openApi31To30 = testBackwardCompatibility(openApi31Feature, openApi30Feature)
+        val openApi31To30 = testBackwardCompatibility(openApi31Feature, openApi30Feature, InsightsReportOptions())
         assertThat(Result.fromResults(openApi31To30.results))
             .withFailMessage { Result.fromResults(openApi31To30.results).reportString() }
             .isInstanceOf(Result.Success::class.java)

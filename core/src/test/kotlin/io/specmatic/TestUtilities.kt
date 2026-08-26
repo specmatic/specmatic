@@ -6,10 +6,10 @@ import io.specmatic.core.utilities.ContractSourceEntry
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpExpectations
 import io.specmatic.stub.HttpStubData
 import io.specmatic.stub.HttpStubResponse
-import io.specmatic.stub.ThreadSafeListOfStubs
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertFalse
 import java.io.File
@@ -61,26 +61,26 @@ infix fun Value.shouldNotMatch(pattern: Pattern) {
 
 fun emptyPattern() = DeferredPattern("(empty)")
 
-infix fun String.backwardCompatibleWith(oldContractGherkin: String) {
-    val results = testBackwardCompatibility(oldContractGherkin)
+fun String.backwardCompatibleWith(oldContractGherkin: String, insightsReportOptions: InsightsReportOptions) {
+    val results = testBackwardCompatibility(oldContractGherkin, insightsReportOptions)
     assertThat(results.success()).isTrue()
     assertThat(results.failureCount).isZero()
 
     stubsFrom(oldContractGherkin).workWith(this)
 }
 
-infix fun String.notBackwardCompatibleWith(oldContractGherkin: String) {
-    val results = testBackwardCompatibility(oldContractGherkin)
+fun String.notBackwardCompatibleWith(oldContractGherkin: String, insightsReportOptions: InsightsReportOptions) {
+    val results = testBackwardCompatibility(oldContractGherkin, insightsReportOptions)
     assertThat(results.success()).isFalse()
     assertThat(results.failureCount).isPositive()
 
     stubsFrom(oldContractGherkin).breakOn(this)
 }
 
-fun String.testBackwardCompatibility(oldContractGherkin: String): Results {
+fun String.testBackwardCompatibility(oldContractGherkin: String, insightsReportOptions: InsightsReportOptions): Results {
     val oldFeature = parseGherkinStringToFeature(oldContractGherkin)
     val newFeature = parseGherkinStringToFeature(this)
-    return testBackwardCompatibility(oldFeature, newFeature)
+    return testBackwardCompatibility(oldFeature, newFeature, insightsReportOptions)
 }
 
 fun stubResponse(httpRequest: HttpRequest, features: List<Feature>, threadSafeStubs: List<HttpStubData>, strictMode: Boolean): HttpStubResponse {
