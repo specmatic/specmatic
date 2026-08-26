@@ -7,20 +7,21 @@ import io.specmatic.core.value.NullValue
 import io.specmatic.core.value.Value
 import io.specmatic.reporter.ctrf.model.CtrfBackwardCompatibilityRecord
 import io.specmatic.reporter.ctrf.model.CtrfReport
+import io.specmatic.reporter.commands.InsightsReportOptions
 
 private const val BCC_REPORT_DIR_SUFFIX = "backward_compatibility"
 
-fun testBackwardCompatibility(older: Feature, newer: Feature): Results {
-    return testBackwardCompatibilityWithReport(older, newer).first
+fun testBackwardCompatibility(older: Feature, newer: Feature, insightsReportOptions: InsightsReportOptions): Results {
+    return testBackwardCompatibilityWithReport(older, newer, insightsReportOptions).first
 }
 
-internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature): Pair<Results, CtrfReport?> {
+internal fun testBackwardCompatibilityWithReport(older: Feature, newer: Feature, insightsReportOptions: InsightsReportOptions): Pair<Results, CtrfReport?> {
     val startTime = System.currentTimeMillis()
     val records = OpenApiBackwardCompatibilityChecker(older, newer).run()
     val endTime = System.currentTimeMillis()
 
     val result = records.toBackwardCompatibilityStatuses().copy(addSourceLocation = true)
-    val report = generateBackwardCompatibilityReport(records, startTime, endTime)
+    val report = generateBackwardCompatibilityReport(records, startTime, endTime, insightsReportOptions)
     return Pair(result, report)
 }
 
@@ -37,7 +38,12 @@ fun List<CtrfBackwardCompatibilityRecord>.toBackwardCompatibilityStatuses(): Res
         }
 }
 
-fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityRecord>, startTime: Long, endTime: Long): CtrfReport? {
+fun generateBackwardCompatibilityReport(
+    records: List<CtrfBackwardCompatibilityRecord>,
+    startTime: Long,
+    endTime: Long,
+    insightsReportOptions: InsightsReportOptions,
+): CtrfReport? {
     if (records.isEmpty()) return null
     val reportOperations = BccReportGenerator().generateReportOperations(records)
     val reportDir = loadSpecmaticConfigOrDefault(getConfigFileName()).getReportDirPath(BCC_REPORT_DIR_SUFFIX).toFile()
@@ -47,6 +53,7 @@ fun generateBackwardCompatibilityReport(records: List<CtrfBackwardCompatibilityR
         reportDir = reportDir,
         coverageReportOperations = reportOperations,
         specConfigs = reportOperations.map { it.specConfig }.distinct(),
+        insightsReportOptions = insightsReportOptions,
     )
 }
 

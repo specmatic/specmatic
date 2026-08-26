@@ -7,6 +7,7 @@ import io.specmatic.core.IncomingMtlsRegistry
 import io.specmatic.core.KeyDataRegistry
 import io.specmatic.core.SpecmaticConfig
 import io.specmatic.core.WorkingDirectory
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpClientFactory
 import io.specmatic.stub.SpecmaticConfigSource
 import org.assertj.core.api.Assertions.assertThat
@@ -28,6 +29,7 @@ class HTTPStubEngineTest {
                 gracefulRestartTimeoutInMs = 0,
                 specToBaseUrlMap = specToBaseUrlMap,
                 specmaticConfigSource = SpecmaticConfigSource.fromConfigObject(SpecmaticConfig()),
+                insightsReportOptions = InsightsReportOptions()
             ).close()
         }
 

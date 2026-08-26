@@ -213,5 +213,7 @@ subprojects {
         maxHeapSize = "1g"
         jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/heap-dump-${project.name}.hprof")
         forkEvery = 100
+
+        environment = System.getenv().filterKeys { it != "CI" && !it.startsWith("GITHUB_") }
     }
 }

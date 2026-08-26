@@ -1,6 +1,7 @@
 package io.specmatic.conversions
 
 import io.specmatic.core.testBackwardCompatibility
+import io.specmatic.reporter.commands.InsightsReportOptions
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -16,7 +17,7 @@ class OpenApiXmlOneOfBackwardCompatibilityTest {
             ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldFeature, newFeature)
+        val result = testBackwardCompatibility(oldFeature, newFeature, InsightsReportOptions())
 
         assertThat(result.success()).withFailMessage(result.report()).isTrue()
     }
@@ -32,7 +33,7 @@ class OpenApiXmlOneOfBackwardCompatibilityTest {
             ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(oldFeature, newFeature)
+        val result = testBackwardCompatibility(oldFeature, newFeature, InsightsReportOptions())
 
         assertThat(result.success()).isFalse()
         assertThat(result.report()).contains("parcel")
@@ -73,7 +74,7 @@ ${variants.toComponentsYaml(12)}
             buildString {
                 appendLine("${indentation}schema:")
                 append(nestedIndentation)
-                append("${"$"}ref: '#/components/schemas/")
+                append($$"$ref: '#/components/schemas/")
                 append(variant.componentName)
                 append("'")
             }

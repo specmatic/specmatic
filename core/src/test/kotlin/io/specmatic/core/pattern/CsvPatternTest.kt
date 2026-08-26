@@ -6,8 +6,8 @@ import io.specmatic.core.*
 import io.specmatic.core.Result.Failure
 import io.specmatic.core.Result.Success
 import io.specmatic.core.value.StringValue
-import io.specmatic.core.value.Value
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.stub.HttpStub
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
@@ -146,7 +146,7 @@ paths:
 
     @Test
     fun `old and new are backward compatible when the csv type has not changed`() {
-        val result = testBackwardCompatibility(contract, contract)
+        val result = testBackwardCompatibility(contract, contract, InsightsReportOptions())
 
         assertThat(result.success()).isTrue()
     }
@@ -183,7 +183,7 @@ paths:
         """.trimIndent(), ""
         ).toFeature()
 
-        val result = testBackwardCompatibility(contract, newContract)
+        val result = testBackwardCompatibility(contract, newContract, InsightsReportOptions())
 
         assertThat(result.success()).isFalse()
     }
@@ -216,7 +216,7 @@ paths:
                 type: string
         """.trimIndent(), "").toFeature()
 
-        val result = testBackwardCompatibility(contract, newContract)
+        val result = testBackwardCompatibility(contract, newContract, InsightsReportOptions())
 
         assertThat(result.success()).isFalse()
     }

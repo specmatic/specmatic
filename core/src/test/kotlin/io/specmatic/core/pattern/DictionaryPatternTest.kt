@@ -7,6 +7,7 @@ import io.specmatic.core.Resolver
 import io.specmatic.core.testBackwardCompatibility
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.shouldMatch
 import io.specmatic.shouldNotMatch
 
@@ -83,7 +84,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
 
         println(result.report())
 
@@ -106,7 +107,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
 
         println(result.report())
 

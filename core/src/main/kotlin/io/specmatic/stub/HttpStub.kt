@@ -55,6 +55,8 @@ import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.parsedJSON
 import io.specmatic.core.pattern.parsedValue
 import io.specmatic.core.report.ReportGenerator
+import io.specmatic.reporter.RawReportType
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.configureHealthCheckModule
 import io.specmatic.core.route.modules.HealthCheckModule.Companion.isHealthCheckRequest
 import io.specmatic.core.urlDecodePathSegments
@@ -149,7 +151,8 @@ class HttpStub(
     },
     private val listeners: List<MockEventListener> = emptyList(),
     private val startTime: Instant = Instant.now(),
-    var requestHandlers: MutableList<RequestHandler> = mutableListOf()
+    var requestHandlers: MutableList<RequestHandler> = mutableListOf(),
+    private val insightsReportOptions: InsightsReportOptions = InsightsReportOptions.sniff().also { it.validate() },
 ) : ContractStub {
     private val incomingMtlsSslContextsByPort: MutableMap<Int, SslContext> = mutableMapOf()
     private val mtlsEnabledByPort: MutableMap<Int, Boolean> = mutableMapOf()
@@ -1186,7 +1189,9 @@ class HttpStub(
                 endTime = Instant.now().toEpochMilli(),
                 coverage = mockUsageReport.coverage,
                 absoluteCoverage = mockUsageReport.absoluteCoverage,
-                reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub")
+                reportDir = File("${specmaticConfigInstance.getReportDirPath()}/stub"),
+                reportType = RawReportType.MOCK,
+                insightsReportOptions = insightsReportOptions,
             )
         }
     }

@@ -12,6 +12,7 @@ import io.specmatic.core.testBackwardCompatibility
 import io.specmatic.core.value.JSONObjectValue
 import io.specmatic.core.value.StringValue
 import io.specmatic.mock.ScenarioStub
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.model.TestResult
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.listener.MockEvent
@@ -221,7 +222,7 @@ class InterpolatedPathsE2ETest {
         }
 
         assertThat(newFeatureWithIncompatiblePathType.path).isEqualToIgnoringWhitespace(specFile.path)
-        val compatibility = testBackwardCompatibility(oldFeature, newFeatureWithIncompatiblePathType)
+        val compatibility = testBackwardCompatibility(oldFeature, newFeatureWithIncompatiblePathType, InsightsReportOptions())
 
         assertThat(compatibility.success()).isFalse()
         assertThat(compatibility.report()).isEqualToNormalizingWhitespace(
@@ -268,8 +269,8 @@ API: GET /example/(id1:string),(id2:number)/status -> 404
         val openApi30Feature = loadFeature("3.0.3")
         val openApi31Feature = loadFeature("3.1.0")
 
-        val oldToNew = testBackwardCompatibility(openApi30Feature, openApi31Feature)
-        val newToOld = testBackwardCompatibility(openApi31Feature, openApi30Feature)
+        val oldToNew = testBackwardCompatibility(openApi30Feature, openApi31Feature, InsightsReportOptions())
+        val newToOld = testBackwardCompatibility(openApi31Feature, openApi30Feature, InsightsReportOptions())
 
         assertThat(Result.fromResults(oldToNew.results)).isInstanceOf(Result.Success::class.java)
         assertThat(Result.fromResults(newToOld.results)).isInstanceOf(Result.Success::class.java)

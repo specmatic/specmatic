@@ -13,6 +13,7 @@ import io.specmatic.stub.HttpStub
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.cucumber.messages.types.Scenario
 import io.specmatic.conversions.unwrapFeature
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.trimmedLinesString
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -353,7 +354,7 @@ Feature: Recursive test
 """.trim()
 
         val feature = parseGherkinStringToFeature(gherkin)
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
     }
 

@@ -21,6 +21,7 @@ import io.specmatic.core.StandardRuleViolation
 import io.specmatic.toViolationReportString
 import io.specmatic.jsonBody
 import io.specmatic.license.core.SpecmaticProtocol
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.reporter.model.SpecType
 import io.specmatic.stub.HttpStub
 import io.specmatic.stub.SpecificationAndRequestMismatchMessages
@@ -866,7 +867,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
     }
 
@@ -881,7 +882,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
@@ -910,7 +911,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
@@ -940,7 +941,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {
@@ -970,7 +971,7 @@ Background:
         """.trimIndent(), sourceSpecPath
         )
 
-        val result = testBackwardCompatibility(feature, feature)
+        val result = testBackwardCompatibility(feature, feature, InsightsReportOptions())
         assertThat(result.success()).isTrue()
 
         val resp = HttpStub(feature).use {

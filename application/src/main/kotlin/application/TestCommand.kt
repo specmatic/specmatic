@@ -11,6 +11,8 @@ import io.specmatic.core.utilities.exitWithMessage
 import io.specmatic.core.utilities.newXMLBuilder
 import io.specmatic.core.utilities.xmlToString
 import io.specmatic.license.core.cli.Category
+import io.specmatic.reporter.commands.GitReportDefaultValueProvider
+import io.specmatic.reporter.commands.InsightsReportOptions
 import io.specmatic.test.ContractTestSettings
 import io.specmatic.test.DeprecatedArguments
 import io.specmatic.test.SpecmaticJUnitSupport
@@ -40,7 +42,12 @@ private const val SYSTEM_OUT_TESTCASE_TAG = "system-out"
 
 private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
 
-@Command(name = "test", mixinStandardHelpOptions = true, description = ["Run contract tests"])
+@Command(
+    name = "test",
+    mixinStandardHelpOptions = true,
+    description = ["Run contract tests"],
+    defaultValueProvider = GitReportDefaultValueProvider::class,
+)
 @Category("Specmatic core")
 class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Int> {
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
@@ -119,6 +126,9 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
     var lenientMode: Boolean = false
 
+    @field:CommandLine.ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
+    val insightsReportOptions = InsightsReportOptions()
+
     @Spec
     lateinit var commandSpec: CommandSpec
 
@@ -132,6 +142,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
         configureLogging(
             LoggingFromOpts(debug = verboseMode),
             LoggingConfigSource.FromConfig(specmaticConfig.getLogConfigurationOrDefault()))
+        insightsReportOptions.validate()
         setParallelism(specmaticConfig)
         setTestThreadLocalSettings()
 
@@ -227,6 +238,7 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             configFile = configFileName.takeIf(::isNotNullOrBlank),
             timeoutInMilliSeconds = timeoutInMs ?: timeout?.times(1000),
             contractPaths = contractPaths?.joinToString(separator = ",").takeIf(::isNotNullOrBlank),
+            insightsReportOptions = insightsReportOptions,
         )
 
         SpecmaticJUnitSupport.settingsStaging.set(settings)
