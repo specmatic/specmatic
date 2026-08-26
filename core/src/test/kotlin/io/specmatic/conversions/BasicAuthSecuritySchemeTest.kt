@@ -5,9 +5,11 @@ import io.specmatic.core.Dictionary
 import io.specmatic.core.Result.*
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.Row
+import io.specmatic.toViolationReportString
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -15,6 +17,45 @@ import java.util.*
 
 class BasicAuthSecuritySchemeTest {
     private val basicAuthSecurityScheme = BasicAuthSecurityScheme()
+
+    @Nested
+    inner class FixValueTests {
+        private val credentials = "dXNlcjpwYXNz"
+        private val scheme = BasicAuthSecurityScheme(credentials)
+
+        @Test
+        fun `should preserve a valid basic authorization value`() {
+            val request = HttpRequest(headers = mapOf(AUTHORIZATION to "Basic $credentials"))
+            assertThat(scheme.fixValue(request, Resolver())).isEqualTo(request)
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = ["Bearer invalid", "Basic not-base64", "Basic dXNlcg=="])
+        fun `should replace an invalid basic authorization value`(invalidValue: String) {
+            assertThat(scheme.fixValue(HttpRequest(headers = mapOf(AUTHORIZATION to invalidValue)), Resolver())).isEqualTo(
+                HttpRequest().addSecurityHeader(AUTHORIZATION, "Basic $credentials")
+            )
+        }
+    }
+
+    @Test
+    fun `failIfInRequest should return success when authorization header is missing`() {
+        val httpRequest = HttpRequest(headers = emptyMap())
+        val result = basicAuthSecurityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isInstanceOf(Success::class.java)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = [AUTHORIZATION, "authorization", "AUTHORIZATION"])
+    fun `failIfInRequest should return failure when authorization header is present`(authorizationHeaderName: String) {
+        val httpRequest = HttpRequest(headers = mapOf(authorizationHeaderName to "Basic token"))
+        val result = basicAuthSecurityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isInstanceOf(Failure::class.java)
+        assertThat(result.reportString()).isEqualToNormalizingWhitespace(toViolationReportString(
+            breadCrumb = "HEADER.$authorizationHeaderName",
+            details = DefaultMismatchMessages.unexpectedKey("header", authorizationHeaderName)
+        ))
+    }
 
     @Test
     fun `matches should return failure when authorization header is missing`() {

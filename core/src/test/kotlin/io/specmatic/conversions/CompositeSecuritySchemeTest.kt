@@ -8,6 +8,7 @@ import io.specmatic.toViolationReportString
 import io.specmatic.core.DefaultMismatchMessages
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class CompositeSecuritySchemeTest {
@@ -21,6 +22,66 @@ class CompositeSecuritySchemeTest {
         BearerSecurityScheme(configuredToken = "API-SECRET"),
         APIKeyInQueryParamSecurityScheme(name = "apiKey", apiKey = "1234")
     ))
+
+    @Nested
+    inner class FixValueTests {
+        @Test
+        fun `should preserve valid components and fix only invalid components`() {
+            val scheme = CompositeSecurityScheme(listOf(
+                BearerSecurityScheme("expected-token"),
+                APIKeyInQueryParamSecurityScheme("apiKey", "expected-api-key")
+            ))
+
+            val request = HttpRequest(
+                headers = mapOf(AUTHORIZATION to "Basic invalid"),
+                queryParametersMap = mapOf("apiKey" to "original-api-key")
+            )
+
+            assertThat(scheme.fixValue(request, Resolver())).isEqualTo(
+                HttpRequest(queryParametersMap = mapOf("apiKey" to "original-api-key"))
+                    .addSecurityHeader(AUTHORIZATION, "Bearer expected-token")
+            )
+        }
+    }
+
+    @Test
+    fun `should return success when request does not contain any security scheme`() {
+        val httpRequest = HttpRequest(method = "GET", path = "/")
+        val result = securityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isInstanceOf(Result.Success::class.java)
+    }
+
+    @Test
+    fun `should return failure when request contains all security schemes`() {
+        val httpRequest = HttpRequest(
+            method = "GET", path = "/",
+            headers = mapOf(AUTHORIZATION to "Bearer API-SECRET"), queryParametersMap = mapOf("apiKey" to "1234")
+        )
+
+        val result = securityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isEqualTo(Result.Failure.fromFailures(listOf(
+            Result.Failure(
+                breadCrumb = "HEADER.$AUTHORIZATION",
+                message = DefaultMismatchMessages.unexpectedKey("header", AUTHORIZATION)
+            ),
+            Result.Failure(
+                breadCrumb = "QUERY.apiKey",
+                message = DefaultMismatchMessages.unexpectedKey("query", "apiKey")
+            )
+        )))
+    }
+
+    @Test
+    fun `should return failure when request contains at-least one security schemes`() {
+        val httpRequest = HttpRequest(method = "GET", path = "/", headers = mapOf(AUTHORIZATION to "Bearer API-SECRET"))
+        val result = securityScheme.failIfInRequest(httpRequest, Resolver())
+        assertThat(result).isEqualTo(Result.Failure.fromFailures(listOf(
+            Result.Failure(
+                breadCrumb = "HEADER.$AUTHORIZATION",
+                message = DefaultMismatchMessages.unexpectedKey("header", AUTHORIZATION)
+            ),
+        )))
+    }
 
     @Test
     fun `should return success when request matches all security schemes`() {

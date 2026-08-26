@@ -629,6 +629,10 @@ fun Map<String, String>.withoutTransportHeaders(
 
 fun <T> Map<String, T>.getCaseInsensitive(key: String): Map.Entry<String, T>? = this.entries.find { it.key.equals(key, ignoreCase = true) }
 
+fun <T> Map<String, T>.minusCaseInsensitive(key: String): Map<String, T> {
+    return this.filterKeys { !it.equals(key, ignoreCase = true) }
+}
+
 fun <T> Map<String, T>.getCaseInsensitiveCheckOptional(key: String): Map.Entry<String, T>? {
     val mandatoryEntry = this.getCaseInsensitive(withoutOptionality(key))
     if (mandatoryEntry != null) return mandatoryEntry

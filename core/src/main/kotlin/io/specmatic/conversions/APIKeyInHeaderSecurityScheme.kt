@@ -8,8 +8,16 @@ import io.swagger.v3.oas.models.parameters.Parameter
 
 
 data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:String?) : OpenAPISecurityScheme {
+    override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
+        val entry = httpRequest.headers.getCaseInsensitive(name) ?: return Result.Success()
+        return Result.Failure(
+            breadCrumb = BreadCrumb.HEADER.with(entry.key),
+            message = resolver.mismatchMessages.unexpectedKey("header", entry.key)
+        )
+    }
+
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
-        return if (httpRequest.headers.containsKey(name) || resolver.mockMode) Result.Success()
+        return if (httpRequest.hasHeader(name) || resolver.mockMode) Result.Success()
         else Result.Failure(
             breadCrumb = BreadCrumb.HEADER.with(name),
             message = resolver.mismatchMessages.expectedKeyWasMissing(apiKeyParamName, name),
@@ -18,7 +26,7 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
     }
 
     override fun removeParam(httpRequest: HttpRequest): HttpRequest {
-        return httpRequest.copy(headers = httpRequest.headers.minus(name))
+        return httpRequest.copy(headers = httpRequest.headers.minusCaseInsensitive(name))
     }
 
     override fun addTo(httpRequest: HttpRequest, resolver: Resolver): HttpRequest {
@@ -32,8 +40,8 @@ data class APIKeyInHeaderSecurityScheme(val name: String, private val apiKey:Str
     }
 
     override fun copyFromTo(originalRequest: HttpRequest, newHttpRequest: HttpRequest): HttpRequest {
-        if (!originalRequest.headers.containsKey(name)) return newHttpRequest
-        return newHttpRequest.addSecurityHeader(name, originalRequest.headers.getValue(name))
+        val headerValue = originalRequest.headers.getCaseInsensitive(name)?.value ?: return newHttpRequest
+        return newHttpRequest.addSecurityHeader(name, headerValue)
     }
 
     override fun isInRow(row: Row): Boolean = row.containsField(name)

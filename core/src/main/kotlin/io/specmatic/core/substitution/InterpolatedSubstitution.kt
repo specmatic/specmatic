@@ -20,6 +20,10 @@ internal object InterpolatedSubstitution {
         return !value.isMatcherTemplate() && useRegex.containsMatchIn(value)
     }
 
+    fun containsCapture(value: String): Boolean {
+        return !value.isMatcherTemplate() && captureRegex.containsMatchIn(value)
+    }
+
     fun resolve(value: String, resolveToken: (String) -> Value): Value {
         if (value.isMatcherTemplate()) return StringValue(value)
 

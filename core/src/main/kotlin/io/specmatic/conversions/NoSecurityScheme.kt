@@ -8,6 +8,10 @@ import io.specmatic.core.pattern.Row
 import io.swagger.v3.oas.models.parameters.Parameter
 
 class NoSecurityScheme : OpenAPISecurityScheme {
+    override fun failIfInRequest(httpRequest: HttpRequest, resolver: Resolver): Result {
+        return Result.Success()
+    }
+
     override fun matches(httpRequest: HttpRequest, resolver: Resolver): Result {
         return Result.Success()
     }
