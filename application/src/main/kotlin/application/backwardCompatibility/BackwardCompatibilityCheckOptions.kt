@@ -1,11 +1,11 @@
 package application.backwardCompatibility
 
 import io.specmatic.reporter.commands.InsightsReportOptions
-import picocli.CommandLine.Mixin
+import picocli.CommandLine.ArgGroup
 import picocli.CommandLine.Option
 
 class BackwardCompatibilityCheckOptions {
-    @field:Mixin
+    @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
     val insightsReportOptions = InsightsReportOptions()
 
     @Option(

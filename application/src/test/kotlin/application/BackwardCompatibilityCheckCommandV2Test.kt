@@ -2215,6 +2215,23 @@ class BackwardCompatibilityCheckCommandV2Test {
         remoteDir.deleteRecursively()
     }
 
+    @Test
+    fun `should infer Insights repository metadata`() {
+        val previous = System.getProperty("specmatic.repo.name")
+        try {
+            System.setProperty("specmatic.repo.name", "orders")
+            val command = BackwardCompatibilityCheckCommandV2()
+
+            val commandLine = picocli.CommandLine(command)
+            commandLine.parseArgs()
+
+            assertThat(command.options.insightsReportOptions.repoName).isEqualTo("orders")
+            assertThat(commandLine.usageMessage).contains("Insights reporting options:")
+        } finally {
+            if (previous == null) System.clearProperty("specmatic.repo.name") else System.setProperty("specmatic.repo.name", previous)
+        }
+    }
+
     private fun File.referTo(schemaFileName: String) {
         val specContent = """
            openapi: 3.1.0  # OpenAPI version specified here

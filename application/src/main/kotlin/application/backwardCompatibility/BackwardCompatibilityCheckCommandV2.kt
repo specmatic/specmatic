@@ -8,6 +8,7 @@ import io.specmatic.core.log.logger
 import io.specmatic.core.utilities.exceptionCauseMessage
 import io.specmatic.license.core.cli.Category
 import io.specmatic.loader.OpenApiSpecCompatibilityChecker
+import io.specmatic.reporter.commands.GitReportDefaultValueProvider
 import io.specmatic.stub.isOpenAPI
 import picocli.CommandLine.Command
 import java.io.File
@@ -20,7 +21,8 @@ import kotlin.io.path.pathString
 @Command(
     name = "backward-compatibility-check",
     mixinStandardHelpOptions = true,
-    description = ["Checks backward compatibility of OpenAPI specifications"]
+    description = ["Checks backward compatibility of OpenAPI specifications"],
+    defaultValueProvider = GitReportDefaultValueProvider::class,
 )
 @Category("Specmatic core")
 class BackwardCompatibilityCheckCommandV2(options: BackwardCompatibilityCheckOptions = BackwardCompatibilityCheckOptions()): BackwardCompatibilityCheckBaseCommand(options) {

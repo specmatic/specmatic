@@ -28,6 +28,7 @@ import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
 import picocli.CommandLine
+import picocli.CommandLine.ArgGroup
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Option
@@ -49,7 +50,11 @@ private const val DISPLAY_NAME_PREFIX_IN_SYSTEM_OUT_TAG_TEXT = "display-name: "
     defaultValueProvider = GitReportDefaultValueProvider::class,
 )
 @Category("Specmatic core")
-class TestCommand(private val junitLauncher: Launcher = LauncherFactory.create()) : Callable<Int> {
+class TestCommand(
+    private val junitLauncher: Launcher = LauncherFactory.create(),
+    @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
+    val insightsReportOptions: InsightsReportOptions = InsightsReportOptions()
+) : Callable<Int> {
     @CommandLine.Parameters(arity = "0..*", description = ["Contract file paths"])
     var contractPaths: List<String>? = null
 
@@ -125,9 +130,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
 
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
     var lenientMode: Boolean = false
-
-    @field:CommandLine.ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
-    val insightsReportOptions = InsightsReportOptions()
 
     @Spec
     lateinit var commandSpec: CommandSpec

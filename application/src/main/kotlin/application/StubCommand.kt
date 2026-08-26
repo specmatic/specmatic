@@ -52,7 +52,9 @@ class StubCommand(
     private val stubLoaderEngine: StubLoaderEngine = StubLoaderEngine(),
     private val specmaticConfig: SpecmaticConfig = SpecmaticConfig(),
     private val watchMaker: WatchMaker = WatchMaker(),
-    private val httpClientFactory: HttpClientFactory = HttpClientFactory()
+    private val httpClientFactory: HttpClientFactory = HttpClientFactory(),
+    @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
+    val insightsReportOptions: InsightsReportOptions = InsightsReportOptions()
 ) : SpecmaticMockRunner {
     var httpStub: HttpStub? = null
 
@@ -149,8 +151,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
     @Option(names = ["--lenient"], description = ["Parse the OpenAPI Specification with leniency"], required = false)
     var lenientMode: Boolean? = null
 
-    @field:ArgGroup(exclusive = false, heading = "%nInsights reporting options:%n")
-    val insightsReportOptions = InsightsReportOptions()
 
     private var contractSources: List<ContractPathData> = emptyList()
 
