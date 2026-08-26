@@ -250,7 +250,6 @@ https://docs.specmatic.io/documentation/contract_tests.html#supported-filters--o
             startServer()
 
             if (httpStub != null) {
-                ReportTracker.instance
                 if (registerShutdownHook) addShutdownHook()
 
                 val configuredHotReload = configuredHotReload()

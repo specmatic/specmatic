@@ -6,6 +6,7 @@ import io.specmatic.core.utilities.UncaughtExceptionHandler
 import io.specmatic.license.core.Executor
 import io.specmatic.license.core.LicenseResolver
 import io.specmatic.license.core.util.LicenseConfig
+import io.specmatic.reporter.ReportTracker
 import io.specmatic.specmatic.executable.JULForwarder
 import picocli.CommandLine
 
@@ -27,6 +28,7 @@ open class SpecmaticApplication {
             }
             setupPicoCli()
             setupLogging()
+            ReportTracker.initialize()
 
             Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandler())
 
