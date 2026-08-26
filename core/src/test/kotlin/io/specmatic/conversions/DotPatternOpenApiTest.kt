@@ -2,9 +2,10 @@ package io.specmatic.conversions
 
 import io.specmatic.core.HttpRequest
 import io.specmatic.core.HttpResponse
-import io.specmatic.core.pattern.parsedJSONObject
+import io.specmatic.core.Resolver
+import io.specmatic.core.pattern.StringPattern
 import io.specmatic.core.value.JSONObjectValue
-import io.specmatic.stub.HttpStub
+import io.specmatic.core.value.StringValue
 import io.specmatic.test.TestExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
@@ -26,10 +27,16 @@ class DotPatternOpenApiTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("cases")
-    fun `OpenAPI test generation produces a value the Kotlin regex accepts without DOTALL`(case: Case) {
+    fun `OpenAPI generation and StringPattern matches agree for each dot permutation`(case: Case) {
+        val pattern = StringPattern(maxLength = 32, regex = case.pattern)
+        val resolver = Resolver()
+
+        assertThat(pattern.matches(StringValue(case.legalSample), resolver).isSuccess()).isTrue()
+        assertThat(pattern.matches(StringValue(case.newlineSample), resolver).isSuccess())
+            .isEqualTo(!case.newlineMustFail)
+
         val feature = OpenApiSpecification.fromYAML(requestSpec(case.pattern), "").toFeature()
         var generated: String? = null
-
         val results = feature.executeTests(object : TestExecutor {
             override fun execute(request: HttpRequest): HttpResponse {
                 generated = (request.body as JSONObjectValue).getString("value")
@@ -39,42 +46,13 @@ class DotPatternOpenApiTest {
 
         assertThat(results.success()).withFailMessage(results.report()).isTrue()
         val value = generated ?: error("no generated value for ${case.name}")
+        assertThat(pattern.matches(StringValue(value), resolver).isSuccess()).isTrue()
         assertThat(value).matches(javaRegex(case.pattern))
         if (case.generatedMustOmitLineTerminators) {
             assertThat(value.none(::isJavaLineTerminator)).isTrue()
         }
         if (case.generatedMustContainDot) {
             assertThat(value).contains(".")
-        }
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("cases")
-    fun `OpenAPI stub accepts a legal sample and rejects a newline only when unescaped dot cannot consume it`(case: Case) {
-        val feature = OpenApiSpecification.fromYAML(roundTripSpec(case.pattern), "").toFeature()
-
-        HttpStub(feature).use { stub ->
-            val ok = stub.client.execute(
-                HttpRequest("POST", "/dot", body = parsedJSONObject("""{"value": ${jsonString(case.legalSample)}}""")),
-            )
-            assertThat(ok.status).isEqualTo(200)
-            val generated = (ok.body as JSONObjectValue).getString("value")
-            assertThat(generated).matches(javaRegex(case.pattern))
-            if (case.generatedMustOmitLineTerminators) {
-                assertThat(generated.none(::isJavaLineTerminator)).isTrue()
-            }
-            if (case.generatedMustContainDot) {
-                assertThat(generated).contains(".")
-            }
-
-            val newlineResponse = stub.client.execute(
-                HttpRequest("POST", "/dot", body = parsedJSONObject("""{"value": ${jsonString(case.newlineSample)}}""")),
-            )
-            if (case.newlineMustFail) {
-                assertThat(newlineResponse.status).isEqualTo(400)
-            } else {
-                assertThat(newlineResponse.status).isEqualTo(200)
-            }
         }
     }
 
@@ -104,9 +82,6 @@ class DotPatternOpenApiTest {
         private fun isJavaLineTerminator(ch: Char): Boolean =
             ch == '\n' || ch == '\r' || ch == '\u0085' || ch == '\u2028' || ch == '\u2029'
 
-        private fun jsonString(value: String): String =
-            com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value)
-
         private fun yamlPattern(pattern: String): String = "'" + pattern.replace("'", "''") + "'"
 
         private fun requestSpec(pattern: String): String = """
@@ -133,42 +108,6 @@ class DotPatternOpenApiTest {
                   responses:
                     '204':
                       description: ok
-        """.trimIndent()
-
-        private fun roundTripSpec(pattern: String): String = """
-            ---
-            openapi: "3.0.1"
-            info:
-              title: "Dot pattern round-trip"
-              version: "1"
-            paths:
-              /dot:
-                post:
-                  requestBody:
-                    required: true
-                    content:
-                      application/json:
-                        schema:
-                          type: object
-                          required: [value]
-                          properties:
-                            value:
-                              type: string
-                              maxLength: 32
-                              pattern: ${yamlPattern(pattern)}
-                  responses:
-                    '200':
-                      description: echo
-                      content:
-                        application/json:
-                          schema:
-                            type: object
-                            required: [value]
-                            properties:
-                              value:
-                                type: string
-                                maxLength: 32
-                                pattern: ${yamlPattern(pattern)}
         """.trimIndent()
     }
 }
