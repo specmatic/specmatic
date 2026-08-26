@@ -35,6 +35,7 @@ Each release section should stand on its own and describe the behavior shipped i
 ### Changed
 
 - Fixed request fixing to preserve security scheme headers and query parameters and repair invalid security values.
+- Fixed positive and negative mutation generation for OpenAPI `oneOf` schemas so example rows are routed only to the matching discriminator or schema variant.
 
 ## 2.53.1 (2026-08-22)
 
