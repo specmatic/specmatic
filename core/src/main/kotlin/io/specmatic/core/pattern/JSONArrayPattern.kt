@@ -12,10 +12,7 @@ import io.specmatic.core.value.JSONArrayValue
 import io.specmatic.core.value.Value
 import java.util.*
 
-data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), override val typeAlias: String? = null) : Pattern, SequenceType {
-    override val memberList: MemberList
-        get() = MemberList(pattern)
-
+data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), override val typeAlias: String? = null) : Pattern {
     constructor(jsonString: String, typeAlias: String?) : this(stringTooPatternArray(jsonString), typeAlias = typeAlias)
 
     @Throws(Exception::class)
@@ -83,15 +80,13 @@ data class JSONArrayPattern(override val pattern: List<Pattern> = emptyList(), o
         return when (otherPattern) {
             is ExactValuePattern -> otherPattern.fitsWithin(listOf(this), otherResolverWithNullType, thisResolverWithNullType, typeStack)
             is ListPattern -> Result.Failure("Finite list is not a superset of an infinite list.")
-            is SequenceType -> try {
-                val otherMembers = otherPattern.memberList
-                val theseMembers = this.memberList
-                val otherEncompassables = otherMembers.getEncompassableList(pattern.size, otherResolverWithNullType)
-                val encompassables = when {
-                    otherEncompassables.size > pattern.size -> theseMembers.getEncompassableList(otherEncompassables.size, thisResolverWithNullType)
-                    else -> memberList.getEncompassables(thisResolverWithNullType)
+            is JSONArrayPattern -> try {
+                if (pattern.size != otherPattern.pattern.size) {
+                    return Result.Failure("The lengths of the expected and actual array patterns don't match.")
                 }
 
+                val encompassables = pattern.map { resolvedHop(it, thisResolverWithNullType) }
+                val otherEncompassables = otherPattern.pattern.map { resolvedHop(it, otherResolverWithNullType) }
                 val results = encompassables.zip(otherEncompassables).mapIndexed { index, (bigger, smaller) ->
                     ResultWithIndex(index, biggerEncompassesSmaller(bigger, smaller, thisResolverWithNullType, otherResolverWithNullType, typeStack))
                 }
@@ -282,7 +277,7 @@ fun <ValueType> allOrNothingListCombinations(values: List<Sequence<ValueType?>>)
 private fun generate(jsonArrayPatter: JSONArrayPattern, resolver: Resolver): List<Value> {
     return jsonArrayPatter.pattern.mapIndexed { index, pattern ->
         resolver.withCyclePrevention(pattern) { cyclePreventedResolver ->
-            val updatedResolver = cyclePreventedResolver.updateLookupPath(jsonArrayPatter, pattern)
+            val updatedResolver = cyclePreventedResolver.updateLookupPathForArrayItem(jsonArrayPatter, pattern)
             attempt(breadCrumb = "[$index]") {
                 updatedResolver.generate(pattern)
             }

@@ -15,14 +15,11 @@ data class XMLChoiceGroupPattern(
     val minOccurs: Int = 1,
     val maxOccurs: Int? = 1,
     override val typeAlias: String? = null
-) : Pattern, SequenceType, XMLChildGenerationPattern {
+) : Pattern, XMLChildGenerationPattern {
     override val pattern: Any
         get() = choices
 
     override val typeName: String = "xml-choice-group"
-
-    override val memberList: MemberList
-        get() = MemberList(choices.firstOrNull() ?: emptyList())
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
@@ -479,14 +476,11 @@ data class XMLChoiceGroupPattern(
 data class XMLSequencePattern(
     val members: List<Pattern>,
     override val typeAlias: String? = null
-) : Pattern, SequenceType, XMLChildGenerationPattern {
+) : Pattern, XMLChildGenerationPattern {
     override val pattern: Any
         get() = members
 
     override val typeName: String = "xml-sequence"
-
-    override val memberList: MemberList
-        get() = MemberList(members)
 
     override fun matches(sampleData: Value?, resolver: Resolver): Result {
         return when (sampleData) {
@@ -545,12 +539,65 @@ data class XMLSequencePattern(
         otherResolver: Resolver,
         typeStack: TypeStack
     ): Result {
-        val otherSequence = when (val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)) {
-            is XMLSequencePattern -> otherResolvedPattern.members
-            is SequenceType -> otherResolvedPattern.memberList.patternList()
-            else -> listOf(otherResolvedPattern)
+        val otherResolvedPattern = resolvedHop(otherPattern, otherResolver)
+        return when (otherResolvedPattern) {
+            is JSONArrayPattern -> Failure("Expected XML sequence, got ${otherResolvedPattern.typeName}")
+            is XMLChoiceGroupPattern -> encompassesChoiceGroup(otherResolvedPattern, thisResolver, otherResolver, typeStack)
+            is XMLSubstitutionGroupPattern -> encompassesSubstitutionGroup(otherResolvedPattern, thisResolver, otherResolver, typeStack)
+            is XMLSequencePattern -> encompassesSequence(otherResolvedPattern.members, thisResolver, otherResolver, typeStack)
+            is XMLPattern -> encompassesSequence(otherResolvedPattern.pattern.nodes, thisResolver, otherResolver, typeStack)
+            is ListPattern -> encompassesSequence(listOf(otherResolvedPattern), thisResolver, otherResolver, typeStack)
+            else -> encompassesSequence(listOf(otherResolvedPattern), thisResolver, otherResolver, typeStack)
+        }
+    }
+
+    private fun encompassesChoiceGroup(
+        otherChoiceGroup: XMLChoiceGroupPattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        if (otherChoiceGroup.minOccurs != 1 || otherChoiceGroup.maxOccurs != 1) {
+            return Failure(
+                "XML sequence does not encompass choice occurrence range " +
+                    "${XMLOccurrenceRange(otherChoiceGroup.minOccurs, otherChoiceGroup.maxOccurs)}"
+            )
         }
 
+        if (otherChoiceGroup.choices.isEmpty()) {
+            return Failure("XML sequence does not encompass an empty choice group")
+        }
+
+        return Result.fromResults(
+            otherChoiceGroup.choices.map { choice ->
+                encompassesSequence(choice, thisResolver, otherResolver, typeStack)
+            }
+        )
+    }
+
+    private fun encompassesSubstitutionGroup(
+        otherSubstitutionGroup: XMLSubstitutionGroupPattern,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
+        if (otherSubstitutionGroup.candidates.isEmpty()) {
+            return Failure("XML sequence does not encompass an empty substitution group")
+        }
+
+        return Result.fromResults(
+            otherSubstitutionGroup.candidates.map { candidate ->
+                encompassesSequence(listOf(candidate), thisResolver, otherResolver, typeStack)
+            }
+        )
+    }
+
+    private fun encompassesSequence(
+        otherSequence: List<Pattern>,
+        thisResolver: Resolver,
+        otherResolver: Resolver,
+        typeStack: TypeStack
+    ): Result {
         val consumedSequence = members.fold(ConsumeResult<Pattern, Pattern>(Success(), otherSequence)) { consumeResult, member ->
             when (consumeResult.result) {
                 is Failure -> consumeResult

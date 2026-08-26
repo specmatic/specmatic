@@ -23,6 +23,7 @@ import io.specmatic.core.pattern.BooleanPattern
 import io.specmatic.core.pattern.ContractException
 import io.specmatic.core.pattern.DeferredPattern
 import io.specmatic.core.pattern.EmailPattern
+import io.specmatic.core.pattern.JSONArrayPattern
 import io.specmatic.core.pattern.JSONObjectPattern
 import io.specmatic.core.pattern.ListPattern
 import io.specmatic.core.pattern.NumberPattern
@@ -744,6 +745,48 @@ class DictionaryTest {
 
                 assertThat(generatedValue).isInstanceOf(JSONObjectValue::class.java); generatedValue as JSONObjectValue
                 assertThat(generatedValue.jsonObject["test"]).isIn(value.list)
+            }
+        }
+
+        @Nested
+        inner class JSONArrayPatternTests {
+            @Test
+            fun `should use a positional array dictionary value when pattern and value depth match`() {
+                val pattern = JSONArrayPattern(listOf(NumberPattern(), StringPattern()))
+                val value = parsedJSONArray("""[10, "ten"]""")
+                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
+                val resolver = Resolver(dictionary = "Test: { test: $value }".let(Dictionary::fromYaml))
+
+                val generatedValue = resolver.generate(testPattern) as JSONObjectValue
+
+                assertThat(generatedValue.jsonObject["test"]).isEqualTo(value)
+            }
+
+            @Test
+            fun `should use a nested positional array dictionary value when pattern and value depth match`() {
+                val pattern = JSONArrayPattern(listOf(JSONArrayPattern(listOf(NumberPattern()))))
+                val value = parsedJSONArray("""[[10]]""")
+                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
+                val resolver = Resolver(dictionary = "Test: { test: $value }".let(Dictionary::fromYaml))
+
+                val generatedValue = resolver.generate(testPattern) as JSONObjectValue
+
+                assertThat(generatedValue.jsonObject["test"]).isEqualTo(value)
+            }
+
+            @Test
+            fun `should select positional values when dictionary value depth is higher than pattern depth`() {
+                val pattern = JSONArrayPattern(listOf(NumberPattern(), StringPattern()))
+                val candidates = parsedJSONArray("""[[1, "one"], [2, "two"]]""")
+                val testPattern = JSONObjectPattern(mapOf("test" to pattern), typeAlias = "(Test)")
+                val resolver = Resolver(dictionary = "Test: { test: $candidates }".let(Dictionary::fromYaml))
+
+                val generatedValue = resolver.generate(testPattern) as JSONObjectValue
+                val generatedArray = generatedValue.jsonObject.getValue("test") as JSONArrayValue
+                val candidateArrays = candidates.list.map { it as JSONArrayValue }
+
+                assertThat(generatedArray.list[0]).isIn(candidateArrays.map { it.list[0] })
+                assertThat(generatedArray.list[1]).isIn(candidateArrays.map { it.list[1] })
             }
         }
     }

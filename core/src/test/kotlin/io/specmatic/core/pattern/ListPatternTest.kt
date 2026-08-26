@@ -114,6 +114,14 @@ internal class ListPatternTest {
     }
 
     @Test
+    fun `a list should not encompass XML children`() {
+        val list = ListPattern(StringPattern())
+        val xml = XMLPattern("<name>(string)</name>")
+
+        assertThat(list.encompasses(xml, Resolver(), Resolver())).isInstanceOf(Result.Failure::class.java)
+    }
+
+    @Test
     fun `list type with recursive type definition should be validated without an infinite loop`() {
         val gherkin = """
 Feature: Recursive test

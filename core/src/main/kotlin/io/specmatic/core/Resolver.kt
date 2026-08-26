@@ -284,10 +284,10 @@ data class Resolver(
         }
     }
 
-    fun <T> updateLookupPath(pattern: T, childPattern: Pattern): Resolver where T: Pattern, T: SequenceType {
+    fun updateLookupPathForArrayItem(pattern: Pattern, childPattern: Pattern): Resolver {
         val patternFocused = updateLookupPath(pattern.typeAlias)
         val itemFocused = patternFocused.dictionary.applyIf(patternFocused.lastLookupKey()) { key ->
-            focusIntoSequence(pattern, childPattern, key, patternFocused)
+            focusIntoArrayItem(pattern, childPattern, key, patternFocused)
         }
 
         val lookupPath = patternFocused.lookupPath(null, WILDCARD_INDEX)
@@ -335,7 +335,7 @@ data class Resolver(
     fun generateList(pattern: ListPattern): Value {
         val patternFocused = updateLookupPath(pattern.typeAlias)
         val valueFromDict = patternFocused.dictionary.getValueFor(patternFocused.dictionaryLookupPath, pattern, this)
-        return valueFromDict ?: this.updateLookupPath(pattern, pattern.pattern).generateRandomList(pattern.pattern)
+        return valueFromDict ?: this.updateLookupPathForArrayItem(pattern, pattern.pattern).generateRandomList(pattern.pattern)
     }
 
     private fun generateRandomList(pattern: Pattern): Value {
