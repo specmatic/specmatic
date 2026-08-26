@@ -6,6 +6,7 @@ import io.specmatic.core.value.StringValue
 import io.specmatic.core.value.Value
 
 internal const val WORD_BOUNDARY = "\\b"
+internal const val DOT_WITHOUT_LINE_TERMINATORS = "[^\n\r\u0085\u2028\u2029]"
 
 class RegExSpec(
     regex: String?,
@@ -20,9 +21,9 @@ class RegExSpec(
 
     private fun validateRegex() {
         runCatching {
-            if (regexGenerator == null || originalRegex == null) return
+            if (regexGenerator == null || regexForRuntimeMatch == null) return
             val random = regexGenerator.random()
-            if (!Regex(originalRegex.replaceRegexLowerBounds(), RegexOption.DOT_MATCHES_ALL).matches(random)) {
+            if (!regexForRuntimeMatch.matches(random)) {
                 logger.log("WARNING: Please check the regex $originalRegex. We generated a random string $random and the regex does not match the string.")
             }
         }.getOrElse { e ->
@@ -102,6 +103,41 @@ class RegExSpec(
             .replaceShorthandCharacterClasses()
             .requote()
             .replaceNonCapturingGroups()
+            .replaceUnescapedDot()
+    }
+
+    private fun String.replaceUnescapedDot(): String {
+        val result = StringBuilder(length)
+        var insideCharClass = false
+        var pendingEscape = false
+
+        for (ch in this) {
+            when {
+                pendingEscape -> {
+                    result.append(ch)
+                    pendingEscape = false
+                }
+                ch == '\\' -> {
+                    pendingEscape = true
+                    result.append(ch)
+                }
+                ch == '[' -> {
+                    insideCharClass = true
+                    result.append(ch)
+                }
+                ch == ']' -> {
+                    insideCharClass = false
+                    result.append(ch)
+                }
+                !insideCharClass && ch == '.' -> {
+                    result.append(DOT_WITHOUT_LINE_TERMINATORS)
+                }
+                else -> result.append(ch)
+            }
+        }
+
+        if (pendingEscape) result.append('\\')
+        return result.toString()
     }
 
     private fun String.replaceRegexLowerBounds(): String {
