@@ -1,0 +1,19 @@
+{
+  "partial": {
+    "http-request": {
+      "method": "POST",
+      "path": "/tasks",
+      "body": {
+        "taskType": "card",
+        "taskId": 123
+      }
+    },
+    "http-response": {
+      "status": 200,
+      "body": {
+        "accepted": true
+      }
+    },
+    "name": "partial card task keeps supplied discriminator and id"
+  }
+}

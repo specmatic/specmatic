@@ -1,0 +1,19 @@
+{
+  "http-request": {
+    "method": "POST",
+    "path": "/task-containers",
+    "body": {
+      "task": {
+        "taskType": "card",
+        "taskId": 303
+      }
+    }
+  },
+  "http-response": {
+    "status": 200,
+    "body": {
+      "accepted": true
+    }
+  },
+  "name": "nested card task"
+}
