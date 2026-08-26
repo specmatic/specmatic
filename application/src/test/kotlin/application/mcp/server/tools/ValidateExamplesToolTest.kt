@@ -32,7 +32,7 @@ class ValidateExamplesToolTest {
                     else -> listOf(it.toString())
                 }
             }
-            println("All examples are valid")
+            println("All specifications are valid")
             System.err.println("debug log")
             0
         }
@@ -44,19 +44,18 @@ class ValidateExamplesToolTest {
         val result = tool.validateExamples(args)
 
         assertThat(capturedArgs).containsExactly(
-            "--contract-file", specFile.path
+            "--spec-file", specFile.path
         )
-        assertThat(result).contains("## Specmatic Validate Examples Results")
+        assertThat(result).contains("## Specmatic Validate Results")
         assertThat(result).contains("Contract File: `${specFile.path}`")
         assertThat(result).contains("Status: PASSED")
-        assertThat(result).contains("All examples are valid")
+        assertThat(result).contains("All specifications are valid")
         assertThat(result).contains("debug log")
     }
 
-
     @Test
     fun `validateExamples should format results correctly for a failed check`(@TempDir tempDir: File) {
-        val specFile = tempDir.resolve("spec.yaml").apply { writeText("openapi: 3.0.0") }
+        val specFile = tempDir.resolve("spec.yaml").apply { writeText("invalid openapi") }
         mockkConstructor(CommandLine::class)
         every { anyConstructed<CommandLine>().execute(*anyVararg()) } returns 1
 
@@ -66,7 +65,7 @@ class ValidateExamplesToolTest {
 
         val result = tool.validateExamples(args)
 
-        assertThat(result).contains("## Specmatic Validate Examples Results")
+        assertThat(result).contains("## Specmatic Validate Results")
         assertThat(result).contains("Status: FAILED")
     }
 }

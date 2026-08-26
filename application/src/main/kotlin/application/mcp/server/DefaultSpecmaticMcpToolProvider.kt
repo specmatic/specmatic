@@ -117,11 +117,10 @@ class DefaultSpecmaticMcpToolProvider(
             description = "Validate inline and external OpenAPI contract examples against specification contracts using Specmatic",
             inputSchema = toolSchema(
                 properties = mapOf(
-                    "contractFile" to stringProperty("Contract specification file path"),
-                    "examplesDir" to stringProperty("Directory path containing external examples for a single contract file"),
-                    "examplesToValidate" to stringProperty("Validation mode: INLINE, EXTERNAL, or BOTH")
+                    "contractFile" to stringProperty("Specification file path to validate along with respective examples"),
+                    "examplesDir" to stringProperty("Directory path to validate")
                 ),
-                required = listOf("contractFile")
+                required = emptyList()
             )
         ) { request ->
             safeToolCall {

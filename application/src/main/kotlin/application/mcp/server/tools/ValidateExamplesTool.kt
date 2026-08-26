@@ -1,6 +1,6 @@
 package application.mcp.server.tools
 
-import application.ExamplesCommand
+import application.validate.ValidateCommand
 import io.specmatic.core.utilities.SystemExit
 import io.specmatic.core.utilities.SystemExitException
 import kotlinx.serialization.Serializable
@@ -10,22 +10,19 @@ import java.io.File
 @Serializable
 data class ValidateExamplesArgs(
     val contractFile: String? = null,
-    val examplesDir: String? = null,
-    val examplesToValidate: String? = null
+    val examplesDir: String? = null
 )
 
 class ValidateExamplesTool {
 
     internal fun validateExamples(args: ValidateExamplesArgs): String {
         if (isInvalidRepoDir(args.contractFile)) return getFallbackResponse(args)
-
         return try {
-            val command = ExamplesCommand.Validate()
+            val command = ValidateCommand()
             val argsList = mutableListOf<String>()
 
-            args.contractFile?.takeIf { it.isNotBlank() }?.let { argsList.add("--contract-file"); argsList.add(it) }
-            args.examplesDir?.takeIf { it.isNotBlank() }?.let { argsList.add("--examples-dir"); argsList.add(it) }
-            args.examplesToValidate?.takeIf { it.isNotBlank() }?.let { argsList.add("--examples-to-validate"); argsList.add(it) }
+            args.contractFile?.takeIf { it.isNotBlank() }?.let { argsList.add("--spec-file"); argsList.add(it) }
+            args.examplesDir?.takeIf { it.isNotBlank() }?.let { argsList.add("--dir"); argsList.add(it) }
 
             val (exitCode, stdout, stderr) = captureStandardStreams {
                 SystemExit.throwOnExit {
@@ -34,9 +31,12 @@ class ValidateExamplesTool {
             }
 
             buildString {
-                append("## Specmatic Validate Examples Results\n\n")
+                append("## Specmatic Validate Results\n\n")
                 if (!args.contractFile.isNullOrBlank()) {
                     append("Contract File: `${args.contractFile}`\n\n")
+                }
+                if (!args.examplesDir.isNullOrBlank()) {
+                    append("Directory: `${args.examplesDir}`\n\n")
                 }
 
                 append("### Status: ")
@@ -62,9 +62,23 @@ class ValidateExamplesTool {
                 }
             }
         } catch (e: SystemExitException) {
-            getFallbackResponse(args, e.message)
+            buildErrorResponse(args, e.message ?: "Process exited with code ${e.code}")
         } catch (e: Throwable) {
-            getFallbackResponse(args, e.message)
+            buildErrorResponse(args, e.message ?: e::class.simpleName ?: "Unknown error")
+        }
+    }
+
+    private fun buildErrorResponse(args: ValidateExamplesArgs, message: String): String {
+        return buildString {
+            append("## Specmatic Validate Results\n\n")
+            if (!args.contractFile.isNullOrBlank()) {
+                append("Contract File: `${args.contractFile}`\n\n")
+            }
+            if (!args.examplesDir.isNullOrBlank()) {
+                append("Directory: `${args.examplesDir}`\n\n")
+            }
+            append("### Status: FAILED\n\n")
+            append("> **Error:** $message\n")
         }
     }
 
@@ -80,7 +94,6 @@ class ValidateExamplesTool {
 
             ### Status: UNAVAILABLE
 
-
-            ### In case you are using docker, this issue may be due to incorrect paths being sent to the docker container. Please use specmatic jar to run the mcp to solve this issue. Else, you can look at [this documentation](https://docs.specmatic.io/getting_started/studio_quick_start#getting-started-with-studio) to understand how you can run example validation using Studio.        """.trimIndent()
+            ### In case you are using docker, this issue may be due to incorrect paths being sent to the docker container. Please use specmatic jar to run the mcp to solve this issue. Else, you can look at [this documentation](https://docs.specmatic.io/getting_started/studio_quick_start#getting-started-with-studio) to understand how you can run example validation using Studio.""".trimIndent()
     }
 }
